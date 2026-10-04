@@ -13,6 +13,10 @@ homepage = "https://getkalem.github.io/kalem"
 authors = ["The Kalem Contributors"]
 
 [workspace.dependencies]
+# gpui and its platform layer from one revision of Zed's repository
+# (T2.8.6 is about not needing that repository at all).
+gpui = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b", version = "0.2.2" }
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b" }
 # Canonical paths without Windows's `\\?\` prefix where it is not needed.
 dunce = "1"
 org-syntax = { path = "crates/org-syntax", version = "0.0.1" }
@@ -41,13 +45,15 @@ latex-model = { path = "crates/latex-model", version = "0.0.1" }
 kalem-viewer = { path = "crates/kalem-viewer", version = "0.0.1" }
 kalem-script = { path = "crates/kalem-script", version = "0.0.1" }
 kalem-plugin = { path = "crates/kalem-plugin", version = "0.0.1" }
+# The bundled plugins of getkalem/plugins move together, at one revision
+# (tools/check-plugin-pins.sh, in CI): bump the three lines at once.
 # The image viewer, a plugin of getkalem/plugins bundled into the binary
 # (D28) until components load (T3.1.12).
-kalem-plugin-image-viewer = { git = "https://github.com/getkalem/plugins", rev = "1d34eef4f98a9392d3316f2467f6a008d675c689" }
+kalem-plugin-image-viewer = { git = "https://github.com/getkalem/plugins", rev = "d33c382f3ce93601e4de5a554460be7222bf6acd" }
 # Excel workbooks (T3.7.4), bundled the same way.
-kalem-plugin-xlsx = { git = "https://github.com/getkalem/plugins", rev = "081da4bca6fa72cedefbf98e7b258a4372ba5e63" }
+kalem-plugin-xlsx = { git = "https://github.com/getkalem/plugins", rev = "d33c382f3ce93601e4de5a554460be7222bf6acd" }
 # PDF files (T3.7.3), bundled the same way.
-kalem-plugin-pdf-viewer = { git = "https://github.com/getkalem/plugins", rev = "6e7cef2747f8495eedcdfa4093ca24d2c151fb5a" }
+kalem-plugin-pdf-viewer = { git = "https://github.com/getkalem/plugins", rev = "d33c382f3ce93601e4de5a554460be7222bf6acd" }
 
 # The plugins build against this checkout's contract, not its copy on
 # GitHub.

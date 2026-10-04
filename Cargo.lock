@@ -3768,7 +3768,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.57.0",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -4486,11 +4486,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "kalem-plugin"
+version = "0.0.1"
+source = "git+https://github.com/getkalem/kalem?branch=main#b693160a11ad9c7a17a9e921b2ec38f07ea28d9d"
+dependencies = [
+ "kalem-viewer",
+ "wit-bindgen",
+]
+
+[[package]]
 name = "kalem-plugin-image-viewer"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=1d34eef4f98a9392d3316f2467f6a008d675c689#1d34eef4f98a9392d3316f2467f6a008d675c689"
+source = "git+https://github.com/getkalem/plugins?rev=d33c382f3ce93601e4de5a554460be7222bf6acd#d33c382f3ce93601e4de5a554460be7222bf6acd"
 dependencies = [
  "image",
+ "kalem-plugin 0.0.1 (git+https://github.com/getkalem/kalem?branch=main)",
  "kalem-viewer",
  "kamadak-exif",
  "resvg 0.45.1",
@@ -4499,9 +4509,10 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-pdf-viewer"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=6e7cef2747f8495eedcdfa4093ca24d2c151fb5a#6e7cef2747f8495eedcdfa4093ca24d2c151fb5a"
+source = "git+https://github.com/getkalem/plugins?rev=d33c382f3ce93601e4de5a554460be7222bf6acd#d33c382f3ce93601e4de5a554460be7222bf6acd"
 dependencies = [
  "hayro",
+ "kalem-plugin 0.0.1 (git+https://github.com/getkalem/kalem?branch=main)",
  "kalem-viewer",
  "kurbo 0.13.1",
 ]
@@ -4509,7 +4520,7 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-xlsx"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=081da4bca6fa72cedefbf98e7b258a4372ba5e63#081da4bca6fa72cedefbf98e7b258a4372ba5e63"
+source = "git+https://github.com/getkalem/plugins?rev=d33c382f3ce93601e4de5a554460be7222bf6acd#d33c382f3ce93601e4de5a554460be7222bf6acd"
 dependencies = [
  "calamine",
  "cfb",
@@ -4517,6 +4528,7 @@ dependencies = [
  "ironcalc_base",
  "kalem-viewer",
  "miniz_oxide 0.9.1",
+ "sha2 0.10.9",
 ]
 
 [[package]]
@@ -8322,7 +8334,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.5",
  "windows-sys 0.61.2",

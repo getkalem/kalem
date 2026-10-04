@@ -132,8 +132,13 @@ fn strings(v: &Value) -> Vec<String> {
 
 /// Downloads `url`, at most [`MAX_DOWNLOAD`] bytes.
 pub fn fetch(url: &str) -> Result<Vec<u8>, String> {
-    if let Some(path) = url.strip_prefix("file://") {
-        return std::fs::read(path).map_err(|e| format!("{path}: {e}"));
+    if let Some(rest) = url.strip_prefix("file://") {
+        // A proper URI (`file:///C:/x`, percent-encoded), else the path
+        // as written after the scheme (`file://C:\x`, `file:///tmp/x`).
+        let path = kalem_lsp::uri::to_path(url)
+            .filter(|p| p.exists())
+            .unwrap_or_else(|| std::path::PathBuf::from(rest));
+        return std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()));
     }
     let mut resp = ureq::get(url)
         .header("User-Agent", concat!("Kalem/", env!("CARGO_PKG_VERSION")))

@@ -681,6 +681,106 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
 
+    // Rows 2-4 grouped: row 5's − collapses them when clicked, + again.
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 0);
+        v.grid_extend_to(3, 0);
+        e.run_command("viewer.grid.group", serde_json::json!({}), window, cx);
+    });
+    cx.run_until_parked();
+    let mark = cx.debug_bounds("viewer-grid-outline-4").unwrap();
+    cx.simulate_click(mark.center(), gpui::Modifiers::none());
+    cx.run_until_parked();
+    let hidden = e.update(cx, |e, _| {
+        e.doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .grid_layout()
+            .unwrap()
+            .hidden_rows
+    });
+    assert_eq!(hidden, vec![1, 2, 3]);
+    let mark = cx.debug_bounds("viewer-grid-outline-4").unwrap();
+    cx.simulate_click(mark.center(), gpui::Modifiers::none());
+    cx.run_until_parked();
+    e.update_in(cx, |e, window, cx| {
+        for _ in 0..3 {
+            e.run_command("edit.undo", serde_json::json!({}), window, cx);
+        }
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    });
+    cx.run_until_parked();
+
+    // Trace Precedents of D2: arrows drawn over the grid; then removed.
+    e.update_in(cx, |e, window, cx| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 3);
+        e.run_command(
+            "viewer.grid.tracePrecedents",
+            serde_json::json!({}),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("viewer-grid-arrows").is_some());
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.removeArrows",
+            serde_json::json!({}),
+            window,
+            cx,
+        );
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("viewer-grid-arrows").is_none());
+
+    // A shape drawn over its cells; then undone.
+    e.update_in(cx, |e, window, cx| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(5, 0);
+        e.run_command(
+            "viewer.grid.insertShape",
+            serde_json::json!({ "shape": "ellipse", "value": "Hedef" }),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    let shape = cx.debug_bounds("viewer-grid-drawing-0").unwrap();
+    let a6 = cx.debug_bounds("viewer-grid-cell-5-0").unwrap();
+    assert_eq!(shape.origin, a6.origin);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("edit.undo", serde_json::json!({}), window, cx);
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("viewer-grid-drawing-0").is_none());
+
+    // A sparkline of B2:D2 drawn inside H2; then undone.
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 1);
+        v.grid_extend_to(1, 3);
+        e.run_command(
+            "viewer.grid.insertSparklines",
+            serde_json::json!({ "kind": "column", "value": "H2" }),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    let line = cx.debug_bounds("viewer-grid-sparkline-1-7").unwrap();
+    let h2 = cx.debug_bounds("viewer-grid-cell-1-7").unwrap();
+    assert!(h2.contains(&line.origin) && line.size.width < h2.size.width);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("edit.undo", serde_json::json!({}), window, cx);
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("viewer-grid-sparkline-1-7").is_none());
+
     // Find: the first match after the cursor, then the next with F3.
     e.update_in(cx, |e, window, cx| {
         e.run_command(

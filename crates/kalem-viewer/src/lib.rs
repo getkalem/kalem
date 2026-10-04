@@ -453,6 +453,55 @@ pub struct GridCell {
     /// Which of the borders are thick (medium or thicker), in the same
     /// order.
     pub border_thick: [bool; 4],
+    /// The indent, in levels (a spreadsheet's three spaces each).
+    pub indent: u8,
+    /// The text's rotation as a spreadsheet stores it: 0 level, 1 to 90
+    /// degrees up, 91 to 180 down (90 more than the degrees), 255 vertical.
+    pub rotation: u16,
+    /// Shrunk to fit the cell's width.
+    pub shrink: bool,
+    /// Centered across the selection it was given with (Center Across
+    /// Selection): over the empty cells to its right that have it too.
+    pub center_across: bool,
+    /// Not locked: editable when its sheet is protected (cells are locked
+    /// unless unlocked).
+    pub unlocked: bool,
+    /// A sparkline drawn in the cell.
+    pub sparkline: Option<Sparkline>,
+}
+
+/// A sparkline: a small chart in a cell of a row or column of numbers.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Sparkline {
+    /// Its kind.
+    pub kind: SparklineKind,
+    /// Each value's height, 0 the smallest to 1000 the largest (win/loss:
+    /// 1000 a win, 0 a loss, 500 zero); `None` an empty cell.
+    pub points: Vec<Option<u16>>,
+    /// Where zero is on that scale, when it is between the smallest and
+    /// the largest (columns stand on it).
+    pub zero: Option<u16>,
+    /// The color of its line or columns.
+    pub color: [u8; 3],
+    /// The color of negative values (columns, win/loss) and of the high
+    /// and low points.
+    pub marker: [u8; 3],
+    /// The highest point, marked.
+    pub high: Option<usize>,
+    /// The lowest point, marked.
+    pub low: Option<usize>,
+}
+
+/// What kind a sparkline is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SparklineKind {
+    /// A line.
+    #[default]
+    Line,
+    /// Columns.
+    Column,
+    /// Wins up, losses down.
+    WinLoss,
 }
 
 /// How a cell's text sits between its top and bottom.
@@ -536,6 +585,44 @@ pub enum FilterRule {
     Fill([u8; 3]),
 }
 
+/// A grid's outline: the rows and the columns grouped, each with its
+/// level.
+pub type Outline = (Vec<(u32, u8)>, Vec<(u32, u8)>);
+
+/// A picture or a shape on a grid (not a chart).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Drawing {
+    /// Its name (`Picture 2`, `Rectangle 3`).
+    pub name: String,
+    /// Where it stands: first row, first column, last row, last column of
+    /// the cells it covers.
+    pub anchor: [u32; 4],
+    /// What it is.
+    pub kind: DrawingKind,
+}
+
+/// What a drawing is.
+#[derive(Debug, Clone, PartialEq)]
+pub enum DrawingKind {
+    /// A picture; its bytes through [`ViewerDocument::drawing_image`].
+    Picture,
+    /// A shape: its preset geometry (`rect`, `ellipse`, `roundRect`,
+    /// `rightArrow`), fill and line colors, its text, and whether it is a
+    /// text box.
+    Shape {
+        /// The preset geometry.
+        preset: String,
+        /// Its fill.
+        fill: Option<[u8; 3]>,
+        /// Its outline.
+        line: Option<[u8; 3]>,
+        /// The text in it.
+        text: String,
+        /// A text box (no fill nor outline of its own by default).
+        text_box: bool,
+    },
+}
+
 /// A table of a grid (a spreadsheet's Format as Table).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TableInfo {
@@ -548,6 +635,48 @@ pub struct TableInfo {
     pub totals: bool,
     /// Its style's name (`TableStyleMedium2`).
     pub style: String,
+}
+
+/// How a sheet prints (a spreadsheet's Page Layout).
+#[derive(Debug, Clone, PartialEq)]
+pub struct PageSetup {
+    /// Landscape rather than portrait.
+    pub landscape: bool,
+    /// The paper, as a spreadsheet's code: 1 Letter, 5 Legal, 8 A3, 9 A4.
+    pub paper: u32,
+    /// Margins in inches: left, right, top, bottom.
+    pub margins: [f32; 4],
+    /// Scaled to fit one page wide.
+    pub fit_width: bool,
+    /// What prints (first row, first column, last row, last column);
+    /// `None` the used range.
+    pub print_area: Option<[u32; 4]>,
+    /// Rows repeated at the top of every page (first and last).
+    pub title_rows: Option<(u32, u32)>,
+    /// The header, in a spreadsheet's codes (`&C&A` the sheet's name in
+    /// the middle, `&P` the page, `&N` the pages, `&D` the date, `&F` the
+    /// file, `&L` and `&R` the sides).
+    pub header: String,
+    /// The footer, likewise.
+    pub footer: String,
+    /// The rows a new page begins at.
+    pub row_breaks: Vec<u32>,
+}
+
+impl Default for PageSetup {
+    fn default() -> Self {
+        PageSetup {
+            landscape: false,
+            paper: 9,
+            margins: [0.7, 0.7, 0.75, 0.75],
+            fit_width: false,
+            print_area: None,
+            title_rows: None,
+            header: String::new(),
+            footer: String::new(),
+            row_breaks: Vec::new(),
+        }
+    }
 }
 
 /// What Paste Special takes of the cells copied.
@@ -628,6 +757,41 @@ pub struct StyleChange {
     pub borders: Option<(BorderSet, Option<[u8; 3]>)>,
     /// The number format code (`General`, `#,##0.00`, `0%`).
     pub number_format: Option<String>,
+    /// The indent, in levels.
+    pub indent: Option<u8>,
+    /// The text's rotation, as [`GridCell::rotation`].
+    pub rotation: Option<u16>,
+    /// Shrink to Fit.
+    pub shrink: Option<bool>,
+    /// Center Across Selection (`false`: General again).
+    pub center_across: Option<bool>,
+    /// Locked (`true`) or unlocked for when the sheet is protected.
+    pub locked: Option<bool>,
+}
+
+/// What a protected sheet still lets the user do (`true`: allowed).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SheetProtection {
+    /// A password unprotects it.
+    pub has_password: bool,
+    /// Format cells.
+    pub format_cells: bool,
+    /// Format columns.
+    pub format_columns: bool,
+    /// Format rows.
+    pub format_rows: bool,
+    /// Insert rows.
+    pub insert_rows: bool,
+    /// Insert columns.
+    pub insert_columns: bool,
+    /// Delete rows.
+    pub delete_rows: bool,
+    /// Delete columns.
+    pub delete_columns: bool,
+    /// Sort.
+    pub sort: bool,
+    /// Use AutoFilter.
+    pub filter: bool,
 }
 
 /// How a conditional format compares a cell's value.
@@ -1435,6 +1599,182 @@ pub trait ViewerDocument: Send {
         _at: (u32, u32),
         _input: &str,
     ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// A grid's outline: the rows and the columns grouped, each with its
+    /// level (1 to 7).
+    fn outline(&mut self, _unit: usize) -> Outline {
+        (Vec::new(), Vec::new())
+    }
+
+    /// Groups rows (`rows`) or columns `from..=to` one level deeper
+    /// (`deeper`), or ungroups them one level.
+    fn set_outline(
+        &mut self,
+        _unit: usize,
+        _rows: bool,
+        _from: u32,
+        _to: u32,
+        _deeper: bool,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Hides (collapses) or shows (expands) the group of rows or columns
+    /// that `at` is in or sums up.
+    fn set_detail_shown(
+        &mut self,
+        _unit: usize,
+        _rows: bool,
+        _at: u32,
+        _shown: bool,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Subtotal of a range (its first row the headers) at each change in
+    /// column `by`: a row with `SUBTOTAL(function, …)` of `columns` under
+    /// each group and a grand total, the groups outlined. Function codes
+    /// as SUBTOTAL's: 9 sum, 1 average, 2 count, 4 max, 5 min.
+    fn subtotal(
+        &mut self,
+        _unit: usize,
+        _range: [u32; 4],
+        _by: u32,
+        _function: u32,
+        _columns: &[u32],
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Begins a batch: the edits until [`ViewerDocument::end_batch`] undo
+    /// as one step.
+    fn begin_batch(&mut self) {}
+
+    /// Ends a batch begun with [`ViewerDocument::begin_batch`].
+    fn end_batch(&mut self) {}
+
+    /// The ranges a unit's conditional formats cover.
+    fn conditional_ranges(&mut self, _unit: usize) -> Vec<[u32; 4]> {
+        Vec::new()
+    }
+
+    /// Formulas (without `=`) computed as if in a cell of a unit, each
+    /// result written as a formula would write it (`1200`, `"text"`,
+    /// `TRUE`, `#DIV/0!`); `None` where the engine cannot.
+    fn evaluate_formulas(&mut self, _unit: usize, formulas: &[String]) -> Vec<Option<String>> {
+        vec![None; formulas.len()]
+    }
+
+    /// How a unit is protected, when it is.
+    fn sheet_protection(&mut self, _unit: usize) -> Option<SheetProtection> {
+        None
+    }
+
+    /// Protects a unit (`Some`, with a password when given), or takes its
+    /// protection away (`None`; the password it was given, if any).
+    fn protect_sheet(
+        &mut self,
+        _unit: usize,
+        _protection: Option<SheetProtection>,
+        _password: Option<&str>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Whether the workbook's structure (its sheets) is protected.
+    fn workbook_protected(&mut self) -> bool {
+        false
+    }
+
+    /// Protects the workbook's structure, or takes it away (the password
+    /// it was given, if any).
+    fn protect_workbook(&mut self, _on: bool, _password: Option<&str>) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// How a unit prints.
+    fn page_setup(&mut self, _unit: usize) -> Option<PageSetup> {
+        None
+    }
+
+    /// Sets how a unit prints.
+    fn set_page_setup(&mut self, _unit: usize, _setup: &PageSetup) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The pictures and shapes of a unit, in order.
+    fn drawings(&mut self, _unit: usize) -> Vec<Drawing> {
+        Vec::new()
+    }
+
+    /// A picture's file bytes (by its place among the drawings).
+    fn drawing_image(&mut self, _unit: usize, _index: usize) -> Option<Vec<u8>> {
+        None
+    }
+
+    /// Puts a picture (PNG, JPEG or GIF bytes, `extension` naming which)
+    /// over cells `anchor`.
+    fn insert_picture(
+        &mut self,
+        _unit: usize,
+        _anchor: [u32; 4],
+        _bytes: &[u8],
+        _extension: &str,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Puts a shape (a preset geometry, or a text box) with `text` over
+    /// cells `anchor`.
+    fn insert_shape(
+        &mut self,
+        _unit: usize,
+        _anchor: [u32; 4],
+        _preset: &str,
+        _text: &str,
+        _text_box: bool,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Moves or sizes a drawing to cover cells `anchor`.
+    fn move_drawing(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _anchor: [u32; 4],
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Gives a shape new text.
+    fn set_shape_text(&mut self, _unit: usize, _index: usize, _text: &str) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Deletes a drawing.
+    fn delete_drawing(&mut self, _unit: usize, _index: usize) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Puts sparklines in cells `location` (one row or one column) of
+    /// `data`'s rows or columns, one each, with the high and low points
+    /// marked when asked.
+    fn add_sparklines(
+        &mut self,
+        _unit: usize,
+        _data: [u32; 4],
+        _location: [u32; 4],
+        _kind: SparklineKind,
+        _mark: bool,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Takes away the sparklines of a range's cells.
+    fn clear_sparklines(&mut self, _unit: usize, _range: [u32; 4]) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
 

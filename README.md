@@ -2,7 +2,7 @@
 
 Kalem is a text editor that shows a file the way it reads and never touches what you did not edit. Org, Markdown, LaTeX, CSV and BibTeX files open as documents and grids; every other text file opens as code. One program, in a window or in a terminal.
 
-<!-- A GIF of the editor goes here (docs/todo.md, T1.8.7): ![Kalem](assets/kalem.gif) -->
+<!-- A GIF of the editor goes here (docs/roadmap.md, R2.5): ![Kalem](assets/kalem.gif) -->
 
 **Status: alpha.** There are no binaries yet; build from source, below.
 

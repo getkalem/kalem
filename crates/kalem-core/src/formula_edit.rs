@@ -274,6 +274,227 @@ pub fn complete(input: &str, at: usize, typed: usize, completion: &str) -> (Stri
     (out, cursor)
 }
 
+/// A reference in a formula: its sheet when it names one, the range, and
+/// where it lies in the formula (characters).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Reference {
+    /// The sheet it names (`Sheet2!A1`), unquoted.
+    pub sheet: Option<String>,
+    /// First row, first column, last row, last column.
+    pub range: [u32; 4],
+    /// Its first character, its sheet included.
+    pub start: usize,
+    /// The character after it.
+    pub end: usize,
+}
+
+/// The cell references and ranges of a formula, in order (text in quotes,
+/// names and functions left out).
+pub fn references(formula: &str) -> Vec<Reference> {
+    let text = chars(formula);
+    let mut out = Vec::new();
+    let mut i = 0;
+    let cell = |from: usize| -> Option<(u32, u32, usize)> {
+        let (start, end) = {
+            let part = |c: char| c.is_ascii_alphanumeric() || c == '$';
+            let mut end = from;
+            while end < text.len() && part(text[end]) {
+                end += 1;
+            }
+            (from, end)
+        };
+        if start == end
+            || (start > 0 && (text[start - 1].is_alphanumeric() || text[start - 1] == '_'))
+        {
+            return None;
+        }
+        if text.get(end) == Some(&'(') {
+            return None;
+        }
+        let s: String = text[start..end].iter().filter(|c| **c != '$').collect();
+        let digits_last = s.chars().last().is_some_and(|c| c.is_ascii_digit());
+        let letters_first = s.chars().next().is_some_and(|c| c.is_ascii_alphabetic());
+        if !(digits_last && letters_first) {
+            return None;
+        }
+        let (r, c) = crate::csv_tools::parse_cell(&s)?;
+        Some((r as u32, c as u32, end))
+    };
+    while i < text.len() {
+        let c = text[i];
+        if c == '"' {
+            i += 1;
+            while i < text.len() && text[i] != '"' {
+                i += 1;
+            }
+            i += 1;
+            continue;
+        }
+        // A sheet's name before `!`.
+        let mut sheet = None;
+        let mut at = i;
+        if c == '\'' {
+            let mut j = i + 1;
+            let mut name = String::new();
+            while j < text.len() {
+                if text[j] == '\'' {
+                    if text.get(j + 1) == Some(&'\'') {
+                        name.push('\'');
+                        j += 2;
+                        continue;
+                    }
+                    break;
+                }
+                name.push(text[j]);
+                j += 1;
+            }
+            if text.get(j + 1) == Some(&'!') {
+                sheet = Some(name);
+                at = j + 2;
+            }
+        } else if (c.is_alphabetic() || c == '_') && (i == 0 || !text[i - 1].is_alphanumeric()) {
+            let mut j = i;
+            while j < text.len() && (text[j].is_alphanumeric() || text[j] == '_' || text[j] == '.')
+            {
+                j += 1;
+            }
+            if text.get(j) == Some(&'!') {
+                sheet = Some(text[i..j].iter().collect());
+                at = j + 1;
+            }
+        }
+        if let Some((r, col, end)) = cell(at) {
+            let mut range = [r, col, r, col];
+            let mut end = end;
+            if text.get(end) == Some(&':')
+                && let Some((r2, c2, e2)) = cell(end + 1)
+            {
+                range = [r.min(r2), col.min(c2), r.max(r2), col.max(c2)];
+                end = e2;
+            }
+            out.push(Reference {
+                sheet,
+                range,
+                start: i,
+                end,
+            });
+            i = end;
+            continue;
+        }
+        if sheet.is_some() {
+            i = at;
+            continue;
+        }
+        // Past a word (a function or a name).
+        if c.is_alphanumeric() || c == '_' {
+            while i < text.len() && (text[i].is_alphanumeric() || text[i] == '_' || text[i] == '.')
+            {
+                i += 1;
+            }
+            continue;
+        }
+        i += 1;
+    }
+    out
+}
+
+/// A reference written back as a formula writes it.
+fn reference_text(r: &Reference, row: u32, col: u32) -> String {
+    let cell = format!("{}{}", column(col), row + 1);
+    match &r.sheet {
+        Some(s) if s.chars().all(|c| c.is_alphanumeric() || c == '_') => format!("{s}!{cell}"),
+        Some(s) => format!("'{}'!{cell}", s.replace('\'', "''")),
+        None => cell,
+    }
+}
+
+/// Evaluate Formula's steps, as Excel's dialog shows them: the formula,
+/// then each reference made its value (a range an array), then each
+/// innermost function call made its result, to the value. `eval`
+/// computes formulas (without `=`) as literals.
+pub fn evaluation_steps(
+    formula: &str,
+    eval: &mut dyn FnMut(&[String]) -> Vec<Option<String>>,
+) -> Vec<String> {
+    let mut steps = vec![formula.to_owned()];
+    let mut now: String = formula.trim_start_matches('=').to_owned();
+    for _ in 0..60 {
+        let text = chars(&now);
+        // A reference: its value.
+        if let Some(r) = references(&now).into_iter().next() {
+            let [r0, c0, r1, c1] = r.range;
+            if (r1 - r0 + 1) * (c1 - c0 + 1) > 200 {
+                break;
+            }
+            let cells: Vec<String> = (r0..=r1)
+                .flat_map(|row| (c0..=c1).map(move |col| (row, col)))
+                .map(|(row, col)| reference_text(&r, row, col))
+                .collect();
+            let values = eval(&cells);
+            let Some(values) = values.into_iter().collect::<Option<Vec<String>>>() else {
+                break;
+            };
+            let literal = if values.len() == 1 {
+                values[0].clone()
+            } else {
+                let width = (c1 - c0 + 1) as usize;
+                let rows: Vec<String> = values.chunks(width).map(|row| row.join(",")).collect();
+                format!("{{{}}}", rows.join(";"))
+            };
+            let mut next: String = text[..r.start].iter().collect();
+            next.push_str(&literal);
+            next.extend(&text[r.end..]);
+            now = next;
+            steps.push(format!("={now}"));
+            continue;
+        }
+        // The innermost function call (its arguments all values).
+        let mut call = None;
+        let mut quoted = false;
+        let mut open = None;
+        for (i, c) in text.iter().enumerate() {
+            match c {
+                '"' => quoted = !quoted,
+                _ if quoted => {}
+                '(' => open = Some(i),
+                ')' => {
+                    if let Some(o) = open {
+                        let mut s = o;
+                        while s > 0
+                            && (text[s - 1].is_alphanumeric()
+                                || text[s - 1] == '.'
+                                || text[s - 1] == '_')
+                        {
+                            s -= 1;
+                        }
+                        call = Some((s, i + 1));
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let whole = call.is_none_or(|(s, e)| s == 0 && e == text.len());
+        let (s, e) = call.unwrap_or((0, text.len()));
+        let piece: String = text[s..e].iter().collect();
+        let Some(Some(value)) = eval(std::slice::from_ref(&piece)).into_iter().next() else {
+            break;
+        };
+        if whole && piece == value {
+            break;
+        }
+        let mut next: String = text[..s].iter().collect();
+        next.push_str(&value);
+        next.extend(&text[e..]);
+        now = next;
+        steps.push(format!("={now}"));
+        if whole {
+            break;
+        }
+    }
+    steps
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -348,5 +569,52 @@ mod tests {
         );
         assert_eq!(complete("=1+su", 5, 2, "SUM("), ("=1+SUM(".to_string(), 7));
         assert_eq!(hint("text", 4, &functions, &names), Hint::default());
+    }
+
+    #[test]
+    fn references_found() {
+        let r = references("=SUM(B2:C3)+'My Data'!$A$1*Sheet2!D4-\"A1\"&LOG10(5)");
+        let ranges: Vec<_> = r.iter().map(|x| (x.sheet.clone(), x.range)).collect();
+        assert_eq!(
+            ranges,
+            vec![
+                (None, [1, 1, 2, 2]),
+                (Some("My Data".into()), [0, 0, 0, 0]),
+                (Some("Sheet2".into()), [3, 3, 3, 3]),
+            ]
+        );
+    }
+
+    #[test]
+    fn formulas_evaluated_in_steps() {
+        // An engine that knows a few cells and sums.
+        let mut eval = |fs: &[String]| -> Vec<Option<String>> {
+            fs.iter()
+                .map(|f| {
+                    Some(
+                        match f.as_str() {
+                            "B2" => "10",
+                            "B3" => "5",
+                            "C1" => "2",
+                            "SUM({10;5})" => "15",
+                            "15*2" => "30",
+                            other => other,
+                        }
+                        .to_owned(),
+                    )
+                })
+                .collect()
+        };
+        let steps = evaluation_steps("=SUM(B2:B3)*C1", &mut eval);
+        assert_eq!(
+            steps,
+            [
+                "=SUM(B2:B3)*C1",
+                "=SUM({10;5})*C1",
+                "=SUM({10;5})*2",
+                "=15*2",
+                "=30"
+            ]
+        );
     }
 }

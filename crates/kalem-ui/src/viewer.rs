@@ -25,6 +25,8 @@ pub struct ViewerView {
     /// The bitmaps as gpui images: the unit shown, or every frame of an
     /// animation.
     images: Vec<(Key, Arc<RenderImage>)>,
+    /// A sheet's pictures as gpui images, by unit, place and generation.
+    pictures: std::collections::HashMap<(usize, usize, u64), Arc<RenderImage>>,
     /// Where a drag started, or last moved to.
     drag: Option<Point<Pixels>>,
     /// Where the button went down: released near it, it is a click.
@@ -693,8 +695,15 @@ impl Editor {
         let selecting = v.grid_pos().sel.is_some();
         let cut = v.cut_range();
         let pointer = v.pointer;
+        let marks = v.outline_marks();
+        let arrows = v.arrows.clone();
+        // Go To Special's ranges, selected together.
+        let areas = v.areas.clone();
         let in_sel = move |r: u32, c: u32| {
-            selecting && (sel[0]..=sel[2]).contains(&r) && (sel[1]..=sel[3]).contains(&c)
+            (selecting && (sel[0]..=sel[2]).contains(&r) && (sel[1]..=sel[3]).contains(&c))
+                || areas
+                    .iter()
+                    .any(|m| (m[0]..=m[2]).contains(&r) && (m[1]..=m[3]).contains(&c))
         };
         let rgb = |c: [u8; 3]| -> gpui::Hsla {
             gpui::rgb(u32::from(c[0]) << 16 | u32::from(c[1]) << 8 | u32::from(c[2])).into()
@@ -841,6 +850,90 @@ impl Editor {
         );
         self.viewer_view.grid_lines.0.sort_by_key(|l| l.0);
         self.viewer_view.grid_lines.1.sort_by_key(|l| l.0);
+        // Pictures and shapes, over the cells they cover.
+        let drawings = v.drawings();
+        let generation = v.generation();
+        let unit = v.unit;
+        for (i, d) in drawings.iter().enumerate() {
+            if matches!(d.kind, kalem_viewer::DrawingKind::Picture)
+                && !self
+                    .viewer_view
+                    .pictures
+                    .contains_key(&(unit, i, generation))
+                && let Some(img) = v.drawing_bitmap(i).as_ref().and_then(render_image)
+            {
+                self.viewer_view.pictures.insert((unit, i, generation), img);
+            }
+        }
+        self.viewer_view
+            .pictures
+            .retain(|k, _| k.0 == unit && k.2 == generation);
+        let pictures = self.viewer_view.pictures.clone();
+        let drawing_views: Vec<_> = drawings
+            .iter()
+            .enumerate()
+            .filter_map(|(i, d)| {
+                let a = d.anchor;
+                let xs: Vec<(f32, f32)> = (a[1]..=a[3])
+                    .filter_map(|c| col_x.get(&c).copied())
+                    .collect();
+                let ys: Vec<(f32, f32)> = (a[0]..=a[2])
+                    .filter_map(|r| row_y.get(&r).copied())
+                    .collect();
+                let (x0, y0) = (xs.first()?.0, ys.first()?.0);
+                let w: f32 = xs.iter().map(|v| v.1).sum();
+                let h: f32 = ys.iter().map(|v| v.1).sum();
+                let base = div()
+                    .debug_selector(move || format!("viewer-grid-drawing-{i}"))
+                    .absolute()
+                    .left(px(x0))
+                    .top(px(y0))
+                    .w(px(w))
+                    .h(px(h))
+                    .overflow_hidden();
+                Some(match &d.kind {
+                    kalem_viewer::DrawingKind::Picture => base.children(
+                        pictures
+                            .get(&(unit, i, generation))
+                            .cloned()
+                            .map(|img| gpui::img(img).size_full()),
+                    ),
+                    kalem_viewer::DrawingKind::Shape {
+                        preset,
+                        fill,
+                        line,
+                        text,
+                        ..
+                    } => {
+                        let color = |c: [u8; 3]| -> gpui::Hsla {
+                            gpui::rgb(
+                                u32::from(c[0]) << 16 | u32::from(c[1]) << 8 | u32::from(c[2]),
+                            )
+                            .into()
+                        };
+                        let mut s = base.flex().items_center().justify_center().p(px(4.));
+                        if let Some(f) = fill {
+                            s = s.bg(color(*f));
+                        }
+                        if let Some(l) = line {
+                            s = s.border_1().border_color(color(*l));
+                        }
+                        s = match preset.as_str() {
+                            "ellipse" => s.rounded_full(),
+                            "roundRect" => s.rounded(px(10.)),
+                            _ => s,
+                        };
+                        // Light text on a dark fill, as Excel's shape style.
+                        let dark = fill.is_some_and(|f| {
+                            u32::from(f[0]) * 299 + u32::from(f[1]) * 587 + u32::from(f[2]) * 114
+                                < 128_000
+                        });
+                        s.text_color(if dark { gpui::white() } else { gpui::black() })
+                            .child(SharedString::from(text.clone()))
+                    }
+                })
+            })
+            .collect();
         let charts: Vec<_> = v
             .charts()
             .iter()
@@ -1019,6 +1112,68 @@ impl Editor {
                     .border_color(theme.link),
             )
         });
+        // Trace Precedents' and Dependents' arrows: from the middle of the
+        // range read to the middle of the cell reading it.
+        let middle = |m: [u32; 4]| -> Option<(f32, f32)> {
+            let xs: Vec<(f32, f32)> = (m[1]..=m[3])
+                .filter_map(|c| col_x.get(&c).copied())
+                .collect();
+            let ys: Vec<(f32, f32)> = (m[0]..=m[2])
+                .filter_map(|r| row_y.get(&r).copied())
+                .collect();
+            let (x0, y0) = (xs.first()?.0, ys.first()?.0);
+            let w: f32 = xs.iter().map(|v| v.1).sum();
+            let h: f32 = ys.iter().map(|v| v.1).sum();
+            Some((x0 + w / 2.0, y0 + h / 2.0))
+        };
+        let lines: Vec<((f32, f32), (f32, f32))> = arrows
+            .iter()
+            .filter_map(|(m, d)| Some((middle(*m)?, middle([d.0, d.1, d.0, d.1])?)))
+            .collect();
+        let link = theme.link;
+        let arrow_layer = (!lines.is_empty()).then(|| {
+            div()
+                .debug_selector(|| "viewer-grid-arrows".into())
+                .absolute()
+                .inset_0()
+                .child(
+                    gpui::canvas(
+                        |_, _, _| {},
+                        move |bounds, (), window, _| {
+                            let at = |(x, y): (f32, f32)| {
+                                gpui::point(bounds.origin.x + px(x), bounds.origin.y + px(y))
+                            };
+                            for &(a, b) in &lines {
+                                let mut p = gpui::PathBuilder::stroke(px(1.5));
+                                p.move_to(at(a));
+                                p.line_to(at(b));
+                                // The head: two strokes back from the end.
+                                let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+                                let len = (dx * dx + dy * dy).sqrt().max(1.0);
+                                let (ux, uy) = (dx / len, dy / len);
+                                for side in [-1.0f32, 1.0] {
+                                    let hx = b.0 - 8.0 * ux + side * 4.0 * uy;
+                                    let hy = b.1 - 8.0 * uy - side * 4.0 * ux;
+                                    p.move_to(at(b));
+                                    p.line_to(at((hx, hy)));
+                                }
+                                if let Ok(path) = p.build() {
+                                    window.paint_path(path, link);
+                                }
+                                // A dot where it starts.
+                                window.paint_quad(gpui::fill(
+                                    gpui::Bounds::new(
+                                        at((a.0 - 2.5, a.1 - 2.5)),
+                                        gpui::size(px(5.), px(5.)),
+                                    ),
+                                    link,
+                                ));
+                            }
+                        },
+                    )
+                    .size_full(),
+                )
+        });
         let cut_mark = cut.and_then(|m| {
             let xs: Vec<(f32, f32)> = (m[1]..=m[3])
                 .filter_map(|c| col_x.get(&c).copied())
@@ -1143,6 +1298,34 @@ impl Editor {
                 })
                 .relative()
                 .child(SharedString::from((r + 1).to_string()))
+                // The outline's − or + of a summary row: pressed, its group
+                // collapses or expands.
+                .children(marks.iter().find(|m| m.0 == r).map(|(_, collapsed)| {
+                    div()
+                        .debug_selector(move || format!("viewer-grid-outline-{r}"))
+                        .id(SharedString::from(format!("outline-{r}")))
+                        .absolute()
+                        .left(px(2.))
+                        .top_0()
+                        .bottom_0()
+                        .flex()
+                        .items_center()
+                        .text_color(theme.foreground)
+                        .cursor_pointer()
+                        .child(if *collapsed { "+" } else { "−" })
+                        .on_mouse_down(
+                            MouseButton::Left,
+                            cx.listener(move |this, _: &MouseDownEvent, _, cx| {
+                                cx.stop_propagation();
+                                if let Some(v) = this.doc.viewer.as_deref_mut()
+                                    && let Err(e) = v.toggle_detail_at(r)
+                                {
+                                    this.message(e, true);
+                                }
+                                cx.notify();
+                            }),
+                        )
+                }))
                 // The bottom edge: dragged to resize, double-clicked to reset.
                 .child(
                     div()
@@ -1176,9 +1359,28 @@ impl Editor {
                 );
             // Text wider than its cell runs on over the empty cells at its
             // right, as in a spreadsheet; drawn above them.
-            let mut overflow: Vec<(f32, f32, u32)> = Vec::new();
+            let mut overflow: Vec<(f32, f32, u32, bool)> = Vec::new();
             let mut x = gutter;
             for (k, &(c, w)) in cols.iter().enumerate() {
+                // Center Across Selection: over the empty cells at its right
+                // that have it too.
+                if let Some(cell) = cells.get(&(r, c))
+                    && cell.center_across
+                    && !cell.text.is_empty()
+                {
+                    let mut span = w;
+                    for &(c2, w2) in &cols[k + 1..] {
+                        match cells.get(&(r, c2)) {
+                            Some(x2) if x2.center_across && x2.text.is_empty() => span += w2,
+                            _ => break,
+                        }
+                    }
+                    if span > w {
+                        overflow.push((x, span, c, true));
+                        x += w;
+                        continue;
+                    }
+                }
                 if let Some(cell) = cells.get(&(r, c))
                     && !cell.numeric
                     && !cell.wrap
@@ -1201,7 +1403,7 @@ impl Editor {
                             span += w2;
                         }
                         if span > w {
-                            overflow.push((x, span, c));
+                            overflow.push((x, span, c, false));
                         }
                     }
                 }
@@ -1237,6 +1439,9 @@ impl Editor {
                         d = d.justify_end();
                     } else if matches!(cell.align, kalem_viewer::Align::Center) {
                         d = d.justify_center();
+                    } else if cell.indent > 0 {
+                        // Indented: about three characters a level.
+                        d = d.pl(px(PAD + f32::from(cell.indent) * 9.0));
                     }
                     if let Some(f) = cell.fill {
                         d = d.bg(rgb(f));
@@ -1254,6 +1459,9 @@ impl Editor {
                                 .bg(rgb(color))
                                 .opacity(0.6),
                         );
+                    }
+                    if let Some(line) = cell.sparkline.clone() {
+                        d = d.child(sparkline(line, r, c));
                     }
                     if let Some((glyph, color)) = &cell.icon {
                         // An icon set's icon: at the cell's left, as Excel's.
@@ -1292,10 +1500,18 @@ impl Editor {
                     if cell.strike {
                         d = d.line_through();
                     }
+                    // Shrink to Fit: text wider than the cell made smaller.
+                    let wide = measure(&cell.text) + 2.0 * PAD;
+                    if cell.shrink && wide > w && !cell.wrap {
+                        let base = cell
+                            .font_size
+                            .map_or(theme.size, |t| f32::from(t) / 10.0 * 4.0 / 3.0);
+                        d = d.text_size(px((base * (w - 2.0 * PAD) / (wide - 2.0 * PAD)).max(4.0)));
+                    }
                     if !spilled.contains(&c) {
                         // A number too wide shows as #, as Excel shows it;
                         // text ends in an ellipsis.
-                        let text = if cell.numeric && measure(&cell.text) + 2.0 * PAD > w {
+                        let text = if cell.numeric && !cell.shrink && wide > w {
                             "#".repeat(((w - 2.0 * PAD) / measure("#")).max(1.0) as usize)
                         } else {
                             cell.text.clone()
@@ -1445,7 +1661,7 @@ impl Editor {
                     },
                 ))
             });
-            let spills = overflow.into_iter().filter_map(|(x, span, c)| {
+            let spills = overflow.into_iter().filter_map(|(x, span, c, centered)| {
                 let cell = cells.get(&(r, c))?;
                 let mut d = div()
                     .absolute()
@@ -1459,6 +1675,9 @@ impl Editor {
                     .overflow_hidden()
                     .whitespace_nowrap();
                 d = valign(d, cell.valign);
+                if centered {
+                    d = d.justify_center();
+                }
                 if let Some(c) = cell.color {
                     d = d.text_color(rgb(c));
                 }
@@ -1523,9 +1742,11 @@ impl Editor {
                     .children(body)
                     .children(merges)
                     .children(charts)
+                    .children(drawing_views)
                     .children(cut_mark)
                     .children(fill_frame)
                     .children(pointer_frame)
+                    .children(arrow_layer)
                     .children(fill_handle),
             )
             // A fill handle dropped past the grid still fills.
@@ -1830,4 +2051,98 @@ fn valign<E: gpui::Styled>(d: E, v: kalem_viewer::VAlign) -> E {
         kalem_viewer::VAlign::Middle => d.items_center(),
         _ => d.items_end(),
     }
+}
+
+/// A sparkline drawn over its cell: a line through its points (the
+/// highest and lowest marked), columns from zero, or win/loss halves.
+fn sparkline(line: kalem_viewer::Sparkline, r: u32, c: u32) -> gpui::Div {
+    use kalem_viewer::SparklineKind;
+    let rgb = |c: [u8; 3]| -> gpui::Hsla {
+        gpui::rgb(u32::from(c[0]) << 16 | u32::from(c[1]) << 8 | u32::from(c[2])).into()
+    };
+    let (color, marker) = (rgb(line.color), rgb(line.marker));
+    div()
+        .debug_selector(move || format!("viewer-grid-sparkline-{r}-{c}"))
+        .absolute()
+        .left(px(3.))
+        .right(px(3.))
+        .top(px(3.))
+        .bottom(px(3.))
+        .child(
+            gpui::canvas(
+                |_, _, _| {},
+                move |bounds, (), window, _| {
+                    let n = line.points.len();
+                    if n == 0 {
+                        return;
+                    }
+                    let (w, h) = (f32::from(bounds.size.width), f32::from(bounds.size.height));
+                    let o = bounds.origin;
+                    let y = |v: u16| h - h * f32::from(v) / 1000.0;
+                    let at = |x: f32, yy: f32| gpui::point(o.x + px(x), o.y + px(yy));
+                    let slot = w / n as f32;
+                    match line.kind {
+                        SparklineKind::Line => {
+                            let x = |i: usize| {
+                                if n == 1 {
+                                    w / 2.0
+                                } else {
+                                    w * i as f32 / (n - 1) as f32
+                                }
+                            };
+                            let mut p = gpui::PathBuilder::stroke(px(1.25));
+                            let mut down = false;
+                            for (i, v) in line.points.iter().enumerate() {
+                                match v {
+                                    // A gap where a value is missing.
+                                    None => down = false,
+                                    Some(v) if down => p.line_to(at(x(i), y(*v))),
+                                    Some(v) => {
+                                        p.move_to(at(x(i), y(*v)));
+                                        down = true;
+                                    }
+                                }
+                            }
+                            if let Ok(path) = p.build() {
+                                window.paint_path(path, color);
+                            }
+                            for k in [line.high, line.low].into_iter().flatten() {
+                                if let Some(Some(v)) = line.points.get(k) {
+                                    window.paint_quad(gpui::fill(
+                                        gpui::Bounds::new(
+                                            at(x(k) - 2.0, y(*v) - 2.0),
+                                            gpui::size(px(4.), px(4.)),
+                                        ),
+                                        marker,
+                                    ));
+                                }
+                            }
+                        }
+                        SparklineKind::Column | SparklineKind::WinLoss => {
+                            let zero = y(line.zero.unwrap_or(0));
+                            for (i, v) in line.points.iter().enumerate() {
+                                let Some(v) = *v else { continue };
+                                let (top, bottom) = match line.kind {
+                                    SparklineKind::WinLoss if v == 500 => continue,
+                                    SparklineKind::WinLoss if v > 500 => (0.0, h / 2.0),
+                                    SparklineKind::WinLoss => (h / 2.0, h),
+                                    // At least a pixel high.
+                                    _ => (y(v).min(zero), y(v).max(zero).max(y(v).min(zero) + 1.0)),
+                                };
+                                let below = line.zero.is_some_and(|z| v < z);
+                                let marked = below || Some(i) == line.high || Some(i) == line.low;
+                                window.paint_quad(gpui::fill(
+                                    gpui::Bounds::new(
+                                        at(slot * i as f32 + slot * 0.15, top),
+                                        gpui::size(px(slot * 0.7), px(bottom - top)),
+                                    ),
+                                    if marked { marker } else { color },
+                                ));
+                            }
+                        }
+                    }
+                },
+            )
+            .size_full(),
+        )
 }

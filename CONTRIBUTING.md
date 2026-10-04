@@ -5,7 +5,7 @@ Thank you for your interest in Kalem. This page says how to set up, what the rul
 ## Before you start
 
 - Read [the Kalem Book](https://getkalem.github.io/kalem): Part I is the manual, Part II says what Kalem does with each format and how that is tested, Part IV covers extending Kalem. The design is in [`docs/design_document.md`](docs/design_document.md) (RFC 0001) and [`docs/design_doc2.md`](docs/design_doc2.md) (RFC 0002).
-- [`docs/todo.md`](docs/todo.md) lists the open tasks in order; [`docs/todo_old.md`](docs/todo_old.md) keeps the done ones and the decisions. Task IDs such as `T2.7h.4` are used in issues and pull requests.
+- [`docs/roadmap.md`](docs/roadmap.md) is the plan: milestones with their tasks (`R1.1`, …) and exit criteria, from the evaluation in [`docs/evaluation-2026-10.md`](docs/evaluation-2026-10.md). [`docs/todo.md`](docs/todo.md) and [`docs/history/todo_old.md`](docs/history/todo_old.md) keep the record of what was done and why; their ids (`T2.7h.4`) are still cited.
 - For a larger change, open an issue first. Changes to the design go through an RFC ([`rfcs/README.md`](rfcs/README.md)).
 
 ## Setup
@@ -50,6 +50,16 @@ Markdown is parsed by [comrak](https://github.com/kivikakk/comrak) through Kalem
 
 - Imperative mood ("Add headline parser"), the first line under 72 characters, the task ID or issue when there is one.
 - Every user-visible change gets a line under "Unreleased" in [`CHANGELOG.md`](CHANGELOG.md).
+
+## Pushing to main
+
+Several people (and agents) push to `main` the same day. CI lets every run on `main` finish, so a red run there is someone's to fix at once, and pushing on top of a red `main` hides whose it is. Before each push:
+
+- Rebase on `origin/main` (`git fetch origin main && git rebase origin/main`), never merge it into a local branch of `main`.
+- Run [`tools/pre-push.sh`](tools/pre-push.sh): formatting, the plugin pins, and clippy and the tests of every crate the change touches (all of them when `Cargo.toml` or `Cargo.lock` changed). Linking it as `.git/hooks/pre-push` runs it on every push.
+- Push related commits together rather than one at a time; at most about once an hour while the last run on `main` is still going, so runs do not queue behind each other.
+- When `main` is red from your push, fix it before anything else; when it is red from someone else's, say so to them rather than push on top.
+- A change to the viewer contract (`crates/kalem-viewer`) and the bundled plugins' bump go in one push: the three plugins are pinned at one revision of `getkalem/plugins` ([`tools/check-plugin-pins.sh`](tools/check-plugin-pins.sh)).
 
 ## License
 

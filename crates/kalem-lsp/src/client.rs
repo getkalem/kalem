@@ -262,9 +262,13 @@ impl Inner {
     fn on_notification(&self, method: &str, params: &Value) {
         match method {
             "textDocument/publishDiagnostics" => {
-                let Some(uri) = params["uri"].as_str() else {
+                // Stored by one spelling of the URI, so a server writing
+                // the drive letter or a verbatim path its own way still
+                // reaches the document.
+                let Some(uri) = params["uri"].as_str().map(crate::uri::normalize) else {
                     return;
                 };
+                let uri = uri.as_str();
                 let list = params["diagnostics"]
                     .as_array()
                     .cloned()
@@ -583,7 +587,7 @@ impl Client {
             .diagnostics
             .lock()
             .expect("diagnostics")
-            .get(uri)
+            .get(&crate::uri::normalize(uri))
             .cloned()
             .unwrap_or_default()
     }

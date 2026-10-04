@@ -345,6 +345,21 @@ pub struct ViewerState {
     pub pointer: Option<[u32; 4]>,
     /// The functions formulas can use, read once.
     functions: Option<Vec<(String, String)>>,
+    /// The outline's summary rows and whether each is collapsed, by unit
+    /// and generation.
+    outline_marks: Option<(UnitAt, Vec<(u32, bool)>)>,
+    /// Trace Precedents' and Dependents' arrows on the sheet shown: from
+    /// a range to a cell.
+    pub arrows: Vec<([u32; 4], (u32, u32))>,
+    /// The Watch Window's cells: unit, row, column.
+    pub watches: Vec<(usize, u32, u32)>,
+    /// A selection of several ranges (Go To Special's), until the cursor
+    /// moves.
+    pub areas: Vec<[u32; 4]>,
+    /// The sheet shown's pictures and shapes, by unit and generation.
+    drawings_cache: Option<(UnitAt, Vec<kalem_viewer::Drawing>)>,
+    /// Pictures decoded, by unit, place and generation.
+    pictures: std::collections::HashMap<(usize, usize, u64), Option<Bitmap>>,
 }
 
 /// What Find looks for in a grid, and how.
@@ -407,6 +422,9 @@ impl GridSearch {
         out
     }
 }
+
+/// A unit at a generation.
+type UnitAt = (usize, u64);
 
 /// A selection of a unit at a generation: unit, range, generation.
 type SumsKey = (usize, [u32; 4], u64);
@@ -529,6 +547,12 @@ impl ViewerState {
             col_entries: None,
             pointer: None,
             functions: None,
+            outline_marks: None,
+            arrows: Vec::new(),
+            watches: Vec::new(),
+            areas: Vec::new(),
+            drawings_cache: None,
+            pictures: std::collections::HashMap::new(),
         })
     }
 
@@ -1511,6 +1535,10 @@ impl ViewerState {
         self.grid_cache = None;
         self.changed();
     }
+    /// Whether unit `unit` is a grid (a worksheet).
+    pub fn is_grid_unit(&self, unit: usize) -> bool {
+        self.grids.get(unit).copied().unwrap_or(false)
+    }
 
     /// Whether the unit shown is a grid (a sheet, a table).
     pub fn is_grid(&self) -> bool {
@@ -1588,6 +1616,7 @@ impl ViewerState {
     /// Puts the cursor on a cell and scrolls it into view; the selection
     /// goes; a cell inside a merged one is its first cell.
     pub fn grid_move_to(&mut self, row: u32, col: u32) {
+        self.areas.clear();
         let (row, col) = self.merge_at(row, col).map_or((row, col), |m| (m[0], m[1]));
         let mut p = self.grid_pos();
         p.sel = None;
@@ -1681,6 +1710,7 @@ impl ViewerState {
     /// Selects from the selection's start (the cursor, when none) to a cell
     /// (Shift and a click, a drag).
     pub fn grid_extend_to(&mut self, row: u32, col: u32) {
+        self.areas.clear();
         let mut p = self.grid_pos();
         if p.sel.is_none() {
             p.sel = Some((p.row, p.col));
@@ -1899,6 +1929,411 @@ impl ViewerState {
         let (r, header) = self.table_target();
         self.doc()
             .sort_range_by(self.unit, r, keys, header)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The rows that sum up a group of rows (the row after it), each with
+    /// whether its group is collapsed: where the outline's −/+ go.
+    pub fn outline_marks(&mut self) -> Vec<(u32, bool)> {
+        let key = (self.unit, self.generation);
+        if let Some((k, m)) = &self.outline_marks
+            && *k == key
+        {
+            return m.clone();
+        }
+        let (rows, _) = self.doc().outline(self.unit);
+        let level = |r: u32| rows.iter().find(|x| x.0 == r).map_or(0, |x| x.1);
+        let hidden = self
+            .grid_layout()
+            .map(|l| l.hidden_rows)
+            .unwrap_or_default();
+        let marks: Vec<(u32, bool)> = rows
+            .iter()
+            .map(|x| x.0 + 1)
+            .filter(|r| level(*r) < level(r - 1))
+            .map(|r| (r, hidden.contains(&(r - 1))))
+            .collect();
+        self.outline_marks = Some((key, marks.clone()));
+        marks
+    }
+
+    /// Whether the selection is whole columns (it spans every row).
+    fn selects_columns(&mut self) -> bool {
+        let s = self.selection();
+        let max = self.grid_layout().map_or(u32::MAX, |l| l.max_rows);
+        s[0] == 0 && s[2] + 1 >= max
+    }
+
+    /// Group (`deeper`) or Ungroup the selection's rows, or its columns
+    /// when it is whole columns.
+    pub fn group(&mut self, deeper: bool) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        let cols = self.selects_columns();
+        let (from, to) = if cols { (s[1], s[3]) } else { (s[0], s[2]) };
+        self.doc()
+            .set_outline(self.unit, !cols, from, to, deeper)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Hide Detail (`shown` off) or Show Detail of the row group at the
+    /// cursor (the group it is in or sums up), else its column group.
+    pub fn show_detail(&mut self, shown: bool) -> Result<(), String> {
+        let p = self.grid_pos();
+        let rows = self.doc().set_detail_shown(self.unit, true, p.row, shown);
+        if rows.is_err() {
+            self.doc()
+                .set_detail_shown(self.unit, false, p.col, shown)
+                .map_err(|e| e.to_string())?;
+        }
+        self.refresh();
+        Ok(())
+    }
+
+    /// The outline's −/+ of summary row `row` pressed: its group collapsed
+    /// or expanded.
+    pub fn toggle_detail_at(&mut self, row: u32) -> Result<(), String> {
+        let collapsed = self
+            .outline_marks()
+            .iter()
+            .find(|m| m.0 == row)
+            .is_some_and(|m| m.1);
+        self.doc()
+            .set_detail_shown(self.unit, true, row, collapsed)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Subtotal of the table at the cursor at each change in column `by`.
+    pub fn subtotal(&mut self, by: u32, function: u32, columns: &[u32]) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (r, _) = self.table_target();
+        self.doc()
+            .subtotal(self.unit, r, by, function, columns)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The sheet shown's name, as references name it.
+    fn sheet_name(&self) -> String {
+        self.structure.units[self.unit]
+            .label
+            .trim_end_matches(" (hidden)")
+            .to_owned()
+    }
+
+    /// Whether a reference is to the sheet shown.
+    fn here(&self, r: &crate::formula_edit::Reference) -> bool {
+        r.sheet
+            .as_ref()
+            .is_none_or(|s| s.eq_ignore_ascii_case(&self.sheet_name()))
+    }
+
+    /// Trace Precedents: arrows from the cells the cursor's formula reads
+    /// (on this sheet); how many.
+    pub fn trace_precedents(&mut self) -> usize {
+        let p = self.grid_pos();
+        let input = self.cell_input();
+        if !input.starts_with('=') {
+            return 0;
+        }
+        let refs: Vec<[u32; 4]> = crate::formula_edit::references(&input)
+            .into_iter()
+            .filter(|r| self.here(r))
+            .map(|r| r.range)
+            .collect();
+        for r in &refs {
+            if !self.arrows.contains(&(*r, (p.row, p.col))) {
+                self.arrows.push((*r, (p.row, p.col)));
+            }
+        }
+        refs.len()
+    }
+
+    /// Trace Dependents: arrows to the cells of this sheet whose formulas
+    /// read the cursor's cell; how many.
+    pub fn trace_dependents(&mut self) -> usize {
+        let p = self.grid_pos();
+        let Some(l) = self.grid_layout() else {
+            return 0;
+        };
+        let mut found = Vec::new();
+        let mut row = 0;
+        while row < l.rows {
+            let to = (row + 1000).min(l.rows);
+            let formulas: Vec<(u32, u32)> = self
+                .grid_cells(row..to, 0..l.cols.max(1))
+                .into_iter()
+                .filter(|c| c.2.formula)
+                .map(|c| (c.0, c.1))
+                .collect();
+            for (r, c) in formulas {
+                let input = self.doc().cell_input(self.unit, r, c);
+                let reads = crate::formula_edit::references(&input)
+                    .into_iter()
+                    .any(|x| {
+                        self.here(&x)
+                            && (x.range[0]..=x.range[2]).contains(&p.row)
+                            && (x.range[1]..=x.range[3]).contains(&p.col)
+                    });
+                if reads {
+                    found.push((r, c));
+                }
+            }
+            row = to;
+        }
+        let from = [p.row, p.col, p.row, p.col];
+        for d in &found {
+            if !self.arrows.contains(&(from, *d)) {
+                self.arrows.push((from, *d));
+            }
+        }
+        found.len()
+    }
+
+    /// Evaluate Formula: the cursor's formula's steps to its value.
+    pub fn evaluation_steps(&mut self) -> Vec<String> {
+        let input = self.cell_input();
+        if !input.starts_with('=') {
+            return Vec::new();
+        }
+        let unit = self.unit;
+        let doc = self.doc.clone();
+        let mut eval = |fs: &[String]| -> Vec<Option<String>> {
+            doc.lock()
+                .map(|mut d| d.evaluate_formulas(unit, fs))
+                .unwrap_or_default()
+        };
+        crate::formula_edit::evaluation_steps(&input, &mut eval)
+    }
+
+    /// Error Checking: the cursor to the next cell after it (round the
+    /// sheet) showing an error, and what the error means.
+    pub fn next_error(&mut self) -> Option<String> {
+        const ERRORS: [(&str, &str); 8] = [
+            ("#DIV/0!", "A number is divided by zero"),
+            ("#VALUE!", "A value is of the wrong type"),
+            ("#REF!", "A reference is not valid"),
+            ("#NAME?", "A name or function is not recognized"),
+            ("#N/A", "A value is not available"),
+            ("#NUM!", "A number is not valid"),
+            ("#NULL!", "Two ranges do not intersect"),
+            ("#SPILL!", "A result cannot spill"),
+        ];
+        let p = self.grid_pos();
+        let l = self.grid_layout()?;
+        let mut found: Vec<(u32, u32, String)> = Vec::new();
+        let mut row = 0;
+        while row < l.rows {
+            let to = (row + 1000).min(l.rows);
+            for (r, c, cell) in self.grid_cells(row..to, 0..l.cols.max(1)) {
+                if ERRORS.iter().any(|e| e.0 == cell.text) {
+                    found.push((r, c, cell.text));
+                }
+            }
+            row = to;
+        }
+        found.sort_by_key(|f| (f.0, f.1));
+        let next = found
+            .iter()
+            .find(|f| (f.0, f.1) > (p.row, p.col))
+            .or_else(|| found.first())?
+            .clone();
+        self.grid_move_to(next.0, next.1);
+        let why = ERRORS.iter().find(|e| e.0 == next.2).map_or("", |e| e.1);
+        let name = format!(
+            "{}{}",
+            crate::csv_tools::column_letters(next.1 as usize),
+            next.0 + 1
+        );
+        Some(format!(
+            "{name}: {} — {why} ({} errors)",
+            next.2,
+            found.len()
+        ))
+    }
+
+    /// The Watch Window's lines: each watched cell's sheet and name, value
+    /// and formula.
+    pub fn watch_lines(&mut self) -> Vec<String> {
+        let watches = self.watches.clone();
+        watches
+            .iter()
+            .map(|&(u, r, c)| {
+                let name = self
+                    .structure
+                    .units
+                    .get(u)
+                    .map_or(String::new(), |x| x.label.clone());
+                let cell = format!("{}{}", crate::csv_tools::column_letters(c as usize), r + 1);
+                let shown = self
+                    .doc()
+                    .grid_cells(u, r..r + 1, c..c + 1)
+                    .first()
+                    .map(|x| x.2.text.clone())
+                    .unwrap_or_default();
+                let input = self.doc().cell_input(u, r, c);
+                let formula = if input.starts_with('=') {
+                    format!("  {input}")
+                } else {
+                    String::new()
+                };
+                format!("{name}!{cell} = {shown}{formula}")
+            })
+            .collect()
+    }
+
+    /// How the sheet shown is protected, when it is.
+    pub fn sheet_protection(&mut self) -> Option<kalem_viewer::SheetProtection> {
+        self.doc().sheet_protection(self.unit)
+    }
+
+    /// Whether the cursor's cell cannot be edited: locked on a protected
+    /// sheet.
+    pub fn cursor_locked(&mut self) -> bool {
+        self.sheet_protection().is_some() && !self.cursor_cell().unlocked
+    }
+
+    /// Protect Sheet (`Some`) or Unprotect Sheet (`None`).
+    pub fn protect_sheet(
+        &mut self,
+        protection: Option<kalem_viewer::SheetProtection>,
+        password: Option<&str>,
+    ) -> Result<(), String> {
+        self.doc()
+            .protect_sheet(self.unit, protection, password)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Protect Workbook (its structure), or not.
+    pub fn protect_workbook(&mut self, on: bool, password: Option<&str>) -> Result<(), String> {
+        self.doc()
+            .protect_workbook(on, password)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// How the sheet shown prints.
+    pub fn page_setup(&mut self) -> kalem_viewer::PageSetup {
+        self.doc().page_setup(self.unit).unwrap_or_default()
+    }
+
+    /// Sets how the sheet shown prints.
+    pub fn set_page_setup(&mut self, setup: &kalem_viewer::PageSetup) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc()
+            .set_page_setup(self.unit, setup)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Unit `unit` as it prints: `area`, else its print area, else its
+    /// used range; `None` for an empty sheet.
+    pub fn sheet_print(
+        &mut self,
+        unit: usize,
+        area: Option<[u32; 4]>,
+    ) -> Option<crate::sheet_print::SheetPrint> {
+        let shown = self.unit;
+        self.unit = unit;
+        let out = (|| {
+            let l = self.grid_layout()?;
+            let setup = self.doc().page_setup(unit).unwrap_or_default();
+            let used = (l.rows > 0 && l.cols > 0).then(|| [0, 0, l.rows - 1, l.cols - 1]);
+            let area = area.or(setup.print_area).or(used)?;
+            let columns: Vec<u32> = (area[1]..=area[3])
+                .filter(|c| !l.hidden_cols.contains(c))
+                .collect();
+            let widths = columns
+                .iter()
+                .map(|c| {
+                    l.widths
+                        .get(*c as usize)
+                        .copied()
+                        .unwrap_or(l.default_width)
+                })
+                .collect();
+            let mut rows = setup.title_rows.map_or(area[0], |t| t.0.min(area[0]))..area[2] + 1;
+            rows.start = rows.start.min(area[0]);
+            let cells = self
+                .grid_cells(rows, area[1]..area[3] + 1)
+                .into_iter()
+                .map(|(r, c, g)| ((r, c), g))
+                .collect();
+            let name = self.structure.units[unit]
+                .label
+                .trim_end_matches(" (hidden)")
+                .to_owned();
+            Some(crate::sheet_print::SheetPrint {
+                name,
+                area,
+                columns,
+                widths,
+                hidden_rows: l.hidden_rows,
+                cells,
+                merged: l.merged,
+                setup,
+            })
+        })();
+        self.unit = shown;
+        out
+    }
+
+    /// Format as Table: the selection, else the data around the cursor,
+    /// made a table in `style`; its name and range.
+    pub fn format_as_table(&mut self, style: &str) -> Result<String, String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (r, header) = self.table_target();
+        let name = self
+            .doc()
+            .create_table(self.unit, r, header, style)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(name)
+    }
+
+    /// The table the cursor is in.
+    pub fn table_at_cursor(&mut self) -> Option<kalem_viewer::TableInfo> {
+        let p = self.grid_pos();
+        self.doc().tables(self.unit).into_iter().find(|t| {
+            let r = t.range;
+            (r[0]..=r[2]).contains(&p.row) && (r[1]..=r[3]).contains(&p.col)
+        })
+    }
+
+    /// Total Row of the table at the cursor turned on or off.
+    pub fn toggle_total_row(&mut self) -> Result<(), String> {
+        let t = self.table_at_cursor().ok_or("The cursor is in no table")?;
+        self.doc()
+            .set_table_totals(self.unit, &t.name, !t.totals)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Convert to Range: the table at the cursor made cells again.
+    pub fn convert_to_range(&mut self) -> Result<(), String> {
+        let t = self.table_at_cursor().ok_or("The cursor is in no table")?;
+        self.doc()
+            .remove_table(self.unit, &t.name)
             .map_err(|e| e.to_string())?;
         self.refresh();
         Ok(())
@@ -2735,12 +3170,16 @@ impl ViewerState {
         if !self.grid_editable() {
             return Err("This file is shown, not edited".into());
         }
-        let s = self.selection();
-        self.doc()
-            .change_style(self.unit, s, change)
-            .map_err(|e| e.to_string())?;
+        let areas = self.selection_areas();
+        let unit = self.unit;
+        let r = self.in_batch(|d| {
+            for s in &areas {
+                d.change_style(unit, *s, change.clone())?;
+            }
+            Ok(())
+        });
         self.refresh();
-        Ok(())
+        r
     }
 
     /// Which cells along a line hold something: rows `a..b` of column
@@ -3573,9 +4012,278 @@ impl ViewerState {
         if !self.grid_editable() {
             return Err("This file is shown, not edited".into());
         }
+        let areas = self.selection_areas();
+        let unit = self.unit;
+        let r = self.in_batch(|d| {
+            for s in &areas {
+                d.enter_in_range(unit, *s, (row, col), input)?;
+            }
+            Ok(())
+        });
+        self.refresh();
+        r
+    }
+
+    /// Go To Special: the cells of a kind (`blanks`, `constants`,
+    /// `formulas`, `errors`, `visible`, `notes`, `conditional`,
+    /// `validation`) in the selection, or the used range when it is one
+    /// cell, selected together; how many cells in how many ranges.
+    pub fn go_to_special(&mut self, kind: &str) -> Result<(usize, usize), String> {
+        const ERRORS: [&str; 8] = [
+            "#DIV/0!", "#VALUE!", "#REF!", "#NAME?", "#N/A", "#NUM!", "#NULL!", "#SPILL!",
+        ];
+        let l = self.grid_layout().ok_or("Not a sheet")?;
+        if kind == "last" {
+            self.grid_move_to(l.rows.saturating_sub(1), l.cols.saturating_sub(1));
+            return Ok((1, 1));
+        }
         let s = self.selection();
+        let scope = if (s[0], s[1]) == (s[2], s[3]) {
+            [0, 0, l.rows.saturating_sub(1), l.cols.saturating_sub(1)]
+        } else {
+            s
+        };
+        let mut cells: Vec<(u32, u32)> = Vec::new();
+        match kind {
+            "visible" => {
+                for r in scope[0]..=scope[2] {
+                    if l.hidden_rows.contains(&r) {
+                        continue;
+                    }
+                    for c in scope[1]..=scope[3] {
+                        if !l.hidden_cols.contains(&c) {
+                            cells.push((r, c));
+                        }
+                    }
+                }
+            }
+            "conditional" => {
+                for m in self.doc().conditional_ranges(self.unit) {
+                    for r in m[0].max(scope[0])..=m[2].min(scope[2]) {
+                        for c in m[1].max(scope[1])..=m[3].min(scope[3]) {
+                            cells.push((r, c));
+                        }
+                    }
+                }
+            }
+            _ => {
+                let got: std::collections::HashMap<(u32, u32), GridCell> = self
+                    .grid_cells(scope[0]..scope[2] + 1, scope[1]..scope[3] + 1)
+                    .into_iter()
+                    .map(|(r, c, g)| ((r, c), g))
+                    .collect();
+                for r in scope[0]..=scope[2] {
+                    for c in scope[1]..=scope[3] {
+                        let g = got.get(&(r, c));
+                        let filled = g.is_some_and(|g| !g.text.is_empty() || g.formula);
+                        let take = match kind {
+                            "blanks" => !filled,
+                            "constants" => filled && g.is_some_and(|g| !g.formula),
+                            "formulas" => g.is_some_and(|g| g.formula),
+                            "errors" => g.is_some_and(|g| ERRORS.contains(&g.text.as_str())),
+                            "notes" => g.is_some_and(|g| g.note),
+                            "validation" => self.doc().validation(self.unit, r, c).is_some(),
+                            _ => false,
+                        };
+                        if take {
+                            cells.push((r, c));
+                        }
+                    }
+                }
+            }
+        }
+        if cells.is_empty() {
+            return Err("No cells were found".into());
+        }
+        cells.sort_unstable();
+        cells.dedup();
+        let areas = areas_of(&cells);
+        let n = (cells.len(), areas.len());
+        let first = cells[0];
+        self.grid_move_to(first.0, first.1);
+        self.areas = areas;
+        Ok(n)
+    }
+
+    /// The sheet shown's pictures and shapes.
+    pub fn drawings(&mut self) -> Vec<kalem_viewer::Drawing> {
+        let key = (self.unit, self.generation);
+        if let Some((k, d)) = &self.drawings_cache
+            && *k == key
+        {
+            return d.clone();
+        }
+        let d = self.doc().drawings(self.unit);
+        self.drawings_cache = Some((key, d.clone()));
+        d
+    }
+
+    /// A picture decoded for drawing (by its place among the drawings).
+    pub fn drawing_bitmap(&mut self, index: usize) -> Option<Bitmap> {
+        let key = (self.unit, index, self.generation);
+        if let Some(b) = self.pictures.get(&key) {
+            return b.clone();
+        }
+        let b = self
+            .doc()
+            .drawing_image(self.unit, index)
+            .and_then(|bytes| image::load_from_memory(&bytes).ok())
+            .map(|img| {
+                let img = img.thumbnail(1600, 1600).to_rgba8();
+                Bitmap::new(img.width(), img.height(), img.into_raw())
+            });
+        self.pictures.insert(key, b.clone());
+        b
+    }
+
+    /// The picture or shape over the cursor's cell (the topmost).
+    pub fn drawing_at_cursor(&mut self) -> Option<(usize, kalem_viewer::Drawing)> {
+        let p = self.grid_pos();
+        self.drawings()
+            .into_iter()
+            .enumerate()
+            .rev()
+            .find(|(_, d)| {
+                let a = d.anchor;
+                (a[0]..=a[2]).contains(&p.row) && (a[1]..=a[3]).contains(&p.col)
+            })
+    }
+
+    /// Insert Picture: the image file put over cells from the cursor's,
+    /// as many as its size takes (twenty columns and forty rows at most).
+    pub fn insert_picture(&mut self, path: &std::path::Path) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+        let ext = path
+            .extension()
+            .map_or(String::new(), |e| e.to_string_lossy().to_lowercase());
+        let img = image::load_from_memory(&bytes).map_err(|e| format!("Not a picture: {e}"))?;
+        let l = self.grid_layout().ok_or("Not a sheet")?;
+        let p = self.grid_pos();
+        // Columns of the default width (`7 × width + 5` pixels), rows of
+        // the default height (four thirds of its points).
+        let col_px = l.default_width * 7.0 + 5.0;
+        let row_px = l.default_height * 4.0 / 3.0;
+        let cols = ((img.width() as f32 / col_px).ceil() as u32).clamp(1, 20);
+        let rows = ((img.height() as f32 / row_px).ceil() as u32).clamp(1, 40);
+        let anchor = [p.row, p.col, p.row + rows - 1, p.col + cols - 1];
         self.doc()
-            .enter_in_range(self.unit, s, (row, col), input)
+            .insert_picture(self.unit, anchor, &bytes, &ext)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Insert Shape or Text Box at the cursor: three columns by four rows.
+    pub fn insert_shape(&mut self, preset: &str, text: &str, text_box: bool) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let p = self.grid_pos();
+        let anchor = [p.row, p.col, p.row + 3, p.col + 2];
+        self.doc()
+            .insert_shape(self.unit, anchor, preset, text, text_box)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Where Insert Sparklines puts them by default: the column right of
+    /// the selection, one a row (one cell for a single row).
+    pub fn sparkline_place(&mut self) -> [u32; 4] {
+        let s = self.selection();
+        [s[0], s[3] + 1, s[2], s[3] + 1]
+    }
+
+    /// Insert Sparklines: the selection's rows (or columns) drawn as
+    /// sparklines in `location`'s cells, one each.
+    pub fn insert_sparklines(
+        &mut self,
+        kind: kalem_viewer::SparklineKind,
+        location: [u32; 4],
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let data = self.selection();
+        // A line marks its highest and lowest points.
+        let mark = kind == kalem_viewer::SparklineKind::Line;
+        self.doc()
+            .add_sparklines(self.unit, data, location, kind, mark)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Clear Sparklines: those in the selected cells.
+    pub fn clear_sparklines(&mut self) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let range = self.selection();
+        self.doc()
+            .clear_sparklines(self.unit, range)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The picture or shape at the cursor moved (`grow` off) or made larger
+    /// or smaller by rows and columns; the cursor goes with a moved one.
+    pub fn nudge_drawing(&mut self, rows: i64, cols: i64, grow: bool) -> Result<(), String> {
+        let (i, d) = self
+            .drawing_at_cursor()
+            .ok_or("No picture or shape at the cursor")?;
+        let a = d.anchor;
+        let at = |v: u32, by: i64| (i64::from(v) + by).max(0) as u32;
+        let anchor = if grow {
+            [
+                a[0],
+                a[1],
+                at(a[2], rows).max(a[0]),
+                at(a[3], cols).max(a[1]),
+            ]
+        } else {
+            if (rows < 0 && a[0] == 0) || (cols < 0 && a[1] == 0) {
+                return Ok(());
+            }
+            [
+                at(a[0], rows),
+                at(a[1], cols),
+                at(a[2], rows),
+                at(a[3], cols),
+            ]
+        };
+        self.doc()
+            .move_drawing(self.unit, i, anchor)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        if !grow {
+            let p = self.grid_pos();
+            self.grid_move_to(at(p.row, rows), at(p.col, cols));
+        }
+        Ok(())
+    }
+
+    /// The shape at the cursor given new text.
+    pub fn set_shape_text(&mut self, text: &str) -> Result<(), String> {
+        let (i, _) = self.drawing_at_cursor().ok_or("No shape at the cursor")?;
+        self.doc()
+            .set_shape_text(self.unit, i, text)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The picture or shape at the cursor deleted.
+    pub fn delete_drawing(&mut self) -> Result<(), String> {
+        let (i, _) = self
+            .drawing_at_cursor()
+            .ok_or("No picture or shape at the cursor")?;
+        self.doc()
+            .delete_drawing(self.unit, i)
             .map_err(|e| e.to_string())?;
         self.refresh();
         Ok(())
@@ -3661,12 +4369,37 @@ impl ViewerState {
         if !self.grid_editable() {
             return Err("This file is shown, not edited".into());
         }
-        let s = self.selection();
-        self.doc()
-            .clear_cells(self.unit, s)
-            .map_err(|e| e.to_string())?;
+        let areas = self.selection_areas();
+        let unit = self.unit;
+        let r = self.in_batch(|d| {
+            for s in &areas {
+                d.clear_cells(unit, *s)?;
+            }
+            Ok(())
+        });
         self.refresh();
-        Ok(())
+        r
+    }
+
+    /// The ranges selected: Go To Special's several, else the selection.
+    pub fn selection_areas(&mut self) -> Vec<[u32; 4]> {
+        if self.areas.is_empty() {
+            vec![self.selection()]
+        } else {
+            self.areas.clone()
+        }
+    }
+
+    /// Edits of the document as one undo step.
+    fn in_batch(
+        &mut self,
+        f: impl FnOnce(&mut dyn ViewerDocument) -> kalem_viewer::Result<()>,
+    ) -> Result<(), String> {
+        let mut d = self.doc();
+        d.begin_batch();
+        let r = f(&mut **d);
+        d.end_batch();
+        r.map_err(|e| e.to_string())
     }
 
     /// The selection as tab-separated text, rows on lines, as spreadsheets
@@ -4678,6 +5411,12 @@ fn ask_cell(ctx: &mut EditorContext<'_>, start: Option<&str>) -> CommandResult {
     };
     if !v.grid_editable() {
         ctx.messages.push("This file is shown, not edited".into());
+        return Ok(());
+    }
+    // A locked cell of a protected sheet is not edited.
+    if v.cursor_locked() {
+        ctx.messages
+            .push("The cell is on a protected sheet: unprotect the sheet to change it".into());
         return Ok(());
     }
     let p = v.grid_pos();
@@ -7277,6 +8016,879 @@ fn filter_by_color(ctx: &mut EditorContext<'_>) -> CommandResult {
     })
 }
 
+/// Format as Table (Ctrl+T): a style from the menu, then the table.
+fn format_as_table(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.formatAsTable";
+    let Some(style) = args.get("style").and_then(|s| s.as_str()) else {
+        let styles = [
+            ("TableStyleMedium2", "Blue"),
+            ("TableStyleMedium3", "Orange"),
+            ("TableStyleMedium4", "Gray"),
+            ("TableStyleMedium5", "Gold"),
+            ("TableStyleMedium6", "Light Blue"),
+            ("TableStyleMedium7", "Green"),
+        ];
+        let items = styles
+            .iter()
+            .map(|(s, t)| menu_item(ID, serde_json::json!({ "style": s }), t, "Table Style"))
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    let style = style.to_owned();
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    match v.format_as_table(&style) {
+        Ok(name) => ctx.messages.push(format!("{name} made")),
+        Err(e) => ctx.messages.push(e),
+    }
+    Ok(())
+}
+
+/// Cell Styles: Excel's built-in styles, applied as their formats.
+fn cell_style(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::{BorderSet, StyleChange};
+    const ID: &str = "viewer.grid.cellStyle";
+    let styles = [
+        ("normal", "Normal"),
+        ("good", "Good"),
+        ("bad", "Bad"),
+        ("neutral", "Neutral"),
+        ("heading1", "Heading 1"),
+        ("heading2", "Heading 2"),
+        ("heading3", "Heading 3"),
+        ("heading4", "Heading 4"),
+        ("title", "Title"),
+        ("total", "Total"),
+        ("comma", "Comma"),
+        ("currency", "Currency"),
+        ("percent", "Percent"),
+    ];
+    let Some(name) = args.get("style").and_then(|x| x.as_str()) else {
+        let items = styles
+            .iter()
+            .map(|(k, t)| menu_item(ID, serde_json::json!({ "style": k }), t, "Cell Styles"))
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    let dark = Some([0x44, 0x54, 0x6A]);
+    let fill_font = |fill: [u8; 3], font: [u8; 3]| StyleChange {
+        fill: Some(Some(fill)),
+        color: Some(Some(font)),
+        ..StyleChange::default()
+    };
+    let heading = |size: f32, line: Option<[u8; 3]>| StyleChange {
+        bold: Some(true),
+        size: Some(size),
+        color: Some(dark),
+        borders: line.map(|c| (BorderSet::Bottom, Some(c))),
+        ..StyleChange::default()
+    };
+    let change = match name {
+        "normal" => return with(ctx, |v| v.clear_formats(false)),
+        "good" => fill_font([0xC6, 0xEF, 0xCE], [0x00, 0x61, 0x00]),
+        "bad" => fill_font([0xFF, 0xC7, 0xCE], [0x9C, 0x00, 0x06]),
+        "neutral" => fill_font([0xFF, 0xEB, 0x9C], [0x9C, 0x57, 0x00]),
+        "heading1" => heading(15.0, Some([0x44, 0x72, 0xC4])),
+        "heading2" => heading(13.0, Some([0xA2, 0xB8, 0xE1])),
+        "heading3" => heading(11.0, Some([0x8E, 0xA9, 0xDB])),
+        "heading4" => heading(11.0, None),
+        "title" => StyleChange {
+            size: Some(18.0),
+            color: Some(dark),
+            face: Some("Calibri Light".into()),
+            ..StyleChange::default()
+        },
+        "total" => StyleChange {
+            bold: Some(true),
+            borders: Some((BorderSet::Top, Some([0x44, 0x72, 0xC4]))),
+            ..StyleChange::default()
+        },
+        "comma" => StyleChange {
+            number_format: Some("#,##0.00".into()),
+            ..StyleChange::default()
+        },
+        "currency" => StyleChange {
+            number_format: Some("#,##0.00 \"₺\"".into()),
+            ..StyleChange::default()
+        },
+        "percent" => StyleChange {
+            number_format: Some("0%".into()),
+            ..StyleChange::default()
+        },
+        other => {
+            ctx.messages.push(format!("No such style: {other}"));
+            return Ok(());
+        }
+    };
+    with(ctx, |v| v.change_style(change))
+}
+
+/// Increase (`by` 1) or Decrease (-1) Indent of the selection, from the
+/// cursor's cell's indent.
+fn step_indent(ctx: &mut EditorContext<'_>, by: i32) -> CommandResult {
+    with(ctx, |v| {
+        let now = i32::from(v.cursor_cell().indent);
+        let n = (now + by).clamp(0, 15) as u8;
+        v.change_style(kalem_viewer::StyleChange {
+            indent: Some(n),
+            ..kalem_viewer::StyleChange::default()
+        })
+    })
+}
+
+/// Orientation: the text's angle, from Excel's menu.
+fn text_rotation(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.textRotation";
+    let Some(r) = args.get("rotation").and_then(serde_json::Value::as_u64) else {
+        let item =
+            |r: u16, t: &str| menu_item(ID, serde_json::json!({ "rotation": r }), t, "Orientation");
+        ctx.requests.push(Request::Choose(vec![
+            item(45, "Angle Counterclockwise"),
+            item(135, "Angle Clockwise"),
+            item(255, "Vertical Text"),
+            item(90, "Rotate Text Up"),
+            item(180, "Rotate Text Down"),
+            item(0, "Horizontal"),
+        ]));
+        return Ok(());
+    };
+    with(ctx, |v| {
+        v.change_style(kalem_viewer::StyleChange {
+            rotation: Some(r as u16),
+            ..kalem_viewer::StyleChange::default()
+        })
+    })
+}
+
+/// A toggle of the cursor's cell (Shrink to Fit, Center Across Selection)
+/// given to the selection.
+fn toggle_alignment(ctx: &mut EditorContext<'_>, which: &str) -> CommandResult {
+    with(ctx, |v| {
+        let c = v.cursor_cell();
+        let change = if which == "shrink" {
+            kalem_viewer::StyleChange {
+                shrink: Some(!c.shrink),
+                ..kalem_viewer::StyleChange::default()
+            }
+        } else {
+            kalem_viewer::StyleChange {
+                center_across: Some(!c.center_across),
+                ..kalem_viewer::StyleChange::default()
+            }
+        };
+        v.change_style(change)
+    })
+}
+
+/// Go To Special (Ctrl+G is the palette: `g s`): the kinds of cell, then
+/// those cells selected together.
+fn go_to_special(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.goToSpecial";
+    let Some(kind) = args.get("kind").and_then(|k| k.as_str()) else {
+        let item =
+            |k: &str, t: &str| menu_item(ID, serde_json::json!({ "kind": k }), t, "Go To Special");
+        ctx.requests.push(Request::Choose(vec![
+            item("blanks", "Blanks"),
+            item("constants", "Constants"),
+            item("formulas", "Formulas"),
+            item("errors", "Errors"),
+            item("visible", "Visible Cells Only"),
+            item("last", "Last Cell"),
+            item("notes", "Notes"),
+            item("conditional", "Conditional Formats"),
+            item("validation", "Data Validation"),
+        ]));
+        return Ok(());
+    };
+    let kind = kind.to_owned();
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    match v.go_to_special(&kind) {
+        Ok((cells, areas)) if kind != "last" => ctx.messages.push(format!(
+            "{cells} cell{} in {areas} range{}",
+            if cells == 1 { "" } else { "s" },
+            if areas == 1 { "" } else { "s" }
+        )),
+        Ok(_) => {}
+        Err(e) => ctx.messages.push(e),
+    }
+    Ok(())
+}
+
+/// Insert Picture: a file chosen, then the picture over the cells from
+/// the cursor's.
+fn insert_picture(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    let Some(path) = text_arg(args, "path") else {
+        ctx.requests.push(Request::PickFile {
+            command: "viewer.grid.insertPicture".into(),
+            arg: "path".into(),
+            args: serde_json::json!({}),
+        });
+        return Ok(());
+    };
+    let Some(doc) = ctx.document.as_deref_mut() else {
+        return Ok(());
+    };
+    let mut file = std::path::PathBuf::from(crate::settings::expand_home(&path));
+    if file.is_relative()
+        && let Some(dir) = doc.meta.path.as_ref().and_then(|p| p.parent())
+    {
+        file = dir.join(file);
+    }
+    with(ctx, |v| v.insert_picture(&file))
+}
+
+/// Insert Shape: a shape (or a text box) from the menu, its text asked.
+fn insert_shape(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.insertShape";
+    let Some(shape) = args.get("shape").and_then(|x| x.as_str()) else {
+        let item =
+            |k: &str, t: &str| menu_item(ID, serde_json::json!({ "shape": k }), t, "Insert Shape");
+        ctx.requests.push(Request::Choose(vec![
+            item("textBox", "Text Box"),
+            item("rect", "Rectangle"),
+            item("roundRect", "Rounded Rectangle"),
+            item("ellipse", "Oval"),
+            item("rightArrow", "Right Arrow"),
+        ]));
+        return Ok(());
+    };
+    let Some(text) = args
+        .get("value")
+        .and_then(|x| x.as_str())
+        .map(str::to_owned)
+    else {
+        return ask_more(ctx, ID, &serde_json::json!({ "shape": shape }), "value");
+    };
+    let shape = shape.to_owned();
+    with(ctx, |v| {
+        if shape == "textBox" {
+            v.insert_shape("rect", &text, true)
+        } else {
+            v.insert_shape(&shape, &text, false)
+        }
+    })
+}
+
+/// Insert Sparklines: line, column or win/loss from the menu, then the
+/// cells to draw them in (the column right of the selection offered).
+fn insert_sparklines(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::SparklineKind;
+    const ID: &str = "viewer.grid.insertSparklines";
+    let Some(kind) = args.get("kind").and_then(|x| x.as_str()) else {
+        let item = |k: &str, t: &str| {
+            menu_item(ID, serde_json::json!({ "kind": k }), t, "Insert Sparklines")
+        };
+        ctx.requests.push(Request::Choose(vec![
+            item("line", "Line"),
+            item("column", "Column"),
+            item("winLoss", "Win/Loss"),
+        ]));
+        return Ok(());
+    };
+    let kind = match kind {
+        "column" => SparklineKind::Column,
+        "winLoss" => SparklineKind::WinLoss,
+        _ => SparklineKind::Line,
+    };
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let name =
+        |r: u32, c: u32| format!("{}{}", crate::csv_tools::column_letters(c as usize), r + 1);
+    let Some(place) = text_arg(args, "value") else {
+        let p = v.sparkline_place();
+        let default = if p[0] == p[2] && p[1] == p[3] {
+            name(p[0], p[1])
+        } else {
+            format!("{}:{}", name(p[0], p[1]), name(p[2], p[3]))
+        };
+        return ask_more(
+            ctx,
+            ID,
+            &serde_json::json!({ "kind": args.get("kind"), "value_default": default }),
+            "value",
+        );
+    };
+    let cell = |t: &str| {
+        crate::csv_tools::parse_cell(&t.replace('$', "")).map(|(r, c)| (r as u32, c as u32))
+    };
+    let (a, b) = match place.split_once(':') {
+        Some((x, y)) => (cell(x), cell(y)),
+        None => (cell(&place), cell(&place)),
+    };
+    let (Some(a), Some(b)) = (a, b) else {
+        ctx.messages.push(format!("Not cells: {place}"));
+        return Ok(());
+    };
+    let location = [a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)];
+    with(ctx, |v| v.insert_sparklines(kind, location))
+}
+
+/// Edit Shape Text: the shape at the cursor's text asked, with what it has.
+fn edit_shape_text(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    match args.get("value").and_then(|x| x.as_str()) {
+        Some(t) => {
+            let t = t.to_owned();
+            with(ctx, |v| v.set_shape_text(&t))
+        }
+        None => {
+            let now = match v.drawing_at_cursor() {
+                Some((
+                    _,
+                    kalem_viewer::Drawing {
+                        kind: kalem_viewer::DrawingKind::Shape { text, .. },
+                        ..
+                    },
+                )) => text,
+                Some(_) => {
+                    ctx.messages.push("A picture has no text".into());
+                    return Ok(());
+                }
+                None => {
+                    ctx.messages.push("No shape at the cursor".into());
+                    return Ok(());
+                }
+            };
+            ask_more(
+                ctx,
+                "viewer.grid.editShapeText",
+                &serde_json::json!({ "value_default": now }),
+                "value",
+            )
+        }
+    }
+}
+
+/// Evaluate Formula (`z e`): the cursor's formula's steps, as a list.
+fn evaluate_formula(ctx: &mut EditorContext<'_>) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let steps = v.evaluation_steps();
+    if steps.is_empty() {
+        ctx.messages.push("The cell has no formula".into());
+        return Ok(());
+    }
+    let items = steps
+        .iter()
+        .enumerate()
+        .map(|(i, s)| {
+            menu_item(
+                "viewer.grid.cancel",
+                serde_json::json!({}),
+                &format!("{}. {s}", i + 1),
+                "Evaluate Formula",
+            )
+        })
+        .collect();
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
+/// Watch Window (`z w`): the watched cells with their values; Add Watch
+/// for the cursor's cell, a watched one gone to or removed.
+fn watch_window(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.watchWindow";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let num = |k: &str| {
+        args.get(k)
+            .and_then(serde_json::Value::as_u64)
+            .map(|x| x as usize)
+    };
+    match (args.get("do").and_then(|d| d.as_str()), num("i")) {
+        (Some("add"), _) => {
+            let p = v.grid_pos();
+            let w = (v.unit, p.row, p.col);
+            if !v.watches.contains(&w) {
+                v.watches.push(w);
+            }
+        }
+        (Some("go"), Some(i)) => {
+            if let Some(&(u, r, c)) = v.watches.get(i) {
+                v.go_to(u);
+                v.grid_move_to(r, c);
+            }
+            return Ok(());
+        }
+        (Some("remove"), Some(i)) if i < v.watches.len() => {
+            v.watches.remove(i);
+        }
+        _ => {}
+    }
+    let mut items = vec![menu_item(
+        ID,
+        serde_json::json!({ "do": "add" }),
+        "Add Watch (the cursor's cell)",
+        "Watch Window",
+    )];
+    for (i, line) in v.watch_lines().into_iter().enumerate() {
+        items.push(menu_item(
+            ID,
+            serde_json::json!({ "do": "go", "i": i }),
+            &line,
+            "Watch Window",
+        ));
+        items.push(menu_item(
+            ID,
+            serde_json::json!({ "do": "remove", "i": i }),
+            &format!(
+                "Delete Watch: {}",
+                line.split(" = ").next().unwrap_or_default()
+            ),
+            "Watch Window",
+        ));
+    }
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
+/// Protect Sheet (`z k`): a password asked (none when left empty), then
+/// what the protected sheet still allows; on a protected sheet, Unprotect
+/// Sheet, its password asked when it has one.
+fn protect_sheet(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::SheetProtection;
+    const ID: &str = "viewer.grid.protectSheet";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let password = args
+        .get("password")
+        .and_then(|p| p.as_str())
+        .map(str::to_owned);
+    if let Some(now) = v.sheet_protection() {
+        if now.has_password && password.is_none() {
+            return ask_more(ctx, ID, &serde_json::json!({}), "password");
+        }
+        return with(ctx, |v| v.protect_sheet(None, password.as_deref()));
+    }
+    let Some(password) = password else {
+        return ask_more(ctx, ID, &serde_json::json!({}), "password");
+    };
+    let Some(allow) = args.get("allow").and_then(|a| a.as_str()) else {
+        let item = |a: &str, t: &str| {
+            menu_item(
+                ID,
+                serde_json::json!({ "password": password, "allow": a }),
+                t,
+                "Protect Sheet",
+            )
+        };
+        ctx.requests.push(Request::Choose(vec![
+            item("none", "Protect: select cells only"),
+            item(
+                "format",
+                "Protect, allowing formatting cells, columns and rows",
+            ),
+            item("sortFilter", "Protect, allowing sorting and filtering"),
+            item("rows", "Protect, allowing inserting and deleting rows"),
+        ]));
+        return Ok(());
+    };
+    let mut p = SheetProtection::default();
+    match allow {
+        "format" => {
+            p.format_cells = true;
+            p.format_columns = true;
+            p.format_rows = true;
+        }
+        "sortFilter" => {
+            p.sort = true;
+            p.filter = true;
+        }
+        "rows" => {
+            p.insert_rows = true;
+            p.delete_rows = true;
+        }
+        _ => {}
+    }
+    let pw = (!password.is_empty()).then_some(password);
+    with(ctx, |v| v.protect_sheet(Some(p), pw.as_deref()))
+}
+
+/// Protect Workbook (`z K`): its structure, with a password asked; again
+/// to unprotect it.
+fn protect_workbook(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.protectWorkbook";
+    let Some(password) = args
+        .get("password")
+        .and_then(|p| p.as_str())
+        .map(str::to_owned)
+    else {
+        return ask_more(ctx, ID, &serde_json::json!({}), "password");
+    };
+    with(ctx, |v| {
+        let on = !v.doc().workbook_protected();
+        let pw = (!password.is_empty()).then_some(password.as_str());
+        v.protect_workbook(on, pw)
+    })
+}
+
+/// Subtotal: at each change in a column, a function, added to a column,
+/// each chosen from a menu.
+fn subtotal(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.subtotal";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let columns = v.sort_columns();
+    let num = |k: &str| args.get(k).and_then(serde_json::Value::as_u64);
+    let item = |a: serde_json::Value, t: &str, c: &str| menu_item(ID, a, t, c);
+    match (num("by"), num("function"), num("col")) {
+        (None, _, _) => {
+            let items = columns
+                .iter()
+                .map(|(c, n)| item(serde_json::json!({ "by": c }), n, "At Each Change In"))
+                .collect();
+            ctx.requests.push(Request::Choose(items));
+        }
+        (Some(by), None, _) => {
+            let f = |code: u32, t: &str| {
+                item(
+                    serde_json::json!({ "by": by, "function": code }),
+                    t,
+                    "Use Function",
+                )
+            };
+            ctx.requests.push(Request::Choose(vec![
+                f(9, "Sum"),
+                f(2, "Count"),
+                f(1, "Average"),
+                f(4, "Max"),
+                f(5, "Min"),
+            ]));
+        }
+        (Some(by), Some(f), None) => {
+            let items = columns
+                .iter()
+                .filter(|(c, _)| u64::from(*c) != by)
+                .map(|(c, n)| {
+                    item(
+                        serde_json::json!({ "by": by, "function": f, "col": c }),
+                        n,
+                        "Add Subtotal To",
+                    )
+                })
+                .collect();
+            ctx.requests.push(Request::Choose(items));
+        }
+        (Some(by), Some(f), Some(col)) => {
+            return with(ctx, |v| v.subtotal(by as u32, f as u32, &[col as u32]));
+        }
+    }
+    Ok(())
+}
+
+/// Page Setup (`z p`): orientation, paper, margins, fitting one page wide,
+/// the print area, the rows printed on every page, the header and the
+/// footer, page breaks.
+fn page_setup(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.pageSetup";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let mut s = v.page_setup();
+    let sel = v.selection();
+    let row = v.grid_pos().row;
+    let what = args.get("what").and_then(|w| w.as_str()).unwrap_or("");
+    let value = args
+        .get("value")
+        .and_then(|x| x.as_str())
+        .map(str::to_owned);
+    let item = |what: &str, title: &str| {
+        menu_item(ID, serde_json::json!({ "what": what }), title, "Page Setup")
+    };
+    let choice = |what: &str, value: &str, title: &str| {
+        menu_item(
+            ID,
+            serde_json::json!({ "what": what, "value": value }),
+            title,
+            "Page Setup",
+        )
+    };
+    match what {
+        "" => {
+            let on = |b: bool| if b { "on" } else { "off" };
+            let items = vec![
+                item(
+                    "orientation",
+                    if s.landscape {
+                        "Orientation: Landscape"
+                    } else {
+                        "Orientation: Portrait"
+                    },
+                ),
+                item("paper", "Paper Size…"),
+                item("margins", "Margins…"),
+                item("fit", &format!("Fit to One Page Wide: {}", on(s.fit_width))),
+                item("area", "Set Print Area (the selection)"),
+                item("clearArea", "Clear Print Area"),
+                item(
+                    "titles",
+                    "Print Titles (the selection's rows on every page)",
+                ),
+                item("clearTitles", "Clear Print Titles"),
+                item("header", "Header…"),
+                item("footer", "Footer…"),
+                item("break", "Insert Page Break (above the cursor's row)"),
+                item("unbreak", "Remove Page Break"),
+                item("resetBreaks", "Reset All Page Breaks"),
+            ];
+            ctx.requests.push(Request::Choose(items));
+            return Ok(());
+        }
+        "orientation" => s.landscape = !s.landscape,
+        "paper" => match value.as_deref().and_then(|v| v.parse().ok()) {
+            Some(code) => s.paper = code,
+            None => {
+                ctx.requests.push(Request::Choose(vec![
+                    choice("paper", "9", "A4"),
+                    choice("paper", "1", "Letter"),
+                    choice("paper", "5", "Legal"),
+                    choice("paper", "8", "A3"),
+                ]));
+                return Ok(());
+            }
+        },
+        "margins" => match value.as_deref() {
+            Some("normal") => s.margins = [0.7, 0.7, 0.75, 0.75],
+            Some("wide") => s.margins = [1.0, 1.0, 1.0, 1.0],
+            Some("narrow") => s.margins = [0.25, 0.25, 0.75, 0.75],
+            _ => {
+                ctx.requests.push(Request::Choose(vec![
+                    choice("margins", "normal", "Normal"),
+                    choice("margins", "wide", "Wide"),
+                    choice("margins", "narrow", "Narrow"),
+                ]));
+                return Ok(());
+            }
+        },
+        "fit" => s.fit_width = !s.fit_width,
+        "area" => s.print_area = Some(sel),
+        "clearArea" => s.print_area = None,
+        "titles" => s.title_rows = Some((sel[0], sel[2])),
+        "clearTitles" => s.title_rows = None,
+        "header" | "footer" => match value {
+            Some(text) => {
+                if what == "header" {
+                    s.header = text;
+                } else {
+                    s.footer = text;
+                }
+            }
+            None => {
+                let now = if what == "header" {
+                    &s.header
+                } else {
+                    &s.footer
+                };
+                return ask_more(
+                    ctx,
+                    ID,
+                    &serde_json::json!({ "what": what, "value_default": now }),
+                    "value",
+                );
+            }
+        },
+        "break" => {
+            if row > 0 && !s.row_breaks.contains(&row) {
+                s.row_breaks.push(row);
+            }
+        }
+        "unbreak" => s.row_breaks.retain(|r| *r != row),
+        "resetBreaks" => s.row_breaks.clear(),
+        _ => return Ok(()),
+    }
+    with(ctx, |v| v.set_page_setup(&s))
+}
+
+/// Print Preview, Export to PDF and Print: the sheet shown (or the
+/// selection, or every visible sheet of the workbook) as LaTeX, compiled
+/// with LuaLaTeX in the background; then shown in Kalem, written beside
+/// the workbook, or handed to the system's print dialog.
+fn sheet_pdf(ctx: &mut EditorContext<'_>, args: &serde_json::Value, mode: &str) -> CommandResult {
+    const EXPORT: &str = "viewer.grid.exportPdf";
+    let Some(doc) = ctx.document.as_deref_mut() else {
+        return Ok(());
+    };
+    let book = doc.meta.path.clone();
+    let Some(v) = doc.viewer.as_deref_mut() else {
+        return Ok(());
+    };
+    let scope = args.get("scope").and_then(|x| x.as_str());
+    if mode == "export" && scope.is_none() {
+        let item = |s: &str, t: &str| {
+            menu_item(
+                EXPORT,
+                serde_json::json!({ "scope": s }),
+                t,
+                "Export to PDF",
+            )
+        };
+        ctx.requests.push(Request::Choose(vec![
+            item("sheet", "Active Sheet"),
+            item("selection", "Selection"),
+            item("workbook", "Entire Workbook"),
+        ]));
+        return Ok(());
+    }
+    let sheets: Vec<crate::sheet_print::SheetPrint> = match scope.unwrap_or("sheet") {
+        "workbook" => {
+            let hidden = v.hidden_units();
+            let units: Vec<usize> = (0..v.structure().units.len())
+                .filter(|u| !hidden.contains(u) && v.is_grid_unit(*u))
+                .collect();
+            units
+                .into_iter()
+                .filter_map(|u| v.sheet_print(u, None))
+                .collect()
+        }
+        "selection" => {
+            let sel = v.selection();
+            let unit = v.unit;
+            v.sheet_print(unit, Some(sel)).into_iter().collect()
+        }
+        _ => {
+            let unit = v.unit;
+            v.sheet_print(unit, None).into_iter().collect()
+        }
+    };
+    if sheets.is_empty() {
+        ctx.messages
+            .push("Nothing to print: the sheet is empty".into());
+        return Ok(());
+    }
+    let file = book
+        .as_ref()
+        .and_then(|p| p.file_name())
+        .map_or(String::new(), |f| f.to_string_lossy().into_owned());
+    let now = jiff::Zoned::now().datetime();
+    let date = format!("{:02}.{:02}.{:04}", now.day(), now.month(), now.year());
+    let time = format!("{:02}:{:02}", now.hour(), now.minute());
+    let tex = crate::sheet_print::document(&sheets, &file, &date, &time);
+    let tool = crate::pdf::detect(crate::pdf::Engine::LuaLatex, &crate::pdf::tex_search_path())
+        .ok_or_else(|| crate::command::CommandError::new(crate::l10n::tr("msg-no-latex")))?;
+    let dir = std::env::temp_dir().join(format!(
+        "kalem-print-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_nanos())
+    ));
+    std::fs::create_dir_all(&dir).map_err(|e| crate::command::CommandError::new(e.to_string()))?;
+    let stem = book
+        .as_ref()
+        .and_then(|p| p.file_stem())
+        .map_or("Book".into(), |s| s.to_string_lossy().into_owned());
+    let name = match scope {
+        Some("workbook") => stem.clone(),
+        _ => format!("{stem} - {}", sheets[0].name),
+    };
+    let tex_path = dir.join(format!("{}.tex", name.replace(['/', '\\'], "-")));
+    std::fs::write(&tex_path, tex).map_err(|e| crate::command::CommandError::new(e.to_string()))?;
+    let target = book
+        .as_ref()
+        .and_then(|p| p.parent())
+        .map(|d| d.join(format!("{name}.pdf")));
+    let mode = mode.to_owned();
+    ctx.messages.push(crate::l10n::tr("msg-compiling-pdf"));
+    crate::jobs::spawn(crate::l10n::tr("msg-compiling-pdf"), move || {
+        let failed = |message: String| crate::jobs::Finished {
+            message,
+            error: true,
+            open: None,
+        };
+        // Twice: the second run knows the number of pages.
+        let _ = crate::pdf::compile(&tool, crate::pdf::Engine::LuaLatex, &tex_path);
+        let compiled = match crate::pdf::compile(&tool, crate::pdf::Engine::LuaLatex, &tex_path) {
+            Ok(c) => c,
+            Err(e) => return failed(format!("The PDF was not made: {e}")),
+        };
+        let Some(pdf) = compiled.pdf else {
+            let first = compiled
+                .problems
+                .iter()
+                .find(|p| p.error)
+                .map_or(String::new(), |p| p.message.clone());
+            return failed(format!("The PDF was not made: {first}"));
+        };
+        match mode.as_str() {
+            "export" => {
+                let Some(target) = target else {
+                    return failed("Save the workbook first".into());
+                };
+                if let Err(e) = std::fs::copy(&pdf, &target) {
+                    return failed(e.to_string());
+                }
+                crate::jobs::Finished {
+                    message: format!("Saved as {}", target.display()),
+                    error: false,
+                    open: None,
+                }
+            }
+            "print" => crate::jobs::Finished {
+                message: "Printing".into(),
+                error: false,
+                open: Some(crate::input::LinkAction::Print(pdf)),
+            },
+            _ => crate::jobs::Finished {
+                message: String::new(),
+                error: false,
+                open: Some(crate::input::LinkAction::File {
+                    path: pdf.display().to_string(),
+                    search: None,
+                }),
+            },
+        }
+    });
+    Ok(())
+}
+
 /// Format Painter (`t p`): pressed once it takes the selection's format,
 /// again it paints it over the selection then chosen.
 fn format_painter(ctx: &mut EditorContext<'_>) -> CommandResult {
@@ -8415,6 +10027,31 @@ fn grid_width(ctx: &mut EditorContext<'_>, by: f32) -> CommandResult {
     })
 }
 
+/// Cells (sorted by row, then column) as few ranges: runs along each row,
+/// the same runs on rows after one another joined.
+pub fn areas_of(cells: &[(u32, u32)]) -> Vec<[u32; 4]> {
+    let mut runs: Vec<[u32; 4]> = Vec::new();
+    for &(r, c) in cells {
+        match runs.last_mut() {
+            Some(run) if run[0] == r && run[3] + 1 == c => run[3] = c,
+            _ => runs.push([r, c, r, c]),
+        }
+    }
+    let mut out: Vec<[u32; 4]> = Vec::new();
+    for run in runs {
+        // The same columns on the row right above: one taller range.
+        if let Some(a) = out
+            .iter_mut()
+            .find(|a| a[2] + 1 == run[0] && a[1] == run[1] && a[3] == run[3])
+        {
+            a[2] = run[0];
+        } else {
+            out.push(run);
+        }
+    }
+    out
+}
+
 /// Whether a prompt's answer is a cell's entry: where Ctrl+Enter enters
 /// it into every selected cell and AutoComplete offers the column's text.
 pub fn cell_entry_prompt(command: &str, arg: &str) -> bool {
@@ -8536,6 +10173,351 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.insertPicture",
+            "Insert Picture",
+            &["o p"],
+            IN_GRID,
+            insert_picture,
+        ),
+        cmd(
+            "viewer.grid.insertShape",
+            "Insert Shape",
+            &["o s"],
+            IN_GRID,
+            insert_shape,
+        ),
+        cmd(
+            "viewer.grid.editShapeText",
+            "Edit Shape Text",
+            &["o t"],
+            IN_GRID,
+            edit_shape_text,
+        ),
+        cmd(
+            "viewer.grid.deleteDrawing",
+            "Delete Picture or Shape",
+            &["o d"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.delete_drawing()),
+        ),
+        cmd(
+            "viewer.grid.moveDrawingUp",
+            "Move Picture Up",
+            &["o k"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_drawing(-1, 0, false)),
+        ),
+        cmd(
+            "viewer.grid.moveDrawingDown",
+            "Move Picture Down",
+            &["o j"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_drawing(1, 0, false)),
+        ),
+        cmd(
+            "viewer.grid.moveDrawingLeft",
+            "Move Picture Left",
+            &["o h"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_drawing(0, -1, false)),
+        ),
+        cmd(
+            "viewer.grid.moveDrawingRight",
+            "Move Picture Right",
+            &["o l"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_drawing(0, 1, false)),
+        ),
+        cmd(
+            "viewer.grid.drawingTaller",
+            "Picture Taller",
+            &["o shift+j"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_drawing(1, 0, true)),
+        ),
+        cmd(
+            "viewer.grid.drawingShorter",
+            "Picture Shorter",
+            &["o shift+k"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_drawing(-1, 0, true)),
+        ),
+        cmd(
+            "viewer.grid.drawingWider",
+            "Picture Wider",
+            &["o shift+l"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_drawing(0, 1, true)),
+        ),
+        cmd(
+            "viewer.grid.drawingNarrower",
+            "Picture Narrower",
+            &["o shift+h"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_drawing(0, -1, true)),
+        ),
+        cmd(
+            "viewer.grid.insertSparklines",
+            "Insert Sparklines",
+            &["p i"],
+            IN_GRID,
+            insert_sparklines,
+        ),
+        cmd(
+            "viewer.grid.clearSparklines",
+            "Clear Sparklines",
+            &["p shift+i"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.clear_sparklines()),
+        ),
+        cmd(
+            "viewer.grid.goToSpecial",
+            "Go To Special",
+            &["g s"],
+            IN_GRID,
+            go_to_special,
+        ),
+        cmd(
+            "viewer.grid.selectVisible",
+            "Select Visible Cells",
+            &["alt+;"],
+            IN_GRID,
+            |ctx, _| go_to_special(ctx, &serde_json::json!({ "kind": "visible" })),
+        ),
+        cmd(
+            "viewer.grid.tracePrecedents",
+            "Trace Precedents",
+            &["z ,"],
+            IN_GRID,
+            |ctx, _| {
+                let Some(v) = ctx
+                    .document
+                    .as_deref_mut()
+                    .and_then(|d| d.viewer.as_deref_mut())
+                else {
+                    return Ok(());
+                };
+                let n = v.trace_precedents();
+                ctx.messages.push(match n {
+                    0 => "The formula reads no cells of this sheet".into(),
+                    n => format!("{n} precedent{}", if n == 1 { "" } else { "s" }),
+                });
+                Ok(())
+            },
+        ),
+        cmd(
+            "viewer.grid.traceDependents",
+            "Trace Dependents",
+            &["z ."],
+            IN_GRID,
+            |ctx, _| {
+                let Some(v) = ctx
+                    .document
+                    .as_deref_mut()
+                    .and_then(|d| d.viewer.as_deref_mut())
+                else {
+                    return Ok(());
+                };
+                let n = v.trace_dependents();
+                ctx.messages.push(match n {
+                    0 => "No formula of this sheet reads the cell".into(),
+                    n => format!("{n} dependent{}", if n == 1 { "" } else { "s" }),
+                });
+                Ok(())
+            },
+        ),
+        cmd(
+            "viewer.grid.removeArrows",
+            "Remove Arrows",
+            &["z x"],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    v.arrows.clear();
+                    Ok(())
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.evaluateFormula",
+            "Evaluate Formula",
+            &["z e"],
+            IN_GRID,
+            |ctx, _| evaluate_formula(ctx),
+        ),
+        cmd(
+            "viewer.grid.errorChecking",
+            "Error Checking",
+            &["z n"],
+            IN_GRID,
+            |ctx, _| {
+                let Some(v) = ctx
+                    .document
+                    .as_deref_mut()
+                    .and_then(|d| d.viewer.as_deref_mut())
+                else {
+                    return Ok(());
+                };
+                let m = v
+                    .next_error()
+                    .unwrap_or_else(|| "No errors on this sheet".into());
+                ctx.messages.push(m);
+                Ok(())
+            },
+        ),
+        cmd(
+            "viewer.grid.watchWindow",
+            "Watch Window",
+            &["z w"],
+            IN_GRID,
+            watch_window,
+        ),
+        cmd(
+            "viewer.grid.lockCells",
+            "Lock Cell",
+            &["t shift+l"],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    let locked = !v.cursor_cell().unlocked;
+                    v.change_style(kalem_viewer::StyleChange {
+                        locked: Some(!locked),
+                        ..kalem_viewer::StyleChange::default()
+                    })
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.protectSheet",
+            "Protect Sheet",
+            &["z k"],
+            IN_GRID,
+            protect_sheet,
+        ),
+        cmd(
+            "viewer.grid.protectWorkbook",
+            "Protect Workbook",
+            &["z shift+k"],
+            IN_GRID,
+            protect_workbook,
+        ),
+        cmd(
+            "viewer.grid.cellStyle",
+            "Cell Styles",
+            &["t y"],
+            IN_GRID,
+            cell_style,
+        ),
+        cmd(
+            "viewer.grid.increaseIndent",
+            "Increase Indent",
+            &["ctrl+alt+tab", "t ]"],
+            IN_GRID,
+            |ctx, _| step_indent(ctx, 1),
+        ),
+        cmd(
+            "viewer.grid.decreaseIndent",
+            "Decrease Indent",
+            &["ctrl+alt+shift+tab", "t ["],
+            IN_GRID,
+            |ctx, _| step_indent(ctx, -1),
+        ),
+        cmd(
+            "viewer.grid.textRotation",
+            "Orientation",
+            &["t o"],
+            IN_GRID,
+            text_rotation,
+        ),
+        cmd(
+            "viewer.grid.shrinkToFit",
+            "Shrink to Fit",
+            &["t k"],
+            IN_GRID,
+            |ctx, _| toggle_alignment(ctx, "shrink"),
+        ),
+        cmd(
+            "viewer.grid.centerAcrossSelection",
+            "Center Across Selection",
+            &["t a"],
+            IN_GRID,
+            |ctx, _| toggle_alignment(ctx, "across"),
+        ),
+        cmd(
+            "viewer.grid.group",
+            "Group",
+            &["alt+shift+right"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.group(true)),
+        ),
+        cmd(
+            "viewer.grid.ungroup",
+            "Ungroup",
+            &["alt+shift+left"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.group(false)),
+        ),
+        cmd(
+            "viewer.grid.hideDetail",
+            "Hide Detail",
+            &["z h"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.show_detail(false)),
+        ),
+        cmd(
+            "viewer.grid.showDetail",
+            "Show Detail",
+            &["z s"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.show_detail(true)),
+        ),
+        cmd("viewer.grid.subtotal", "Subtotal", &[], IN_GRID, subtotal),
+        cmd(
+            "viewer.grid.pageSetup",
+            "Page Setup",
+            &["z p"],
+            IN_GRID,
+            page_setup,
+        ),
+        cmd(
+            "viewer.grid.printPreview",
+            "Print Preview",
+            &["ctrl+f2"],
+            IN_GRID,
+            |ctx, args| sheet_pdf(ctx, args, "preview"),
+        ),
+        cmd(
+            "viewer.grid.exportPdf",
+            "Export to PDF",
+            &[],
+            IN_GRID,
+            |ctx, args| sheet_pdf(ctx, args, "export"),
+        ),
+        cmd("viewer.grid.print", "Print", &[], IN_GRID, |ctx, args| {
+            sheet_pdf(ctx, args, "print")
+        }),
+        cmd(
+            "viewer.grid.formatAsTable",
+            "Format as Table",
+            &["ctrl+t", "s t"],
+            IN_GRID,
+            format_as_table,
+        ),
+        cmd(
+            "viewer.grid.totalRow",
+            "Total Row",
+            &["ctrl+shift+t", "s shift+t"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.toggle_total_row()),
+        ),
+        cmd(
+            "viewer.grid.convertToRange",
+            "Convert to Range",
+            &[],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.convert_to_range()),
+        ),
         cmd(
             "viewer.grid.customSort",
             "Custom Sort",
@@ -10066,6 +12048,15 @@ fn grid_commands() -> Vec<Command> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cells_as_ranges() {
+        let cells = [(0, 0), (0, 1), (1, 0), (1, 1), (1, 3), (3, 2)];
+        assert_eq!(
+            areas_of(&cells),
+            vec![[0, 0, 1, 1], [1, 3, 1, 3], [3, 2, 3, 2]]
+        );
+    }
 
     #[test]
     fn decimals_increased_and_decreased() {

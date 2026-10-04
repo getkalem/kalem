@@ -2853,3 +2853,574 @@ fn custom_sort_and_filters() {
     t.app.run_command("viewer.grid.reapplyFilter", json!({}));
     assert_eq!(hidden(&mut t), vec![1]);
 }
+
+#[test]
+fn tables() {
+    let mut t = T::open("tables");
+    // Ctrl+T on the budget: the styles, then a table.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('t'),
+        KeyModifiers::CONTROL,
+    )));
+    assert!(t.screen().contains("Green"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app.run_command(
+        "viewer.grid.formatAsTable",
+        json!({ "style": "TableStyleMedium7" }),
+    );
+    assert!(t.screen().contains("Table1 made"), "{}", t.screen());
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let table = v.table_at_cursor().unwrap();
+    assert_eq!(table.range, [0, 0, 4, 3]);
+    // Drawn: the first data row banded green (the header keeps the fill
+    // it has of its own).
+    v.grid_move_to(1, 1);
+    assert_eq!(v.cursor_cell().fill, Some([0xE2, 0xEF, 0xDA]));
+    // A structured reference in a formula.
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 9, "col": 1, "value": "=SUM(Table1[Q2])" }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(9, 1);
+    assert_eq!(v.cursor_cell().text, "5324.5");
+    // Convert to Range: the table gone, the formula plain.
+    v.grid_move_to(1, 1);
+    t.app.run_command("viewer.grid.convertToRange", json!({}));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(v.table_at_cursor().is_none());
+    v.grid_move_to(9, 1);
+    assert_eq!(v.cell_input(), "=SUM($C$2:$C$5)");
+    t.app.run_command("edit.undo", json!({}));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(1, 1);
+    assert!(v.table_at_cursor().is_some());
+}
+
+#[test]
+fn page_setup_and_pdf() {
+    let mut t = T::open("print");
+    // z p: the page setup's menu.
+    t.key(KeyCode::Char('z'));
+    t.key(KeyCode::Char('p'));
+    assert!(
+        t.screen().contains("Orientation: Portrait"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.pageSetup", json!({ "what": "orientation" }));
+    t.app.run_command(
+        "viewer.grid.pageSetup",
+        json!({ "what": "paper", "value": "8" }),
+    );
+    t.app.run_command(
+        "viewer.grid.pageSetup",
+        json!({ "what": "footer", "value": "&CSayfa &P / &N" }),
+    );
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(0, 0);
+        v.grid_extend_to(0, 3);
+    }
+    t.app
+        .run_command("viewer.grid.pageSetup", json!({ "what": "titles" }));
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    t.app
+        .run_command("viewer.grid.pageSetup", json!({ "what": "break" }));
+    let s = t.app.doc.viewer.as_deref_mut().unwrap().page_setup();
+    assert!(s.landscape && s.paper == 8);
+    assert_eq!(
+        (s.title_rows, s.row_breaks.clone()),
+        (Some((0, 0)), vec![3])
+    );
+    assert_eq!(s.footer, "&CSayfa &P / &N");
+    // Saved with the workbook as Excel reads it.
+    t.app.run_command("app.save", json!({}));
+    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
+    let wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
+    assert!(
+        wb.defined_names()
+            .iter()
+            .any(|n| n.name == "_xlnm.Print_Titles")
+    );
+    // Exported as a PDF beside the workbook, when LaTeX is there.
+    let tex = kalem_core::pdf::detect(
+        kalem_core::pdf::Engine::LuaLatex,
+        &kalem_core::pdf::tex_search_path(),
+    );
+    t.app.run_command("viewer.grid.exportPdf", json!({}));
+    assert!(t.screen().contains("Entire Workbook"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    if tex.is_some() {
+        t.app
+            .run_command("viewer.grid.exportPdf", json!({ "scope": "sheet" }));
+        let done = kalem_core::jobs::wait_all();
+        assert!(
+            done.iter().all(|d| !d.error),
+            "{:?}",
+            done.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+        let pdf = t.dir.join("budget - Budget.pdf");
+        assert!(std::fs::metadata(&pdf).unwrap().len() > 1000);
+    }
+}
+
+#[test]
+fn groups_and_subtotals() {
+    let mut t = T::open("outline");
+    let row = |t: &mut T, n: &str| {
+        let s = t.screen();
+        s.lines()
+            .find(|l| {
+                l.chars()
+                    .skip(1)
+                    .collect::<String>()
+                    .trim_start()
+                    .starts_with(n)
+            })
+            .unwrap_or_default()
+            .to_owned()
+    };
+    // Rows 2-4 grouped with Alt+Shift+Right: row 5 sums them up (−).
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 0);
+        v.grid_extend_to(3, 0);
+    }
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Right,
+        KeyModifiers::ALT | KeyModifiers::SHIFT,
+    )));
+    assert!(row(&mut t, "5 Sum").starts_with('−'), "{}", t.screen());
+    // z h on the summary row: the group collapses (+); z s shows it.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(4, 0);
+    t.key(KeyCode::Char('z'));
+    t.key(KeyCode::Char('h'));
+    let s = t.screen();
+    assert!(
+        !s.contains("Rent") && row(&mut t, "5 Sum").starts_with('+'),
+        "{s}"
+    );
+    t.key(KeyCode::Char('z'));
+    t.key(KeyCode::Char('s'));
+    assert!(t.screen().contains("Rent"), "{}", t.screen());
+    // Ungrouped.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 0);
+        v.grid_extend_to(3, 0);
+    }
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Left,
+        KeyModifiers::ALT | KeyModifiers::SHIFT,
+    )));
+    assert!(
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .outline_marks()
+            .is_empty()
+    );
+    // Subtotal of a table at I1: by month, the amounts summed.
+    for (r, row) in [
+        ["Ay", "Tutar"],
+        ["Ocak", "10"],
+        ["Ocak", "5"],
+        ["Şubat", "20"],
+    ]
+    .iter()
+    .enumerate()
+    {
+        for (c, v) in row.iter().enumerate() {
+            t.app.run_command(
+                "viewer.grid.setCell",
+                json!({ "row": r, "col": 8 + c, "value": v }),
+            );
+        }
+    }
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 8);
+    t.app.run_command("viewer.grid.subtotal", json!({}));
+    assert!(t.screen().contains("Ay (I)"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 8);
+    t.app.run_command(
+        "viewer.grid.subtotal",
+        json!({ "by": 8, "function": 9, "col": 9 }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(6, 8);
+    assert_eq!(v.cell_input(), "Grand Total");
+    v.grid_move_to(6, 9);
+    assert_eq!(v.cursor_cell().text, "35");
+    // The two totals and the grand total each sum a group up.
+    assert_eq!(v.outline_marks().len(), 3);
+}
+
+#[test]
+fn cell_styles_and_alignment() {
+    let mut t = T::open("styles");
+    let tk = |t: &mut T, k: char| {
+        t.key(KeyCode::Char('t'));
+        t.key(KeyCode::Char(k));
+    };
+    let line = |t: &mut T, start: &str| {
+        let s = t.screen();
+        s.lines()
+            .find(|l| l.trim_start().starts_with(start))
+            .unwrap_or_default()
+            .to_owned()
+    };
+    // Cell Styles (t y): Good on A2.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    tk(&mut t, 'y');
+    assert!(t.screen().contains("Heading 1"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.cellStyle", json!({ "style": "good" }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert_eq!(v.cursor_cell().fill, Some([0xC6, 0xEF, 0xCE]));
+    // Indented two levels: four columns in.
+    v.grid_move_to(2, 0);
+    tk(&mut t, ']');
+    tk(&mut t, ']');
+    let l3 = line(&mut t, "3");
+    assert!(l3.trim_start().starts_with("3     Food"), "{l3:?}");
+    tk(&mut t, '[');
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert_eq!(v.cursor_cell().indent, 1);
+    // Center Across Selection over A7:D7.
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 6, "col": 0, "value": "Rapor" }),
+    );
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(6, 0);
+        v.grid_extend_to(6, 3);
+    }
+    tk(&mut t, 'a');
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    let row7 = line(&mut t, "7");
+    let at = row7
+        .find("Rapor")
+        .unwrap_or_else(|| panic!("{}", t.screen()));
+    assert!(at > 20 && !row7[..at].contains('│'), "{}", t.screen());
+    // Orientation and Shrink to Fit kept in the cell.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    tk(&mut t, 'o');
+    assert!(t.screen().contains("Vertical Text"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app
+        .run_command("viewer.grid.textRotation", json!({ "rotation": 90 }));
+    tk(&mut t, 'k');
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let c = v.cursor_cell();
+    assert_eq!((c.rotation, c.shrink), (90, true));
+}
+
+#[test]
+fn protection() {
+    let mut t = T::open("protect");
+    // B2 unlocked (t L).
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.key(KeyCode::Char('t'));
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('L'),
+        KeyModifiers::SHIFT,
+    )));
+    assert!(
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .cursor_cell()
+            .unlocked
+    );
+    // z k asks for a password, shown as dots.
+    t.key(KeyCode::Char('z'));
+    t.key(KeyCode::Char('k'));
+    for c in "gizli".chars() {
+        t.key(KeyCode::Char(c));
+    }
+    let s = t.screen();
+    assert!(s.contains("•••••") && !s.contains("gizli"), "{s}");
+    t.key(KeyCode::Enter);
+    assert!(
+        t.screen().contains("Protect: select cells only"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.protectSheet",
+        json!({ "password": "gizli", "allow": "none" }),
+    );
+    // A locked cell is not edited; the unlocked one is.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.run_command("viewer.grid.edit", json!({}));
+    assert!(t.screen().contains("protected sheet"), "{}", t.screen());
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 1, "col": 1, "value": "1000" }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(1, 1);
+    assert_eq!(v.cell_input(), "1000");
+    // Unprotected with its password only.
+    t.app
+        .run_command("viewer.grid.protectSheet", json!({ "password": "yanlış" }));
+    assert!(
+        t.screen().contains("The password is not right"),
+        "{}",
+        t.screen()
+    );
+    t.app
+        .run_command("viewer.grid.protectSheet", json!({ "password": "gizli" }));
+    assert!(
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .sheet_protection()
+            .is_none()
+    );
+    // The workbook's structure protected: no new sheet.
+    t.app
+        .run_command("viewer.grid.protectWorkbook", json!({ "password": "" }));
+    t.app.run_command("viewer.grid.insertSheet", json!({}));
+    assert!(
+        t.screen().contains("structure is protected"),
+        "{}",
+        t.screen()
+    );
+}
+
+#[test]
+fn formula_auditing() {
+    let mut t = T::open("audit");
+    let z = |t: &mut T, k: char| {
+        t.key(KeyCode::Char('z'));
+        t.key(KeyCode::Char(k));
+    };
+    // D2's precedents: the cells it reads, marked.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 3);
+    let d2 = t.app.doc.viewer.as_deref_mut().unwrap().cell_input();
+    z(&mut t, ',');
+    let s = t.screen();
+    assert!(s.contains("precedent"), "{s}");
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(
+        !v.arrows.is_empty() && v.arrows.iter().all(|a| a.1 == (1, 3)),
+        "{d2}"
+    );
+    // B2's dependents: D2 and the sum under it.
+    v.arrows.clear();
+    v.grid_move_to(1, 1);
+    z(&mut t, '.');
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let to: Vec<(u32, u32)> = v.arrows.iter().map(|a| a.1).collect();
+    assert!(to.contains(&(1, 3)) && to.contains(&(4, 1)), "{to:?}");
+    z(&mut t, 'x');
+    assert!(t.app.doc.viewer.as_deref_mut().unwrap().arrows.is_empty());
+    // Evaluate Formula: D2 step by step to 2400.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 3);
+    let steps = t.app.doc.viewer.as_deref_mut().unwrap().evaluation_steps();
+    assert_eq!(steps.first(), Some(&d2));
+    assert_eq!(steps.last().map(String::as_str), Some("=2400"), "{steps:?}");
+    z(&mut t, 'e');
+    assert!(t.screen().contains("=2400"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    // Error Checking finds the division by zero.
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 6, "col": 1, "value": "=1/0" }),
+    );
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    z(&mut t, 'n');
+    assert!(t.screen().contains("B7: #DIV/0!"), "{}", t.screen());
+    // The Watch Window keeps D2's value in sight.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 3);
+    t.app
+        .run_command("viewer.grid.watchWindow", json!({ "do": "add" }));
+    assert!(
+        t.screen().contains("Budget!D2 = 2,400.00"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+}
+
+#[test]
+fn go_to_special() {
+    let mut t = T::open("special");
+    let select = |t: &mut T, a: (u32, u32), b: (u32, u32)| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(a.0, a.1);
+        v.grid_extend_to(b.0, b.1);
+    };
+    // g s: the kinds.
+    t.key(KeyCode::Char('g'));
+    t.key(KeyCode::Char('s'));
+    assert!(t.screen().contains("Blanks"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    // The blanks of A1:E5: column E, typed into at once with Ctrl+Enter.
+    select(&mut t, (0, 0), (4, 4));
+    t.app
+        .run_command("viewer.grid.goToSpecial", json!({ "kind": "blanks" }));
+    assert!(t.screen().contains("5 cells in 1 range"), "{}", t.screen());
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().areas,
+        vec![[0, 4, 4, 4]]
+    );
+    t.app.run_command("viewer.grid.edit", json!({}));
+    t.key(KeyCode::Char('-'));
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Enter,
+        KeyModifiers::CONTROL,
+    )));
+    let input = |t: &mut T, r: u32, c: u32| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(r, c);
+        v.cell_input()
+    };
+    assert_eq!(
+        (input(&mut t, 0, 4), input(&mut t, 4, 4)),
+        ("-".into(), "-".into())
+    );
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(input(&mut t, 2, 4), "");
+    // Formulas of the budget: the totals and the sums.
+    select(&mut t, (0, 0), (4, 3));
+    t.app
+        .run_command("viewer.grid.goToSpecial", json!({ "kind": "formulas" }));
+    let areas = t.app.doc.viewer.as_deref_mut().unwrap().areas.clone();
+    assert_eq!(areas, vec![[1, 3, 3, 3], [4, 1, 4, 3]]);
+    // Visible cells only (Alt+;) around a hidden row: two ranges.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 0);
+    t.app.run_command("viewer.grid.hideRows", json!({}));
+    select(&mut t, (1, 0), (3, 1));
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char(';'),
+        KeyModifiers::ALT,
+    )));
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().areas,
+        vec![[1, 0, 1, 1], [3, 0, 3, 1]]
+    );
+    // Moving the cursor ends it.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    assert!(t.app.doc.viewer.as_deref_mut().unwrap().areas.is_empty());
+}
+
+#[test]
+fn pictures_and_shapes() {
+    let mut t = T::open("drawings");
+    let o = |t: &mut T, k: char| {
+        t.key(KeyCode::Char('o'));
+        let m = if k.is_uppercase() {
+            KeyModifiers::SHIFT
+        } else {
+            KeyModifiers::NONE
+        };
+        t.app.event(Event::Key(KeyEvent::new(KeyCode::Char(k), m)));
+    };
+    // An oval with text at A6: drawn as a box with its text.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(5, 0);
+    o(&mut t, 's');
+    assert!(t.screen().contains("Oval"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(5, 0);
+    t.app.run_command(
+        "viewer.grid.insertShape",
+        json!({ "shape": "ellipse", "value": "Hedef" }),
+    );
+    let s = t.screen();
+    assert!(s.contains("Hedef") && s.contains("┌"), "{s}");
+    // Moved right a column, made a column wider; its text changed.
+    o(&mut t, 'l');
+    o(&mut t, 'L');
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert_eq!(v.drawings()[0].anchor, [5, 1, 8, 4]);
+    t.app
+        .run_command("viewer.grid.editShapeText", json!({ "value": "Plan" }));
+    assert!(t.screen().contains("Plan"), "{}", t.screen());
+    // A picture from a file beside the workbook.
+    let png: Vec<u8> = vec![
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0,
+        0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 0x1F, 0x15, 0xC4, 0x89, 0, 0, 0, 13, 0x49, 0x44, 0x41,
+        0x54, 0x78, 0x9C, 0x63, 0xF8, 0xCF, 0xC0, 0xF0, 0x1F, 0, 5, 0, 1, 0xFF, 0x89, 0x99, 0x3D,
+        0x1D, 0, 0, 0, 0, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+    ];
+    std::fs::write(t.dir.join("logo.png"), &png).unwrap();
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 4);
+    t.app
+        .run_command("viewer.grid.insertPicture", json!({ "path": "logo.png" }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let all = v.drawings();
+    assert_eq!(all.len(), 2);
+    assert!(matches!(all[1].kind, kalem_viewer::DrawingKind::Picture));
+    assert!(v.drawing_bitmap(1).is_some());
+    // Saved with the workbook; the picture deleted.
+    t.app.run_command("app.save", json!({}));
+    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
+    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
+    assert_eq!(wb.drawings(0).len(), 2);
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 4);
+    o(&mut t, 'd');
+    assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().drawings().len(), 1);
+}
+
+#[test]
+fn sparklines() {
+    let mut t = T::open("sparklines");
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    for (r, row) in [["3", "-1", "4", "1"], ["2", "7", "1", "8"]]
+        .iter()
+        .enumerate()
+    {
+        for (c, x) in row.iter().enumerate() {
+            v.set_cell(6 + r as u32, c as u32, x).unwrap();
+        }
+    }
+    v.grid_move_to(6, 0);
+    v.grid_extend_to(7, 3);
+    // The menu of kinds, then the cells offered: the column on the right.
+    t.key(KeyCode::Char('p'));
+    t.key(KeyCode::Char('i'));
+    assert!(t.screen().contains("Win/Loss"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.insertSparklines", json!({ "kind": "line" }));
+    assert!(t.screen().contains("E7:E8"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.insertSparklines",
+        json!({ "kind": "line", "value": "E7:E8" }),
+    );
+    let s = t.screen();
+    assert!(s.contains("▇▁█▄"), "{s}");
+    // Saved with the workbook.
+    t.app.run_command("app.save", json!({}));
+    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
+    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
+    assert_eq!(wb.sparklines(0).len(), 2);
+    // Cleared from the selected cells.
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(6, 4);
+    v.grid_extend_to(7, 4);
+    t.key(KeyCode::Char('p'));
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('I'),
+        KeyModifiers::SHIFT,
+    )));
+    assert!(!t.screen().contains("▇▁█▄"), "{}", t.screen());
+}

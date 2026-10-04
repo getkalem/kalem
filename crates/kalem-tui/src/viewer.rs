@@ -275,8 +275,15 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
     let sel = v.selection();
     let selecting = v.grid_pos().sel.is_some();
     let cut = v.cut_range();
+    // Go To Special's ranges, selected together.
+    let areas = v.areas.clone();
     // The cells a formula being typed points at.
     let pointer = v.pointer;
+    // Trace Precedents' and Dependents' ends: the ranges read, the cells
+    // reading them.
+    let arrows = v.arrows.clone();
+    // The outline's summary rows: − to collapse, + to expand.
+    let marks = v.outline_marks();
     let merged = layout.merged.clone();
     let merge_of = |r: u32, c: u32| {
         merged
@@ -298,8 +305,45 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
             gutter as usize,
             style,
         );
+        if let Some((_, collapsed)) = marks.iter().find(|m| m.0 == r) {
+            let mark = match (caps.ascii, collapsed) {
+                (_, true) => "+",
+                (true, false) => "-",
+                (false, false) => "−",
+            };
+            buf.set_stringn(area.x, y, mark, 1, head);
+        }
         let mut x = area.x + gutter;
         let mut overflow: Option<(String, Style)> = None;
+        // Center Across Selection: a cell's text over the empty cells at
+        // its right that have it too, their column lines left out.
+        let mut across: std::collections::HashMap<u32, usize> = std::collections::HashMap::new();
+        let mut no_line: std::collections::HashSet<u32> = std::collections::HashSet::new();
+        let mut under: std::collections::HashSet<u32> = std::collections::HashSet::new();
+        for (k, &(c, w)) in cols.iter().enumerate() {
+            let Some(cell) = cells.get(&(r, c)) else {
+                continue;
+            };
+            if !cell.center_across || cell.text.is_empty() {
+                continue;
+            }
+            let mut total = w as usize;
+            let mut last = c;
+            for &(c2, w2) in &cols[k + 1..] {
+                match cells.get(&(r, c2)) {
+                    Some(x) if x.center_across && x.text.is_empty() => {
+                        no_line.insert(last);
+                        under.insert(c2);
+                        total += w2 as usize;
+                        last = c2;
+                    }
+                    _ => break,
+                }
+            }
+            if last != c {
+                across.insert(c, total - 1);
+            }
+        }
         for &(c, w) in &cols {
             let merge = merge_of(r, c);
             // A merged cell is drawn by its first cell over the whole width
@@ -309,7 +353,10 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
             let next_in_merge =
                 merge.is_some_and(|m| c < m[3] && cols.iter().any(|(cc, _)| *cc == c + 1));
             let in_sel =
-                selecting && (sel[0]..=sel[2]).contains(&r) && (sel[1]..=sel[3]).contains(&c);
+                (selecting && (sel[0]..=sel[2]).contains(&r) && (sel[1]..=sel[3]).contains(&c))
+                    || areas
+                        .iter()
+                        .any(|m| (m[0]..=m[2]).contains(&r) && (m[1]..=m[3]).contains(&c));
             let in_cut =
                 cut.is_some_and(|m| (m[0]..=m[2]).contains(&r) && (m[1]..=m[3]).contains(&c));
             let sel_style = |st: Style| {
@@ -405,6 +452,10 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
                         format!("{t:>inner$}")
                     } else if center {
                         format!("{t:^inner$}")
+                    } else if cell.indent > 0 {
+                        // Indented: two columns a level.
+                        let pad = " ".repeat(usize::from(cell.indent) * 2);
+                        format!("{pad}{t}").chars().take(inner).collect()
                     } else {
                         t
                     }
@@ -429,13 +480,38 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
                     style = style.fg(ratatui::style::Color::Cyan);
                 }
             }
+            let read = arrows
+                .iter()
+                .any(|(m, _)| (m[0]..=m[2]).contains(&r) && (m[1]..=m[3]).contains(&c));
+            let reading = arrows.iter().any(|(_, d)| *d == (r, c));
+            if read || reading {
+                style = style.add_modifier(if reading {
+                    Modifier::BOLD
+                } else {
+                    Modifier::UNDERLINED
+                });
+                if !caps.no_color {
+                    style = style.fg(ratatui::style::Color::Blue);
+                }
+            }
             if (r, c) == (pos.row, pos.col) {
                 style = style.add_modifier(Modifier::REVERSED);
             }
             if in_sel || (r, c) == (pos.row, pos.col) || first {
                 buf.set_stringn(x, y, " ".repeat(inner), inner, style);
             }
-            buf.set_stringn(x + icon_w as u16, y, &text, inner - icon_w, style);
+            match (across.get(&c), cell) {
+                (Some(&total), Some(cell)) => {
+                    let t: String = cell.text.chars().filter(|ch| !ch.is_control()).collect();
+                    let shown = format!("{t:^total$}");
+                    buf.set_stringn(x, y, &shown, total, style);
+                }
+                // The cells it runs over draw nothing of their own.
+                _ if under.contains(&c) => {}
+                _ => {
+                    buf.set_stringn(x + icon_w as u16, y, &text, inner - icon_w, style);
+                }
+            }
             if let Some(cell) = cell
                 && (r, c) != (pos.row, pos.col)
                 && !in_sel
@@ -462,6 +538,48 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
                     for i in 0..n {
                         buf[(x + i as u16, y)].set_bg(ratatui::style::Color::Rgb(br, bg, bb));
                     }
+                }
+            }
+            // A sparkline: a block a point (as many as fit), its height the
+            // point's; win/loss as upper and lower halves.
+            if let Some(line) = cell.and_then(|c| c.sparkline.as_ref())
+                && inner > 0
+                && !line.points.is_empty()
+            {
+                let n = line.points.len().min(inner);
+                for i in 0..n {
+                    let k = i * line.points.len() / n;
+                    let Some(v) = line.points[k] else { continue };
+                    let below = line.zero.is_some_and(|z| v < z);
+                    let sym = match (line.kind, caps.ascii) {
+                        (kalem_viewer::SparklineKind::WinLoss, _) if v == 500 => continue,
+                        (kalem_viewer::SparklineKind::WinLoss, true) => {
+                            if v > 500 {
+                                "+"
+                            } else {
+                                "-"
+                            }
+                        }
+                        (kalem_viewer::SparklineKind::WinLoss, false) => {
+                            if v > 500 {
+                                "▀"
+                            } else {
+                                "▄"
+                            }
+                        }
+                        (_, true) => ["_", ".", "-", "=", "^"][usize::from(v.min(999)) * 5 / 1000],
+                        (_, false) => ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
+                            [usize::from(v.min(999)) * 8 / 1000],
+                    };
+                    let marked = Some(k) == line.high || Some(k) == line.low || below;
+                    let mut st = style;
+                    if !caps.no_color {
+                        let [cr, cg, cb] = if marked { line.marker } else { line.color };
+                        st = st.fg(ratatui::style::Color::Rgb(cr, cg, cb));
+                    } else if marked {
+                        st = st.add_modifier(Modifier::BOLD);
+                    }
+                    buf.set_stringn(x + i as u16, y, sym, 1, st);
                 }
             }
             // A filter's header: its button, filled when the column filters.
@@ -503,7 +621,7 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
             if (r, c) == (pos.row, pos.col) && has_list && inner > 0 {
                 buf[(x + inner as u16 - 1, y)].set_symbol(if caps.ascii { "v" } else { "▾" });
             }
-            if !first || !next_in_merge {
+            if (!first || !next_in_merge) && !no_line.contains(&c) {
                 buf.set_stringn(x + inner as u16, y, sep, 1, dim);
             }
             // Borders: a side as the line beside the cell in its color, the
@@ -547,45 +665,125 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
             x += w;
         }
     }
-    // Charts over the cells they cover.
+    // Charts, pictures and shapes over the cells they cover.
     let charts = v.charts();
-    if !charts.is_empty() {
-        let x0 = area.x + gutter;
-        let mut col_x = std::collections::HashMap::new();
-        let mut x = x0;
-        for &(c, w) in &cols {
-            col_x.insert(c, (x, w));
-            x += w;
-        }
-        let row_y: std::collections::HashMap<u32, u16> = rows
-            .iter()
-            .enumerate()
-            .map(|(i, (r, _))| (*r, area.y + 1 + i as u16))
+    let drawings = v.drawings();
+    if charts.is_empty() && drawings.is_empty() {
+        return;
+    }
+    let x0 = area.x + gutter;
+    let mut col_x = std::collections::HashMap::new();
+    let mut x = x0;
+    for &(c, w) in &cols {
+        col_x.insert(c, (x, w));
+        x += w;
+    }
+    let row_y: std::collections::HashMap<u32, u16> = rows
+        .iter()
+        .enumerate()
+        .map(|(i, (r, _))| (*r, area.y + 1 + i as u16))
+        .collect();
+    let rect_of = |a: [u32; 4]| -> Option<Rect> {
+        let xs: Vec<(u16, u16)> = (a[1]..=a[3])
+            .filter_map(|c| col_x.get(&c).copied())
             .collect();
-        for chart in &charts {
-            let a = chart.anchor;
-            let xs: Vec<(u16, u16)> = (a[1]..=a[3])
-                .filter_map(|c| col_x.get(&c).copied())
-                .collect();
-            let ys: Vec<u16> = (a[0]..=a[2])
-                .filter_map(|r| row_y.get(&r).copied())
-                .collect();
-            let (Some(first_x), Some(last_x), Some(first_y), Some(last_y)) =
-                (xs.first(), xs.last(), ys.first(), ys.last())
-            else {
-                continue;
-            };
-            let rect = Rect::new(
+        let ys: Vec<u16> = (a[0]..=a[2])
+            .filter_map(|r| row_y.get(&r).copied())
+            .collect();
+        let (first_x, last_x, first_y, last_y) = (xs.first()?, xs.last()?, ys.first()?, ys.last()?);
+        Some(
+            Rect::new(
                 first_x.0,
                 *first_y,
                 (last_x.0 + last_x.1).saturating_sub(first_x.0),
                 (last_y + 1).saturating_sub(*first_y),
             )
-            .intersection(area);
-            if rect.width >= 6 && rect.height >= 3 {
-                crate::chart::draw(chart, caps, rect, buf);
-            }
+            .intersection(area),
+        )
+    };
+    for chart in &charts {
+        if let Some(rect) = rect_of(chart.anchor)
+            && rect.width >= 6
+            && rect.height >= 3
+        {
+            crate::chart::draw(chart, caps, rect, buf);
         }
+    }
+    for d in &drawings {
+        if let Some(rect) = rect_of(d.anchor)
+            && rect.width >= 3
+            && rect.height >= 2
+        {
+            draw_drawing(d, caps, rect, buf);
+        }
+    }
+}
+
+/// A picture or shape in a terminal: a box (in the shape's colors), its
+/// text inside, a picture's name.
+fn draw_drawing(d: &kalem_viewer::Drawing, caps: &Caps, rect: Rect, buf: &mut Buffer) {
+    use kalem_viewer::DrawingKind;
+    let rgb = |c: [u8; 3]| ratatui::style::Color::Rgb(c[0], c[1], c[2]);
+    let (fill, line, text) = match &d.kind {
+        DrawingKind::Picture => (
+            None,
+            None,
+            if caps.ascii {
+                format!("[{}]", d.name)
+            } else {
+                format!("▣ {}", d.name)
+            },
+        ),
+        DrawingKind::Shape {
+            fill, line, text, ..
+        } => (*fill, *line, text.clone()),
+    };
+    let mut style = Style::default();
+    if !caps.no_color {
+        if let Some(f) = fill {
+            style = style.bg(rgb(f));
+        }
+        if let Some(l) = line {
+            style = style.fg(rgb(l));
+        }
+    }
+    let (h, v, corners) = if caps.ascii {
+        ("-", "|", ["+", "+", "+", "+"])
+    } else {
+        ("─", "│", ["┌", "┐", "└", "┘"])
+    };
+    for y in rect.y..rect.y + rect.height {
+        for x in rect.x..rect.x + rect.width {
+            let top = y == rect.y;
+            let bottom = y + 1 == rect.y + rect.height;
+            let left = x == rect.x;
+            let right = x + 1 == rect.x + rect.width;
+            let sym = match (top, bottom, left, right) {
+                (true, _, true, _) => corners[0],
+                (true, _, _, true) => corners[1],
+                (_, true, true, _) => corners[2],
+                (_, true, _, true) => corners[3],
+                (true, _, _, _) | (_, true, _, _) => h,
+                (_, _, true, _) | (_, _, _, true) => v,
+                _ => " ",
+            };
+            buf[(x, y)].set_symbol(sym).set_style(style);
+        }
+    }
+    let inner = rect.width.saturating_sub(2) as usize;
+    let mut text_style = Style::default();
+    if !caps.no_color
+        && let Some(f) = fill
+    {
+        text_style = text_style.bg(rgb(f));
+    }
+    for (i, line) in text
+        .lines()
+        .take(rect.height.saturating_sub(2) as usize)
+        .enumerate()
+    {
+        let shown = format!("{line:^inner$}");
+        buf.set_stringn(rect.x + 1, rect.y + 1 + i as u16, shown, inner, text_style);
     }
 }
 

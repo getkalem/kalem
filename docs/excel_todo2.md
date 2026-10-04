@@ -34,58 +34,58 @@ be bound again.
 
 ## E24. Tables
 
-- [ ] E24 Format as Table (Ctrl+T): a table part with a name, header row,
+- [x] E24 Format as Table (Ctrl+T): a table part with a name, header row,
   banded rows and a style; a Total Row with its functions; the table
   growing as rows are typed under it; structured references
   (`Table1[Amount]`) in formulas.
 
 ## E25. Page setup and printing
 
-- [ ] E25 Page Layout: orientation, paper size, margins, Fit to one page
+- [x] E25 Page Layout: orientation, paper size, margins, Fit to one page
   wide, Print Area, Print Titles (rows repeated on each page), headers
   and footers, page breaks; Print Preview and Export to PDF of the sheet,
   the selection or the workbook.
 
 ## E26. Grouping and subtotals
 
-- [ ] E26 Group and Ungroup rows or columns (Alt+Shift+Right and Left)
+- [x] E26 Group and Ungroup rows or columns (Alt+Shift+Right and Left)
   as outline levels, collapsed and expanded from their buttons; Subtotal
   of a sorted table at each change in a column.
 
 ## E27. Cell styles and more alignment
 
-- [ ] E27 The built-in cell styles (Normal, Good, Bad, Neutral, Heading 1
+- [x] E27 The built-in cell styles (Normal, Good, Bad, Neutral, Heading 1
   to 4, Title, Total, Currency, Percent); indent (increase and decrease),
   text rotated or vertical, Shrink to Fit, Center Across Selection.
 
 ## E28. Protection
 
-- [ ] E28 Lock and unlock cells (Format Cells' Protection); Protect Sheet
+- [x] E28 Lock and unlock cells (Format Cells' Protection); Protect Sheet
   with what stays allowed, and a password; Protect Workbook structure;
   the grid refusing edits to locked cells of a protected sheet.
 
 ## E29. Formula auditing
 
-- [ ] E29 Trace Precedents and Trace Dependents drawn as arrows, Remove
+- [x] E29 Trace Precedents and Trace Dependents drawn as arrows, Remove
   Arrows; Evaluate Formula step by step; Error Checking that goes to each
   error and says what is wrong; Watch Window.
 
 ## E30. Go To Special and sheet-wide selection
 
-- [ ] E30 Go To Special: blanks, constants, formulas (by kind of result),
+- [x] E30 Go To Special: blanks, constants, formulas (by kind of result),
   errors, visible cells only (Alt+;), the last cell, cells with notes,
   conditional formats or data validation; the cells found selected
   together.
 
 ## E31. Pictures and shapes
 
-- [ ] E31 Insert a picture from a file onto the sheet, move and size it,
+- [x] E31 Insert a picture from a file onto the sheet, move and size it,
   delete it; text boxes and simple shapes; written as the sheet's drawing
   with its relationships.
 
 ## E32. Sparklines
 
-- [ ] E32 Line, column and win/loss sparklines in a cell from a row or
+- [x] E32 Line, column and win/loss sparklines in a cell from a row or
   column of data, with high and low points marked; written as Excel's
   sparkline groups.
 
