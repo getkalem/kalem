@@ -4190,6 +4190,46 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Where Insert Sparklines puts them by default: the column right of
+    /// the selection, one a row (one cell for a single row).
+    pub fn sparkline_place(&mut self) -> [u32; 4] {
+        let s = self.selection();
+        [s[0], s[3] + 1, s[2], s[3] + 1]
+    }
+
+    /// Insert Sparklines: the selection's rows (or columns) drawn as
+    /// sparklines in `location`'s cells, one each.
+    pub fn insert_sparklines(
+        &mut self,
+        kind: kalem_viewer::SparklineKind,
+        location: [u32; 4],
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let data = self.selection();
+        // A line marks its highest and lowest points.
+        let mark = kind == kalem_viewer::SparklineKind::Line;
+        self.doc()
+            .add_sparklines(self.unit, data, location, kind, mark)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Clear Sparklines: those in the selected cells.
+    pub fn clear_sparklines(&mut self) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let range = self.selection();
+        self.doc()
+            .clear_sparklines(self.unit, range)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// The picture or shape at the cursor moved (`grow` off) or made larger
     /// or smaller by rows and columns; the cursor goes with a moved one.
     pub fn nudge_drawing(&mut self, rows: i64, cols: i64, grow: bool) -> Result<(), String> {
@@ -8242,6 +8282,65 @@ fn insert_shape(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
     })
 }
 
+/// Insert Sparklines: line, column or win/loss from the menu, then the
+/// cells to draw them in (the column right of the selection offered).
+fn insert_sparklines(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::SparklineKind;
+    const ID: &str = "viewer.grid.insertSparklines";
+    let Some(kind) = args.get("kind").and_then(|x| x.as_str()) else {
+        let item = |k: &str, t: &str| {
+            menu_item(ID, serde_json::json!({ "kind": k }), t, "Insert Sparklines")
+        };
+        ctx.requests.push(Request::Choose(vec![
+            item("line", "Line"),
+            item("column", "Column"),
+            item("winLoss", "Win/Loss"),
+        ]));
+        return Ok(());
+    };
+    let kind = match kind {
+        "column" => SparklineKind::Column,
+        "winLoss" => SparklineKind::WinLoss,
+        _ => SparklineKind::Line,
+    };
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let name =
+        |r: u32, c: u32| format!("{}{}", crate::csv_tools::column_letters(c as usize), r + 1);
+    let Some(place) = text_arg(args, "value") else {
+        let p = v.sparkline_place();
+        let default = if p[0] == p[2] && p[1] == p[3] {
+            name(p[0], p[1])
+        } else {
+            format!("{}:{}", name(p[0], p[1]), name(p[2], p[3]))
+        };
+        return ask_more(
+            ctx,
+            ID,
+            &serde_json::json!({ "kind": args.get("kind"), "value_default": default }),
+            "value",
+        );
+    };
+    let cell = |t: &str| {
+        crate::csv_tools::parse_cell(&t.replace('$', "")).map(|(r, c)| (r as u32, c as u32))
+    };
+    let (a, b) = match place.split_once(':') {
+        Some((x, y)) => (cell(x), cell(y)),
+        None => (cell(&place), cell(&place)),
+    };
+    let (Some(a), Some(b)) = (a, b) else {
+        ctx.messages.push(format!("Not cells: {place}"));
+        return Ok(());
+    };
+    let location = [a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)];
+    with(ctx, |v| v.insert_sparklines(kind, location))
+}
+
 /// Edit Shape Text: the shape at the cursor's text asked, with what it has.
 fn edit_shape_text(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     let Some(v) = ctx
@@ -10157,6 +10256,20 @@ fn grid_commands() -> Vec<Command> {
             &["o shift+h"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.nudge_drawing(0, -1, true)),
+        ),
+        cmd(
+            "viewer.grid.insertSparklines",
+            "Insert Sparklines",
+            &["p i"],
+            IN_GRID,
+            insert_sparklines,
+        ),
+        cmd(
+            "viewer.grid.clearSparklines",
+            "Clear Sparklines",
+            &["p shift+i"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.clear_sparklines()),
         ),
         cmd(
             "viewer.grid.goToSpecial",

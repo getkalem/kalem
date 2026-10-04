@@ -3378,3 +3378,49 @@ fn pictures_and_shapes() {
     o(&mut t, 'd');
     assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().drawings().len(), 1);
 }
+
+#[test]
+fn sparklines() {
+    let mut t = T::open("sparklines");
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    for (r, row) in [["3", "-1", "4", "1"], ["2", "7", "1", "8"]]
+        .iter()
+        .enumerate()
+    {
+        for (c, x) in row.iter().enumerate() {
+            v.set_cell(6 + r as u32, c as u32, x).unwrap();
+        }
+    }
+    v.grid_move_to(6, 0);
+    v.grid_extend_to(7, 3);
+    // The menu of kinds, then the cells offered: the column on the right.
+    t.key(KeyCode::Char('p'));
+    t.key(KeyCode::Char('i'));
+    assert!(t.screen().contains("Win/Loss"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.insertSparklines", json!({ "kind": "line" }));
+    assert!(t.screen().contains("E7:E8"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.insertSparklines",
+        json!({ "kind": "line", "value": "E7:E8" }),
+    );
+    let s = t.screen();
+    assert!(s.contains("▇▁█▄"), "{s}");
+    // Saved with the workbook.
+    t.app.run_command("app.save", json!({}));
+    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
+    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
+    assert_eq!(wb.sparklines(0).len(), 2);
+    // Cleared from the selected cells.
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(6, 4);
+    v.grid_extend_to(7, 4);
+    t.key(KeyCode::Char('p'));
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('I'),
+        KeyModifiers::SHIFT,
+    )));
+    assert!(!t.screen().contains("▇▁█▄"), "{}", t.screen());
+}

@@ -540,6 +540,48 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
                     }
                 }
             }
+            // A sparkline: a block a point (as many as fit), its height the
+            // point's; win/loss as upper and lower halves.
+            if let Some(line) = cell.and_then(|c| c.sparkline.as_ref())
+                && inner > 0
+                && !line.points.is_empty()
+            {
+                let n = line.points.len().min(inner);
+                for i in 0..n {
+                    let k = i * line.points.len() / n;
+                    let Some(v) = line.points[k] else { continue };
+                    let below = line.zero.is_some_and(|z| v < z);
+                    let sym = match (line.kind, caps.ascii) {
+                        (kalem_viewer::SparklineKind::WinLoss, _) if v == 500 => continue,
+                        (kalem_viewer::SparklineKind::WinLoss, true) => {
+                            if v > 500 {
+                                "+"
+                            } else {
+                                "-"
+                            }
+                        }
+                        (kalem_viewer::SparklineKind::WinLoss, false) => {
+                            if v > 500 {
+                                "▀"
+                            } else {
+                                "▄"
+                            }
+                        }
+                        (_, true) => ["_", ".", "-", "=", "^"][usize::from(v.min(999)) * 5 / 1000],
+                        (_, false) => ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
+                            [usize::from(v.min(999)) * 8 / 1000],
+                    };
+                    let marked = Some(k) == line.high || Some(k) == line.low || below;
+                    let mut st = style;
+                    if !caps.no_color {
+                        let [cr, cg, cb] = if marked { line.marker } else { line.color };
+                        st = st.fg(ratatui::style::Color::Rgb(cr, cg, cb));
+                    } else if marked {
+                        st = st.add_modifier(Modifier::BOLD);
+                    }
+                    buf.set_stringn(x + i as u16, y, sym, 1, st);
+                }
+            }
             // A filter's header: its button, filled when the column filters.
             if let Some(f) = layout.filter
                 && r == f[0]

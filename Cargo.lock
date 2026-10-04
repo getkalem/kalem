@@ -3768,7 +3768,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.57.0",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -4487,7 +4487,7 @@ dependencies = [
 [[package]]
 name = "kalem-plugin"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/kalem?branch=main#2f104ba518da0f6eb7f9adfbfca3c4b01eac8423"
+source = "git+https://github.com/getkalem/kalem?branch=main#b693160a11ad9c7a17a9e921b2ec38f07ea28d9d"
 dependencies = [
  "kalem-viewer",
  "wit-bindgen",
@@ -4496,7 +4496,7 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-image-viewer"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=5b055c01773e7b44c80dc6c4f0268c944416aa0f#5b055c01773e7b44c80dc6c4f0268c944416aa0f"
+source = "git+https://github.com/getkalem/plugins?rev=d33c382f3ce93601e4de5a554460be7222bf6acd#d33c382f3ce93601e4de5a554460be7222bf6acd"
 dependencies = [
  "image",
  "kalem-plugin 0.0.1 (git+https://github.com/getkalem/kalem?branch=main)",
@@ -4508,7 +4508,7 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-pdf-viewer"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=5b055c01773e7b44c80dc6c4f0268c944416aa0f#5b055c01773e7b44c80dc6c4f0268c944416aa0f"
+source = "git+https://github.com/getkalem/plugins?rev=d33c382f3ce93601e4de5a554460be7222bf6acd#d33c382f3ce93601e4de5a554460be7222bf6acd"
 dependencies = [
  "hayro",
  "kalem-plugin 0.0.1 (git+https://github.com/getkalem/kalem?branch=main)",
@@ -4519,7 +4519,7 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-xlsx"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=5b055c01773e7b44c80dc6c4f0268c944416aa0f#5b055c01773e7b44c80dc6c4f0268c944416aa0f"
+source = "git+https://github.com/getkalem/plugins?rev=d33c382f3ce93601e4de5a554460be7222bf6acd#d33c382f3ce93601e4de5a554460be7222bf6acd"
 dependencies = [
  "calamine",
  "cfb",

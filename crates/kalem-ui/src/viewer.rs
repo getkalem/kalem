@@ -1460,6 +1460,9 @@ impl Editor {
                                 .opacity(0.6),
                         );
                     }
+                    if let Some(line) = cell.sparkline.clone() {
+                        d = d.child(sparkline(line, r, c));
+                    }
                     if let Some((glyph, color)) = &cell.icon {
                         // An icon set's icon: at the cell's left, as Excel's.
                         d = d.pl(px(PAD + 14.)).child(
@@ -2048,4 +2051,98 @@ fn valign<E: gpui::Styled>(d: E, v: kalem_viewer::VAlign) -> E {
         kalem_viewer::VAlign::Middle => d.items_center(),
         _ => d.items_end(),
     }
+}
+
+/// A sparkline drawn over its cell: a line through its points (the
+/// highest and lowest marked), columns from zero, or win/loss halves.
+fn sparkline(line: kalem_viewer::Sparkline, r: u32, c: u32) -> gpui::Div {
+    use kalem_viewer::SparklineKind;
+    let rgb = |c: [u8; 3]| -> gpui::Hsla {
+        gpui::rgb(u32::from(c[0]) << 16 | u32::from(c[1]) << 8 | u32::from(c[2])).into()
+    };
+    let (color, marker) = (rgb(line.color), rgb(line.marker));
+    div()
+        .debug_selector(move || format!("viewer-grid-sparkline-{r}-{c}"))
+        .absolute()
+        .left(px(3.))
+        .right(px(3.))
+        .top(px(3.))
+        .bottom(px(3.))
+        .child(
+            gpui::canvas(
+                |_, _, _| {},
+                move |bounds, (), window, _| {
+                    let n = line.points.len();
+                    if n == 0 {
+                        return;
+                    }
+                    let (w, h) = (f32::from(bounds.size.width), f32::from(bounds.size.height));
+                    let o = bounds.origin;
+                    let y = |v: u16| h - h * f32::from(v) / 1000.0;
+                    let at = |x: f32, yy: f32| gpui::point(o.x + px(x), o.y + px(yy));
+                    let slot = w / n as f32;
+                    match line.kind {
+                        SparklineKind::Line => {
+                            let x = |i: usize| {
+                                if n == 1 {
+                                    w / 2.0
+                                } else {
+                                    w * i as f32 / (n - 1) as f32
+                                }
+                            };
+                            let mut p = gpui::PathBuilder::stroke(px(1.25));
+                            let mut down = false;
+                            for (i, v) in line.points.iter().enumerate() {
+                                match v {
+                                    // A gap where a value is missing.
+                                    None => down = false,
+                                    Some(v) if down => p.line_to(at(x(i), y(*v))),
+                                    Some(v) => {
+                                        p.move_to(at(x(i), y(*v)));
+                                        down = true;
+                                    }
+                                }
+                            }
+                            if let Ok(path) = p.build() {
+                                window.paint_path(path, color);
+                            }
+                            for k in [line.high, line.low].into_iter().flatten() {
+                                if let Some(Some(v)) = line.points.get(k) {
+                                    window.paint_quad(gpui::fill(
+                                        gpui::Bounds::new(
+                                            at(x(k) - 2.0, y(*v) - 2.0),
+                                            gpui::size(px(4.), px(4.)),
+                                        ),
+                                        marker,
+                                    ));
+                                }
+                            }
+                        }
+                        SparklineKind::Column | SparklineKind::WinLoss => {
+                            let zero = y(line.zero.unwrap_or(0));
+                            for (i, v) in line.points.iter().enumerate() {
+                                let Some(v) = *v else { continue };
+                                let (top, bottom) = match line.kind {
+                                    SparklineKind::WinLoss if v == 500 => continue,
+                                    SparklineKind::WinLoss if v > 500 => (0.0, h / 2.0),
+                                    SparklineKind::WinLoss => (h / 2.0, h),
+                                    // At least a pixel high.
+                                    _ => (y(v).min(zero), y(v).max(zero).max(y(v).min(zero) + 1.0)),
+                                };
+                                let below = line.zero.is_some_and(|z| v < z);
+                                let marked = below || Some(i) == line.high || Some(i) == line.low;
+                                window.paint_quad(gpui::fill(
+                                    gpui::Bounds::new(
+                                        at(slot * i as f32 + slot * 0.15, top),
+                                        gpui::size(px(slot * 0.7), px(bottom - top)),
+                                    ),
+                                    if marked { marker } else { color },
+                                ));
+                            }
+                        }
+                    }
+                },
+            )
+            .size_full(),
+        )
 }

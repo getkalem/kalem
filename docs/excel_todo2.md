@@ -85,7 +85,7 @@ be bound again.
 
 ## E32. Sparklines
 
-- [ ] E32 Line, column and win/loss sparklines in a cell from a row or
+- [x] E32 Line, column and win/loss sparklines in a cell from a row or
   column of data, with high and low points marked; written as Excel's
   sparkline groups.
 
