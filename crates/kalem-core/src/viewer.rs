@@ -334,6 +334,8 @@ pub struct ViewerState {
     pub grid_search: GridSearch,
     /// The cells copied last (unit, range), for Paste Special.
     pub copied: Option<(usize, [u32; 4])>,
+    /// The cells Format Painter took the format of, until it paints.
+    pub painter: Option<(usize, [u32; 4])>,
 }
 
 /// What Find looks for in a grid, and how.
@@ -513,6 +515,7 @@ impl ViewerState {
             selection_sums: None,
             grid_search: GridSearch::default(),
             copied: None,
+            painter: None,
         })
     }
 
@@ -1775,9 +1778,10 @@ impl ViewerState {
         self.cut.as_ref().filter(|c| c.0 == self.unit).map(|c| c.1)
     }
 
-    /// Forgets the cut (Escape).
+    /// Forgets the cut, and Format Painter's format (Escape).
     pub fn cancel_cut(&mut self) {
         self.cut = None;
+        self.painter = None;
     }
 
     /// What Sort and Filter work on: the selection when it is more than a
@@ -3245,6 +3249,41 @@ impl ViewerState {
         let (r, c) = (s[0], s[1]);
         self.grid_move_to(r, c);
         Ok(())
+    }
+
+    /// Clear Formats (`contents` off) or Clear All of the selection.
+    pub fn clear_formats(&mut self, contents: bool) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        self.doc()
+            .clear_range(self.unit, s, contents, true)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Format Painter: the selection's format taken, or, taken already,
+    /// painted over the selection; whether it painted.
+    pub fn format_painter(&mut self) -> Result<bool, String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        match self.painter.take() {
+            None => {
+                self.painter = Some((self.unit, s));
+                Ok(false)
+            }
+            Some(from) => {
+                self.doc()
+                    .fill_formats(from, (self.unit, s))
+                    .map_err(|e| e.to_string())?;
+                self.refresh();
+                Ok(true)
+            }
+        }
     }
 
     /// The units that are hidden sheets.
@@ -6299,6 +6338,26 @@ fn paste_special(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
     with(ctx, |v| v.paste_special(kind, transpose))
 }
 
+/// Format Painter (`t p`): pressed once it takes the selection's format,
+/// again it paints it over the selection then chosen.
+fn format_painter(ctx: &mut EditorContext<'_>) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    match v.format_painter() {
+        Ok(false) => ctx
+            .messages
+            .push("Format Painter: select the cells, then t p again (Escape: none)".into()),
+        Ok(true) => {}
+        Err(e) => ctx.messages.push(e),
+    }
+    Ok(())
+}
+
 /// Number Format: the selection's, from Excel's common ones or typed.
 fn number_format(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::StyleChange;
@@ -7526,6 +7585,27 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.clearFormats",
+            "Clear Formats",
+            &["t x"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.clear_formats(false)),
+        ),
+        cmd(
+            "viewer.grid.clearAll",
+            "Clear All",
+            &["t shift+x"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.clear_formats(true)),
+        ),
+        cmd(
+            "viewer.grid.formatPainter",
+            "Format Painter",
+            &["t p"],
+            IN_GRID,
+            |ctx, _| format_painter(ctx),
+        ),
         cmd(
             "viewer.grid.insertCells",
             "Insert Cells",

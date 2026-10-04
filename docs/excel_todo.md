@@ -97,7 +97,7 @@ in the palette and can be bound again.
 
 ## E15. Clear formats and Format Painter
 
-- [ ] E15 Clear Formats (the style taken away, values kept), Clear All;
+- [x] E15 Clear Formats (the style taken away, values kept), Clear All;
   Format Painter copies the cursor's format onto a selection.
 
 ## E16. Remove Duplicates and Text to Columns

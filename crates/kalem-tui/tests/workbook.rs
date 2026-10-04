@@ -2356,3 +2356,60 @@ fn inserting_and_deleting_cells() {
     assert_eq!(input(&mut t, 1, 1), "1200");
     assert_eq!(input(&mut t, 2, 1), "431.5");
 }
+
+#[test]
+fn clear_formats_and_painter() {
+    let mut t = T::open("painter");
+    let tp = |t: &mut T, k: char| {
+        t.key(KeyCode::Char('t'));
+        let m = if k.is_uppercase() {
+            KeyModifiers::SHIFT
+        } else {
+            KeyModifiers::NONE
+        };
+        t.app.event(Event::Key(KeyEvent::new(KeyCode::Char(k), m)));
+    };
+    let row = |t: &mut T, start: &str| {
+        let s = t.screen();
+        s.lines()
+            .find(|l| l.trim_start().starts_with(start))
+            .unwrap_or_default()
+            .to_owned()
+    };
+    // B2's format cleared: 1200 as General.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    tp(&mut t, 'x');
+    assert!(row(&mut t, "2 Rent").contains(" 1200"), "{}", t.screen());
+    // Painted from B3: t p takes it, t p again paints B2:C2.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 1);
+    tp(&mut t, 'p');
+    assert!(
+        t.screen().contains("Format Painter: select"),
+        "{}",
+        t.screen()
+    );
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 1);
+        v.grid_extend_to(1, 2);
+    }
+    tp(&mut t, 'p');
+    assert!(row(&mut t, "2 Rent").contains("1,200.00"), "{}", t.screen());
+    // Clear All: the value, the format and the note of A2.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    tp(&mut t, 'X');
+    let s = t.screen();
+    assert!(
+        !s.contains("Rent") && !s.contains("Paid on the first"),
+        "{s}"
+    );
+    for _ in 0..3 {
+        t.app.run_command("edit.undo", json!({}));
+    }
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    let s = t.screen();
+    assert!(
+        s.contains("Rent") && s.contains("1,200.00") && s.contains("Paid on the first"),
+        "{s}"
+    );
+}
