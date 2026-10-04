@@ -1191,6 +1191,12 @@ pub trait ViewerDocument: Send {
         String::new()
     }
 
+    /// Freezes the first `rows` rows and `cols` columns of a grid, as a
+    /// spreadsheet's Freeze Panes; none of either unfreezes it.
+    fn set_frozen(&mut self, _unit: usize, _rows: u32, _cols: u32) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
     /// Hides rows (`rows`) or columns `from..=to`, or shows them again.
     fn set_hidden(
         &mut self,
