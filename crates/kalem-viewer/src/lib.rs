@@ -442,6 +442,77 @@ pub struct GridCell {
     pub bar: Option<(u16, [u8; 3])>,
     /// An icon from a conditional format's icon set: the glyph and its color.
     pub icon: Option<(String, [u8; 3])>,
+    /// The font size in tenths of a point, when not the sheet's default.
+    pub font_size: Option<u16>,
+    /// The typeface, when not the sheet's default.
+    pub face: Option<String>,
+    /// The vertical alignment.
+    pub valign: VAlign,
+    /// The borders: top, right, bottom, left, each its color when drawn.
+    pub borders: [Option<[u8; 3]>; 4],
+}
+
+/// How a cell's text sits between its top and bottom.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum VAlign {
+    /// At the bottom (a spreadsheet's default).
+    #[default]
+    Bottom,
+    /// In the middle.
+    Middle,
+    /// At the top.
+    Top,
+}
+
+/// Which borders a change draws.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BorderSet {
+    /// Every cell's every side.
+    All,
+    /// Around the selection.
+    Outside,
+    /// Around the selection, thick.
+    ThickOutside,
+    /// Under the selection.
+    Bottom,
+    /// Over the selection.
+    Top,
+    /// Left of the selection.
+    Left,
+    /// Right of the selection.
+    Right,
+    /// None at all.
+    None,
+}
+
+/// A change to the cells' format, as a spreadsheet's Format Cells makes
+/// it; every field left `None` stays as each cell has it.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct StyleChange {
+    /// Bold on or off.
+    pub bold: Option<bool>,
+    /// Italic on or off.
+    pub italic: Option<bool>,
+    /// Underline on or off.
+    pub underline: Option<bool>,
+    /// Strikethrough on or off.
+    pub strike: Option<bool>,
+    /// The text color (`Some(None)`: automatic).
+    pub color: Option<Option<[u8; 3]>>,
+    /// The fill (`Some(None)`: no fill).
+    pub fill: Option<Option<[u8; 3]>>,
+    /// The font size in points.
+    pub size: Option<f32>,
+    /// The typeface.
+    pub face: Option<String>,
+    /// The horizontal alignment.
+    pub align: Option<Align>,
+    /// The vertical alignment.
+    pub valign: Option<VAlign>,
+    /// Borders drawn (or taken away), in a color (`None`: automatic).
+    pub borders: Option<(BorderSet, Option<[u8; 3]>)>,
+    /// The number format code (`General`, `#,##0.00`, `0%`).
+    pub number_format: Option<String>,
 }
 
 /// How a conditional format compares a cell's value.
@@ -1406,6 +1477,17 @@ pub trait ViewerDocument: Send {
     /// The data validation of a cell.
     fn validation(&mut self, _unit: usize, _row: u32, _col: u32) -> Option<Validation> {
         None
+    }
+
+    /// Changes the format of a range's cells (first row, first column,
+    /// last row, last column).
+    fn change_style(
+        &mut self,
+        _unit: usize,
+        _range: [u32; 4],
+        _change: StyleChange,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
     }
 
     /// Sets the data validation of a range (`None`: removes it), replacing
