@@ -541,6 +541,22 @@ pub struct Chart {
     pub plot_background: Paint,
     /// The plot area's border.
     pub plot_border: Paint,
+    /// Which gridlines it draws.
+    pub gridlines: Gridlines,
+}
+
+/// A chart's gridlines, by the way they run: horizontal ones come from
+/// the vertical axis, vertical ones from the horizontal axis.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Gridlines {
+    /// Horizontal lines at each major unit.
+    pub horizontal_major: bool,
+    /// Horizontal lines between them.
+    pub horizontal_minor: bool,
+    /// Vertical lines at each major unit (or category).
+    pub vertical_major: bool,
+    /// Vertical lines between them.
+    pub vertical_minor: bool,
 }
 
 /// How a chart's background or border is painted.
@@ -1262,6 +1278,17 @@ pub trait ViewerDocument: Send {
         _index: usize,
         _background: Paint,
         _border: Paint,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Shows or hides the gridlines of the chart at `index` of
+    /// [`ViewerDocument::charts`].
+    fn set_gridlines(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _lines: Gridlines,
     ) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
