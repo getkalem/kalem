@@ -3251,6 +3251,80 @@ impl ViewerState {
         Ok(())
     }
 
+    /// The table Remove Duplicates works on, whether its first row is the
+    /// headers, and each column with its header (or letter).
+    pub fn duplicates_target(&mut self) -> ([u32; 4], bool, Vec<(u32, String)>) {
+        let (r, header) = self.table_target();
+        let names = self.grid_cells(r[0]..r[0] + 1, r[1]..r[3] + 1);
+        let cols = (r[1]..=r[3])
+            .map(|c| {
+                let letter = crate::csv_tools::column_letters(c as usize);
+                let name = names
+                    .iter()
+                    .find(|x| x.1 == c)
+                    .map(|x| x.2.text.clone())
+                    .filter(|t| header && !t.is_empty());
+                (
+                    c,
+                    name.map_or(format!("Column {letter}"), |n| format!("{n} ({letter})")),
+                )
+            })
+            .collect();
+        (r, header, cols)
+    }
+
+    /// Remove Duplicates of the table at the cursor by `columns` (none: all);
+    /// how many rows went and how many stay.
+    pub fn remove_duplicates(&mut self, columns: &[u32]) -> Result<(usize, usize), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (r, header) = self.table_target();
+        let removed = self
+            .doc()
+            .remove_duplicates(self.unit, r, columns, header)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        let rows = (r[2] - r[0] + 1) as usize - usize::from(header);
+        Ok((removed, rows - removed))
+    }
+
+    /// Text to Columns: each cell of the selection's column split at
+    /// `delimiter` into it and the cells to its right, entered as typed.
+    /// One undo step; how many cells were split.
+    pub fn text_to_columns(&mut self, delimiter: &str) -> Result<usize, String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        if s[1] != s[3] {
+            return Err("Select one column to split".into());
+        }
+        if delimiter.is_empty() {
+            return Err("Split at what?".into());
+        }
+        let mut cells = Vec::new();
+        let mut split = 0;
+        for r in s[0]..=s[2] {
+            let input = self.doc().cell_input(self.unit, r, s[1]);
+            if input.starts_with('=') || !input.contains(delimiter) {
+                continue;
+            }
+            split += 1;
+            for (i, part) in input.split(delimiter).enumerate() {
+                cells.push((r, s[1] + i as u32, part.trim().to_owned()));
+            }
+        }
+        if cells.is_empty() {
+            return Err(format!("No cell holds {delimiter:?}"));
+        }
+        self.doc()
+            .set_cell_list(self.unit, &cells)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(split)
+    }
+
     /// Clear Formats (`contents` off) or Clear All of the selection.
     pub fn clear_formats(&mut self, contents: bool) -> Result<(), String> {
         if !self.grid_editable() {
@@ -6338,6 +6412,102 @@ fn paste_special(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
     with(ctx, |v| v.paste_special(kind, transpose))
 }
 
+/// Remove Duplicates: by all the table's columns or one of them, then
+/// what went said as Excel says it.
+fn remove_duplicates(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.removeDuplicates";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let columns: Vec<u32> = match args.get("columns") {
+        Some(serde_json::Value::Array(a)) => a
+            .iter()
+            .filter_map(|x| x.as_u64().map(|c| c as u32))
+            .collect(),
+        _ => {
+            let (_, _, cols) = v.duplicates_target();
+            let mut items = vec![menu_item(
+                ID,
+                serde_json::json!({ "columns": [] }),
+                "All Columns",
+                "Remove Duplicates",
+            )];
+            items.extend(cols.into_iter().map(|(c, name)| {
+                menu_item(
+                    ID,
+                    serde_json::json!({ "columns": [c] }),
+                    &name,
+                    "Remove Duplicates",
+                )
+            }));
+            ctx.requests.push(Request::Choose(items));
+            return Ok(());
+        }
+    };
+    match v.remove_duplicates(&columns) {
+        Ok((0, _)) => ctx.messages.push("No duplicate values found".into()),
+        Ok((n, left)) => ctx.messages.push(format!(
+            "{n} duplicate row{} removed; {left} unique {}",
+            if n == 1 { "" } else { "s" },
+            if left == 1 {
+                "row remains"
+            } else {
+                "rows remain"
+            }
+        )),
+        Err(e) => ctx.messages.push(e),
+    }
+    Ok(())
+}
+
+/// Text to Columns: the delimiter from a menu (or typed), then the split.
+fn text_to_columns(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.textToColumns";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let delimiter = match args.get("delimiter").and_then(|d| d.as_str()) {
+        Some("other") => return ask_more(ctx, ID, &serde_json::json!({}), "value"),
+        Some(d) => d.to_owned(),
+        None => match args.get("value").and_then(|d| d.as_str()) {
+            Some(d) => d.to_owned(),
+            None => {
+                let item = |d: &str, title: &str| {
+                    menu_item(
+                        ID,
+                        serde_json::json!({ "delimiter": d }),
+                        title,
+                        "Text to Columns",
+                    )
+                };
+                ctx.requests.push(Request::Choose(vec![
+                    item("\t", "Tab"),
+                    item(";", "Semicolon ;"),
+                    item(",", "Comma ,"),
+                    item(" ", "Space"),
+                    item("other", "Other…"),
+                ]));
+                return Ok(());
+            }
+        },
+    };
+    match v.text_to_columns(&delimiter) {
+        Ok(n) => ctx
+            .messages
+            .push(format!("{n} cell{} split", if n == 1 { "" } else { "s" })),
+        Err(e) => ctx.messages.push(e),
+    }
+    Ok(())
+}
+
 /// Format Painter (`t p`): pressed once it takes the selection's format,
 /// again it paints it over the selection then chosen.
 fn format_painter(ctx: &mut EditorContext<'_>) -> CommandResult {
@@ -7585,6 +7755,20 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.removeDuplicates",
+            "Remove Duplicates",
+            &[],
+            IN_GRID,
+            remove_duplicates,
+        ),
+        cmd(
+            "viewer.grid.textToColumns",
+            "Text to Columns",
+            &[],
+            IN_GRID,
+            text_to_columns,
+        ),
         cmd(
             "viewer.grid.clearFormats",
             "Clear Formats",

@@ -2413,3 +2413,57 @@ fn clear_formats_and_painter() {
         "{s}"
     );
 }
+
+#[test]
+fn duplicates_and_text_to_columns() {
+    let mut t = T::open("dupes");
+    let input = |t: &mut T, r: u32, c: u32| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(r, c);
+        v.cell_input()
+    };
+    // A small table at F8 with a header and a repeated row.
+    for (r, row) in [["Ad", "Yaş"], ["Ali", "30"], ["Ayşe", "25"], ["ali", "30"]]
+        .iter()
+        .enumerate()
+    {
+        for (c, v) in row.iter().enumerate() {
+            t.app.run_command(
+                "viewer.grid.setCell",
+                json!({ "row": 7 + r, "col": 5 + c, "value": v }),
+            );
+        }
+    }
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(8, 5);
+    t.app.run_command("viewer.grid.removeDuplicates", json!({}));
+    let s = t.screen();
+    assert!(s.contains("All Columns") && s.contains("Yaş (G)"), "{s}");
+    t.key(KeyCode::Esc);
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(8, 5);
+    t.app
+        .run_command("viewer.grid.removeDuplicates", json!({ "columns": [] }));
+    assert!(
+        t.screen()
+            .contains("1 duplicate row removed; 2 unique rows"),
+        "{}",
+        t.screen()
+    );
+    assert_eq!(input(&mut t, 10, 5), "");
+    assert_eq!(input(&mut t, 9, 6), "25");
+    // Text to Columns at a comma.
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 14, "col": 5, "value": "Kaya, Zeynep, 42" }),
+    );
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(14, 5);
+    t.app
+        .run_command("viewer.grid.textToColumns", json!({ "delimiter": "," }));
+    assert_eq!(input(&mut t, 14, 5), "Kaya");
+    assert_eq!(input(&mut t, 14, 6), "Zeynep");
+    assert_eq!(input(&mut t, 14, 7), "42");
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(14, 7);
+    assert!(v.cursor_cell().numeric);
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(input(&mut t, 14, 5), "Kaya, Zeynep, 42");
+}

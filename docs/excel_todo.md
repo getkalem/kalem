@@ -102,7 +102,7 @@ in the palette and can be bound again.
 
 ## E16. Remove Duplicates and Text to Columns
 
-- [ ] E16 Remove Duplicates from the table at the cursor by chosen
+- [x] E16 Remove Duplicates from the table at the cursor by chosen
   columns; Text to Columns splits a column at a delimiter.
 
 ## E17. Hyperlinks
