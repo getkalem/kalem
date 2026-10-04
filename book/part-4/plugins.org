@@ -125,8 +125,13 @@ workspace with a crate per plugin, a template that =kalem plugin new=
 copies, and an index Kalem reads as a static file. Its skeleton exists
 (T3.3.7). Components are never committed: CI builds every plugin
 against the current WIT, and a tag builds, signs and publishes each
-=.wasm=. =kalem plugin install=, =list= and =remove= work today for
-declarative plugins, and two commands start and build a component:
+=.wasm=. =kalem plugin install=, =list= and =remove= work for
+declarative plugins and components alike: a component released in the
+index is downloaded, its SHA-256 checked against the index, and its
+manifest read from its folder at the release's tag
+(=pdf-viewer-v0.1.0=), which must name the same plugin and version; one
+not released yet is built from its source and installed from its
+folder. Two commands start and build a component:
 
 - =kalem plugin new NAME= starts a plugin. Inside a checkout of
   =getkalem/plugins= it copies =template/= to =plugins/NAME= and renames

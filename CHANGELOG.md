@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- `kalem plugin install NAME` and Browse Plugins install a component plugin released in the index: the component is downloaded, its SHA-256 checked, and its manifest read from the release's tag.
 - A plugin's questions, status bar items and panels show in both editors: a line asked for in the palette, a yes-or-no or a choice offered as a list, its items in the status line, and its panel (View > Plugin Panel) beside or under the text; Panel Actions lists a panel's buttons, entries, checkboxes and inputs for the keyboard.
 - Extension plugins: `kalem plugin install` installs a component that adds commands, and Kalem loads it at start or at the first event its manifest names; its commands and keys join both editors' palette and keymap, its event handlers hear the editors' events (and may veto a save), and its notifications show in the status line. A plugin that fails or runs past its time is stopped and its commands removed. A plugin's `kalem::run` now runs the command once the plugin's call returns.
 - The plugin API's `kalem.ui` (design §11.4): notifications, questions (a line of text, yes or no, a choice from a list) answered later without the editor waiting, status bar items, and panels described as a tree of widgets both editors will draw, with no webview (decision D11). `kalem-plugin` gives the Rust side as `kalem_plugin::ui`. The editor does not load such plugins yet.

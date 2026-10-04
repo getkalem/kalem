@@ -3944,7 +3944,11 @@ fn plugin_commands() -> Vec<Command> {
                                             "installed {}, {} available",
                                             i.version, e.version
                                         ),
-                                        None if !e.declarative => "no release yet".into(),
+                                        // A component not released: built from
+                                        // its source only.
+                                        None if !e.declarative && e.download.is_none() => {
+                                            "no release yet".into()
+                                        }
                                         None => e.version.clone(),
                                     };
                                     item(

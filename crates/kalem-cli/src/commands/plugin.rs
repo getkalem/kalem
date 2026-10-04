@@ -33,7 +33,7 @@ pub(crate) fn browse() -> Result<ExitCode> {
     for e in plugin_store::fetch_index(&index_url(&c))? {
         let state = match installed.iter().find(|i| i.id == e.id) {
             Some(i) => format!(" (installed {})", i.version),
-            None if !e.declarative => {
+            None if !e.declarative && e.download.is_none() => {
                 " (no release yet: build and install it from its source)".into()
             }
             None => String::new(),

@@ -418,7 +418,7 @@ fn fill(source: &str, index_url: &str, staging: &Path) -> Result<(), String> {
                         return Err(format!("{url}: its SHA-256 is {got}, the index says {sha}"));
                     }
                     if !e.declarative {
-                        return Err(component_not_released(&e.name));
+                        return released_component(e, &bytes, staging);
                     }
                     unpack(&bytes, "", staging).map(drop)
                 }
@@ -430,9 +430,73 @@ fn fill(source: &str, index_url: &str, staging: &Path) -> Result<(), String> {
     }
 }
 
+/// Puts the released component `bytes` of entry `e` (its hash checked)
+/// in `staging` with its manifest: the source folder's `plugin.json` at
+/// the release's tag, which must name the entry's plugin and version.
+fn released_component(e: &IndexEntry, bytes: &[u8], staging: &Path) -> Result<(), String> {
+    let text = released_manifest(e)?;
+    let m: Value =
+        serde_json::from_slice(&text).map_err(|err| format!("{}'s plugin.json: {err}", e.name))?;
+    if m["id"].as_str() != Some(e.id.as_str()) || m["version"].as_str() != Some(e.version.as_str())
+    {
+        return Err(format!(
+            "{}'s plugin.json at its release is not {} {}",
+            e.name, e.id, e.version
+        ));
+    }
+    let main = m["main"]
+        .as_str()
+        .ok_or_else(|| format!("{}'s plugin.json names no component", e.name))?;
+    if main.starts_with('/') || main.contains("..") {
+        return Err(format!(
+            "{}'s component {main} is not in its folder",
+            e.name
+        ));
+    }
+    let file = staging.join(main);
+    if let Some(d) = file.parent() {
+        std::fs::create_dir_all(d).map_err(|err| err.to_string())?;
+    }
+    std::fs::write(&file, bytes).map_err(|err| format!("{}: {err}", file.display()))?;
+    std::fs::write(staging.join("plugin.json"), &text).map_err(|err| err.to_string())
+}
+
+/// The manifest of entry `e`'s release: its source folder's `plugin.json`
+/// at the tag the release workflow makes (`NAME-vVERSION`, the folder's
+/// name), or in the folder on disk.
+fn released_manifest(e: &IndexEntry) -> Result<Vec<u8>, String> {
+    if let Some(url) = released_manifest_url(&e.source, &e.version) {
+        return fetch(&url);
+    }
+    match parse_source(&e.source) {
+        Source::Dir(d) => {
+            std::fs::read(d.join("plugin.json")).map_err(|err| format!("{}: {err}", d.display()))
+        }
+        _ => Err(format!(
+            "{}: its release has no manifest Kalem finds",
+            e.name
+        )),
+    }
+}
+
+/// Where the manifest of version `version` of a plugin whose source is a
+/// GitHub folder is: the folder at the release's tag.
+fn released_manifest_url(source: &str, version: &str) -> Option<String> {
+    let Source::GitHub {
+        owner, repo, path, ..
+    } = parse_source(source)
+    else {
+        return None;
+    };
+    let folder = path.rsplit('/').next().unwrap_or(&path);
+    Some(format!(
+        "https://raw.githubusercontent.com/{owner}/{repo}/{folder}-v{version}/{path}/plugin.json"
+    ))
+}
+
 fn component_not_released(name: &str) -> String {
     format!(
-        "{name} is a WebAssembly component with no release Kalem installs yet: build it from its source with `kalem plugin build` and install that folder"
+        "{name} is a WebAssembly component with no release yet: build it from its source with `kalem plugin build` and install that folder"
     )
 }
 
@@ -969,5 +1033,73 @@ mod tests {
         std::fs::write(dir.join("plugin.json"), r#"{"id":"../x","languages":[]}"#).unwrap();
         assert!(read_prepared("x", &dir).is_err());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_released_component_installs_from_the_index() {
+        let dir = std::env::temp_dir().join(format!("kalem-release-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let source = dir.join("plugins/counter");
+        std::fs::create_dir_all(&source).unwrap();
+        let manifest = |version: &str| {
+            format!(
+                r#"{{"id":"org.x.counter","name":"Counter","version":"{version}","main":"dist/counter.wasm"}}"#
+            )
+        };
+        std::fs::write(source.join("plugin.json"), manifest("0.2.0")).unwrap();
+        // The release's asset: a component (its header), alone.
+        let component = b"\0asm\x0d\x00\x01\x00rest".to_vec();
+        let asset = dir.join("counter.wasm");
+        std::fs::write(&asset, &component).unwrap();
+        let sha = format!("{:x}", Sha256::digest(&component));
+        let index = |version: &str, sha: &str| {
+            serde_json::json!({ "schema": 1, "plugins": [{
+                "id": "org.x.counter", "name": "Counter", "version": version,
+                "api": "^0.1", "permissions": [],
+                "source": source.to_string_lossy(),
+                "download": format!("file://{}", asset.display()),
+                "sha256": sha,
+            }]})
+            .to_string()
+        };
+        let at = dir.join("index.json");
+        let url = format!("file://{}", at.display());
+
+        std::fs::write(&at, index("0.2.0", &sha)).unwrap();
+        let p = prepare("counter", &url).unwrap();
+        assert!(p.component && p.opens.is_empty());
+        assert_eq!(
+            (p.id.as_str(), p.version.as_str()),
+            ("org.x.counter", "0.2.0")
+        );
+        assert_eq!(
+            std::fs::read(p.staging.join("dist/counter.wasm")).unwrap(),
+            component
+        );
+        assert!(summary(&p).iter().any(|l| l.starts_with("Adds commands")));
+        let _ = std::fs::remove_dir_all(&p.staging);
+
+        // The manifest at the release must be the entry's version.
+        std::fs::write(&at, index("0.1.0", &sha)).unwrap();
+        assert!(
+            prepare("counter", &url)
+                .unwrap_err()
+                .contains("not org.x.counter 0.1.0")
+        );
+        // And the asset the hash the index gives.
+        std::fs::write(&at, index("0.2.0", &"0".repeat(64))).unwrap();
+        assert!(prepare("counter", &url).unwrap_err().contains("SHA-256"));
+        let _ = std::fs::remove_dir_all(&dir);
+        // getkalem/plugins: the folder at the tag its release workflow makes.
+        assert_eq!(
+            released_manifest_url(
+                "https://github.com/getkalem/plugins/tree/main/plugins/pdf-viewer",
+                "0.1.0"
+            )
+            .as_deref(),
+            Some(
+                "https://raw.githubusercontent.com/getkalem/plugins/pdf-viewer-v0.1.0/plugins/pdf-viewer/plugin.json"
+            )
+        );
     }
 }
