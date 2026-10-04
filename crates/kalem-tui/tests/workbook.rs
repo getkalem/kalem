@@ -2011,3 +2011,58 @@ fn sheets() {
         .len();
     assert_eq!(n, 3);
 }
+
+#[test]
+fn hidden_rows_and_columns() {
+    let mut t = T::open("hide");
+    let z = |t: &mut T, k: char| {
+        t.key(KeyCode::Char('z'));
+        let m = if k.is_uppercase() {
+            KeyModifiers::SHIFT
+        } else {
+            KeyModifiers::NONE
+        };
+        t.app.event(Event::Key(KeyEvent::new(KeyCode::Char(k), m)));
+    };
+    // Rows 2 and 3 hidden: the cursor goes on to row 4.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 0);
+        v.grid_extend_to(2, 0);
+    }
+    z(&mut t, 'r');
+    let s = t.screen();
+    assert!(
+        !s.contains("Rent") && !s.contains("Food") && s.contains("Travel"),
+        "{s}"
+    );
+    assert!(s.contains("A4 "), "{s}");
+    // Column B hidden: Q1 goes, Q2 shows.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 1);
+    z(&mut t, 'c');
+    let s = t.screen();
+    let head = s.lines().nth(2).unwrap_or_default();
+    assert!(!head.contains("Q1") && head.contains("Q2"), "{s}");
+    // Shown again from a selection over them.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(0, 0);
+        v.grid_extend_to(4, 2);
+    }
+    z(&mut t, 'R');
+    z(&mut t, 'C');
+    let s = t.screen();
+    assert!(
+        s.contains("Rent") && s.contains("Food") && s.contains("Q1"),
+        "{s}"
+    );
+    // Undone step by step.
+    t.app.run_command("edit.undo", json!({}));
+    let s = t.screen();
+    assert!(!s.lines().nth(2).unwrap_or_default().contains("Q1"), "{s}");
+    for _ in 0..3 {
+        t.app.run_command("edit.undo", json!({}));
+    }
+    let s = t.screen();
+    assert!(s.contains("Rent") && s.contains("Q1"), "{s}");
+}

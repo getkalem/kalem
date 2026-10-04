@@ -65,7 +65,7 @@ in the palette and can be bound again.
 
 ## E9. Hidden rows and columns
 
-- [ ] E9 Hide and unhide the selection's rows or columns (Ctrl+9,
+- [x] E9 Hide and unhide the selection's rows or columns (Ctrl+9,
   Ctrl+Shift+9, Ctrl+0), written as Excel writes them.
 
 ## E10. Frozen panes

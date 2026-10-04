@@ -3010,6 +3010,40 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Hides the selection's rows (`rows`) or columns, or shows hidden
+    /// ones in it again; the cursor leaves what it hid.
+    pub fn set_hidden(&mut self, rows: bool, hidden: bool) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        let (from, to) = if rows { (s[0], s[2]) } else { (s[1], s[3]) };
+        self.doc()
+            .set_hidden(self.unit, rows, from, to, hidden)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        if hidden {
+            let p = self.grid_pos();
+            let l = self.grid_layout().unwrap_or_default();
+            let (gone, max) = if rows {
+                (l.hidden_rows, l.max_rows)
+            } else {
+                (l.hidden_cols, l.max_cols)
+            };
+            let next = (to + 1..max)
+                .find(|x| !gone.contains(x))
+                .or_else(|| (0..from).rev().find(|x| !gone.contains(x)));
+            if let Some(n) = next {
+                if rows {
+                    self.grid_move_to(n, p.col);
+                } else {
+                    self.grid_move_to(p.row, n);
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// The units that are hidden sheets.
     pub fn hidden_units(&mut self) -> Vec<usize> {
         self.doc().hidden_units()
@@ -7086,6 +7120,34 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.hideRows",
+            "Hide Rows",
+            &["ctrl+9", "z r"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.set_hidden(true, true)),
+        ),
+        cmd(
+            "viewer.grid.unhideRows",
+            "Unhide Rows",
+            &["ctrl+shift+9", "z shift+r"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.set_hidden(true, false)),
+        ),
+        cmd(
+            "viewer.grid.hideColumns",
+            "Hide Columns",
+            &["ctrl+0", "z c"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.set_hidden(false, true)),
+        ),
+        cmd(
+            "viewer.grid.unhideColumns",
+            "Unhide Columns",
+            &["ctrl+shift+0", "z shift+c"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.set_hidden(false, false)),
+        ),
         cmd(
             "viewer.grid.insertSheet",
             "Insert Sheet",
