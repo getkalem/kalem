@@ -2,7 +2,7 @@
 
 # Kalem — What remains, in order
 
-Kalem's working task list since 2026-10-01: every task of the former list, now [`todo_old.md`](todo_old.md), that was not done, in the order it is to be done, under general headings. Each task keeps its ID and its full text from `todo.md`: the reason (**Why**), the test (**How it is tested**), the done-criterion (**Done when**) and the "done:" notes of the tasks in progress. `todo_old.md` keeps the done and cancelled tasks, the history, the decision table and the rejected ideas, and is no longer updated; a task keeps its ID in both.
+Kalem's working task list since 2026-10-01: every task of the former list, now [`history/todo_old.md`](history/todo_old.md), that was not done, in the order it is to be done, under general headings. Each task keeps its ID and its full text from `todo.md`: the reason (**Why**), the test (**How it is tested**), the done-criterion (**Done when**) and the "done:" notes of the tasks in progress. `todo_old.md` keeps the done and cancelled tasks, the history, the decision table and the rejected ideas, and is no longer updated; a task keeps its ID in both.
 
 Markers: `[ ]` to do, `[~]` in progress (the task's text says what is done and what is open), `[x]` done (with its "done:" note; left in place until the list is next cleaned). A heading may end with **Needs discussion**: the open decisions that belong to it, and the points the author of this file (2026-10-01) did not understand or found doubtful, for the owner to settle; nothing under that heading changes a task.
 

@@ -14,10 +14,10 @@ readme = "README.md"
 publish = false
 
 [dependencies]
-gpui = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b", version = "0.2.2" }
+gpui.workspace = true
 
 [dev-dependencies]
-gpui = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b", version = "0.2.2", features = ["test-support"] }
+gpui = { workspace = true, features = ["test-support"] }
 
 [lints]
 workspace = true

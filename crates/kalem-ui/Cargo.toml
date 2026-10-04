@@ -19,8 +19,8 @@ org-syntax.workspace = true
 org-edit.workspace = true
 org-model.workspace = true
 # A pinned revision of Zed's main branch: gpui with AccessKit (T1.5.2b).
-gpui = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b", version = "0.2.2" }
-gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b", features = ["font-kit", "runtime_shaders", "wayland", "x11"] }
+gpui.workspace = true
+gpui_platform = { workspace = true, features = ["font-kit", "runtime_shaders", "wayland", "x11"] }
 serde_json = "1"
 jiff = { version = "0.2", default-features = false, features = ["std", "tz-system"] }
 tracing = "0.1"
@@ -39,8 +39,8 @@ kalem-plugin-xlsx.workspace = true
 kalem-plugin-pdf-viewer.workspace = true
 ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
 unicode-width = "0.2"
-gpui = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b", version = "0.2.2", features = ["test-support"] }
-gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b", features = ["test-support"] }
+gpui = { workspace = true, features = ["test-support"] }
+gpui_platform = { workspace = true, features = ["test-support"] }
 
 # A benchmark with its own `main`: the system's text system is created on
 # the main thread. It runs only with `--ignored`.
