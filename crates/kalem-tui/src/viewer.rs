@@ -84,16 +84,19 @@ pub fn draw(
         (pic, None)
     };
     if v.is_grid() && pic.height > 3 {
+        // The sheets' tabs under the grid, when there are several.
+        let tabs = v.sheet_tabs();
+        let tab_row = (tabs.len() > 1 && pic.height > 14)
+            .then(|| Rect::new(pic.x, pic.bottom() - 1, pic.width, 1));
+        let grid_h = pic.height - 1 - u16::from(tab_row.is_some());
         // The formula bar above the grid, drawn after it: the cursor may
         // move while the grid is laid out.
         let bar = Rect::new(pic.x, pic.y, pic.width, 1);
-        draw_grid(
-            v,
-            caps,
-            buf,
-            Rect::new(pic.x, pic.y + 1, pic.width, pic.height - 1),
-        );
+        draw_grid(v, caps, buf, Rect::new(pic.x, pic.y + 1, pic.width, grid_h));
         draw_formula_bar(v, caps, buf, bar);
+        if let Some(row) = tab_row {
+            draw_tabs(&tabs, v.unit, caps, buf, row);
+        }
     } else {
         match picker(images, caps) {
             Some(p) => draw_image(v, image, &p, buf, pic),
@@ -112,6 +115,42 @@ pub fn draw(
             status.width as usize,
             Style::default().add_modifier(Modifier::DIM),
         );
+    }
+}
+
+/// The sheets' tabs: each name, the shown one reversed, a colored tab
+/// with a bar of its color before the name.
+fn draw_tabs(
+    tabs: &[kalem_core::viewer::SheetTab],
+    shown: usize,
+    caps: &Caps,
+    buf: &mut Buffer,
+    row: Rect,
+) {
+    let mut x = row.x;
+    for (u, name, color) in tabs {
+        if x >= row.right() {
+            break;
+        }
+        let mut st = Style::default();
+        if *u == shown {
+            st = st.add_modifier(Modifier::REVERSED | Modifier::BOLD);
+        } else {
+            st = st.add_modifier(Modifier::DIM);
+        }
+        if let Some([r, g, b]) = color {
+            let mark = if caps.ascii { "|" } else { "▌" };
+            let mut cs = Style::default();
+            if !caps.no_color {
+                cs = cs.fg(ratatui::style::Color::Rgb(*r, *g, *b));
+            }
+            buf.set_stringn(x, row.y, mark, 1, cs);
+            x += 1;
+        }
+        let label = format!(" {name} ");
+        let room = (row.right() - x) as usize;
+        let (nx, _) = buf.set_stringn(x, row.y, &label, room, st);
+        x = nx + 1;
     }
 }
 
@@ -616,6 +655,14 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
             }
             if cell.is_some_and(|c| c.note) && inner > 0 {
                 buf[(x + inner as u16 - 1, y)].set_symbol(if caps.ascii { "*" } else { "◥" });
+            }
+            // A threaded comment: a purple diamond in the corner.
+            if cell.is_some_and(|c| c.thread) && inner > 0 {
+                let at = &mut buf[(x + inner as u16 - 1, y)];
+                at.set_symbol(if caps.ascii { "#" } else { "◆" });
+                if !caps.no_color {
+                    at.set_fg(ratatui::style::Color::Rgb(0x70, 0x30, 0xA0));
+                }
             }
             // A list validation's drop-down button, over a note's mark.
             if (r, c) == (pos.row, pos.col) && has_list && inner > 0 {

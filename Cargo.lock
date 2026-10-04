@@ -3768,7 +3768,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.57.0",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -4176,21 +4176,18 @@ dependencies = [
 [[package]]
 name = "ironcalc_base"
 version = "0.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce1dd83cada7da742782076daccda92e33162e9f4396a958ae3e7c5bb64e6a01"
+source = "git+https://github.com/getkalem/ironcalc?branch=kalem#3d59e1aa6de5e37deb96ed90734f37f5073136cb"
 dependencies = [
  "bitcode",
  "chrono",
  "chrono-tz",
  "csv",
- "js-sys",
  "rand 0.8.8",
  "regex",
  "regex-lite",
  "ryu",
  "serde",
  "statrs",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -4488,7 +4485,7 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-image-viewer"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=1ca787b17c8980e01525206156579e837e572be0#1ca787b17c8980e01525206156579e837e572be0"
+source = "git+https://github.com/getkalem/plugins?rev=c1f69fca1a7b71a171850a3b7a418fa86b2ec7fb#c1f69fca1a7b71a171850a3b7a418fa86b2ec7fb"
 dependencies = [
  "image",
  "kalem-plugin",
@@ -4500,7 +4497,7 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-pdf-viewer"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=1ca787b17c8980e01525206156579e837e572be0#1ca787b17c8980e01525206156579e837e572be0"
+source = "git+https://github.com/getkalem/plugins?rev=c1f69fca1a7b71a171850a3b7a418fa86b2ec7fb#c1f69fca1a7b71a171850a3b7a418fa86b2ec7fb"
 dependencies = [
  "hayro",
  "kalem-plugin",
@@ -4511,15 +4508,17 @@ dependencies = [
 [[package]]
 name = "kalem-plugin-xlsx"
 version = "0.0.1"
-source = "git+https://github.com/getkalem/plugins?rev=1ca787b17c8980e01525206156579e837e572be0#1ca787b17c8980e01525206156579e837e572be0"
+source = "git+https://github.com/getkalem/plugins?rev=c1f69fca1a7b71a171850a3b7a418fa86b2ec7fb#c1f69fca1a7b71a171850a3b7a418fa86b2ec7fb"
 dependencies = [
  "calamine",
  "cfb",
  "crc32fast",
  "ironcalc_base",
+ "kalem-plugin",
  "kalem-viewer",
  "miniz_oxide 0.9.1",
  "sha2 0.10.9",
+ "web-time",
 ]
 
 [[package]]

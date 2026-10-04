@@ -567,6 +567,14 @@ impl Editor {
         let Some(layout) = v.grid_layout() else {
             return div();
         };
+        // The sheets' tabs under the grid, when there are several.
+        let tabs = v.sheet_tabs();
+        let shown_unit = v.unit;
+        let tab_h = if tabs.len() > 1 {
+            (text_size * 2.0).round()
+        } else {
+            0.0
+        };
         let drag = self.viewer_view.col_drag;
         let row_drag = self.viewer_view.row_drag;
         // Rows in points, drawn so that a default row is `row_h` high.
@@ -646,8 +654,8 @@ impl Editor {
             pos.top,
             layout.max_rows,
             &layout.hidden_rows,
-            // The formula bar and the letters.
-            bounds.1 - 2.0 * row_h,
+            // The formula bar, the letters and the tabs.
+            bounds.1 - 2.0 * row_h - tab_h,
             &row_px,
         );
         v.set_grid_visible(full_rows.max(1), full_cols.max(1));
@@ -1533,6 +1541,18 @@ impl Editor {
                             )
                         };
                     }
+                    if cell.thread {
+                        // A threaded comment: Excel's purple mark.
+                        d = d.child(
+                            div()
+                                .debug_selector(move || format!("viewer-grid-thread-{r}-{c}"))
+                                .absolute()
+                                .top_0()
+                                .right_0()
+                                .size(px(7.))
+                                .bg(gpui::rgb(0x7030A0)),
+                        );
+                    }
                     if cell.note {
                         // A note: a mark in the corner, as Excel's red triangle.
                         d = d.child(
@@ -1713,6 +1733,77 @@ impl Editor {
                 .children(row_cells)
                 .children(spills)
         });
+        let tab_strip = (tab_h > 0.0).then(|| {
+            div()
+                .debug_selector(|| "viewer-grid-tabs".into())
+                .absolute()
+                .left_0()
+                .right_0()
+                .bottom_0()
+                .h(px(tab_h))
+                .flex()
+                .flex_row()
+                .items_stretch()
+                .overflow_hidden()
+                .bg(theme.bar)
+                .border_t_1()
+                .border_color(theme.border)
+                .on_mouse_down(
+                    MouseButton::Right,
+                    cx.listener(|this, _: &MouseDownEvent, window, cx| {
+                        this.run_command(
+                            "viewer.grid.sheetList",
+                            serde_json::json!({}),
+                            window,
+                            cx,
+                        );
+                        cx.stop_propagation();
+                    }),
+                )
+                .children(tabs.into_iter().map(|(u, name, color)| {
+                    let mut t = div()
+                        .debug_selector(move || format!("viewer-grid-tab-{u}"))
+                        .id(SharedString::from(format!("sheet-tab-{u}")))
+                        .flex()
+                        .items_center()
+                        .px(px(12.))
+                        .border_r_1()
+                        .border_color(theme.border)
+                        .cursor_pointer()
+                        .child(SharedString::from(name))
+                        .on_mouse_down(
+                            MouseButton::Left,
+                            cx.listener(move |this, _: &MouseDownEvent, _, cx| {
+                                if let Some(v) = this.doc.viewer.as_deref_mut() {
+                                    v.go_to(u);
+                                }
+                                cx.stop_propagation();
+                                cx.notify();
+                            }),
+                        );
+                    if u == shown_unit {
+                        t = t.bg(theme.background).font_weight(gpui::FontWeight::BOLD);
+                    } else {
+                        t = t.text_color(theme.muted);
+                    }
+                    if let Some([r, g, b]) = color {
+                        // A colored tab: a band of its color along the bottom.
+                        t = t.relative().child(
+                            div()
+                                .debug_selector(move || format!("viewer-grid-tab-color-{u}"))
+                                .absolute()
+                                .left_0()
+                                .right_0()
+                                .bottom_0()
+                                .h(px(4.))
+                                .bg(gpui::rgb(
+                                    u32::from(r) << 16 | u32::from(g) << 8 | u32::from(b),
+                                )),
+                        );
+                    }
+                    t
+                }))
+        });
         let prepaint = entity.clone();
         div()
             .debug_selector(|| "viewer-grid".into())
@@ -1749,6 +1840,7 @@ impl Editor {
                     .children(arrow_layer)
                     .children(fill_handle),
             )
+            .children(tab_strip)
             // A fill handle dropped past the grid still fills.
             .on_mouse_up_out(
                 MouseButton::Left,

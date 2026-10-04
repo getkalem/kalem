@@ -781,6 +781,43 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.run_until_parked();
     assert!(cx.debug_bounds("viewer-grid-sparkline-1-7").is_none());
 
+    // A comment on E2: Excel's purple mark; then undone.
+    e.update_in(cx, |e, window, cx| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 4);
+        e.run_command(
+            "viewer.grid.newComment",
+            serde_json::json!({ "value": "Kontrol" }),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("viewer-grid-thread-1-4").is_some());
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("edit.undo", serde_json::json!({}), window, cx);
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("viewer-grid-thread-1-4").is_none());
+
+    // The sheets' tabs: a click on the second shows it; back with the first.
+    let second = cx
+        .debug_bounds("viewer-grid-tab-1")
+        .expect("the second sheet's tab");
+    cx.simulate_click(second.center(), gpui::Modifiers::none());
+    cx.run_until_parked();
+    assert_eq!(
+        e.update(cx, |e, _| e.doc.viewer.as_deref().unwrap().unit),
+        1
+    );
+    let first = cx.debug_bounds("viewer-grid-tab-0").unwrap();
+    cx.simulate_click(first.center(), gpui::Modifiers::none());
+    cx.run_until_parked();
+    assert_eq!(
+        e.update(cx, |e, _| e.doc.viewer.as_deref().unwrap().unit),
+        0
+    );
+
     // Goal Seek: D2 (B2+C2) made 1000 by changing B2; then undone.
     e.update_in(cx, |e, window, cx| {
         e.run_command(

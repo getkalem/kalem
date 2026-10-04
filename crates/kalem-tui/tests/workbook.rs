@@ -3484,3 +3484,71 @@ fn what_if() {
     v.grid_move_to(1, 10);
     assert_eq!(v.cell_input(), "12");
 }
+
+#[test]
+fn comments_and_sheet_tabs() {
+    let mut t = T::open("comments");
+    // Tall enough for the sheets' tabs under the grid.
+    t.term = Terminal::new(TestBackend::new(100, 30)).unwrap();
+    let s = t.screen();
+    assert!(s.contains(" Budget ") && s.contains(" Dates "), "{s}");
+    // A comment on E2, then a reply: marked, read in the status line.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 4);
+    t.key(KeyCode::Char('c'));
+    t.key(KeyCode::Char('m'));
+    assert!(t.screen().contains("New Comment"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.newComment",
+        json!({ "value": "Bu tutar doğru mu?" }),
+    );
+    t.app
+        .run_command("viewer.grid.newComment", json!({ "value": "Evet." }));
+    let s = t.screen();
+    assert!(s.contains("◆"), "{s}");
+    assert!(s.contains("Bu tutar doğru mu? (1 reply)"), "{s}");
+    // The menu: resolve, then the reply deleted.
+    t.key(KeyCode::Char('c'));
+    t.key(KeyCode::Char('t'));
+    let s = t.screen();
+    assert!(
+        s.contains("Resolve Thread") && s.contains("Delete reply"),
+        "{s}"
+    );
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.comments", json!({ "what": "resolve" }));
+    assert!(t.screen().contains("(resolved)"), "{}", t.screen());
+    t.app.run_command(
+        "viewer.grid.comments",
+        json!({ "what": "delete", "index": 1 }),
+    );
+    assert!(!t.screen().contains("reply"), "{}", t.screen());
+    // Tab Color: the menu, then red; the sheet list goes to Dates.
+    t.key(KeyCode::Char('S'));
+    t.key(KeyCode::Char('c'));
+    assert!(t.screen().contains("Dark Red"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.tabColor", json!({ "color": "FF0000" }));
+    assert!(t.screen().contains("▌ Budget "), "{}", t.screen());
+    t.app.run_command(
+        "viewer.grid.tabColor",
+        json!({ "color": "other", "value": "nope" }),
+    );
+    assert!(t.screen().contains("is not a color"), "{}", t.screen());
+    t.key(KeyCode::Char('S'));
+    t.key(KeyCode::Char('s'));
+    assert!(t.screen().contains("Dates"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.sheetList", json!({ "unit": 1 }));
+    assert_eq!(t.app.doc.viewer.as_deref().unwrap().unit, 1);
+    // Saved: the thread and the tab's color in the file.
+    t.app.run_command("app.save", json!({}));
+    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
+    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
+    let threads = wb.threads(0);
+    assert_eq!((threads.len(), threads[0].done), (1, true));
+    assert_eq!(wb.tab_color(0), Some(0xFF0000));
+}

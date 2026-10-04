@@ -96,7 +96,7 @@ be bound again.
 
 ## E34. Comments and sheet tabs
 
-- [ ] E34 Threaded comments with replies (beside the notes of E11),
+- [x] E34 Threaded comments with replies (beside the notes of E11),
   resolved and deleted; a sheet tab's color; the sheet list shown and
   chosen from (right-click on the tab arrows).
 

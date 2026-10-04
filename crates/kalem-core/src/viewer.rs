@@ -359,6 +359,10 @@ pub struct ViewerState {
     pub areas: Vec<[u32; 4]>,
     /// The sheet shown's pictures and shapes, by unit and generation.
     drawings_cache: Option<(UnitAt, Vec<kalem_viewer::Drawing>)>,
+    /// The sheet shown's comment threads, by unit and generation.
+    threads_cache: Option<(UnitAt, Vec<kalem_viewer::CommentThread>)>,
+    /// The sheets' tabs (unit, name, color), by generation.
+    tabs_cache: Option<(u64, Vec<SheetTab>)>,
     /// Pictures decoded, by unit, place and generation.
     pictures: std::collections::HashMap<(usize, usize, u64), Option<Bitmap>>,
 }
@@ -426,6 +430,9 @@ impl GridSearch {
 
 /// A unit at a generation.
 type UnitAt = (usize, u64);
+
+/// A sheet's tab: its unit, its name, its color.
+pub type SheetTab = (usize, String, Option<[u8; 3]>);
 
 /// A selection of a unit at a generation: unit, range, generation.
 type SumsKey = (usize, [u32; 4], u64);
@@ -553,6 +560,8 @@ impl ViewerState {
             watches: Vec::new(),
             areas: Vec::new(),
             drawings_cache: None,
+            threads_cache: None,
+            tabs_cache: None,
             pictures: std::collections::HashMap::new(),
         })
     }
@@ -1525,6 +1534,24 @@ impl ViewerState {
             }
             if let Some(note) = self.doc().cell_note(self.unit, p.row, p.col) {
                 parts.push(note.lines().next().unwrap_or_default().to_string());
+            }
+            if let Some(t) = self.cursor_thread()
+                && let Some(first) = t.comments.first()
+            {
+                let mut line = format!(
+                    "{}: {}",
+                    first.author,
+                    first.text.lines().next().unwrap_or_default()
+                );
+                match t.comments.len() - 1 {
+                    0 => {}
+                    1 => line.push_str(" (1 reply)"),
+                    n => line.push_str(&format!(" ({n} replies)")),
+                }
+                if t.done {
+                    line.push_str(" (resolved)");
+                }
+                parts.push(line);
             }
             // The validation's input message, as Excel shows it by the cell.
             if let Some((title, text)) = self.cursor_validation().and_then(|v| v.prompt) {
@@ -4320,6 +4347,108 @@ impl ViewerState {
         }
         .map_err(|e| e.to_string())?;
         drop(doc);
+        self.refresh();
+        Ok(())
+    }
+
+    /// The sheet shown's comment threads.
+    pub fn threads(&mut self) -> Vec<kalem_viewer::CommentThread> {
+        let key = (self.unit, self.generation);
+        if let Some((k, t)) = &self.threads_cache
+            && *k == key
+        {
+            return t.clone();
+        }
+        let t = self.doc().threads(self.unit);
+        self.threads_cache = Some((key, t.clone()));
+        t
+    }
+
+    /// The thread on the cursor's cell.
+    pub fn cursor_thread(&mut self) -> Option<kalem_viewer::CommentThread> {
+        let p = self.grid_pos();
+        self.threads()
+            .into_iter()
+            .find(|t| (t.row, t.col) == (p.row, p.col))
+    }
+
+    /// A comment on the cursor's cell (a reply when it has a thread), by
+    /// `author` now.
+    pub fn add_comment(&mut self, author: &str, text: &str) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let p = self.grid_pos();
+        let time = jiff::Zoned::now()
+            .strftime("%Y-%m-%dT%H:%M:%S.00")
+            .to_string();
+        self.doc()
+            .add_thread_comment(self.unit, p.row, p.col, author, text, &time)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The cursor's thread resolved, or open again.
+    pub fn resolve_comment(&mut self, done: bool) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let p = self.grid_pos();
+        self.doc()
+            .resolve_thread(self.unit, p.row, p.col, done)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Comment `index` of the cursor's thread deleted; the first, the
+    /// whole thread.
+    pub fn delete_comment(&mut self, index: usize) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let p = self.grid_pos();
+        self.doc()
+            .delete_thread_comment(self.unit, p.row, p.col, index)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The sheets' tabs, hidden sheets left out.
+    pub fn sheet_tabs(&mut self) -> Vec<SheetTab> {
+        if let Some((g, t)) = &self.tabs_cache
+            && *g == self.generation
+        {
+            return t.clone();
+        }
+        let labels: Vec<String> = self
+            .structure
+            .units
+            .iter()
+            .map(|u| u.label.clone())
+            .collect();
+        let mut tabs = Vec::new();
+        for (u, label) in labels.into_iter().enumerate() {
+            if label.ends_with(" (hidden)") {
+                continue;
+            }
+            let color = self.doc().tab_color(u);
+            tabs.push((u, label, color));
+        }
+        self.tabs_cache = Some((self.generation, tabs.clone()));
+        tabs
+    }
+
+    /// The sheet shown's tab color set, or taken away.
+    pub fn set_tab_color(&mut self, color: Option<[u8; 3]>) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc()
+            .set_tab_color(self.unit, color)
+            .map_err(|e| e.to_string())?;
         self.refresh();
         Ok(())
     }
@@ -8609,6 +8738,225 @@ fn scenarios(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
     with(ctx, |v| v.scenario("add", &name, &list, &comment))
 }
 
+/// Who writes comments: the account's name.
+fn comment_author() -> String {
+    ["USER", "USERNAME", "LOGNAME"]
+        .iter()
+        .find_map(|k| std::env::var(k).ok().filter(|v| !v.trim().is_empty()))
+        .unwrap_or_else(|| "Kalem".into())
+}
+
+/// New Comment: the cursor's cell gets a comment, or its thread a reply.
+fn new_comment(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    let Some(text) = text_arg(args, "value") else {
+        return ask_more(ctx, "viewer.grid.newComment", args, "value");
+    };
+    let author = comment_author();
+    with(ctx, |v| v.add_comment(&author, &text))
+}
+
+/// Comments: the cursor's thread read, replied to, resolved or deleted
+/// from the menu; the sheet's other threads gone to.
+fn comments_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.comments";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    match args.get("what").and_then(|x| x.as_str()) {
+        Some("resolve") => return with(ctx, |v| v.resolve_comment(true)),
+        Some("reopen") => return with(ctx, |v| v.resolve_comment(false)),
+        Some("delete") => {
+            let i = args
+                .get("index")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0);
+            return with(ctx, |v| v.delete_comment(i as usize));
+        }
+        Some("go") => {
+            let (Some(r), Some(c)) = (
+                args.get("row").and_then(serde_json::Value::as_u64),
+                args.get("col").and_then(serde_json::Value::as_u64),
+            ) else {
+                return Ok(());
+            };
+            v.grid_move_to(r as u32, c as u32);
+            return Ok(());
+        }
+        _ => {}
+    }
+    let here = v.cursor_thread();
+    let p = v.grid_pos();
+    let mut items = Vec::new();
+    if let Some(t) = &here {
+        let cell = cell_name(t.row, t.col);
+        for (i, c) in t.comments.iter().enumerate() {
+            let when = c.time.get(..16).unwrap_or(&c.time).replace('T', " ");
+            items.push(menu_item(
+                ID,
+                serde_json::json!({ "what": "delete", "index": i }),
+                &format!(
+                    "{} {} ({when}): {}",
+                    if i == 0 {
+                        "Delete thread:"
+                    } else {
+                        "Delete reply:"
+                    },
+                    c.author,
+                    c.text.replace('\n', " ")
+                ),
+                &format!("Comments on {cell}"),
+            ));
+        }
+        items.insert(
+            0,
+            menu_item(
+                "viewer.grid.newComment",
+                serde_json::json!({}),
+                "Reply…",
+                &format!("Comments on {cell}"),
+            ),
+        );
+        items.insert(
+            1,
+            if t.done {
+                menu_item(
+                    ID,
+                    serde_json::json!({ "what": "reopen" }),
+                    "Reopen Thread",
+                    &format!("Comments on {cell}"),
+                )
+            } else {
+                menu_item(
+                    ID,
+                    serde_json::json!({ "what": "resolve" }),
+                    "Resolve Thread",
+                    &format!("Comments on {cell}"),
+                )
+            },
+        );
+    } else {
+        items.push(menu_item(
+            "viewer.grid.newComment",
+            serde_json::json!({}),
+            "New Comment…",
+            &format!("Comments on {}", cell_name(p.row, p.col)),
+        ));
+    }
+    for t in v.threads() {
+        if (t.row, t.col) == (p.row, p.col) {
+            continue;
+        }
+        let Some(first) = t.comments.first() else {
+            continue;
+        };
+        items.push(menu_item(
+            ID,
+            serde_json::json!({ "what": "go", "row": t.row, "col": t.col }),
+            &format!(
+                "Go to {}: {}: {}",
+                cell_name(t.row, t.col),
+                first.author,
+                first.text.replace('\n', " ")
+            ),
+            "Comments on the sheet",
+        ));
+    }
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
+/// Tab Color: one of Excel's standard colors, a hex color, or none.
+fn tab_color(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.tabColor";
+    const COLORS: [(&str, &str); 10] = [
+        ("Dark Red", "C00000"),
+        ("Red", "FF0000"),
+        ("Orange", "FFC000"),
+        ("Yellow", "FFFF00"),
+        ("Light Green", "92D050"),
+        ("Green", "00B050"),
+        ("Light Blue", "00B0F0"),
+        ("Blue", "0070C0"),
+        ("Dark Blue", "002060"),
+        ("Purple", "7030A0"),
+    ];
+    let Some(color) = args.get("color").and_then(|x| x.as_str()) else {
+        let mut items: Vec<_> = COLORS
+            .iter()
+            .map(|(name, hex)| {
+                menu_item(ID, serde_json::json!({ "color": hex }), name, "Tab Color")
+            })
+            .collect();
+        items.push(menu_item(
+            ID,
+            serde_json::json!({ "color": "other" }),
+            "More Colors…",
+            "Tab Color",
+        ));
+        items.push(menu_item(
+            ID,
+            serde_json::json!({ "color": "none" }),
+            "No Color",
+            "Tab Color",
+        ));
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    let hex = match color {
+        "none" => return with(ctx, |v| v.set_tab_color(None)),
+        "other" => match text_arg(args, "value") {
+            Some(h) => h,
+            None => return ask_more(ctx, ID, args, "value"),
+        },
+        h => h.to_owned(),
+    };
+    let h = hex.trim().trim_start_matches('#');
+    let rgb = (h.len() == 6)
+        .then(|| u32::from_str_radix(h, 16).ok())
+        .flatten()
+        .map(|n| [(n >> 16) as u8, (n >> 8) as u8, n as u8]);
+    let Some(rgb) = rgb else {
+        ctx.messages
+            .push(format!("Tab Color: {hex} is not a color such as #C00000"));
+        return Ok(());
+    };
+    with(ctx, |v| v.set_tab_color(Some(rgb)))
+}
+
+/// Sheet List: the workbook's sheets, one chosen to go to (Excel's list
+/// on the tab arrows).
+fn sheet_list(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    if let Some(u) = args.get("unit").and_then(serde_json::Value::as_u64) {
+        v.go_to(u as usize);
+        return Ok(());
+    }
+    let items = v
+        .sheet_tabs()
+        .into_iter()
+        .map(|(u, name, _)| {
+            menu_item(
+                "viewer.grid.sheetList",
+                serde_json::json!({ "unit": u }),
+                &name,
+                "Sheets",
+            )
+        })
+        .collect();
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
 /// Edit Shape Text: the shape at the cursor's text asked, with what it has.
 fn edit_shape_text(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     let Some(v) = ctx
@@ -10559,6 +10907,34 @@ fn grid_commands() -> Vec<Command> {
             &["z m"],
             IN_GRID,
             scenarios,
+        ),
+        cmd(
+            "viewer.grid.newComment",
+            "New Comment",
+            &["c m"],
+            IN_GRID,
+            new_comment,
+        ),
+        cmd(
+            "viewer.grid.comments",
+            "Comments",
+            &["c t"],
+            IN_GRID,
+            comments_menu,
+        ),
+        cmd(
+            "viewer.grid.tabColor",
+            "Tab Color",
+            &["shift+s c"],
+            IN_GRID,
+            tab_color,
+        ),
+        cmd(
+            "viewer.grid.sheetList",
+            "Sheet List",
+            &["shift+s s"],
+            IN_GRID,
+            sheet_list,
         ),
         cmd(
             "viewer.grid.goToSpecial",
