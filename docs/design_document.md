@@ -1,5 +1,7 @@
 # Kalem: A Rendered Editor for Plain-Text Documents — Design Document (RFC 0001)
 
+> The Kalem format (`.klm`, RFC 0003, Part III of the Book) was removed on 2026-10-04 by the owner's decision; the sections about it are kept as the design record.
+
 | Field | Value |
 |---|---|
 | Version | 0.2 (draft) |

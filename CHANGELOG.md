@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Removed
+- The Kalem format (`.klm`): its parser (`klm-syntax`), its mode, its formatter and Repair Document, `kalem fmt --repair`, its conformance suite, RFC 0003 and Part III of the Book, by the owner's decision. A `.klm` file opens as plain text, and the scratch document is `scratch.org`. The Book's Parts IV and V are now Parts III and IV.
+
 ### Added
 - The release workflow (`.github/workflows/release.yml`, from `dist generate`): a `v*` tag builds archives and installers for macOS, Linux and Windows on runners of each architecture; the terminal-only archives are built and attached when the release is published.
 - A test that panics on purpose checks the crash report: `crash-DATE.txt` beside the log, with the report's header, the panic and where the log is.

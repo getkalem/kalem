@@ -7,9 +7,7 @@ repository). Contributions are accepted under the same terms.
 * This book
 
 The text of this book is part of the repository and is under the same
-licenses as the code. When the Kalem format's specification is written,
-its text is proposed to be under CC BY 4.0 and its conformance suite
-under MIT or Apache-2.0 (decision D45).
+licenses as the code.
 
 * Test corpus
 

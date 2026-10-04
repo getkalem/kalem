@@ -606,7 +606,7 @@ fixed by the year and the share per category) and measure, for each
 field, the bytes of the body the reader leaves as source. =kalem
 latex-coverage DIR= does it for Kalem and reports the constructs that
 leave the most. A reader that follows this appendix leaves less than
-0.1% of the body in each field; Kalem's target is the same (Part V,
+0.1% of the body in each field; Kalem's target is the same (Part IV,
 decision D30).
 
 ** Typesetting

@@ -74,7 +74,6 @@ records the source and license of every file.
 | =synthetic/= | Files written for Kalem: CRLF with a byte order mark, CJK, Turkish, malformed input, deep nesting, edge cases |
 | =model/=     | Documents for the model differential: tags, clocks, groups, match strings, statistics                         |
 | =tables/=    | 928 =#+TBLFM= tables, most of them generated at random                                                        |
-| =klm/=       | Every construct the interim =.klm= formatting wrote (see below), which Emacs parses as Kalem does            |
 
 =tests/corpus/fetch-extended.sh= clones the whole Org repository at
 =release_9.7.11= and Worg at =22fc0631= into =.cache/=; CI runs the
@@ -108,22 +107,19 @@ as follows.
 ** Strict =.org=
 
 A file named =*.org= (or =*.org_archive=) is strict Org. RFC 0001
-(section 3.7, decision D24) also defined =.klm= as Org plus Kalem's
-word-processor formatting, written through Org's extension points:
-spans between =@@kalem:…@@= snippets, =#+ATTR_KALEM:= lines for
-alignment and spacing, and a =#+KALEM:= keyword for the document's
-defaults. RFC 0003 made =.klm= a format of its own, specified in Part
-III, and the owner had the interim mechanism removed ahead of it
-(T2.13.13): Kalem no longer writes these additions, and what a format
-cannot express is not offered in it.
+(section 3.7, decision D24) once let Kalem add word-processor
+formatting to Org files through Org's extension points: spans between
+=@@kalem:…@@= snippets, =#+ATTR_KALEM:= lines for alignment and
+spacing, and a =#+KALEM:= keyword for the document's defaults. The
+owner had this mechanism removed (T2.13.13): Kalem no longer writes
+these additions, and what a format cannot express is not offered in
+it.
 
 A file that still has them keeps them byte for byte. Kalem shows them
 as Emacs does, as an export snippet for another back-end, an unknown
 affiliated keyword and an unknown keyword, and its exports drop them
 exactly as Emacs's do. ~kalem check~ lists each one as
-=kalem-markup-in-org=. A =.klm= file is in the Kalem format, which
-=kalem check= and =kalem fmt= read with its own parser (T2.13.3); the
-editors still show it as Org text until they render the format.
+=kalem-markup-in-org=.
 
 * The syntax tree
 
@@ -952,7 +948,7 @@ makes Emacs fail; limits that decide what text means are kept
 | Emphasis boundary characters                                         | Kept                                                                                  |
 | Calc precision (12 digits, 8 shown)                                  | Kept, to the digit                                                                    |
 
-Measured figures (Apple M1 Max; see the performance chapter of Part V):
+Measured figures (Apple M1 Max; see the performance chapter of Part IV):
 a keystroke in a paragraph reparses in about 0.05 ms, and in the
 840 KB Org manual in about 60 µs; full parses run at about 12 MB/s in
 the parser benchmark (42 ms for the Org manual in the application).

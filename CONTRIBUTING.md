@@ -4,7 +4,7 @@ Thank you for your interest in Kalem. This page says how to set up, what the rul
 
 ## Before you start
 
-- Read [the Kalem Book](https://getkalem.github.io/kalem): Part I is the manual, Part II says what Kalem does with each format and how that is tested, Part IV covers extending Kalem. The design is in [`docs/design_document.md`](docs/design_document.md) (RFC 0001) and [`docs/design_doc2.md`](docs/design_doc2.md) (RFC 0002).
+- Read [the Kalem Book](https://getkalem.github.io/kalem): Part I is the manual, Part II says what Kalem does with each format and how that is tested, Part III covers extending Kalem. The design is in [`docs/design_document.md`](docs/design_document.md) (RFC 0001) and [`docs/design_doc2.md`](docs/design_doc2.md) (RFC 0002).
 - [`docs/roadmap.md`](docs/roadmap.md) is the plan: milestones with their tasks (`R1.1`, …) and exit criteria, from the evaluation in [`docs/evaluation-2026-10.md`](docs/evaluation-2026-10.md). [`docs/todo.md`](docs/todo.md) and [`docs/history/todo_old.md`](docs/history/todo_old.md) keep the record of what was done and why; their ids (`T2.7h.4`) are still cited.
 - For a larger change, open an issue first. Changes to the design go through an RFC ([`rfcs/README.md`](rfcs/README.md)).
 
@@ -20,7 +20,7 @@ The first build fetches gpui from Zed's repository: about 400 MB of git history 
 
 - **Round trip is sacred.** Parsing and printing return the input unchanged, in every format. A mode returns ranges into the file; it never regenerates the file from a tree, and never normalizes text the user did not edit.
 - **The reference decides.** Org follows `org-element.el`, LaTeX the TeX engines checked against pandoc, CSV RFC 4180 and the files spreadsheets write, Markdown the CommonMark and GFM suites. An intentional difference goes into the format's known-differences chapter of the Book, with a test.
-- **Standard formats are never extended.** Nothing goes into a `.org`, `.tex`, `.csv`, `.bib` or `.md` file that its standard does not define. What a format cannot express belongs to the Kalem format, through its specification (Part III) and its suite (`tests/klm-spec`).
+- **Standard formats are never extended.** Nothing goes into a `.org`, `.tex`, `.csv`, `.bib` or `.md` file that its standard does not define. What a format cannot express is not offered in it.
 - **Unknown constructs stay visible**, shown as source, never hidden or guessed.
 - **The core has no UI dependencies.** The `org-*`, `latex-*` and `kalem-core` crates do not depend on a GUI or terminal library.
 - **Both editors, or the gap recorded.** A feature is done when it works in both editors; what the terminal cannot show is listed in `book/part-5/terminal-parity.org`.
@@ -39,7 +39,7 @@ The first build fetches gpui from Zed's repository: about 400 MB of git history 
 | Path | Contents |
 |---|---|
 | `crates/org-*` | Org: the lossless incremental parser (`org-syntax`), the document model, editing commands, tables and formulas, exporters, citations, formulas drawn natively |
-| `crates/latex-*`, `crates/klm-syntax` | The LaTeX parser and model; the parser of the Kalem format |
+| `crates/latex-*` | The LaTeX parser and model |
 | `crates/kalem-core` | The editor's model, shared by both frontends: documents and modes, commands, keymaps, settings, the file manager, projects |
 | `crates/kalem-ui`, `crates/kalem-tui` | The graphical and the terminal editor, with `gpui-rich-text` and `tui-rich-text` |
 | `crates/kalem-cli`, `crates/kalem` | The command-line tools and the `kalem` binary (published as `kalem-editor`) |
