@@ -121,7 +121,7 @@ pub const SPECS: &[Spec] = &[
         key: "editor.line_width",
         kind: Kind::Int(0, 400),
         default: "80",
-        description: "Width of the text column in characters; 0 for the whole window",
+        description: "Width of the text column in characters; 0 for the whole window (code files always take it)",
     },
     Spec {
         key: "editor.center_text",

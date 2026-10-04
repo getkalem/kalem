@@ -4081,11 +4081,7 @@ impl gpui::Render for Editor {
         let theme = self.theme.clone();
         let _ = window;
         // A pane: the list of its visible lines.
-        // A readable text column: `editor.line_width` characters, centered
-        // (a character is about half the font size wide).
-        let chars = self.shared.config.int("editor.line_width");
         let center = self.shared.config.bool("editor.center_text");
-        let column = (chars > 0).then(|| px(chars as f32 * theme.size * 0.5 + 96.));
         let focus = self.focus.clone();
         // A CSV file's header row stays at the top when its rows scroll.
         let header = self.doc.meta.mode == DocumentMode::Csv
@@ -4126,6 +4122,16 @@ impl gpui::Render for Editor {
                 .shape_line("0".into(), px(theme.size), &[run], None)
                 .width
         };
+        // A readable text column: `editor.line_width` characters, the
+        // monospace font's in plain text and the source view, about half
+        // the font size in the proportional font of prose; code takes the
+        // whole window.
+        let chars = self.shared.config.int("editor.line_width");
+        let mono = matches!(self.doc.meta.mode, DocumentMode::Text { .. })
+            || (self.source && self.doc.meta.mode != DocumentMode::Org);
+        let per_char = if mono { char_w } else { px(theme.size * 0.5) };
+        let column = (chars > 0 && self.doc.meta.mode.text_column())
+            .then(|| per_char * chars as f32 + px(96.));
         // A CSV grid's frozen first column, in pixels.
         self.frozen.set(
             (self.doc.meta.mode == DocumentMode::Csv && !self.source)

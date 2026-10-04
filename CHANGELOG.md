@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The README is one page; the Book's Parts I and IV say the same things in fewer words; the design documents and the task lists moved to `docs/` (`docs/design_document.md`, `docs/design_doc2.md`, `docs/todo.md`, `docs/todo_old.md`).
 
 ### Fixed
+- Code files take the whole window instead of the 80-character text column, which in a monospace font was only 66 characters wide; plain text's column is now 80 of its characters, and a long line of code wraps under its own indentation rather than at the left edge.
 - A formula ending in a control space (`$L\ $`) renders instead of showing an error.
 - A PDF, picture or other viewed file that changes on disk (a PDF built again) reloads at the page, zoom and place it was shown at, not at its first page.
 - LaTeX view: `!` or `?` before `\textquoteleft` shows as `¡` or `¿`, the ligature pdflatex makes of them (found by the typeset fuzz).

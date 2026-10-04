@@ -1714,10 +1714,10 @@ impl EditorView {
     }
 
     /// The text column in `area`: `line_width` characters (and the margins)
-    /// at the left edge or in the middle, or all of it.
-    fn column(&self, area: Rect) -> Rect {
+    /// at the left edge or in the middle, or all of it (and for code).
+    fn column(&self, area: Rect, mode: &kalem_core::DocumentMode) -> Rect {
         let w = self.line_width.saturating_add(2);
-        if self.line_width == 0 || area.width <= w {
+        if self.line_width == 0 || area.width <= w || !mode.text_column() {
             return area;
         }
         Rect {
@@ -1845,7 +1845,7 @@ impl EditorView {
             }
             return None;
         }
-        let area = self.column(area);
+        let area = self.column(area, &doc.meta.mode);
         // Line numbers in a gutter.
         // (A CSV grid numbers its rows itself.)
         let numbers = self.line_numbers

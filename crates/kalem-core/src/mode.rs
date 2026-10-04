@@ -159,6 +159,14 @@ pub fn looks_binary(sample: &[u8]) -> bool {
 }
 
 impl DocumentMode {
+    /// Whether the text sits in the readable column of
+    /// `editor.line_width`: prose does; code (plain text in a known
+    /// language) takes the whole window, its lines as their author broke
+    /// them.
+    pub fn text_column(&self) -> bool {
+        !matches!(self, DocumentMode::Text { language: Some(_) })
+    }
+
     /// The mode's name in settings and when-clauses (`editorMode`).
     pub fn name(&self) -> &'static str {
         match self {
@@ -296,6 +304,18 @@ impl DocumentMode {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn code_takes_the_whole_window() {
+        assert!(DocumentMode::Org.text_column());
+        assert!(DocumentMode::Text { language: None }.text_column());
+        assert!(
+            !DocumentMode::Text {
+                language: Some("ex".into())
+            }
+            .text_column()
+        );
+    }
+
     use super::*;
 
     fn detect(path: &str, text: &str) -> DocumentMode {

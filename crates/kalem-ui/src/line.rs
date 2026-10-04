@@ -1307,6 +1307,13 @@ fn hang_at(view: &LineView) -> Option<usize> {
         }
     };
     skip_blank(&mut i, &mut d);
+    // A line of one run (plain text, code): the blanks it starts with.
+    if let Some(r) = runs.get(i).filter(|r| r.widget.is_none()) {
+        let lead = r.text.len() - r.text.trim_start_matches([' ', '\t']).len();
+        if lead > 0 {
+            return Some(d + lead);
+        }
+    }
     if i < runs.len() && runs[i].widget.is_none() && bullet(&runs[i].text) {
         d += runs[i].text.len();
         i += 1;
@@ -2110,5 +2117,14 @@ mod tests {
         let v = kalem_core::csv::line_view(&layout, text, 0..3, Some(2));
         assert!(!super::drawn_at(&v, 2), "{:?}", v.runs);
         assert!(super::drawn_at(&v, 0));
+    }
+
+    #[test]
+    fn a_wrapped_line_of_code_hangs_under_its_indentation() {
+        let text = "      # A comment long enough to wrap\n";
+        let v = kalem_core::view::plain_line_view(text, 0..text.len() - 1, None);
+        assert_eq!(super::hang_at(&v), Some(6));
+        let v = kalem_core::view::plain_line_view("flush\n", 0..5, None);
+        assert_eq!(super::hang_at(&v), None);
     }
 }

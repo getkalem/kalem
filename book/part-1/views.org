@@ -27,4 +27,5 @@ terminal. =editor.outline_indent = false=, or =#+STARTUP: noindent= in
 a file, keeps all text at the left edge. The text column is 80
 characters wide at the left edge of the window; =editor.line_width=
 changes its width (0 for the whole window), and =editor.center_text =
-true= puts it in the middle, like a page.
+true= puts it in the middle, like a page. Code files take the whole
+window, and a long line of code wraps under its own indentation.
