@@ -1427,6 +1427,53 @@ impl kalem_viewer::ViewerDocument for ComponentDocument {
         self.ch(|g, s, d| g.call_clear_sparklines(s, d, unit as u32, range.conv()))
     }
 
+    fn goal_seek(
+        &mut self,
+        unit: usize,
+        set: (u32, u32),
+        target: f64,
+        by: (u32, u32),
+    ) -> kv::Result<Option<f64>> {
+        self.g(|g, s, d| g.call_goal_seek(s, d, unit as u32, set, target, by))?
+            .map_err(kv::ViewerError)
+    }
+
+    fn create_data_table(
+        &mut self,
+        unit: usize,
+        range: [u32; 4],
+        row_input: Option<(u32, u32)>,
+        col_input: Option<(u32, u32)>,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| {
+            g.call_create_data_table(s, d, unit as u32, range.conv(), row_input, col_input)
+        })
+    }
+
+    fn scenarios(&mut self, unit: usize) -> Vec<kv::Scenario> {
+        self.g(|g, s, d| g.call_scenarios(s, d, unit as u32))
+            .map(Conv::conv)
+            .unwrap_or_default()
+    }
+
+    fn add_scenario(
+        &mut self,
+        unit: usize,
+        name: &str,
+        cells: &[(u32, u32)],
+        comment: &str,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_add_scenario(s, d, unit as u32, name, cells, comment))
+    }
+
+    fn show_scenario(&mut self, unit: usize, name: &str) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_show_scenario(s, d, unit as u32, name))
+    }
+
+    fn delete_scenario(&mut self, unit: usize, name: &str) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_delete_scenario(s, d, unit as u32, name))
+    }
+
     fn has_history(&self) -> bool {
         self.g(|g, s, d| g.call_has_history(s, d)).unwrap_or(false)
     }

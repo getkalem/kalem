@@ -157,6 +157,7 @@ record!(kv::PageSetup, g::PageLayout {
     landscape, paper, margins, fit_width, print_area, title_rows, header, footer, row_breaks,
 });
 record!(kv::Drawing, g::Drawing { name, anchor, kind });
+record!(kv::Scenario, g::Scenario { name, comment, cells });
 
 impl Conv<g::DrawingKind> for kv::DrawingKind {
     fn conv(self) -> g::DrawingKind {

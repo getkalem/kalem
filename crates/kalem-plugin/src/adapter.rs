@@ -688,6 +688,26 @@ macro_rules! __kalem_grid_exports {
                 use $crate::adapter::grid::range;
                 $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.clear_sparklines(unit as usize, range(r))))
             }
+            fn goal_seek(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, set: (u32, u32), target: f64, by: (u32, u32)) -> ::std::result::Result<::std::option::Option<f64>, ::std::string::String> {
+                $crate::adapter::grid::with(d, |x| x.goal_seek(unit as usize, set, target, by)).map_err(|e| e.0)
+            }
+            fn create_data_table(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, r: (u32, u32, u32, u32), row_input: ::std::option::Option<(u32, u32)>, col_input: ::std::option::Option<(u32, u32)>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.create_data_table(unit as usize, range(r), row_input, col_input)))
+            }
+            fn scenarios(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> ::std::vec::Vec<$crate::adapter::grid::g::Scenario> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.scenarios(unit as usize)).conv()
+            }
+            fn add_scenario(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, name: ::std::string::String, cells: ::std::vec::Vec<(u32, u32)>, comment: ::std::string::String) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.add_scenario(unit as usize, &name, &cells, &comment)))
+            }
+            fn show_scenario(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, name: ::std::string::String) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.show_scenario(unit as usize, &name)))
+            }
+            fn delete_scenario(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, name: ::std::string::String) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.delete_scenario(unit as usize, &name)))
+            }
             fn has_history(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> bool {
                 $crate::adapter::grid::with(d, |x| x.has_history())
             }

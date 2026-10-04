@@ -455,6 +455,13 @@ interface grid {
     /// Grouped rows and columns: each with its level.
     type levels = tuple<list<tuple<u32, u8>>, list<tuple<u32, u8>>>;
 
+    /// A what-if scenario: its cells' values.
+    record scenario {
+        name: string,
+        comment: string,
+        cells: list<tuple<u32, u32, string>>,
+    }
+
     record macro-entry {
         name: string,
         event: bool,
@@ -597,6 +604,12 @@ interface grid {
     delete-drawing: func(doc: borrow<document>, unit: u32, index: u32) -> changed;
     add-sparklines: func(doc: borrow<document>, unit: u32, data: range, location: range, kind: sparkline-kind, mark: bool) -> changed;
     clear-sparklines: func(doc: borrow<document>, unit: u32, range: range) -> changed;
+    goal-seek: func(doc: borrow<document>, unit: u32, set: tuple<u32, u32>, target: f64, by: tuple<u32, u32>) -> result<option<f64>, string>;
+    create-data-table: func(doc: borrow<document>, unit: u32, range: range, row-input: option<tuple<u32, u32>>, col-input: option<tuple<u32, u32>>) -> changed;
+    scenarios: func(doc: borrow<document>, unit: u32) -> list<scenario>;
+    add-scenario: func(doc: borrow<document>, unit: u32, name: string, cells: list<tuple<u32, u32>>, comment: string) -> changed;
+    show-scenario: func(doc: borrow<document>, unit: u32, name: string) -> changed;
+    delete-scenario: func(doc: borrow<document>, unit: u32, name: string) -> changed;
     has-history: func(doc: borrow<document>) -> bool;
     undo: func(doc: borrow<document>) -> result<bool, string>;
     redo: func(doc: borrow<document>) -> result<bool, string>;
