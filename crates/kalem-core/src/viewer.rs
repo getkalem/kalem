@@ -323,6 +323,8 @@ pub struct ViewerState {
     pub circle_invalid: bool,
     /// The cursor's cell's validation, by unit, cell and generation.
     validation_cache: Option<(CellKey, Option<Validation>)>,
+    /// The user's own lists a fill goes round.
+    fill_lists: Vec<Vec<String>>,
 }
 
 /// A cell of a unit at a generation: unit, row, column, generation.
@@ -433,6 +435,7 @@ impl ViewerState {
             cut: None,
             circle_invalid: false,
             validation_cache: None,
+            fill_lists: Vec::new(),
         })
     }
 
@@ -2440,6 +2443,8 @@ impl ViewerState {
         if !self.grid_editable() {
             return Err("This file is shown, not edited".into());
         }
+        let lists = self.fill_lists.clone();
+        self.doc().set_fill_lists(lists);
         self.doc()
             .fill(self.unit, source, target, series)
             .map_err(|e| e.to_string())?;
@@ -2486,6 +2491,11 @@ impl ViewerState {
             return Err("No data beside the cells to fill down along".into());
         };
         self.fill_to(s, [s[0], s[1], end, s[3]], true)
+    }
+
+    /// The user's own lists the fills go round from now on.
+    pub fn set_fill_lists(&mut self, lists: Vec<Vec<String>>) {
+        self.fill_lists = lists;
     }
 
     /// Fill Down (Ctrl+D): the selection's first row copied down it, or a
@@ -2840,6 +2850,23 @@ pub fn png(bitmap: &Bitmap) -> Result<Vec<u8>, String> {
 }
 
 const IN_VIEWER: &str = "editorMode == viewer";
+/// The user's own lists a fill goes round (`spreadsheet.custom_lists`):
+/// each setting text split at its commas, lists of fewer than two items
+/// left out.
+pub fn fill_lists(config: &crate::settings::Config) -> Vec<Vec<String>> {
+    config
+        .strings("spreadsheet.custom_lists")
+        .iter()
+        .map(|l| {
+            l.split(',')
+                .map(|i| i.trim().to_string())
+                .filter(|i| !i.is_empty())
+                .collect::<Vec<_>>()
+        })
+        .filter(|l| l.len() >= 2)
+        .collect()
+}
+
 /// A number through a spreadsheet's number format, as a chart's axis
 /// shows it: the first section of the code, its digits after the point,
 /// thousands separators, a percent, scientific notation, quoted or
@@ -4825,6 +4852,116 @@ fn axis_font(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
     font_menu(ctx, args, "axis")
 }
 
+/// A fill with the user's own lists from the settings.
+fn fill_with_lists(
+    ctx: &mut EditorContext<'_>,
+    f: impl FnOnce(&mut ViewerState) -> Result<(), String>,
+) -> CommandResult {
+    let lists = fill_lists(ctx.config);
+    with(ctx, |v| {
+        v.set_fill_lists(lists);
+        f(v)
+    })
+}
+
+/// Custom Lists: the user's own lists a fill goes round, each removed by
+/// choosing it, and new ones made from the selected cells or typed.
+fn custom_lists(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.customLists";
+    const KEY: &str = "spreadsheet.custom_lists";
+    let now: Vec<String> = ctx
+        .config
+        .strings(KEY)
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let save = |ctx: &mut EditorContext<'_>, lists: Vec<String>| {
+        ctx.requests.push(Request::SetSetting {
+            key: KEY.into(),
+            value: serde_json::json!(lists),
+            quiet: false,
+        });
+        Ok(())
+    };
+    match args.get("op").and_then(|o| o.as_str()) {
+        Some("remove") => {
+            let Some(k) = args.get("index").and_then(serde_json::Value::as_u64) else {
+                return Ok(());
+            };
+            let mut lists = now;
+            if (k as usize) < lists.len() {
+                lists.remove(k as usize);
+            }
+            save(ctx, lists)
+        }
+        Some("selection") => {
+            let Some(v) = ctx
+                .document
+                .as_deref_mut()
+                .and_then(|d| d.viewer.as_deref_mut())
+            else {
+                return Ok(());
+            };
+            let s = v.selection();
+            let mut cells = v.grid_cells(s[0]..s[2] + 1, s[1]..s[3] + 1);
+            cells.sort_by_key(|c| (c.0, c.1));
+            let items: Vec<String> = cells
+                .into_iter()
+                .map(|c| c.2.text.trim().to_string())
+                .filter(|t| !t.is_empty())
+                .collect();
+            if items.len() < 2 {
+                ctx.messages
+                    .push("Select the list's cells first: two or more".into());
+                return Ok(());
+            }
+            let mut lists = now;
+            lists.push(items.join(", "));
+            save(ctx, lists)
+        }
+        Some("typed") => {
+            let Some(t) = args.get("value").and_then(|x| x.as_str()) else {
+                return ask_more(ctx, ID, &serde_json::json!({ "op": "typed" }), "value");
+            };
+            let items: Vec<&str> = t
+                .split(',')
+                .map(str::trim)
+                .filter(|i| !i.is_empty())
+                .collect();
+            if items.len() < 2 {
+                ctx.messages
+                    .push("A list takes two or more items, separated by commas".into());
+                return Ok(());
+            }
+            let mut lists = now;
+            lists.push(items.join(", "));
+            save(ctx, lists)
+        }
+        _ => {
+            let c = "Custom Lists";
+            let mut items = vec![
+                menu_item(
+                    ID,
+                    serde_json::json!({ "op": "selection" }),
+                    "Add the Selected Cells as a List",
+                    c,
+                ),
+                menu_item(ID, serde_json::json!({ "op": "typed" }), "Add a List…", c),
+            ];
+            for (k, l) in now.iter().enumerate() {
+                items.push(menu_item(
+                    ID,
+                    serde_json::json!({ "op": "remove", "index": k }),
+                    &format!("✕ Remove: {l}"),
+                    c,
+                ));
+            }
+            ctx.requests.push(Request::Choose(items));
+            Ok(())
+        }
+    }
+}
+
 /// Insert Chart: the kinds offered, then the chart of the selection.
 fn insert_chart(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::ChartKind;
@@ -6496,21 +6633,28 @@ fn grid_commands() -> Vec<Command> {
             "Fill Down",
             &["ctrl+d"],
             IN_GRID,
-            |ctx, _| with(ctx, |v| v.fill_down()),
+            |ctx, _| fill_with_lists(ctx, |v| v.fill_down()),
         ),
         cmd(
             "viewer.grid.fillRight",
             "Fill Right",
             &["ctrl+r"],
             IN_GRID,
-            |ctx, _| with(ctx, |v| v.fill_right()),
+            |ctx, _| fill_with_lists(ctx, |v| v.fill_right()),
         ),
         cmd(
             "viewer.grid.fillToEnd",
             "Fill Down Along the Data",
             &[],
             IN_GRID,
-            |ctx, _| with(ctx, |v| v.fill_to_end()),
+            |ctx, _| fill_with_lists(ctx, |v| v.fill_to_end()),
+        ),
+        cmd(
+            "viewer.grid.customLists",
+            "Custom Lists",
+            &[],
+            IN_GRID,
+            custom_lists,
         ),
         cmd(
             "viewer.grid.fillSeries",
@@ -6529,8 +6673,8 @@ fn grid_commands() -> Vec<Command> {
                     (v.len() == 4).then(|| [v[0], v[1], v[2], v[3]])
                 };
                 match (range("source"), range("target")) {
-                    (Some(s), Some(t)) => with(ctx, |v| v.fill_to(s, t, true)),
-                    _ => with(ctx, |v| v.fill_series()),
+                    (Some(s), Some(t)) => fill_with_lists(ctx, |v| v.fill_to(s, t, true)),
+                    _ => fill_with_lists(ctx, |v| v.fill_series()),
                 }
             },
         ),

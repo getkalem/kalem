@@ -142,6 +142,12 @@ pub const SPECS: &[Spec] = &[
         description: "CSV files start with columns of numbers and dates aligned right (Toggle Number Alignment changes one file)",
     },
     Spec {
+        key: "spreadsheet.custom_lists",
+        kind: Kind::List(None),
+        default: "[]",
+        description: "Your own lists a spreadsheet's fill handle goes round, as it goes round months and days: each one text with its items separated by commas (\"North, South, East, West\"); Custom Lists adds and removes them",
+    },
+    Spec {
         key: "csv.sheet",
         kind: Kind::Bool,
         default: "true",

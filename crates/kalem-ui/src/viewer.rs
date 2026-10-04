@@ -948,8 +948,12 @@ impl Editor {
                                 // beside, as Excel's.
                                 if ev.click_count >= 2 {
                                     this.viewer_view.fill_drag = None;
+                                    let lists = kalem_core::viewer::fill_lists(&this.shared.config);
                                     if let Some(v) = this.doc.viewer.as_deref_mut()
-                                        && let Err(e) = v.fill_to_end()
+                                        && let Err(e) = {
+                                            v.set_fill_lists(lists);
+                                            v.fill_to_end()
+                                        }
                                     {
                                         this.message(e, true);
                                     }
@@ -1477,7 +1481,12 @@ impl Editor {
                     if let Some((src, target)) = this.viewer_view.fill_drag.take() {
                         if target != src
                             && let Some(v) = this.doc.viewer.as_deref_mut()
-                            && let Err(e) = v.fill_to(src, target, true)
+                            && let Err(e) = {
+                                v.set_fill_lists(kalem_core::viewer::fill_lists(
+                                    &this.shared.config,
+                                ));
+                                v.fill_to(src, target, true)
+                            }
                         {
                             this.message(e, true);
                         }
@@ -1561,7 +1570,12 @@ impl Editor {
                     if let Some((src, target)) = this.viewer_view.fill_drag.take() {
                         if target != src
                             && let Some(v) = this.doc.viewer.as_deref_mut()
-                            && let Err(e) = v.fill_to(src, target, true)
+                            && let Err(e) = {
+                                v.set_fill_lists(kalem_core::viewer::fill_lists(
+                                    &this.shared.config,
+                                ));
+                                v.fill_to(src, target, true)
+                            }
                         {
                             this.message(e, true);
                         }
