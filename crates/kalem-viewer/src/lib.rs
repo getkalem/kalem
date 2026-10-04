@@ -463,6 +463,9 @@ pub struct GridCell {
     /// Centered across the selection it was given with (Center Across
     /// Selection): over the empty cells to its right that have it too.
     pub center_across: bool,
+    /// Not locked: editable when its sheet is protected (cells are locked
+    /// unless unlocked).
+    pub unlocked: bool,
 }
 
 /// How a cell's text sits between its top and bottom.
@@ -692,6 +695,33 @@ pub struct StyleChange {
     pub shrink: Option<bool>,
     /// Center Across Selection (`false`: General again).
     pub center_across: Option<bool>,
+    /// Locked (`true`) or unlocked for when the sheet is protected.
+    pub locked: Option<bool>,
+}
+
+/// What a protected sheet still lets the user do (`true`: allowed).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SheetProtection {
+    /// A password unprotects it.
+    pub has_password: bool,
+    /// Format cells.
+    pub format_cells: bool,
+    /// Format columns.
+    pub format_columns: bool,
+    /// Format rows.
+    pub format_rows: bool,
+    /// Insert rows.
+    pub insert_rows: bool,
+    /// Insert columns.
+    pub insert_columns: bool,
+    /// Delete rows.
+    pub delete_rows: bool,
+    /// Delete columns.
+    pub delete_columns: bool,
+    /// Sort.
+    pub sort: bool,
+    /// Use AutoFilter.
+    pub filter: bool,
 }
 
 /// How a conditional format compares a cell's value.
@@ -1545,6 +1575,33 @@ pub trait ViewerDocument: Send {
         _function: u32,
         _columns: &[u32],
     ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// How a unit is protected, when it is.
+    fn sheet_protection(&mut self, _unit: usize) -> Option<SheetProtection> {
+        None
+    }
+
+    /// Protects a unit (`Some`, with a password when given), or takes its
+    /// protection away (`None`; the password it was given, if any).
+    fn protect_sheet(
+        &mut self,
+        _unit: usize,
+        _protection: Option<SheetProtection>,
+        _password: Option<&str>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Whether the workbook's structure (its sheets) is protected.
+    fn workbook_protected(&mut self) -> bool {
+        false
+    }
+
+    /// Protects the workbook's structure, or takes it away (the password
+    /// it was given, if any).
+    fn protect_workbook(&mut self, _on: bool, _password: Option<&str>) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
 
