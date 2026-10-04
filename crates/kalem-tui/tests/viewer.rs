@@ -212,8 +212,14 @@ fn vim_quit_closes_a_viewer_as_any_file() {
         None,
         "editor.keymap_profile = \"vim\"\n",
     )]);
-    let app = App::with_keymap(Some(&dir.join("a.png")), config, Caps::full(), &[], Vec::new())
-        .unwrap();
+    let app = App::with_keymap(
+        Some(&dir.join("a.png")),
+        config,
+        Caps::full(),
+        &[],
+        Vec::new(),
+    )
+    .unwrap();
     let mut t = T {
         app,
         term: Terminal::new(TestBackend::new(60, 14)).unwrap(),

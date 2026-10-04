@@ -265,6 +265,9 @@ struct Search {
     marks: Option<Marks>,
 }
 
+/// A unit and the edits' generation it was read at.
+type UnitVersion = (usize, u64);
+
 /// A file opened by a viewer, and how it is shown.
 pub struct ViewerState {
     /// The viewer.
@@ -309,6 +312,12 @@ pub struct ViewerState {
     text_sel: Option<TextSelection>,
     /// The information panel's fields, for a generation.
     info_cache: Mutex<Option<(u64, Vec<InfoField>)>>,
+    /// What the frontends ask on every frame or key, kept for when a
+    /// render holds the document: whether it is modified, the shown
+    /// unit's edits and text (by unit and generation).
+    modified_cache: std::sync::atomic::AtomicBool,
+    edits_cache: Mutex<Option<(UnitVersion, Vec<Edit>)>>,
+    text_cache: Mutex<Option<(UnitVersion, String)>>,
     /// Which units are grids (sheets, tables).
     grids: Vec<bool>,
     /// Each grid unit's cursor and scroll.
@@ -561,6 +570,9 @@ impl ViewerState {
             search: None,
             text_sel: None,
             info_cache: Mutex::new(None),
+            modified_cache: std::sync::atomic::AtomicBool::new(false),
+            edits_cache: Mutex::new(None),
+            text_cache: Mutex::new(None),
             unit: 0,
             zoom,
             center: None,
@@ -988,6 +1000,20 @@ impl ViewerState {
             3 => (th - uy, ux),
             _ => (ux, uy),
         }
+    }
+
+    /// [`ViewerState::link_at`] without waiting, for the pointer's hover:
+    /// none while a render holds the document.
+    pub fn link_under(&mut self, x: f32, y: f32) -> Option<String> {
+        let (ox, oy) = self.unit_point(x, y);
+        let doc = self.doc.try_lock().ok()?;
+        doc.links(self.unit)
+            .into_iter()
+            .find(|l| {
+                let [lx, ly, lw, lh] = l.rect;
+                ox >= lx && ox <= lx + lw && oy >= ly && oy <= ly + lh
+            })
+            .map(|l| l.target)
     }
 
     /// The target of the link under (`x`, `y`) of the area, if any: a
@@ -1488,9 +1514,31 @@ impl ViewerState {
         self.doc().text(self.unit)
     }
 
+    /// The shown unit's text without waiting: the last one read while a
+    /// render holds the document (a terminal draws it on every frame).
+    pub fn text_now(&self) -> String {
+        let key = (self.unit, self.generation);
+        let mut cache = self.text_cache.lock().unwrap_or_else(|e| e.into_inner());
+        if let Ok(doc) = self.doc.try_lock()
+            && cache.as_ref().is_none_or(|(k, _)| *k != key)
+        {
+            *cache = Some((key, doc.text(self.unit)));
+        }
+        cache.as_ref().map(|(_, t)| t.clone()).unwrap_or_default()
+    }
+
     /// The edits the format allows on the unit shown.
     pub fn edits(&self) -> Vec<Edit> {
-        self.doc().edits(self.unit)
+        // Asked for every key's context (`viewerEditable`): never waits for
+        // a render; the last list read stands meanwhile.
+        let key = (self.unit, self.generation);
+        let mut cache = self.edits_cache.lock().unwrap_or_else(|e| e.into_inner());
+        if let Ok(doc) = self.doc.try_lock()
+            && cache.as_ref().is_none_or(|(k, _)| *k != key)
+        {
+            *cache = Some((key, doc.edits(self.unit)));
+        }
+        cache.as_ref().map(|(_, e)| e.clone()).unwrap_or_default()
     }
 
     /// Applies edit `id`, recording its inverse for undo.
@@ -1548,7 +1596,13 @@ impl ViewerState {
 
     /// Whether there are edits not saved.
     pub fn modified(&self) -> bool {
-        self.doc().modified()
+        // Asked on every frame (the title, the status bar, the list of
+        // open files): never waits for a render.
+        use std::sync::atomic::Ordering;
+        if let Ok(doc) = self.doc.try_lock() {
+            self.modified_cache.store(doc.modified(), Ordering::Relaxed);
+        }
+        self.modified_cache.load(Ordering::Relaxed)
     }
 
     /// The file with the edits.
@@ -13349,6 +13403,86 @@ mod tests {
         let p = v.placement();
         let (x, y) = (p.x + (50.0 - 15.0) * p.scale, p.y + 15.0 * p.scale);
         assert_eq!(v.link_at(x, y).as_deref(), Some("#2"));
+    }
+
+    /// [`Vector`]'s pages, rendered slowly, with an edit and unsaved
+    /// changes: a big page through a component.
+    #[derive(Debug)]
+    struct Slow;
+
+    struct SlowDoc(VectorDoc);
+
+    impl Viewer for Slow {
+        fn id(&self) -> &str {
+            "slow"
+        }
+        fn name(&self) -> &str {
+            "Slow"
+        }
+        fn extensions(&self) -> &[&str] {
+            &["slow"]
+        }
+        fn detect(&self, _: &str, _: &[u8]) -> Detection {
+            Detection::No
+        }
+        fn open(&self, _file: FileHandle) -> VResult<Box<dyn ViewerDocument>> {
+            Ok(Box::new(SlowDoc(VectorDoc(3))))
+        }
+    }
+
+    impl ViewerDocument for SlowDoc {
+        fn structure(&self) -> Structure {
+            self.0.structure()
+        }
+        fn size(&self, u: usize) -> Option<(f32, f32)> {
+            self.0.size(u)
+        }
+        fn render(&mut self, u: usize, r: RenderRequest) -> VResult<Rendered> {
+            std::thread::sleep(std::time::Duration::from_millis(400));
+            self.0.render(u, r)
+        }
+        fn text(&self, _: usize) -> String {
+            "page".into()
+        }
+        fn links(&self, u: usize) -> Vec<kalem_viewer::Link> {
+            self.0.links(u)
+        }
+        fn edits(&self, _: usize) -> Vec<Edit> {
+            vec![Edit {
+                id: "turn".into(),
+                title: "Turn".into(),
+                inverse: None,
+            }]
+        }
+        fn modified(&self) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn a_render_never_holds_up_the_frontend() {
+        // What a frontend asks on every frame or key (whether the document
+        // is modified, the edits its keys' context reads, the link under
+        // the pointer, a terminal's text) answers at once while a slow
+        // render holds the document: a page turn never freezes the window.
+        let dir = std::env::temp_dir();
+        let mut v = ViewerState::open(Arc::new(Slow), &dir.join("x.slow")).unwrap();
+        v.set_area(200.0, 100.0);
+        // Read once, before any render.
+        assert!(v.modified());
+        assert_eq!(v.edits().len(), 1);
+        assert_eq!(v.text_now(), "page");
+        assert!(v.bitmap_now().unwrap().is_none());
+        assert!(v.rendering());
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        let t = std::time::Instant::now();
+        assert!(v.modified(), "the last answer");
+        assert_eq!(v.edits().len(), 1);
+        assert_eq!(v.text_now(), "page");
+        let _ = v.link_under(10.0, 10.0);
+        let took = t.elapsed();
+        assert!(took < std::time::Duration::from_millis(100), "{took:?}");
+        assert!(v.rendering(), "the render still runs");
     }
 
     #[test]

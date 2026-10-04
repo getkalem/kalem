@@ -1835,7 +1835,7 @@ impl EditorView {
     ) -> Option<(u16, u16)> {
         // A viewer's document in a pane without focus: its text.
         if let Some(v) = doc.viewer.as_deref() {
-            for (i, line) in v.text().lines().take(area.height as usize).enumerate() {
+            for (i, line) in v.text_now().lines().take(area.height as usize).enumerate() {
                 buf.set_stringn(
                     area.x,
                     area.y + i as u16,

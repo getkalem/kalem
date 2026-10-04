@@ -3569,10 +3569,7 @@ impl App {
         // A viewer's document has no text for Vim to edit: only its
         // command line, `:` opening it (`:q` closes the file as elsewhere).
         if self.doc.viewer.is_some() {
-            let line = self
-                .vim
-                .as_ref()
-                .is_some_and(|v| v.command_line.is_some());
+            let line = self.vim.as_ref().is_some_and(|v| v.command_line.is_some());
             let colon = self.vim.is_some() && k.code == crossterm::event::KeyCode::Char(':');
             return !(line || colon);
         }

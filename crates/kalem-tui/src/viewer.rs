@@ -100,7 +100,7 @@ pub fn draw(
     } else {
         match picker(images, caps) {
             Some(p) => draw_image(v, image, &p, buf, pic),
-            None => text(&v.text(), buf, pic),
+            None => text(&v.text_now(), buf, pic),
         }
     }
     if let Some(r) = info {

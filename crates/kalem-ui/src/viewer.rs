@@ -448,7 +448,7 @@ impl Editor {
                     let Some(v) = this.doc.viewer.as_deref_mut() else {
                         return;
                     };
-                    let over_link = v.link_at(x, y).is_some();
+                    let over_link = v.link_under(x, y).is_some();
                     let over_text = !over_link && v.text_hit(x, y);
                     if (over_link, over_text)
                         != (this.viewer_view.over_link, this.viewer_view.over_text)

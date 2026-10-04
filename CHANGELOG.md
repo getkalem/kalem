@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The README is one page; the Book's Parts I and IV say the same things in fewer words; the design documents and the task lists moved to `docs/` (`docs/design_document.md`, `docs/design_doc2.md`, `docs/todo.md`, `docs/todo_old.md`).
 
 ### Fixed
+- Scrolling a PDF, and Page Down held, no longer freeze while a page renders: what the window asks on every frame and key (whether the document is modified, the edits its keys may run, the link under the pointer) no longer waits for the render, which matters most with the PDF viewer installed as a component.
 - With Vim's keys, `:` opens the command line on a PDF, a picture or a workbook too, so `:q` closes it as any other file.
 - An installed viewer plugin built for another version of the plugin API (the Excel plugin 0.0.1 after the grid gained functions) no longer opens its files as empty documents: Kalem says the plugin needs an update and opens them with the bundled viewer it replaced.
 - `kalem gui --help` and `kalem gui -h` print the usage instead of opening a file named `--help`; `kalem tui` without a terminal says it needs one instead of "Device not configured (os error 6)".
