@@ -2582,10 +2582,21 @@ impl ViewerState {
                         .unwrap_or(l.default_width)
                 })
                 .collect();
+            let width = |c: u32| l.widths.get(c as usize).copied().unwrap_or(l.default_width);
+            let title_columns: Vec<(u32, f32)> = setup
+                .title_cols
+                .map(|(a, b)| {
+                    (a..=b)
+                        .filter(|c| !l.hidden_cols.contains(c))
+                        .map(|c| (c, width(c)))
+                        .collect()
+                })
+                .unwrap_or_default();
             let mut rows = setup.title_rows.map_or(area[0], |t| t.0.min(area[0]))..area[2] + 1;
             rows.start = rows.start.min(area[0]);
+            let first_col = setup.title_cols.map_or(area[1], |t| t.0.min(area[1]));
             let cells = self
-                .grid_cells(rows, area[1]..area[3] + 1)
+                .grid_cells(rows, first_col..area[3] + 1)
                 .into_iter()
                 .map(|(r, c, g)| ((r, c), g))
                 .collect();
@@ -2593,14 +2604,78 @@ impl ViewerState {
                 .label
                 .trim_end_matches(" (hidden)")
                 .to_owned();
+            let heights: std::collections::HashMap<u32, f32> = l.heights.iter().copied().collect();
+            let height = |r: u32| {
+                if l.hidden_rows.contains(&r) {
+                    0.0
+                } else {
+                    heights.get(&r).copied().unwrap_or(l.default_height)
+                }
+            };
+            let hidden_col = |c: u32| l.hidden_cols.contains(&c);
+            // A drawing's size: the cells it covers.
+            let size = |a: [u32; 4]| {
+                let w: f32 = (a[1]..=a[3])
+                    .filter(|c| !hidden_col(*c))
+                    .map(|c| (width(c) * 7.0 + 5.0) / 96.0)
+                    .sum();
+                let h: f32 = (a[0]..=a[2]).map(|r| height(r) / 72.0).sum();
+                (w, h)
+            };
+            use crate::sheet_print::{PrintDrawing, PrintWhat};
+            let mut drawings = Vec::new();
+            for (i, d) in self.doc().drawings(unit).into_iter().enumerate() {
+                let what = match d.kind {
+                    kalem_viewer::DrawingKind::Picture => match self.doc().drawing_image(unit, i) {
+                        Some(b) => PrintWhat::Picture(b),
+                        None => continue,
+                    },
+                    kalem_viewer::DrawingKind::Shape {
+                        preset,
+                        fill,
+                        line,
+                        text,
+                        text_box,
+                    } => PrintWhat::Shape {
+                        preset,
+                        fill: if text_box {
+                            fill
+                        } else {
+                            fill.or(Some([0x44, 0x72, 0xC4]))
+                        },
+                        line: if text_box {
+                            line
+                        } else {
+                            line.or(Some([0x2F, 0x52, 0x8F]))
+                        },
+                        text,
+                    },
+                };
+                drawings.push(PrintDrawing {
+                    anchor: d.anchor,
+                    size: size(d.anchor),
+                    what,
+                });
+            }
+            for c in self.doc().charts(unit) {
+                drawings.push(PrintDrawing {
+                    anchor: c.anchor,
+                    size: size(c.anchor),
+                    what: PrintWhat::Chart(Box::new(c)),
+                });
+            }
             Some(crate::sheet_print::SheetPrint {
                 name,
                 area,
                 columns,
                 widths,
+                title_columns,
                 hidden_rows: l.hidden_rows,
+                heights,
+                default_height: l.default_height,
                 cells,
                 merged: l.merged,
+                drawings,
                 setup,
             })
         })();
@@ -11525,21 +11600,28 @@ fn subtotal(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRes
     Ok(())
 }
 
-/// Page Setup (`z p`): orientation, paper, margins, fitting one page wide,
-/// the print area, the rows printed on every page, the header and the
-/// footer, page breaks.
+/// Page Setup (`z p`): orientation, paper, margins, the scale or the
+/// pages to fit, the print area, the rows and columns printed on every
+/// page, gridlines and headings, the header and the footer and their
+/// pictures, page breaks.
 fn page_setup(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     const ID: &str = "viewer.grid.pageSetup";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(doc) = ctx.document.as_deref_mut() else {
+        return Ok(());
+    };
+    let folder = doc
+        .meta
+        .path
+        .as_ref()
+        .and_then(|p| p.parent())
+        .map(std::path::Path::to_path_buf);
+    let Some(v) = doc.viewer.as_deref_mut() else {
         return Ok(());
     };
     let mut s = v.page_setup();
     let sel = v.selection();
     let row = v.grid_pos().row;
+    let col = v.grid_pos().col;
     let what = args.get("what").and_then(|w| w.as_str()).unwrap_or("");
     let value = args
         .get("value")
@@ -11570,17 +11652,41 @@ fn page_setup(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandR
                 ),
                 item("paper", "Paper Size…"),
                 item("margins", "Margins…"),
-                item("fit", &format!("Fit to One Page Wide: {}", on(s.fit_width))),
+                item(
+                    "fit",
+                    &match s.fit {
+                        Some((1, 1)) => "Scaling: Fit Sheet on One Page".to_owned(),
+                        Some((1, 0)) => "Scaling: Fit All Columns on One Page".to_owned(),
+                        Some((0, 1)) => "Scaling: Fit All Rows on One Page".to_owned(),
+                        Some((w, h)) => format!("Scaling: Fit to {w} × {h} Pages"),
+                        None => format!("Scaling: {}%", s.scale),
+                    },
+                ),
                 item("area", "Set Print Area (the selection)"),
                 item("clearArea", "Clear Print Area"),
                 item(
                     "titles",
                     "Print Titles (the selection's rows on every page)",
                 ),
+                item(
+                    "titleCols",
+                    "Print Titles (the selection's columns on every page)",
+                ),
                 item("clearTitles", "Clear Print Titles"),
+                item(
+                    "gridlines",
+                    &format!("Print Gridlines: {}", on(s.gridlines)),
+                ),
+                item("headings", &format!("Print Headings: {}", on(s.headings))),
                 item("header", "Header…"),
                 item("footer", "Footer…"),
+                item("picture", "Header or Footer Picture…"),
+                item("removePicture", "Remove Header or Footer Picture…"),
                 item("break", "Insert Page Break (above the cursor's row)"),
+                item(
+                    "colBreak",
+                    "Insert Page Break (left of the cursor's column)",
+                ),
                 item("unbreak", "Remove Page Break"),
                 item("resetBreaks", "Reset All Page Breaks"),
             ];
@@ -11596,6 +11702,7 @@ fn page_setup(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandR
                     choice("paper", "1", "Letter"),
                     choice("paper", "5", "Legal"),
                     choice("paper", "8", "A3"),
+                    choice("paper", "11", "A5"),
                 ]));
                 return Ok(());
             }
@@ -11613,11 +11720,180 @@ fn page_setup(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandR
                 return Ok(());
             }
         },
-        "fit" => s.fit_width = !s.fit_width,
+        "fit" => match value.as_deref() {
+            Some("none") => {
+                s.fit = None;
+                s.scale = 100;
+            }
+            Some("page") => s.fit = Some((1, 1)),
+            Some("columns") => s.fit = Some((1, 0)),
+            Some("rows") => s.fit = Some((0, 1)),
+            Some("scale") => {
+                return ask_more(
+                    ctx,
+                    ID,
+                    &serde_json::json!({ "what": "scale", "value_default": s.scale.to_string() }),
+                    "value",
+                );
+            }
+            Some("pages") => {
+                let now = s
+                    .fit
+                    .map_or("1 x 1".to_owned(), |(w, h)| format!("{w} x {h}"));
+                return ask_more(
+                    ctx,
+                    ID,
+                    &serde_json::json!({ "what": "pages", "value_default": now }),
+                    "value",
+                );
+            }
+            _ => {
+                ctx.requests.push(Request::Choose(vec![
+                    choice("fit", "none", "No Scaling"),
+                    choice("fit", "page", "Fit Sheet on One Page"),
+                    choice("fit", "columns", "Fit All Columns on One Page"),
+                    choice("fit", "rows", "Fit All Rows on One Page"),
+                    choice("fit", "scale", "Adjust to… % of Normal Size"),
+                    choice("fit", "pages", "Fit to… Pages Wide by Tall"),
+                ]));
+                return Ok(());
+            }
+        },
+        "scale" => {
+            let Some(n) = value
+                .as_deref()
+                .and_then(|v| v.trim().trim_end_matches('%').trim().parse::<u32>().ok())
+                .filter(|n| (10..=400).contains(n))
+            else {
+                ctx.messages.push("The scale is 10% to 400%".into());
+                return Ok(());
+            };
+            s.fit = None;
+            s.scale = n;
+        }
+        "pages" => {
+            let nums: Vec<u32> = value
+                .as_deref()
+                .unwrap_or_default()
+                .split(|c: char| !c.is_ascii_digit())
+                .filter(|x| !x.is_empty())
+                .filter_map(|x| x.parse().ok())
+                .collect();
+            let [w, h] = nums[..] else {
+                ctx.messages
+                    .push("Pages wide and tall, as 2 x 1 (0 for as many as it takes)".into());
+                return Ok(());
+            };
+            s.fit = Some((w, h));
+        }
         "area" => s.print_area = Some(sel),
         "clearArea" => s.print_area = None,
         "titles" => s.title_rows = Some((sel[0], sel[2])),
-        "clearTitles" => s.title_rows = None,
+        "titleCols" => s.title_cols = Some((sel[1], sel[3])),
+        "clearTitles" => {
+            s.title_rows = None;
+            s.title_cols = None;
+        }
+        "gridlines" => s.gridlines = !s.gridlines,
+        "headings" => s.headings = !s.headings,
+        "picture" => {
+            const PLACES: [(&str, &str); 6] = [
+                ("LH", "Header, Left"),
+                ("CH", "Header, Center"),
+                ("RH", "Header, Right"),
+                ("LF", "Footer, Left"),
+                ("CF", "Footer, Center"),
+                ("RF", "Footer, Right"),
+            ];
+            let Some(place) = args.get("place").and_then(|x| x.as_str()) else {
+                let items = PLACES
+                    .iter()
+                    .map(|(k, t)| {
+                        menu_item(
+                            ID,
+                            serde_json::json!({ "what": "picture", "place": k }),
+                            t,
+                            "Header or Footer Picture",
+                        )
+                    })
+                    .collect();
+                ctx.requests.push(Request::Choose(items));
+                return Ok(());
+            };
+            let Some(path) = text_arg(args, "path") else {
+                ctx.requests.push(Request::PickFile {
+                    command: ID.into(),
+                    arg: "path".into(),
+                    args: serde_json::json!({ "what": "picture", "place": place }),
+                });
+                return Ok(());
+            };
+            let mut file = std::path::PathBuf::from(crate::settings::expand_home(&path));
+            if file.is_relative()
+                && let Some(dir) = &folder
+            {
+                file = dir.join(file);
+            }
+            let data = std::fs::read(&file)
+                .map_err(|e| crate::command::CommandError::new(e.to_string()))?;
+            let img = image::load_from_memory(&data)
+                .map_err(|e| crate::command::CommandError::new(format!("Not a picture: {e}")))?;
+            // Its size at 96 pixels to the inch, no taller than an inch.
+            let (w, h) = (img.width() as f32 * 0.75, img.height() as f32 * 0.75);
+            let k = (72.0 / h.max(1.0)).min(1.0);
+            let data = if data.starts_with(b"\x89PNG") || data.starts_with(&[0xFF, 0xD8]) {
+                data
+            } else {
+                let mut png = Vec::new();
+                img.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+                    .map_err(|e| crate::command::CommandError::new(e.to_string()))?;
+                png
+            };
+            s.pictures.retain(|p| p.place != place);
+            s.pictures.push(kalem_viewer::HeaderPicture {
+                place: place.to_owned(),
+                data,
+                size: (w * k, h * k),
+            });
+            // `&G` in its part of the header or footer.
+            let code = if place.ends_with('H') {
+                &mut s.header
+            } else {
+                &mut s.footer
+            };
+            let side = &place[..1];
+            *code = with_picture_code(code, side);
+        }
+        "removePicture" => {
+            let Some(place) = args.get("place").and_then(|x| x.as_str()) else {
+                if s.pictures.is_empty() {
+                    ctx.messages
+                        .push("The header and footer have no pictures".into());
+                    return Ok(());
+                }
+                let items = s
+                    .pictures
+                    .iter()
+                    .map(|p| {
+                        menu_item(
+                            ID,
+                            serde_json::json!({ "what": "removePicture", "place": p.place }),
+                            &p.place,
+                            "Remove Picture",
+                        )
+                    })
+                    .collect();
+                ctx.requests.push(Request::Choose(items));
+                return Ok(());
+            };
+            s.pictures.retain(|p| p.place != place);
+            let code = if place.ends_with('H') {
+                &mut s.header
+            } else {
+                &mut s.footer
+            };
+            *code = without_picture_code(code, &place[..1]);
+        }
         "header" | "footer" => match value {
             Some(text) => {
                 if what == "header" {
@@ -11645,11 +11921,98 @@ fn page_setup(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandR
                 s.row_breaks.push(row);
             }
         }
-        "unbreak" => s.row_breaks.retain(|r| *r != row),
-        "resetBreaks" => s.row_breaks.clear(),
+        "colBreak" => {
+            if col > 0 && !s.col_breaks.contains(&col) {
+                s.col_breaks.push(col);
+            }
+        }
+        "unbreak" => {
+            s.row_breaks.retain(|r| *r != row);
+            s.col_breaks.retain(|c| *c != col);
+        }
+        "resetBreaks" => {
+            s.row_breaks.clear();
+            s.col_breaks.clear();
+        }
         _ => return Ok(()),
     }
     with(ctx, |v| v.set_page_setup(&s))
+}
+
+/// A header's or footer's code (`&LText&C&A`) split into its left,
+/// center and right parts, each with its leading code.
+fn header_parts(code: &str) -> [String; 3] {
+    let mut parts = [String::new(), String::new(), String::new()];
+    let mut part = 1;
+    let mut chars = code.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '&' {
+            match chars.peek() {
+                Some('L') => {
+                    part = 0;
+                    chars.next();
+                    continue;
+                }
+                Some('C') => {
+                    part = 1;
+                    chars.next();
+                    continue;
+                }
+                Some('R') => {
+                    part = 2;
+                    chars.next();
+                    continue;
+                }
+                Some(&d) => {
+                    parts[part].push('&');
+                    parts[part].push(d);
+                    chars.next();
+                    continue;
+                }
+                None => {}
+            }
+        }
+        parts[part].push(c);
+    }
+    parts
+}
+
+fn join_header_parts(parts: &[String; 3]) -> String {
+    let mut out = String::new();
+    for (k, p) in ["&L", "&C", "&R"].iter().zip(parts) {
+        if !p.is_empty() {
+            out.push_str(k);
+            out.push_str(p);
+        }
+    }
+    out
+}
+
+/// A header's or footer's code with a picture (`&G`) in part `side`
+/// (`L`, `C` or `R`), before its text.
+fn with_picture_code(code: &str, side: &str) -> String {
+    let mut parts = header_parts(code);
+    let i = match side {
+        "L" => 0,
+        "R" => 2,
+        _ => 1,
+    };
+    if !parts[i].contains("&G") {
+        parts[i] = format!("&G{}", parts[i]);
+    }
+    join_header_parts(&parts)
+}
+
+/// A header's or footer's code without the picture in part `side`.
+fn without_picture_code(code: &str, side: &str) -> String {
+    let mut parts = header_parts(code);
+    let i = match side {
+        "L" => 0,
+        "R" => 2,
+        _ => 1,
+    };
+    parts[i] = parts[i].replace("&G", "");
+    join_header_parts(&parts)
 }
 
 /// Print Preview, Export to PDF and Print: the sheet shown (or the
@@ -11665,24 +12028,84 @@ fn sheet_pdf(ctx: &mut EditorContext<'_>, args: &serde_json::Value, mode: &str) 
     let Some(v) = doc.viewer.as_deref_mut() else {
         return Ok(());
     };
+    let id = match mode {
+        "export" => EXPORT,
+        "print" => "viewer.grid.print",
+        _ => "viewer.grid.printPreview",
+    };
+    let title = match mode {
+        "export" => "Export to PDF",
+        "print" => "Print",
+        _ => "Print Preview",
+    };
     let scope = args.get("scope").and_then(|x| x.as_str());
-    if mode == "export" && scope.is_none() {
-        let item = |s: &str, t: &str| {
-            menu_item(
-                EXPORT,
-                serde_json::json!({ "scope": s }),
-                t,
-                "Export to PDF",
-            )
-        };
+    if mode != "preview" && scope.is_none() {
+        let item = |s: &str, t: &str| menu_item(id, serde_json::json!({ "scope": s }), t, title);
         ctx.requests.push(Request::Choose(vec![
             item("sheet", "Active Sheet"),
             item("selection", "Selection"),
             item("workbook", "Entire Workbook"),
+            item("choose", "Choose Sheets…"),
         ]));
         return Ok(());
     }
+    let chosen: Vec<usize> = args
+        .get("chosen")
+        .and_then(|x| x.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(serde_json::Value::as_u64)
+                .map(|u| u as usize)
+                .collect()
+        })
+        .unwrap_or_else(|| vec![v.unit]);
+    if scope == Some("choose") {
+        // Each sheet ticked or not, then the sheets ticked printed.
+        let hidden = v.hidden_units();
+        let units: Vec<usize> = (0..v.structure().units.len())
+            .filter(|u| !hidden.contains(u) && v.is_grid_unit(*u))
+            .collect();
+        let mut items: Vec<_> = units
+            .iter()
+            .map(|u| {
+                let mut next = chosen.clone();
+                if let Some(i) = next.iter().position(|x| x == u) {
+                    next.remove(i);
+                } else {
+                    next.push(*u);
+                    next.sort_unstable();
+                }
+                let name = v.structure().units[*u].label.clone();
+                let tick = if chosen.contains(u) { "✓ " } else { "   " };
+                menu_item(
+                    id,
+                    serde_json::json!({ "scope": "choose", "chosen": next }),
+                    &format!("{tick}{name}"),
+                    title,
+                )
+            })
+            .collect();
+        items.push(menu_item(
+            id,
+            serde_json::json!({ "scope": "sheets", "chosen": chosen }),
+            &format!("{title} the Sheets Ticked"),
+            title,
+        ));
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    }
     let sheets: Vec<crate::sheet_print::SheetPrint> = match scope.unwrap_or("sheet") {
+        "sheets" => {
+            let units: Vec<usize> = chosen
+                .iter()
+                .copied()
+                .filter(|u| v.is_grid_unit(*u))
+                .collect();
+            units
+                .into_iter()
+                .filter_map(|u| v.sheet_print(u, None))
+                .collect()
+        }
         "workbook" => {
             let hidden = v.hidden_units();
             let units: Vec<usize> = (0..v.structure().units.len())
@@ -11731,11 +12154,15 @@ fn sheet_pdf(ctx: &mut EditorContext<'_>, args: &serde_json::Value, mode: &str) 
         .and_then(|p| p.file_stem())
         .map_or("Book".into(), |s| s.to_string_lossy().into_owned());
     let name = match scope {
-        Some("workbook") => stem.clone(),
+        Some("workbook" | "sheets") if sheets.len() > 1 => stem.clone(),
         _ => format!("{stem} - {}", sheets[0].name),
     };
     let tex_path = dir.join(format!("{}.tex", name.replace(['/', '\\'], "-")));
     std::fs::write(&tex_path, tex).map_err(|e| crate::command::CommandError::new(e.to_string()))?;
+    for (file, bytes) in crate::sheet_print::images(&sheets) {
+        std::fs::write(dir.join(file), bytes)
+            .map_err(|e| crate::command::CommandError::new(e.to_string()))?;
+    }
     let target = book
         .as_ref()
         .and_then(|p| p.parent())

@@ -90,12 +90,16 @@ new release of the xlsx plugin follows when the contract moves.
 
 ## E45. Printing, the rest
 
-- [ ] E45 Charts, pictures and shapes printed; each sheet of a workbook
+- [x] E45 Charts, pictures and shapes printed; each sheet of a workbook
   with its own paper and orientation (the first one's now); manual
   column breaks; columns repeated at the left; gridlines and headings
   printed; scaled to a number of pages wide and tall or a percentage;
   print the selection or chosen sheets; pictures in headers and
   footers; printing to a printer through the system's dialog.
+  (A drawing prints whole on the page of its first cell; LaTeX's own
+  page breaks are not known to it, so one crossing such a break runs
+  past it. Charts print as TikZ drawings of their kind, title, axes,
+  legend and labels.)
 
 ## E46. Charts, the rest
 

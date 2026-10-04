@@ -2947,6 +2947,64 @@ fn page_setup_and_pdf() {
             .iter()
             .any(|n| n.name == "_xlnm.Print_Titles")
     );
+    // Scaled, gridlines and headings, a column repeated and a column
+    // break, a picture in the header.
+    let page = |t: &mut T, what: &str, value: &str| {
+        t.app.run_command(
+            "viewer.grid.pageSetup",
+            json!({ "what": what, "value": value }),
+        );
+    };
+    page(&mut t, "scale", "80");
+    page(&mut t, "gridlines", "");
+    page(&mut t, "headings", "");
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 2);
+    t.app
+        .run_command("viewer.grid.pageSetup", json!({ "what": "colBreak" }));
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app
+        .run_command("viewer.grid.pageSetup", json!({ "what": "titleCols" }));
+    let png = image::RgbaImage::from_pixel(40, 20, image::Rgba([200, 0, 0, 255]));
+    png.save(t.dir.join("logo.png")).unwrap();
+    t.app.run_command(
+        "viewer.grid.pageSetup",
+        json!({ "what": "picture", "place": "RH", "path": "logo.png" }),
+    );
+    let s = t.app.doc.viewer.as_deref_mut().unwrap().page_setup();
+    assert_eq!((s.fit, s.scale), (None, 80));
+    assert!(s.gridlines && s.headings);
+    assert_eq!(
+        (s.col_breaks.clone(), s.title_cols),
+        (vec![2], Some((0, 0)))
+    );
+    assert_eq!(s.pictures.len(), 1);
+    assert!(s.header.contains("&R&G"), "{}", s.header);
+    page(&mut t, "pages", "1 x 2");
+    let s = t.app.doc.viewer.as_deref_mut().unwrap().page_setup();
+    assert_eq!(s.fit, Some((1, 2)));
+    // A chart and a shape, printed over the cells.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(0, 0);
+        v.grid_extend_to(3, 1);
+        v.insert_chart(kalem_viewer::ChartKind::Column, Some("Spend".into()))
+            .unwrap();
+        v.grid_move_to(2, 0);
+        v.insert_shape("ellipse", "Note", false).unwrap();
+        let unit = v.unit;
+        let p = v.sheet_print(unit, None).unwrap();
+        assert!(p.drawings.len() >= 2);
+        let doc =
+            kalem_core::sheet_print::document(std::slice::from_ref(&p), "budget.xlsx", "", "");
+        if let Ok(dir) = std::env::var("KALEM_TEX_OUT") {
+            std::fs::write(format!("{dir}/budget.tex"), &doc).unwrap();
+            for (f, b) in kalem_core::sheet_print::images(&[p]) {
+                std::fs::write(format!("{dir}/{f}"), b).unwrap();
+            }
+        }
+        assert!(doc.contains("\\begin{tikzpicture}"), "{doc}");
+        assert!(doc.contains("ellipse[x radius"), "{doc}");
+    }
     // Exported as a PDF beside the workbook, when LaTeX is there.
     let tex = kalem_core::pdf::detect(
         kalem_core::pdf::Engine::LuaLatex,
@@ -2955,9 +3013,15 @@ fn page_setup_and_pdf() {
     t.app.run_command("viewer.grid.exportPdf", json!({}));
     assert!(t.screen().contains("Entire Workbook"), "{}", t.screen());
     t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.print", json!({ "scope": "choose" }));
+    assert!(t.screen().contains("✓ Budget"), "{}", t.screen());
+    t.key(KeyCode::Esc);
     if tex.is_some() {
-        t.app
-            .run_command("viewer.grid.exportPdf", json!({ "scope": "sheet" }));
+        t.app.run_command(
+            "viewer.grid.exportPdf",
+            json!({ "scope": "sheets", "chosen": [0] }),
+        );
         let done = kalem_core::jobs::wait_all();
         assert!(
             done.iter().all(|d| !d.error),
