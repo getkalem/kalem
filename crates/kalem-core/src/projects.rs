@@ -2,7 +2,7 @@
 //! D12): the project list with its files, the list of open files grouped
 //! by project, and the items of the pickers.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -34,6 +34,8 @@ pub struct ProjectState {
     pub list: Projects,
     indexes: HashMap<PathBuf, FileIndex>,
     trees: HashMap<PathBuf, FolderTree>,
+    /// The projects a document was shown from in this session.
+    visited: HashSet<PathBuf>,
 }
 
 impl ProjectState {
@@ -43,6 +45,7 @@ impl ProjectState {
             list: Projects::load(file),
             indexes: HashMap::new(),
             trees: HashMap::new(),
+            visited: HashSet::new(),
         }
     }
 
@@ -102,6 +105,13 @@ impl ProjectState {
             .reveal(path);
     }
 
+    /// Whether a document of the project at `root` was shown in this
+    /// session. Switching to a project the first time shows its folder in
+    /// the file manager; afterwards, the file last shown from it.
+    pub fn visited(&self, root: &Path) -> bool {
+        self.visited.contains(root)
+    }
+
     /// Walks the project at `root` again.
     pub fn refresh(&mut self, root: &Path) {
         if let Some(i) = self.indexes.get(root) {
@@ -126,6 +136,7 @@ impl ProjectState {
             message = Some(m);
         }
         let root = self.list.containing(path)?.root.clone();
+        self.visited.insert(root.clone());
         let file = path.is_file().then(|| normal(path));
         self.list.used(&root);
         if let Some(f) = file
@@ -842,6 +853,27 @@ mod tests {
     }
 
     use super::*;
+
+    /// A project counts as visited once a document of it is shown: the
+    /// first switch to it in a session shows its folder (asked by the
+    /// owner, 2026-10-04).
+    #[test]
+    fn projects_visited_in_the_session() {
+        let base = std::env::temp_dir().join(format!("kalem-core-visited-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let root = base.join("p");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("a.org"), "* A\n").unwrap();
+        let mut state = ProjectState::load(None);
+        state.add(&root).unwrap();
+        let root = state.list.list[0].root.clone();
+        assert!(!state.visited(&root));
+        state.entered(Some(&root.join("a.org")), false);
+        assert!(state.visited(&root));
+        // A new session (the list loaded again) starts with none.
+        assert!(!ProjectState::load(None).visited(&root));
+        std::fs::remove_dir_all(&base).unwrap();
+    }
 
     #[test]
     fn open_files_by_project() {

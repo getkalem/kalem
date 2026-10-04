@@ -293,6 +293,7 @@ impl Editor {
                 let root = std::path::PathBuf::from(id);
                 let last = {
                     let mut projects = self.shared.projects.borrow_mut();
+                    let first = !projects.visited(&root);
                     projects.list.used(&root);
                     if let Err(e) = projects.save() {
                         tracing::warn!("{e}");
@@ -302,10 +303,11 @@ impl Editor {
                             p.exists(),
                             p.name.clone(),
                             p.last_file.clone().filter(|f| f.is_file()),
+                            first,
                         )
                     })
                 };
-                let Some((exists, name, last)) = last else {
+                let Some((exists, name, last, first)) = last else {
                     return;
                 };
                 if !exists {
@@ -313,6 +315,11 @@ impl Editor {
                     return;
                 }
                 match (picker.after, last) {
+                    // The first time in a session: the project's folder.
+                    (After::Open, _) if first => cx.emit(DocEvent::FileManager {
+                        place: kalem_core::dired::Place::Dir(root),
+                        select: None,
+                    }),
                     (After::Open, Some(f)) => cx.emit(DocEvent::Open { path: f, at: None }),
                     (After::Open, None) => {
                         cx.emit(DocEvent::Pick(

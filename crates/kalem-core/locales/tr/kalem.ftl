@@ -750,6 +750,7 @@ cmd-bib-newEntry = Yeni Kayıt
 cmd-csv-sortView = Görünümü Sütuna Göre Sırala
 cmd-csv-unsortView = Dosya Sırası
 cmd-csv-setDelimiter = Ayırıcıyı Belirle
+cmd-csv-openAsWorkbook = Çalışma Kitabı Olarak Aç
 cmd-csv-setQuote = Tırnak Karakterini Belirle
 cmd-csv-toggleHeader = İlk Satır Başlık
 cmd-csv-detectDialect = Ayırıcıyı ve Başlığı Yeniden Bul

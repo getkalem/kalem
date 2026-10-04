@@ -541,9 +541,23 @@ impl std::fmt::Debug for ViewerState {
 impl ViewerState {
     /// Opens `path` with `viewer`.
     pub fn open(viewer: Arc<dyn Viewer>, path: &Path) -> Result<ViewerState, String> {
-        let doc = viewer
+        let mut doc = viewer
             .open(FileHandle::new(path))
             .map_err(|e| e.to_string())?;
+        // An OpenDocument spreadsheet the workbook viewer only shows is
+        // edited as a workbook made of it, and saved back as `.ods`.
+        let ods = path
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("ods"));
+        if ods && viewer.extensions().contains(&"xlsx") && doc.grid(0).is_some_and(|l| !l.editable)
+        {
+            let bytes = crate::workbook_io::to_xlsx(viewer.as_ref(), doc.as_mut())?;
+            doc = crate::workbook_io::open_bytes(
+                viewer.as_ref(),
+                &path.with_extension("xlsx"),
+                bytes,
+            )?;
+        }
         let structure = doc.structure();
         if structure.units.is_empty() {
             return Err("The file has nothing to show".into());
@@ -1603,6 +1617,46 @@ impl ViewerState {
             self.modified_cache.store(doc.modified(), Ordering::Relaxed);
         }
         self.modified_cache.load(Ordering::Relaxed)
+    }
+
+    /// Whether the viewer is the workbook viewer (it writes `.xlsx`).
+    pub fn is_workbook(&self) -> bool {
+        self.viewer.extensions().contains(&"xlsx")
+    }
+
+    /// The bytes of the file as `extension` asks: the viewer's own for
+    /// its format, a workbook written as `.ods`, or one the viewer only
+    /// shows (`.xls`, `.xlsb`, `.ods`) made an `.xlsx`.
+    pub fn save_as_format(&mut self, extension: &str) -> Result<Vec<u8>, String> {
+        let ext = extension.to_ascii_lowercase();
+        if !self.is_workbook() {
+            return self.save().map(|o| o.bytes);
+        }
+        let editable = self.grid_layout_of(0).is_some_and(|l| l.editable);
+        match ext.as_str() {
+            "ods" => {
+                let mut doc = self.doc();
+                let bytes = crate::workbook_io::to_ods(doc.as_mut())?;
+                // The workbook's own save marks it saved; its bytes are not
+                // what is written.
+                doc.save().map_err(|e| e.to_string())?;
+                Ok(bytes)
+            }
+            "xlsx" | "xlsm" | "xltx" | "xltm" if editable => self.save().map(|o| o.bytes),
+            "xlsx" | "xlsm" | "xltx" | "xltm" => {
+                let viewer = self.viewer.clone();
+                let mut doc = self.doc();
+                crate::workbook_io::to_xlsx(viewer.as_ref(), doc.as_mut())
+            }
+            "xls" | "xlsb" => Err(format!(
+                "Kalem does not write .{ext} files: save it as .xlsx or .ods"
+            )),
+            _ => Err(format!("A workbook is saved as .xlsx or .ods, not .{ext}")),
+        }
+    }
+
+    fn grid_layout_of(&self, unit: usize) -> Option<GridLayout> {
+        self.doc().grid(unit)
     }
 
     /// The file with the edits.

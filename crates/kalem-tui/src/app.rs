@@ -1139,6 +1139,7 @@ impl App {
             }
             PickKind::Projects => {
                 let root = PathBuf::from(id);
+                let first = !self.projects.visited(&root);
                 self.projects.list.used(&root);
                 if let Err(e) = self.projects.save() {
                     tracing::warn!("{e}");
@@ -1152,6 +1153,8 @@ impl App {
                 }
                 let last = p.last_file.clone().filter(|f| f.is_file());
                 match (picker.after, last) {
+                    // The first time in a session: the project's folder.
+                    (After::Open, _) if first => self.file_manager(Place::Dir(root), None),
                     (After::Open, Some(f)) => self.open_path(&f, None),
                     (After::Open, None) => {
                         self.pick(PickKind::ProjectFiles, Some(root), After::Open)

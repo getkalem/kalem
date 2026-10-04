@@ -3636,3 +3636,102 @@ fn sheet_views() {
     z(&mut t, 'S');
     assert!(!t.app.doc.viewer.as_deref_mut().unwrap().panes().split);
 }
+
+#[test]
+fn other_formats() {
+    let mut t = T::open("formats");
+    let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+    let opts = kalem_core::files::SaveOptions::default();
+    let input = |t: &mut T, r: u32, c: u32| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(r, c);
+        v.cell_input()
+    };
+    // A legacy .xls is shown only; Save As .xlsx makes a workbook of it,
+    // which then edits.
+    std::fs::copy(data.join("budget.xls"), t.dir.join("old.xls")).unwrap();
+    t.app.open_path(&t.dir.join("old.xls"), None);
+    assert!(!t.app.doc.viewer.as_deref_mut().unwrap().grid_editable());
+    let rent = input(&mut t, 1, 1);
+    // The reader gives a .xls file's formulas' results.
+    let total = input(&mut t, 1, 3);
+    let r = t.app.doc.save_as(&t.dir.join("old.xls"), opts);
+    assert!(r.is_err());
+    t.app.doc.save_as(&t.dir.join("new.xlsx"), opts).unwrap();
+    assert!(t.app.doc.viewer.as_deref_mut().unwrap().grid_editable());
+    assert_eq!(
+        (input(&mut t, 1, 1), input(&mut t, 1, 3)),
+        (rent.clone(), total.clone())
+    );
+    let mut wb =
+        kalem_plugin_xlsx::Workbook::open(std::fs::read(t.dir.join("new.xlsx")).unwrap()).unwrap();
+    assert_eq!(
+        wb.edit_text(0, kalem_plugin_xlsx::CellRef::new(1, 1))
+            .unwrap(),
+        rent
+    );
+    assert_eq!(wb.sheets().len(), 3);
+    // An OpenDocument spreadsheet opens to edit, and saves as itself.
+    std::fs::copy(data.join("budget.ods"), t.dir.join("lo.ods")).unwrap();
+    t.app.open_path(&t.dir.join("lo.ods"), None);
+    assert!(t.app.doc.viewer.as_deref_mut().unwrap().grid_editable());
+    assert!(!t.app.doc.is_modified());
+    t.app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .set_cell(1, 1, "1300")
+        .unwrap();
+    t.app.run_command("app.save", json!({}));
+    assert!(!t.app.doc.is_modified());
+    let bytes = std::fs::read(t.dir.join("lo.ods")).unwrap();
+    assert!(
+        bytes
+            .windows(46)
+            .any(|w| w == b"application/vnd.oasis.opendocument.spreadsheet")
+    );
+    t.app.open_path(&t.dir.join("lo.ods"), None);
+    assert_eq!(input(&mut t, 1, 1), "1300");
+    assert!(input(&mut t, 1, 3).starts_with('='));
+    // A text file read in: semicolons, Windows-1254, column types.
+    let text = "Kod;Ürün;Tarih;Not\n007;Çay;31.12.2025;x\n010;Şeker;01.02.2026;y\n";
+    // Windows-1254 by hand: the Turkish letters at their code points.
+    let bytes: Vec<u8> = text
+        .chars()
+        .map(|c| match c {
+            'Ü' => 0xDC,
+            'ü' => 0xFC,
+            'Ç' => 0xC7,
+            'Ş' => 0xDE,
+            c => c as u8,
+        })
+        .collect();
+    std::fs::write(t.dir.join("stok.csv"), &bytes).unwrap();
+    t.app.open_path(&t.dir.join("stok.csv"), None);
+    t.app.run_command("csv.openAsWorkbook", json!({}));
+    assert!(t.screen().contains("Semicolon (found)"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "csv.openAsWorkbook",
+        json!({ "delimiter": ";", "encoding": "windows-1254", "column types": "A=text, C=date dmy, D=skip", "path": "stok.xlsx" }),
+    );
+    assert!(
+        t.app
+            .doc
+            .meta
+            .path
+            .as_deref()
+            .is_some_and(|p| p.ends_with("stok.xlsx"))
+    );
+    // Text, as the formula bar shows text that would read as a number.
+    assert_eq!(input(&mut t, 1, 0), "'007");
+    assert_eq!(input(&mut t, 2, 1), "Şeker");
+    assert_eq!(input(&mut t, 1, 2), "2025-12-31");
+    assert_eq!(input(&mut t, 1, 3), "");
+    if let Ok(dir) = std::env::var("KALEM_CHART_OUT") {
+        for f in ["lo.ods", "new.xlsx", "stok.xlsx"] {
+            std::fs::copy(t.dir.join(f), PathBuf::from(&dir).join(f)).unwrap();
+        }
+    }
+}

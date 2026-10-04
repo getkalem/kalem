@@ -96,6 +96,7 @@ pub mod view;
 pub mod viewer;
 pub mod vim;
 pub mod when;
+pub mod workbook_io;
 pub mod workspaces;
 
 pub use builtin::export_dialog_items;

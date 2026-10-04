@@ -108,6 +108,6 @@ be bound again.
 
 ## E36. Opening and saving other formats
 
-- [ ] E36 Open a CSV or text file as a workbook through an import step
+- [x] E36 Open a CSV or text file as a workbook through an import step
   (delimiter, encoding, column types); Save As another workbook name and
   as `.xlsx` from a legacy `.xls`; open and save `.ods`.
