@@ -136,3 +136,52 @@ fn the_component_reads_and_edits_as_the_bundled_plugin() {
         eprintln!("{}: alike", book.display());
     }
 }
+
+#[test]
+fn a_component_built_for_another_api_falls_back_to_the_bundled_viewer() {
+    // `KALEM_STALE_COMPONENT`: a component built against an older WIT
+    // (xlsx 0.0.1 before the grid gained functions).
+    let Some(stale) = std::env::var_os("KALEM_STALE_COMPONENT").map(PathBuf::from) else {
+        return;
+    };
+    let book = Path::new(env!("CARGO_MANIFEST_DIR")).join("../kalem-tui/tests/data/budget.xlsx");
+    let host = Arc::new(kalem_script::Host::new(None).unwrap());
+    let component = || {
+        kalem_script::viewer::ComponentViewer::new(
+            host.clone(),
+            &stale,
+            "xlsx",
+            "Excel workbooks",
+            &["xlsx".into()],
+            kalem_script::viewer::VIEWER_LIMITS,
+        )
+    };
+    // Alone: refused, saying why.
+    let e = component()
+        .open(FileHandle::new(&book))
+        .err()
+        .expect("refused");
+    assert!(
+        e.0.contains("another version of Kalem's plugin API"),
+        "{}",
+        e.0
+    );
+    // With the bundled viewer behind it: the workbook opens, and the user
+    // is told once.
+    let said = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+    let log = said.clone();
+    let v = component().with_fallback(
+        Some(Arc::new(kalem_plugin_xlsx::XlsxViewer)),
+        Arc::new(move |t| log.lock().unwrap().push(t)),
+    );
+    let mut d = v.open(FileHandle::new(&book)).unwrap();
+    assert!(d.grid(0).is_some());
+    let _ = v.open(FileHandle::new(&book)).unwrap();
+    let said = said.lock().unwrap();
+    assert_eq!(said.len(), 1, "{said:?}");
+    assert!(
+        said[0].contains("the bundled viewer opens its files"),
+        "{}",
+        said[0]
+    );
+}

@@ -505,14 +505,17 @@ fn component_viewers() {
         // `org.kalem.pdf-viewer` is the viewer `pdf-viewer`, replacing
         // the bundled one.
         let id = p.id.rsplit('.').next().unwrap_or(&p.id).to_string();
-        let v = std::sync::Arc::new(ComponentViewer::new(
-            h,
-            p.dir.join(main),
-            id,
-            &p.name,
-            &opens,
-            limits,
-        ));
+        // The bundled viewer it replaces opens the files when the
+        // component cannot run (built for another version of the API).
+        let bundled = kalem_core::viewer::viewers()
+            .into_iter()
+            .find(|v| v.id() == id);
+        let v = std::sync::Arc::new(
+            ComponentViewer::new(h, p.dir.join(main), id, &p.name, &opens, limits).with_fallback(
+                bundled,
+                std::sync::Arc::new(|text| kalem_core::jobs::notice(text, true)),
+            ),
+        );
         kalem_core::viewer::register(v.clone());
         loaded.push(v);
     }

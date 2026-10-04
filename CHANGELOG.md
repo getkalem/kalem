@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The README is one page; the Book's Parts I and IV say the same things in fewer words; the design documents and the task lists moved to `docs/` (`docs/design_document.md`, `docs/design_doc2.md`, `docs/todo.md`, `docs/todo_old.md`).
 
 ### Fixed
+- An installed viewer plugin built for another version of the plugin API (the Excel plugin 0.0.1 after the grid gained functions) no longer opens its files as empty documents: Kalem says the plugin needs an update and opens them with the bundled viewer it replaced.
 - Windows: diagnostics from a language server that names files by a verbatim path (`\\?\C:\…`) or another spelling of the drive (`file:///c%3A/…`) reach the document (URIs matched by one spelling); a plugin's file access refuses `..` in a verbatim path too; a plugin index given as `file:///C:/…` is read.
 - Plugins: a compiled plugin in the cache that is rewritten while Kalem uses it no longer ends the process (the cache is read into memory instead of mapped); it also made the plugin host's test fail on CI.
 - Debug builds no longer abort on text with a line break drawn as one line: a chart's labels, a cell's text measured in the grid, a formula's source shown as an error.

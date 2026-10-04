@@ -168,11 +168,31 @@ impl Viewer {
             |d: &mut crate::Data<Files>| &mut d.user,
         )
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        let exports_grid = plugin
+            .exports(host)
+            .iter()
+            .any(|e| e.starts_with("kalem:plugin/grid@"));
         let mut instance = plugin.instantiate(host, &linker, Files::default(), limits)?;
-        let api = instance.bindings(|store, i| DocumentViewer::new(store, i))?;
-        let grid = instance
-            .bindings(|store, i| spreadsheet::SpreadsheetViewer::new(store, i))
-            .ok();
+        // A component built against another version of the API than this
+        // Kalem's (a function or a record's field added since) does not
+        // bind: refused, saying so, rather than a viewer without its grid.
+        let stale = |e: crate::Error| {
+            crate::Error::Invalid(format!(
+                "built for another version of Kalem's plugin API, update the plugin ({e})"
+            ))
+        };
+        let api = instance
+            .bindings(|store, i| DocumentViewer::new(store, i))
+            .map_err(stale)?;
+        let grid = if exports_grid {
+            Some(
+                instance
+                    .bindings(|store, i| spreadsheet::SpreadsheetViewer::new(store, i))
+                    .map_err(stale)?,
+            )
+        } else {
+            None
+        };
         Ok(Viewer {
             instance,
             api,
@@ -254,6 +274,12 @@ pub struct ComponentViewer {
     limits: crate::Limits,
     plugin: std::sync::OnceLock<Result<crate::Plugin, String>>,
     detector: std::sync::Mutex<Option<Viewer>>,
+    /// The bundled viewer this one takes the place of, used when the
+    /// component cannot run (built for another version of the API).
+    fallback: Option<std::sync::Arc<dyn kalem_viewer::Viewer>>,
+    /// Tells the user, once, that the fallback is used.
+    notice: Option<std::sync::Arc<dyn Fn(String) + Send + Sync>>,
+    warned: std::sync::atomic::AtomicBool,
 }
 
 impl std::fmt::Debug for ComponentViewer {
@@ -295,6 +321,36 @@ impl ComponentViewer {
             limits,
             plugin: std::sync::OnceLock::new(),
             detector: std::sync::Mutex::new(None),
+            fallback: None,
+            notice: None,
+            warned: std::sync::atomic::AtomicBool::new(false),
+        }
+    }
+
+    /// With `fallback`, the bundled viewer it replaces, opening the files
+    /// when the component cannot run, and `notice` telling the user once
+    /// why.
+    pub fn with_fallback(
+        mut self,
+        fallback: Option<std::sync::Arc<dyn kalem_viewer::Viewer>>,
+        notice: std::sync::Arc<dyn Fn(String) + Send + Sync>,
+    ) -> ComponentViewer {
+        self.fallback = fallback;
+        self.notice = Some(notice);
+        self
+    }
+
+    /// Says, once, that the component cannot run and why, and what opens
+    /// its files instead.
+    fn warn(&self, e: &kalem_viewer::ViewerError) {
+        if self.warned.swap(true, std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
+        if let Some(n) = &self.notice {
+            n(match &self.fallback {
+                Some(_) => format!("{}: {}; the bundled viewer opens its files", self.name, e.0),
+                None => format!("{}: {}", self.name, e.0),
+            });
         }
     }
 
@@ -331,7 +387,16 @@ impl kalem_viewer::Viewer for ComponentViewer {
     fn detect(&self, name: &str, head: &[u8]) -> kalem_viewer::Detection {
         let mut slot = self.detector.lock().unwrap_or_else(|e| e.into_inner());
         if slot.is_none() {
-            *slot = self.instance().ok();
+            match self.instance() {
+                Ok(v) => *slot = Some(v),
+                Err(e) => {
+                    self.warn(&e);
+                    return self
+                        .fallback
+                        .as_ref()
+                        .map_or(kalem_viewer::Detection::No, |f| f.detect(name, head));
+                }
+            }
         }
         let Some(v) = slot.as_mut() else {
             return kalem_viewer::Detection::No;
@@ -352,7 +417,16 @@ impl kalem_viewer::Viewer for ComponentViewer {
         &self,
         file: kalem_viewer::FileHandle,
     ) -> kalem_viewer::Result<Box<dyn kalem_viewer::ViewerDocument>> {
-        let mut v = self.instance()?;
+        let mut v = match self.instance() {
+            Ok(v) => v,
+            Err(e) => {
+                self.warn(&e);
+                return match &self.fallback {
+                    Some(f) => f.open(file),
+                    None => Err(e),
+                };
+            }
+        };
         let doc = v
             .open(file.path())
             .map_err(err)?
