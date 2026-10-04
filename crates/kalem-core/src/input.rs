@@ -30,7 +30,7 @@ pub fn newline(text: &str, point: usize, mark: Option<usize>) -> Transaction {
     let keep = a - bol(text, a) >= indent.len();
     let insert = format!("\n{}", if keep { indent } else { "" });
     let mut tx = Transaction::new("New line");
-    tx.replace(a..b, insert.clone()).expect("one edit");
+    tx.edit(a..b, insert.clone());
     tx.select(Selection::caret(a + insert.len()))
 }
 
@@ -79,7 +79,7 @@ pub fn enter(doc: &Document, point: usize, mark: Option<usize>) -> Result<Transa
                 }
                 // Leave the list: the empty item becomes an empty line.
                 let mut tx = Transaction::new("End list");
-                tx.replace(start..first_end, "").expect("one edit");
+                tx.edit(start..first_end, "");
                 return Ok(tx.select(Selection::caret(start)));
             }
             if let Some(tx) = org_edit::list::insert_item(doc, point, checkbox) {
@@ -472,8 +472,7 @@ pub fn apply_completion(
     item: &CompletionItem,
 ) -> Transaction {
     let mut tx = Transaction::new("Complete");
-    tx.replace(c.start..point, item.insert.clone())
-        .expect("one edit");
+    tx.edit(c.start..point, item.insert.clone());
     let caret = c.start + item.cursor;
     let tx = tx.select(Selection::caret(caret));
     if c.kind != CompletionKind::Tag {
@@ -526,8 +525,7 @@ pub fn apply_completion(
         .find('\n')
         .map_or(aligned.len(), |i| line + i);
     let mut out = Transaction::new("Complete");
-    out.replace(pre..text.len() - suf, &aligned[pre..aligned.len() - suf])
-        .expect("one edit");
+    out.edit(pre..text.len() - suf, &aligned[pre..aligned.len() - suf]);
     out.select(Selection::caret(eol))
 }
 

@@ -281,7 +281,10 @@ pub fn unpack(archive: &[u8], under: &str, into: &Path) -> Result<usize, String>
         }
     }
     let mut prefix = if tops.len() == 1 {
-        PathBuf::from(tops.into_iter().next().expect("one"))
+        tops.into_iter()
+            .next()
+            .map(PathBuf::from)
+            .unwrap_or_default()
     } else {
         PathBuf::new()
     };

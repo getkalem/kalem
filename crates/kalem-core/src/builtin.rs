@@ -27,16 +27,36 @@ fn cmd(
         id: id.into(),
         title: title.into(),
         category: category.into(),
-        default_keys: keys
-            .iter()
-            .map(|k| KeySequence::parse(k).expect("valid default key"))
-            .collect(),
-        when: when.map(|w| WhenClause::parse(w).expect("valid when-clause")),
+        default_keys: literal_keys(keys),
+        when: when.map(literal_when),
         handler: CommandHandler::Native(handler),
         args_schema: None,
         source: CommandSource::Builtin,
         scope: None,
     }
+}
+
+/// The default keys of a built-in command, written in the source. One
+/// that does not parse is a bug the test `every_builtin_parses` catches;
+/// a release leaves it out rather than failing at start.
+pub(crate) fn literal_keys(keys: &[&str]) -> Vec<KeySequence> {
+    keys.iter()
+        .filter_map(|k| {
+            let parsed = KeySequence::parse(k);
+            debug_assert!(parsed.is_some(), "invalid default key `{k}`");
+            parsed
+        })
+        .collect()
+}
+
+/// The when-clause of a built-in command, written in the source. One that
+/// does not parse is a bug the test `every_builtin_parses` catches; a
+/// release disables the command (`false`) rather than failing at start.
+pub(crate) fn literal_when(w: &str) -> WhenClause {
+    WhenClause::parse(w).unwrap_or_else(|e| {
+        debug_assert!(false, "invalid when-clause `{w}`: {e:?}");
+        WhenClause::Const(false)
+    })
 }
 
 /// `c` with an explicit scope.
@@ -7653,7 +7673,7 @@ fn plain_commands() -> Vec<Command> {
                         let caret = point + table.len();
                         table.push_str(&crate::csv::to_org_table(&content, &dialect));
                         let mut tx = org_edit::Transaction::new("Import table");
-                        tx.replace(point..point, table).expect("one edit");
+                        tx.edit(point..point, table);
                         let tx = tx.select(org_edit::Selection::caret(caret));
                         d.apply(&tx, org_edit::ChangeKind::Command, now);
                         return Ok(());
@@ -7907,6 +7927,23 @@ fn narrow(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The default keys and when-clauses of every built-in command parse
+    /// (debug builds stop on one that does not; R2.2).
+    #[test]
+    fn every_builtin_parses() {
+        let reg = CommandRegistry::with_builtins();
+        for c in reg.commands() {
+            if c.source == CommandSource::Builtin {
+                assert!(
+                    !matches!(c.when, Some(WhenClause::Const(false))),
+                    "{} has a when-clause that does not parse",
+                    c.id
+                );
+            }
+        }
+        assert!(reg.commands().count() > 300);
+    }
 
     #[test]
     fn planning_inputs() {

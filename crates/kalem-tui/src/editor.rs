@@ -255,6 +255,7 @@ impl Images {
         if !self.cache.contains_key(key) {
             let f = picker.font_size();
             let entry = self.load(key, f.height.max(1) as f32).map(|img| {
+                #[expect(clippy::expect_used, reason = "checked at the start of `size`")]
                 let picker = self.picker.as_ref().expect("a picker");
                 let (cw, ch) = (f.width.max(1) as f32, f.height.max(1) as f32);
                 let mut cols = (img.width() as f32 / cw).ceil().max(1.0);

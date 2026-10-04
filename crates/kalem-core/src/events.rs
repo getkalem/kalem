@@ -345,7 +345,9 @@ impl PendingVeto {
                 }
             }
         }
-        self.poll(self.deadline).expect("done or past the deadline")
+        // At the deadline `poll` always gives the outcome.
+        self.poll(self.deadline.max(Instant::now()))
+            .unwrap_or_else(|| std::mem::take(&mut self.outcome))
     }
 }
 

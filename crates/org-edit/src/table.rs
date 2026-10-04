@@ -277,8 +277,8 @@ pub fn column_alignment<'a>(cells: impl IntoIterator<Item = &'a str>) -> char {
                 let mut ch = c.chars();
                 matches!(ch.next(), Some('l' | 'r' | 'c')) && ch.all(|x| x.is_ascii_digit())
             });
-        if let Some(c) = cookie {
-            return c.chars().next().expect("a cookie letter");
+        if let Some(c) = cookie.and_then(|c| c.chars().next()) {
+            return c;
         }
         non_empty += 1;
         if is_number(cell) {
@@ -720,7 +720,9 @@ fn renumber(
     let mut i = 0;
     let b = line.as_bytes();
     while i < line.len() {
-        let c = line[i..].chars().next().expect("char");
+        let Some(c) = line[i..].chars().next() else {
+            break;
+        };
         if c == key {
             let d = b[i + 1..].iter().take_while(|x| x.is_ascii_digit()).count();
             if d > 0 {

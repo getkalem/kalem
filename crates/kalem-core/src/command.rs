@@ -923,7 +923,12 @@ impl CommandRegistry {
             if c.scope.is_none() {
                 c.scope = Some(crate::builtin::default_scope(&c));
             }
-            r.register(c).expect("built-in commands are valid");
+            // A built-in command that does not register is a bug the
+            // tests catch; a release goes on without it.
+            if let Err(e) = r.register(c) {
+                debug_assert!(false, "{e}");
+                tracing::error!("{e}");
+            }
         }
         // And the plugins' (`crate::extensions`), checked when they were
         // added.

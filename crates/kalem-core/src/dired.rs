@@ -1470,8 +1470,6 @@ use crate::command::{
     FileManagerRequest, FileOp, Request,
 };
 use crate::document::DocumentState;
-use crate::keys::KeySequence;
-use crate::when::WhenClause;
 use serde_json::Value;
 
 const IN_LISTING: &str = "editorMode == directory && !wdired";
@@ -1488,11 +1486,8 @@ fn cmd(
         id: id.into(),
         title: title.into(),
         category: "Files".into(),
-        default_keys: keys
-            .iter()
-            .map(|k| KeySequence::parse(k).expect("valid default key"))
-            .collect(),
-        when: when.map(|w| WhenClause::parse(w).expect("valid when-clause")),
+        default_keys: crate::builtin::literal_keys(keys),
+        when: when.map(crate::builtin::literal_when),
         handler: CommandHandler::Native(handler),
         args_schema: None,
         scope: None,
@@ -1508,10 +1503,20 @@ fn listing<'a>(ctx: &'a mut EditorContext<'_>) -> Result<&'a mut DocumentState, 
     }
 }
 
+/// The listing of a document [`listing`] gave.
+#[expect(
+    clippy::expect_used,
+    reason = "called on a document `listing` checked to be a file manager"
+)]
 fn state(doc: &DocumentState) -> &DirState {
     doc.dired.as_deref().expect("a file manager")
 }
 
+/// The listing of a document [`listing`] gave, to change.
+#[expect(
+    clippy::expect_used,
+    reason = "called on a document `listing` checked to be a file manager"
+)]
 fn state_mut(doc: &mut DocumentState) -> &mut DirState {
     doc.dired.as_deref_mut().expect("a file manager")
 }
@@ -1602,7 +1607,9 @@ fn open(ctx: &mut EditorContext<'_>, _: &Value) -> CommandResult {
     match s.row(line) {
         Some(Row::Parent) => return up(ctx, &Value::Null),
         Some(Row::Entry(_)) => {
-            let e = s.entry(line).cloned().expect("an entry");
+            let Some(e) = s.entry(line).cloned() else {
+                return Ok(());
+            };
             if e.is_dir() {
                 doc.visit(Place::Dir(e.path), None);
             } else {
@@ -3116,7 +3123,7 @@ fn copy_name(p: &Path) -> PathBuf {
             dir.join(name)
         })
         .find(|c| !c.exists())
-        .expect("a free name")
+        .unwrap_or_else(|| dir.join(format!("{stem} {copy} {}{ext}", std::process::id())))
 }
 
 /// What Properties shows for an entry: its kind, size, dates, permissions

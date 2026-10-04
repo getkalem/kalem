@@ -694,7 +694,9 @@ impl Completer for WordsCompleter {
             if i % 65536 == 0 && cancel.cancelled() {
                 return Vec::new();
             }
-            let c = text[i..].chars().next().expect("a char");
+            let Some(c) = text[i..].chars().next() else {
+                break;
+            };
             if c.is_alphanumeric() || c == '_' {
                 let s = i;
                 let mut e = i;

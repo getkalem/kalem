@@ -3,6 +3,11 @@
 //!
 //! Frontends read documents and change them only through this crate.
 
+// A crash ends the user's work: no `unwrap`, `expect` or `panic!`
+// outside tests but where an `#[expect]` says why it cannot happen
+// (roadmap R2.2).
+#![warn(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 pub mod affiliated;
 pub mod bibstyle;
 pub mod bibtex;

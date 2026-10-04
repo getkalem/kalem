@@ -276,19 +276,23 @@ pub fn load() {
 pub fn reload() {
     let dirs = LOADED
         .read()
-        .expect("loaded")
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .as_ref()
         .map_or_else(plugin_dirs, |l| l.dirs.clone());
-    *LOADED.write().expect("loaded") = None;
+    *LOADED
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
     load_from(&dirs);
 }
 
 /// Loads the language plugins in `dirs` (replacing those loaded before).
 pub fn load_from(dirs: &[PathBuf]) {
-    let _guard = LOAD.lock().expect("load");
+    let _guard = LOAD
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     if LOADED
         .read()
-        .expect("loaded")
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .as_ref()
         .is_some_and(|l| l.dirs == dirs)
     {
@@ -336,14 +340,16 @@ pub fn load_from(dirs: &[PathBuf]) {
         }
     }
     loaded.plugins = plugins.into_iter().map(|(p, _)| Arc::new(p)).collect();
-    *LOADED.write().expect("loaded") = Some(loaded);
+    *LOADED
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(loaded);
 }
 
 /// The language plugins loaded.
 pub fn plugins() -> Vec<Arc<Plugin>> {
     LOADED
         .read()
-        .expect("loaded")
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .as_ref()
         .map(|l| l.plugins.clone())
         .unwrap_or_default()
@@ -353,7 +359,7 @@ pub fn plugins() -> Vec<Arc<Plugin>> {
 pub fn problems() -> Vec<String> {
     LOADED
         .read()
-        .expect("loaded")
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .as_ref()
         .map(|l| l.problems.clone())
         .unwrap_or_default()
@@ -362,13 +368,16 @@ pub fn problems() -> Vec<String> {
 /// Sets the user's `plugins` settings table (from
 /// [`crate::settings::Config::apply_process_settings`]).
 pub fn set_user_settings(plugins: Option<&Value>) {
-    *USER.write().expect("user") = plugins.cloned().unwrap_or(Value::Null);
+    *USER
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) =
+        plugins.cloned().unwrap_or(Value::Null);
 }
 
 /// The user's settings of plugin `id`.
 pub fn user_settings(id: &str) -> Value {
     USER.read()
-        .expect("user")
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .get(id)
         .cloned()
         .unwrap_or(Value::Null)

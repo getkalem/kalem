@@ -537,7 +537,9 @@ impl Index {
     /// Scans until record `row` is known (or the end).
     pub fn ensure(&mut self, text: &str, row: usize, d: &Dialect) {
         while !self.complete && self.starts.len() <= row + 1 {
-            let at = *self.starts.last().expect("a start");
+            let Some(&at) = self.starts.last() else {
+                break;
+            };
             let r = scan(text, at, d);
             if r.next >= text.len() || r.next == at {
                 self.complete = true;
@@ -566,7 +568,7 @@ impl Index {
 
     /// The record holding byte `pos`, and its row.
     pub fn row_at(&mut self, text: &str, pos: usize, d: &Dialect) -> usize {
-        while !self.complete && *self.starts.last().expect("a start") <= pos {
+        while !self.complete && self.starts.last().is_some_and(|&s| s <= pos) {
             let n = self.starts.len();
             self.ensure(text, n, d);
         }
@@ -601,7 +603,7 @@ pub fn set_cell(_text: &str, rec: &Record, col: usize, v: &str, d: &Dialect) -> 
     let mut tx = Transaction::new("Edit Cell");
     let caret = match rec.fields.get(col) {
         Some(f) => {
-            tx.replace(f.range.clone(), &enc).expect("one edit");
+            tx.edit(f.range.clone(), &enc);
             f.range.start + enc.len()
         }
         None => {
@@ -610,7 +612,7 @@ pub fn set_cell(_text: &str, rec: &Record, col: usize, v: &str, d: &Dialect) -> 
                 .to_string()
                 .repeat(col + 1 - rec.fields.len());
             let at = rec.range.end;
-            tx.replace(at..at, format!("{pad}{enc}")).expect("one edit");
+            tx.edit(at..at, format!("{pad}{enc}"));
             at + pad.len() + enc.len()
         }
     };
@@ -630,8 +632,7 @@ pub fn insert_row(text: &str, rec: &Record, columns: usize, d: &Dialect) -> Tran
     } else {
         "\n"
     };
-    tx.replace(at..at, format!("{nl}{blank}"))
-        .expect("one edit");
+    tx.edit(at..at, format!("{nl}{blank}"));
     tx.select(Selection::caret(at + nl.len()))
 }
 
@@ -649,7 +650,7 @@ pub fn delete_row(text: &str, rec: &Record) -> Transaction {
         };
         rec.range.start.saturating_sub(before)..rec.range.end
     };
-    tx.replace(r.clone(), "").expect("one edit");
+    tx.edit(r.clone(), "");
     tx.select(Selection::caret(r.start.min(text.len() - r.len())))
 }
 
@@ -657,8 +658,8 @@ pub fn delete_row(text: &str, rec: &Record) -> Transaction {
 pub fn swap_rows(text: &str, a: &Record, b: &Record) -> Transaction {
     let mut tx = Transaction::new("Move Row");
     let (ta, tb) = (&text[a.range.clone()], &text[b.range.clone()]);
-    tx.replace(a.range.clone(), tb).expect("apart");
-    tx.replace(b.range.clone(), ta).expect("apart");
+    tx.edit(a.range.clone(), tb);
+    tx.edit(b.range.clone(), ta);
     let shift = tb.len() as isize - ta.len() as isize;
     tx.select(Selection::caret((b.range.start as isize + shift) as usize))
 }
@@ -786,7 +787,7 @@ pub fn sort_file(text: &str, d: &Dialect, col: usize, reverse: bool) -> Transact
     let start = recs.first().map_or(0, |r| r.range.start);
     let end = recs.last().map_or(0, |r| r.range.end);
     let mut tx = Transaction::new("Sort File");
-    tx.replace(start..end, body.join(nl)).expect("one edit");
+    tx.edit(start..end, body.join(nl));
     tx
 }
 

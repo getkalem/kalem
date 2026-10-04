@@ -187,7 +187,7 @@ pub fn replace_all_with(
             None => with.to_string(),
         };
         shift += new.len() as isize - m.len() as isize;
-        tx.replace(m.clone(), new).expect("sorted, disjoint");
+        tx.edit(m.clone(), new);
     }
     let end = (last.end as isize + shift) as usize;
     Ok(Some(tx.select(Selection::caret(end))))

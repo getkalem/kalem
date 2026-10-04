@@ -1036,6 +1036,7 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
                 size: sz,
                 ascent,
             });
+            #[expect(clippy::expect_used, reason = "the run was matched as a widget above")]
             widgets.push((
                 at,
                 r.src.clone(),
@@ -1388,7 +1389,7 @@ impl gpui::Element for LineElement {
         let prepared = Rc::new(self.editor.update(cx, |e, _| {
             if other && e.other.is_some() {
                 e.with_other(|e| prepare(e, line, base, window))
-                    .expect("a split")
+                    .unwrap_or_else(|| prepare(e, line, base, window))
             } else {
                 prepare(e, line, base, window)
             }

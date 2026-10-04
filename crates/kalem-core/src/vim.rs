@@ -522,7 +522,7 @@ fn line_span(doc: &DocumentState, a: usize, b: usize) -> Range<usize> {
 
 fn edit(doc: &mut DocumentState, range: Range<usize>, insert: &str, caret: usize) {
     let mut tx = Transaction::new("Vim");
-    tx.replace(range, insert).expect("one edit");
+    tx.edit(range, insert);
     let tx = tx.select(Selection::caret(caret));
     doc.apply(&tx, ChangeKind::Command, Instant::now());
 }
@@ -3220,6 +3220,7 @@ impl Vim {
             }
             // `1v`: as much as the last visual selection again, from here.
             'v' | 'V' if count.is_some() && self.last_visual.is_some() => {
+                #[expect(clippy::expect_used, reason = "the arm's guard checked it")]
                 let (mode, a, c) = self.last_visual.expect("checked");
                 let len = doc.text().len();
                 let (a, c) = (a.min(len).min(c.min(len)), a.min(len).max(c.min(len)));
@@ -3890,7 +3891,7 @@ impl Vim {
                 self.replaced
                     .push(doc.text().as_str()[pos..end].to_string());
                 let mut tx = Transaction::new("Typing");
-                tx.replace(pos..end, c.to_string()).expect("one edit");
+                tx.edit(pos..end, c.to_string());
                 let tx = tx.select(Selection::caret(pos + c.len_utf8()));
                 doc.apply(&tx, ChangeKind::Typing, Instant::now());
                 if let Some(r) = &mut self.recording {

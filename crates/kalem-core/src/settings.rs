@@ -688,13 +688,22 @@ fn merge(into: &mut Map<String, Value>, from: &Map<String, Value>) {
 fn insert_dotted(tree: &mut Map<String, Value>, key: &str, value: Value) {
     let mut t = tree;
     let mut parts: Vec<&str> = key.split('.').collect();
-    let last = parts.pop().expect("a key");
+    // `split` gives one part at least.
+    let Some(last) = parts.pop() else {
+        return;
+    };
     for p in parts {
-        t = t
+        let entry = t
             .entry(p.to_string())
-            .or_insert_with(|| Value::Object(Map::new()))
-            .as_object_mut()
-            .expect("defaults are tables");
+            .or_insert_with(|| Value::Object(Map::new()));
+        // A table where a value was: the longer key wins.
+        if !entry.is_object() {
+            *entry = Value::Object(Map::new());
+        }
+        let Value::Object(next) = entry else {
+            return;
+        };
+        t = next;
     }
     t.insert(last.to_string(), value);
 }
@@ -769,7 +778,11 @@ impl Config {
     pub fn from_layers(layers: &[(Layer, Option<&Path>, &str)]) -> Config {
         let mut merged = Map::new();
         for s in SPECS {
-            let v = serde_json::from_str(s.default).expect("valid default");
+            // The defaults are compiled in; a test reads each one.
+            let Ok(v) = serde_json::from_str(s.default) else {
+                debug_assert!(false, "invalid default of {}", s.key);
+                continue;
+            };
             insert_dotted(&mut merged, s.key, v);
         }
         let mut issues = Vec::new();

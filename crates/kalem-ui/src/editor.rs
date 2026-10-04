@@ -2731,7 +2731,7 @@ impl Editor {
                         a.bounds
                             .top()
                             .partial_cmp(&b.bounds.top())
-                            .expect("ordered")
+                            .unwrap_or(std::cmp::Ordering::Equal)
                     })
                     .filter(|p| pos.y >= p.bounds.bottom())
             })?;

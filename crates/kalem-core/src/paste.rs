@@ -472,6 +472,10 @@ fn entity(name: &str) -> Option<char> {
 /// A forgiving HTML parser: unknown end tags are ignored, open elements
 /// are closed by the end of their parent, and `li`, `p`, `tr`, `td`, `th`,
 /// `dt`, `dd` and `option` close as HTML closes them.
+#[expect(
+    clippy::expect_used,
+    reason = "the stack starts with the root, and `close` never pops it"
+)]
 fn parse_html(html: &str) -> Vec<Node> {
     struct Open {
         name: String,

@@ -292,7 +292,7 @@ pub fn newline(text: &str, sel: Selection, unit: &str, language: Option<&str>) -
         let n = s.len();
         (s, n)
     };
-    tx.replace(a..b, insert).expect("one edit");
+    tx.edit(a..b, insert);
     tx.select(Selection::caret(a + cursor))
 }
 

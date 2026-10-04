@@ -882,7 +882,7 @@ impl Editor {
             ) {
                 Ok(r) => {
                     let mut tx = Transaction::new("Replace");
-                    tx.replace(sel.clone(), r.clone()).expect("one edit");
+                    tx.edit(sel.clone(), r.clone());
                     let tx = tx.select(Selection::caret(sel.start + r.len()));
                     self.doc.apply(&tx, ChangeKind::Command, Instant::now());
                 }
@@ -1016,6 +1016,7 @@ impl Editor {
         // Lines: a title, a detail and keys (or a mark).
         let lines: Vec<(String, String, String)> = match &p.search {
             None if p.lines.is_some() => {
+                #[expect(clippy::expect_used, reason = "the arm's guard checked it")]
                 let l = p.lines.as_ref().expect("a line search");
                 l.hits
                     .iter()

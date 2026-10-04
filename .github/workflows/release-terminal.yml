@@ -1,0 +1,63 @@
+# The terminal-only archives (docs/releasing.md): the `tui` feature alone,
+# without windowing or GPU libraries, for servers and minimal systems.
+# cargo-dist builds one configuration per package, so these are built
+# here and attached to the release once it is published.
+name: Release (terminal-only)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The release to attach the archives to (v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-22.04
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-22.04-arm
+          - target: aarch64-apple-darwin
+            runner: macos-14
+          - target: x86_64-apple-darwin
+            runner: macos-15-intel
+          - target: x86_64-pc-windows-msvc
+            runner: windows-2022
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --locked -p kalem-editor --no-default-features --features tui
+      - name: Archive
+        shell: bash
+        run: |
+          name="kalem-terminal-${{ matrix.target }}"
+          mkdir "$name"
+          cp README.md CHANGELOG.md LICENSE-MIT LICENSE-APACHE "$name/"
+          if [ -f target/release/kalem.exe ]; then
+            cp target/release/kalem.exe "$name/"
+            7z a "$name.zip" "$name" > /dev/null
+            echo "ARCHIVE=$name.zip" >> "$GITHUB_ENV"
+          else
+            cp target/release/kalem "$name/"
+            tar czf "$name.tar.gz" "$name"
+            echo "ARCHIVE=$name.tar.gz" >> "$GITHUB_ENV"
+          fi
+      - name: Attach to the release
+        shell: bash
+        run: gh release upload "$TAG" "$ARCHIVE" --clobber --repo "${{ github.repository }}"

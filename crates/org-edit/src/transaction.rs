@@ -49,6 +49,9 @@ pub struct Transaction {
     pub selection_after: Option<Selection>,
     /// A label for the undo menu.
     pub label: String,
+    /// An [`edit`](Transaction::edit) overlapped another: the transaction
+    /// changes nothing rather than half of what it meant to.
+    pub broken: bool,
 }
 
 /// An error building a transaction.
@@ -113,6 +116,25 @@ impl Transaction {
         Ok(self)
     }
 
+    /// Adds a replacement that the caller knows overlaps no other (the
+    /// only one, or ranges taken apart from one another). Should it
+    /// overlap after all, a bug: debug builds and tests stop on it, and a
+    /// release drops every edit of the transaction, so the command
+    /// changes nothing instead of ending the program or applying half of
+    /// itself.
+    pub fn edit(&mut self, range: Range<usize>, insert: impl Into<String>) -> &mut Self {
+        if self.broken {
+            return self;
+        }
+        if let Err(e) = self.replace(range, insert) {
+            debug_assert!(false, "{e}");
+            self.edits.clear();
+            self.selection_after = None;
+            self.broken = true;
+        }
+        self
+    }
+
     /// Adds an insertion.
     pub fn insert(
         &mut self,
@@ -129,7 +151,9 @@ impl Transaction {
 
     /// Sets the selection after the transaction.
     pub fn select(mut self, selection: Selection) -> Transaction {
-        self.selection_after = Some(selection);
+        if !self.broken {
+            self.selection_after = Some(selection);
+        }
         self
     }
 
@@ -177,6 +201,7 @@ impl Transaction {
             edits,
             selection_after: None,
             label: self.label.clone(),
+            broken: false,
         }
     }
 

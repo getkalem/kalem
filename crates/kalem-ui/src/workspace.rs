@@ -2319,6 +2319,10 @@ pub fn open_window(path: Option<PathBuf>, shared: Rc<Shared>, cx: &mut App) {
             Err(err) => {
                 tracing::error!("{err}");
                 // An empty document that says why (a binary file, say).
+                #[expect(
+                    clippy::expect_used,
+                    reason = "an empty document reads no file and cannot fail"
+                )]
                 let e = crate::editor::open(None, shared.clone(), theme, cx)
                     .expect("an empty document");
                 e.update(cx, |e, _| e.status = Some((err, true)));

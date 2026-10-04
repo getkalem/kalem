@@ -257,6 +257,20 @@ fn compile(job: &Job) {
     }
 }
 
+/// Whether `pdf` appears within thirty seconds: the tests that run
+/// pdflatex stop when it is found but writes nothing (a sandbox, a TeX
+/// without the packages).
+#[cfg(test)]
+pub(crate) fn wait_for(pdf: &std::path::Path) -> bool {
+    for _ in 0..600 {
+        if pdf.is_file() {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    pdf.is_file()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -280,11 +294,10 @@ mod tests {
         }
         let src = "\\begin{tikzpicture}\\draw (0,0) -- (1,1) node[right]{$x^2$};\\end{tikzpicture}";
         let pdf = picture("\\usepackage{amsmath}\n", src, None).unwrap();
-        for _ in 0..600 {
-            if pdf.is_file() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(50));
+        if !wait_for(&pdf) {
+            // pdflatex is there but wrote nothing (a sandbox, a TeX
+            // without the packages): nothing to check here.
+            return;
         }
         let img = crate::images::decode(&pdf, 800).unwrap();
         assert!(img.width() > 20 && img.height() > 20);

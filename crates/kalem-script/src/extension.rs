@@ -222,9 +222,11 @@ fn real_path(path: &str) -> Result<std::path::PathBuf, String> {
         return Err(format!("`{path}` is not an absolute path"));
     }
     // In a Windows verbatim path (`\\?\C:\…`, what `canonicalize`
-    // gives) `..` is not parsed as a parent but as a name: refused too.
-    if p.components()
-        .any(|c| matches!(c, Component::ParentDir) || c.as_os_str() == "..")
+    // gives) `..` is not parsed as a parent but as a name, and `/` is no
+    // separator (`\\?\C:\a\../b` has a part `../b`): every segment
+    // between either separator is checked.
+    if p.components().any(|c| matches!(c, Component::ParentDir))
+        || path.split(['/', '\\']).any(|seg| seg == "..")
     {
         return Err(format!("`{path}` goes up with `..`"));
     }
@@ -1294,6 +1296,9 @@ mod tests {
     fn verbatim_paths_cannot_go_up() {
         // `canonicalize` gives verbatim paths, where `..` is a name.
         let e = super::real_path(r"\\?\C:\Users\a\..\b.txt").unwrap_err();
+        assert!(e.contains(".."), "{e}");
+        // And with `/`, which a verbatim path does not split on.
+        let e = super::real_path(r"\\?\C:\Users\a\../b.txt").unwrap_err();
         assert!(e.contains(".."), "{e}");
     }
 }

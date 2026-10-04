@@ -306,7 +306,10 @@ fn change_subtree(buf: &mut Buf, change: isize, ctx: &ParseContext) -> Result<()
     let (bol, level) = back_to_heading(&buf.text, buf.point, limit)?;
     // `org-map-tree`: the heading and the following deeper ones.
     let hs = headings(&buf.text, limit);
-    let i = hs.iter().position(|(s, _)| *s == bol).expect("heading");
+    let i = hs
+        .iter()
+        .position(|(s, _)| *s == bol)
+        .ok_or_else(|| EditError::new("Not in a heading"))?;
     let mut targets = vec![hs[i]];
     targets.extend(hs[i + 1..].iter().take_while(|(_, l)| *l > level).copied());
     // The first one decides whether the command fails.
@@ -388,7 +391,10 @@ pub fn move_subtree(
         }
         let end = subtree_end(&buf.text, beg, level, limit);
         let hs = headings(&buf.text, None);
-        let i = hs.iter().position(|(s, _)| *s == beg).expect("heading");
+        let i = hs
+            .iter()
+            .position(|(s, _)| *s == beg)
+            .ok_or_else(|| EditError::new("Not in a heading"))?;
         let fail = || {
             Err(EditError::at(
                 "Cannot move past superior level or buffer limit",
@@ -658,11 +664,11 @@ pub fn move_subtree_to(
     // map through the move.
     let mut tx = Transaction::new("Move subtree");
     let point = if to == r.start || to == r.end {
-        tx.replace(r.clone(), moved).expect("one edit");
+        tx.edit(r.clone(), moved);
         r.start
     } else if to < r.start {
-        tx.replace(to..to, moved).expect("apart");
-        tx.replace(r.clone(), "").expect("apart");
+        tx.edit(to..to, moved);
+        tx.edit(r.clone(), "");
         to
     } else {
         let sep = if text.ends_with('\n') || to < text.len() {
@@ -670,8 +676,8 @@ pub fn move_subtree_to(
         } else {
             "\n"
         };
-        tx.replace(r.clone(), "").expect("apart");
-        tx.replace(to..to, format!("{sep}{moved}")).expect("apart");
+        tx.edit(r.clone(), "");
+        tx.edit(to..to, format!("{sep}{moved}"));
         to - r.len() + sep.len()
     };
     Ok(tx.select(Selection::caret(point)))

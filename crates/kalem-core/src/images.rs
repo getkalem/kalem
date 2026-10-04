@@ -258,7 +258,7 @@ fn free_name(dir: &Path, name: &str) -> PathBuf {
     (2..)
         .map(|n| dir.join(format!("{stem}-{n}{ext}")))
         .find(|p| !p.exists())
-        .expect("a free name")
+        .unwrap_or_else(|| dir.join(format!("{stem}-{}{ext}", std::process::id())))
 }
 
 /// The link to `file` from `document`: relative when it is in the

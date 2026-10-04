@@ -2,6 +2,11 @@
 //! commands, keymaps, settings and view model as the terminal frontend,
 //! drawn with Kalem's own inline layout.
 
+// A crash ends the user's work: no `unwrap`, `expect` or `panic!`
+// outside tests but where an `#[expect]` says why it cannot happen
+// (roadmap R2.2).
+#![warn(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 pub mod chart;
 pub mod clipboard;
 pub mod datepicker;

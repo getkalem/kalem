@@ -60,7 +60,8 @@ pub fn to_path(uri: &str) -> Option<PathBuf> {
     if let [d, b':', ..] = s.as_bytes()
         && d.is_ascii_lowercase()
     {
-        s.replace_range(0..1, &d.to_ascii_uppercase().to_string());
+        let upper = char::from(d.to_ascii_uppercase());
+        s.replace_range(0..1, upper.encode_utf8(&mut [0; 4]));
     }
     Some(PathBuf::from(s))
 }

@@ -10,6 +10,7 @@ case "$base" in origin/*) git fetch -q origin "${base#origin/}" || true ;; esac
 
 cargo fmt --all --check
 sh tools/check-plugin-pins.sh
+sh tools/check-zed-deps.sh
 
 # The crates whose files changed since the base, committed or not.
 changed=$( { git diff --name-only "$base"...HEAD; git diff --name-only; git diff --name-only --cached; } \
