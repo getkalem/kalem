@@ -1033,12 +1033,12 @@ fn focus_narrowing_and_line_width(cx: &mut TestAppContext) {
     assert_eq!(visible(&e, cx), [1, 2]);
     cx.dispatch_action(kalem_ui::editor::RunCommand::new("view.widen"));
     assert_eq!(visible(&e, cx), all);
-    // The text column is about 80 characters wide.
+    // The text takes the whole window by default.
     cx.run_until_parked();
     let width = e.read_with(cx, |e, _| {
         e.painted.borrow().get(&0).map(|p| p.bounds.size.width)
     });
-    assert!(width.is_some_and(|w| w <= gpui::px(641.)), "{width:?}");
+    assert!(width.is_some_and(|w| w > gpui::px(641.)), "{width:?}");
 }
 
 /// An editor with the Vim profile.

@@ -24,8 +24,8 @@ Headings move right by level, and the text under a heading starts
 where its title does, as with Emacs's =org-indent-mode=: two
 characters a level in the window, after the heading's sign in the
 terminal. =editor.outline_indent = false=, or =#+STARTUP: noindent= in
-a file, keeps all text at the left edge. The text column is 80
-characters wide at the left edge of the window; =editor.line_width=
-changes its width (0 for the whole window), and =editor.center_text =
-true= puts it in the middle, like a page. Code files take the whole
+a file, keeps all text at the left edge. The text takes the whole
+window; =editor.line_width= narrows it to a column that many
+characters wide (=80= reads like a page), and =editor.center_text =
+true= puts that column in the middle. Code files take the whole
 window, and a long line of code wraps under its own indentation.

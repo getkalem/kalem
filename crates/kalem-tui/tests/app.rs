@@ -865,7 +865,11 @@ fn focus_mode_and_text_column() {
     assert!((0..5).any(|y| t.row(y).contains('B')));
     // A wide terminal with `editor.center_text`: the 80-character column
     // in the middle.
-    let config = Config::from_layers(&[(Layer::User, None, "editor.center_text = true\n")]);
+    let config = Config::from_layers(&[(
+        Layer::User,
+        None,
+        "editor.center_text = true\neditor.line_width = 80\n",
+    )]);
     let mut t = with_config(text, config, (120, 10));
     let row = t.row(0);
     let indent = row.len() - row.trim_start().len();
@@ -1453,14 +1457,18 @@ fn old_kalem_formatting_is_plain_org() {
 
 #[test]
 fn text_starts_at_the_left() {
-    // In a wide terminal the 80-column text starts at the left edge,
-    // unless `editor.center_text` asks for the middle.
+    // In a wide terminal the text starts at the left edge; an 80-column
+    // one goes to the middle with `editor.center_text`.
     let mut t = with_config("* Heading\ntext\n", Config::default(), (160, 10));
     t.at(0);
     let buf = t.draw();
     let row: String = (0..160).map(|x| buf[(x, 0)].symbol().to_string()).collect();
     assert!(row.starts_with(" * Heading"), "{row:?}");
-    let config = Config::from_layers(&[(Layer::User, None, "editor.center_text = true\n")]);
+    let config = Config::from_layers(&[(
+        Layer::User,
+        None,
+        "editor.center_text = true\neditor.line_width = 80\n",
+    )]);
     let mut t = with_config("* Heading\ntext\n", config, (160, 10));
     t.at(0);
     let buf = t.draw();

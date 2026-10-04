@@ -89,7 +89,7 @@ edits it as plain text. Concretely:
   cursor is drawn as a grid: each column as wide as its widest cell and
   lined up as its delimiter cell says (=:--= left, =--:= right, =:-:=
   centered), the bars as lines and the delimiter row as a rule, without
-  changing the text; in the graphical editor its rows do not wrap. With
+  changing the text; a row wider than the window wraps. With
   the cursor in the table it shows its source, and Tab aligns the
   source itself. Away from the cursor
   the front matter folds to its first line, as a property drawer does

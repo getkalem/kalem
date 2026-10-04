@@ -120,8 +120,8 @@ pub const SPECS: &[Spec] = &[
     Spec {
         key: "editor.line_width",
         kind: Kind::Int(0, 400),
-        default: "80",
-        description: "Width of the text column in characters; 0 for the whole window (code files always take it)",
+        default: "0",
+        description: "Width of the text column in characters, such as 80; 0 for the whole window (code files always take it)",
     },
     Spec {
         key: "editor.center_text",
@@ -1265,7 +1265,7 @@ per_page = 250
             (Layer::Workspace, Some(Path::new("ws.toml")), workspace),
         ]);
         assert_eq!(c.int("editor.font_size"), 12);
-        assert_eq!(c.int("editor.line_width"), 80);
+        assert_eq!(c.int("editor.line_width"), 0);
         assert_eq!(c.keymap_profile(), crate::keymap::Profile::Vim);
         assert_eq!(c.str("editor.show_source_markers"), "cursor");
         assert!(c.strings("editor.vim.modes").is_empty());

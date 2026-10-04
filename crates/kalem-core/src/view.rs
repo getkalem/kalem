@@ -216,9 +216,6 @@ pub struct LineView {
     /// The paragraph's alignment: centered in a center block; LaTeX's
     /// `center`, `flushright` and `flushleft`.
     pub align: crate::rich::Align,
-    /// The line does not wrap (a table row drawn as a grid): it runs past
-    /// the text column instead.
-    pub nowrap: bool,
 }
 
 impl LineView {
@@ -747,7 +744,6 @@ pub fn source_line_view(
         role: v.role,
         mono: true,
         align: crate::rich::Align::Left,
-        nowrap: false,
     }
 }
 

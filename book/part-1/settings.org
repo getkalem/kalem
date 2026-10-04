@@ -23,7 +23,7 @@ lists every one, generated from the code.
 | =editor.font_family=      | =""=       | Body font; empty for the system font                         |
 | =editor.code_font_family= | =""=       | Font of code and plain text                                  |
 | =editor.font_size=        | =16=       | Text size                                                    |
-| =editor.line_width=       | =80=       | Width of the text column in characters (0: all)              |
+| =editor.line_width=       | =0=        | Width of the text column in characters, such as 80 (0: all)  |
 | =editor.center_text=      | =false=    | The text column in the middle of the window                  |
 | =editor.soft_wrap=        | =true=     | Wrap long lines                                              |
 | =editor.line_numbers=     | =true=     | Line numbers in plain text and the source view               |

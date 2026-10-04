@@ -1221,7 +1221,7 @@ fn column_widths(
 
 /// Row `row` of the table at `table`, away from the cursor: its cells
 /// padded to their column's width, its bars drawn as lines, its delimiter
-/// row as a rule. The text is not changed; the row does not wrap.
+/// row as a rule. The text is not changed.
 fn table_row(
     md: &Md,
     text: &str,
@@ -1239,7 +1239,6 @@ fn table_row(
     let mut out = LineView {
         range: row.clone(),
         mono: true,
-        nowrap: true,
         ..LineView::default()
     };
     if is_delimiter_row(text, row.clone()) {
@@ -3155,7 +3154,7 @@ mod tests {
                 "│ PORT         │ prod    │ listen port         │",
             ]
         );
-        assert!(shown(2, Some(0)).nowrap && shown(2, Some(0)).mono);
+        assert!(shown(2, Some(0)).mono);
         // The text is the same; a click on a padded cell maps into it.
         let v = shown(5, Some(0));
         let at = v.source_offset(v.display().find("prod").unwrap());
@@ -3166,7 +3165,6 @@ mod tests {
             shown(5, Some(inside)).display(),
             "| PORT | prod | listen port |"
         );
-        assert!(!shown(5, Some(inside)).nowrap);
         // `:--`, `--:` and `:-:` line a column up to the left, the right
         // and the middle.
         let text = "| Name | Qty | Mid |\n|:--|--:|:-:|\n| apple | 3 | x |\n";

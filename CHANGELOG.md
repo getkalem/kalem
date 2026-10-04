@@ -15,7 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A test that panics on purpose checks the crash report: `crash-DATE.txt` beside the log, with the report's header, the panic and where the log is.
 
 ### Changed
-- Markdown: a table away from the cursor is drawn as a grid, its columns lined up as its delimiter row says and its rows not wrapped in the graphical editor; the file is not changed. With the cursor in it, the table shows its source.
+- Documents take the whole window by default: `editor.line_width` is 0 (it was 80, which left half of a wide window empty); set it to 80 for a page-wide column.
+- Markdown: a table away from the cursor is drawn as a grid, its columns lined up as its delimiter row says; the file is not changed. With the cursor in it, the table shows its source.
 - Org is on the document mode contract (`org_mode::OrgMode`) as LaTeX, Markdown, CSV and `.klm` are; every file of the Org corpus passes its conformance check.
 - Switch Project shows the project's folder in the file manager the first time in a session, rather than the file last open in it; afterwards it shows that file.
 - `kalem-core`, `org-edit`, `kalem-ui` and `kalem-tui` warn on `unwrap`, `expect` and `panic!` outside tests. The edits that cannot overlap use `Transaction::edit`, which a release turns into no change rather than a crash should they overlap; a poisoned lock is used as it is; the default keys and when-clauses of the built-in commands are checked by a test instead of at start.
