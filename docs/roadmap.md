@@ -57,10 +57,11 @@ the Windows job passes; no plugin pin can break `main`.
   once an hour unless CI is green), and a `tools/pre-push.sh` that runs
   fmt, clippy on the changed crates and the quick tests. S
   (done 2026-10-04: CONTRIBUTING's "Pushing to main"; `tools/pre-push.sh` runs fmt, the plugin pins, and clippy and tests for the crates changed since `origin/main`, the whole workspace when the manifest or lock file changed; it can be linked as the git pre-push hook.)
-- [ ] R1.5 Stale pages fixed so the Book and the code agree:
+- [x] R1.5 Stale pages fixed so the Book and the code agree:
   `book/part-2/latex.org` "Limits and known gaps" (SyncTeX, the PDF panel,
-  `\multirow`, the corpus are done), `performance.org` binary size (49.7
-  MB measured, 13 MB written), `todo.md` T4.3.2 (hayro, not pdfium). S
+  `\multirow`, the corpus are done), `performance.org` binary sizes (48.9
+  MB full and 49.7 MB terminal-only measured, 13 and 7 MB written), `todo.md` T4.3.2 (hayro, not pdfium). S
+  (done 2026-10-04: LaTeX's "Limits and known gaps" rewritten from the code (corpus, SyncTeX, `\multirow` and Overleaf done; the PDF not yet a panel; the 10 MB keystroke); `performance.org` binary rows corrected and found worse than the evaluation said: the terminal-only build is 49.7 MB against 15 MB, the full 48.9 MB (D28) against 40; the evaluation corrected; `todo.md`'s pdfium mentions annotated.)
 - [ ] R1.6 Repository hygiene: move `docs/todo_old.md`, `excel_todo.md`,
   `excel_todo2.md` under `docs/history/`; move `spikes/` out of the tree
   or into a `spikes` branch; the gpui git revision in one place in
@@ -78,6 +79,8 @@ each platform with the results in the release issue.
   cheapest of: `panic = "abort"`, `opt-level = "s"` on cold crates (the
   decoders, Wasmtime, fonts), the viewers as features that the full
   build turns on, a dependency audit of the 101 crates present twice.
+  The terminal-only build (49.7 MB) carries the viewers and Wasmtime
+  too; its target is the harder one.
   Target: full build under 40 MB, terminal-only under 15 MB, both
   recorded by a CI step that fails over the target. M (T2.9.11, D28)
 - [ ] R2.2 Crash debt (T1.8.11, TS.10): turn on `clippy::unwrap_used`
