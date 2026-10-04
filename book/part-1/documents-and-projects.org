@@ -24,7 +24,7 @@ project.
 
 | Keys         | Command                                                              |
 |--------------+----------------------------------------------------------------------|
-| Ctrl+Alt+P   | Switch Project: its last file, or its files                          |
+| Ctrl+Alt+P   | Switch Project: its folder the first time, then its last file        |
 | Ctrl+P       | Find File in Project, recent files first                             |
 | Ctrl+Shift+F | Search in Project; Alt+C case, Alt+W words, Alt+R regular expression |
 |              | Recent Files in Project, Remove Project, Rename Project (palette)    |
