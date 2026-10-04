@@ -336,6 +336,8 @@ pub struct ViewerState {
     pub copied: Option<(usize, [u32; 4])>,
     /// The cells Format Painter took the format of, until it paints.
     pub painter: Option<(usize, [u32; 4])>,
+    /// Show Formulas: formula cells show their formulas, not their values.
+    pub show_formulas: bool,
 }
 
 /// What Find looks for in a grid, and how.
@@ -516,6 +518,7 @@ impl ViewerState {
             grid_search: GridSearch::default(),
             copied: None,
             painter: None,
+            show_formulas: false,
         })
     }
 
@@ -1524,13 +1527,24 @@ impl ViewerState {
         self.grid_layout().is_some_and(|l| l.editable)
     }
 
-    /// The cells of the grid shown in `rows` × `cols`.
+    /// The cells of the grid shown in `rows` × `cols`; with Show Formulas,
+    /// a formula cell's formula as its text, at the left as Excel shows it.
     pub fn grid_cells(
         &mut self,
         rows: std::ops::Range<u32>,
         cols: std::ops::Range<u32>,
     ) -> Vec<(u32, u32, GridCell)> {
-        self.doc().grid_cells(self.unit, rows, cols)
+        let mut cells = self.doc().grid_cells(self.unit, rows, cols);
+        if self.show_formulas {
+            let unit = self.unit;
+            let mut doc = self.doc();
+            for c in cells.iter_mut().filter(|c| c.2.formula) {
+                c.2.text = doc.cell_input(unit, c.0, c.1);
+                c.2.numeric = false;
+                c.2.align = kalem_viewer::Align::General;
+            }
+        }
+        cells
     }
 
     /// The cursor and scroll of the grid shown.
@@ -6727,6 +6741,15 @@ fn names_menu(
     Ok(())
 }
 
+/// Calculate Now (F9): every formula computed again.
+fn calculate_now(ctx: &mut EditorContext<'_>) -> CommandResult {
+    with(ctx, |v| {
+        v.doc().recalculate().map_err(|e| e.to_string())?;
+        v.refresh();
+        Ok(())
+    })
+}
+
 /// Format Painter (`t p`): pressed once it takes the selection's format,
 /// again it paints it over the selection then chosen.
 fn format_painter(ctx: &mut EditorContext<'_>) -> CommandResult {
@@ -7974,6 +7997,25 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.showFormulas",
+            "Show Formulas",
+            &["ctrl+`", "g f"],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    v.show_formulas = !v.show_formulas;
+                    Ok(())
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.calculateNow",
+            "Calculate Now",
+            &["f9"],
+            IN_GRID,
+            |ctx, _| calculate_now(ctx),
+        ),
         cmd(
             "viewer.grid.defineName",
             "Define Name",

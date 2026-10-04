@@ -2567,3 +2567,42 @@ fn named_ranges() {
     t.app.run_command("edit.undo", json!({}));
     assert_eq!(names(&mut t), before + 1);
 }
+
+#[test]
+fn show_formulas_and_calculate() {
+    let mut t = T::open("formulas");
+    let d2 = {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 3);
+        v.cell_input()
+    };
+    assert!(d2.starts_with('='), "{d2}");
+    // g f: the formulas in the cells; again, the values.
+    t.key(KeyCode::Char('g'));
+    t.key(KeyCode::Char('f'));
+    let s = t.screen();
+    let row2 = s
+        .lines()
+        .find(|l| l.trim_start().starts_with("2 Rent"))
+        .unwrap();
+    assert!(
+        row2.contains(&d2[..d2.len().min(8)]) && !row2.contains("2,400.00"),
+        "{s}"
+    );
+    t.key(KeyCode::Char('g'));
+    t.key(KeyCode::Char('f'));
+    assert!(t.screen().contains("2,400.00"), "{}", t.screen());
+    // F9: a random number drawn again.
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 9, "col": 1, "value": "=RAND()" }),
+    );
+    let value = |t: &mut T| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(9, 1);
+        v.cursor_cell().text
+    };
+    let a = value(&mut t);
+    t.key(KeyCode::F(9));
+    assert_ne!(value(&mut t), a);
+}

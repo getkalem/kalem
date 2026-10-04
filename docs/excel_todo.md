@@ -117,7 +117,7 @@ in the palette and can be bound again.
 
 ## E19. Formulas shown and recalculation
 
-- [ ] E19 Show Formulas (Ctrl+`) in the cells instead of their values;
+- [x] E19 Show Formulas (Ctrl+`) in the cells instead of their values;
   Calculate Now (F9).
 
 ## E20. Saving a sheet as CSV
