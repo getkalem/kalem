@@ -325,6 +325,9 @@ pub struct Editor {
     /// to lines never laid out (Page Down), whose heights the list learns
     /// only when it lays them out.
     reveal_again: Option<(usize, u8)>,
+    /// A wheel scroll happened: the cursor follows in the next frame (see
+    /// `follow_scroll_now`).
+    follow_scroll: bool,
     /// A message for the status bar, and whether it is an error.
     pub status: Option<(String, bool)>,
     pub(crate) goal_x: Option<Pixels>,
@@ -503,6 +506,7 @@ impl Editor {
             marked: None,
             painted: Rc::default(),
             reveal_again: None,
+            follow_scroll: false,
             status: None,
             goal_x: None,
             last_command: None,
@@ -576,7 +580,73 @@ impl Editor {
         e.visible = e.compute_visible();
         e.line_count = e.doc.text().line_count();
         e.list.reset_with_uniform_height(e.visible.len(), LINE_HINT);
+        // Scrolling with the wheel or the trackpad brings the cursor along
+        // when it would go out of sight, as Emacs does.
+        let weak = cx.entity().downgrade();
+        e.list.set_scroll_handler(move |_ev, _window, cx| {
+            // The list is borrowed while it calls this (and the range it
+            // passes is the one before the scroll): the cursor moves in the
+            // next frame (`render`), by where the list then stands.
+            let _ = weak.update(cx, |e, cx| {
+                e.follow_scroll = true;
+                cx.notify();
+            });
+        });
         e
+    }
+
+    /// After a wheel scroll: a cursor gone out of sight moves to the first
+    /// or last line wholly in view, at the same column, so typing does not
+    /// jump back. A selection stays where it is, and a split view is left
+    /// alone (each pane scrolls its own list).
+    fn follow_scroll_now(&mut self, cx: &mut Context<'_, Self>) {
+        if self.other.is_some() || self.visible.is_empty() {
+            return;
+        }
+        let sel = self.doc.selection;
+        if sel.anchor != sel.head {
+            return;
+        }
+        // The items wholly in view, by the last layout.
+        let view = self.list.viewport_bounds();
+        let top = self.list.logical_scroll_top();
+        let mut first = top.item_ix + usize::from(top.offset_in_item > px(0.));
+        let mut last = first;
+        while let Some(b) = self.list.bounds_for_item(last + 1)
+            && b.bottom() <= view.bottom()
+        {
+            last += 1;
+        }
+        first = first.min(self.visible.len() - 1);
+        last = last.clamp(first, self.visible.len() - 1);
+        let text = self.doc.text();
+        let line = text.line_of(sel.head);
+        let Some(i) = self.item_of(line) else {
+            return;
+        };
+        let target = if i < first {
+            first
+        } else if i > last {
+            last
+        } else {
+            return;
+        };
+        let Some(&to) = self.visible.get(target) else {
+            return;
+        };
+        let column = sel.head - text.line_start(line);
+        let r = text.line_range(to);
+        let mut at = (r.start + column).min(r.end);
+        while !text.as_str().is_char_boundary(at) {
+            at -= 1;
+        }
+        self.doc.move_cursor(at, false);
+        // A reveal still pending from the last cursor move would scroll
+        // back to where the cursor was.
+        self.reveal_again = None;
+        // The lines the cursor left and entered show or hide their markup.
+        self.sync_list(&[]);
+        cx.notify();
     }
 
     fn startup_folds(&mut self) {
@@ -4080,6 +4150,9 @@ impl gpui::Render for Editor {
         cx: &mut Context<'_, Self>,
     ) -> impl gpui::IntoElement {
         self.apply_resume();
+        if std::mem::take(&mut self.follow_scroll) {
+            self.follow_scroll_now(cx);
+        }
         // The cursor revealed once more, the lines around it measured by
         // the last frame's layout.
         if let Some((line, frames)) = self.reveal_again.take()

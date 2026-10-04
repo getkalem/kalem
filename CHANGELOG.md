@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The README is one page; the Book's Parts I and IV say the same things in fewer words; the design documents and the task lists moved to `docs/` (`docs/design_document.md`, `docs/design_doc2.md`, `docs/todo.md`, `docs/todo_old.md`).
 
 ### Fixed
+- Scrolling with the wheel or the trackpad brings the cursor along when it would go out of sight, to the nearest line in view, as Emacs does: after scrolling down and back up the cursor is no longer left at the bottom, and typing does not jump back.
 - Workbooks in the graphical editor: a cell's entry (Enter, F2) takes the characters typed; it took none, a file a viewer shows having no text to take them. A character typed on a cell starts its entry with it, as in Excel, in both editors.
 - CSV grid: Up, Down, Page Up and Page Down (Fn with the arrows on a Mac) keep the column and keep the cursor's row in view, below the pinned header row, without lagging rows behind; a click on a cell goes to that cell when the first column is frozen over cells scrolled sideways, and a click on the pinned header row goes to the header rather than the row scrolled under it.
 - Scrolling a PDF, and Page Down held, no longer freeze while a page renders: what the window asks on every frame and key (whether the document is modified, the edits its keys may run, the link under the pointer) no longer waits for the render, which matters most with the PDF viewer installed as a component.

@@ -4262,7 +4262,11 @@ fn csv_click_cells(e: &Entity<Editor>, rows: usize, cx: &mut VisualTestContext) 
 
 #[gpui::test]
 fn csv_clicks_reach_every_cell(cx: &mut TestAppContext) {
-    let text = csv_rows(40);
+    // Rows wider than the window, which the grid scrolls sideways.
+    let text = csv_rows(40).replace(
+        "a fairly long note number",
+        &"a fairly long note number ".repeat(8),
+    );
     let (e, cx) = open_named(&text, "big.csv", || None, cx);
     assert_eq!(csv_click_cells(&e, 4, cx), vec![]);
     // Scrolled sideways.
@@ -4279,4 +4283,52 @@ fn csv_clicks_reach_every_cell(cx: &mut TestAppContext) {
     assert!(e.read_with(cx, |e, _| e.hscroll) > gpui::px(0.));
     assert!(e.read_with(cx, |e, _| e.frozen.get()) > gpui::px(0.));
     assert_eq!(csv_click_cells(&e, 4, cx), vec![]);
+}
+
+/// Scrolling with the wheel brings a cursor that would go out of sight
+/// along, to the nearest line in view, as Emacs does (asked by the owner,
+/// 2026-10-04): scrolling back up after scrolling down no longer leaves it
+/// at the bottom of the document.
+#[gpui::test]
+fn the_cursor_follows_the_scroll(cx: &mut TestAppContext) {
+    let text: String = (0..400).map(|i| format!("line {i}\n")).collect();
+    let (e, cx) = open(&text, cx);
+    at(&e, 0, cx);
+    cx.run_until_parked();
+    let origin = e.read_with(cx, |e, _| {
+        e.painted
+            .borrow()
+            .get(&0)
+            .map(|p| p.bounds.origin)
+            .expect("painted")
+    });
+    let wheel = |dy: f32, cx: &mut VisualTestContext| {
+        // The pointer over the text first: the list scrolls when hovered.
+        cx.simulate_mouse_move(
+            origin + gpui::point(gpui::px(20.), gpui::px(20.)),
+            None,
+            gpui::Modifiers::default(),
+        );
+        cx.simulate_event(gpui::ScrollWheelEvent {
+            position: origin + gpui::point(gpui::px(20.), gpui::px(20.)),
+            delta: gpui::ScrollDelta::Pixels(gpui::point(gpui::px(0.), gpui::px(dy))),
+            modifiers: gpui::Modifiers::default(),
+            touch_phase: gpui::TouchPhase::Moved,
+        });
+        cx.run_until_parked();
+    };
+    let line = |cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| e.doc.text().line_of(e.doc.selection.head))
+    };
+    // Down: the cursor leaves the top and comes to the first line in view.
+    wheel(-3000., cx);
+    let down = line(cx);
+    assert!(down > 10, "{down}");
+    // Further down, then back up: it comes along from below.
+    wheel(-3000., cx);
+    let further = line(cx);
+    assert!(further > down, "{further} {down}");
+    wheel(2500., cx);
+    let up = line(cx);
+    assert!(up < further, "{up} {further}");
 }
