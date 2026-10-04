@@ -500,6 +500,11 @@ pub struct ChartSeries {
     pub color: Option<[u8; 3]>,
     /// Points with colors of their own (a pie's slices), by point.
     pub point_colors: Vec<(usize, [u8; 3])>,
+    /// How far a pie's slices stand out from its center, in percent of
+    /// its radius: every slice's.
+    pub explosion: u32,
+    /// Slices standing out on their own, by point.
+    pub point_explosions: Vec<(usize, u32)>,
 }
 
 /// A chart on a sheet, as it reads now: values from the cells it names.
@@ -1199,6 +1204,20 @@ pub trait ViewerDocument: Send {
         _series: usize,
         _point: usize,
         _color: Option<[u8; 3]>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Pulls a slice of a pie (series `series` of the chart at `index` of
+    /// [`ViewerDocument::charts`]) out of it by `percent` of its radius,
+    /// or every slice (`point` `None`); 0 puts it back.
+    fn set_explosion(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _series: usize,
+        _point: Option<usize>,
+        _percent: u32,
     ) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
