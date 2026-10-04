@@ -1,0 +1,136 @@
+package kalem:plugin@0.1.0;
+
+/// The document a plugin's command runs in (design §11.4's `editor` and
+/// its `Document`, `Headline`, `Table` and `Selection`).
+///
+/// A plugin reaches the document only while one of its commands runs, and
+/// reads it as it was when the command began. Its edits wait: when the
+/// command returns, Kalem applies them in order, each place moved by the
+/// edits before it, as one undo step. A headline or a table is named by
+/// where it starts.
+interface editor {
+    use kalem.{range};
+
+    /// The document, as the command found it.
+    record document-info {
+        /// Its file, if it has one.
+        path: option<string>,
+        /// `org`, `markdown`, `csv`, `latex`, `text`.
+        mode: string,
+        /// A plain text file's language, such as `python`.
+        language: option<string>,
+        /// Unsaved changes.
+        modified: bool,
+        /// Its text's length in bytes.
+        length: u64,
+    }
+
+    /// The selection: where it started and the cursor.
+    record selection {
+        anchor: u64,
+        head: u64,
+    }
+
+    /// An Org headline.
+    record headline {
+        /// Where it starts: its name in the edits.
+        start: u64,
+        /// The headline and its body, with the headlines under it.
+        range: range,
+        level: u8,
+        title: string,
+        todo: option<string>,
+        /// Its TODO keyword is a done one.
+        done: bool,
+        priority: option<string>,
+        /// Its own tags, without the inherited ones.
+        tags: list<string>,
+        /// Its property drawer, as written.
+        properties: list<tuple<string, string>>,
+        scheduled: option<string>,
+        deadline: option<string>,
+        closed: option<string>,
+        /// The headline above it, by its start.
+        parent: option<u64>,
+        /// The headlines right under it, by their starts.
+        children: list<u64>,
+    }
+
+    /// Headlines to find; each part given must match.
+    record query {
+        tag: option<string>,
+        todo: option<string>,
+        property: option<tuple<string, string>>,
+    }
+
+    /// An element of the document: its kind (`headline`, `paragraph`,
+    /// `table`, `src-block`, …) and its range.
+    record node {
+        kind: string,
+        range: range,
+    }
+
+    /// An Org table: its data rows (no rules), each a list of fields, and
+    /// its `#+TBLFM` formulas.
+    record table {
+        /// Where it starts: its name in the edits.
+        start: u64,
+        range: range,
+        rows: list<list<string>>,
+        formulas: list<string>,
+    }
+
+    /// The document, when one of the plugin's commands runs; none
+    /// otherwise.
+    document: func() -> option<document-info>;
+    selected: func() -> selection;
+    /// The text, or a range of it.
+    text: func(range: option<range>) -> string;
+    /// Every headline, in order.
+    headlines: func() -> list<headline>;
+    /// The headline holding `offset`.
+    headline-at: func(offset: u64) -> option<headline>;
+    /// The headline with this `ID` or `CUSTOM_ID` property.
+    headline-by-id: func(id: string) -> option<headline>;
+    find: func(query: query) -> list<headline>;
+    /// A headline's text under its headline line, without the headlines
+    /// under it.
+    body: func(headline: u64) -> result<string, string>;
+    /// The TODO keywords in force, the not-done ones first.
+    todo-keywords: func() -> list<string>;
+    /// The document's `#+KEY: value` lines.
+    keywords: func() -> list<tuple<string, string>>;
+    node-at: func(offset: u64) -> option<node>;
+    table-at: func(offset: u64) -> option<table>;
+
+    /// A headline's `ID` property, made (and set) when it has none.
+    id: func(headline: u64) -> result<string, string>;
+
+    // The edits: refused at once when the place is not one; applied when
+    // the command returns.
+
+    /// Inserts `text` at `at`, or at the cursor.
+    insert: func(at: option<u64>, text: string);
+    replace: func(range: range, text: string) -> result<_, string>;
+    /// Sets a headline's TODO keyword (`none` removes it), as Org does:
+    /// logging and repeaters included.
+    set-todo: func(headline: u64, state: option<string>) -> result<_, string>;
+    set-title: func(headline: u64, title: string) -> result<_, string>;
+    set-tags: func(headline: u64, tags: list<string>) -> result<_, string>;
+    /// Sets a property (`none` removes it).
+    set-property: func(headline: u64, key: string, value: option<string>) -> result<_, string>;
+    /// Promotes or demotes a headline with its subtree.
+    promote: func(headline: u64) -> result<_, string>;
+    demote: func(headline: u64) -> result<_, string>;
+    /// Moves a headline with its subtree above or below its sibling.
+    move-up: func(headline: u64) -> result<_, string>;
+    move-down: func(headline: u64) -> result<_, string>;
+    /// Sets a field of a table's data row, from 0, and aligns the table.
+    set-cell: func(table: u64, row: u32, col: u32, value: string) -> result<_, string>;
+    /// Recalculates a table's formulas.
+    recalc: func(table: u64) -> result<_, string>;
+    /// Names the undo step of the command's edits.
+    transact: func(label: string);
+    /// Saves the document after the edits.
+    save: func();
+}

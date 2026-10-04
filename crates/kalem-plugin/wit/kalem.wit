@@ -269,5 +269,6 @@ world extension {
     import settings;
     import fs;
     import net;
+    import editor;
     export plugin;
 }

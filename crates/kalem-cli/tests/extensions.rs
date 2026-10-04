@@ -171,6 +171,59 @@ fn an_installed_plugin_adds_commands_the_registry_runs() {
     assert!(!vetoed.allowed());
     assert_eq!(EventKind::DocumentBeforeSave.name(), "document:before-save");
 
+    // The document: read as the command found it, edited when it returns,
+    // as one undo step.
+    let original = "* TODO Write report\nSome text.\n** Sub item\n* TODO Call Ada :home:\n* Numbers\n| a | b |\n|---+---|\n| 1 | 2 |\n#+TBLFM: $2=$1*10\n";
+    let meta = kalem_core::Metadata {
+        path: None,
+        mode: DocumentMode::Org,
+        line_ending: kalem_core::LineEnding::Lf,
+        bom: false,
+        encoding: kalem_core::encoding_rs::UTF_8,
+        lossy: false,
+    };
+    let mut doc = DocumentState::new(original, meta, std::sync::Arc::default());
+    let mut clipboard = Clipboard::default();
+    let mut ctx = EditorContext::new(
+        Some(&mut doc),
+        &mut clipboard,
+        &config,
+        Instant::now(),
+        jiff::civil::date(2026, 10, 4).at(10, 0, 0, 0),
+    );
+    kalem_core::jobs::take_notices();
+    registry
+        .execute("counter.organize", &mut ctx, &Value::Null)
+        .unwrap();
+    drop(ctx);
+    let notices = kalem_core::jobs::take_notices();
+    let read = &notices.last().expect("what it read").0;
+    assert!(read.starts_with("counter: org 4 headlines"), "{read}");
+    assert!(read.contains("[\"TODO\", \"DONE\"]"), "{read}");
+    assert!(read.contains("body \"Some text.\\n\""), "{read}");
+    assert!(
+        read.contains("rows [[\"a\", \"b\"], [\"1\", \"2\"]]"),
+        "{read}"
+    );
+    assert!(read.contains("formulas [\"$2=$1*10\"]"), "{read}");
+    assert!(read.contains("id 36"), "{read}");
+    assert!(read.contains("No headline starts at 999999"), "{read}");
+    let text = doc.text().as_str().to_string();
+    assert!(
+        text.starts_with("#+TITLE: Plan\n* DONE Write report"),
+        "{text}"
+    );
+    assert!(text.contains(":work:"), "{text}");
+    assert!(
+        text.contains(":EFFORT:   1h") || text.contains(":EFFORT: 1h"),
+        "{text}"
+    );
+    assert!(text.contains(":ID:"), "{text}");
+    assert!(text.contains("* DONE Call Grace"), "{text}");
+    assert!(text.contains("| 3 | 30 |"), "{text}");
+    doc.undo();
+    assert_eq!(doc.text().as_str(), original, "one undo step");
+
     // Its panel, registered and filled at activation.
     let labels = || -> Vec<String> {
         let p = kalem_core::extensions::panel("counter.panel").expect("its panel");

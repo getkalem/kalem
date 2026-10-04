@@ -26,6 +26,55 @@ fn fill_panel() -> Result<(), String> {
     ui::set_panel("counter.panel", &tree)
 }
 
+/// Reads the Org document and edits it: closes its TODO items, tags and
+/// gives an effort and an ID to the first headline, retitles the second
+/// item, sets a table's field and recalculates it, adds a title line; what
+/// it read and what was refused shown as a notice.
+fn organize() -> Result<String, String> {
+    use kalem_plugin::editor::{self, Query, Range};
+    let doc = editor::document().ok_or("no document")?;
+    let h = editor::headlines();
+    for t in editor::find(&Query {
+        tag: None,
+        todo: Some("TODO".into()),
+        property: None,
+    }) {
+        editor::set_todo(t.start, Some("DONE"))?;
+    }
+    let first = &h[0];
+    editor::set_tags(first.start, &["work".to_string()])?;
+    editor::set_property(first.start, "EFFORT", Some("1h"))?;
+    let id = editor::id(first.start)?;
+    let call = h.iter().find(|x| x.title.starts_with("Call")).ok_or("no call")?;
+    editor::set_title(call.start, "Call Grace")?;
+    let numbers = h.iter().find(|x| x.title == "Numbers").ok_or("no numbers")?;
+    let text = editor::text(Some(Range {
+        start: numbers.start,
+        end: numbers.range.end,
+    }));
+    let at = numbers.start + text.find('\n').ok_or("one line")? as u64 + 1;
+    let table = editor::table_at(at).ok_or("no table")?;
+    editor::set_cell(table.start, 1, 0, "3")?;
+    editor::recalc(table.start)?;
+    let refused = editor::set_todo(999_999, Some("DONE")).unwrap_err();
+    editor::insert(Some(0), "#+TITLE: Plan\n");
+    editor::transact("Organize");
+    ui::notify(
+        &format!(
+            "{} {} headlines, {:?}, body {:?}, rows {:?}, formulas {:?}, id {}, {refused}",
+            doc.mode,
+            h.len(),
+            editor::todo_keywords(),
+            editor::body(first.start)?,
+            table.rows,
+            table.formulas,
+            id.len(),
+        ),
+        Level::Info,
+    );
+    Ok("null".into())
+}
+
 /// Trees the host must refuse, built by hand: the messages joined.
 fn bad_trees() -> String {
     use kalem_plugin::ui::{Widget, WidgetTree};
@@ -157,6 +206,7 @@ impl Plugin for Counter {
             Ok("null".into())
         })?;
         command("counter.badTrees", Scope::all(), |_| Ok(bad_trees()))?;
+        command("counter.organize", Scope::only(&["org"]), |_| organize())?;
         command("counter.foreignPanel", Scope::all(), |_| {
             ui::panel(
                 PanelSpec { id: "other.panel".into(), title: String::new(), placement: Placement::Side },

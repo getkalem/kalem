@@ -129,6 +129,10 @@ impl Editor for Fake {
         self.0.lock().unwrap().workspace.clone()
     }
 
+    fn document(&mut self) -> Option<Box<dyn kalem_script::extension::DocumentAccess + '_>> {
+        None
+    }
+
     fn fetch(&mut self, _plugin: &str, id: u64, request: http::Request) {
         self.0.lock().unwrap().fetched.push((id, request.url));
     }

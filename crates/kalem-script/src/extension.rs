@@ -30,7 +30,109 @@ mod bindings {
 pub use api::{CommandSpec, Event, EventKind, Reply, Scope};
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
-pub use bindings::kalem::plugin::{fs, http, net, settings};
+pub use bindings::kalem::plugin::{editor, fs, http, net, settings};
+
+/// An edit a plugin asked for, applied when its command returns, its
+/// places those of the document as the command found it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Edit {
+    /// `text` at `at`, or at the cursor.
+    Insert {
+        /// Where.
+        at: Option<u64>,
+        /// What.
+        text: String,
+    },
+    /// `start..end` replaced by `text`.
+    Replace {
+        /// From.
+        start: u64,
+        /// To.
+        end: u64,
+        /// By.
+        text: String,
+    },
+    /// A headline's TODO keyword, `None` removing it.
+    SetTodo {
+        /// The headline's start.
+        headline: u64,
+        /// The keyword.
+        state: Option<String>,
+    },
+    /// A headline's title.
+    SetTitle {
+        /// The headline's start.
+        headline: u64,
+        /// The title.
+        title: String,
+    },
+    /// A headline's own tags.
+    SetTags {
+        /// The headline's start.
+        headline: u64,
+        /// The tags.
+        tags: Vec<String>,
+    },
+    /// A headline's property, `None` removing it.
+    SetProperty {
+        /// The headline's start.
+        headline: u64,
+        /// The property.
+        key: String,
+        /// Its value.
+        value: Option<String>,
+    },
+    /// A headline promoted with its subtree.
+    Promote(u64),
+    /// A headline demoted with its subtree.
+    Demote(u64),
+    /// A headline moved above its sibling with its subtree.
+    MoveUp(u64),
+    /// A headline moved below its sibling with its subtree.
+    MoveDown(u64),
+    /// A field of a table's data row, from 0.
+    SetCell {
+        /// The table's start.
+        table: u64,
+        /// The data row.
+        row: u32,
+        /// The field.
+        col: u32,
+        /// Its text.
+        value: String,
+    },
+    /// A table's formulas recalculated.
+    Recalc(u64),
+    /// The undo step's name.
+    Label(String),
+    /// The document saved after the edits.
+    Save,
+}
+
+/// The document a plugin's command runs in, as the embedder offers it:
+/// read as the command found it; the edits wait for its end.
+pub trait DocumentAccess {
+    /// What the document is.
+    fn info(&self) -> editor::DocumentInfo;
+    /// Its selection.
+    fn selection(&self) -> editor::Selection;
+    /// Its text, or a range of it (clamped to the text).
+    fn text(&self, range: Option<(u64, u64)>) -> String;
+    /// Its headlines, in order; none outside Org.
+    fn headlines(&self) -> Vec<editor::Headline>;
+    /// The text under headline `start`'s line, without its subheadlines.
+    fn body(&self, start: u64) -> Option<String>;
+    /// The TODO keywords in force.
+    fn todo_keywords(&self) -> Vec<String>;
+    /// Its `#+KEY: value` lines.
+    fn keywords(&self) -> Vec<(String, String)>;
+    /// The innermost element at `offset`.
+    fn node_at(&self, offset: u64) -> Option<editor::Node>;
+    /// The table holding `offset`.
+    fn table_at(&self, offset: u64) -> Option<editor::Table>;
+    /// Queues `edit`.
+    fn edit(&mut self, edit: Edit);
+}
 pub use ui::{
     Answer, Level, PanelEvent, PanelSpec, PickItem, PickOptions, PromptOptions, StatusOptions,
     WidgetKind, WidgetTree,
@@ -239,6 +341,9 @@ pub trait Editor: Send + 'static {
     /// Sends `request` (its URL granted) for plugin `plugin`; the response
     /// goes to [`Extension::respond`] with `id`.
     fn fetch(&mut self, plugin: &str, id: u64, request: http::Request);
+
+    /// The document the plugin's command runs in; `None` outside one.
+    fn document(&mut self) -> Option<Box<dyn DocumentAccess + '_>>;
 }
 
 /// A plugin's registration, behind its `disposable` handle.
@@ -589,6 +694,279 @@ impl net::Host for Session {
     }
 }
 
+/// A new `ID`: 128 bits from the clock and a counter, written as a UUID.
+fn new_id() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static N: AtomicU64 = AtomicU64::new(0);
+    let t = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos());
+    let n = N.fetch_add(1, Ordering::Relaxed) as u128;
+    // Mixed so that IDs made close together differ in every part.
+    let mut x = t ^ (n.wrapping_mul(0x9e37_79b9_7f4a_7c15_f39c_c060_5ced_c835));
+    x ^= x >> 67;
+    x = x.wrapping_mul(0xbf58_476d_1ce4_e5b9_94d0_49bb_1331_11eb);
+    // Version 4, variant 1.
+    x = (x & !(0xf << 76)) | (0x4 << 76);
+    x = (x & !(0x3 << 62)) | (0x2 << 62);
+    let h = format!("{x:032x}");
+    format!(
+        "{}-{}-{}-{}-{}",
+        &h[..8],
+        &h[8..12],
+        &h[12..16],
+        &h[16..20],
+        &h[20..]
+    )
+}
+
+impl Session {
+    /// The headline starting at `start`, or why there is none.
+    fn headline(&mut self, start: u64) -> Result<editor::Headline, String> {
+        let doc = self
+            .editor
+            .document()
+            .ok_or("No document: the plugin's command is not running")?;
+        doc.headlines()
+            .into_iter()
+            .find(|h| h.start == start)
+            .ok_or_else(|| format!("No headline starts at {start}"))
+    }
+
+    /// Queues `edit` on the headline at `headline`, which must be one.
+    fn edit_headline(&mut self, headline: u64, edit: Edit) -> Result<(), String> {
+        self.headline(headline)?;
+        self.queue(edit)
+    }
+
+    fn queue(&mut self, edit: Edit) -> Result<(), String> {
+        let mut doc = self
+            .editor
+            .document()
+            .ok_or("No document: the plugin's command is not running")?;
+        doc.edit(edit);
+        Ok(())
+    }
+
+    fn table(&mut self, start: u64) -> Result<(), String> {
+        let doc = self.editor.document().ok_or("No document")?;
+        doc.table_at(start)
+            .filter(|t| t.start == start)
+            .map(drop)
+            .ok_or_else(|| format!("No table starts at {start}"))
+    }
+}
+
+impl editor::Host for Session {
+    fn document(&mut self) -> Option<editor::DocumentInfo> {
+        self.editor.document().map(|d| d.info())
+    }
+
+    fn selected(&mut self) -> editor::Selection {
+        self.editor
+            .document()
+            .map_or(editor::Selection { anchor: 0, head: 0 }, |d| d.selection())
+    }
+
+    fn text(&mut self, range: Option<api::Range>) -> String {
+        self.editor
+            .document()
+            .map(|d| d.text(range.map(|r| (r.start, r.end))))
+            .unwrap_or_default()
+    }
+
+    fn headlines(&mut self) -> Vec<editor::Headline> {
+        self.editor
+            .document()
+            .map(|d| d.headlines())
+            .unwrap_or_default()
+    }
+
+    fn headline_at(&mut self, offset: u64) -> Option<editor::Headline> {
+        // The innermost: the last that starts before and still holds it.
+        self.headlines()
+            .into_iter()
+            .rfind(|h| h.range.start <= offset && offset < h.range.end.max(h.range.start + 1))
+    }
+
+    fn headline_by_id(&mut self, id: String) -> Option<editor::Headline> {
+        self.headlines().into_iter().find(|h| {
+            h.properties.iter().any(|(k, v)| {
+                (k.eq_ignore_ascii_case("ID") || k.eq_ignore_ascii_case("CUSTOM_ID")) && *v == id
+            })
+        })
+    }
+
+    fn find(&mut self, query: editor::Query) -> Vec<editor::Headline> {
+        self.headlines()
+            .into_iter()
+            .filter(|h| query.tag.as_ref().is_none_or(|t| h.tags.contains(t)))
+            .filter(|h| {
+                query
+                    .todo
+                    .as_ref()
+                    .is_none_or(|t| h.todo.as_ref() == Some(t))
+            })
+            .filter(|h| {
+                query.property.as_ref().is_none_or(|(k, v)| {
+                    h.properties
+                        .iter()
+                        .any(|(hk, hv)| hk.eq_ignore_ascii_case(k) && hv == v)
+                })
+            })
+            .collect()
+    }
+
+    fn body(&mut self, headline: u64) -> Result<String, String> {
+        self.headline(headline)?;
+        self.editor
+            .document()
+            .and_then(|d| d.body(headline))
+            .ok_or_else(|| format!("No headline starts at {headline}"))
+    }
+
+    fn todo_keywords(&mut self) -> Vec<String> {
+        self.editor
+            .document()
+            .map(|d| d.todo_keywords())
+            .unwrap_or_default()
+    }
+
+    fn keywords(&mut self) -> Vec<(String, String)> {
+        self.editor
+            .document()
+            .map(|d| d.keywords())
+            .unwrap_or_default()
+    }
+
+    fn node_at(&mut self, offset: u64) -> Option<editor::Node> {
+        self.editor.document().and_then(|d| d.node_at(offset))
+    }
+
+    fn table_at(&mut self, offset: u64) -> Option<editor::Table> {
+        self.editor.document().and_then(|d| d.table_at(offset))
+    }
+
+    fn id(&mut self, headline: u64) -> Result<String, String> {
+        let h = self.headline(headline)?;
+        if let Some((_, v)) = h
+            .properties
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case("ID"))
+        {
+            return Ok(v.clone());
+        }
+        let id = new_id();
+        self.queue(Edit::SetProperty {
+            headline,
+            key: "ID".into(),
+            value: Some(id.clone()),
+        })?;
+        Ok(id)
+    }
+
+    fn insert(&mut self, at: Option<u64>, text: String) {
+        let _ = self.queue(Edit::Insert { at, text });
+    }
+
+    fn replace(&mut self, range: api::Range, text: String) -> Result<(), String> {
+        let len = self.editor.document().map_or(0, |d| d.info().length);
+        if range.start > range.end || range.end > len {
+            return Err(format!(
+                "{}..{} is not a range of the text ({len} bytes)",
+                range.start, range.end
+            ));
+        }
+        self.queue(Edit::Replace {
+            start: range.start,
+            end: range.end,
+            text,
+        })
+    }
+
+    fn set_todo(&mut self, headline: u64, state: Option<String>) -> Result<(), String> {
+        self.edit_headline(headline, Edit::SetTodo { headline, state })
+    }
+
+    fn set_title(&mut self, headline: u64, title: String) -> Result<(), String> {
+        if title.contains('\n') {
+            return Err("A title is one line".into());
+        }
+        self.edit_headline(headline, Edit::SetTitle { headline, title })
+    }
+
+    fn set_tags(&mut self, headline: u64, tags: Vec<String>) -> Result<(), String> {
+        if let Some(t) = tags
+            .iter()
+            .find(|t| t.is_empty() || t.contains(|c: char| c.is_whitespace() || c == ':'))
+        {
+            return Err(format!("`{t}` is not a tag"));
+        }
+        self.edit_headline(headline, Edit::SetTags { headline, tags })
+    }
+
+    fn set_property(
+        &mut self,
+        headline: u64,
+        key: String,
+        value: Option<String>,
+    ) -> Result<(), String> {
+        if key.is_empty() || key.contains(|c: char| c.is_whitespace() || c == ':') {
+            return Err(format!("`{key}` is not a property's name"));
+        }
+        self.edit_headline(
+            headline,
+            Edit::SetProperty {
+                headline,
+                key,
+                value,
+            },
+        )
+    }
+
+    fn promote(&mut self, headline: u64) -> Result<(), String> {
+        self.edit_headline(headline, Edit::Promote(headline))
+    }
+
+    fn demote(&mut self, headline: u64) -> Result<(), String> {
+        self.edit_headline(headline, Edit::Demote(headline))
+    }
+
+    fn move_up(&mut self, headline: u64) -> Result<(), String> {
+        self.edit_headline(headline, Edit::MoveUp(headline))
+    }
+
+    fn move_down(&mut self, headline: u64) -> Result<(), String> {
+        self.edit_headline(headline, Edit::MoveDown(headline))
+    }
+
+    fn set_cell(&mut self, table: u64, row: u32, col: u32, value: String) -> Result<(), String> {
+        self.table(table)?;
+        if value.contains(['\n', '|']) {
+            return Err("A field holds no line break and no `|`".into());
+        }
+        self.queue(Edit::SetCell {
+            table,
+            row,
+            col,
+            value,
+        })
+    }
+
+    fn recalc(&mut self, table: u64) -> Result<(), String> {
+        self.table(table)?;
+        self.queue(Edit::Recalc(table))
+    }
+
+    fn transact(&mut self, label: String) {
+        let _ = self.queue(Edit::Label(label));
+    }
+
+    fn save(&mut self) {
+        let _ = self.queue(Edit::Save);
+    }
+}
+
 /// Whether `tree` is one, as the editors render it: widgets there are, at
 /// most [`MAX_WIDGETS`], each child after its parent and under one parent
 /// only, every widget but the root under one, children only in columns,
@@ -713,6 +1091,11 @@ impl Extension {
         ui::add_to_linker::<_, HasSelf<Session>>(&mut linker, |d: &mut crate::Data<Session>| {
             &mut d.user
         })
+        .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        editor::add_to_linker::<_, HasSelf<Session>>(
+            &mut linker,
+            |d: &mut crate::Data<Session>| &mut d.user,
+        )
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
         settings::add_to_linker::<_, HasSelf<Session>>(
             &mut linker,

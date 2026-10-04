@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- A plugin's command reads the document it runs in (its text, selection, headlines with their keywords, tags, properties and planning, tables with their rows and formulas) and edits it: text, TODO keywords as Org changes them, titles, tags, properties, subtrees promoted, demoted and moved, a table's fields and recalculation, IDs; its edits apply when the command returns, as one undo step.
 - Plugins read Kalem's settings and keep their own in `settings.toml` under `[plugins."ID"]`, hearing when a setting changes; with the permissions their manifest asks for they read and write files in the projects' folders (`fs:read:workspace`, `fs:write:workspace`, `fs:read:all`) and fetch from the domains it names (`net:fetch:DOMAIN`); a plugin asking for files or the network without the permission is not loaded.
 - `kalem plugin install NAME` and Browse Plugins install a component plugin released in the index: the component is downloaded, its SHA-256 checked, and its manifest read from the release's tag.
 - A plugin's questions, status bar items and panels show in both editors: a line asked for in the palette, a yes-or-no or a choice offered as a list, its items in the status line, and its panel (View > Plugin Panel) beside or under the text; Panel Actions lists a panel's buttons, entries, checkboxes and inputs for the keyboard.

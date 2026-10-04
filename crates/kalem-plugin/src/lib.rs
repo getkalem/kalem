@@ -74,6 +74,7 @@ pub mod extension {
 }
 
 pub mod adapter;
+pub mod editor;
 pub mod fs;
 pub mod kalem;
 pub mod net;

@@ -227,6 +227,35 @@ editors' events, and its notifications show in the status line. A
 plugin that traps or runs past its budget is stopped, what it
 registered is taken back, and the user is told.
 
+* The document
+
+A plugin's command reads and edits the document it runs in through
+=kalem_plugin::editor=: its text and selection, its headlines (level,
+title, TODO keyword, priority, tags, properties, planning, parent and
+children), the headline at a place or with an =ID=, those with a tag,
+a keyword or a property, a headline's body, the TODO keywords and the
+=#+KEY:= lines, the element at a place, and its tables with their rows
+and formulas.
+
+#+begin_src rust
+use kalem_plugin::editor::{self, Query};
+
+for h in editor::find(&Query { tag: Some("work".into()), todo: None, property: None }) {
+    editor::set_todo(h.start, Some("DONE"))?;
+}
+editor::transact("Close the work items");
+#+end_src
+
+A headline or a table is named by where it starts. The plugin reads the
+document as its command found it; its edits (insert, replace, the TODO
+keyword through Org's own change with its logging, the title, tags and
+properties, promoting, demoting and moving a subtree, a table's field
+and its recalculation, an =ID= made on demand, saving) wait until the
+command returns, then apply in order, each place moved by the edits
+before it, and one undo takes them all back. An edit naming a place
+where no headline or table starts is refused at once. Only a plugin's
+own command reaches the document: its event handlers and panels do not.
+
 * Settings, files and the network
 
 A plugin reads Kalem's settings (=kalem_plugin::settings::get("editor.font_size")=)

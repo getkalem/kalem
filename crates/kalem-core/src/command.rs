@@ -1019,7 +1019,16 @@ impl CommandRegistry {
             // The commands the plugin asked to run follow it, in the same
             // context.
             CommandHandler::Plugin(_) => {
-                crate::extensions::run(id, args)?;
+                // The plugin reads the document as the command found it;
+                // its edits follow, as one undo step.
+                let (result, edits) =
+                    crate::plugin_doc::during(ctx.document.as_deref_mut(), || {
+                        crate::extensions::run(id, args)
+                    });
+                result?;
+                if !edits.is_empty() {
+                    crate::plugin_doc::apply(ctx, edits)?;
+                }
                 for (next, args) in crate::extensions::take_runs() {
                     self.execute(&next, ctx, &args)?;
                 }

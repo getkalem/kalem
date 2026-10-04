@@ -171,6 +171,11 @@ impl Editor for Bridge {
         kalem_core::extensions::workspace()
     }
 
+    fn document(&mut self) -> Option<Box<dyn x::DocumentAccess + '_>> {
+        kalem_core::plugin_doc::with_document(|_| ())?;
+        Some(Box::new(Document))
+    }
+
     fn fetch(&mut self, _plugin: &str, id: u64, request: x::http::Request) {
         let _ = std::thread::Builder::new()
             .name("kalem-plugin-fetch".into())
@@ -178,6 +183,134 @@ impl Editor for Bridge {
                 let response = fetch(&request);
                 kalem_core::extensions::respond(id, response);
             });
+    }
+}
+
+/// The document of the plugin's command running on this thread
+/// (`kalem_core::plugin_doc`), in the API's terms.
+struct Document;
+
+fn read<R: Default>(f: impl FnOnce(&kalem_core::plugin_doc::DocView) -> R) -> R {
+    kalem_core::plugin_doc::with_document(f).unwrap_or_default()
+}
+
+fn range(start: usize, end: usize) -> x::api::Range {
+    x::api::Range {
+        start: start as u64,
+        end: end as u64,
+    }
+}
+
+impl x::DocumentAccess for Document {
+    fn info(&self) -> x::editor::DocumentInfo {
+        read(|d| {
+            Some(x::editor::DocumentInfo {
+                path: d.path.clone(),
+                mode: d.mode.clone(),
+                language: d.language.clone(),
+                modified: d.modified,
+                length: d.text.len() as u64,
+            })
+        })
+        .unwrap_or(x::editor::DocumentInfo {
+            path: None,
+            mode: String::new(),
+            language: None,
+            modified: false,
+            length: 0,
+        })
+    }
+
+    fn selection(&self) -> x::editor::Selection {
+        let (anchor, head) = read(|d| d.selection);
+        x::editor::Selection {
+            anchor: anchor as u64,
+            head: head as u64,
+        }
+    }
+
+    fn text(&self, r: Option<(u64, u64)>) -> String {
+        read(|d| d.text(r.map(|(s, e)| (s as usize, e as usize))))
+    }
+
+    fn headlines(&self) -> Vec<x::editor::Headline> {
+        read(|d| d.headlines())
+            .into_iter()
+            .map(|h| x::editor::Headline {
+                start: h.start as u64,
+                range: range(h.start, h.end),
+                level: h.level.min(255) as u8,
+                title: h.title,
+                todo: h.todo,
+                done: h.done,
+                priority: h.priority.map(String::from),
+                tags: h.tags,
+                properties: h.properties,
+                scheduled: h.scheduled,
+                deadline: h.deadline,
+                closed: h.closed,
+                parent: h.parent.map(|p| p as u64),
+                children: h.children.into_iter().map(|c| c as u64).collect(),
+            })
+            .collect()
+    }
+
+    fn body(&self, start: u64) -> Option<String> {
+        read(|d| d.body(start as usize))
+    }
+
+    fn todo_keywords(&self) -> Vec<String> {
+        read(|d| d.todo_keywords())
+    }
+
+    fn keywords(&self) -> Vec<(String, String)> {
+        read(|d| d.keywords())
+    }
+
+    fn node_at(&self, offset: u64) -> Option<x::editor::Node> {
+        read(|d| d.node_at(offset as usize)).map(|(kind, s, e)| x::editor::Node {
+            kind,
+            range: range(s, e),
+        })
+    }
+
+    fn table_at(&self, offset: u64) -> Option<x::editor::Table> {
+        read(|d| d.table_at(offset as usize)).map(|t| x::editor::Table {
+            start: t.start as u64,
+            range: range(t.start, t.end),
+            rows: t.rows,
+            formulas: t.formulas,
+        })
+    }
+
+    fn edit(&mut self, edit: x::Edit) {
+        use kalem_core::plugin_doc::DocEdit as D;
+        let at = |p: u64| p as usize;
+        kalem_core::plugin_doc::queue(match edit {
+            x::Edit::Insert { at: p, text } => D::Insert(p.map(at), text),
+            x::Edit::Replace { start, end, text } => D::Replace(at(start), at(end), text),
+            x::Edit::SetTodo { headline, state } => D::SetTodo(at(headline), state),
+            x::Edit::SetTitle { headline, title } => D::SetTitle(at(headline), title),
+            x::Edit::SetTags { headline, tags } => D::SetTags(at(headline), tags),
+            x::Edit::SetProperty {
+                headline,
+                key,
+                value,
+            } => D::SetProperty(at(headline), key, value),
+            x::Edit::Promote(h) => D::Promote(at(h)),
+            x::Edit::Demote(h) => D::Demote(at(h)),
+            x::Edit::MoveUp(h) => D::MoveUp(at(h)),
+            x::Edit::MoveDown(h) => D::MoveDown(at(h)),
+            x::Edit::SetCell {
+                table,
+                row,
+                col,
+                value,
+            } => D::SetCell(at(table), row as usize, col as usize, value),
+            x::Edit::Recalc(t) => D::Recalc(at(t)),
+            x::Edit::Label(l) => D::Label(l),
+            x::Edit::Save => D::Save,
+        });
     }
 }
 
