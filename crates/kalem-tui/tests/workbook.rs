@@ -3735,3 +3735,98 @@ fn other_formats() {
         }
     }
 }
+
+#[test]
+fn the_mouse_on_the_grid() {
+    use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+    let mut t = T::open("mouse");
+    t.term = Terminal::new(TestBackend::new(100, 30)).unwrap();
+    t.screen();
+    let mouse = |t: &mut T, kind: MouseEventKind, (x, y): (u16, u16), m: KeyModifiers| {
+        t.app.event(Event::Mouse(MouseEvent {
+            kind,
+            column: x,
+            row: y,
+            modifiers: m,
+        }));
+        t.screen()
+    };
+    let hits = |t: &mut T| t.app.doc.viewer.as_deref().unwrap().hits.clone().unwrap();
+    let cell = |t: &mut T, r: u32, c: u32| {
+        let h = hits(t);
+        let x = h.cols.iter().find(|x| x.0 == c).unwrap().1 + 1;
+        let y = h.rows.iter().find(|x| x.0 == r).unwrap().1;
+        (x, y)
+    };
+    let none = KeyModifiers::NONE;
+    let down = MouseEventKind::Down(MouseButton::Left);
+    // A click puts the cursor on C3; a drag selects to D4.
+    let at = cell(&mut t, 2, 2);
+    mouse(&mut t, down, at, none);
+    assert_eq!(t.app.doc.viewer.as_deref().unwrap().grid_pos().row, 2);
+    let to = cell(&mut t, 3, 3);
+    mouse(&mut t, MouseEventKind::Drag(MouseButton::Left), to, none);
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().selection(),
+        [2, 2, 3, 3]
+    );
+    // Ctrl and a click: a range more.
+    let b2 = cell(&mut t, 1, 1);
+    mouse(&mut t, down, b2, KeyModifiers::CONTROL);
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().selection_areas(),
+        vec![[2, 2, 3, 3], [1, 1, 1, 1]]
+    );
+    // A right click in the selection: the cells' menu, the selection kept.
+    let s = mouse(&mut t, MouseEventKind::Down(MouseButton::Right), b2, none);
+    assert!(s.contains("Paste Special") && s.contains("Insert…"), "{s}");
+    t.key(KeyCode::Esc);
+    // On a column's letter, a row's number and a tab: their menus.
+    let h = hits(&mut t);
+    let letter = (
+        h.cols.iter().find(|x| x.0 == 2).unwrap().1 + 1,
+        h.letters.unwrap(),
+    );
+    let s = mouse(
+        &mut t,
+        MouseEventKind::Down(MouseButton::Right),
+        letter,
+        none,
+    );
+    assert!(s.contains("Insert Columns"), "{s}");
+    t.key(KeyCode::Esc);
+    assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().selection()[1], 2);
+    let number = (h.gutter.0, h.rows.iter().find(|x| x.0 == 4).unwrap().1);
+    let s = mouse(
+        &mut t,
+        MouseEventKind::Down(MouseButton::Right),
+        number,
+        none,
+    );
+    assert!(s.contains("Insert Rows"), "{s}");
+    t.key(KeyCode::Esc);
+    let tab = h.tabs.iter().find(|x| x.0 == 1).copied().unwrap();
+    let s = mouse(
+        &mut t,
+        MouseEventKind::Down(MouseButton::Right),
+        (tab.2 + 1, tab.1),
+        none,
+    );
+    assert!(s.contains("Rename") && s.contains("Tab Color"), "{s}");
+    t.key(KeyCode::Esc);
+    assert_eq!(t.app.doc.viewer.as_deref().unwrap().unit, 1);
+    // A click on the first tab goes back; Shift+F10 opens the cells' menu.
+    let h = hits(&mut t);
+    let tab = h.tabs.iter().find(|x| x.0 == 0).copied().unwrap();
+    mouse(&mut t, down, (tab.2 + 1, tab.1), none);
+    assert_eq!(t.app.doc.viewer.as_deref().unwrap().unit, 0);
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::F(10),
+        KeyModifiers::SHIFT,
+    )));
+    assert!(t.screen().contains("Clear Contents"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    // The wheel scrolls.
+    mouse(&mut t, MouseEventKind::ScrollDown, b2, none);
+    assert_eq!(t.app.doc.viewer.as_deref().unwrap().grid_pos().top, 3);
+}

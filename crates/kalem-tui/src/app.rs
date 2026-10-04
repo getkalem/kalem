@@ -2649,6 +2649,9 @@ impl App {
             self.activate(i);
             return;
         }
+        if self.grid_mouse(&m) {
+            return;
+        }
         match m.kind {
             MouseEventKind::Down(MouseButton::Left)
                 if self
@@ -2779,6 +2782,106 @@ impl App {
             }
             _ => {}
         }
+    }
+
+    /// The mouse on a workbook's grid: a click on a cell, a letter, a
+    /// number or a tab; Shift to extend, Ctrl to add a range; a drag to
+    /// select; a right click for the menu; the wheel to scroll. Whether it
+    /// was the grid's.
+    fn grid_mouse(&mut self, m: &crossterm::event::MouseEvent) -> bool {
+        use kalem_core::viewer::GridSpot;
+        let Some(v) = self.doc.viewer.as_deref_mut().filter(|v| v.is_grid()) else {
+            return false;
+        };
+        let Some(spot) = v.hits.as_ref().and_then(|h| h.at(m.column, m.row)) else {
+            return false;
+        };
+        let shift = m.modifiers.contains(KeyModifiers::SHIFT);
+        let ctrl = m.modifiers.contains(KeyModifiers::CONTROL);
+        let top = v.grid_pos().top;
+        let left = v.grid_pos().left;
+        match (m.kind, spot) {
+            (MouseEventKind::Down(MouseButton::Left), GridSpot::Tab(u)) => {
+                v.go_to(u);
+            }
+            (MouseEventKind::Down(MouseButton::Right), GridSpot::Tab(u)) => {
+                self.run_command(
+                    "viewer.grid.contextMenu",
+                    serde_json::json!({ "on": "tab", "unit": u }),
+                );
+            }
+            (MouseEventKind::Down(MouseButton::Left), GridSpot::Cell(r, c)) => {
+                let now = Instant::now();
+                let double = self.last_click.is_some_and(|(t, x, y)| {
+                    now.duration_since(t) < Duration::from_millis(400)
+                        && x == m.column
+                        && y == m.row
+                });
+                self.last_click = Some((now, m.column, m.row));
+                if ctrl {
+                    v.add_area(r, c);
+                } else if shift {
+                    v.grid_extend_to(r, c);
+                } else {
+                    v.grid_move_to(r, c);
+                    if double {
+                        self.run_command("viewer.grid.edit", Value::Null);
+                    }
+                }
+            }
+            (MouseEventKind::Drag(MouseButton::Left), GridSpot::Cell(r, c)) => {
+                if ctrl {
+                    v.extend_area(r, c);
+                } else {
+                    v.grid_extend_to(r, c);
+                }
+            }
+            (MouseEventKind::Down(MouseButton::Left), GridSpot::Column(c)) => {
+                v.grid_move_to(top, c);
+                self.run_command("viewer.grid.selectColumn", Value::Null);
+            }
+            (MouseEventKind::Down(MouseButton::Left), GridSpot::Row(r)) => {
+                v.grid_move_to(r, left);
+                self.run_command("viewer.grid.selectRow", Value::Null);
+            }
+            (MouseEventKind::Down(MouseButton::Right), spot) => {
+                let on = match spot {
+                    GridSpot::Column(c) => {
+                        let s = v.selection();
+                        if !(s[1]..=s[3]).contains(&c) {
+                            v.grid_move_to(top, c);
+                            self.run_command("viewer.grid.selectColumn", Value::Null);
+                        }
+                        "cols"
+                    }
+                    GridSpot::Row(r) => {
+                        let s = v.selection();
+                        if !(s[0]..=s[2]).contains(&r) {
+                            v.grid_move_to(r, left);
+                            self.run_command("viewer.grid.selectRow", Value::Null);
+                        }
+                        "rows"
+                    }
+                    GridSpot::Cell(r, c) => {
+                        // Outside the selection, the cell is selected first.
+                        let s = v.selection();
+                        if !((s[0]..=s[2]).contains(&r) && (s[1]..=s[3]).contains(&c)) {
+                            v.grid_move_to(r, c);
+                        }
+                        "cells"
+                    }
+                    GridSpot::Tab(_) => "tab",
+                };
+                self.run_command("viewer.grid.contextMenu", serde_json::json!({ "on": on }));
+            }
+            (MouseEventKind::ScrollDown, _) => v.grid_scroll(3, 0),
+            (MouseEventKind::ScrollUp, _) => v.grid_scroll(-3, 0),
+            (MouseEventKind::ScrollRight, _) => v.grid_scroll(0, 2),
+            (MouseEventKind::ScrollLeft, _) => v.grid_scroll(0, -2),
+            _ => return false,
+        }
+        self.dirty = true;
+        true
     }
 
     fn select_word(&mut self, pos: usize) {

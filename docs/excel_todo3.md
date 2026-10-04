@@ -17,7 +17,7 @@ new release of the xlsx plugin follows when the contract moves.
 
 ## E37. The mouse in the grid
 
-- [ ] E37 Right-click menus in the graphical grid: on cells (cut, copy,
+- [x] E37 Right-click menus in the graphical grid: on cells (cut, copy,
   paste, Paste Special, insert, delete, clear, sort, filter, format,
   note, comment, link), on row and column headings (insert, delete,
   hide, unhide, height, width) and on sheet tabs (insert, delete,

@@ -865,6 +865,63 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     assert!(cx.debug_bounds("viewer-grid-pages").is_none());
     assert_eq!(cx.debug_bounds("viewer-grid-cell-1-0").unwrap(), a2);
 
+    // A2 dragged by its border to A8: moved there; then undone.
+    e.update_in(cx, |e, _, _| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    });
+    cx.run_until_parked();
+    let rent = e.update(cx, |e, _| e.doc.viewer.as_deref_mut().unwrap().cell_input());
+    let edge = cx
+        .debug_bounds("viewer-grid-move-edge-1")
+        .expect("the border's bottom");
+    let a8 = cx.debug_bounds("viewer-grid-cell-7-0").unwrap();
+    cx.simulate_mouse_down(
+        edge.center(),
+        gpui::MouseButton::Left,
+        gpui::Modifiers::none(),
+    );
+    cx.simulate_mouse_move(
+        a8.center(),
+        Some(gpui::MouseButton::Left),
+        gpui::Modifiers::none(),
+    );
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("viewer-grid-move-frame").is_some());
+    cx.simulate_mouse_up(
+        a8.center(),
+        gpui::MouseButton::Left,
+        gpui::Modifiers::none(),
+    );
+    cx.run_until_parked();
+    let (moved, left) = e.update(cx, |e, _| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let moved = v.cell_input();
+        v.grid_move_to(1, 0);
+        (moved, v.cell_input())
+    });
+    assert_eq!((moved, left), (rent, String::new()));
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("edit.undo", serde_json::json!({}), window, cx);
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    });
+    cx.run_until_parked();
+    // A right click on a cell outside the selection: the cell selected,
+    // its menu.
+    let b5 = cx.debug_bounds("viewer-grid-cell-4-1").unwrap();
+    cx.simulate_mouse_down(
+        b5.center(),
+        gpui::MouseButton::Right,
+        gpui::Modifiers::none(),
+    );
+    cx.run_until_parked();
+    let p = e.update(cx, |e, _| e.doc.viewer.as_deref().unwrap().grid_pos());
+    assert_eq!((p.row, p.col), (4, 1));
+    cx.simulate_keystrokes("escape");
+    e.update_in(cx, |e, _, _| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    });
+    cx.run_until_parked();
+
     // Goal Seek: D2 (B2+C2) made 1000 by changing B2; then undone.
     e.update_in(cx, |e, window, cx| {
         e.run_command(

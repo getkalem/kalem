@@ -1297,6 +1297,7 @@ cmd-viewer-grid-pageBreakPreview = Sayfa Sonu Önizleme
 cmd-viewer-grid-split = Böl
 cmd-viewer-grid-splitScrollUp = Üst Bölmeyi Yukarı Kaydır
 cmd-viewer-grid-splitScrollDown = Üst Bölmeyi Aşağı Kaydır
+cmd-viewer-grid-contextMenu = Bağlam Menüsü
 cmd-viewer-grid-deleteDrawing = Resmi veya Şekli Sil
 cmd-viewer-grid-moveDrawingUp = Resmi Yukarı Taşı
 cmd-viewer-grid-moveDrawingDown = Resmi Aşağı Taşı

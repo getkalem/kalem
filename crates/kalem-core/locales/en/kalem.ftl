@@ -1378,6 +1378,7 @@ cmd-viewer-grid-pageBreakPreview = Page Break Preview
 cmd-viewer-grid-split = Split
 cmd-viewer-grid-splitScrollUp = Scroll Top Pane Up
 cmd-viewer-grid-splitScrollDown = Scroll Top Pane Down
+cmd-viewer-grid-contextMenu = Context Menu
 cmd-viewer-grid-deleteDrawing = Delete Picture or Shape
 cmd-viewer-grid-moveDrawingUp = Move Picture Up
 cmd-viewer-grid-moveDrawingDown = Move Picture Down
