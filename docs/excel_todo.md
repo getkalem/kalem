@@ -40,9 +40,10 @@ in the palette and can be bound again.
 
 ## E5. Moving and selecting with the keyboard
 
-- [ ] E5 Ctrl+arrow to the edge of the data, Ctrl+Shift+arrow to select
+- [x] E5 Ctrl+arrow to the edge of the data, Ctrl+Shift+arrow to select
   to it; Shift+Space selects the row, Ctrl+Space the column, Ctrl+A the
-  data around the cursor (again, the sheet); Go To (Ctrl+G, F5) a cell
+  data around the cursor (again, the sheet); Go To (F5; Ctrl+G stays the
+  command palette) a cell
   or range by its reference.
 
 ## E6. The selection's sum

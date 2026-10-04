@@ -1703,49 +1703,6 @@ impl ViewerState {
         self.cut = None;
     }
 
-    /// The block of filled cells around the cursor, bounded by empty rows
-    /// and columns, as Excel's current region: first row, first column,
-    /// last row, last column.
-    pub fn current_region(&mut self) -> [u32; 4] {
-        let p = self.grid_pos();
-        let Some(l) = self.grid_layout() else {
-            return [p.row, p.col, p.row, p.col];
-        };
-        let filled: std::collections::HashSet<(u32, u32)> = self
-            .doc()
-            .grid_cells(self.unit, 0..l.rows.max(1), 0..l.cols.max(1))
-            .into_iter()
-            .filter(|(_, _, c)| !c.text.is_empty())
-            .map(|(r, c, _)| (r, c))
-            .collect();
-        let mut b = [p.row, p.col, p.row, p.col];
-        loop {
-            let mut g = b;
-            let row_has = |r: i64, c0: u32, c1: u32| {
-                r >= 0 && (c0.saturating_sub(1)..=c1 + 1).any(|c| filled.contains(&(r as u32, c)))
-            };
-            let col_has = |c: i64, r0: u32, r1: u32| {
-                c >= 0 && (r0.saturating_sub(1)..=r1 + 1).any(|r| filled.contains(&(r, c as u32)))
-            };
-            if row_has(i64::from(b[0]) - 1, b[1], b[3]) {
-                g[0] = b[0] - 1;
-            }
-            if row_has(i64::from(b[2]) + 1, b[1], b[3]) {
-                g[2] = b[2] + 1;
-            }
-            if col_has(i64::from(b[1]) - 1, b[0], b[2]) {
-                g[1] = b[1] - 1;
-            }
-            if col_has(i64::from(b[3]) + 1, b[0], b[2]) {
-                g[3] = b[3] + 1;
-            }
-            if g == b {
-                return b;
-            }
-            b = g;
-        }
-    }
-
     /// What Sort and Filter work on: the selection when it is more than a
     /// cell, the filter's range when the cursor is in it, else the current
     /// region; and whether its first row is the headers.
@@ -2622,6 +2579,182 @@ impl ViewerState {
             .map_err(|e| e.to_string())?;
         self.refresh();
         Ok(())
+    }
+
+    /// Which cells along a line hold something: rows `a..b` of column
+    /// `fixed` (`vertical`), else columns `a..b` of row `fixed`.
+    fn filled_along(
+        &mut self,
+        vertical: bool,
+        fixed: u32,
+        a: u32,
+        b: u32,
+    ) -> std::collections::HashSet<u32> {
+        let cells = if vertical {
+            self.grid_cells(a..b, fixed..fixed + 1)
+        } else {
+            self.grid_cells(fixed..fixed + 1, a..b)
+        };
+        cells
+            .into_iter()
+            .filter(|c| !c.2.text.is_empty())
+            .map(|c| if vertical { c.0 } else { c.1 })
+            .collect()
+    }
+
+    /// Where Ctrl+arrow goes from the cursor, as Excel: along data to its
+    /// last cell, else to the next cell that holds something, else to the
+    /// sheet's edge.
+    pub fn data_edge(&mut self, rows: i64, cols: i64) -> (u32, u32) {
+        let p = self.grid_pos();
+        let Some(l) = self.grid_layout() else {
+            return (p.row, p.col);
+        };
+        let vertical = rows != 0;
+        let dir = if vertical {
+            rows.signum()
+        } else {
+            cols.signum()
+        };
+        let (fixed, start, max, used) = if vertical {
+            (p.col, p.row, l.max_rows, l.rows)
+        } else {
+            (p.row, p.col, l.max_cols, l.cols)
+        };
+        // Read a thousand cells at a time, ahead in the direction moved;
+        // past the data nothing is.
+        let mut chunk = (0u32, 0u32, std::collections::HashSet::new());
+        let mut filled = |this: &mut Self, at: u32| -> bool {
+            if at >= used {
+                return false;
+            }
+            if !(chunk.0..chunk.1).contains(&at) {
+                let (a, b) = if dir > 0 {
+                    (at, (at + 1000).min(used))
+                } else {
+                    (at.saturating_sub(999), at + 1)
+                };
+                chunk = (a, b, this.filled_along(vertical, fixed, a, b));
+            }
+            chunk.2.contains(&at)
+        };
+        let step = |at: u32| -> Option<u32> {
+            let n = i64::from(at) + dir;
+            (n >= 0 && n < i64::from(max)).then_some(n as u32)
+        };
+        let Some(next) = step(start) else {
+            return (p.row, p.col);
+        };
+        let target = if filled(self, start) && filled(self, next) {
+            let mut at = next;
+            while let Some(n) = step(at) {
+                if !filled(self, n) {
+                    break;
+                }
+                at = n;
+            }
+            at
+        } else {
+            let mut at = next;
+            loop {
+                if filled(self, at) {
+                    break at;
+                }
+                if dir > 0 && at >= used {
+                    break max - 1;
+                }
+                match step(at) {
+                    Some(n) => at = n,
+                    None => break at,
+                }
+            }
+        };
+        if vertical {
+            (target, p.col)
+        } else {
+            (p.row, target)
+        }
+    }
+
+    /// Selects from `anchor` to `cursor`, the view left where it is unless
+    /// `scroll`.
+    pub fn select_range(&mut self, anchor: (u32, u32), cursor: (u32, u32), scroll: bool) {
+        let mut p = self.grid_pos();
+        p.sel = (anchor != cursor).then_some(anchor);
+        if scroll {
+            self.grid_pos.insert(self.unit, p);
+            self.place(cursor.0, cursor.1);
+        } else {
+            (p.row, p.col) = cursor;
+            self.grid_pos.insert(self.unit, p);
+        }
+    }
+
+    /// The data around the cursor, as Excel's current region: grown while
+    /// a row or column beside it (corners too) holds something.
+    pub fn current_region(&mut self) -> [u32; 4] {
+        let p = self.grid_pos();
+        let Some(l) = self.grid_layout() else {
+            return [p.row, p.col, p.row, p.col];
+        };
+        let (rows, cols) = (l.rows.min(l.max_rows), l.cols.min(l.max_cols));
+        let mut r = [p.row, p.col, p.row, p.col];
+        loop {
+            let before = r;
+            let c0 = r[1].saturating_sub(1);
+            let c1 = (r[3] + 1).min(cols.saturating_sub(1));
+            // Down and up: up to a thousand rows at a time, to the first
+            // empty one.
+            if r[2] + 1 < rows {
+                let (a, b) = (r[2] + 1, (r[2] + 1001).min(rows));
+                let full: std::collections::HashSet<u32> = self
+                    .grid_cells(a..b, c0..c1 + 1)
+                    .into_iter()
+                    .filter(|c| !c.2.text.is_empty())
+                    .map(|c| c.0)
+                    .collect();
+                let first_empty = (a..b).find(|x| !full.contains(x)).unwrap_or(b);
+                r[2] = r[2].max(first_empty.saturating_sub(1));
+            }
+            if r[0] > 0 {
+                let (a, b) = (r[0].saturating_sub(1000), r[0]);
+                let full: std::collections::HashSet<u32> = self
+                    .grid_cells(a..b, c0..c1 + 1)
+                    .into_iter()
+                    .filter(|c| !c.2.text.is_empty())
+                    .map(|c| c.0)
+                    .collect();
+                let first_empty = (a..b).rev().find(|x| !full.contains(x));
+                r[0] = first_empty.map_or(a, |e| e + 1).min(r[0]);
+            }
+            let r0 = r[0].saturating_sub(1);
+            let r1 = (r[2] + 1).min(rows.saturating_sub(1));
+            if r[3] + 1 < cols {
+                let (a, b) = (r[3] + 1, (r[3] + 1001).min(cols));
+                let full: std::collections::HashSet<u32> = self
+                    .grid_cells(r0..r1 + 1, a..b)
+                    .into_iter()
+                    .filter(|c| !c.2.text.is_empty())
+                    .map(|c| c.1)
+                    .collect();
+                let first_empty = (a..b).find(|x| !full.contains(x)).unwrap_or(b);
+                r[3] = r[3].max(first_empty.saturating_sub(1));
+            }
+            if r[1] > 0 {
+                let (a, b) = (r[1].saturating_sub(1000), r[1]);
+                let full: std::collections::HashSet<u32> = self
+                    .grid_cells(r0..r1 + 1, a..b)
+                    .into_iter()
+                    .filter(|c| !c.2.text.is_empty())
+                    .map(|c| c.1)
+                    .collect();
+                let first_empty = (a..b).rev().find(|x| !full.contains(x));
+                r[1] = first_empty.map_or(a, |e| e + 1).min(r[1]);
+            }
+            if r == before {
+                return r;
+            }
+        }
     }
 
     /// The cursor's cell's number format code.
@@ -5164,6 +5297,109 @@ fn toggle_font(ctx: &mut EditorContext<'_>, which: &str) -> CommandResult {
     })
 }
 
+/// Ctrl+arrow, and with Shift the selection taken there.
+fn data_move(ctx: &mut EditorContext<'_>, rows: i64, cols: i64, extend: bool) -> CommandResult {
+    with(ctx, |v| {
+        let (r, c) = v.data_edge(rows, cols);
+        if extend {
+            v.grid_extend_to(r, c);
+        } else {
+            v.grid_move_to(r, c);
+        }
+        Ok(())
+    })
+}
+
+/// Selects the whole rows (Shift+Space) or columns (Ctrl+Space) of the
+/// selection.
+fn select_lines(ctx: &mut EditorContext<'_>, rows: bool) -> CommandResult {
+    with(ctx, |v| {
+        let Some(l) = v.grid_layout() else {
+            return Ok(());
+        };
+        let s = v.selection();
+        if rows {
+            v.select_range((s[0], l.max_cols.saturating_sub(1)), (s[2], 0), false);
+        } else {
+            v.select_range((l.max_rows.saturating_sub(1), s[1]), (0, s[3]), false);
+        }
+        Ok(())
+    })
+}
+
+/// Select All (Ctrl+A): the data around the cursor, and again (or where
+/// there is none) the whole sheet.
+fn select_all(ctx: &mut EditorContext<'_>) -> CommandResult {
+    with(ctx, |v| {
+        let Some(l) = v.grid_layout() else {
+            return Ok(());
+        };
+        let region = v.current_region();
+        let lone = region[0] == region[2] && region[1] == region[3];
+        if v.selection() == region || (lone && v.cursor_cell().text.is_empty()) {
+            v.select_range(
+                (l.max_rows.saturating_sub(1), l.max_cols.saturating_sub(1)),
+                (0, 0),
+                false,
+            );
+        } else {
+            v.select_range((region[2], region[3]), (region[0], region[1]), false);
+        }
+        Ok(())
+    })
+}
+
+/// Go To (F5): a cell or a range by its reference (`B5`, `A1:C3`,
+/// `Sheet2!B5`).
+fn go_to(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.goTo";
+    let Some(reference) = text_arg(args, "value") else {
+        return ask_more(ctx, ID, &serde_json::json!({}), "value");
+    };
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let (sheet, cells) = match reference.rsplit_once('!') {
+        Some((sh, c)) => (Some(sh.trim().trim_matches('\'').to_owned()), c),
+        None => (None, reference.as_str()),
+    };
+    let cell = |t: &str| {
+        crate::csv_tools::parse_cell(&t.replace('$', "")).map(|(r, c)| (r as u32, c as u32))
+    };
+    let (a, b) = match cells.split_once(':') {
+        Some((x, y)) => (cell(x), cell(y)),
+        None => (cell(cells), cell(cells)),
+    };
+    let (Some(a), Some(b)) = (a, b) else {
+        ctx.messages.push(format!("Not a reference: {reference}"));
+        return Ok(());
+    };
+    if let Some(name) = sheet {
+        let found = v
+            .structure()
+            .units
+            .iter()
+            .position(|u| u.label.eq_ignore_ascii_case(&name));
+        match found {
+            Some(u) => {
+                v.go_to(u);
+            }
+            None => {
+                ctx.messages.push(format!("No sheet named {name}"));
+                return Ok(());
+            }
+        }
+    }
+    // The range's far corner shown, then its first cell the cursor.
+    v.grid_move_to(b.0, b.1);
+    v.select_range(b, a, true);
+    Ok(())
+}
+
 /// Number Format: the selection's, from Excel's common ones or typed.
 fn number_format(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::StyleChange;
@@ -6313,6 +6549,84 @@ fn grid_commands() -> Vec<Command> {
             IN_GRID,
             |ctx, _| grid_move(ctx, 0, 1),
         ),
+        cmd(
+            "viewer.grid.dataUp",
+            "Data Edge Up",
+            &["ctrl+up"],
+            IN_GRID,
+            |ctx, _| data_move(ctx, -1, 0, false),
+        ),
+        cmd(
+            "viewer.grid.dataDown",
+            "Data Edge Down",
+            &["ctrl+down"],
+            IN_GRID,
+            |ctx, _| data_move(ctx, 1, 0, false),
+        ),
+        cmd(
+            "viewer.grid.dataLeft",
+            "Data Edge Left",
+            &["ctrl+left"],
+            IN_GRID,
+            |ctx, _| data_move(ctx, 0, -1, false),
+        ),
+        cmd(
+            "viewer.grid.dataRight",
+            "Data Edge Right",
+            &["ctrl+right"],
+            IN_GRID,
+            |ctx, _| data_move(ctx, 0, 1, false),
+        ),
+        cmd(
+            "viewer.grid.selectDataUp",
+            "Select to Data Edge Up",
+            &["ctrl+shift+up"],
+            IN_GRID,
+            |ctx, _| data_move(ctx, -1, 0, true),
+        ),
+        cmd(
+            "viewer.grid.selectDataDown",
+            "Select to Data Edge Down",
+            &["ctrl+shift+down"],
+            IN_GRID,
+            |ctx, _| data_move(ctx, 1, 0, true),
+        ),
+        cmd(
+            "viewer.grid.selectDataLeft",
+            "Select to Data Edge Left",
+            &["ctrl+shift+left"],
+            IN_GRID,
+            |ctx, _| data_move(ctx, 0, -1, true),
+        ),
+        cmd(
+            "viewer.grid.selectDataRight",
+            "Select to Data Edge Right",
+            &["ctrl+shift+right"],
+            IN_GRID,
+            |ctx, _| data_move(ctx, 0, 1, true),
+        ),
+        cmd(
+            "viewer.grid.selectRow",
+            "Select Row",
+            &["shift+space", "g r"],
+            IN_GRID,
+            |ctx, _| select_lines(ctx, true),
+        ),
+        cmd(
+            "viewer.grid.selectColumn",
+            "Select Column",
+            &["ctrl+space", "g c"],
+            IN_GRID,
+            |ctx, _| select_lines(ctx, false),
+        ),
+        cmd(
+            "viewer.grid.selectAll",
+            "Select All",
+            &["ctrl+a"],
+            IN_GRID,
+            |ctx, _| select_all(ctx),
+        ),
+        cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
         cmd(
             "viewer.grid.pageDown",
             "Page Down",

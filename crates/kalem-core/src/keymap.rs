@@ -701,7 +701,8 @@ impl Keymap {
     /// The keymap for a terminal. Without an enhanced keyboard protocol,
     /// bindings the terminal cannot send use their terminal keys, or
     /// [`KeySequence::terminal_variant`] when no binding uses those keys;
-    /// the others are dropped and reported.
+    /// the others are dropped, and reported unless they are defaults whose
+    /// command has a key the terminal sends.
     pub fn for_terminal(&self, enhanced: bool) -> (Keymap, Vec<KeymapIssue>) {
         if enhanced {
             return (self.clone(), Vec::new());
@@ -726,12 +727,24 @@ impl Keymap {
             } else {
                 explicit.or_else(|| keys.terminal_variant().filter(|v| !taken(v)))
             };
+            // A default key the terminal cannot send is not missed when the
+            // command has another it can (Shift+Space and `g r`); a user's
+            // key is reported.
+            let covered = || {
+                a.binding.origin == Origin::Default
+                    && self.bindings.iter().any(|b| {
+                        b.binding.command == a.binding.command
+                            && b.binding.args == a.binding.args
+                            && b.binding.keys.terminal_safe()
+                    })
+            };
             match variant {
                 Some(k) => {
                     let mut a = a.clone();
                     a.binding.keys = k;
                     bindings.push(a);
                 }
+                None if covered() => {}
                 None => issues.push(KeymapIssue {
                     kind: IssueKind::NoTerminalKey,
                     keys: Some(keys.clone()),

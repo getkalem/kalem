@@ -590,6 +590,29 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
 
+    // Shift+Space selects the row; Ctrl+Down goes to the data's end.
+    cx.simulate_keystrokes("shift-space");
+    cx.run_until_parked();
+    let s = e.update(cx, |e, _| e.doc.viewer.as_deref_mut().unwrap().selection());
+    assert_eq!((s[0], s[1], s[2]), (3, 0, 3));
+    assert!(s[3] > 100, "{s:?}");
+    e.update_in(cx, |e, _, _| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0)
+    });
+    let primary_down = if cfg!(target_os = "macos") {
+        "cmd-down"
+    } else {
+        "ctrl-down"
+    };
+    cx.simulate_keystrokes(primary_down);
+    cx.run_until_parked();
+    let p = e.update(cx, |e, _| e.doc.viewer.as_deref_mut().unwrap().grid_pos());
+    assert_eq!((p.row, p.col), (4, 0));
+    e.update_in(cx, |e, _, _| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0)
+    });
+    cx.run_until_parked();
+
     // Thick outside borders, drawn along the cell's sides; then undone.
     e.update_in(cx, |e, window, cx| {
         e.run_command(

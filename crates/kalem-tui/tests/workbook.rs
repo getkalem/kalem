@@ -1721,3 +1721,74 @@ fn number_formats() {
     let s = t.screen();
     assert!(s.contains("1,200.00") && s.contains("431.50"), "{s}");
 }
+
+#[test]
+fn moving_and_selecting() {
+    let mut t = T::open("moving");
+    let ctrl = |t: &mut T, k: KeyCode, shift: bool| {
+        let m = if shift {
+            KeyModifiers::CONTROL | KeyModifiers::SHIFT
+        } else {
+            KeyModifiers::CONTROL
+        };
+        t.app.event(Event::Key(KeyEvent::new(k, m)));
+    };
+    let pos = |t: &mut T| {
+        let p = t.app.doc.viewer.as_deref_mut().unwrap().grid_pos();
+        (p.row, p.col)
+    };
+    let sel = |t: &mut T| t.app.doc.viewer.as_deref_mut().unwrap().selection();
+    // Ctrl+Down along the data to its end, then on to the sheet's edge,
+    // and back up.
+    ctrl(&mut t, KeyCode::Down, false);
+    assert_eq!(pos(&mut t), (4, 0));
+    ctrl(&mut t, KeyCode::Down, false);
+    let max = t
+        .app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_layout()
+        .unwrap();
+    assert_eq!(pos(&mut t), (max.max_rows - 1, 0));
+    ctrl(&mut t, KeyCode::Up, false);
+    assert_eq!(pos(&mut t), (4, 0));
+    ctrl(&mut t, KeyCode::Home, false);
+    // Right to the table's last column, then over the gap to the next.
+    ctrl(&mut t, KeyCode::Right, false);
+    assert_eq!(pos(&mut t), (0, 3));
+    ctrl(&mut t, KeyCode::Right, false);
+    assert_eq!(pos(&mut t), (0, 5));
+    // Ctrl+Shift+Down from B1 selects B1:B5.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 1);
+    ctrl(&mut t, KeyCode::Down, true);
+    assert_eq!(sel(&mut t), [0, 1, 4, 1]);
+    // The row (g r; Shift+Space in the graphical editor), the column.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 1);
+    t.key(KeyCode::Char('g'));
+    t.key(KeyCode::Char('r'));
+    assert_eq!(sel(&mut t), [2, 0, 2, max.max_cols - 1]);
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 1);
+    ctrl(&mut t, KeyCode::Char(' '), false);
+    assert_eq!(sel(&mut t), [0, 1, max.max_rows - 1, 1]);
+    // Ctrl+A: the table around the cursor, then the sheet.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 1);
+    ctrl(&mut t, KeyCode::Char('a'), false);
+    assert_eq!(sel(&mut t), [0, 0, 4, 3]);
+    ctrl(&mut t, KeyCode::Char('a'), false);
+    assert_eq!(sel(&mut t), [0, 0, max.max_rows - 1, max.max_cols - 1]);
+    // Go To (F5): asked, then a cell, a range, another sheet's cell.
+    t.key(KeyCode::F(5));
+    assert!(t.screen().contains("Go To"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.goTo", json!({ "value": "C4" }));
+    assert_eq!(pos(&mut t), (3, 2));
+    t.app
+        .run_command("viewer.grid.goTo", json!({ "value": "$B$2:C3" }));
+    assert_eq!((sel(&mut t), pos(&mut t)), ([1, 1, 2, 2], (1, 1)));
+    t.app
+        .run_command("viewer.grid.goTo", json!({ "value": "Dates!B2" }));
+    assert!(t.screen().contains("Dates · B2"), "{}", t.screen());
+}
