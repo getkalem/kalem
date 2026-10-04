@@ -355,7 +355,7 @@ Written on 2026-10-01 from the former `todo.md` (now `todo_old.md`) at commit 1d
 
 - [ ] T2.9.6 Platform services: clipboard with text and HTML on the three platforms (with T2.6.2), open and save dialogs, message prompts, native menus on macOS and a menu bar elsewhere, opening URLs and revealing files, the file associations of `Kalem.app` kept (T1.8.2)
 
-- [ ] T2.9.7 Panels rebuilt on the new toolkit: toolbar, status bar, outline sidebar, open files list and tabs, command palette, find and replace bar, completion menus, formula popup, date picker, settings panel, split view, the dialogs for unsaved changes and file conflicts, the file manager and the project pickers; the JSON widget tree of D11 as the description they share with plugins
+- [ ] T2.9.7 Panels rebuilt on the new toolkit: toolbar, status bar, outline sidebar, open files list and tabs, command palette, find and replace bar, completion menus, formula popup, date picker, settings panel, split view, the dialogs for unsaved changes and file conflicts, the file manager and the project pickers; the widget tree of D11 (decided: no webview; `wit/ui.wit`) as the description they share with plugins
 
 - [ ] T2.9.8 Accessibility: an AccessKit adapter for the new window stack (`accesskit_winit` if winit) with text, caret and selection as today; the screen reader rows of `docs/release-checklist.md` pass on VoiceOver, Orca and NVDA
 
@@ -473,7 +473,7 @@ Written on 2026-10-01 from the former `todo.md` (now `todo_old.md`) at commit 1d
 
 - [~] T3.1.4 `kalem` namespace: `command`, `run`, `keymap`, `on` (`scope` required on `kalem.command`, §11.2) (done 2026-10-04 in the API and the host: `wit/kalem.wit`, the `kalem` interface (`command` with a `command-spec` whose `scope` is a required field, `run`, `keymap`, `on` over the typed `event-kind`, `version`, the `disposable` resource: dropping keeps a registration, `dispose` takes it back) and the exported `plugin` interface (`activate`, `deactivate`, `run-command`, `on-event` with typed events and a `reply` that vetoes), in the `extension` world; `kalem_plugin::kalem` is the Rust side of §11.4 (`command(spec, handler)`, `run`, `keymap`, `on(kind, handler)`, `Plugin`, `export_plugin!`); `kalem_script::extension` is the host, over an `Editor` trait the embedder implements, refusing a command whose ID is not the plugin's or whose scope names no type, and the plugin running its own command through `run` (a component is not re-entered), and taking back everything on `deactivate`; the test plugin `tests/plugins/counter` exercises it end to end; the clock of the time budget now runs while any instance lives, not only its `Host`. Open: an `Editor` over `CommandRegistry` and the keymap, `CommandHandler::Script` running the plugin's command, and loading extension plugins, with T3.1.12)
 
-- [ ] T3.1.5 `kalem.ui`: notify, prompt, confirm, quickPick, statusBar, panel (JSON widget tree rendered by both frontends, D11)
+- [~] T3.1.5 `kalem.ui`: notify, prompt, confirm, quickPick, statusBar, panel (JSON widget tree rendered by both frontends, D11) (done 2026-10-04 in the API and the host; D11 decided by the owner: no webview, record `book/part-5/decisions/D11-plugin-panels.org`: `wit/ui.wit`, the `ui` interface imported by the `extension` world: `notify`; `prompt`, `confirm` and `quick-pick` return a request's number at once and the answer reaches the plugin's new `on-answer` export later, so the UI thread never waits on a plugin; `status` (set again, the same item changes); `register-panel` and `set-panel` with a typed widget tree (WIT has no recursive types: a flat list, children by index after their parent), what the user does reaching the plugin's `on-panel` by the widget's key; `kalem_plugin::ui` gives the Rust side (answers as closures, a `Tree` builder that can only make trees); `kalem_script::extension` grows the `Editor` trait by the UI's methods, checks every tree (`check_tree`), refuses a panel ID not the plugin's, and on deactivation withdraws unanswered questions and removes status items and panels; tested end to end with `tests/plugins/counter`. Open: rendering the tree, the questions and the status items in both editors, with the loader of T3.1.12)
 
 - [ ] T3.1.6 `kalem.settings`, `kalem.fs` (with permission), `kalem.net` (with permission)
 
@@ -540,7 +540,6 @@ Written on 2026-10-01 from the former `todo.md` (now `todo_old.md`) at commit 1d
 ### Needs discussion
 
 - *D28's engine is open:* wasmtime (Cranelift, or the Pulley interpreter) against wasmi; T3.1.0 decides on binary size, cold instantiation and the per-keystroke cost of a parser component. The 40 MB target (group 10) is the constraint.
-- *D11, webviews in plugin panels:* the design has a JSON widget tree rendered by both frontends (T3.1.5), which keeps terminal parity and the sandbox; a webview would give plugins HTML but only in the graphical editor and with a browser engine in the binary. This author recommends closing D11 with "no webview; the widget tree", consistent with D26 (the terminal is never second class).
 - *The first plugin that proves the API* should be a text-format mode (AsciiDoc or reST through T3.3.6 and the mode contract of T3.1.9g), which exercises parsing, rendering, editing and export across the component boundary; the viewers of group 18 prove a different, narrower contract.
 - *T3.3.5, `SECURITY.md`,* costs an hour and should exist before the repository goes public (T1.8.8); it does not need the plugin system.
 - *T3.1.9f lists themes as a plugin extension point;* themes are TOML files already (D9). Either the point means "plugins ship theme files" (trivial) or it can be dropped.
@@ -842,7 +841,6 @@ Written on 2026-10-01 from the former `todo.md` (now `todo_old.md`) at commit 1d
 | D5 | tectonic's distribution (on demand, bundled, none) | 3, 7, 12 |
 | D7 | The custom domain | 1 |
 | D8 | The agenda index's storage | 16 |
-| D11 | Webviews in plugin panels | 14 |
 | D18 | The entity table's provenance (licensing of `org-syntax`) | 2.2 |
 | D22 | PDF without TeX | 3, 12 |
 | D23 | Stay on gpui or leave | 9, 10 |

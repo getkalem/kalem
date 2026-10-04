@@ -1,6 +1,7 @@
 //! The `extension` world end to end: the plugin of `tests/plugins/counter`,
 //! built against `kalem-plugin`'s `kalem` namespace, registering commands,
-//! a binding and subscriptions in a fake editor through the host. Skipped
+//! a binding and subscriptions, asking questions and filling a panel in a
+//! fake editor through the host. Skipped
 //! where the `wasm32-unknown-unknown` target or `wasm-tools` is not
 //! installed.
 
@@ -11,7 +12,8 @@ use std::time::Duration;
 mod common;
 
 use kalem_script::extension::{
-    CommandSpec, Editor, Event, EventKind, Extension, Reply, VERSION, api,
+    Answer, CommandSpec, Editor, Event, EventKind, Extension, Level, PanelEvent, PanelSpec,
+    Question, Reply, StatusOptions, VERSION, WidgetKind, WidgetTree, api,
 };
 use kalem_script::{Error, Host, Limits};
 
@@ -21,6 +23,10 @@ struct State {
     commands: BTreeMap<String, CommandSpec>,
     bindings: BTreeMap<u64, (String, String)>,
     ran: Vec<(String, String)>,
+    notes: Vec<(Level, String)>,
+    questions: BTreeMap<u64, Question>,
+    status: BTreeMap<String, String>,
+    panels: BTreeMap<String, Option<WidgetTree>>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -64,6 +70,58 @@ impl Editor for Fake {
         self.0.lock().unwrap().ran.push((id.into(), args.into()));
         Ok("\"DONE\"".into())
     }
+
+    fn notify(&mut self, _plugin: &str, message: &str, level: Level) {
+        self.0.lock().unwrap().notes.push((level, message.into()));
+    }
+
+    fn ask(&mut self, _plugin: &str, request: u64, question: Question) {
+        self.0.lock().unwrap().questions.insert(request, question);
+    }
+
+    fn withdraw(&mut self, request: u64) {
+        self.0.lock().unwrap().questions.remove(&request);
+    }
+
+    fn set_status(&mut self, _plugin: &str, id: &str, text: &str, _options: &StatusOptions) {
+        self.0.lock().unwrap().status.insert(id.into(), text.into());
+    }
+
+    fn remove_status(&mut self, _plugin: &str, id: &str) {
+        self.0.lock().unwrap().status.remove(id);
+    }
+
+    fn add_panel(&mut self, _plugin: &str, spec: &PanelSpec) -> Result<(), String> {
+        self.0.lock().unwrap().panels.insert(spec.id.clone(), None);
+        Ok(())
+    }
+
+    fn set_panel(&mut self, id: &str, tree: &WidgetTree) {
+        self.0
+            .lock()
+            .unwrap()
+            .panels
+            .insert(id.into(), Some(tree.clone()));
+    }
+
+    fn remove_panel(&mut self, id: &str) {
+        self.0.lock().unwrap().panels.remove(id);
+    }
+}
+
+/// The labels of panel `id`'s widgets, in the tree's order.
+fn labels(fake: &Fake, id: &str) -> Vec<String> {
+    let s = fake.0.lock().unwrap();
+    let tree = s.panels[id].as_ref().expect("filled");
+    tree.widgets
+        .iter()
+        .filter_map(|w| match &w.kind {
+            WidgetKind::Label(l) => Some(l.text.clone()),
+            WidgetKind::Button(b) => Some(b.label.clone()),
+            WidgetKind::Item(i) => Some(i.label.clone()),
+            _ => None,
+        })
+        .collect()
 }
 
 /// The counter plugin activated in a fake editor.
@@ -209,4 +267,103 @@ fn a_command_that_loops_is_stopped() {
     // The instance is spent; its registrations still go.
     ext.deactivate().ok();
     assert!(fake.0.lock().unwrap().commands.is_empty());
+}
+
+#[test]
+fn questions_are_answered_later() {
+    let Some((mut ext, fake)) = counter(Limits::default()) else {
+        return;
+    };
+    run(&mut ext, "counter.ask").unwrap();
+    let asked: Vec<(u64, Question)> = fake
+        .0
+        .lock()
+        .unwrap()
+        .questions
+        .iter()
+        .map(|(r, q)| (*r, q.clone()))
+        .collect();
+    assert_eq!(asked.len(), 3);
+    let (confirm, prompt, pick) = (asked[0].0, asked[1].0, asked[2].0);
+    assert!(matches!(&asked[0].1, Question::Confirm(m) if m == "Sure?"));
+    assert!(matches!(&asked[1].1, Question::Prompt { title, .. } if title == "Name?"));
+    assert!(
+        matches!(&asked[2].1, Question::Pick { items, options } if items.len() == 2 && options.many)
+    );
+
+    assert!(ext.answer(confirm, Answer::Confirmed(true)).unwrap());
+    assert!(
+        !ext.answer(confirm, Answer::Confirmed(true)).unwrap(),
+        "answered once"
+    );
+    assert!(
+        !ext.answer(999, Answer::Confirmed(true)).unwrap(),
+        "never asked"
+    );
+    ext.answer(prompt, Answer::Text(Some("Ada".into())))
+        .unwrap();
+    ext.answer(pick, Answer::Picked(vec![1])).unwrap();
+    let s = fake.0.lock().unwrap();
+    assert_eq!(
+        s.notes,
+        [(Level::Info, "yes".into()), (Level::Warning, "[1]".into())]
+    );
+    assert_eq!(s.status.get("name").map(String::as_str), Some("Ada"));
+}
+
+#[test]
+fn a_panel_is_filled_and_hears_its_widgets() {
+    let Some((mut ext, fake)) = counter(Limits::default()) else {
+        return;
+    };
+    assert_eq!(
+        labels(&fake, "counter.panel"),
+        ["0", "Add one", "Items", "First"]
+    );
+    assert!(
+        ext.panel_event("counter.panel", "add", &PanelEvent::Clicked)
+            .unwrap()
+    );
+    assert_eq!(labels(&fake, "counter.panel")[0], "1");
+    assert!(
+        !ext.panel_event("other.panel", "add", &PanelEvent::Clicked)
+            .unwrap(),
+        "not its panel"
+    );
+
+    let out = run(&mut ext, "counter.bad-trees").unwrap();
+    let errors: Vec<&str> = out.lines().collect();
+    assert_eq!(errors.len(), 6, "{out}");
+    assert!(errors.iter().all(|e| !e.is_empty()), "{out}");
+    assert_eq!(labels(&fake, "counter.panel")[0], "1", "the panel kept");
+    let foreign = run(&mut ext, "counter.foreign-panel").unwrap_err();
+    assert!(foreign.contains("not the plugin's"), "{foreign}");
+}
+
+#[test]
+fn deactivation_closes_questions_status_and_panels() {
+    let Some((mut ext, fake)) = counter(Limits::default()) else {
+        return;
+    };
+    run(&mut ext, "counter.ask").unwrap();
+    let prompt = *fake.0.lock().unwrap().questions.keys().nth(1).unwrap();
+    ext.answer(prompt, Answer::Text(None)).unwrap();
+    assert_eq!(
+        fake.0
+            .lock()
+            .unwrap()
+            .status
+            .get("name")
+            .map(String::as_str),
+        Some("nobody")
+    );
+    ext.deactivate().unwrap();
+    let s = fake.0.lock().unwrap();
+    assert!(
+        s.questions.len() == 1,
+        "only the answered one is left: {:?}",
+        s.questions.keys()
+    );
+    assert!(s.status.is_empty());
+    assert!(s.panels.is_empty());
 }

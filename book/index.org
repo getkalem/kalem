@@ -95,6 +95,7 @@ repository, in Org, and =kalem book build= turns it into this site.
 - [[file:part-5/decisions/D3-ui-framework.org][D3: UI framework]]
 - [[file:part-5/decisions/D4-math-engine.org][D4: Math engine]]
 - [[file:part-5/decisions/D9-configuration-formats.org][D9: Configuration formats]]
+- [[file:part-5/decisions/D11-plugin-panels.org][D11: Plugin panels]]
 - [[file:part-5/decisions/D14-terminal-ui-stack.org][D14: Terminal UI stack]]
 - [[file:part-5/decisions/D16-syntax-highlighting.org][D16: Syntax highlighting]]
 - [[file:part-5/decisions/D18-entity-table-provenance.org][D18: Entity table provenance]]

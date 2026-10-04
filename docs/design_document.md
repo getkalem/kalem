@@ -1678,7 +1678,7 @@ Two tracks run beside the phases below (design_doc2.md, section 11; owner, 2026-
 | D8 | Agenda index storage | In memory; SQLite; custom file | In memory, disk cache later | Open |
 | D9 | Configuration formats | TOML and a script file; a script file only; JSON | TOML, a script file and keymap.json | **Decided:** `settings.toml`, `keymap.json` (comments allowed); no script file (D28, 2026-09-28), automation is a plugin (14, `book/part-5/decisions/D9-configuration-formats.org`) |
 | D10 | A second scripting language | Phase 3; phase 4; never | Never, for now | **Closed (owner, 2026-09-28):** no scripting language ships; reopening needs an RFC |
-| D11 | Webviews in plugin panels | Never; optional | Never; JSON widget tree | Open |
+| D11 | Webviews in plugin panels | Never; optional | Never; JSON widget tree | **Decided (owner, 2026-10-04):** no webview; a widget tree in typed WIT (a flat list, children by index), rendered by both frontends (`book/part-5/decisions/D11-plugin-panels.org`) |
 | D12 | Multiple documents | One window one document; tabs; multiple windows | Tabs, phase 2 | **Decided (owner, 2026-09-28):** one window holds many documents, listed on the left or as tabs at the top, grouped by project (2.8) |
 | D13 | Time library | jiff; chrono | jiff | **Decided:** jiff; date arithmetic follows Emacs's `encode-time` normalization on top of it (`org-model::time`) |
 | D14 | Terminal UI stack | ratatui + crossterm; termwiz; custom | ratatui + crossterm, ratatui-image for graphics | **Decided:** ratatui + crossterm + ratatui-image (7.6, `book/part-5/decisions/D14-terminal-ui-stack.org`) |

@@ -209,6 +209,33 @@ a trait the editor implements over its registry and keymap; loading
 such plugins at start and running their commands from the palette come
 with the loader (T3.1.12).
 
+* What a plugin shows
+
+The same world imports =ui=, §11.4's =kalem.ui=: =notify=, the three
+questions =prompt=, =confirm= and =quick-pick=, status bar items, and
+panels. A question never makes the editor wait: the call returns at
+once, and the answer comes later, a closure in Rust:
+
+#+begin_src rust
+use kalem_plugin::ui::{self, Level};
+
+ui::confirm("Archive the done tasks?", |yes| {
+    if yes {
+        ui::notify("Archived", Level::Info);
+    }
+});
+#+end_src
+
+A panel is a tree of widgets (texts, buttons, inputs, checkboxes, list
+and tree entries, progress bars, rows and columns) that the window and
+the terminal each draw with their own; there is no webview (D11). A
+plugin builds the tree with =ui::Tree=, adding each widget under one
+already there, and replaces the panel's content with =ui::set_panel=;
+what the user does to a widget reaches the panel's handler with the
+widget's key. The host checks every tree before an editor sees it.
+Drawing the panels, the questions and the status items in both editors
+comes with the loader as well.
+
 The first plugins planned:
 word count, Pomodoro, an export filter, a table function, a =jira:=
 link type, a Mermaid renderer, the kanban board, and modes for

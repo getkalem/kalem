@@ -1,0 +1,12 @@
+#+title: D11: Plugin panels
+- Status: *Decided* (owner, 2026-10-04): *no webview*; a plugin's panel is a tree of widgets each editor renders with its own.
+- Tasks: T3.1.5 (the =ui= interface), T2.9.7 (the editors' own panels on the same description)
+
+* The question
+A plugin that shows more than a notification needs a place: a side or bottom panel listing its results, a form, a tree. Two ways were open. A webview gives a plugin HTML and its scripts, everything a web page can do, but only in the graphical editor, with a browser engine in the binary or the system's, and a second sandbox to reason about. A widget tree gives a plugin a fixed vocabulary (texts, buttons, inputs, checkboxes, list and tree entries, progress bars, rows and columns) that the window draws with gpui and the terminal with ratatui.
+
+* The decision
+The widget tree, and no webview. It keeps D26 (the terminal is never second class: a panel works the same over SSH), the sandbox of D28 (a plugin returns data, never draws) and the binary's size. What it costs: a plugin cannot show arbitrary HTML, charts or canvases; a picture comes through the block renderers' SVG (T3.1.9b), and the vocabulary grows by the API's versions as plugins need more.
+
+* How it is built
+The tree is typed WIT, not JSON (=kalem-plugin/wit/ui.wit=): WIT has no recursive types, so a tree is a list of widgets, the root first, each naming its children by index after it. The host checks a tree before an editor sees one (=kalem_script::extension::check_tree=): indices in the list, each child after its parent and under one only, children only in columns, rows and entries, the keys of the widgets a user acts on given and unique, at most 10,000 widgets. What the user does to a widget reaches the plugin by its key, through the plugin's =on-panel=.

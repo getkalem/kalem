@@ -23,6 +23,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use crate::extension::kalem::plugin::kalem as api;
+use crate::extension::kalem::plugin::ui::{Answer, PanelEvent};
 
 pub use api::{CommandSpec, Event, EventKind, Reply, Scope, version};
 
@@ -38,16 +39,20 @@ pub trait Plugin {
 
 type CommandFn = Box<dyn FnMut(&str) -> Result<String, String>>;
 type EventFn = Box<dyn FnMut(&Event) -> Reply>;
+pub(crate) type AnswerFn = Box<dyn FnOnce(Answer)>;
+pub(crate) type PanelFn = Box<dyn FnMut(&str, &PanelEvent)>;
 
-/// The plugin's handlers, by command and by subscription.
+/// The plugin's handlers, by command, subscription, question and panel.
 #[derive(Default)]
-struct Handlers {
+pub(crate) struct Handlers {
     commands: HashMap<String, Option<CommandFn>>,
     events: HashMap<u64, Option<EventFn>>,
+    pub(crate) answers: HashMap<u64, AnswerFn>,
+    pub(crate) panels: HashMap<String, Option<PanelFn>>,
 }
 
 thread_local! {
-    static HANDLERS: RefCell<Handlers> = RefCell::default();
+    pub(crate) static HANDLERS: RefCell<Handlers> = RefCell::default();
 }
 
 impl Scope {
@@ -92,18 +97,19 @@ pub fn spec(id: &str, title: &str, scope: Scope) -> CommandSpec {
 
 /// What a registration is, for taking it back.
 #[derive(Debug)]
-enum Local {
+pub(crate) enum Local {
     Command(String),
     Event(u64),
-    Binding,
+    Panel(String),
+    Other,
 }
 
 /// Something registered. Dropping it keeps the registration; the host
 /// takes back everything the plugin registered when it is deactivated.
 #[derive(Debug)]
 pub struct Disposable {
-    host: api::Disposable,
-    local: Local,
+    pub(crate) host: api::Disposable,
+    pub(crate) local: Local,
 }
 
 impl Disposable {
@@ -123,7 +129,10 @@ impl Disposable {
                 Local::Event(id) => {
                     h.events.remove(id);
                 }
-                Local::Binding => {}
+                Local::Panel(id) => {
+                    h.panels.remove(id);
+                }
+                Local::Other => {}
             }
         });
         self.host.dispose();
@@ -159,7 +168,7 @@ pub fn run(id: &str, args: &str) -> Result<String, String> {
 pub fn keymap(keys: &str, command: &str, when: Option<&str>) -> Result<Disposable, String> {
     Ok(Disposable {
         host: api::keymap(keys, command, when)?,
-        local: Local::Binding,
+        local: Local::Other,
     })
 }
 
@@ -217,6 +226,32 @@ pub fn dispatch_event(subscription: u64, event: &Event) -> Reply {
     reply
 }
 
+/// Hands the answer to question `request` to its handler (the host's
+/// `on-answer`), once.
+#[doc(hidden)]
+pub fn dispatch_answer(request: u64, answer: Answer) {
+    let taken = HANDLERS.with(|h| h.borrow_mut().answers.remove(&request));
+    if let Some(f) = taken {
+        f(answer);
+    }
+}
+
+/// Hands what the user did to widget `key` of panel `panel` to the
+/// panel's handler (the host's `on-panel`).
+#[doc(hidden)]
+pub fn dispatch_panel(panel: &str, key: &str, event: &PanelEvent) {
+    let taken = HANDLERS.with(|h| h.borrow_mut().panels.get_mut(panel).and_then(Option::take));
+    let Some(mut f) = taken else {
+        return;
+    };
+    f(key, event);
+    HANDLERS.with(|h| {
+        if let Some(slot @ None) = h.borrow_mut().panels.get_mut(panel) {
+            *slot = Some(f);
+        }
+    });
+}
+
 /// Forgets every handler (after `deactivate`).
 #[doc(hidden)]
 pub fn clear() {
@@ -250,6 +285,18 @@ macro_rules! export_plugin {
 
             fn on_event(subscription: u64, event: $crate::kalem::Event) -> $crate::kalem::Reply {
                 $crate::kalem::dispatch_event(subscription, &event)
+            }
+
+            fn on_answer(request: u64, answer: $crate::ui::Answer) {
+                $crate::kalem::dispatch_answer(request, answer)
+            }
+
+            fn on_panel(
+                panel: ::std::string::String,
+                key: ::std::string::String,
+                event: $crate::ui::PanelEvent,
+            ) {
+                $crate::kalem::dispatch_panel(&panel, &key, &event)
             }
         }
 
