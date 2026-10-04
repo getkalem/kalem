@@ -2237,3 +2237,58 @@ fn auto_sum_and_functions() {
     assert!(t.screen().contains("=AVERAGE("), "{}", t.screen());
     t.key(KeyCode::Esc);
 }
+
+#[test]
+fn paste_special() {
+    let mut t = T::open("pastespecial");
+    let input = |t: &mut T, r: u32, c: u32| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(r, c);
+        v.cell_input()
+    };
+    // Nothing copied yet.
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('v'),
+        KeyModifiers::CONTROL | KeyModifiers::ALT,
+    )));
+    assert!(t.screen().contains("Values"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.pasteSpecial",
+        json!({ "what": "values", "transpose": false }),
+    );
+    assert!(
+        t.screen().contains("Copy cells of the workbook first"),
+        "{}",
+        t.screen()
+    );
+    // D2:D3 copied (y): their values pasted at F2.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 3);
+        v.grid_extend_to(2, 3);
+    }
+    t.key(KeyCode::Char('y'));
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 5);
+    t.app.run_command(
+        "viewer.grid.pasteSpecial",
+        json!({ "what": "values", "transpose": false }),
+    );
+    assert_eq!(input(&mut t, 1, 5), "2400");
+    assert_eq!(input(&mut t, 2, 5), "943.75");
+    // Transposed: across row 7 from B7.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(6, 1);
+    t.app.run_command(
+        "viewer.grid.pasteSpecial",
+        json!({ "what": "all", "transpose": true }),
+    );
+    assert!(
+        input(&mut t, 6, 1).starts_with('='),
+        "{}",
+        input(&mut t, 6, 1)
+    );
+    assert!(input(&mut t, 6, 2).starts_with('='));
+    t.app.run_command("edit.undo", json!({}));
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(input(&mut t, 1, 5), "");
+}

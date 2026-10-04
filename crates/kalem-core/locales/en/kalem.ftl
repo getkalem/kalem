@@ -1301,6 +1301,7 @@ cmd-viewer-grid-editNote = Edit Note
 cmd-viewer-grid-deleteNote = Delete Note
 cmd-viewer-grid-autoSum = AutoSum
 cmd-viewer-grid-insertFunction = Insert Function
+cmd-viewer-grid-pasteSpecial = Paste Special
 cmd-viewer-grid-fillDown = Fill Down
 cmd-viewer-grid-fillRight = Fill Right
 cmd-viewer-grid-fillSeries = Fill Series

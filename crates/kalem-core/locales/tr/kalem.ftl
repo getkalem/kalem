@@ -1220,6 +1220,7 @@ cmd-viewer-grid-editNote = Notu Düzenle
 cmd-viewer-grid-deleteNote = Notu Sil
 cmd-viewer-grid-autoSum = Otomatik Toplam
 cmd-viewer-grid-insertFunction = İşlev Ekle
+cmd-viewer-grid-pasteSpecial = Özel Yapıştır
 cmd-viewer-grid-fillDown = Aşağı Doldur
 cmd-viewer-grid-fillRight = Sağa Doldur
 cmd-viewer-grid-fillSeries = Seri Doldur

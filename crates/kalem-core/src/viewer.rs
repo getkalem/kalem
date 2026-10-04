@@ -332,6 +332,8 @@ pub struct ViewerState {
     selection_sums: Option<(SumsKey, Option<String>)>,
     /// What Find looks for.
     pub grid_search: GridSearch,
+    /// The cells copied last (unit, range), for Paste Special.
+    pub copied: Option<(usize, [u32; 4])>,
 }
 
 /// What Find looks for in a grid, and how.
@@ -510,6 +512,7 @@ impl ViewerState {
             border_color: None,
             selection_sums: None,
             grid_search: GridSearch::default(),
+            copied: None,
         })
     }
 
@@ -3160,6 +3163,27 @@ impl ViewerState {
         self.doc().formula_functions()
     }
 
+    /// Paste Special: the cells copied last pasted at the cursor's corner of
+    /// the selection, as `kind`, turned when `transpose`.
+    pub fn paste_special(
+        &mut self,
+        kind: kalem_viewer::PasteKind,
+        transpose: bool,
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let Some(from) = self.copied else {
+            return Err("Copy cells of the workbook first".into());
+        };
+        let s = self.selection();
+        self.doc()
+            .paste_cells(from, (self.unit, s[0], s[1]), kind, transpose)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// The units that are hidden sheets.
     pub fn hidden_units(&mut self) -> Vec<usize> {
         self.doc().hidden_units()
@@ -3855,6 +3879,7 @@ pub(crate) fn copy(ctx: &mut EditorContext<'_>) -> CommandResult {
         // spreadsheets put it on the clipboard.
         let text = v.selection_tsv();
         let s = v.selection();
+        v.copied = Some((v.unit, s));
         let n = (s[2] - s[0] + 1) * (s[3] - s[1] + 1);
         ctx.requests.push(Request::CopyText(text));
         if n > 1 {
@@ -6113,6 +6138,39 @@ fn insert_function(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Com
     }
 }
 
+/// Paste Special (Ctrl+Alt+V): what of the cells copied, from a menu.
+fn paste_special(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::PasteKind;
+    const ID: &str = "viewer.grid.pasteSpecial";
+    let transpose = args.get("transpose").and_then(serde_json::Value::as_bool) == Some(true);
+    let kind = match args.get("what").and_then(|w| w.as_str()) {
+        Some("all") => PasteKind::All,
+        Some("values") => PasteKind::Values,
+        Some("formats") => PasteKind::Formats,
+        Some("formulas") => PasteKind::Formulas,
+        _ => {
+            let item = |what: &str, transpose: bool, title: &str| {
+                menu_item(
+                    ID,
+                    serde_json::json!({ "what": what, "transpose": transpose }),
+                    title,
+                    "Paste Special",
+                )
+            };
+            ctx.requests.push(Request::Choose(vec![
+                item("values", false, "Values"),
+                item("formulas", false, "Formulas"),
+                item("formats", false, "Formats"),
+                item("all", false, "All"),
+                item("all", true, "Transpose"),
+                item("values", true, "Values, Transposed"),
+            ]));
+            return Ok(());
+        }
+    };
+    with(ctx, |v| v.paste_special(kind, transpose))
+}
+
 /// Number Format: the selection's, from Excel's common ones or typed.
 fn number_format(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::StyleChange;
@@ -7340,6 +7398,13 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.pasteSpecial",
+            "Paste Special",
+            &["ctrl+alt+v"],
+            IN_GRID,
+            paste_special,
+        ),
         cmd(
             "viewer.grid.autoSum",
             "AutoSum",

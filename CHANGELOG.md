@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- Spreadsheets: Paste Special (Ctrl+Alt+V) of the cells copied last in the workbook: values, formulas (moved as copied formulas move), formats, all, and transposed, as one undo step.
 - Spreadsheets: AutoSum (Alt+=) proposes the SUM of the numbers above the cell, else left of it, to be entered, and puts sums under a selection's columns at once; Insert Function (Shift+F3) lists the engine's functions with the arguments of the common ones and begins the formula of the one chosen. Find Previous moves to Ctrl+Shift+F4, as in Excel.
 - Spreadsheets: notes added and edited (Shift+F2, asked with the text the note has) and deleted (Delete Note, or left empty), written as Excel's comments part with the note's shape in the sheet's VML drawing; Rename Sheet asks with the name the sheet has.
 - Spreadsheets: Freeze Panes at the cursor (`z f`, again to unfreeze), Freeze Top Row (`z t`), Freeze First Column (`z F`) and Unfreeze Panes (`z u`), written as the sheet view's frozen pane.

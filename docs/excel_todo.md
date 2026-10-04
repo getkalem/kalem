@@ -86,7 +86,7 @@ in the palette and can be bound again.
 
 ## E13. Paste Special
 
-- [ ] E13 Paste values only, formats only, formulas only, and
+- [x] E13 Paste values only, formats only, formulas only, and
   transposed, from cells copied in the workbook.
 
 ## E14. Inserting and deleting cells
