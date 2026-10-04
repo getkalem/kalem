@@ -85,7 +85,10 @@ edits it as plain text. Concretely:
   away from the cursor; a task list item's =[ ]= or =[x]= is a checkbox
   while the cursor is off its line. Block quote markers and thematic
   breaks are dimmed; code blocks, HTML blocks, tables and front matter
-  are monospace, fences and front matter dimmed. A table away from the
+  are monospace, fences and front matter dimmed. A code block is drawn
+  on the code background, its fences included; away from the cursor its
+  opening fence shows only its language, as a label, and its closing
+  fence nothing. A table away from the
   cursor is drawn as a grid: each column as wide as its widest cell and
   lined up as its delimiter cell says (=:--= left, =--:= right, =:-:=
   centered), the bars as lines and the delimiter row as a rule, without

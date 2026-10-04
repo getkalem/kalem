@@ -22,9 +22,9 @@ expression: "screen_of(\"snap.md\", MD, Caps::full(), 60, 34, MD.len())"
 20  ├───────┼─────┤                                         |DD..DDDDDDDDDDDDDDD
 21  │ apple │   3 │                                         |DD..D.......D.....D
 22                                                          |DD
-23  ```rust                                                 |DD..DDDDDDD
-24  fn main() { println!("hi"); }                           |DD..kkkkkkkkkkkkkkkkkkkkkkkkkkkkk
-25  ```                                                     |DD..DDD
+23  rust                                                    |DD.ckkkkcccccccccccccccccccccccccccccccccccccccccccccccccccc
+24  fn main() { println!("hi"); }                           |DD.ckkkkkkkkkkkkkkkkkkkkkkkkkkkkkccccccccccccccccccccccccccc
+25                                                          |DD.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 26                                                          |DD
 27  A footnote[^1], a formula E=mc² and a long line that    |DD............****............IIIII
     wraps around the edge of the narrow screen.             |

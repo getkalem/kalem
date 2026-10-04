@@ -1377,14 +1377,37 @@ pub fn view_line(md: &Md, text: &str, line: Range<usize>, cursor: Option<usize>)
                     pieces.push(Piece::Style(r, |s| s.dim = true));
                 }
             }
-            MdKind::CodeBlock { fenced, closed, .. } => {
+            MdKind::CodeBlock {
+                fenced,
+                closed,
+                language,
+            } => {
                 view.mono = true;
                 let first = md.line_of(n.range.start) == idx;
                 let last =
                     *closed && md.line_of(n.range.end.saturating_sub(1).max(n.range.start)) == idx;
                 if *fenced && (first || last) {
                     view.role = LineRole::Delimiter;
-                    pieces.push(Piece::Style(r, |s| s.dim = true));
+                    let away = !revealed(&n.range) && !on_line;
+                    if away && first && !r.is_empty() && language.is_some() {
+                        // ```` ```bash ```` away from the cursor: the
+                        // language only, as a label (nothing without one).
+                        let label = language.clone().unwrap_or_default();
+                        pieces.push(Piece::Replace(
+                            r,
+                            label,
+                            None,
+                            Style {
+                                dim: true,
+                                ..Style::default()
+                            },
+                        ));
+                    } else if away {
+                        // The closing fence: an empty line of the block.
+                        pieces.push(Piece::Hide(r));
+                    } else {
+                        pieces.push(Piece::Style(r, |s| s.dim = true));
+                    }
                 } else {
                     pieces.push(Piece::Style(r, |s| s.code = true));
                 }
@@ -1944,6 +1967,20 @@ pub fn code_on_line(doc: &crate::DocumentState, line: Range<usize>) -> Vec<(Rang
 /// bytes of its code (the lines between the fences), the line's place
 /// among them, and the language, so that the line is coloured with the
 /// state of the lines before it (T2.7c.3).
+/// Whether the line at `line` of a Markdown document is in a code block,
+/// its fences included: the editors paint the block's background behind
+/// the whole line.
+pub fn in_code_block(doc: &crate::DocumentState, line: Range<usize>) -> bool {
+    if doc.meta.mode != crate::DocumentMode::Markdown {
+        return false;
+    }
+    let Some(md) = ready(doc) else {
+        return false;
+    };
+    md.on_line(md.line_of(line.start))
+        .any(|n| matches!(n.kind, MdKind::CodeBlock { .. }))
+}
+
 pub fn code_block_on_line(
     doc: &crate::DocumentState,
     line: Range<usize>,
@@ -2831,6 +2868,13 @@ mod tests {
         assert!(v(3, None).runs[0].style.dim);
         assert_eq!(v(3, None).display(), "> quoted x");
         assert_eq!(v(5, None).role, LineRole::Delimiter);
+        // A fence away from the cursor: the language as a label, the
+        // closing fence empty; with the cursor in the block, as written.
+        assert_eq!(v(5, None).display(), "rust");
+        assert_eq!(v(7, None).display(), "");
+        let inside = t.find("let x").unwrap();
+        assert_eq!(v(5, Some(inside)).display(), "```rust");
+        assert_eq!(v(7, Some(inside)).display(), "```");
         assert!(v(6, None).mono && v(6, None).runs[0].style.code);
         let todo = v(9, None);
         assert!(matches!(

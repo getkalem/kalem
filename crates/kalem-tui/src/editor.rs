@@ -1526,7 +1526,14 @@ impl<'a> Layout<'a> {
 
     /// Whether line `line` is monospace code (for the background).
     pub(crate) fn is_code(&self, line: usize) -> bool {
-        if self.source || self.parse.is_none() {
+        if self.source {
+            return false;
+        }
+        // A Markdown code block, fences included.
+        if kalem_core::markdown::in_code_block(self.doc, self.text().line_range(line)) {
+            return true;
+        }
+        if self.parse.is_none() {
             return false;
         }
         let s = self.text().line_start(line);

@@ -1215,6 +1215,12 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
     }
     let background = match block.as_ref().map(|b| &b.kind) {
         Some(k) if k.is_code() && !editor.source => Some(theme.code_bg),
+        // A Markdown code block, fences included.
+        _ if !editor.source
+            && kalem_core::markdown::in_code_block(&editor.doc, view.range.clone()) =>
+        {
+            Some(theme.code_bg)
+        }
         _ => None,
     };
     let hang_at = hang_at(&view);
