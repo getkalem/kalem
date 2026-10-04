@@ -537,6 +537,10 @@ pub struct Chart {
     pub background: Paint,
     /// The chart area's border.
     pub border: Paint,
+    /// The plot area's background (the part inside the axes).
+    pub plot_background: Paint,
+    /// The plot area's border.
+    pub plot_border: Paint,
 }
 
 /// How a chart's background or border is painted.
@@ -1241,6 +1245,18 @@ pub trait ViewerDocument: Send {
     /// Sets the background and the border of the chart area of the chart
     /// at `index` of [`ViewerDocument::charts`].
     fn set_chart_area(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _background: Paint,
+        _border: Paint,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Sets the background and the border of the plot area (inside the
+    /// axes) of the chart at `index` of [`ViewerDocument::charts`].
+    fn set_plot_area(
         &mut self,
         _unit: usize,
         _index: usize,
