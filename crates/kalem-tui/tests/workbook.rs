@@ -2713,3 +2713,56 @@ fn typing_into_cells() {
     assert!(t.screen().contains("4,293.75"), "{}", t.screen());
     t.key(KeyCode::Esc);
 }
+
+#[test]
+fn editing_formulas() {
+    let mut t = T::open("formula-edit");
+    let typ = |t: &mut T, s: &str| {
+        for ch in s.chars() {
+            t.key(KeyCode::Char(ch));
+        }
+    };
+    let prompt = |t: &mut T| {
+        let s = t.screen();
+        s.lines()
+            .rev()
+            .find(|l| l.contains("Set Cell"))
+            .unwrap_or_default()
+            .to_owned()
+    };
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(6, 1);
+    t.app.run_command("viewer.grid.edit", json!({}));
+    // "su" offers SUM( and SUMIF(...; Tab takes the first.
+    typ(&mut t, "=su");
+    assert!(t.screen().contains("Tab: SUM("), "{}", t.screen());
+    t.key(KeyCode::Tab);
+    assert!(prompt(&mut t).contains("=SUM("), "{}", t.screen());
+    // The argument being typed shown.
+    assert!(t.screen().contains("SUM(⟨number1⟩"), "{}", t.screen());
+    // Up points at B6, Shift+Up makes it B5:B6, the cells marked.
+    t.key(KeyCode::Up);
+    assert!(prompt(&mut t).contains("=SUM(B6"), "{}", t.screen());
+    t.app
+        .event(Event::Key(KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT)));
+    assert!(prompt(&mut t).contains("=SUM(B5:B6"), "{}", t.screen());
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().pointer,
+        Some([4, 1, 5, 1])
+    );
+    // F4: the last reference absolute.
+    t.key(KeyCode::F(4));
+    assert!(prompt(&mut t).contains("=SUM(B5:$B$6"), "{}", t.screen());
+    assert!(t.app.doc.viewer.as_deref_mut().unwrap().pointer.is_none());
+    typ(&mut t, ")");
+    t.key(KeyCode::Enter);
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(6, 1);
+    assert_eq!(v.cell_input(), "=SUM(B5:$B$6)");
+    assert_eq!(v.cursor_cell().text, "1631.5");
+    // In a text entry the arrows are the cursor's.
+    t.app.run_command("viewer.grid.edit", json!({}));
+    t.key(KeyCode::Left);
+    typ(&mut t, "x");
+    assert!(prompt(&mut t).contains("=SUM(B5:$B$6x)"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+}

@@ -659,6 +659,28 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
 
+    // A formula: Tab completes SUM(, Up points at B6, drawn as such.
+    e.update_in(cx, |e, window, cx| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(6, 1);
+        e.run_command("viewer.grid.edit", serde_json::json!({}), window, cx);
+    });
+    e.update(cx, |e, cx| e.panel_input("=su", cx));
+    cx.run_until_parked();
+    let hint = e.update(cx, |e, _| e.palette.as_ref().and_then(|p| p.hint.clone()));
+    assert!(hint.is_some_and(|h| h.starts_with("Tab: SUM(")));
+    cx.simulate_keystrokes("tab up");
+    cx.run_until_parked();
+    let typed = e.update(cx, |e, _| e.palette.as_ref().map(|p| p.input.clone()));
+    assert_eq!(typed.as_deref(), Some("=SUM(B6"));
+    assert!(cx.debug_bounds("viewer-grid-pointer").is_some());
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("viewer-grid-pointer").is_none());
+    e.update_in(cx, |e, _, _| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0)
+    });
+    cx.run_until_parked();
+
     // Find: the first match after the cursor, then the next with F3.
     e.update_in(cx, |e, window, cx| {
         e.run_command(

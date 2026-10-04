@@ -341,6 +341,10 @@ pub struct ViewerState {
     /// The text entries of a column, for AutoComplete: unit, column and
     /// generation they were read at.
     col_entries: Option<((usize, u32, u64), Vec<String>)>,
+    /// The cells pointed at while a formula is typed, drawn as such.
+    pub pointer: Option<[u32; 4]>,
+    /// The functions formulas can use, read once.
+    functions: Option<Vec<(String, String)>>,
 }
 
 /// What Find looks for in a grid, and how.
@@ -523,6 +527,8 @@ impl ViewerState {
             painter: None,
             show_formulas: false,
             col_entries: None,
+            pointer: None,
+            functions: None,
         })
     }
 
@@ -3475,6 +3481,33 @@ impl ViewerState {
             .iter()
             .all(|e| e.to_lowercase() == first.to_lowercase())
             .then(|| (*first).clone())
+    }
+
+    /// What to show while a formula is typed with the cursor `at`
+    /// characters in: the names completing the word before it, and the
+    /// arguments of the function it is in.
+    pub fn formula_hint(&mut self, input: &str, at: usize) -> crate::formula_edit::Hint {
+        if !input.starts_with('=') {
+            return crate::formula_edit::Hint::default();
+        }
+        if self.functions.is_none() {
+            let list = self.doc().formula_functions();
+            self.functions = Some(list);
+        }
+        let names: Vec<String> = self
+            .doc()
+            .defined_names()
+            .into_iter()
+            .map(|n| n.0)
+            .collect();
+        let functions = self.functions.as_deref().unwrap_or_default();
+        crate::formula_edit::hint(input, at, functions, &names)
+    }
+
+    /// The size of the sheet shown, rows and columns, for pointing.
+    pub fn grid_max(&mut self) -> (u32, u32) {
+        self.grid_layout()
+            .map_or((1, 1), |l| (l.max_rows, l.max_cols))
     }
 
     /// Ctrl+Enter: `input` entered into every selected cell, formulas moved

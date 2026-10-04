@@ -275,6 +275,8 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
     let sel = v.selection();
     let selecting = v.grid_pos().sel.is_some();
     let cut = v.cut_range();
+    // The cells a formula being typed points at.
+    let pointer = v.pointer;
     let merged = layout.merged.clone();
     let merge_of = |r: u32, c: u32| {
         merged
@@ -421,6 +423,12 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
                 },
             };
             style = sel_style(style);
+            if pointer.is_some_and(|m| (m[0]..=m[2]).contains(&r) && (m[1]..=m[3]).contains(&c)) {
+                style = style.add_modifier(Modifier::UNDERLINED | Modifier::BOLD);
+                if !caps.no_color {
+                    style = style.fg(ratatui::style::Color::Cyan);
+                }
+            }
             if (r, c) == (pos.row, pos.col) {
                 style = style.add_modifier(Modifier::REVERSED);
             }

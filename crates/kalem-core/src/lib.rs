@@ -23,6 +23,7 @@ pub mod extensions;
 pub mod files;
 pub mod find;
 pub mod flash_fill;
+pub mod formula_edit;
 pub mod formulas;
 pub mod front_matter;
 pub mod images;

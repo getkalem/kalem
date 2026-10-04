@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- Spreadsheets: typing a formula as in Excel: F4 cycles the reference at the cursor through `$A$1`, `A$1`, `$A1`, `A1`; after an operator, `(`, `,` or `=` the arrow keys point at cells (Shift for a range), marked in the grid, to put their reference in; Tab completes a function or a defined name from those offered, and the arguments of the function the cursor is in are shown, the one being typed marked.
 - Spreadsheets: typing into cells as in Excel: Alt+Enter a line break (the cell wrapped, in a note too), Ctrl+Enter the entry into every selected cell (formulas moved for each), AutoComplete offering the column's one matching entry (Enter takes it, Delete turns it down); Ctrl+; today's date (`g ;`), Ctrl+Shift+; the time (`g ,`), Ctrl+' the formula above (`g '`) and Ctrl+Shift+' its value (`g v`).
 - Spreadsheets: Save Sheet as CSV writes the sheet shown as Excel's CSV UTF-8 does (values as shown, quoted as needed, CR LF), beside the workbook by default, asking before it replaces a file; the workbook is left as it is.
 - Spreadsheets: Show Formulas (Ctrl+`, `g f`) shows the formulas in their cells instead of their values; Calculate Now (F9) computes every formula again, NOW and RAND giving new results.

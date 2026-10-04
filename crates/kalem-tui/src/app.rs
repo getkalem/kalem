@@ -119,6 +119,8 @@ struct Prompt {
     back: usize,
     /// AutoComplete's offer turned down (Delete) until the input changes.
     declined: bool,
+    /// The cells a formula's arrows point at.
+    pointing: Option<kalem_core::formula_edit::Pointing>,
 }
 
 /// A message in the status line.
@@ -1489,6 +1491,7 @@ impl App {
                 input,
                 back: 0,
                 declined: false,
+                pointing: None,
                 kind: PromptKind::Arg {
                     command: id.to_string(),
                     args,
@@ -2120,6 +2123,7 @@ impl App {
             input,
             back: 0,
             declined: false,
+            pointing: None,
         });
         self.dirty = true;
     }
@@ -3881,14 +3885,16 @@ impl App {
         // A cell's entry: Alt+Enter a line break, Ctrl+Enter into every
         // selected cell, AutoComplete's offer taken with Enter or turned
         // down with Delete.
-        if let PromptKind::Arg {
-            command,
-            name,
-            args,
-            ..
-        } = &p.kind
-        {
-            let (command, name) = (command.clone(), name.clone());
+        let entry = match &p.kind {
+            PromptKind::Arg {
+                command,
+                name,
+                args,
+                ..
+            } => Some((command.clone(), name.clone(), args.clone())),
+            _ => None,
+        };
+        if let Some((command, name, args)) = entry {
             let alt = k.modifiers.contains(KeyModifiers::ALT);
             let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
             if k.code == KeyCode::Enter
@@ -3900,6 +3906,12 @@ impl App {
                 self.prompt = Some(p);
                 return;
             }
+            if kalem_core::viewer::cell_entry_prompt(&command, &name)
+                && self.formula_key(&mut p, &k)
+            {
+                self.prompt = Some(p);
+                return;
+            }
             if kalem_core::viewer::cell_entry_prompt(&command, &name) {
                 let offer = self.completion_offer(&p);
                 if k.code == KeyCode::Delete && offer.is_some() {
@@ -3908,7 +3920,7 @@ impl App {
                     return;
                 }
                 if k.code == KeyCode::Enter && ctrl {
-                    let mut args = args.clone();
+                    let mut args = args;
                     args["inRange"] = serde_json::Value::Bool(true);
                     let args =
                         kalem_core::command::with_argument(args, &name, p.input.clone().into());
@@ -4022,6 +4034,85 @@ impl App {
                 }
             }
             _ => {}
+        }
+    }
+
+    /// What a formula being typed into a cell shows over the prompt: the
+    /// arguments of the function it is in, else the names completing it.
+    fn formula_hint_line(&mut self, p: &Prompt) -> Option<String> {
+        let PromptKind::Arg { command, name, .. } = &p.kind else {
+            return None;
+        };
+        if !kalem_core::viewer::cell_entry_prompt(command, name) || !p.input.starts_with('=') {
+            return None;
+        }
+        let len = p.input.chars().count();
+        let at = len - p.back.min(len);
+        let h = self.doc.viewer.as_deref_mut()?.formula_hint(&p.input, at);
+        if !h.completions.is_empty() {
+            return Some(format!("Tab: {}", h.completions.join("  ")));
+        }
+        h.tip
+    }
+
+    /// A formula's keys in a cell's entry: the arrows pointing at cells
+    /// (Shift to a range), F4 cycling the reference's `$`, Tab completing a
+    /// function or a name; any other key ends the pointing. `true` when
+    /// the key was taken.
+    fn formula_key(&mut self, p: &mut Prompt, k: &KeyEvent) -> bool {
+        use kalem_core::formula_edit;
+        let PromptKind::Arg { args, .. } = &p.kind else {
+            return false;
+        };
+        let from = (
+            args.get("row").and_then(Value::as_u64).unwrap_or(0) as u32,
+            args.get("col").and_then(Value::as_u64).unwrap_or(0) as u32,
+        );
+        let Some(v) = self.doc.viewer.as_deref_mut() else {
+            return false;
+        };
+        let len = p.input.chars().count();
+        let at = len - p.back.min(len);
+        let set = |p: &mut Prompt, text: String, cursor: usize| {
+            p.back = text.chars().count() - cursor;
+            p.input = text;
+        };
+        let arrow = match k.code {
+            KeyCode::Up => Some((-1, 0)),
+            KeyCode::Down => Some((1, 0)),
+            KeyCode::Left => Some((0, -1)),
+            KeyCode::Right => Some((0, 1)),
+            _ => None,
+        };
+        if let Some(d) = arrow {
+            let extend = k.modifiers.contains(KeyModifiers::SHIFT);
+            let max = v.grid_max();
+            if let Some((text, cursor)) =
+                formula_edit::point(&mut p.pointing, &p.input, at, from, d, extend, max)
+            {
+                set(p, text, cursor);
+                v.pointer = p.pointing.map(|x| x.range());
+                return true;
+            }
+        }
+        p.pointing = None;
+        v.pointer = None;
+        match k.code {
+            KeyCode::F(4) => {
+                if let Some((text, cursor)) = formula_edit::toggle_absolute(&p.input, at) {
+                    set(p, text, cursor);
+                }
+                true
+            }
+            KeyCode::Tab => {
+                let h = v.formula_hint(&p.input, at);
+                if let Some(c) = h.completions.first() {
+                    let (text, cursor) = formula_edit::complete(&p.input, at, h.typed, c);
+                    set(p, text, cursor);
+                }
+                true
+            }
+            _ => false,
         }
     }
 
@@ -4627,14 +4718,27 @@ impl App {
             self.dirty = false;
             return;
         }
-        let offer = match self.prompt.take() {
+        let (offer, hint) = match self.prompt.take() {
             Some(p) => {
                 let o = self.completion_offer(&p);
+                let h = self.formula_hint_line(&p);
                 self.prompt = Some(p);
-                o
+                (o, h)
             }
-            None => None,
+            None => (None, None),
         };
+        // A formula's argument tip or completions, over the prompt.
+        if let Some(h) = &hint
+            && y > area.y
+        {
+            buf.set_stringn(
+                area.x + 1,
+                y - 1,
+                format!("{h:width$}", width = area.width.saturating_sub(1) as usize),
+                area.width.saturating_sub(1) as usize,
+                bar,
+            );
+        }
         if let Some(p) = &self.prompt {
             buf.set_stringn(
                 area.x + 1,

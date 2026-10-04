@@ -19,7 +19,7 @@ be bound again.
 
 ## E22. Editing formulas
 
-- [ ] E22 While a formula is typed: F4 cycles the reference at the cursor
+- [x] E22 While a formula is typed: F4 cycles the reference at the cursor
   through `$A$1`, `A$1`, `$A1`, `A1`; arrow keys (and the mouse in the
   graphical editor) point at cells and ranges to put their reference in;
   function names and defined names completed, with the function's

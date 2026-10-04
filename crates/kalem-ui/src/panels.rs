@@ -65,6 +65,10 @@ pub struct Palette {
     pub offer: Option<String>,
     /// The offer turned down (Delete) until the input changes.
     pub declined: bool,
+    /// The cells a formula's arrows point at.
+    pub pointing: Option<kalem_core::formula_edit::Pointing>,
+    /// A formula's argument tip or completions.
+    pub hint: Option<String>,
 }
 
 impl Palette {
@@ -98,6 +102,8 @@ impl Palette {
             origin: None,
             offer: None,
             declined: false,
+            pointing: None,
+            hint: None,
         }
     }
 
@@ -474,6 +480,7 @@ impl Editor {
         p.declined = false;
         p.offer = None;
         if !wanted || p.back != 0 {
+            self.refresh_hint();
             return;
         }
         let typed = p.input.clone();
@@ -485,6 +492,110 @@ impl Editor {
         if let Some(p) = &mut self.palette {
             p.offer = offer;
         }
+        self.refresh_hint();
+    }
+
+    /// A formula's argument tip, else its completions, for the palette's
+    /// note.
+    fn refresh_hint(&mut self) {
+        let wanted = self
+            .cell_entry()
+            .is_some_and(|(c, n)| kalem_core::viewer::cell_entry_prompt(&c, &n));
+        let Some(p) = &mut self.palette else { return };
+        p.hint = None;
+        if !wanted || !p.input.starts_with('=') {
+            return;
+        }
+        let len = p.input.chars().count();
+        let at = len - p.back.min(len);
+        let input = p.input.clone();
+        let Some(v) = self.doc.viewer.as_deref_mut() else {
+            return;
+        };
+        let h = v.formula_hint(&input, at);
+        let line = if h.completions.is_empty() {
+            h.tip
+        } else {
+            Some(format!("Tab: {}", h.completions.join("  ")))
+        };
+        if let Some(p) = &mut self.palette {
+            p.hint = line;
+        }
+    }
+
+    /// A formula's keys in a cell's entry: the arrows pointing at cells
+    /// (Shift to a range), F4 cycling the reference's `$`, Tab completing a
+    /// function or a name; any other key ends the pointing.
+    fn formula_key(&mut self, k: &Keystroke, cx: &mut Context<'_, Self>) -> bool {
+        use kalem_core::formula_edit;
+        let Some(p) = &mut self.palette else {
+            return false;
+        };
+        let Some(a) = &p.arg else { return false };
+        let from = (
+            a.args.get("row").and_then(Value::as_u64).unwrap_or(0) as u32,
+            a.args.get("col").and_then(Value::as_u64).unwrap_or(0) as u32,
+        );
+        let Some(v) = self.doc.viewer.as_deref_mut() else {
+            return false;
+        };
+        let len = p.input.chars().count();
+        let at = len - p.back.min(len);
+        let set = |p: &mut Palette, text: String, cursor: usize| {
+            p.back = text.chars().count() - cursor;
+            p.input = text;
+            p.input_changed();
+        };
+        let arrow = match k.key.as_str() {
+            "up" => Some((-1, 0)),
+            "down" => Some((1, 0)),
+            "left" => Some((0, -1)),
+            "right" => Some((0, 1)),
+            _ => None,
+        };
+        let mut taken = false;
+        if let Some(d) = arrow {
+            let max = v.grid_max();
+            if let Some((text, cursor)) = formula_edit::point(
+                &mut p.pointing,
+                &p.input,
+                at,
+                from,
+                d,
+                k.modifiers.shift,
+                max,
+            ) {
+                set(p, text, cursor);
+                v.pointer = p.pointing.map(|x| x.range());
+                taken = true;
+            }
+        }
+        if !taken {
+            p.pointing = None;
+            v.pointer = None;
+            match k.key.as_str() {
+                "f4" => {
+                    if let Some((text, cursor)) = formula_edit::toggle_absolute(&p.input, at) {
+                        set(p, text, cursor);
+                    }
+                    taken = true;
+                }
+                "tab" => {
+                    let h = v.formula_hint(&p.input, at);
+                    if let Some(c) = h.completions.first() {
+                        let (text, cursor) = formula_edit::complete(&p.input, at, h.typed, c);
+                        set(p, text, cursor);
+                    }
+                    taken = true;
+                }
+                _ => {}
+            }
+        }
+        if taken {
+            self.refresh_hint();
+            cx.notify();
+        }
+        taken
     }
 
     /// The keys of a cell's entry: Alt+Enter a line break (in a note too),
@@ -513,6 +624,12 @@ impl Editor {
         if !kalem_core::viewer::cell_entry_prompt(&command, &name) {
             return false;
         }
+        if self.formula_key(k, cx) {
+            return true;
+        }
+        let Some(p) = &mut self.palette else {
+            return false;
+        };
         let offer = p.offer.clone().filter(|_| !p.declined && p.back == 0);
         match k.key.as_str() {
             "delete" if offer.is_some() => {
@@ -856,7 +973,12 @@ impl Editor {
                 note = kalem_core::tr!("search-lines-count", count = n);
                 format!("{}: {typed}", kalem_core::l10n::tr("search-lines"))
             }
-            (Some(a), _, _) => format!("{}  {typed}", a.label),
+            (Some(a), _, _) => {
+                if let Some(h) = &p.hint {
+                    note = h.clone();
+                }
+                format!("{}  {typed}", a.label)
+            }
             (_, Some(k), _) => {
                 if k.partial {
                     note = kalem_core::l10n::tr("pick-walking");
