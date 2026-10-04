@@ -467,6 +467,75 @@ pub enum VAlign {
     Top,
 }
 
+/// One level of a sort: a column, its order, and a custom list whose
+/// order its values follow.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SortKey {
+    /// The column (of the sheet).
+    pub col: u32,
+    /// Largest or last first.
+    pub descending: bool,
+    /// The values in the order they sort in (months, a user's list); the
+    /// others after them.
+    pub list: Option<Vec<String>>,
+}
+
+/// How a filter's custom condition compares a cell.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FilterOp {
+    /// Equals (`*` and `?` as wildcards in text).
+    Equal,
+    /// Does not equal.
+    NotEqual,
+    /// Greater than.
+    Greater,
+    /// Greater than or equal to.
+    GreaterOrEqual,
+    /// Less than.
+    Less,
+    /// Less than or equal to.
+    LessOrEqual,
+    /// Begins with.
+    BeginsWith,
+    /// Ends with.
+    EndsWith,
+    /// Contains.
+    Contains,
+    /// Does not contain.
+    NotContains,
+}
+
+/// What a filter column lets show.
+#[derive(Debug, Clone, PartialEq)]
+pub enum FilterRule {
+    /// The rows showing one of these values (an empty text for empty
+    /// cells).
+    Values(Vec<String>),
+    /// One condition, or two joined with and (`true`) or or.
+    Custom {
+        /// The first condition.
+        first: (FilterOp, String),
+        /// The second, and whether both must hold.
+        second: Option<(bool, FilterOp, String)>,
+    },
+    /// The largest (or with `bottom` the smallest) items or percent.
+    Top {
+        /// How many, or what percent.
+        count: u32,
+        /// `count` is a percent.
+        percent: bool,
+        /// The smallest instead.
+        bottom: bool,
+    },
+    /// Above (or below) the column's average.
+    Average {
+        /// Above it.
+        above: bool,
+    },
+    /// The cells filled with this color.
+    Fill([u8; 3]),
+}
+
 /// What Paste Special takes of the cells copied.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PasteKind {
@@ -1744,6 +1813,47 @@ pub trait ViewerDocument: Send {
         _header: bool,
     ) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Sorts a range's rows by several columns in turn (a spreadsheet's
+    /// Custom Sort), the first row kept in place when `header`. By default
+    /// one key without a list as [`ViewerDocument::sort_range`].
+    fn sort_range_by(
+        &mut self,
+        unit: usize,
+        range: [u32; 4],
+        keys: &[SortKey],
+        header: bool,
+    ) -> Result<Vec<usize>> {
+        match keys {
+            [k] if k.list.is_none() => self.sort_range(unit, range, k.col, k.descending, header),
+            _ => Err(ViewerError("This format sorts by one column".into())),
+        }
+    }
+
+    /// Filters column `col` of the filter by a rule, or clears its filter
+    /// with `None`. By default values as [`ViewerDocument::filter_column`].
+    fn filter_column_by(
+        &mut self,
+        unit: usize,
+        col: u32,
+        rule: Option<FilterRule>,
+    ) -> Result<Vec<usize>> {
+        match rule {
+            None => self.filter_column(unit, col, None),
+            Some(FilterRule::Values(v)) => self.filter_column(unit, col, Some(v)),
+            Some(_) => Err(ViewerError("This format filters by values".into())),
+        }
+    }
+
+    /// The rule a filter column has, if it is one these rules tell.
+    fn column_filter(&mut self, _unit: usize, _col: u32) -> Option<FilterRule> {
+        None
+    }
+
+    /// Applies the filter's rules again to the rows as they are now.
+    fn reapply_filter(&mut self, _unit: usize) -> Result<Vec<usize>> {
+        Ok(Vec::new())
     }
 
     /// Puts a filter on a range (its first row the headers), or takes the
