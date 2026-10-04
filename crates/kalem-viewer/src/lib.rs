@@ -536,6 +536,20 @@ pub enum FilterRule {
     Fill([u8; 3]),
 }
 
+/// A table of a grid (a spreadsheet's Format as Table).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TableInfo {
+    /// Its name, as formulas name it (`Table1[Amount]`).
+    pub name: String,
+    /// Its cells: first row, first column, last row, last column, the
+    /// header row and a total row included.
+    pub range: [u32; 4],
+    /// It has a total row.
+    pub totals: bool,
+    /// Its style's name (`TableStyleMedium2`).
+    pub style: String,
+}
+
 /// What Paste Special takes of the cells copied.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PasteKind {
@@ -1421,6 +1435,33 @@ pub trait ViewerDocument: Send {
         _at: (u32, u32),
         _input: &str,
     ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The tables of a unit.
+    fn tables(&mut self, _unit: usize) -> Vec<TableInfo> {
+        Vec::new()
+    }
+
+    /// Makes a range a table (Format as Table) in a style, its first row
+    /// the headers (else a header row is put over it); the table's name.
+    fn create_table(
+        &mut self,
+        _unit: usize,
+        _range: [u32; 4],
+        _header: bool,
+        _style: &str,
+    ) -> Result<String> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Gives a table a total row, or takes it away.
+    fn set_table_totals(&mut self, _unit: usize, _name: &str, _on: bool) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Turns a table back into a range of cells (Convert to Range).
+    fn remove_table(&mut self, _unit: usize, _name: &str) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
 
