@@ -450,6 +450,9 @@ pub struct GridCell {
     pub valign: VAlign,
     /// The borders: top, right, bottom, left, each its color when drawn.
     pub borders: [Option<[u8; 3]>; 4],
+    /// Which of the borders are thick (medium or thicker), in the same
+    /// order.
+    pub border_thick: [bool; 4],
 }
 
 /// How a cell's text sits between its top and bottom.
