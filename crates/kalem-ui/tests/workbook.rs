@@ -661,6 +661,59 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             .scale
     });
     assert_eq!((sc.min, sc.major, sc.log), (Some(0.0), Some(500.0), false));
+    // Made an area chart, its scale kept, and drawn.
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let a = v.charts().last().unwrap().anchor;
+        v.grid_move_to(a[0], a[1]);
+        e.run_command(
+            "viewer.grid.chartKind",
+            serde_json::json!({ "kind": "area" }),
+            window,
+            cx,
+        );
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    });
+    cx.run_until_parked();
+    let (kind, scale, count) = e.update(cx, |e, _| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let c = v.charts();
+        (c.last().unwrap().kind, c.last().unwrap().scale, c.len())
+    });
+    assert_eq!(kind, kalem_viewer::ChartKind::Area);
+    assert_eq!(scale, sc);
+    // Its first series colored green.
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let a = v.charts().last().unwrap().anchor;
+        v.grid_move_to(a[0], a[1]);
+        e.run_command(
+            "viewer.grid.seriesColor",
+            serde_json::json!({ "series": 0, "color": "#70AD47" }),
+            window,
+            cx,
+        );
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    });
+    cx.run_until_parked();
+    let color = e.update(cx, |e, _| {
+        e.doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .charts()
+            .last()
+            .unwrap()
+            .series[0]
+            .color
+    });
+    assert_eq!(color, Some([0x70, 0xAD, 0x47]));
+    assert!(
+        cx.debug_bounds(Box::leak(
+            format!("viewer-grid-chart-{}", count - 1).into_boxed_str()
+        ))
+        .is_some()
+    );
     assert!(
         cx.debug_bounds(Box::leak(
             format!("viewer-grid-chart-{}", n - 1).into_boxed_str()
