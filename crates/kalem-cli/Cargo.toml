@@ -29,6 +29,8 @@ latex-syntax.workspace = true
 latex-model.workspace = true
 jiff = "0.2"
 clap = { version = "4", features = ["derive"] }
+# Plugins' requests (`kalem.net`).
+ureq = "3"
 serde_json = { version = "1", features = ["unbounded_depth"] }
 stacker = "0.1"
 serde = "1"

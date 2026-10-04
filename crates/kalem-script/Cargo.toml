@@ -19,6 +19,8 @@ kalem-viewer.workspace = true
 [dev-dependencies]
 # Test components are written in the component text format.
 wasmtime = { version = "49", default-features = false, features = ["wat"] }
+# The test plugins' arguments.
+serde_json = "1"
 
 [lints]
 workspace = true

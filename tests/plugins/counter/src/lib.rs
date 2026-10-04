@@ -121,6 +121,19 @@ impl Plugin for Counter {
             }
         })?;
         command("counter.version", Scope::all(), |_| Ok(kalem::version()))?;
+        // Settings: Kalem's read, its own set, read and watched.
+        command("counter.settings", Scope::all(), |_| {
+            let font = kalem_plugin::settings::get("editor.font_size").unwrap_or_default();
+            kalem_plugin::settings::set("greeting", "\"hello\"")?;
+            let own = kalem_plugin::settings::own("greeting").unwrap_or_default();
+            Ok(format!("{font} {own}"))
+        })?;
+        kalem_plugin::settings::watch("greeting", true, |key| {
+            ui::notify(&format!("{key} changed"), Level::Info)
+        })?;
+        kalem_plugin::settings::watch("editor.font_size", false, |key| {
+            ui::notify(&format!("{key} changed"), Level::Info)
+        })?;
         command("counter.ask", Scope::all(), |_| {
             ui::confirm("Sure?", |yes| {
                 ui::notify(if yes { "yes" } else { "no" }, Level::Info)

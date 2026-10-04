@@ -47,6 +47,24 @@ pub trait Extensions: Send {
     /// Tells the plugin of panel `panel` what the user did to its widget
     /// `key`.
     fn panel_event(&mut self, panel: &str, key: &str, event: &PanelEvent);
+
+    /// Tells the plugins watching them that settings `keys` (dotted, as
+    /// `Config::changed_keys` gives them) changed.
+    fn settings_changed(&mut self, keys: &[String]);
+
+    /// Hands the response to request `id` to the plugin that sent it.
+    fn respond(&mut self, id: u64, response: Result<HttpResponse, String>);
+}
+
+/// An HTTP response for a plugin (`kalem.net`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HttpResponse {
+    /// The status code.
+    pub status: u16,
+    /// The headers, by name and value.
+    pub headers: Vec<(String, String)>,
+    /// The body.
+    pub body: Vec<u8>,
 }
 
 /// A question a plugin asks.
@@ -444,6 +462,76 @@ pub fn event(event: &Event) -> Reply {
     match installed.as_mut().and_then(|x| x.event(event)) {
         Some(why) => Reply::Veto(why),
         None => Reply::Continue,
+    }
+}
+
+static CONFIG: Mutex<Option<crate::settings::Config>> = Mutex::new(None);
+
+/// The editors' settings, read by plugins (`kalem.settings`): given at
+/// start and after each reload; the plugins watching a key that changed
+/// are told.
+pub fn set_config(config: &crate::settings::Config) {
+    let changed = {
+        let mut c = CONFIG.lock().unwrap_or_else(|e| e.into_inner());
+        let changed = c.as_ref().map(|old| config.changed_keys(old));
+        *c = Some(config.clone());
+        changed
+    };
+    if let Some(keys) = changed.filter(|k| !k.is_empty()) {
+        let mut installed = INSTALLED.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(x) = installed.as_mut() {
+            x.settings_changed(&keys);
+        }
+    }
+}
+
+/// Setting `parts` (a dotted key's parts) of the editors' settings.
+pub fn setting(parts: &[&str]) -> Option<Value> {
+    CONFIG
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .and_then(|c| c.get_path(parts).cloned())
+}
+
+/// Sets plugin `id`'s own setting `key` to `value` (`null` removes it) in
+/// the user's `settings.toml`, under `[plugins."ID"]`, and has the
+/// editors read the settings again.
+pub fn set_own_setting(id: &str, key: &str, value: &Value) -> Result<(), String> {
+    let path = crate::settings::config_dir()
+        .map(|d| d.join("settings.toml"))
+        .ok_or("No settings folder")?;
+    let text = match std::fs::read_to_string(&path) {
+        Ok(t) => t,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(e) => return Err(format!("{}: {e}", path.display())),
+    };
+    let new = crate::settings::set_in_toml(&text, &["plugins", id, key], value)?;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    crate::files::write(&path, new.as_bytes(), crate::files::SaveOptions::default())
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    queue_run("help.reload", Value::Null);
+    Ok(())
+}
+
+/// The folders of the projects Kalem knows, where a plugin's
+/// `fs:*:workspace` permission reaches.
+pub fn workspace() -> Vec<std::path::PathBuf> {
+    kalem_project::Projects::load(crate::projects::list_file())
+        .list
+        .into_iter()
+        .map(|p| p.root)
+        .collect()
+}
+
+/// Hands the response to request `id` to its plugin (from the thread
+/// that fetched it).
+pub fn respond(id: u64, response: Result<HttpResponse, String>) {
+    let mut installed = INSTALLED.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(x) = installed.as_mut() {
+        x.respond(id, response);
     }
 }
 

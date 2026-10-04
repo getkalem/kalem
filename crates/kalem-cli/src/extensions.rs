@@ -22,7 +22,10 @@ use kalem_script::{Host, Limits};
 
 /// The editor as a plugin reaches it: `kalem_core::extensions` and the
 /// background notices.
-struct Bridge;
+struct Bridge {
+    /// The plugin's manifest ID, its settings' table.
+    id: String,
+}
 
 impl Editor for Bridge {
     fn add_command(&mut self, plugin: &str, spec: &x::CommandSpec) -> Result<(), String> {
@@ -148,6 +151,77 @@ impl Editor for Bridge {
     fn remove_panel(&mut self, id: &str) {
         kalem_core::extensions::remove_panel(id);
     }
+
+    fn setting(&mut self, key: &str) -> Option<String> {
+        let parts: Vec<&str> = key.split('.').collect();
+        kalem_core::extensions::setting(&parts).map(|v| v.to_string())
+    }
+
+    fn own_setting(&mut self, _plugin: &str, key: &str) -> Option<String> {
+        kalem_core::extensions::setting(&["plugins", &self.id, key]).map(|v| v.to_string())
+    }
+
+    fn set_own_setting(&mut self, _plugin: &str, key: &str, value: &str) -> Result<(), String> {
+        let value: serde_json::Value =
+            serde_json::from_str(value).map_err(|e| format!("The value: {e}"))?;
+        kalem_core::extensions::set_own_setting(&self.id, key, &value)
+    }
+
+    fn workspace(&mut self) -> Vec<PathBuf> {
+        kalem_core::extensions::workspace()
+    }
+
+    fn fetch(&mut self, _plugin: &str, id: u64, request: x::http::Request) {
+        let _ = std::thread::Builder::new()
+            .name("kalem-plugin-fetch".into())
+            .spawn(move || {
+                let response = fetch(&request);
+                kalem_core::extensions::respond(id, response);
+            });
+    }
+}
+
+/// Sends a plugin's request, its 4xx and 5xx answers too; the body
+/// at most [`x::MAX_BYTES`].
+fn fetch(r: &x::http::Request) -> Result<kalem_core::extensions::HttpResponse, String> {
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .http_status_as_error(false)
+        .timeout_global(Some(std::time::Duration::from_secs(60)))
+        .build()
+        .into();
+    let mut builder = ureq::http::Request::builder()
+        .method(r.method.as_str())
+        .uri(r.url.as_str())
+        .header("User-Agent", concat!("Kalem/", env!("CARGO_PKG_VERSION")));
+    for h in &r.headers {
+        builder = builder.header(h.name.as_str(), h.value.as_str());
+    }
+    let request = builder
+        .body(r.body.clone().unwrap_or_default())
+        .map_err(|e| e.to_string())?;
+    let mut response = agent.run(request).map_err(|e| e.to_string())?;
+    let status = response.status().as_u16();
+    let headers = response
+        .headers()
+        .iter()
+        .map(|(n, v)| {
+            (
+                n.to_string(),
+                String::from_utf8_lossy(v.as_bytes()).into_owned(),
+            )
+        })
+        .collect();
+    let body = response
+        .body_mut()
+        .with_config()
+        .limit(x::MAX_BYTES as u64)
+        .read_to_vec()
+        .map_err(|e| e.to_string())?;
+    Ok(kalem_core::extensions::HttpResponse {
+        status,
+        headers,
+        body,
+    })
 }
 
 /// A widget in the core's terms.
@@ -215,6 +289,10 @@ thread_local! {
 struct Loaded {
     /// Its short ID, its commands' prefix.
     id: String,
+    /// Its manifest's ID.
+    full: String,
+    /// What its manifest permits.
+    grants: x::Grants,
     file: PathBuf,
     activation: Vec<String>,
     limits: Limits,
@@ -239,7 +317,10 @@ impl Plugins {
         let l = &mut self.list[i];
         let started = host
             .load_file(&l.file)
-            .and_then(|plugin| Extension::new(&host, &plugin, &l.id, Box::new(Bridge), l.limits))
+            .and_then(|plugin| {
+                let bridge = Box::new(Bridge { id: l.full.clone() });
+                Extension::new(&host, &plugin, &l.id, bridge, l.grants.clone(), l.limits)
+            })
             .map_err(|e| e.to_string())
             .and_then(|mut ext| match ext.activate() {
                 Ok(Ok(())) => Ok(ext),
@@ -345,6 +426,54 @@ impl kalem_core::extensions::Extensions for Plugins {
                 continue;
             };
             match ext.answer(request, answer.clone()) {
+                Ok(true) => return,
+                Ok(false) => {}
+                Err(e) => return self.fail(i, &e),
+            }
+        }
+    }
+
+    fn settings_changed(&mut self, keys: &[String]) {
+        for i in 0..self.list.len() {
+            PLUGIN.with(|p| p.set(i as u64 + 1));
+            let table = format!("plugins.{}", self.list[i].full);
+            let Some(ext) = self.list[i].extension.as_mut() else {
+                continue;
+            };
+            for (key, own) in ext.watches() {
+                let full = if own {
+                    format!("{table}.{key}")
+                } else {
+                    key.clone()
+                };
+                // The key, or a table holding it that came or went whole.
+                let changed = keys
+                    .iter()
+                    .any(|k| full == *k || full.starts_with(&format!("{k}.")));
+                if changed && let Err(e) = ext.setting_changed(&key, own) {
+                    self.fail(i, &e);
+                    break;
+                }
+            }
+        }
+    }
+
+    fn respond(&mut self, id: u64, response: Result<kalem_core::extensions::HttpResponse, String>) {
+        let response = response.map(|r| x::http::Response {
+            status: r.status,
+            headers: r
+                .headers
+                .into_iter()
+                .map(|(name, value)| x::http::Header { name, value })
+                .collect(),
+            body: r.body,
+        });
+        for i in 0..self.list.len() {
+            PLUGIN.with(|p| p.set(i as u64 + 1));
+            let Some(ext) = self.list[i].extension.as_mut() else {
+                continue;
+            };
+            match ext.respond(id, response.clone()) {
                 Ok(true) => return,
                 Ok(false) => {}
                 Err(e) => return self.fail(i, &e),
@@ -535,6 +664,8 @@ fn installed() -> Vec<Loaded> {
         };
         list.push(Loaded {
             id: p.id.rsplit('.').next().unwrap_or(&p.id).to_string(),
+            full: p.id.clone(),
+            grants: x::Grants::from_permissions(&strings(&m["permissions"])),
             file: p.dir.join(main),
             activation,
             limits,

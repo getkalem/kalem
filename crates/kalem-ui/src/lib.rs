@@ -31,6 +31,9 @@ use kalem_core::settings::{self, Config};
 
 /// The shared state: settings, commands and keys.
 pub fn shared(config: Config) -> editor::Shared {
+    // What plugins read (`kalem.settings`); those watching a key that
+    // changed are told.
+    kalem_core::extensions::set_config(&config);
     let registry = CommandRegistry::with_builtins();
     let user = settings::config_dir().map(|d| d.join("keymap.json"));
     let (entries, mut issues) = match user.as_deref().map(std::fs::read_to_string) {

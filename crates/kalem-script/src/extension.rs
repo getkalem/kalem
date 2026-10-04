@@ -30,10 +30,119 @@ mod bindings {
 pub use api::{CommandSpec, Event, EventKind, Reply, Scope};
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
+pub use bindings::kalem::plugin::{fs, http, net, settings};
 pub use ui::{
     Answer, Level, PanelEvent, PanelSpec, PickItem, PickOptions, PromptOptions, StatusOptions,
     WidgetKind, WidgetTree,
 };
+
+/// The most a file read through `fs`, or a response, holds.
+pub const MAX_BYTES: usize = 16 << 20;
+
+/// What a plugin's manifest permits (§11.6), from its `permissions`:
+/// `fs:read:workspace`, `fs:write:workspace`, `fs:read:all`,
+/// `net:fetch:DOMAIN` (`*` for any). The `fs` and `net` interfaces are
+/// granted only with one of theirs; others (`subprocess`) are not the
+/// host's.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Grants {
+    /// Read in the projects' folders.
+    pub read_workspace: bool,
+    /// Read and write in the projects' folders.
+    pub write_workspace: bool,
+    /// Read anywhere.
+    pub read_all: bool,
+    /// The domains fetched from.
+    pub domains: Vec<String>,
+}
+
+impl Grants {
+    /// The grants of a manifest's permissions; unknown ones grant nothing.
+    pub fn from_permissions<S: AsRef<str>>(permissions: &[S]) -> Grants {
+        let mut g = Grants::default();
+        for p in permissions {
+            match p.as_ref() {
+                "fs:read:workspace" => g.read_workspace = true,
+                "fs:write:workspace" => g.write_workspace = true,
+                "fs:read:all" => g.read_all = true,
+                p => {
+                    if let Some(d) = p.strip_prefix("net:fetch:")
+                        && !d.is_empty()
+                    {
+                        g.domains.push(d.to_ascii_lowercase());
+                    }
+                }
+            }
+        }
+        g
+    }
+
+    /// Whether the `fs` interface is granted.
+    pub fn fs(&self) -> bool {
+        self.read_workspace || self.write_workspace || self.read_all
+    }
+
+    /// Whether the `net` interface is granted.
+    pub fn net(&self) -> bool {
+        !self.domains.is_empty()
+    }
+
+    /// Whether `url` (`http` or `https`) is on a granted domain or under
+    /// one.
+    pub fn allows_url(&self, url: &str) -> bool {
+        let Some(rest) = url
+            .strip_prefix("https://")
+            .or_else(|| url.strip_prefix("http://"))
+        else {
+            return false;
+        };
+        let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+        let host_port = authority.rsplit('@').next().unwrap_or("");
+        let host = host_port
+            .split(':')
+            .next()
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        !host.is_empty()
+            && self
+                .domains
+                .iter()
+                .any(|d| d == "*" || host == *d || host.ends_with(&format!(".{d}")))
+    }
+}
+
+/// `path` as it is on disk: absolute, its links followed for the part
+/// that exists, no `..` in it.
+fn real_path(path: &str) -> Result<std::path::PathBuf, String> {
+    use std::path::{Component, Path};
+    let p = Path::new(path);
+    if !p.is_absolute() {
+        return Err(format!("`{path}` is not an absolute path"));
+    }
+    if p.components().any(|c| matches!(c, Component::ParentDir)) {
+        return Err(format!("`{path}` goes up with `..`"));
+    }
+    // The longest part that exists, followed through its links, and the
+    // rest as written.
+    let mut existing = p.to_path_buf();
+    let mut rest = Vec::new();
+    while !existing.exists() {
+        match (existing.file_name(), existing.parent()) {
+            (Some(n), Some(parent)) => {
+                rest.push(n.to_os_string());
+                existing = parent.to_path_buf();
+            }
+            _ => break,
+        }
+    }
+    let mut real = existing
+        .canonicalize()
+        .map_err(|e| format!("{path}: {e}"))?;
+    for n in rest.into_iter().rev() {
+        real.push(n);
+    }
+    Ok(real)
+}
 
 /// The most widgets a panel's tree holds.
 pub const MAX_WIDGETS: usize = 10_000;
@@ -113,6 +222,23 @@ pub trait Editor: Send + 'static {
 
     /// Removes panel `id`.
     fn remove_panel(&mut self, id: &str);
+
+    /// Kalem's setting `key` as JSON.
+    fn setting(&mut self, key: &str) -> Option<String>;
+
+    /// Plugin `plugin`'s own setting `key` as JSON.
+    fn own_setting(&mut self, plugin: &str, key: &str) -> Option<String>;
+
+    /// Sets plugin `plugin`'s own setting `key` to `value` (JSON, `null`
+    /// removing it) in the user's settings.
+    fn set_own_setting(&mut self, plugin: &str, key: &str, value: &str) -> Result<(), String>;
+
+    /// The folders of the projects, where `fs:*:workspace` reaches.
+    fn workspace(&mut self) -> Vec<std::path::PathBuf>;
+
+    /// Sends `request` (its URL granted) for plugin `plugin`; the response
+    /// goes to [`Extension::respond`] with `id`.
+    fn fetch(&mut self, plugin: &str, id: u64, request: http::Request);
 }
 
 /// A plugin's registration, behind its `disposable` handle.
@@ -129,6 +255,7 @@ enum What {
     Subscription(EventKind),
     Status(String),
     Panel(String),
+    Watch(String, bool),
 }
 
 /// What an extension plugin's store holds: the editor, and what the
@@ -141,6 +268,9 @@ pub struct Session {
     registered: BTreeMap<u64, What>,
     /// The questions not yet answered.
     asked: BTreeSet<u64>,
+    grants: Grants,
+    /// The requests not yet answered.
+    fetching: BTreeSet<u64>,
 }
 
 impl std::fmt::Debug for Session {
@@ -167,7 +297,7 @@ impl Session {
             Some(What::Binding) => self.editor.remove_binding(id),
             Some(What::Status(s)) => self.editor.remove_status(&self.plugin, &s),
             Some(What::Panel(p)) => self.editor.remove_panel(&p),
-            Some(What::Subscription(_)) | None => {}
+            Some(What::Subscription(_) | What::Watch(..)) | None => {}
         }
     }
 
@@ -341,6 +471,124 @@ impl ui::Host for Session {
     }
 }
 
+impl settings::Host for Session {
+    fn get(&mut self, key: String) -> Option<String> {
+        self.editor.setting(&key)
+    }
+
+    fn own(&mut self, key: String) -> Option<String> {
+        self.editor.own_setting(&self.plugin, &key)
+    }
+
+    fn set(&mut self, key: String, value: String) -> Result<(), String> {
+        if key.is_empty() || key.contains(['.', '"', '[', ']']) {
+            return Err(format!("`{key}` is not a setting's name"));
+        }
+        check_value(&value)?;
+        self.editor.set_own_setting(&self.plugin, &key, &value)
+    }
+
+    fn watch(&mut self, key: String, own: bool) -> Result<Resource<Registration>, String> {
+        self.register(What::Watch(key, own))
+            .map_err(|e| e.to_string())
+    }
+}
+
+/// Whether `text` is JSON, without a JSON library: what the editor parses
+/// later reports the rest.
+fn check_value(text: &str) -> Result<(), String> {
+    if text.trim().is_empty() {
+        return Err("No value: `null` removes a setting".into());
+    }
+    Ok(())
+}
+
+impl Session {
+    /// `path` when the plugin's grants reach it, for writing or reading.
+    fn reach(&mut self, path: &str, write: bool) -> Result<std::path::PathBuf, String> {
+        let real = real_path(path)?;
+        if !write && self.grants.read_all {
+            return Ok(real);
+        }
+        let granted = if write {
+            self.grants.write_workspace
+        } else {
+            self.grants.read_workspace || self.grants.write_workspace
+        };
+        let inside = granted
+            && self
+                .editor
+                .workspace()
+                .iter()
+                .filter_map(|r| r.canonicalize().ok())
+                .any(|r| real.starts_with(r));
+        if inside {
+            Ok(real)
+        } else {
+            Err(format!(
+                "`{path}` is outside what the plugin may {}",
+                if write { "write" } else { "read" }
+            ))
+        }
+    }
+}
+
+impl fs::Host for Session {
+    fn read(&mut self, path: String) -> Result<String, String> {
+        let real = self.reach(&path, false)?;
+        let len = std::fs::metadata(&real)
+            .map_err(|e| format!("{path}: {e}"))?
+            .len();
+        if len > MAX_BYTES as u64 {
+            return Err(format!("{path} is larger than {} MB", MAX_BYTES >> 20));
+        }
+        let bytes = std::fs::read(&real).map_err(|e| format!("{path}: {e}"))?;
+        String::from_utf8(bytes).map_err(|_| format!("{path} is not UTF-8 text"))
+    }
+
+    fn write(&mut self, path: String, text: String) -> Result<(), String> {
+        let real = self.reach(&path, true)?;
+        if let Some(dir) = real.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| format!("{path}: {e}"))?;
+        }
+        std::fs::write(&real, text).map_err(|e| format!("{path}: {e}"))
+    }
+
+    fn list(&mut self, dir: String) -> Result<Vec<String>, String> {
+        let real = self.reach(&dir, false)?;
+        let mut out: Vec<String> = std::fs::read_dir(&real)
+            .map_err(|e| format!("{dir}: {e}"))?
+            .filter_map(Result::ok)
+            .map(|e| {
+                let p = e.path().to_string_lossy().into_owned();
+                if e.file_type().is_ok_and(|t| t.is_dir()) {
+                    format!("{p}/")
+                } else {
+                    p
+                }
+            })
+            .collect();
+        out.sort();
+        Ok(out)
+    }
+}
+
+impl net::Host for Session {
+    fn fetch(&mut self, request: http::Request) -> Result<u64, String> {
+        if !self.grants.allows_url(&request.url) {
+            return Err(format!(
+                "{} is not on a domain the plugin may fetch from",
+                request.url
+            ));
+        }
+        self.next += 1;
+        let id = self.next;
+        self.fetching.insert(id);
+        self.editor.fetch(&self.plugin, id, request);
+        Ok(id)
+    }
+}
+
 /// Whether `tree` is one, as the editors render it: widgets there are, at
 /// most [`MAX_WIDGETS`], each child after its parent and under one parent
 /// only, every widget but the root under one, children only in columns,
@@ -445,13 +693,16 @@ impl std::fmt::Debug for Extension {
 }
 
 impl Extension {
-    /// Instantiates `plugin`, known as `id`, granted the `kalem`
-    /// interface over `editor`, and nothing else.
+    /// Instantiates `plugin`, known as `id`, granted the `kalem`, `ui` and
+    /// `settings` interfaces over `editor`, and `fs` and `net` when
+    /// `grants` permit; a plugin importing what it was not granted is
+    /// refused, the interface named.
     pub fn new(
         host: &crate::Host,
         plugin: &crate::Plugin,
         id: &str,
         editor: Box<dyn Editor>,
+        grants: Grants,
         limits: crate::Limits,
     ) -> crate::Result<Extension> {
         let mut linker = host.linker::<Session>();
@@ -463,6 +714,25 @@ impl Extension {
             &mut d.user
         })
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        settings::add_to_linker::<_, HasSelf<Session>>(
+            &mut linker,
+            |d: &mut crate::Data<Session>| &mut d.user,
+        )
+        .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        if grants.fs() {
+            fs::add_to_linker::<_, HasSelf<Session>>(
+                &mut linker,
+                |d: &mut crate::Data<Session>| &mut d.user,
+            )
+            .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        }
+        if grants.net() {
+            net::add_to_linker::<_, HasSelf<Session>>(
+                &mut linker,
+                |d: &mut crate::Data<Session>| &mut d.user,
+            )
+            .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        }
         let session = Session {
             plugin: id.to_string(),
             editor,
@@ -470,6 +740,8 @@ impl Extension {
             next: 0,
             registered: BTreeMap::new(),
             asked: BTreeSet::new(),
+            grants,
+            fetching: BTreeSet::new(),
         };
         let mut instance = plugin.instantiate(host, &linker, session, limits)?;
         let api = instance.bindings(|store, i| bindings::Extension::new(store, i))?;
@@ -566,6 +838,51 @@ impl Extension {
         let p = self.api.kalem_plugin_plugin();
         self.instance
             .run(|s| p.call_on_panel(s, panel, key, event))?;
+        Ok(true)
+    }
+
+    /// Tells the plugin that setting `key` (Kalem's, or with `own` its
+    /// own) changed, when it watches it; `false` when it does not.
+    pub fn setting_changed(&mut self, key: &str, own: bool) -> crate::Result<bool> {
+        if self
+            .instance
+            .data()
+            .find(&What::Watch(key.to_string(), own))
+            .is_none()
+        {
+            return Ok(false);
+        }
+        let p = self.api.kalem_plugin_plugin();
+        self.instance.run(|s| p.call_on_setting(s, key, own))?;
+        Ok(true)
+    }
+
+    /// The settings the plugin watches: Kalem's, and (`true`) its own.
+    pub fn watches(&self) -> Vec<(String, bool)> {
+        self.instance
+            .data()
+            .registered
+            .values()
+            .filter_map(|w| match w {
+                What::Watch(k, own) => Some((k.clone(), *own)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Hands the response to request `id` to the plugin; `false` when it
+    /// did not send it, or it was answered.
+    pub fn respond(
+        &mut self,
+        id: u64,
+        response: Result<http::Response, String>,
+    ) -> crate::Result<bool> {
+        if !self.instance.data_mut().fetching.remove(&id) {
+            return Ok(false);
+        }
+        let p = self.api.kalem_plugin_plugin();
+        self.instance
+            .run(|s| p.call_on_response(s, id, response.as_ref().map_err(String::as_str)))?;
         Ok(true)
     }
 

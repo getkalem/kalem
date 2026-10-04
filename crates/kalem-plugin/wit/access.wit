@@ -1,0 +1,77 @@
+package kalem:plugin@0.1.0;
+
+/// Settings (design §11.4's `kalem.settings`): Kalem's, read, and the
+/// plugin's own, kept in the user's `settings.toml` under
+/// `[plugins."ID"]`. Values cross as JSON.
+interface settings {
+    use kalem.{disposable};
+
+    /// Kalem's setting `key` (`editor.font_size`); none when it has no
+    /// value.
+    get: func(key: string) -> option<string>;
+
+    /// The plugin's own setting `key`.
+    %own: func(key: string) -> option<string>;
+
+    /// Sets the plugin's own setting `key` in the user's settings
+    /// (`null` removes it); the editors read the settings again.
+    set: func(key: string, value: string) -> result<_, string>;
+
+    /// Watches a setting, Kalem's or (`own`) the plugin's: each change
+    /// arrives at the plugin's `on-setting`.
+    watch: func(key: string, %own: bool) -> result<disposable, string>;
+}
+
+/// Files (§11.4's `kalem.fs`), granted only by a permission of the
+/// manifest (§11.6): `fs:read:workspace` and `fs:write:workspace` reach
+/// the folders of the projects Kalem knows, `fs:read:all` reads anywhere.
+/// Paths are absolute; a link out of a granted folder is refused.
+interface fs {
+    /// A text file's text (at most 16 MB).
+    read: func(path: string) -> result<string, string>;
+
+    /// Writes a text file, its folder made when missing.
+    write: func(path: string, text: string) -> result<_, string>;
+
+    /// A folder's entries: their paths, folders ending in `/`.
+    %list: func(dir: string) -> result<list<string>, string>;
+}
+
+/// HTTP's records, shared by `net` and the plugin's `on-response`: types
+/// only, so a plugin that never fetches imports no `net`.
+interface http {
+    /// A header of a request or a response.
+    record header {
+        name: string,
+        value: string,
+    }
+
+    /// An HTTP request.
+    record request {
+        /// `GET`, `POST`, …
+        method: string,
+        /// An `https` or `http` URL.
+        url: string,
+        headers: list<header>,
+        body: option<list<u8>>,
+    }
+
+    /// An HTTP response (its body at most 16 MB).
+    record response {
+        status: u16,
+        headers: list<header>,
+        body: list<u8>,
+    }
+}
+
+/// The network (§11.4's `kalem.net`), granted only by a permission of the
+/// manifest: `net:fetch:DOMAIN` reaches that domain and its subdomains,
+/// `net:fetch:*` any. A fetch does not wait: the call returns the
+/// request's number, and the response arrives at the plugin's
+/// `on-response`.
+interface net {
+    use http.{request};
+
+    /// Sends `request`; refused at once when its domain is not granted.
+    fetch: func(request: request) -> result<u64, string>;
+}
