@@ -550,6 +550,48 @@ pub struct TableInfo {
     pub style: String,
 }
 
+/// How a sheet prints (a spreadsheet's Page Layout).
+#[derive(Debug, Clone, PartialEq)]
+pub struct PageSetup {
+    /// Landscape rather than portrait.
+    pub landscape: bool,
+    /// The paper, as a spreadsheet's code: 1 Letter, 5 Legal, 8 A3, 9 A4.
+    pub paper: u32,
+    /// Margins in inches: left, right, top, bottom.
+    pub margins: [f32; 4],
+    /// Scaled to fit one page wide.
+    pub fit_width: bool,
+    /// What prints (first row, first column, last row, last column);
+    /// `None` the used range.
+    pub print_area: Option<[u32; 4]>,
+    /// Rows repeated at the top of every page (first and last).
+    pub title_rows: Option<(u32, u32)>,
+    /// The header, in a spreadsheet's codes (`&C&A` the sheet's name in
+    /// the middle, `&P` the page, `&N` the pages, `&D` the date, `&F` the
+    /// file, `&L` and `&R` the sides).
+    pub header: String,
+    /// The footer, likewise.
+    pub footer: String,
+    /// The rows a new page begins at.
+    pub row_breaks: Vec<u32>,
+}
+
+impl Default for PageSetup {
+    fn default() -> Self {
+        PageSetup {
+            landscape: false,
+            paper: 9,
+            margins: [0.7, 0.7, 0.75, 0.75],
+            fit_width: false,
+            print_area: None,
+            title_rows: None,
+            header: String::new(),
+            footer: String::new(),
+            row_breaks: Vec::new(),
+        }
+    }
+}
+
 /// What Paste Special takes of the cells copied.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PasteKind {
@@ -1435,6 +1477,16 @@ pub trait ViewerDocument: Send {
         _at: (u32, u32),
         _input: &str,
     ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// How a unit prints.
+    fn page_setup(&mut self, _unit: usize) -> Option<PageSetup> {
+        None
+    }
+
+    /// Sets how a unit prints.
+    fn set_page_setup(&mut self, _unit: usize, _setup: &PageSetup) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
 
