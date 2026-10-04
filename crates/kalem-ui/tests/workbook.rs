@@ -1609,10 +1609,15 @@ fn typing_on_a_cell(cx: &mut TestAppContext) {
         is_held: false,
         prefer_character_input: false,
     };
-    for k in ["4", "2", "enter"] {
+    for k in ["4", "2"] {
         e.update_in(cx, |e, window, cx| e.key_down(&key(k), window, cx));
         cx.run_until_parked();
     }
+    // Shown in the cell as typed.
+    assert!(cx.debug_bounds("viewer-grid-entry").is_some());
+    e.update_in(cx, |e, window, cx| e.key_down(&key("enter"), window, cx));
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("viewer-grid-entry").is_none());
     let t = e.update(cx, |e, _| {
         let v = e.doc.viewer.as_deref_mut().unwrap();
         v.grid_move_to(10, 1);

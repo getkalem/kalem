@@ -543,6 +543,9 @@ impl Editor {
     /// moves the cursor, a double click edits, the wheel scrolls.
     fn grid_element(&mut self, window: &mut Window, cx: &mut Context<'_, Editor>) -> Div {
         let theme = self.theme.clone();
+        // A cell's entry being typed: its cell, the text before the cursor
+        // and after it, shown in the cell as typed, as Excel does.
+        let entry = self.cell_being_typed();
         let entity = cx.entity();
         let run = |text: &str| gpui::TextRun {
             len: text.len(),
@@ -722,7 +725,10 @@ impl Editor {
             }
         }
         // The cursor's cell in full, as entered: the formula bar.
-        let input = v.cell_input();
+        let input = match &entry {
+            Some((_, _, before, after)) => format!("{before}{after}"),
+            None => v.cell_input(),
+        };
         let has_list = v.cursor_has_list();
         let editable = layout.editable;
         let sel_name = v.selection_name();
@@ -1314,6 +1320,38 @@ impl Editor {
                     .border_2()
                     .border_dashed()
                     .border_color(theme.link),
+            )
+        });
+        let entry_mark = entry.as_ref().and_then(|(r, c, before, after)| {
+            let (x0, w) = col_x.get(c).copied()?;
+            let (y0, h) = row_y.get(r).copied()?;
+            let one = |t: &str| SharedString::from(t.replace('\n', "↵"));
+            Some(
+                div()
+                    .debug_selector(|| "viewer-grid-entry".into())
+                    .absolute()
+                    .left(px(x0))
+                    .top(px(y0))
+                    .min_w(px(w))
+                    .h(px(h))
+                    .px(px(PAD))
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .whitespace_nowrap()
+                    .bg(theme.background)
+                    .text_color(theme.foreground)
+                    .border_2()
+                    .border_color(theme.caret)
+                    .child(one(before))
+                    .child(
+                        div()
+                            .flex_none()
+                            .w(px(1.5))
+                            .h(px((h - 6.0).max(4.0)))
+                            .bg(theme.caret),
+                    )
+                    .child(one(after)),
             )
         });
         let merges: Vec<_> = layout
@@ -2126,6 +2164,7 @@ impl Editor {
                     .children(charts)
                     .children(drawing_views)
                     .children(cut_mark)
+                    .children(entry_mark)
                     .children(fill_frame)
                     .children(move_frame)
                     .children(move_edges)

@@ -4553,7 +4553,61 @@ impl App {
             buf,
             area,
         );
+        self.draw_cell_entry(buf, area);
         None
+    }
+
+    /// A cell's entry being typed, shown in its cell as typed (as Excel
+    /// does), running on to the right as it grows; the cursor marked.
+    fn draw_cell_entry(&mut self, buf: &mut ratatui::buffer::Buffer, area: Rect) {
+        let Some(p) = &self.prompt else { return };
+        let PromptKind::Arg {
+            command,
+            args,
+            name,
+            ..
+        } = &p.kind
+        else {
+            return;
+        };
+        if command != "viewer.grid.setCell" || name != "value" {
+            return;
+        }
+        let (Some(r), Some(c)) = (
+            args.get("row").and_then(Value::as_u64),
+            args.get("col").and_then(Value::as_u64),
+        ) else {
+            return;
+        };
+        let Some(hits) = self.doc.viewer.as_deref().and_then(|v| v.hits.as_ref()) else {
+            return;
+        };
+        let (Some(&(_, x, w)), Some(&(_, y))) = (
+            hits.cols.iter().find(|h| u64::from(h.0) == c),
+            hits.rows.iter().find(|h| u64::from(h.0) == r),
+        ) else {
+            return;
+        };
+        let (before, after) = kalem_core::line_edit::split(&p.input, p.back);
+        let text = format!("{before}{after}").replace('\n', "↵");
+        let caret = before.replace('\n', "↵").chars().count();
+        let width = (text.chars().count() as u16 + 1)
+            .max(w)
+            .min(area.right().saturating_sub(x));
+        let style = ratatui::style::Style::default().add_modifier(ratatui::style::Modifier::BOLD);
+        let mut chars = text.chars();
+        for i in 0..width {
+            let ch = chars.next().unwrap_or(' ');
+            if let Some(cell) = buf.cell_mut((x + i, y)) {
+                cell.reset();
+                cell.set_char(ch);
+                let mut st = style;
+                if i as usize == caret {
+                    st = st.add_modifier(ratatui::style::Modifier::REVERSED);
+                }
+                cell.set_style(st);
+            }
+        }
     }
 
     /// Inserts a link to `file` in the text document shown last, which is

@@ -4363,11 +4363,19 @@ fn formatting_the_rest() {
 fn typing_on_a_cell() {
     let mut t = T::open("typed");
     t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(10, 1);
-    for c in ['4', '2'] {
+    for c in ['4', '2', '7'] {
         t.key(KeyCode::Char(c));
     }
+    // Shown in the cell as typed, on row 11's line.
+    let s = t.screen();
+    let line = s
+        .lines()
+        .find(|l| l.trim_start().starts_with("11 "))
+        .unwrap_or_default()
+        .to_owned();
+    assert!(line.contains("427"), "{s}");
     t.key(KeyCode::Enter);
     let v = t.app.doc.viewer.as_deref_mut().unwrap();
     v.grid_move_to(10, 1);
-    assert_eq!(v.cell_input(), "42");
+    assert_eq!(v.cell_input(), "427");
 }

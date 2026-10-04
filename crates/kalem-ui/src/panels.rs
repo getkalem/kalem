@@ -472,6 +472,20 @@ impl Editor {
 
     /// The command and argument a cell's entry is asked for, when the
     /// palette asks for one.
+    /// A cell's entry being typed: its row and column, the text before
+    /// the cursor and after it.
+    pub(crate) fn cell_being_typed(&self) -> Option<(u32, u32, String, String)> {
+        let p = self.palette.as_ref()?;
+        let a = p.arg.as_ref()?;
+        if a.command != "viewer.grid.setCell" || a.name != "value" {
+            return None;
+        }
+        let r = u32::try_from(a.args.get("row")?.as_u64()?).ok()?;
+        let c = u32::try_from(a.args.get("col")?.as_u64()?).ok()?;
+        let (before, after) = kalem_core::line_edit::split(&p.input, p.back);
+        Some((r, c, before.to_owned(), after.to_owned()))
+    }
+
     fn cell_entry(&self) -> Option<(String, String)> {
         let a = self.palette.as_ref()?.arg.as_ref()?;
         Some((a.command.clone(), a.name.clone()))
