@@ -1291,6 +1291,21 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// Removes the rows of a range (first row, first column, last row,
+    /// last column) that repeat an earlier row in `columns`, as a
+    /// spreadsheet's Remove Duplicates: the rows after them move up within
+    /// the range; its first row is left as headers when `header`. How many
+    /// rows went.
+    fn remove_duplicates(
+        &mut self,
+        _unit: usize,
+        _range: [u32; 4],
+        _columns: &[u32],
+        _header: bool,
+    ) -> Result<usize> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
     /// Gives a cell a note, or takes it away (`None`).
     fn set_note(
         &mut self,
