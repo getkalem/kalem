@@ -456,6 +456,15 @@ interface grid {
     /// Grouped rows and columns: each with its level.
     type levels = tuple<list<tuple<u32, u8>>, list<tuple<u32, u8>>>;
 
+    /// How a sheet is shown.
+    record view-settings {
+        zoom: u16,
+        gridlines: bool,
+        headings: bool,
+        page-break-preview: bool,
+        split: option<range>,
+    }
+
     /// A comment of a thread.
     record thread-comment {
         author: string,
@@ -626,6 +635,8 @@ interface grid {
     add-scenario: func(doc: borrow<document>, unit: u32, name: string, cells: list<tuple<u32, u32>>, comment: string) -> changed;
     show-scenario: func(doc: borrow<document>, unit: u32, name: string) -> changed;
     delete-scenario: func(doc: borrow<document>, unit: u32, name: string) -> changed;
+    sheet-view: func(doc: borrow<document>, unit: u32) -> view-settings;
+    set-sheet-view: func(doc: borrow<document>, unit: u32, view: view-settings) -> changed;
     tab-color: func(doc: borrow<document>, unit: u32) -> option<rgb>;
     set-tab-color: func(doc: borrow<document>, unit: u32, color: option<rgb>) -> changed;
     threads: func(doc: borrow<document>, unit: u32) -> list<comment-thread>;

@@ -472,6 +472,35 @@ pub struct GridCell {
     pub thread: bool,
 }
 
+/// How a sheet is shown, as its file keeps it (Excel's View tab).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SheetView {
+    /// The zoom, in percent (10 to 400).
+    pub zoom: u16,
+    /// Gridlines drawn between the cells.
+    pub gridlines: bool,
+    /// The column letters and row numbers shown.
+    pub headings: bool,
+    /// Page Break Preview rather than the normal view.
+    pub page_break_preview: bool,
+    /// Split into panes that scroll apart: the top pane's rows and the
+    /// left pane's columns (how many), and the first row and column they
+    /// show.
+    pub split: Option<[u32; 4]>,
+}
+
+impl Default for SheetView {
+    fn default() -> Self {
+        SheetView {
+            zoom: 100,
+            gridlines: true,
+            headings: true,
+            page_break_preview: false,
+            split: None,
+        }
+    }
+}
+
 /// A comment of a thread: who wrote it, what, and when.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ThreadComment {
@@ -1866,6 +1895,17 @@ pub trait ViewerDocument: Send {
 
     /// Deletes a scenario.
     fn delete_scenario(&mut self, _unit: usize, _name: &str) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// How a sheet is shown.
+    fn sheet_view(&mut self, _unit: usize) -> SheetView {
+        SheetView::default()
+    }
+
+    /// Keeps how a sheet is shown in the file: not an undo step, but an
+    /// edit to save.
+    fn set_sheet_view(&mut self, _unit: usize, _view: SheetView) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
 

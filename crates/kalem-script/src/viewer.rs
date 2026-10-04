@@ -1548,6 +1548,16 @@ impl kalem_viewer::ViewerDocument for ComponentDocument {
         self.ch(|g, s, d| g.call_delete_scenario(s, d, unit as u32, name))
     }
 
+    fn sheet_view(&mut self, unit: usize) -> kv::SheetView {
+        self.g(|g, s, d| g.call_sheet_view(s, d, unit as u32))
+            .map(Conv::conv)
+            .unwrap_or_default()
+    }
+
+    fn set_sheet_view(&mut self, unit: usize, view: kv::SheetView) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_set_sheet_view(s, d, unit as u32, view.conv()))
+    }
+
     fn tab_color(&mut self, unit: usize) -> Option<[u8; 3]> {
         self.g(|g, s, d| g.call_tab_color(s, d, unit as u32))
             .ok()

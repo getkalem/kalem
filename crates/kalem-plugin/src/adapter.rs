@@ -708,6 +708,14 @@ macro_rules! __kalem_grid_exports {
             fn delete_scenario(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, name: ::std::string::String) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
                 $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.delete_scenario(unit as usize, &name)))
             }
+            fn sheet_view(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> $crate::adapter::grid::g::ViewSettings {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.sheet_view(unit as usize)).conv()
+            }
+            fn set_sheet_view(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, view: $crate::adapter::grid::g::ViewSettings) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_sheet_view(unit as usize, view.conv())))
+            }
             fn tab_color(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> ::std::option::Option<$crate::adapter::grid::g::Rgb> {
                 use $crate::adapter::grid::Conv;
                 $crate::adapter::grid::with(d, |x| x.tab_color(unit as usize)).conv()
