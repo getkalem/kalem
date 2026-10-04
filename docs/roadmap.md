@@ -52,10 +52,11 @@ the Windows job passes; no plugin pin can break `main`.
   on every push, so a contract change that is not matched by a plugin
   bump fails the pull request rather than `main`. S
   (done 2026-10-04: the three plugins at one revision of getkalem/plugins, checked by `tools/check-plugin-pins.sh` in CI's rustfmt job; the plugins were already built against this checkout's `kalem-viewer` through the `[patch]`, so every test job catches a contract change without its plugin bump. What let that reach `main` was the cancelled runs, fixed by R1.1.)
-- [ ] R1.4 Two sessions, one `main`: a push cadence rule in CONTRIBUTING
+- [x] R1.4 Two sessions, one `main`: a push cadence rule in CONTRIBUTING
   (rebase on `origin/main`, run the changed crate's tests, push at most
   once an hour unless CI is green), and a `tools/pre-push.sh` that runs
   fmt, clippy on the changed crates and the quick tests. S
+  (done 2026-10-04: CONTRIBUTING's "Pushing to main"; `tools/pre-push.sh` runs fmt, the plugin pins, and clippy and tests for the crates changed since `origin/main`, the whole workspace when the manifest or lock file changed; it can be linked as the git pre-push hook.)
 - [ ] R1.5 Stale pages fixed so the Book and the code agree:
   `book/part-2/latex.org` "Limits and known gaps" (SyncTeX, the PDF panel,
   `\multirow`, the corpus are done), `performance.org` binary size (49.7
