@@ -498,6 +498,8 @@ pub struct ChartSeries {
     pub x: Vec<Option<f64>>,
     /// Its color, when the file gives one.
     pub color: Option<[u8; 3]>,
+    /// Points with colors of their own (a pie's slices), by point.
+    pub point_colors: Vec<(usize, [u8; 3])>,
 }
 
 /// A chart on a sheet, as it reads now: values from the cells it names.
@@ -1182,6 +1184,20 @@ pub trait ViewerDocument: Send {
         _unit: usize,
         _index: usize,
         _series: usize,
+        _color: Option<[u8; 3]>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Gives point `point` of series `series` (a pie's slice) of the chart
+    /// at `index` of [`ViewerDocument::charts`] a color of its own, or its
+    /// series' again (`None`).
+    fn set_point_color(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _series: usize,
+        _point: usize,
         _color: Option<[u8; 3]>,
     ) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
