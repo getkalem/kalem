@@ -169,6 +169,9 @@ pub struct App {
     completion: Option<kalem_core::completers::Menu>,
     /// A language server's documentation at the cursor, until a key.
     hover: Option<String>,
+    /// The signature of the call being typed, and the line it was asked
+    /// on: shown while the cursor stays there.
+    signature: Option<(String, usize)>,
     /// The completers (built-ins, and plugins').
     completers: kalem_core::completers::Registry,
     /// The command palette, when open.
@@ -513,6 +516,7 @@ impl App {
             output: Vec::new(),
             completion: None,
             hover: None,
+            signature: None,
             completers: kalem_core::completers::Registry::with_builtins(),
             palette: None,
             find: None,
@@ -2203,10 +2207,17 @@ impl App {
                     self.hover = Some(text);
                 }
             }
+            Outcome::Signature { path, text } => {
+                if self.doc.meta.path.as_deref() == Some(path.as_path()) {
+                    let line = self.doc.text().line_of(self.doc.selection.head);
+                    self.signature = text.map(|t| (t, line));
+                }
+            }
             Outcome::Jump(p) => self.open_path(&p.path, Some((p.line, p.column))),
             Outcome::Places { places, .. } => {
                 self.request(Request::Choose(kalem_core::lsp::place_items(&places)));
             }
+            Outcome::Choose(items) => self.request(Request::Choose(items)),
             Outcome::Edits {
                 path,
                 version,
@@ -2216,7 +2227,7 @@ impl App {
                 if self.doc.meta.path.as_deref() != Some(path.as_path())
                     || self.doc.version() != version
                 {
-                    self.message("The document changed meanwhile; formatting skipped", true);
+                    self.message(tr!("lsp-format-stale"), true);
                     return;
                 }
                 if let Some(tx) = kalem_core::lsp::transaction(&edits, &label) {
@@ -3355,7 +3366,13 @@ impl App {
     /// Draws the completion menu, or the formula preview, below the cursor.
     fn draw_popup(&self, buf: &mut ratatui::buffer::Buffer, area: Rect, cursor: (u16, u16)) {
         let bg = crate::panels::panel_style(&self.caps);
-        let lines: Vec<(String, bool)> = if let Some(h) = &self.hover
+        let line_now = self.doc.text().line_of(self.doc.selection.head);
+        let signature = self
+            .signature
+            .as_ref()
+            .filter(|(_, l)| *l == line_now)
+            .map(|(t, _)| t);
+        let lines: Vec<(String, bool)> = if let Some(h) = self.hover.as_ref().or(signature)
             && self.completion.is_none()
         {
             let width = (area.width.saturating_sub(4) as usize).clamp(20, 80);
@@ -3469,6 +3486,9 @@ impl App {
             if k.code == KeyCode::Esc {
                 return;
             }
+        }
+        if k.code == KeyCode::Esc && self.signature.take().is_some() {
+            self.dirty = true;
         }
         if self.prompt.is_some() {
             self.prompt_key(k);
@@ -4224,9 +4244,30 @@ impl App {
         if kalem_core::lsp::tick() {
             self.dirty = true;
         }
-        if kalem_core::lsp::serves(&self.doc) {
-            for o in kalem_core::lsp::take_outcomes(self.doc.meta.path.as_deref()) {
+        if let Some(p) = self.doc.meta.path.clone() {
+            for o in kalem_core::lsp::take_outcomes(&p, self.doc.version()) {
                 self.lsp_outcome(o);
+            }
+        }
+        // Documents in the background take the edits meant for them (a
+        // rename across files); the rest of their answers are dropped.
+        for b in self.docs.iter_mut().flatten() {
+            let Some(p) = b.doc.meta.path.clone() else {
+                continue;
+            };
+            for o in kalem_core::lsp::take_outcomes(&p, b.doc.version()) {
+                if let kalem_core::lsp::Outcome::Edits {
+                    version,
+                    edits,
+                    label,
+                    ..
+                } = o
+                    && version == b.doc.version()
+                    && let Some(tx) = kalem_core::lsp::transaction(&edits, &label)
+                {
+                    b.doc.apply(&tx, org_edit::ChangeKind::Command, now);
+                    kalem_core::lsp::sync(&b.doc);
+                }
             }
         }
         // Items of slow completers, and the chosen one's documentation.
@@ -4362,6 +4403,9 @@ impl App {
                 .is_some_and(|m| m.session.waiting())
         {
             t = t.min(Duration::from_millis(30));
+        } else if kalem_core::lsp::active() {
+            // Diagnostics and progress come when they come.
+            t = t.min(Duration::from_millis(100));
         }
         if matches!(self.doc.parse(), Some((_, false))) {
             t = t.min(Duration::from_millis(20));

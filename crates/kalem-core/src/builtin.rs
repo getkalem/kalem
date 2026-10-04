@@ -151,6 +151,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         ("file.scratch", object(&[("project", "boolean", false)])),
         ("plugin.install", object(&[("source", "string", false)])),
+        ("code.rename", object(&[("name", "string", false)])),
+        ("code.applyEdit", object(&[("id", "integer", true)])),
+        ("code.dropEdit", object(&[("id", "integer", true)])),
+        ("code.runAction", object(&[("id", "integer", true)])),
         (
             "plugin.confirmInstall",
             object(&[("staging", "string", true), ("source", "string", false)]),
@@ -3750,7 +3754,7 @@ fn code_commands() -> Vec<Command> {
         places: Vec<crate::lsp::Place>,
     ) -> CommandResult {
         if places.is_empty() {
-            ctx.messages.push("No problems".into());
+            ctx.messages.push(crate::tr!("lsp-no-problems"));
             return Ok(());
         }
         let _ = title;
@@ -3822,11 +3826,7 @@ fn code_commands() -> Vec<Command> {
             None,
             |ctx, _| {
                 let path = ctx.doc()?.meta.path.clone().unwrap_or_default();
-                let all: Vec<_> = crate::lsp::all_problems()
-                    .into_iter()
-                    .filter(|p| p.path == path)
-                    .collect();
-                places(ctx, "Problems", all)
+                places(ctx, "Problems", crate::lsp::problems_of(Some(&path)))
             },
         ),
         cmd(
@@ -3866,10 +3866,79 @@ fn code_commands() -> Vec<Command> {
                     lines.push(p);
                 }
                 ctx.messages.push(if lines.is_empty() {
-                    "No language servers running".into()
+                    crate::tr!("lsp-none-running")
                 } else {
                     lines.join(" · ")
                 });
+                Ok(())
+            },
+        ),
+        cmd(
+            "code.rename",
+            "Rename Symbol",
+            "Code",
+            &[],
+            None,
+            |ctx, args| match args["name"]
+                .as_str()
+                .map(str::trim)
+                .filter(|n| !n.is_empty())
+            {
+                Some(name) => crate::lsp::rename(ctx.doc()?, name).map_err(CommandError::new),
+                None => request(
+                    ctx,
+                    Request::Ask {
+                        command: "code.rename".into(),
+                        args: serde_json::json!({}),
+                        arg: "name".into(),
+                    },
+                ),
+            },
+        ),
+        cmd(
+            "code.actions",
+            "Code Actions",
+            "Code",
+            &[],
+            None,
+            |ctx, _| crate::lsp::code_actions(ctx.doc()?).map_err(CommandError::new),
+        ),
+        cmd(
+            "code.applyEdit",
+            "Apply Language Server Edit",
+            "Code",
+            &[],
+            None,
+            |ctx, args| {
+                let m = crate::lsp::apply_plan(args["id"].as_u64().unwrap_or(0))
+                    .map_err(CommandError::new)?;
+                ctx.messages.push(m);
+                Ok(())
+            },
+        ),
+        cmd(
+            "code.dropEdit",
+            "Drop Language Server Edit",
+            "Code",
+            &[],
+            None,
+            |_ctx, args| {
+                crate::lsp::drop_plan(args["id"].as_u64().unwrap_or(0));
+                Ok(())
+            },
+        ),
+        cmd(
+            "code.runAction",
+            "Run Code Action",
+            "Code",
+            &[],
+            None,
+            |ctx, args| {
+                let m = crate::lsp::run_offer(args["id"].as_u64().unwrap_or(0))
+                    .map_err(CommandError::new)?;
+                if !m.is_empty() {
+                    ctx.messages.push(m);
+                }
                 Ok(())
             },
         ),
@@ -3920,32 +3989,37 @@ fn plugin_commands() -> Vec<Command> {
     /// Downloads `source` in the background, then offers to install it.
     fn start_install(ctx: &mut EditorContext<'_>, source: String) -> CommandResult {
         let index = index_url(ctx);
-        crate::jobs::spawn(format!("Fetching the plugin {source}…"), move || {
-            match crate::plugin_store::prepare(&source, &index) {
+        crate::jobs::spawn(
+            crate::tr!("plugin-fetching", source = source.as_str()),
+            move || match crate::plugin_store::prepare(&source, &index) {
                 Ok(p) => {
                     let lines = crate::plugin_store::summary(&p);
                     let staging = p.staging.to_string_lossy().into_owned();
-                    let verb = if p.replaces.is_some() {
-                        "Update"
+                    let verb_key = if p.replaces.is_some() {
+                        "plugin-verb-update"
                     } else {
-                        "Install"
+                        "plugin-verb-install"
                     };
                     let mut items = vec![item(
                         invocation(
                             "plugin.confirmInstall",
                             &json!({ "staging": staging, "source": p.source }),
                         ),
-                        format!("{verb} {}", lines[0]),
+                        crate::tr!(verb_key, what = lines[0].as_str()),
                         lines[1..].join(" · "),
                     )];
                     items.push(item(
                         invocation("plugin.cancelInstall", &json!({ "staging": staging })),
-                        "Cancel".into(),
+                        crate::tr!("plugin-cancel"),
                         String::new(),
                     ));
                     crate::jobs::offer(items);
                     crate::jobs::Finished {
-                        message: format!("{} {} is ready to install", p.name, p.version),
+                        message: crate::tr!(
+                            "plugin-ready",
+                            name = p.name.as_str(),
+                            version = p.version.as_str()
+                        ),
                         error: false,
                         open: None,
                     }
@@ -3955,8 +4029,8 @@ fn plugin_commands() -> Vec<Command> {
                     error: true,
                     open: None,
                 },
-            }
-        });
+            },
+        );
         Ok(())
     }
     vec![
@@ -3968,7 +4042,7 @@ fn plugin_commands() -> Vec<Command> {
             None,
             |ctx, _| {
                 let index = index_url(ctx);
-                crate::jobs::spawn("Reading the plugin index…".into(), move || {
+                crate::jobs::spawn(crate::tr!("plugin-reading-index"), move || {
                     match crate::plugin_store::fetch_index(&index) {
                         Ok(entries) => {
                             // Remembers the versions for Installed Plugins.
@@ -3979,16 +4053,20 @@ fn plugin_commands() -> Vec<Command> {
                                 .map(|e| {
                                     let state = match installed.iter().find(|i| i.id == e.id) {
                                         Some(i) if i.version == e.version => {
-                                            format!("installed {}", i.version)
+                                            crate::tr!(
+                                                "plugin-installed-version",
+                                                version = i.version.as_str()
+                                            )
                                         }
-                                        Some(i) => format!(
-                                            "installed {}, {} available",
-                                            i.version, e.version
+                                        Some(i) => crate::tr!(
+                                            "plugin-installed-available",
+                                            version = i.version.as_str(),
+                                            available = e.version.as_str()
                                         ),
                                         // A component not released: built from
                                         // its source only.
                                         None if !e.declarative && e.download.is_none() => {
-                                            "no release yet".into()
+                                            crate::tr!("plugin-no-release")
                                         }
                                         None => e.version.clone(),
                                     };
@@ -4002,7 +4080,7 @@ fn plugin_commands() -> Vec<Command> {
                             let n = items.len();
                             crate::jobs::offer(items);
                             crate::jobs::Finished {
-                                message: format!("{n} plugins in the index"),
+                                message: crate::tr!("plugin-index-count", count = n),
                                 error: false,
                                 open: None,
                             }
@@ -4054,11 +4132,11 @@ fn plugin_commands() -> Vec<Command> {
                 let p = crate::plugin_store::prepared_at(&staging, source)
                     .map_err(CommandError::new)?;
                 let dir = crate::plugin_store::install(&p).map_err(CommandError::new)?;
-                ctx.messages.push(format!(
-                    "Installed {} {} in {}",
-                    p.name,
-                    p.version,
-                    dir.display()
+                ctx.messages.push(crate::tr!(
+                    "plugin-installed",
+                    name = p.name.as_str(),
+                    version = p.version.as_str(),
+                    dir = dir.display().to_string()
                 ));
                 Ok(())
             },
@@ -4073,7 +4151,7 @@ fn plugin_commands() -> Vec<Command> {
                 crate::plugin_store::discard(std::path::Path::new(
                     args["staging"].as_str().unwrap_or_default(),
                 ));
-                ctx.messages.push("Not installed".into());
+                ctx.messages.push(crate::tr!("plugin-not-installed-cancel"));
                 Ok(())
             },
         ),
@@ -4092,7 +4170,9 @@ fn plugin_commands() -> Vec<Command> {
                             .clone()
                             .unwrap_or_else(|| p.dir.display().to_string());
                         let category = match crate::plugin_store::available(&p.id, &p.version) {
-                            Some(v) => format!("{v} available · {from}"),
+                            Some(v) => {
+                                crate::tr!("plugin-available-from", version = v, from = from)
+                            }
                             None => from,
                         };
                         item(
@@ -4103,8 +4183,7 @@ fn plugin_commands() -> Vec<Command> {
                     })
                     .collect();
                 if items.is_empty() {
-                    ctx.messages
-                        .push("No plugins installed: Browse Plugins lists them".into());
+                    ctx.messages.push(crate::tr!("plugin-none-installed"));
                     return Ok(());
                 }
                 request(ctx, Request::Choose(items))
@@ -4121,23 +4200,25 @@ fn plugin_commands() -> Vec<Command> {
                 let p = crate::plugin_store::installed()
                     .into_iter()
                     .find(|p| p.id == id)
-                    .ok_or_else(|| CommandError::new(format!("{id} is not installed")))?;
+                    .ok_or_else(|| {
+                        CommandError::new(crate::tr!("plugin-not-installed", id = id))
+                    })?;
                 let mut items = Vec::new();
                 if let Some(src) = &p.source {
                     items.push(item(
                         invocation("plugin.install", &json!({ "source": src })),
-                        format!("Update {}", p.name),
-                        format!("from {src}"),
+                        crate::tr!("plugin-update", name = p.name.as_str()),
+                        crate::tr!("plugin-from-short", source = src.as_str()),
                     ));
                 }
                 items.push(item(
                     invocation("plugin.remove", &json!({ "id": p.id })),
-                    format!("Remove {}", p.name),
-                    "asks first".into(),
+                    crate::tr!("plugin-remove", name = p.name.as_str()),
+                    crate::tr!("plugin-asks-first"),
                 ));
                 items.push(item(
                     invocation("file.open", &json!({ "path": p.dir })),
-                    "Show Its Folder".into(),
+                    crate::tr!("plugin-show-folder"),
                     p.dir.display().to_string(),
                 ));
                 request(ctx, Request::Choose(items))
@@ -4154,16 +4235,26 @@ fn plugin_commands() -> Vec<Command> {
                 let p = crate::plugin_store::installed()
                     .into_iter()
                     .find(|p| p.id == id)
-                    .ok_or_else(|| CommandError::new(format!("{id} is not installed")))?;
+                    .ok_or_else(|| {
+                        CommandError::new(crate::tr!("plugin-not-installed", id = id))
+                    })?;
                 request(
                     ctx,
                     Request::Choose(vec![
                         item(
                             invocation("plugin.removeConfirmed", &json!({ "id": p.id })),
-                            format!("Remove {} {}", p.name, p.version),
-                            format!("deletes {}", p.dir.display()),
+                            crate::tr!(
+                                "plugin-remove-version",
+                                name = p.name.as_str(),
+                                version = p.version.as_str()
+                            ),
+                            crate::tr!("plugin-deletes", dir = p.dir.display().to_string()),
                         ),
-                        item("plugin.list".into(), "Cancel".into(), String::new()),
+                        item(
+                            "plugin.list".into(),
+                            crate::tr!("plugin-cancel"),
+                            String::new(),
+                        ),
                     ]),
                 )
             },
@@ -4177,7 +4268,7 @@ fn plugin_commands() -> Vec<Command> {
             |ctx, args| {
                 let name = crate::plugin_store::remove(args["id"].as_str().unwrap_or_default())
                     .map_err(CommandError::new)?;
-                ctx.messages.push(format!("Removed {name}"));
+                ctx.messages.push(crate::tr!("plugin-removed", name = name));
                 Ok(())
             },
         ),
@@ -4780,6 +4871,12 @@ fn plain_commands() -> Vec<Command> {
                 if crate::lsp::can(ctx.doc()?, crate::lsp::Kind::Format) {
                     crate::lsp::request(ctx.doc()?, crate::lsp::Kind::Format)
                         .map_err(CommandError::new)?;
+                    return Ok(());
+                }
+                // Without a server that formats: the language plugin's
+                // formatter command, in the background.
+                if crate::lsp::has_format_command(ctx.doc()?) {
+                    crate::lsp::format_with_command(ctx.doc()?).map_err(CommandError::new)?;
                     return Ok(());
                 }
                 // A language pack's formatter (T2.7a.7); a syntax error

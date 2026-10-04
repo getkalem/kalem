@@ -3452,16 +3452,32 @@ pub fn flag_diagnostics(doc: &crate::DocumentState, v: &mut LineView) {
 fn flag(v: &mut LineView, diags: &[crate::latex_check::Diagnostic]) {
     let line = v.range.clone();
     // Diagnostics are in order of their start, and one over many lines
-    // is flagged on its first: those starting on this line, up to its end.
+    // is flagged on its first: those starting on this line.
     let first = diags.partition_point(|d| d.range.start < line.start);
     let here: Vec<(Range<usize>, bool)> = diags[first..]
         .iter()
         .take_while(|d| d.range.start <= line.end)
         .map(|d| {
-            // At least one character, so a point shows.
-            let end = d.range.end.min(line.end).max(d.range.start + 1);
             let warning = d.severity == crate::latex_check::Severity::Warning;
-            (d.range.start..end, warning)
+            (d.range.clone(), warning)
+        })
+        .collect();
+    flag_ranges(v, &here);
+}
+
+/// Flags the runs of `v` under `here`, the problems starting on its line
+/// (their ranges, and whether each is probably wrong, else style, as
+/// [`crate::view::ViewStyle`]'s `flagged`): a run of source
+/// text split where one starts or ends, a run standing for other text
+/// flagged whole. Shared by LaTeX's checks and language servers.
+pub fn flag_ranges(v: &mut LineView, here: &[(Range<usize>, bool)]) {
+    let line = v.range.clone();
+    let here: Vec<(Range<usize>, bool)> = here
+        .iter()
+        .filter(|(r, _)| r.start >= line.start && r.start <= line.end)
+        .map(|(r, w)| {
+            // At least one character, so a point shows.
+            (r.start..r.end.min(line.end).max(r.start + 1), *w)
         })
         .collect();
     if here.is_empty() {

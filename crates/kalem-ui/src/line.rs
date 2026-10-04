@@ -1628,13 +1628,16 @@ impl gpui::Element for LineElement {
         if numbers {
             let n: SharedString = (self.line + 1).to_string().into();
             let fs = p.font_size * 0.8;
+            // A language server's problem on the line colors its number.
+            let mark = kalem_core::lsp::line_mark(&editor.doc, self.line);
             let run = TextRun {
                 len: n.len(),
                 font: gpui::font(SharedString::from(theme.mono.clone())),
-                color: if current {
-                    theme.foreground
-                } else {
-                    theme.muted
+                color: match mark {
+                    Some(kalem_core::lsp::Severity::Error) => gpui::hsla(0., 0.75, 0.5, 1.),
+                    Some(kalem_core::lsp::Severity::Warning) => gpui::hsla(0.11, 0.85, 0.5, 1.),
+                    _ if current => theme.foreground,
+                    _ => theme.muted,
                 },
                 background_color: None,
                 underline: None,

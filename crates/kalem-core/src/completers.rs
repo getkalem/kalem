@@ -79,6 +79,10 @@ pub struct Item {
     /// What the completer needs to fetch the documentation later
     /// ([`Completer::resolve`]): opaque to everything else.
     pub data: Option<String>,
+    /// Edits elsewhere applied with the item, in the same change (an
+    /// alias added at the top of the file): bytes of the document as it
+    /// is when the item is chosen, not overlapping `range`.
+    pub extra: Vec<(Range<usize>, String)>,
     /// An Org completion, applied as `crate::input::apply_completion`
     /// does (tags are aligned afterwards).
     org: Option<(crate::input::Completion, crate::input::CompletionItem)>,
@@ -103,6 +107,7 @@ impl Item {
             source: "",
             documentation: None,
             data: None,
+            extra: Vec::new(),
             org: None,
         }
     }
@@ -530,7 +535,20 @@ pub fn apply(doc: &mut DocumentState, item: &Item, now: Instant) {
     if tx.replace(item.range.clone(), item.insert.clone()).is_err() {
         return;
     }
-    let tx = tx.select(Selection::caret(item.range.start + item.cursor));
+    // Edits that come with the item; one that overlaps the item's own is
+    // left out rather than refusing the item.
+    let len = doc.text().len();
+    let mut shift: isize = 0;
+    for (r, t) in &item.extra {
+        if r.end > len {
+            continue;
+        }
+        if tx.replace(r.clone(), t.clone()).is_ok() && r.end <= item.range.start {
+            shift += t.len() as isize - r.len() as isize;
+        }
+    }
+    let caret = (item.range.start + item.cursor) as isize + shift;
+    let tx = tx.select(Selection::caret(caret.max(0) as usize));
     doc.apply(&tx, org_edit::ChangeKind::Command, now);
 }
 
@@ -587,6 +605,7 @@ impl Completer for OrgCompleter {
                 source: "org",
                 documentation: None,
                 data: None,
+                extra: Vec::new(),
                 org: Some((c.clone(), it.clone())),
             })
             .collect()

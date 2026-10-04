@@ -10,8 +10,8 @@ use std::collections::{HashMap, VecDeque};
 use std::io::{self, BufRead, BufReader};
 use std::ops::Range;
 use std::path::PathBuf;
-use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
@@ -41,7 +41,15 @@ pub struct ServerConfig {
     /// The settings `workspace/configuration` is answered from, and sent
     /// once with `workspace/didChangeConfiguration`.
     pub settings: Value,
+    /// For servers that report their work only in their log (Expert):
+    /// log lines containing one of these start it…
+    pub busy_start: Vec<String>,
+    /// …and these end it (as do the first diagnostics).
+    pub busy_done: Vec<String>,
 }
+
+/// The progress token of work told by the log ([`ServerConfig::busy_start`]).
+const LOG_WORK: &str = "kalem-log-work";
 
 /// A server's error answer, or the client's reason there is none.
 #[derive(Debug, Clone, PartialEq)]
@@ -87,6 +95,15 @@ impl Pending {
         }
     }
 
+    /// Waits up to `timeout`: the answer, or `None` while it has not come.
+    pub fn wait_for(&self, timeout: Duration) -> Option<Result<Value, RpcError>> {
+        match self.rx.recv_timeout(timeout) {
+            Ok(r) => Some(r),
+            Err(RecvTimeoutError::Timeout) => None,
+            Err(RecvTimeoutError::Disconnected) => Some(Err(RpcError::client("server stopped"))),
+        }
+    }
+
     /// Waits for the answer up to `timeout`.
     pub fn wait(&self, timeout: Duration) -> Result<Value, RpcError> {
         match self.rx.recv_timeout(timeout) {
@@ -121,11 +138,23 @@ pub enum Event {
         /// Its exit code, when it has one.
         code: Option<i32>,
     },
+    /// The server asks the editor to apply a workspace edit
+    /// (`workspace/applyEdit`): answered with [`Client::answer_apply`].
+    ApplyEdit {
+        /// The request's id.
+        id: Value,
+        /// The `WorkspaceEdit`.
+        edit: Value,
+    },
 }
 
 /// Called from the client's threads whenever something arrives, to wake
 /// the frontend.
 pub type Wake = Arc<dyn Fn() + Send + Sync>;
+
+/// Diagnostics as published: the document's version they were made for
+/// (when the server says), and the list.
+type Published = (Option<i64>, Vec<Value>);
 
 /// One edit of a document: bytes replaced by a text.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -148,13 +177,23 @@ struct State {
 
 struct Inner {
     config: ServerConfig,
-    stdin: Mutex<ChildStdin>,
+    /// The settings answered to `workspace/configuration`: the
+    /// configuration's at first, changed by [`Client::set_settings`].
+    settings: RwLock<Value>,
+    /// Messages for the writer thread, which alone writes to the
+    /// server: nobody waits on a server that is slow to read.
+    writer: Sender<Value>,
     child: Mutex<Child>,
     next_id: AtomicI64,
     pending: Mutex<HashMap<i64, Sender<Result<Value, RpcError>>>>,
     state: RwLock<State>,
     versions: Mutex<HashMap<String, i64>>,
-    diagnostics: Mutex<HashMap<String, Vec<Value>>>,
+    /// Diagnostics by document: the document's version they were made
+    /// for (when the server says), and the list.
+    diagnostics: Mutex<HashMap<String, Published>>,
+    /// Counts the diagnostics published, so readers know when theirs are
+    /// out of date.
+    published: AtomicU64,
     progress: Mutex<Vec<(String, String)>>,
     events: Mutex<VecDeque<Event>>,
     log: Mutex<VecDeque<String>>,
@@ -174,14 +213,54 @@ impl Inner {
         log.push_back(line.into());
     }
 
+    /// Work a server tells only in its log: shown as progress from a
+    /// start line to a done line, each line between as its text.
+    fn log_work(&self, line: &str) {
+        let c = &self.config;
+        if c.busy_start.is_empty() {
+            return;
+        }
+        let mut p = self.progress.lock().expect("progress");
+        let busy = p.iter().any(|(t, _)| t == LOG_WORK);
+        if c.busy_done.iter().any(|d| line.contains(d.as_str())) {
+            if busy {
+                p.retain(|(t, _)| t != LOG_WORK);
+                drop(p);
+                self.event(Event::Progress);
+            }
+            return;
+        }
+        let starts = c.busy_start.iter().any(|s| line.contains(s.as_str()));
+        if busy || starts {
+            let text: String = line.lines().next().unwrap_or("").chars().take(80).collect();
+            p.retain(|(t, _)| t != LOG_WORK);
+            p.push((LOG_WORK.to_string(), text));
+            drop(p);
+            self.event(Event::Progress);
+        }
+    }
+
+    /// Diagnostics came: work told by the log is over.
+    fn end_log_work(&self) {
+        let mut p = self.progress.lock().expect("progress");
+        let before = p.len();
+        p.retain(|(t, _)| t != LOG_WORK);
+        if p.len() != before {
+            drop(p);
+            self.event(Event::Progress);
+        }
+    }
+
     fn event(&self, e: Event) {
         self.events.lock().expect("events").push_back(e);
         (self.wake)();
     }
 
-    fn send_now(&self, msg: &Value) -> io::Result<()> {
-        let mut w = self.stdin.lock().expect("stdin");
-        rpc::write(&mut *w, msg)
+    /// Hands `msg` to the writer thread; never blocks.
+    fn send_now(&self, msg: Value) {
+        if self.writer.send(msg).is_err() {
+            self.log("[client] the server's input is closed");
+        }
     }
 
     /// Writes, or queues until the server is ready; `initialize` and the
@@ -193,13 +272,11 @@ impl Inner {
                 return;
             }
             if !st.ready {
-                st.queued.push(msg);
+                queue(&mut st.queued, msg);
                 return;
             }
         }
-        if let Err(e) = self.send_now(&msg) {
-            self.log(format!("[client] write failed: {e}"));
-        }
+        self.send_now(msg);
     }
 
     fn answer(&self, id: Value, result: Result<Value, (i64, &str)>) {
@@ -213,7 +290,8 @@ impl Inner {
     }
 
     fn setting(&self, section: Option<&str>) -> Value {
-        let mut v = &self.config.settings;
+        let all = self.settings.read().expect("settings");
+        let mut v = &*all;
         if let Some(section) = section.filter(|s| !s.is_empty()) {
             for key in section.split('.') {
                 match v.get(key) {
@@ -247,13 +325,11 @@ impl Inner {
             | "workspace/inlayHint/refresh"
             | "workspace/codeLens/refresh" => self.answer(id, Ok(Value::Null)),
             "workspace/applyEdit" => {
-                // Edits the server makes on its own are not applied yet
-                // (T3.8.2): said, not silently dropped.
-                self.log("[client] workspace/applyEdit refused: not supported yet");
-                self.answer(
+                // The editor applies it on its timer and answers then.
+                self.event(Event::ApplyEdit {
                     id,
-                    Ok(json!({"applied": false, "failureReason": "not supported by Kalem yet"})),
-                );
+                    edit: params["edit"].clone(),
+                });
             }
             _ => self.answer(id, Err((-32601, "method not found"))),
         }
@@ -273,16 +349,21 @@ impl Inner {
                     .as_array()
                     .cloned()
                     .unwrap_or_default();
+                let version = params["version"].as_i64();
                 self.diagnostics
                     .lock()
                     .expect("diagnostics")
-                    .insert(uri.to_string(), list);
+                    .insert(uri.to_string(), (version, list));
+                self.end_log_work();
+                self.published.fetch_add(1, Ordering::Relaxed);
                 self.event(Event::Diagnostics {
                     uri: uri.to_string(),
                 });
             }
             "window/logMessage" => {
-                self.log(params["message"].as_str().unwrap_or_default().to_string());
+                let line = params["message"].as_str().unwrap_or_default().to_string();
+                self.log_work(&line);
+                self.log(line);
             }
             "window/showMessage" => {
                 let text = params["message"].as_str().unwrap_or_default().to_string();
@@ -370,6 +451,41 @@ impl Inner {
     }
 }
 
+/// Queues `msg` for a server not ready yet. A document's changes then
+/// carry its whole text (positions need the encoding the server has not
+/// chosen yet), so only the latest text is kept: it goes into the queued
+/// `didOpen` or replaces the queued change, instead of one copy of the
+/// document per keystroke.
+fn queue(queued: &mut Vec<Value>, msg: Value) {
+    if msg["method"] == "textDocument/didChange" {
+        let uri = &msg["params"]["textDocument"]["uri"];
+        let changes = msg["params"]["contentChanges"].as_array();
+        let whole = changes
+            .and_then(|c| c.last())
+            .filter(|c| c.get("range").is_none());
+        if let Some(whole) = whole {
+            let text = whole["text"].clone();
+            let version = msg["params"]["textDocument"]["version"].clone();
+            for q in queued.iter_mut().rev() {
+                let same = q["params"]["textDocument"]["uri"] == *uri;
+                if same && q["method"] == "textDocument/didOpen" {
+                    q["params"]["textDocument"]["text"] = text;
+                    q["params"]["textDocument"]["version"] = version;
+                    return;
+                }
+                if same && q["method"] == "textDocument/didChange" {
+                    *q = msg;
+                    return;
+                }
+                if same {
+                    break;
+                }
+            }
+        }
+    }
+    queued.push(msg);
+}
+
 fn folders_json(config: &ServerConfig) -> Value {
     let folders: Vec<&PathBuf> = if config.folders.is_empty() {
         vec![&config.root]
@@ -397,7 +513,9 @@ fn client_capabilities() -> Value {
             "configuration": true,
             "workspaceFolders": true,
             "didChangeConfiguration": { "dynamicRegistration": false },
-            "applyEdit": false,
+            "didChangeWatchedFiles": { "dynamicRegistration": false },
+            "applyEdit": true,
+            "workspaceEdit": { "documentChanges": true },
         },
         "window": { "workDoneProgress": true, "showMessage": {} },
         "textDocument": {
@@ -421,6 +539,13 @@ fn client_capabilities() -> Value {
             "documentSymbol": { "hierarchicalDocumentSymbolSupport": true },
             "formatting": {},
             "rename": { "prepareSupport": false },
+            "codeAction": {
+                "codeActionLiteralSupport": { "codeActionKind": { "valueSet": [
+                    "", "quickfix", "refactor", "refactor.extract", "refactor.inline",
+                    "refactor.rewrite", "source", "source.organizeImports"
+                ] } },
+                "resolveSupport": { "properties": ["edit"] },
+            },
         },
     })
 }
@@ -456,15 +581,18 @@ impl Client {
         let stdin = child.stdin.take().expect("piped stdin");
         let stdout = child.stdout.take().expect("piped stdout");
         let stderr = child.stderr.take().expect("piped stderr");
+        let (writer, outbox) = mpsc::channel::<Value>();
         let inner = Arc::new(Inner {
+            settings: RwLock::new(config.settings.clone()),
             config,
-            stdin: Mutex::new(stdin),
+            writer,
             child: Mutex::new(child),
             next_id: AtomicI64::new(1),
             pending: Mutex::new(HashMap::new()),
             state: RwLock::new(State::default()),
             versions: Mutex::new(HashMap::new()),
             diagnostics: Mutex::new(HashMap::new()),
+            published: AtomicU64::new(0),
             progress: Mutex::new(Vec::new()),
             events: Mutex::new(VecDeque::new()),
             log: Mutex::new(VecDeque::new()),
@@ -472,6 +600,24 @@ impl Client {
             shutting_down: AtomicBool::new(false),
         });
         let name = inner.config.name.clone();
+        {
+            // The writer holds the client weakly, so the client ending
+            // (its sender dropped) ends the thread.
+            let weak = Arc::downgrade(&inner);
+            std::thread::Builder::new()
+                .name(format!("lsp-out:{name}"))
+                .spawn(move || {
+                    let mut w = std::io::BufWriter::new(stdin);
+                    while let Ok(msg) = outbox.recv() {
+                        if let Err(e) = rpc::write(&mut w, &msg) {
+                            if let Some(inner) = weak.upgrade() {
+                                inner.log(format!("[client] write failed: {e}"));
+                            }
+                            break;
+                        }
+                    }
+                })?;
+        }
         {
             let inner = Arc::clone(&inner);
             std::thread::Builder::new()
@@ -503,6 +649,43 @@ impl Client {
                 .spawn(move || reader(inner, stdout, init))?;
         }
         Ok(Client { inner })
+    }
+
+    /// Ends the process (a server that never answered `initialize`); its
+    /// exit comes as [`Event::Exited`].
+    pub fn kill(&self) {
+        let _ = self.inner.child.lock().expect("child").kill();
+    }
+
+    /// Answers the server's `workspace/applyEdit` request `id`.
+    pub fn answer_apply(&self, id: Value, applied: bool, reason: Option<&str>) {
+        let mut result = json!({ "applied": applied });
+        if let Some(r) = reason {
+            result["failureReason"] = json!(r);
+        }
+        self.inner.answer(id, Ok(result));
+    }
+
+    /// The settings the server has.
+    pub fn settings(&self) -> Value {
+        self.inner.settings.read().expect("settings").clone()
+    }
+
+    /// Changes the server's settings: kept for its `workspace/configuration`
+    /// requests and sent with `workspace/didChangeConfiguration` (queued
+    /// until it is ready). Nothing is sent when they are the same.
+    pub fn set_settings(&self, settings: Value) {
+        {
+            let mut s = self.inner.settings.write().expect("settings");
+            if *s == settings {
+                return;
+            }
+            *s = settings.clone();
+        }
+        self.notify(
+            "workspace/didChangeConfiguration",
+            json!({ "settings": settings }),
+        );
     }
 
     /// The server's name.
@@ -588,22 +771,48 @@ impl Client {
             .lock()
             .expect("diagnostics")
             .get(&crate::uri::normalize(uri))
-            .cloned()
+            .map(|(_, l)| l.clone())
             .unwrap_or_default()
     }
 
-    /// Every document's diagnostics.
-    pub fn all_diagnostics(&self) -> Vec<(String, Vec<Value>)> {
-        let mut v: Vec<_> = self
-            .inner
+    /// Every document's published diagnostics, by URI (the project's files
+    /// the server checks, open or not).
+    pub fn all_published(&self) -> Vec<(String, Vec<Value>)> {
+        self.inner
             .diagnostics
             .lock()
             .expect("diagnostics")
             .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect();
-        v.sort_by(|a, b| a.0.cmp(&b.0));
-        v
+            .filter(|(_, (_, l))| !l.is_empty())
+            .map(|(k, (_, l))| (k.clone(), l.clone()))
+            .collect()
+    }
+
+    /// How many times diagnostics were published: a reader's copy is up
+    /// to date while this has not moved.
+    pub fn published(&self) -> u64 {
+        self.inner.published.load(Ordering::Relaxed)
+    }
+
+    /// The diagnostics of `uri` were made for an older version of it than
+    /// the one sent since: their places may have moved. Servers that do not
+    /// say the version are taken at their word.
+    pub fn diagnostics_stale(&self, uri: &str) -> bool {
+        let made_for = self
+            .inner
+            .diagnostics
+            .lock()
+            .expect("diagnostics")
+            .get(&crate::uri::normalize(uri))
+            .and_then(|(v, _)| *v);
+        let now = self
+            .inner
+            .versions
+            .lock()
+            .expect("versions")
+            .get(uri)
+            .copied();
+        matches!((made_for, now), (Some(a), Some(b)) if a < b)
     }
 
     /// The work the server reports in progress, for the status bar.
@@ -621,15 +830,6 @@ impl Client {
             .iter()
             .cloned()
             .collect()
-    }
-
-    /// `uri` is open in the server.
-    pub fn is_open(&self, uri: &str) -> bool {
-        self.inner
-            .versions
-            .lock()
-            .expect("versions")
-            .contains_key(uri)
     }
 
     /// Opens a document.
@@ -665,7 +865,13 @@ impl Client {
                 .unwrap_or(1);
             (st.ready && kind == 2, st.encoding)
         };
-        let changes = if incremental && !edits.is_empty() && edits.len() <= 8 {
+        let changes = if incremental && edits.len() == 1 {
+            // One edit (the editor's usual): its range in `before` as it
+            // is, without a copy of the document.
+            let e = &edits[0];
+            let r = e.range.start.min(before.len())..e.range.end.min(before.len());
+            vec![json!({ "range": range_json(before, r, enc), "text": e.text })]
+        } else if incremental && !edits.is_empty() && edits.len() <= 8 {
             let mut text = before.to_string();
             let mut out = Vec::new();
             for e in edits {
@@ -721,7 +927,8 @@ impl Client {
             .diagnostics
             .lock()
             .expect("diagnostics")
-            .remove(uri);
+            .remove(&crate::uri::normalize(uri));
+        self.inner.published.fetch_add(1, Ordering::Relaxed);
     }
 
     /// The documents open in it.
@@ -793,6 +1000,9 @@ fn reader(inner: Arc<Inner>, stdout: std::process::ChildStdout, init: Pending) {
                         level: 1,
                         text: format!("{} did not start: {}", inner.config.name, e.message),
                     });
+                    // A server that cannot start is ended, not left
+                    // "starting": its exit follows as for a crash.
+                    let _ = inner.child.lock().expect("child").kill();
                 }
             }
         }
@@ -835,22 +1045,51 @@ fn initialized(inner: &Inner, answer: &Value) {
     st.encoding = encoding;
     st.ready = true;
     let queued = std::mem::take(&mut st.queued);
-    let send = |m: &Value| {
-        if let Err(e) = inner.send_now(m) {
-            inner.log(format!("[client] write failed: {e}"));
-        }
-    };
-    send(&json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}));
-    if !inner.config.settings.is_null() {
-        send(&json!({
+    // Handed to the writer in order, under the lock: nothing sent
+    // meanwhile overtakes the queue, and nothing here waits on the server.
+    inner.send_now(json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}));
+    let settings = inner.settings.read().expect("settings").clone();
+    if !settings.is_null() {
+        inner.send_now(json!({
             "jsonrpc": "2.0",
             "method": "workspace/didChangeConfiguration",
-            "params": { "settings": inner.config.settings },
+            "params": { "settings": settings },
         }));
     }
-    for m in &queued {
-        send(m);
+    for m in queued {
+        inner.send_now(m);
     }
     drop(st);
     inner.event(Event::Ready);
+}
+
+#[cfg(test)]
+mod queue_tests {
+    use super::*;
+
+    #[test]
+    fn one_text_per_document_before_ready() {
+        let open = json!({"method": "textDocument/didOpen", "params": {"textDocument": {"uri": "a", "version": 1, "text": "x"}}});
+        let change = |v: i64, t: &str| {
+            json!({"method": "textDocument/didChange",
+            "params": {"textDocument": {"uri": "a", "version": v}, "contentChanges": [{"text": t}]}})
+        };
+        let mut q = Vec::new();
+        queue(&mut q, open);
+        for v in 2..100 {
+            queue(&mut q, change(v, &format!("text {v}")));
+        }
+        assert_eq!(q.len(), 1);
+        assert_eq!(q[0]["params"]["textDocument"]["text"], "text 99");
+        assert_eq!(q[0]["params"]["textDocument"]["version"], 99);
+        // After a save, changes queue again, but one at a time.
+        queue(
+            &mut q,
+            json!({"method": "textDocument/didSave", "params": {"textDocument": {"uri": "a"}}}),
+        );
+        queue(&mut q, change(100, "y"));
+        queue(&mut q, change(101, "z"));
+        assert_eq!(q.len(), 3);
+        assert_eq!(q[2]["params"]["contentChanges"][0]["text"], "z");
+    }
 }

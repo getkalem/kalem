@@ -116,7 +116,7 @@ enum LspAction {
         log: bool,
     },
     /// Asks the server about a place: `hover`, `definition`,
-    /// `references`, `symbols`, `completion` (as typing there would) or
+    /// `references`, `symbols`, `signature`, `completion` (as typing there would) or
     /// `format` (prints the formatted text).
     Ask {
         /// The request.

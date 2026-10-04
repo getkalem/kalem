@@ -48,7 +48,7 @@ fn normal() {
     c.did_open(uri, "elixir", "😀a\nb");
     until("ready", || c.is_ready());
     assert!(c.provides("hoverProvider"));
-    assert!(!c.provides("renameProvider"));
+    assert!(!c.provides("inlayHintProvider"));
     // An incremental change after the emoji: UTF-16 positions.
     c.did_change(
         uri,
@@ -100,6 +100,49 @@ fn crash() {
     assert!(p.wait(Duration::from_secs(1)).is_err());
 }
 
+fn log_work() {
+    // Work told only in the log: progress from its start line until the
+    // first diagnostics.
+    let config = ServerConfig {
+        name: "fake".into(),
+        command: std::env::current_exe().unwrap(),
+        env: vec![("KALEM_LSP_FAKE".into(), "normal".into())],
+        root: std::env::temp_dir(),
+        settings: json!({"elixirLS": {}}),
+        busy_start: vec!["config".into()],
+        busy_done: vec!["never said".into()],
+        ..ServerConfig::default()
+    };
+    let c = Client::start(config, Arc::new(|| {})).unwrap();
+    until("log work", || {
+        c.progress().is_some_and(|p| p.starts_with("config"))
+    });
+    c.did_open("file:///tmp/w.ex", "elixir", "x");
+    c.did_change(
+        "file:///tmp/w.ex",
+        "x",
+        &[Edit {
+            range: 0..1,
+            text: "bad".into(),
+        }],
+        "bad",
+    );
+    until("diagnostics end it", || c.progress().is_none());
+}
+
+fn refuse() {
+    let c = start("refuse", Arc::new(AtomicUsize::new(0)));
+    // Refused `initialize`: said, and the process ended, not "starting".
+    until("exit", || c.has_exited());
+    let events = c.take_events();
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::Message { level: 1, text } if text.contains("no project")))
+    );
+    assert!(!c.is_ready());
+}
+
 fn garbage() {
     let c = start("garbage", Arc::new(AtomicUsize::new(0)));
     until("ready", || c.is_ready());
@@ -115,6 +158,8 @@ fn main() {
         ("normal", normal as fn()),
         ("silent", silent),
         ("crash", crash),
+        ("refuse", refuse),
+        ("log work", log_work),
         ("garbage", garbage),
     ] {
         f();

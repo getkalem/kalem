@@ -294,6 +294,8 @@
   { "keys": "leader c i", "command": "code.implementation", "when": "vimCommand" },
   { "keys": "leader c k", "command": "code.documentation", "when": "vimCommand" },
   { "keys": "leader c t", "command": "code.typeDefinition", "when": "vimCommand" },
+  { "keys": "leader c r", "command": "code.rename", "when": "vimCommand" },
+  { "keys": "leader c a", "command": "code.actions", "when": "vimCommand" },
   { "keys": "leader c x", "command": "code.problems", "when": "vimCommand" },
   { "keys": "leader c shift+x", "command": "code.allProblems", "when": "vimCommand" },
   { "keys": "leader q q", "command": "app.quit", "when": "vimCommand" },

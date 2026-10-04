@@ -313,6 +313,89 @@ Programmers (LSP and plugins)
   web and PHP as data-only plugins (manifest, syntax, server); the LSP
   client gains rename, code actions, signature help and a snippet engine
   (T3.8.3); the `SPC c` map (T2.7i.10). L
+- [x] R5.12e The Elixir plugin and the language server client,
+  reviewed (owner, 2026-10-04: "code quality, performance, what is
+  missing; a list, then in order"). Bugs first, then speed, then
+  quality, then features; each item names its files.
+  Bugs:
+  - [x] E1 Answers nobody takes: `lsp::tick` reports a change while any
+    answer waits, so an answer for a closed or hidden document makes
+    every editor redraw every 50 ms; old jumps fire when the document
+    comes back; server messages are taken only by served documents.
+    Answers carry their document's version and expire; `tick` reports
+    real changes only; messages go to the active editor. S (done 2026-10-04: answers carry the document's version and expire after 15 s; closing a document drops its answers; documentation for older text is dropped; `tick` reports real changes only; what servers say on their own goes through `jobs::notice` to the active editor; tested)
+  - [x] E2 Writes to a server never block the editor: a writer thread
+    per client fed by a channel (today `didChange` writes on the UI
+    thread under the service's lock, and `initialized` writes the queue
+    under the state lock on the reader thread, so a busy server can
+    freeze the editor or deadlock both sides). S (done: a writer thread per client, `send` only queues)
+  - [x] E3 Before a server is ready, one queued text per document, not
+    a full copy per keystroke. S (done: the queued `didOpen` takes the latest text, or the queued change is replaced; tested)
+  - [x] E4 A `null` formatting answer is "already formatted", not an
+    error. S (done; tested)
+  - [x] E5 Settings reach running servers: `server`, `settings` and a
+    newly installed server program take effect without reopening files
+    (`didChangeConfiguration`, documents opened again); Restart Language
+    Server works for a file that had no server; failed starts are tried
+    again. S (done: `lsp::settings_changed` from `apply_process_settings`: `Client::set_settings` sends `didChangeConfiguration`, documents whose server changed (or was found, or turned off) open again, failed starts forgotten; Restart works without a server; tested)
+  - [x] E6 A renamed, moved or saved-as file closes its old document in
+    the server. S (done: documents carry a serial (`DocumentState::serial`), and the same document under a new path closes the old one in the server, for every way the path changes; tested with Save As)
+  - [x] E7 After the last allowed crash the status says why the server
+    stopped, not "restarting"; the crash count resets after a while
+    running. S (done: documents of a server given up on are detached and say why; crashes forgotten after 10 minutes running)
+  - [x] E8 A failed `initialize` ends the process and marks the server
+    failed, instead of "starting" for ever. S (done: a refused `initialize` kills the process, one unanswered for 2 minutes too; tested (`refuse`))
+  - [x] E9 Diagnostics for an older version are not drawn on newer
+    text (`versionSupport` is announced but unused). S (done: diagnostics stored with their version; stale ones are not placed (the cursor line's message, `lsp::diagnostics`), counts still shown)
+  - [x] E10 Places in other open documents read their text from the
+    editor, not the disk. S (done: open documents' texts copied for the answers that point into them)
+  - [x] E11 The manifest's comment tokens drive Toggle Comment (HEEx and
+    EEx have none in the built-in table). S (done: `languages::comment_style` before the built-in table; tested)
+  Speed:
+  - [x] E12 The status bar's word on diagnostics computed once per
+    change, not per frame (today every render clones the text and
+    converts every diagnostic from the start of the text). S (done: per document, the diagnostics read once per publication and text change, with a line index; the problems list uses it too)
+  - [x] E13 `sync` cheap: files no plugin serves remembered (not looked
+    up every tick), and changes sent from the editor's transactions
+    instead of whole-text comparisons. S (done: unserved files remembered (cleared when plugins or settings change); one comparison and one copy per change, no copy in the client for one edit. Changes from the editor's transactions left: not worth the API change now)
+  - [x] E14 Completion without a 5 ms polling loop, and without cloning
+    every item's JSON. S (done: `Pending::wait_for` in 20 ms slices; items' JSON kept only for servers that resolve)
+  - [x] E15 No disk reads under the service's lock; servers stopped in
+    parallel on quit. S (done: answers read outside the lock (the open texts they need copied first); servers stopped in parallel on quit)
+  Quality:
+  - [x] E16 Every message of `lsp`, `languages` and `plugin_store`, and
+    the frontends' language server messages, through the interface
+    language (`tr!`, Turkish included). M (done 2026-10-04: every message of `lsp`, `languages`' server resolution, `plugin_store`'s summary, notices and errors a user meets, the plugin commands and the frontends' language server message, in English and Turkish (`lsp-*`, `plugin-*`); manifest parse errors stay technical)
+  - [x] E17 Loose ends: the wake hook wired (the terminal editor sees a
+    server's answer at once, not at its 500 ms timeout); `did_close`
+    drops diagnostics under the normalized URI; the format request's
+    indentation from the document; caps on a message's
+    `Content-Length` and on an archive's unpacked size; Windows absolute
+    paths refused in `main`; abandoned staging folders removed;
+    `newer("1.0.0", "1.0")` false; unused functions and manifest fields
+    removed or used. S (done: the terminal editor polls every 100 ms while a server runs (`lsp::active`), the unused wake hook removed; the format request uses the document's indentation; messages over 256 MB and archives unpacking to more refused; staging folders older than a day removed; `newer` pads versions; `Client::is_open` removed; the component path check refuses rooted and absolute paths on Windows too. Kept: `Plugin.commands` (E22) and the comment fields (E11, used))
+  - [x] E18 `lsp::tick` split (restart, messages, answers); the
+    start-and-reopen logic in one place. S (done: `tick` is `Service::watch_servers`, `restart_slot`, `finished_actions`, `answer_context` and `slot_exited`)
+  Features:
+  - [x] E19 Diagnostics in the text: underlined in both editors, a mark
+    in the gutter, the message on hover; the problems list includes the
+    project's files the server reports. M (done 2026-10-04: `lsp::flag_diagnostics` through LaTeX's flagging (now `latex_view::flag_ranges`) in both editors' plain lines, errors and warnings as probably wrong, the rest as style; the line number colored in both gutters (`lsp::line_mark`); the messages under the mouse in the graphical editor (`lsp::diagnostic_at`); `all_problems` adds the project's files the servers report, read outside the lock; tested)
+  - [x] E20 Expert's work shown: "indexing" in the status bar from its
+    log until its first diagnostics (it reports no progress). S (done: a server's `busyLog` (`start`, `done` substrings) makes its log lines between them the status bar's progress, ended too by its first diagnostics; Expert's is "Starting project" to "Compiled " (the plugin's manifest); tested)
+  - [x] E21 Files changed outside the editor told to the server
+    (`workspace/didChangeWatchedFiles`, from Kalem's file watcher), so
+    `mix deps.get` or a checkout recompiles. S (done: each server's root watched (`notify`, build and tool folders left out), changes sent in batches 250 ms after the first; `didChangeWatchedFiles` announced; tested)
+  - [x] E22 Format without a server: the manifest's formatter command
+    (`mix format --stdin-filename {file} -`). S (done: `lsp::format_with_command` runs the manifest's `commands.format` (`{file}` filled in) in the background when no server formats, the result applied as one change for its version; Format Document and `hasFormatter` use it; tested with the test binary as the formatter; the Elixir manifest's command now passes `--stdin-filename {file}`)
+  - [x] E23 Completion: incomplete lists asked again as the word grows;
+    `additionalTextEdits` (aliases added) applied; signature help while
+    typing arguments. M (done: incomplete lists are asked again already (a new request each keystroke); `additionalTextEdits` applied in the same change; signature help asked as `(` or `,` is typed and closed by `)`, shown beside the cursor in both editors while the cursor stays on the line (`kalem lsp ask signature`); tested. Expert 0.1.11 has no signature help; ElixirLS has)
+  - [x] E24 Rename and code actions with `workspace/applyEdit`, as one
+    transaction with a preview. M (done: `code.rename` (`SPC c r`, F2 where a server serves the file) asks for the name and offers the edit to confirm ("Apply: N changes in M files"); `code.actions` (`SPC c a`, Ctrl+.) lists the actions, an action's edit applied and its command run, `codeAction/resolve` when it has neither; `workspace/applyEdit` from servers applied and answered; edits of open documents go to their editors with the version check (background buffers in the terminal editor too), files not open are written; file operations refused with the reason; tested)
+  - [x] E25 The manifest's defaults: dialyzer off by default (a PLT
+    build on first start is heavy), ElixirLS's `language_server.bat` on
+    Windows, one server for scripts outside a Mix project; the plugin's
+    conformance test runs Kalem's `extends` resolution on HEEx. S (done 2026-10-04: dialyzer off by default, `language_server.bat` among ElixirLS's candidates, `requireRoot` (no server outside a Mix project, the reason said; tested); the plugin's conformance test loads its syntaxes through Kalem's `kalem-highlight` (a git dependency pinned to a commit) and highlights HEEx, `~H` and EEx; found that a language's `syntax` never reached the highlighter (`.eex` files were not highlighted): `kalem_highlight::set_aliases` maps each plugin language's names and extensions to its syntax)
 - [ ] R5.13 The remaining extension points of `coverage.toml` in the
   order plugins ask for them: decorations and completers, link types,
   block renderers, exporters, table functions, themes, CLI subcommands

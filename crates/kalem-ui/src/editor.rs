@@ -342,6 +342,9 @@ pub struct Editor {
     pub completion: Option<kalem_core::completers::Menu>,
     /// A language server's documentation at the cursor, until a key.
     pub hover: Option<String>,
+    /// The signature of the call being typed, and the line it was asked
+    /// on: shown while the cursor stays there.
+    pub signature: Option<(String, usize)>,
     dragging: bool,
     /// Whether this pane is on the left in a split.
     left: bool,
@@ -506,6 +509,7 @@ impl Editor {
             grids: RefCell::new((0, HashMap::new())),
             completion: None,
             hover: None,
+            signature: None,
             dragging: false,
             left: true,
             other: None,
@@ -2096,6 +2100,9 @@ impl Editor {
                 return;
             }
         }
+        if ev.keystroke.key == "escape" && self.signature.take().is_some() {
+            cx.notify();
+        }
         // Escape closes the context menu.
         if self.context_menu.is_some() {
             self.context_menu = None;
@@ -2614,8 +2621,10 @@ impl Editor {
                 let mut v =
                     view::plain_line_view(text.as_str(), range, Some(self.doc.selection.head));
                 v.mono = self.doc.meta.mode != DocumentMode::Org;
-                // LaTeX's source view: the diagnostics flagged too.
+                // LaTeX's source view: the diagnostics flagged too; a
+                // language server's problems in code files.
                 kalem_core::latex_view::flag_diagnostics(&self.doc, &mut v);
+                kalem_core::lsp::flag_diagnostics(&self.doc, &mut v);
                 v
             }
         }
@@ -3159,7 +3168,8 @@ impl Editor {
                     match self.doc.model() {
                         Some(model) => kalem_core::cite::note_at(&model, path.as_deref(), h.pos),
                         None => kalem_core::latex_view::note_at(&self.doc, h.pos)
-                            .or_else(|| kalem_core::latex_view::diagnostic_at(&self.doc, h.pos)),
+                            .or_else(|| kalem_core::latex_view::diagnostic_at(&self.doc, h.pos))
+                            .or_else(|| kalem_core::lsp::diagnostic_at(&self.doc, h.pos)),
                     }
                 })
                 .map(|t| (ev.position, t));
@@ -3235,8 +3245,8 @@ impl Editor {
         if kalem_core::lsp::tick() {
             cx.notify();
         }
-        if kalem_core::lsp::serves(&self.doc) {
-            for o in kalem_core::lsp::take_outcomes(self.doc.meta.path.as_deref()) {
+        if let Some(p) = self.doc.meta.path.clone() {
+            for o in kalem_core::lsp::take_outcomes(&p, self.doc.version()) {
                 self.lsp_outcome(o, cx);
             }
         }
@@ -3553,7 +3563,13 @@ impl Editor {
                 .collect();
             return Some((at, items));
         }
-        if let Some(h) = &self.hover {
+        let line_now = text.line_of(self.doc.selection.head);
+        let signature = self
+            .signature
+            .as_ref()
+            .filter(|(_, l)| *l == line_now)
+            .map(|(t, _)| t);
+        if let Some(h) = self.hover.as_ref().or(signature) {
             let lines = kalem_core::lsp::hover_lines(h, 80, 20)
                 .into_iter()
                 .map(|l| (l, false))
@@ -3578,6 +3594,12 @@ impl Editor {
                     self.hover = Some(text);
                 }
             }
+            Outcome::Signature { path, text } => {
+                if self.doc.meta.path.as_deref() == Some(path.as_path()) {
+                    let line = self.doc.text().line_of(self.doc.selection.head);
+                    self.signature = text.map(|t| (t, line));
+                }
+            }
             Outcome::Jump(p) => cx.emit(DocEvent::Open {
                 path: p.path,
                 at: Some((p.line, p.column)),
@@ -3585,6 +3607,7 @@ impl Editor {
             Outcome::Places { places, .. } => {
                 self.open_choice(kalem_core::lsp::place_items(&places), cx);
             }
+            Outcome::Choose(items) => self.open_choice(items, cx),
             Outcome::Edits {
                 path,
                 version,
@@ -3594,7 +3617,7 @@ impl Editor {
                 if self.doc.meta.path.as_deref() != Some(path.as_path())
                     || self.doc.version() != version
                 {
-                    self.message("The document changed meanwhile; formatting skipped", true);
+                    self.message(tr!("lsp-format-stale"), true);
                     return;
                 }
                 if let Some(tx) = kalem_core::lsp::transaction(&edits, &label) {

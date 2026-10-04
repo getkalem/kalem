@@ -2,7 +2,8 @@
 //! service): a test binary started again with an environment variable
 //! calls [`serve`] and speaks the protocol on its standard streams.
 //!
-//! Behaviors: `normal`; `silent` (never answers `initialize`); `crash`
+//! Behaviors: `normal`; `silent` (never answers `initialize`); `refuse`
+//! (answers it with an error); `crash`
 //! (exits with 3 on the first `didOpen`); `garbage` (a malformed message
 //! first). In `normal`, a change whose text contains `CRASH` exits with 4.
 
@@ -62,6 +63,13 @@ pub fn serve(behavior: &str) {
                 if behavior == "silent" {
                     continue;
                 }
+                if behavior == "refuse" {
+                    send(
+                        &mut out,
+                        json!({"jsonrpc": "2.0", "id": id, "error": {"code": -32603, "message": "no project"}}),
+                    );
+                    continue;
+                }
                 send(
                     &mut out,
                     json!({"jsonrpc": "2.0", "id": id, "result": {"capabilities": {
@@ -72,6 +80,10 @@ pub fn serve(behavior: &str) {
                         "referencesProvider": true,
                         "documentFormattingProvider": true,
                         "completionProvider": {"triggerCharacters": ["."], "resolveProvider": true},
+                        "signatureHelpProvider": {"triggerCharacters": ["(", ","]},
+                        "renameProvider": true,
+                        "codeActionProvider": true,
+                        "executeCommandProvider": {"commands": ["fake.cmd"]},
                     }}}),
                 );
                 // Asks for its settings, as ElixirLS does.
@@ -103,6 +115,14 @@ pub fn serve(behavior: &str) {
                 }
                 if text.contains("CRASH") {
                     std::process::exit(4);
+                }
+                // A file of the project that is not open, reported as the
+                // project is checked.
+                if text.contains("PROJECT")
+                    && let Some(path) = crate::uri::to_path(&real(&uri))
+                {
+                    let other = crate::uri::from_path(&path.with_file_name("other.fk"));
+                    send(&mut out, diagnostics(&json!(other), "bad"));
                 }
                 send(&mut out, diagnostics(&json!(real(&uri)), text));
             }
@@ -152,8 +172,92 @@ pub fn serve(behavior: &str) {
                     json!({"jsonrpc": "2.0", "id": id, "result": {"isIncomplete": false, "items": [
                         {"label": "greet/1", "kind": 3, "detail": "def greet(name)", "insertText": "greet(${1:name})", "insertTextFormat": 2, "sortText": "1",
                          "documentation": {"kind": "markdown", "value": "Greets `name`."}},
-                        {"label": "goodbye/0", "kind": 3, "insertText": "goodbye()", "sortText": "2"},
+                        {"label": "goodbye/0", "kind": 3, "insertText": "goodbye()", "sortText": "2",
+                         "additionalTextEdits": [{"range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 0}}, "newText": "use Bye\n"}]},
                     ]}}),
+                );
+            }
+            "workspace/didChangeWatchedFiles" => {
+                send(
+                    &mut out,
+                    json!({"jsonrpc": "2.0", "method": "window/logMessage",
+                        "params": {"type": 3, "message": format!("watched {}", p["changes"])}}),
+                );
+            }
+            "workspace/didChangeConfiguration" => {
+                send(
+                    &mut out,
+                    json!({"jsonrpc": "2.0", "method": "window/logMessage",
+                        "params": {"type": 3, "message": format!("settings {}", p["settings"])}}),
+                );
+            }
+            "textDocument/rename" => {
+                // Every `bad` of the document, and the first of a file
+                // beside it that is not open.
+                let text = texts.get(&uri).cloned().unwrap_or_default();
+                let name = p["newName"].as_str().unwrap_or("x");
+                let edits: Vec<Value> = text
+                    .match_indices("bad")
+                    .map(|(at, _)| {
+                        json!({"range": {
+                        "start": position(&text, at, Encoding::Utf16).to_json(),
+                        "end": position(&text, at + 3, Encoding::Utf16).to_json()},
+                        "newText": name})
+                    })
+                    .collect();
+                let mut changes = serde_json::Map::new();
+                changes.insert(uri.clone(), json!(edits));
+                if let Some(path) = crate::uri::to_path(&real(&uri)) {
+                    let other = crate::uri::from_path(&path.with_file_name("other.fk"));
+                    changes.insert(
+                        other,
+                        json!([{"range": {"start": {"line": 0, "character": 0},
+                        "end": {"line": 0, "character": 3}}, "newText": name}]),
+                    );
+                }
+                send(
+                    &mut out,
+                    json!({"jsonrpc": "2.0", "id": id, "result": {"changes": changes}}),
+                );
+            }
+            "textDocument/codeAction" => {
+                send(
+                    &mut out,
+                    json!({"jsonrpc": "2.0", "id": id, "result": [
+                        {"title": "Mark the start", "kind": "quickfix", "edit": {"changes": {uri.clone(): [
+                            {"range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 0}}, "newText": "@"}]}}},
+                        {"title": "Run a command", "command": "fake.cmd", "arguments": [uri.clone()]}
+                    ]}),
+                );
+            }
+            "workspace/executeCommand" => {
+                send(
+                    &mut out,
+                    json!({"jsonrpc": "2.0", "id": id, "result": null}),
+                );
+                // Its edit asked of the editor, as servers do.
+                let target = p["arguments"][0].clone();
+                let mut changes = serde_json::Map::new();
+                if let Some(t) = target.as_str() {
+                    changes.insert(
+                        t.to_string(),
+                        json!([{"range": {"start": {"line": 0, "character": 0},
+                        "end": {"line": 0, "character": 0}}, "newText": "#"}]),
+                    );
+                }
+                send(
+                    &mut out,
+                    json!({"jsonrpc": "2.0", "id": 901, "method": "workspace/applyEdit",
+                        "params": {"edit": {"changes": changes}}}),
+                );
+            }
+            "textDocument/signatureHelp" => {
+                send(
+                    &mut out,
+                    json!({"jsonrpc": "2.0", "id": id, "result": {
+                        "signatures": [{"label": "greet(name, greeting)", "documentation": "Greets.",
+                            "parameters": [{"label": "name", "documentation": "Who."}, {"label": "greeting"}]}],
+                        "activeSignature": 0, "activeParameter": 0}}),
                 );
             }
             "completionItem/resolve" => {
@@ -173,7 +277,13 @@ pub fn serve(behavior: &str) {
             "exit" => std::process::exit(0),
             _ => {
                 // The answer to the configuration request: logged back.
-                if id == Some(json!(900)) {
+                if id == Some(json!(901)) {
+                    send(
+                        &mut out,
+                        json!({"jsonrpc": "2.0", "method": "window/logMessage",
+                            "params": {"type": 3, "message": format!("applied {}", msg["result"]["applied"])}}),
+                    );
+                } else if id == Some(json!(900)) {
                     send(
                         &mut out,
                         json!({"jsonrpc": "2.0", "method": "window/logMessage",

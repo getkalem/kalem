@@ -1117,7 +1117,7 @@ reason = "Not yet: the Book inside Kalem; its pages are in the =book= folder"
 doom = "SPC c a"
 keys = "space c a"
 what = "Code actions"
-reason = "Waits for the language packs (3.8)"
+command = "code.actions"
 
 [[key]]
 doom = "SPC c c"
@@ -1189,7 +1189,7 @@ reason = "Waits for the language packs (3.8)"
 doom = "SPC c r"
 keys = "space c r"
 what = "Rename"
-reason = "Waits for the language packs (3.8)"
+command = "code.rename"
 
 [[key]]
 doom = "SPC c t"

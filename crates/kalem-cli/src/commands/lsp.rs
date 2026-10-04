@@ -117,11 +117,10 @@ fn settle(docs: &[DocumentState], quiet: Duration, limit: Duration) -> Result<()
         if lsp::tick() {
             last_change = Instant::now();
         }
-        for d in docs {
-            for o in lsp::take_outcomes(d.meta.path.as_deref()) {
-                if let Outcome::Message { text, error: true } = o {
-                    eprintln!("{text}");
-                }
+        // What servers say on their own: their errors to standard error.
+        for (text, error) in kalem_core::jobs::take_notices() {
+            if error {
+                eprintln!("{text}");
             }
         }
         // Diagnostics and log lines are activity: servers that report no
@@ -224,6 +223,7 @@ pub(crate) fn at(kind: &str, file: &Path, place: &str, wait: u64) -> Result<Exit
         "definition" => Kind::Definition,
         "references" => Kind::References,
         "symbols" => Kind::Symbols,
+        "signature" => Kind::Signature,
         "format" => Kind::Format,
         k => return Err(format!("unknown request {k}")),
     };
@@ -272,7 +272,10 @@ pub(crate) fn at(kind: &str, file: &Path, place: &str, wait: u64) -> Result<Exit
     let start = Instant::now();
     let outcome = loop {
         lsp::tick();
-        if let Some(o) = lsp::take_outcomes(path.as_deref()).into_iter().next() {
+        if let Some(o) = path
+            .as_deref()
+            .and_then(|p| lsp::take_outcomes(p, doc.version()).into_iter().next())
+        {
             break o;
         }
         if start.elapsed() > Duration::from_secs(wait) {
@@ -288,6 +291,16 @@ pub(crate) fn at(kind: &str, file: &Path, place: &str, wait: u64) -> Result<Exit
             } else {
                 ExitCode::SUCCESS
             }
+        }
+        Outcome::Choose(items) => {
+            for i in items {
+                println!("{}\t{}", i.title, i.category);
+            }
+            ExitCode::SUCCESS
+        }
+        Outcome::Signature { text, .. } => {
+            println!("{}", text.unwrap_or_default());
+            ExitCode::SUCCESS
         }
         Outcome::Hover { text, .. } => {
             println!("{text}");

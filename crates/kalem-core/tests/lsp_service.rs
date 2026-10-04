@@ -26,9 +26,9 @@ fn until<T>(what: &str, mut f: impl FnMut() -> Option<T>) -> T {
     }
 }
 
-fn outcome(path: &Path) -> Outcome {
+fn outcome(path: &Path, version: u64) -> Outcome {
     until("an answer", || {
-        lsp::take_outcomes(Some(path))
+        lsp::take_outcomes(path, version)
             .into_iter()
             .find(|o| !matches!(o, Outcome::Message { error: false, .. }))
     })
@@ -50,8 +50,10 @@ fn setup() -> (PathBuf, PathBuf) {
     let manifest = serde_json::json!({
         "id": "org.example.fake", "name": "Fake", "version": "1",
         "languages": [{"id": "fakelang", "name": "Fake", "extensions": ["fk"], "servers": ["f"]}],
+        "commands": {"format": [exe, "--fake-format", "{file}"]},
         "servers": {"f": {"name": "FakeLS", "command": [exe], "env": {"KALEM_LSP_FAKE": "normal"},
-                          "rootMarkers": ["root.marker"], "settings": {"elixirLS": {"x": 1}}}}
+                          "rootMarkers": ["root.marker"], "requireRoot": true,
+                          "settings": {"elixirLS": {"x": 1}}}}
     });
     std::fs::write(plug.join("plugin.json"), manifest.to_string()).unwrap();
     // The project is reached through a link, as `/tmp` is on macOS: the
@@ -71,6 +73,16 @@ fn setup() -> (PathBuf, PathBuf) {
 }
 
 fn main() {
+    // The plugin's formatter command: runs of spaces become one.
+    if std::env::args().any(|a| a == "--fake-format") {
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut std::io::stdin(), &mut text).unwrap();
+        while text.contains("  ") {
+            text = text.replace("  ", " ");
+        }
+        print!("{text}");
+        return;
+    }
     if let Ok(b) = std::env::var("KALEM_LSP_FAKE") {
         kalem_lsp::fake::serve(&b);
         return;
@@ -109,16 +121,24 @@ fn main() {
     let at = doc.text().as_str().find('x').unwrap();
     doc.selection = org_edit::Selection::caret(at);
     lsp::request(&doc, Kind::Hover).unwrap();
-    match outcome(&file) {
+    match outcome(&file, doc.version()) {
         Outcome::Hover { text, .. } => assert_eq!(text, "at 1:3"),
         o => panic!("{o:?}"),
     }
+    // An answer nobody takes does not keep the editors redrawing, and
+    // documentation for text that changed meanwhile is dropped.
+    lsp::request(&doc, Kind::Hover).unwrap();
+    until("the answer", || (!lsp::busy()).then_some(()));
+    assert!(!lsp::tick(), "an untaken answer is not a change");
+    edit(&mut doc, 0..0, " ");
+    assert!(lsp::take_outcomes(&file, doc.version()).is_empty());
+    edit(&mut doc, 0..1, "");
     let lines = lsp::hover_lines("```elixir\ndef f\n```\n\na b c d e f", 5, 3);
     assert_eq!(lines, ["def f", "", "a b c …"]);
     println!("test hover ... ok");
 
     lsp::request(&doc, Kind::Definition).unwrap();
-    match outcome(&file) {
+    match outcome(&file, doc.version()) {
         Outcome::Jump(p) => {
             assert_eq!((p.path.as_path(), p.line, p.column), (file.as_path(), 1, 2))
         }
@@ -133,7 +153,7 @@ fn main() {
 
     // Formatting: edits for this version, applied as one transaction.
     lsp::request(&doc, Kind::Format).unwrap();
-    match outcome(&file) {
+    match outcome(&file, doc.version()) {
         Outcome::Edits {
             version,
             edits,
@@ -193,6 +213,20 @@ fn main() {
     }
     assert_eq!(menu.documentation(), Some("Docs of goodbye/0."));
     drop(menu);
+    // An item's edits elsewhere come with it, in the same change.
+    let before = doc.text().as_str().to_string();
+    kalem_core::completers::apply(&mut doc, goodbye, Instant::now());
+    let after = doc.text().as_str().to_string();
+    assert!(after.starts_with("use Bye\n"), "{after:?}");
+    assert!(after.contains(" goodbye()"), "{after:?}");
+    let caret = doc.selection.head;
+    assert_eq!(
+        &after[..caret],
+        format!("use Bye\n{}", &before[..greet.range.start]) + "goodbye()"
+    );
+    doc.undo();
+    assert_eq!(doc.text().as_str(), before, "one undo step");
+    lsp::sync(&doc);
     let before = doc.text().as_str().to_string();
     kalem_core::completers::apply(&mut doc, greet, Instant::now());
     let after = doc.text().as_str().to_string();
@@ -204,9 +238,9 @@ fn main() {
     let n = doc.text().len();
     edit(&mut doc, n..n, "CRASH");
     until("the restart notice", || {
-        lsp::take_outcomes(Some(&file)).into_iter().find(
-            |o| matches!(o, Outcome::Message { text, error: true } if text.contains("restarting")),
-        )
+        kalem_core::jobs::take_notices()
+            .into_iter()
+            .find(|(text, error)| *error && text.contains("restarting"))
     });
     until("the restarted server", || {
         lsp::can(&doc, Kind::Hover).then_some(())
@@ -216,6 +250,10 @@ fn main() {
         "{:?}",
         lsp::report()
     );
+    // The crash's trigger out of the text before anything else is sent.
+    let t = doc.text().as_str().to_string();
+    let at = t.find("CRASH").unwrap();
+    edit(&mut doc, at..at + "CRASH".len(), "");
     println!("test restart ... ok");
 
     // The plugin updated: its server stops, and starts again for the
@@ -228,6 +266,236 @@ fn main() {
         lsp::can(&doc, Kind::Hover).then_some(())
     });
     println!("test plugin changed ... ok");
+
+    // Settings reach open documents: servers off, then on again, without
+    // reopening the file.
+    kalem_core::languages::set_user_settings(Some(&serde_json::json!({
+        "org.example.fake": {"server": "off"}
+    })));
+    lsp::settings_changed();
+    lsp::sync(&doc);
+    assert!(!lsp::serves(&doc), "servers off");
+    kalem_core::languages::set_user_settings(None);
+    lsp::settings_changed();
+    lsp::sync(&doc);
+    assert!(lsp::serves(&doc), "servers on again");
+    until("the server after the settings", || {
+        lsp::can(&doc, Kind::Hover).then_some(())
+    });
+    // Without a server, the plugin's formatter command formats.
+    kalem_core::languages::set_user_settings(Some(&serde_json::json!({
+        "org.example.fake": {"server": "off"}
+    })));
+    lsp::settings_changed();
+    lsp::sync(&doc);
+    edit(&mut doc, 0..0, "a  b ");
+    assert!(!lsp::can(&doc, Kind::Format) && lsp::has_format_command(&doc));
+    lsp::format_with_command(&doc).unwrap();
+    match outcome(&file, doc.version()) {
+        Outcome::Edits {
+            version,
+            edits,
+            label,
+            ..
+        } => {
+            assert_eq!(version, doc.version());
+            let tx = lsp::transaction(&edits, &label).unwrap();
+            doc.apply(&tx, org_edit::ChangeKind::Command, Instant::now());
+            assert!(
+                doc.text().as_str().starts_with("a b "),
+                "{:?}",
+                doc.text().as_str()
+            );
+        }
+        o => panic!("{o:?}"),
+    }
+    edit(&mut doc, 0..4, "");
+    kalem_core::languages::set_user_settings(None);
+    lsp::settings_changed();
+    lsp::sync(&doc);
+    until("the server back", || {
+        lsp::can(&doc, Kind::Hover).then_some(())
+    });
+    println!("test format command ... ok");
+
+    // A setting changed reaches the running server.
+    kalem_core::languages::set_user_settings(Some(&serde_json::json!({
+        "org.example.fake": {"settings": {"elixirLS": {"x": 9}}}
+    })));
+    lsp::settings_changed();
+    until("the new settings", || {
+        lsp::log(&file)
+            .iter()
+            .any(|l| l.contains("settings") && l.contains("\"x\":9"))
+            .then_some(())
+    });
+    kalem_core::languages::set_user_settings(None);
+    println!("test settings ... ok");
+
+    // Problems in the text: flagged in the line's view, marked in the
+    // gutter, said under the mouse; a file not open listed too.
+    let mut v =
+        kalem_core::view::plain_line_view(doc.text().as_str(), doc.text().line_range(0), None);
+    lsp::flag_diagnostics(&doc, &mut v);
+    let flagged: Vec<&str> = v
+        .runs
+        .iter()
+        .filter(|r| r.style.flagged == Some(true))
+        .map(|r| r.text.as_str())
+        .collect();
+    assert_eq!(flagged, ["TODO", "bad"], "{:?}", v.runs);
+    assert_eq!(lsp::line_mark(&doc, 0), Some(lsp::Severity::Error));
+    assert_eq!(lsp::line_mark(&doc, 1), None);
+    let bad = doc.text().as_str().find("bad").unwrap();
+    assert_eq!(
+        lsp::diagnostic_at(&doc, bad + 1).as_deref(),
+        Some("fake: bad found")
+    );
+    std::fs::write(file.with_file_name("other.fk"), "bad\n").unwrap();
+    let n = doc.text().len();
+    edit(&mut doc, n..n, "PROJECT");
+    until("the project's problems", || {
+        lsp::all_problems()
+            .iter()
+            .any(|p| p.path.ends_with("other.fk") && p.preview.contains("bad found"))
+            .then_some(())
+    });
+    edit(&mut doc, n..n + "PROJECT".len(), "");
+    println!("test problems in the text ... ok");
+
+    // Typing a call's `(` shows its signature; its `)` closes it.
+    let n = doc.text().len();
+    edit(&mut doc, n..n, "greet");
+    edit(&mut doc, n + 5..n + 5, "(");
+    match outcome(&file, doc.version()) {
+        Outcome::Signature { text: Some(t), .. } => {
+            assert!(
+                t.contains("greet(name, greeting)") && t.contains("Who.") && t.contains("Greets."),
+                "{t}"
+            );
+        }
+        o => panic!("{o:?}"),
+    }
+    let n = doc.text().len();
+    edit(&mut doc, n..n, ")");
+    assert!(matches!(
+        lsp::take_outcomes(&file, doc.version()).as_slice(),
+        [Outcome::Signature { text: None, .. }]
+    ));
+    let n = doc.text().len();
+    edit(&mut doc, n - "greet()".len()..n, "");
+    println!("test signature ... ok");
+
+    // A file changed outside the editor is told to the server; build
+    // output is not.
+    std::fs::create_dir_all(file.parent().unwrap().join("_build")).unwrap();
+    std::fs::write(file.parent().unwrap().join("_build/out.fk"), "x").unwrap();
+    std::fs::write(file.with_file_name("new.fk"), "x").unwrap();
+    until("the watched change", || {
+        lsp::log(&file)
+            .iter()
+            .any(|l| l.starts_with("watched") && l.contains("new.fk"))
+            .then_some(())
+    });
+    assert!(!lsp::log(&file).iter().any(|l| l.contains("out.fk")));
+    println!("test watched files ... ok");
+
+    // Saved under another name: the server has the document once, under
+    // the new name.
+    let renamed = file.with_file_name("b.fk");
+    doc.save_as(&renamed, kalem_core::Config::default().save_options())
+        .unwrap();
+    lsp::sync(&doc);
+    assert!(lsp::serves(&doc));
+    assert!(
+        lsp::report()[0].contains("1 documents"),
+        "{:?}",
+        lsp::report()
+    );
+    assert!(lsp::diagnostics(&file).is_empty(), "the old name is closed");
+    let file = renamed;
+    println!("test save as ... ok");
+
+    // Rename: a list to confirm, then the open document edited by its
+    // editor and the file not open written.
+    let other = file.with_file_name("other.fk");
+    std::fs::write(&other, "bad\n").unwrap();
+    let take_id = |item: &kalem_core::palette::PaletteItem| {
+        kalem_core::palette::split_invocation(&item.id).1["id"]
+            .as_u64()
+            .unwrap()
+    };
+    lsp::rename(&doc, "good").unwrap();
+    let items = match outcome(&file, doc.version()) {
+        Outcome::Choose(items) => items,
+        o => panic!("{o:?}"),
+    };
+    assert!(items[0].title.contains("in 2 files"), "{}", items[0].title);
+    let said = lsp::apply_plan(take_id(&items[0])).unwrap();
+    assert!(said.contains("1 files written"), "{said}");
+    assert_eq!(std::fs::read_to_string(&other).unwrap(), "good\n");
+    match outcome(&file, doc.version()) {
+        Outcome::Edits { edits, label, .. } => {
+            let tx = lsp::transaction(&edits, &label).unwrap();
+            doc.apply(&tx, org_edit::ChangeKind::Command, Instant::now());
+            lsp::sync(&doc);
+        }
+        o => panic!("{o:?}"),
+    }
+    assert!(doc.text().as_str().contains("good") && !doc.text().as_str().contains("bad"));
+    println!("test rename ... ok");
+
+    // Code actions: one with its edit, one whose command makes the
+    // server ask for an edit.
+    lsp::code_actions(&doc).unwrap();
+    let items = match outcome(&file, doc.version()) {
+        Outcome::Choose(items) => items,
+        o => panic!("{o:?}"),
+    };
+    let titles: Vec<&str> = items.iter().map(|i| i.title.as_str()).collect();
+    assert_eq!(titles, ["Mark the start", "Run a command"]);
+    lsp::run_offer(take_id(&items[0])).unwrap();
+    for expect in ["@", "#"] {
+        if expect == "#" {
+            lsp::run_offer(take_id(&items[1])).unwrap();
+        }
+        match outcome(&file, doc.version()) {
+            Outcome::Edits { edits, label, .. } => {
+                let tx = lsp::transaction(&edits, &label).unwrap();
+                doc.apply(&tx, org_edit::ChangeKind::Command, Instant::now());
+                lsp::sync(&doc);
+            }
+            o => panic!("{o:?}"),
+        }
+        assert!(
+            doc.text().as_str().starts_with(expect),
+            "{:?}",
+            doc.text().as_str()
+        );
+    }
+    until("the server's edit answered", || {
+        lsp::log(&file)
+            .iter()
+            .any(|l| l == "applied true")
+            .then_some(())
+    });
+    edit(&mut doc, 0..2, "");
+    println!("test code actions ... ok");
+
+    // Outside a project: no server, and the reason said.
+    let loose = dir.join("loose.fk");
+    std::fs::write(&loose, "x").unwrap();
+    let loose_doc = DocumentState::open(
+        &loose,
+        Arc::new(org_model::Settings::default()),
+        &org_syntax::ParseContext::default(),
+    )
+    .unwrap();
+    lsp::sync(&loose_doc);
+    assert!(!lsp::serves(&loose_doc));
+    let why = lsp::request(&loose_doc, Kind::Hover).unwrap_err();
+    assert!(why.contains("outside a project"), "{why}");
+    println!("test outside a project ... ok");
 
     // No server for other files, said with the reason.
     let other = dir.join("project/notes.txt");

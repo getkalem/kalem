@@ -90,6 +90,67 @@ pub fn hover_text(answer: &Value) -> Option<String> {
     (!text.is_empty()).then_some(text)
 }
 
+/// The text of a signature help answer: the active signature's label,
+/// then its active parameter's documentation, then its own; `None` when
+/// there is none.
+pub fn signature_text(answer: &Value) -> Option<String> {
+    let sigs = answer.get("signatures")?.as_array()?;
+    let active = answer["activeSignature"].as_u64().unwrap_or(0) as usize;
+    let sig = sigs.get(active).or_else(|| sigs.first())?;
+    let label = sig["label"].as_str()?;
+    let mut out = format!("```\n{label}\n```");
+    let param = sig["activeParameter"]
+        .as_u64()
+        .or_else(|| answer["activeParameter"].as_u64())
+        .map(|i| i as usize);
+    if let Some(p) = param.and_then(|i| sig["parameters"].as_array()?.get(i))
+        && let Some(d) = p
+            .get("documentation")
+            .and_then(doc_text)
+            .filter(|d| !d.trim().is_empty())
+    {
+        out.push_str("\n\n");
+        out.push_str(d.trim());
+    }
+    if let Some(d) = sig
+        .get("documentation")
+        .and_then(doc_text)
+        .filter(|d| !d.trim().is_empty())
+    {
+        out.push_str("\n\n");
+        out.push_str(d.trim());
+    }
+    Some(out)
+}
+
+/// The text edits of a `WorkspaceEdit`, by document URI, in the order
+/// given: its `documentChanges` (text edits; creating, renaming and
+/// deleting files are not supported and make the edit refused, `None`),
+/// else its `changes`.
+pub fn workspace_edit(edit: &Value) -> Option<Vec<(String, Vec<Value>)>> {
+    if let Some(changes) = edit.get("documentChanges").and_then(Value::as_array) {
+        let mut out = Vec::new();
+        for c in changes {
+            if c.get("kind").is_some() {
+                return None;
+            }
+            let uri = c["textDocument"]["uri"].as_str()?.to_string();
+            let edits = c["edits"].as_array().cloned().unwrap_or_default();
+            out.push((uri, edits));
+        }
+        return Some(out);
+    }
+    let map = edit.get("changes").and_then(Value::as_object);
+    Some(
+        map.map(|m| {
+            m.iter()
+                .map(|(uri, edits)| (uri.clone(), edits.as_array().cloned().unwrap_or_default()))
+                .collect()
+        })
+        .unwrap_or_default(),
+    )
+}
+
 /// A place in a file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Location {
@@ -139,11 +200,15 @@ pub struct CompletionItem {
     /// The replacement, with the range the server gave, and where the
     /// cursor goes in it.
     pub edit: Option<(Value, String, Option<usize>)>,
+    /// Edits elsewhere that come with the item (an alias or an import
+    /// added at the top), with the ranges the server gave.
+    pub additional: Vec<(Value, String)>,
     /// The server's sort key.
     pub sort_text: String,
     /// The server's filter key.
     pub filter_text: String,
-    /// The item as sent, for `completionItem/resolve`.
+    /// The item as sent, for `completionItem/resolve`: kept only when
+    /// asked ([`completion_items`]' `keep_raw`), null otherwise.
     pub raw: Value,
 }
 
@@ -330,7 +395,7 @@ fn doc_text(v: &Value) -> Option<String> {
 
 /// The items of a completion answer and whether the list is incomplete
 /// (to be asked again as the word grows).
-pub fn completion_items(answer: &Value) -> (Vec<CompletionItem>, bool) {
+pub fn completion_items(answer: &Value, keep_raw: bool) -> (Vec<CompletionItem>, bool) {
     let (list, incomplete) = match answer {
         Value::Array(a) => (a.as_slice(), false),
         Value::Object(o) => (
@@ -362,7 +427,15 @@ pub fn completion_items(answer: &Value) -> (Vec<CompletionItem>, bool) {
                 Some((range, text, at))
             });
             let (insert_text, cursor) = fix(i["insertText"].as_str().unwrap_or(&label));
+            let additional = i["additionalTextEdits"]
+                .as_array()
+                .map(Vec::as_slice)
+                .unwrap_or_default()
+                .iter()
+                .filter_map(|e| Some((e.get("range")?.clone(), e["newText"].as_str()?.to_string())))
+                .collect();
             Some(CompletionItem {
+                additional,
                 insert_text,
                 cursor,
                 detail: i["detail"].as_str().map(str::to_string),
@@ -372,7 +445,7 @@ pub fn completion_items(answer: &Value) -> (Vec<CompletionItem>, bool) {
                 filter_text: i["filterText"].as_str().unwrap_or(&label).to_string(),
                 edit,
                 label,
-                raw: i.clone(),
+                raw: if keep_raw { i.clone() } else { Value::Null },
             })
         })
         .collect();
@@ -386,7 +459,12 @@ pub fn text_edits(
     answer: &Value,
     enc: Encoding,
 ) -> Option<Vec<(Range<usize>, String)>> {
-    let list = answer.as_array()?;
+    // `null` is no edit, as the protocol allows.
+    let empty = Vec::new();
+    let list = match answer {
+        Value::Null => &empty,
+        v => v.as_array()?,
+    };
     let mut edits: Vec<(Range<usize>, String)> = list
         .iter()
         .filter_map(|e| {
@@ -492,6 +570,19 @@ mod tests {
         assert_eq!(strip_snippet("foo(${1:a}, ${2:b})$0"), "foo(a, b)");
         assert_eq!(strip_snippet("x ${1|one,two|} \\$y $"), "x one $y $");
         assert_eq!(strip_snippet("${1:a ${2:b}}"), "a b");
+    }
+
+    #[test]
+    fn no_edits() {
+        assert_eq!(
+            text_edits("x", &Value::Null, Encoding::Utf16),
+            Some(Vec::new())
+        );
+        assert_eq!(
+            text_edits("x", &json!([]), Encoding::Utf16),
+            Some(Vec::new())
+        );
+        assert_eq!(text_edits("x", &json!({}), Encoding::Utf16), None);
     }
 
     #[test]

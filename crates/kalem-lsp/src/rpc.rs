@@ -5,6 +5,10 @@ use std::io::{self, BufRead, Write};
 
 use serde_json::Value;
 
+/// The largest message read (a server's answer with every symbol of a
+/// large workspace stays far below).
+pub const MAX_MESSAGE: usize = 256 << 20;
+
 /// Reads one message; `Ok(None)` at the end of the stream. A message that
 /// is not JSON is an error of kind `InvalidData`, after which the stream
 /// is still in step (the body was read whole).
@@ -31,6 +35,10 @@ pub fn read(r: &mut impl BufRead) -> io::Result<Option<Value>> {
         }
     }
     let length = length.unwrap_or(0);
+    if length > MAX_MESSAGE {
+        // Not a message a client should hold: the stream is given up.
+        return Err(io::Error::other(format!("a message of {length} bytes")));
+    }
     let mut body = vec![0; length];
     r.read_exact(&mut body)?;
     serde_json::from_slice(&body)

@@ -99,11 +99,14 @@ Beside the fields every plugin has (=id=, =name=, =version=,
       "env": {},
       "rootMarkers": ["mix.exs"],
       "rootOutermost": true,
+      "requireRoot": true,
+      "busyLog": { "start": ["Starting project"], "done": ["Compiled "] },
       "initializationOptions": {},
       "settings": { "elixirLS": { "mixEnv": "test" } },
       "install": "brew install elixir-ls"
     }
-  }
+  },
+  "commands": { "format": ["mix", "format", "--stdin-filename", "{file}", "-"] }
 }
 #+end_src
 
@@ -115,18 +118,28 @@ Beside the fields every plugin has (=id=, =name=, =version=,
 - A *language* is a server's =languageId=, the files it claims (by
   whole name first, then by the longest extension, so =page.html.heex=
   is HEEx and not HTML, then by the interpreter of a =#!= line), its
-  syntax's name, its comment tokens, and its servers in order of
-  preference.
+  syntax's name (its names and extensions are highlighted with that
+  syntax, whatever the syntax's own extensions: =eex= with
+  =HTML (EEx)=), its comment tokens (Toggle Comment uses them), and its
+  servers in order of preference.
 - A *server* is a program and its arguments. When the program is not
   found, =candidates= are tried in order: bare names on the =PATH=
   (after =localDirs= under the project's root, such as
   =node_modules/.bin=), or paths, with =~= for the home folder. The
   root is the folder up from the file holding one of =rootMarkers=:
   the nearest, or the outermost with =rootOutermost= (an umbrella
-  project); without one, the file's folder. =settings= answer the
+  project); without one, the file's folder, or no server at all with
+  =requireRoot= (a script beside no =mix.exs= is highlighted, and the
+  status bar says why no server runs). =busyLog= is for servers that
+  report their work only in their log (Expert): the lines from one
+  containing a =start= text to one containing a =done= text show as
+  progress in the status bar. =settings= answer the
   server's =workspace/configuration= requests and are sent once after
   it starts. =install= is what the status bar says when no candidate is
   found: Kalem never installs a server by itself.
+- =commands.format= formats a document when no server formats it: the
+  text on its standard input, the formatted text on its output, run in
+  the background, ={file}= filled in.
 
 * Settings
 
@@ -159,12 +172,15 @@ stays stopped, and the status bar says so.
 | Feature                          | Vim profile        | Word-like profile | Command                                 |
 |----------------------------------+--------------------+-------------------+-----------------------------------------|
 | Completion, with the chosen item's documentation beside the list | as you type | as you type | the =lsp= completer |
+| Signature of the call being typed | after =(= and =,= | after =(= and =,= | |
 | Documentation at the cursor      | =K=, =SPC c k=     |                   | =code.documentation=                    |
 | Definition                       | =gd=, =SPC c d=    | F12               | =code.definition=                       |
 | Declaration                      |                    |                   | =code.declaration=                      |
 | Type definition                  | =SPC c t=          |                   | =code.typeDefinition=                   |
 | Implementations                  | =SPC c i=          |                   | =code.implementation=                   |
 | References                       | =gD=, =SPC c D=    | Shift+F12         | =code.references=                       |
+| Rename, with a preview           | =SPC c r=          | F2                | =code.rename=                           |
+| Code actions                     | =SPC c a=          | Ctrl+.            | =code.actions=                          |
 | Symbols of the document          |                    |                   | =code.symbols=                          |
 | Problems of the file, open files | =SPC c x=, =SPC c X= |                 | =code.problems=, =code.allProblems=     |
 | Format the document              | =SPC c f=          |                   | =edit.formatDocument=                   |
@@ -180,6 +196,19 @@ the problem on the cursor's line, else the server's work in progress
 (ElixirLS compiling), else the counts of errors and warnings.
 Formatting is applied as one undoable change, and only when the
 document has not changed since it was asked.
+
+Problems are underlined in the text, errors and warnings as probably
+wrong and the rest as style; the line's number is colored in the
+gutter, and the message shows under the mouse. The problems list
+(=SPC c X=) has the project's files the server reports, open or not.
+A rename shows how many changes in how many files before anything
+changes; edits of open documents are made in their editors as one
+undoable change each (skipped, and said, for a document changed since
+it was asked), files not open are written. A code action's edit is
+applied and its command run; the edits a server then asks to apply
+(=workspace/applyEdit=) are applied the same way. Files changed
+outside the editor in a server's project (a checkout, a dependency
+fetched) are told to the server, which compiles again.
 
 * On the command line
 
@@ -202,15 +231,14 @@ A completion item's documentation is the server's: given with the
 items (Expert, ElixirLS), or fetched with =completionItem/resolve= when
 an item is chosen, from servers that answer it.
 
-Rename, code actions, signature help, inlay hints, semantic tokens,
-the server's own commands, and edits a server asks to apply
-(=workspace/applyEdit= is refused, and said so in the log) are the
-rest of T3.8.2. Completion items are inserted as plain text: snippet
-placeholders are filled with their default text until the snippet
-engine (T3.8.3); a function is inserted as =name()= with the cursor
-between the brackets. Problems are listed and shown in the status bar, not
-yet underlined in the text. A second server for the same files (a
-linter beside the type server) and the plugin's run and test commands
-are read from the manifest but not used. The server's log (its log
-messages and standard error) is kept in memory, not shown yet; the
-log view is T2.7g.2.
+Inlay hints, semantic tokens, folding ranges, code lenses, workspace
+symbols and the server's own command list are the rest of T3.8.2.
+Completion items are inserted as plain text until the snippet engine
+(T3.8.3): a function is inserted as =name()= with the cursor between
+the brackets, other snippets with their places left empty. Edits that
+create, rename or delete files are refused with the reason. A second
+server for the same files (a linter beside the type server) and the
+plugin's run and test commands are read from the manifest but not
+used. The server's log (its log messages and standard error) is kept
+in memory and printed by =kalem lsp check --log=; the log view is
+T2.7g.2.

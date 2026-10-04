@@ -69,7 +69,14 @@ fn child(work: &Path) {
         .to_string(),
     )
     .unwrap();
-    kalem_core::Config::default().apply_process_settings();
+    // The interface in English, whatever the system's language: the
+    // assertions read English texts.
+    kalem_core::Config::from_layers(&[(
+        kalem_core::settings::Layer::User,
+        None,
+        "[ui]\nlanguage = \"en\"\n",
+    )])
+    .apply_process_settings();
     let reg = CommandRegistry::with_builtins();
     let generation = kalem_highlight::generation();
 

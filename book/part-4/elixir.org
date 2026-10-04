@@ -56,6 +56,12 @@ OTP 28, with the plugin's corpus project.
   answers back to the path a file was opened under.
 - ElixirLS 0.27 on Elixir 1.20 answers the document symbols request
   with modules only, without their functions; Expert lists both.
+- Expert 0.1.11 has no signature help; ElixirLS has.
+- Dialyzer is off by default (its first run builds a large table and
+  takes minutes); =dialyzerEnabled= in the plugin's settings turns it
+  on.
+- A file outside a Mix project gets no server (=requireRoot=): it is
+  highlighted, and the status bar says why.
 - Regular expressions in =~r= are highlighted as strings: the
   package's PCRE syntax uses subroutine calls, which the pure-Rust
   regular expressions of Kalem's highlighter (=fancy-regex=) do not
@@ -68,5 +74,4 @@ OTP 28, with the plugin's corpus project.
 
 No embedded =iex=: Kalem ships no REPL (D28), and a terminal is one key
 away. Running the test at the cursor (=mix test FILE:LINE=) and the
-project's tests waits for the project's run and test keys (T2.7i.8);
-rename, code actions and signature help wait for T3.8.2.
+project's tests waits for the project's run and test keys (T2.7i.8).

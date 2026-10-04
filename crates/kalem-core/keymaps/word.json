@@ -17,6 +17,10 @@
   // Enter in text files keeps the indentation.
   { "keys": "enter", "command": "edit.newline", "when": "editorMode != org" },
   // In LaTeX, Enter continues list items.
+  // Language servers (D57): rename and code actions, where a server
+  // serves the file (F2 and Ctrl+. are other commands elsewhere).
+  { "keys": "f2", "command": "code.rename", "when": "hasLanguageServer" },
+  { "keys": "ctrl+.", "command": "code.actions", "when": "hasLanguageServer" },
   { "keys": "enter", "command": "latex.enter", "when": "editorMode == latex" },
   // In Markdown, Enter continues list items and quotes.
   { "keys": "enter", "command": "markdown.newline", "when": "editorMode == markdown && inMarkdownList" },

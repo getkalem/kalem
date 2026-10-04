@@ -1300,8 +1300,10 @@ impl<'a> Layout<'a> {
                         range.clone(),
                         Some(self.cursor),
                     );
-                    // LaTeX's source view: the diagnostics flagged too.
+                    // LaTeX's source view: the diagnostics flagged too; a
+                    // language server's problems in code files.
                     kalem_core::latex_view::flag_diagnostics(self.doc, &mut v);
+                    kalem_core::lsp::flag_diagnostics(self.doc, &mut v);
                     v
                 };
                 let empty = org_syntax::parse("");
@@ -2082,6 +2084,20 @@ impl EditorView {
                 let mut style = ratatui::style::Style::default().add_modifier(Modifier::DIM);
                 if dl.line == current {
                     style = ratatui::style::Style::default().add_modifier(Modifier::BOLD);
+                }
+                // A language server's problem on the line colors its number.
+                match kalem_core::lsp::line_mark(doc, dl.line) {
+                    Some(kalem_core::lsp::Severity::Error) => {
+                        style = style
+                            .fg(ratatui::style::Color::LightRed)
+                            .remove_modifier(Modifier::DIM);
+                    }
+                    Some(kalem_core::lsp::Severity::Warning) => {
+                        style = style
+                            .fg(ratatui::style::Color::Yellow)
+                            .remove_modifier(Modifier::DIM);
+                    }
+                    _ => {}
                 }
                 let n = format!("{:>w$}", dl.line + 1, w = usize::from(digits));
                 buf.set_stringn(full.x, dl.y, &n, usize::from(digits), style);

@@ -144,6 +144,10 @@ pub enum CommentStyle {
 /// and source blocks give it).
 pub fn comment_style(language: &str) -> Option<CommentStyle> {
     use CommentStyle::*;
+    // A language plugin's markers first (HEEx's `<%!-- --%>`).
+    if let Some(style) = crate::languages::comment_style(language) {
+        return Some(style);
+    }
     let l = language.to_ascii_lowercase();
     Some(match l.as_str() {
         "rs" | "rust" | "c" | "h" | "cc" | "cpp" | "c++" | "hpp" | "cxx" | "java" | "js"

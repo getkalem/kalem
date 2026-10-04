@@ -90,6 +90,10 @@ struct OrgState {
 /// An open document.
 #[derive(Debug)]
 pub struct DocumentState {
+    /// A number no other document of this run has: services that keep
+    /// something per document (a language server's copy) follow it when
+    /// its path changes.
+    serial: u64,
     /// Edits are refused (Doom's `SPC t r`); the cursor still moves.
     pub read_only: bool,
     text: Text,
@@ -243,7 +247,9 @@ impl DocumentState {
             }
             l
         });
+        static SERIAL: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         DocumentState {
+            serial: SERIAL.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             read_only: false,
             text,
             version: 0,
@@ -725,6 +731,11 @@ impl DocumentState {
     /// The text.
     pub fn text(&self) -> &Text {
         &self.text
+    }
+
+    /// This document's number in this run ([`DocumentState`]'s `serial`).
+    pub fn serial(&self) -> u64 {
+        self.serial
     }
 
     /// The version of the text, incremented by every change.
@@ -1765,7 +1776,9 @@ impl DocumentState {
         c.flag("readOnly", self.read_only);
         c.flag(
             "hasFormatter",
-            crate::packs::has_formatter(self) || crate::lsp::can(self, crate::lsp::Kind::Format),
+            crate::packs::has_formatter(self)
+                || crate::lsp::can(self, crate::lsp::Kind::Format)
+                || crate::lsp::has_format_command(self),
         );
         c.flag("hasLanguageServer", crate::lsp::serves(self));
         if self.meta.mode == DocumentMode::Markdown

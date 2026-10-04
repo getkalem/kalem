@@ -34,6 +34,9 @@ use sha2::{Digest, Sha256};
 pub const DEFAULT_INDEX: &str =
     "https://raw.githubusercontent.com/getkalem/plugins/main/index.json";
 
+/// The most an archive may unpack to.
+const MAX_UNPACKED: u64 = 256 << 20;
+
 /// The largest archive downloaded.
 const MAX_DOWNLOAD: u64 = 64 << 20;
 
@@ -144,7 +147,7 @@ pub fn fetch(url: &str) -> Result<Vec<u8>, String> {
         .header("User-Agent", concat!("Kalem/", env!("CARGO_PKG_VERSION")))
         .call()
         .map_err(|e| match e {
-            ureq::Error::StatusCode(404) => format!("{url}: not found"),
+            ureq::Error::StatusCode(404) => crate::tr!("plugin-url-not-found", url = url),
             e => format!("{url}: {e}"),
         })?;
     resp.body_mut()
@@ -293,6 +296,8 @@ pub fn unpack(archive: &[u8], under: &str, into: &Path) -> Result<usize, String>
     }
     std::fs::create_dir_all(into).map_err(|e| e.to_string())?;
     let mut count = 0;
+    // A small archive can unpack to a great deal: the total is capped.
+    let mut total: u64 = 0;
     let mut a = tar::Archive::new(flate2::read::GzDecoder::new(archive));
     for e in a.entries().map_err(bad)? {
         let mut e = e.map_err(bad)?;
@@ -322,8 +327,17 @@ pub fn unpack(archive: &[u8], under: &str, into: &Path) -> Result<usize, String>
                 if let Some(d) = to.parent() {
                     std::fs::create_dir_all(d).map_err(|e| e.to_string())?;
                 }
+                total = total.saturating_add(e.header().size().unwrap_or(0));
+                if total > MAX_UNPACKED {
+                    return Err(format!(
+                        "the archive unpacks to more than {MAX_UNPACKED} bytes"
+                    ));
+                }
                 let mut bytes = Vec::new();
-                e.read_to_end(&mut bytes).map_err(bad)?;
+                (&mut e)
+                    .take(MAX_UNPACKED)
+                    .read_to_end(&mut bytes)
+                    .map_err(bad)?;
                 std::fs::write(&to, bytes).map_err(|e| format!("{}: {e}", to.display()))?;
                 count += 1;
             }
@@ -367,6 +381,20 @@ fn copy_dir(from: &Path, to: &Path) -> Result<(), String> {
 fn new_staging() -> Result<PathBuf, String> {
     let root = staging_root();
     std::fs::create_dir_all(&root).map_err(|e| format!("{}: {e}", root.display()))?;
+    // Plugins never confirmed (Kalem quit while asking): gone after a day.
+    if let Ok(rd) = std::fs::read_dir(&root) {
+        for e in rd.filter_map(Result::ok) {
+            let old = e
+                .metadata()
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| t.elapsed().ok())
+                .is_some_and(|age| age > std::time::Duration::from_secs(24 * 60 * 60));
+            if old {
+                let _ = std::fs::remove_dir_all(e.path());
+            }
+        }
+    }
     let n = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_nanos());
@@ -404,8 +432,11 @@ fn fill(source: &str, index_url: &str, staging: &Path) -> Result<(), String> {
             let url = format!("https://codeload.github.com/{owner}/{repo}/tar.gz/{reference}");
             let n = unpack(&fetch(&url)?, &path, staging)?;
             if n == 0 {
-                return Err(format!(
-                    "{owner}/{repo} has no folder {path} at {reference}"
+                return Err(crate::tr!(
+                    "plugin-no-folder",
+                    repo = format!("{owner}/{repo}"),
+                    path = path.as_str(),
+                    reference = reference.as_str()
                 ));
             }
             Ok(())
@@ -413,17 +444,19 @@ fn fill(source: &str, index_url: &str, staging: &Path) -> Result<(), String> {
         Source::Index(name) => {
             let index = fetch_index(index_url)?;
             let e = find_entry(&index, &name).ok_or_else(|| {
-                format!(
-                    "No plugin named {name} in the index ({} plugins listed)",
-                    index.len()
-                )
+                crate::tr!("plugin-no-such", name = name.as_str(), count = index.len())
             })?;
             match (&e.download, &e.sha256) {
                 (Some(url), Some(sha)) => {
                     let bytes = fetch(url)?;
                     let got = format!("{:x}", Sha256::digest(&bytes));
                     if !got.eq_ignore_ascii_case(sha) {
-                        return Err(format!("{url}: its SHA-256 is {got}, the index says {sha}"));
+                        return Err(crate::tr!(
+                            "plugin-bad-sha",
+                            url = url.as_str(),
+                            got = got.as_str(),
+                            want = sha.as_str()
+                        ));
                     }
                     if !e.declarative {
                         return released_component(e, &bytes, staging);
@@ -455,7 +488,7 @@ fn released_component(e: &IndexEntry, bytes: &[u8], staging: &Path) -> Result<()
     let main = m["main"]
         .as_str()
         .ok_or_else(|| format!("{}'s plugin.json names no component", e.name))?;
-    if main.starts_with('/') || main.contains("..") {
+    if Path::new(main).has_root() || Path::new(main).is_absolute() || main.contains("..") {
         return Err(format!(
             "{}'s component {main} is not in its folder",
             e.name
@@ -510,7 +543,7 @@ fn component_not_released(name: &str) -> String {
 
 fn read_prepared(source: &str, staging: &Path) -> Result<Prepared, String> {
     let text = std::fs::read_to_string(staging.join("plugin.json"))
-        .map_err(|_| format!("{source} is not a plugin: it has no plugin.json"))?;
+        .map_err(|_| crate::tr!("plugin-no-manifest", source = source))?;
     let m: Value = serde_json::from_str(&text).map_err(|e| format!("plugin.json: {e}"))?;
     let id = m["id"]
         .as_str()
@@ -522,14 +555,18 @@ fn read_prepared(source: &str, staging: &Path) -> Result<Prepared, String> {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'))
         || id.starts_with('.')
     {
-        return Err(format!("plugin.json: `{id}` is not a plugin ID"));
+        return Err(crate::tr!("plugin-bad-id", id = id.as_str()));
     }
     let name = m["name"].as_str().unwrap_or(&id).to_string();
     let opens = strings(&m["opens"]);
     let component = m.get("main").is_some();
     if let Some(main) = m.get("main").and_then(Value::as_str) {
         let file = staging.join(main);
-        if main.starts_with('/') || main.contains("..") || !file.is_file() {
+        if Path::new(main).has_root()
+            || Path::new(main).is_absolute()
+            || main.contains("..")
+            || !file.is_file()
+        {
             return Err(format!(
                 "{name}'s component {main} is not built: run `kalem plugin build` in its folder first"
             ));
@@ -543,9 +580,7 @@ fn read_prepared(source: &str, staging: &Path) -> Result<Prepared, String> {
             ));
         }
     } else if m.get("languages").is_none() {
-        return Err(format!(
-            "{id} declares no languages: nothing Kalem can load today"
-        ));
+        return Err(crate::tr!("plugin-nothing-to-load", id = id.as_str()));
     }
     let replaces = installed()
         .into_iter()
@@ -588,7 +623,7 @@ fn read_prepared(source: &str, staging: &Path) -> Result<Prepared, String> {
 /// The plugin unpacked in `staging` (by [`prepare`], from `source`).
 pub fn prepared_at(staging: &Path, source: &str) -> Result<Prepared, String> {
     if !staging.starts_with(staging_root()) || !staging.is_dir() {
-        return Err("That plugin is no longer waiting to be installed".into());
+        return Err(crate::tr!("plugin-not-waiting"));
     }
     read_prepared(source, staging)
 }
@@ -596,32 +631,35 @@ pub fn prepared_at(staging: &Path, source: &str) -> Result<Prepared, String> {
 /// What the user is asked before installing: a line per fact.
 pub fn summary(p: &Prepared) -> Vec<String> {
     let mut out = vec![match &p.replaces {
-        Some(v) => format!("{} {} (replaces {v})", p.name, p.version),
+        Some(v) => crate::tr!(
+            "plugin-replaces",
+            name = p.name.as_str(),
+            version = p.version.as_str(),
+            old = v.as_str()
+        ),
         None => format!("{} {}", p.name, p.version),
     }];
     if !p.description.is_empty() {
         out.push(p.description.clone());
     }
     if !p.languages.is_empty() {
-        out.push(format!("Languages: {}", p.languages.join(", ")));
+        out.push(crate::tr!(
+            "plugin-languages",
+            list = p.languages.join(", ")
+        ));
     }
     if !p.opens.is_empty() {
-        out.push(format!(
-            "Opens: {} (a component, run in Kalem's sandbox)",
-            p.opens.join(", ")
-        ));
+        out.push(crate::tr!("plugin-opens", list = p.opens.join(", ")));
     } else if p.component {
-        out.push("Adds commands, keys and panels (a component, run in Kalem's sandbox)".into());
+        out.push(crate::tr!("plugin-adds"));
     }
     if p.permissions.iter().any(|x| x == "subprocess") || !p.servers.is_empty() {
-        out.push(format!(
-            "Runs programs on this computer: {} (when installed; Kalem never installs them)",
-            if p.servers.is_empty() {
-                "its language servers".into()
-            } else {
-                p.servers.join(", ")
-            }
-        ));
+        let programs = if p.servers.is_empty() {
+            crate::tr!("plugin-its-servers")
+        } else {
+            p.servers.join(", ")
+        };
+        out.push(crate::tr!("plugin-runs", list = programs));
     }
     let other: Vec<&String> = p
         .permissions
@@ -629,16 +667,14 @@ pub fn summary(p: &Prepared) -> Vec<String> {
         .filter(|x| *x != "subprocess")
         .collect();
     if !other.is_empty() {
-        out.push(format!(
-            "Permissions: {}",
-            other
-                .iter()
-                .map(|s| s.as_str())
-                .collect::<Vec<_>>()
-                .join(", ")
-        ));
+        let list = other
+            .iter()
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        out.push(crate::tr!("plugin-permissions", list = list));
     }
-    out.push(format!("From {}", p.source));
+    out.push(crate::tr!("plugin-from", source = p.source.as_str()));
     out
 }
 
@@ -646,7 +682,7 @@ pub fn summary(p: &Prepared) -> Vec<String> {
 /// (replacing an older one), recorded in `plugins.toml`, and the
 /// language plugins loaded again.
 pub fn install(p: &Prepared) -> Result<PathBuf, String> {
-    let root = plugins_dir().ok_or("No settings folder to install into")?;
+    let root = plugins_dir().ok_or_else(|| crate::tr!("plugin-no-config"))?;
     std::fs::create_dir_all(&root).map_err(|e| format!("{}: {e}", root.display()))?;
     let dest = root.join(&p.id);
     let old = root.join(format!(".{}.old", p.id));
@@ -762,7 +798,7 @@ pub fn remove(id: &str) -> Result<String, String> {
     let p = installed()
         .into_iter()
         .find(|p| p.id == id)
-        .ok_or_else(|| format!("{id} is not installed"))?;
+        .ok_or_else(|| crate::tr!("plugin-not-installed", id = id))?;
     let meta = std::fs::symlink_metadata(&p.dir).map_err(|e| e.to_string())?;
     if meta.file_type().is_symlink() {
         std::fs::remove_file(&p.dir)
@@ -796,7 +832,12 @@ pub fn newer(a: &str, b: &str) -> bool {
             .collect()
     };
     match (parts(a), parts(b)) {
-        (Some(x), Some(y)) => x > y,
+        // Missing parts are zeros: `1.0` is `1.0.0`.
+        (Some(mut x), Some(mut y)) => {
+            x.resize(3, 0);
+            y.resize(3, 0);
+            x > y
+        }
         _ => a != b && a > b,
     }
 }
@@ -836,10 +877,7 @@ pub fn updates_notice(updates: &[(Installed, String)]) -> Option<String> {
         .iter()
         .map(|(i, v)| format!("{} {v}", i.name))
         .collect();
-    Some(format!(
-        "Plugin updates: {} (Kalem menu, Installed Plugins)",
-        list.join(", ")
-    ))
+    Some(crate::tr!("plugin-updates", list = list.join(", ")))
 }
 
 /// How often the editor looks for updates.
@@ -895,6 +933,8 @@ mod tests {
         assert!(!newer("0.1.0", "0.1.0"));
         assert!(!newer("0.1.0", "0.2.0"));
         assert!(newer("v2.0.0", "1.9.9"));
+        assert!(!newer("1.0.0", "1.0"));
+        assert!(newer("1.0.1", "1.0"));
     }
 
     #[test]

@@ -68,12 +68,18 @@ pub struct ServerSpec {
     /// The outermost marked folder is the root (an umbrella project), not
     /// the nearest.
     pub root_outermost: bool,
+    /// No server for a file outside a marked folder (a script beside no
+    /// `mix.exs`), rather than one per folder.
+    pub require_root: bool,
     /// `initializationOptions`.
     pub initialization_options: Value,
     /// Its settings, before the user's.
     pub settings: Value,
     /// How to install it, said when it is not found.
     pub install: Option<String>,
+    /// Log lines that start and end work the server tells only in its log
+    /// (`busyLog`: `{"start": [...], "done": [...]}`).
+    pub busy_log: (Vec<String>, Vec<String>),
 }
 
 /// A loaded language plugin.
@@ -172,9 +178,14 @@ pub fn parse_manifest(dir: &Path, text: &str) -> Result<Option<Plugin>, String> 
                     env: env_pairs(&s["env"]),
                     root_markers: strings(&s["rootMarkers"]),
                     root_outermost: s["rootOutermost"].as_bool().unwrap_or(false),
+                    require_root: s["requireRoot"].as_bool().unwrap_or(false),
                     initialization_options: s["initializationOptions"].clone(),
                     settings: s["settings"].clone(),
                     install: s["install"].as_str().map(str::to_string),
+                    busy_log: (
+                        strings(&s["busyLog"]["start"]),
+                        strings(&s["busyLog"]["done"]),
+                    ),
                 })
                 .collect()
         })
@@ -322,6 +333,18 @@ pub fn load_from(dirs: &[PathBuf]) {
             Err(e) => loaded.problems.push(format!("{}: {e}", folder.display())),
         }
     }
+    // Each language's names and extensions name its syntax.
+    let aliases: Vec<(String, String)> = plugins
+        .iter()
+        .flat_map(|(p, _)| p.languages.iter())
+        .filter_map(|l| Some((l, l.syntax.clone()?)))
+        .flat_map(|(l, syntax)| {
+            std::iter::once(l.id.clone())
+                .chain(l.extensions.iter().cloned())
+                .map(move |n| (n.to_ascii_lowercase(), syntax.clone()))
+        })
+        .collect();
+    kalem_highlight::set_aliases(aliases);
     if sources.is_empty() {
         kalem_highlight::reset();
     } else {
@@ -440,6 +463,39 @@ pub fn for_path(path: &Path, first_line: Option<&str>) -> Option<(Arc<Plugin>, L
     })
 }
 
+/// A plugin's comment marker as the `'static` text the comment commands
+/// take: each distinct marker kept once for the run (a few bytes).
+fn intern(marker: &str) -> &'static str {
+    static MARKERS: Mutex<Vec<&'static str>> = Mutex::new(Vec::new());
+    let Ok(mut all) = MARKERS.lock() else {
+        return "#";
+    };
+    if let Some(m) = all.iter().find(|m| **m == marker) {
+        return m;
+    }
+    let m: &'static str = Box::leak(marker.to_string().into_boxed_str());
+    all.push(m);
+    m
+}
+
+/// How the language plugins say a language writes comments: by the
+/// language's id or name, or one of its extensions (`heex`, `ex`).
+pub fn comment_style(language: &str) -> Option<crate::code::CommentStyle> {
+    let l = language.to_ascii_lowercase();
+    plugins().iter().rev().find_map(|p| {
+        let lang = p.languages.iter().find(|x| {
+            x.id.eq_ignore_ascii_case(&l)
+                || x.name.eq_ignore_ascii_case(&l)
+                || x.extensions.iter().any(|e| e.eq_ignore_ascii_case(&l))
+        })?;
+        match (&lang.line_comment, &lang.block_comment) {
+            (Some(line), _) => Some(crate::code::CommentStyle::Line(intern(line))),
+            (None, Some((a, b))) => Some(crate::code::CommentStyle::Block(intern(a), intern(b))),
+            (None, None) => None,
+        }
+    })
+}
+
 /// The settings a server starts with: its own, then the user's
 /// `plugins."ID".settings`.
 pub fn server_settings(plugin: &Plugin, server: &ServerSpec) -> Value {
@@ -503,15 +559,20 @@ pub fn resolve_server(plugin: &Plugin, lang: &LanguageSpec, root: Option<&Path>)
                 return Resolved::Found(Box::new(spec), path, args);
             }
             None => missing.push(match &spec.install {
-                Some(how) => format!("{} is not installed ({how})", spec.name),
-                None => format!("{} is not installed", spec.name),
+                Some(how) => crate::tr!(
+                    "lsp-not-installed-how",
+                    server = spec.name.as_str(),
+                    how = how.as_str()
+                ),
+                None => crate::tr!("lsp-not-installed", server = spec.name.as_str()),
             }),
         }
     }
     if missing.is_empty() {
-        Resolved::Missing(format!(
-            "{} has no language server for {}",
-            plugin.name, lang.name
+        Resolved::Missing(crate::tr!(
+            "lsp-plugin-no-server",
+            plugin = plugin.name.as_str(),
+            language = lang.name.as_str()
         ))
     } else {
         Resolved::Missing(missing.join("; "))
@@ -527,7 +588,7 @@ mod tests {
       "languages": [
         {"id": "lang", "name": "Lang", "extensions": ["lg", "html.lg"], "filenames": ["Langfile"],
          "shebangs": ["lang"], "comment": {"line": "--", "block": ["{-", "-}"]}, "servers": ["a", "b"]},
-        {"id": "tmpl", "extensions": ["lg.tmpl"]}
+        {"id": "tmpl", "syntax": "Rust", "extensions": ["lg.tmpl"]}
       ],
       "servers": {
         "a": {"name": "A", "command": ["kalem-no-such-program-a", "--stdio"], "install": "get A"},
@@ -596,6 +657,22 @@ mod tests {
         }
         let s = server_settings(&p, p.server("b").unwrap());
         assert_eq!(s, serde_json::json!({"b": {"x": 1, "y": 3}}));
+        // A language's syntax by its name, whatever the syntax's own
+        // extensions are.
+        assert_eq!(
+            kalem_highlight::Language::find("tmpl").map(|l| l.name()),
+            Some("Rust")
+        );
+        // Comment markers by language or extension; a block for a
+        // language without a line marker.
+        assert_eq!(
+            comment_style("lg"),
+            Some(crate::code::CommentStyle::Line("--"))
+        );
+        assert_eq!(
+            crate::code::comment_style("Lang"),
+            Some(crate::code::CommentStyle::Line("--"))
+        );
         set_user_settings(None);
         let _ = std::fs::remove_dir_all(&dir);
     }
