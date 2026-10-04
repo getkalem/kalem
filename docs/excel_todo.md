@@ -33,7 +33,7 @@ in the palette and can be bound again.
 
 ## E4. Number formats
 
-- [ ] E4 The selection's number format: General, Number (two
+- [x] E4 The selection's number format: General, Number (two
   decimals, thousands), Currency (₺), Percent, Short Date, Long Date,
   Time, Text, Scientific, or a typed code; Increase and Decrease
   Decimal. Written as `numFmt` styles, shown through them.

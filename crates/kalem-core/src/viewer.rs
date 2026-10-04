@@ -2624,6 +2624,12 @@ impl ViewerState {
         Ok(())
     }
 
+    /// The cursor's cell's number format code.
+    pub fn cursor_format(&mut self) -> Option<String> {
+        let p = self.grid_pos();
+        self.doc().cell_format(self.unit, p.row, p.col)
+    }
+
     /// The cursor's cell as drawn (its format), for toggles that follow it.
     pub fn cursor_cell(&mut self) -> GridCell {
         let p = self.grid_pos();
@@ -2947,6 +2953,92 @@ pub fn fill_lists(config: &crate::settings::Config) -> Vec<Vec<String>> {
         })
         .filter(|l| l.len() >= 2)
         .collect()
+}
+
+/// A number format with a decimal place more (`by` 1) or fewer (-1), as
+/// Excel's Increase and Decrease Decimal make it: every section's first
+/// number changed; General goes by the decimals the cell shows. `None`
+/// when there is nothing to change.
+pub fn change_decimals(code: &str, by: i32, shown: &str) -> Option<String> {
+    if code.eq_ignore_ascii_case("General") {
+        let shown_decimals = shown.rsplit_once('.').map_or(0, |(_, f)| {
+            f.chars().take_while(char::is_ascii_digit).count()
+        }) as i32;
+        let n = shown_decimals + by;
+        return (n >= 0 && n != shown_decimals).then(|| {
+            if n == 0 {
+                "0".to_owned()
+            } else {
+                format!("0.{}", "0".repeat(n as usize))
+            }
+        });
+    }
+    // Each character, and whether it is text rather than format: quoted,
+    // escaped, in brackets, or the character after `_` or `*`.
+    let mut chars: Vec<(char, bool)> = Vec::new();
+    let (mut quoted, mut bracket, mut next_literal) = (false, false, false);
+    for ch in code.chars() {
+        let literal = if next_literal {
+            next_literal = false;
+            true
+        } else if quoted {
+            quoted = ch != '"';
+            true
+        } else if bracket {
+            bracket = ch != ']';
+            true
+        } else {
+            match ch {
+                '"' => quoted = true,
+                '[' => bracket = true,
+                '\\' | '_' | '*' => next_literal = true,
+                _ => {}
+            }
+            matches!(ch, '"' | '[' | '\\' | '_' | '*')
+        };
+        chars.push((ch, literal));
+    }
+    let mut out = String::new();
+    let mut changed = false;
+    for (i, section) in chars.split(|&(ch, lit)| ch == ';' && !lit).enumerate() {
+        if i > 0 {
+            out.push(';');
+        }
+        let mut sec: Vec<(char, bool)> = section.to_vec();
+        let digit = |c: &(char, bool)| !c.1 && matches!(c.0, '0' | '#' | '?');
+        // The number before an exponent.
+        let end = sec
+            .iter()
+            .position(|c| !c.1 && matches!(c.0, 'E' | 'e'))
+            .unwrap_or(sec.len());
+        let point = sec[..end].iter().position(|c| !c.1 && c.0 == '.');
+        let last_digit = sec[..end].iter().rposition(digit);
+        match (point, last_digit) {
+            (_, None) => {}
+            (Some(p), Some(_)) => {
+                let run = sec[p + 1..end].iter().take_while(|c| digit(c)).count();
+                if by > 0 {
+                    sec.insert(p + 1 + run, ('0', false));
+                    changed = true;
+                } else if run > 0 {
+                    sec.remove(p + run);
+                    if run == 1 {
+                        sec.remove(p);
+                    }
+                    changed = true;
+                }
+            }
+            (None, Some(l)) => {
+                if by > 0 {
+                    sec.insert(l + 1, ('0', false));
+                    sec.insert(l + 1, ('.', false));
+                    changed = true;
+                }
+            }
+        }
+        out.extend(sec.iter().map(|c| c.0));
+    }
+    changed.then_some(out)
 }
 
 /// A number through a spreadsheet's number format, as a chart's axis
@@ -5072,6 +5164,72 @@ fn toggle_font(ctx: &mut EditorContext<'_>, which: &str) -> CommandResult {
     })
 }
 
+/// Number Format: the selection's, from Excel's common ones or typed.
+fn number_format(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::StyleChange;
+    const ID: &str = "viewer.grid.numberFormat";
+    let typed = args.get("value").and_then(|x| x.as_str());
+    match args.get("code").and_then(|c| c.as_str()).or(typed) {
+        None => {
+            let formats = [
+                ("General", "General"),
+                ("Number", "#,##0.00"),
+                ("Currency", "#,##0.00 \"₺\""),
+                ("Percentage", "0.00%"),
+                ("Short Date", "dd.mm.yyyy"),
+                ("Long Date", "d mmmm yyyy dddd"),
+                ("Time", "hh:mm:ss"),
+                ("Fraction", "# ?/?"),
+                ("Scientific", "0.00E+00"),
+                ("Text", "@"),
+            ];
+            let mut items: Vec<_> = formats
+                .iter()
+                .map(|(title, code)| {
+                    menu_item(
+                        ID,
+                        serde_json::json!({ "code": code }),
+                        &format!("{title}  {code}"),
+                        "Number Format",
+                    )
+                })
+                .collect();
+            items.push(menu_item(
+                ID,
+                serde_json::json!({ "code": "custom" }),
+                "Custom…",
+                "Number Format",
+            ));
+            ctx.requests.push(Request::Choose(items));
+            Ok(())
+        }
+        Some("custom") => ask_more(ctx, ID, &serde_json::json!({}), "value"),
+        Some(code) => with(ctx, |v| {
+            v.change_style(StyleChange {
+                number_format: Some(code.to_owned()),
+                ..StyleChange::default()
+            })
+        }),
+    }
+}
+
+/// Increase or Decrease Decimal: the cursor's cell's format with a place
+/// more or fewer, given to the selection.
+fn step_decimals(ctx: &mut EditorContext<'_>, by: i32) -> CommandResult {
+    use kalem_viewer::StyleChange;
+    with(ctx, |v| {
+        let code = v.cursor_format().unwrap_or_else(|| "General".into());
+        let shown = v.cursor_cell().text;
+        match change_decimals(&code, by, &shown) {
+            Some(code) => v.change_style(StyleChange {
+                number_format: Some(code),
+                ..StyleChange::default()
+            }),
+            None => Ok(()),
+        }
+    })
+}
+
 /// Borders: the selection's borders drawn in the Line Color, or taken
 /// away; with no `set` the menu of them.
 fn borders(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
@@ -7023,6 +7181,27 @@ fn grid_commands() -> Vec<Command> {
             IN_GRID,
             |ctx, args| font_choice(ctx, args, false),
         ),
+        cmd(
+            "viewer.grid.numberFormat",
+            "Number Format",
+            &["t 1"],
+            IN_GRID,
+            number_format,
+        ),
+        cmd(
+            "viewer.grid.increaseDecimal",
+            "Increase Decimal",
+            &["t ."],
+            IN_GRID,
+            |ctx, _| step_decimals(ctx, 1),
+        ),
+        cmd(
+            "viewer.grid.decreaseDecimal",
+            "Decrease Decimal",
+            &["t ,"],
+            IN_GRID,
+            |ctx, _| step_decimals(ctx, -1),
+        ),
         cmd("viewer.grid.borders", "Borders", &["t d"], IN_GRID, borders),
         cmd(
             "viewer.grid.borderColor",
@@ -7304,6 +7483,34 @@ fn grid_commands() -> Vec<Command> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn decimals_increased_and_decreased() {
+        let more = |c: &str| change_decimals(c, 1, "").unwrap();
+        let fewer = |c: &str| change_decimals(c, -1, "");
+        assert_eq!(more("0"), "0.0");
+        assert_eq!(more("#,##0.00"), "#,##0.000");
+        assert_eq!(more("0%"), "0.0%");
+        assert_eq!(more("0.00E+00"), "0.000E+00");
+        assert_eq!(more("#,##0.00 \"₺\""), "#,##0.000 \"₺\"");
+        assert_eq!(more("#,##0_);[Red](#,##0)"), "#,##0.0_);[Red](#,##0.0)");
+        assert_eq!(fewer("0.0").as_deref(), Some("0"));
+        assert_eq!(fewer("#,##0.00").as_deref(), Some("#,##0.0"));
+        assert_eq!(fewer("0").as_deref(), None);
+        // Dates and text have no decimals.
+        assert_eq!(change_decimals("dd.mm.yyyy", 1, "04.10.2026"), None);
+        assert_eq!(change_decimals("@", 1, "x"), None);
+        // General: from what the cell shows.
+        assert_eq!(
+            change_decimals("General", 1, "1200").as_deref(),
+            Some("0.0")
+        );
+        assert_eq!(
+            change_decimals("General", -1, "3.25").as_deref(),
+            Some("0.0")
+        );
+        assert_eq!(change_decimals("General", -1, "3"), None);
+    }
 
     #[test]
     fn axis_numbers_formatted() {

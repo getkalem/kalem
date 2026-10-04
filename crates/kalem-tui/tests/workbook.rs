@@ -1668,3 +1668,56 @@ fn borders() {
     let v = t.app.doc.viewer.as_deref_mut().unwrap();
     assert_eq!(v.cursor_cell().borders, [None, red, red, None]);
 }
+
+#[test]
+fn number_formats() {
+    let mut t = T::open("numfmt");
+    // B2:C2 from the menu (t 1), as a percent.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 1);
+        v.grid_extend_to(1, 2);
+    }
+    t.key(KeyCode::Char('t'));
+    t.key(KeyCode::Char('1'));
+    assert!(t.screen().contains("Scientific"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.numberFormat", json!({ "code": "0%" }));
+    assert!(t.screen().contains("120000%"), "{}", t.screen());
+    // A decimal more with t ., two fewer with t , (the second does nothing).
+    t.key(KeyCode::Char('t'));
+    t.key(KeyCode::Char('.'));
+    assert!(t.screen().contains("120000.0%"), "{}", t.screen());
+    for _ in 0..2 {
+        t.key(KeyCode::Char('t'));
+        t.key(KeyCode::Char(','));
+    }
+    let s = t.screen();
+    assert!(s.contains("120000%") && !s.contains("120000.0%"), "{s}");
+    // General goes by what the cell shows: 431.5 gets 431.50.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(2, 1);
+    }
+    t.app
+        .run_command("viewer.grid.numberFormat", json!({ "code": "General" }));
+    assert!(t.screen().contains("431.5 "), "{}", t.screen());
+    t.app.run_command("viewer.grid.increaseDecimal", json!({}));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert_eq!(v.cursor_format().as_deref(), Some("0.00"));
+    // A typed code, kept through saving.
+    t.app
+        .run_command("viewer.grid.numberFormat", json!({ "code": "0.000" }));
+    assert!(t.screen().contains("431.500"), "{}", t.screen());
+    t.app.run_command("app.save", json!({}));
+    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
+    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
+    let s = wb.sheet(0).unwrap().cells[&kalem_plugin_xlsx::CellRef::new(2, 1)].style;
+    assert_eq!(wb.style(s).num_fmt, "0.000");
+    for _ in 0..6 {
+        t.app.run_command("edit.undo", json!({}));
+    }
+    let s = t.screen();
+    assert!(s.contains("1,200.00") && s.contains("431.50"), "{s}");
+}
