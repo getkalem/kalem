@@ -37,9 +37,7 @@ languages (=#+BEGIN_SRC mermaid=), link types (=[[jira:ABC-123]]=),
 drawers and properties, keywords, tags and TODO keywords, export
 snippets and macros, dynamic blocks. A document that uses a plugin
 still opens in Emacs, and in Kalem without the plugin, as ordinary
-Org. The Kalem format (Part III) is the one place where Kalem itself
-defines syntax, in a specification; there too, plugins add meaning to
-generic blocks, spans and attributes, never syntax.
+Org.
 
 * A small core, one contract
 

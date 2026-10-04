@@ -42,5 +42,3 @@ code = [
   "crates/kalem-cli/src/extensions.rs",
 ]
 
-["part-3/"]
-code = ["crates/klm-syntax/", "crates/kalem-core/src/klm.rs"]

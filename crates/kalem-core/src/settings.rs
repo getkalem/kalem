@@ -73,7 +73,7 @@ pub const DOCUMENT_MODES: &[&str] = &["org", "markdown", "csv", "latex", "text"]
 const RETIRED: &[(&str, &str)] = &[
     (
         "org.allow_kalem_markup",
-        "Kalem's formatting is no longer written into Org files; it returns with the Kalem format",
+        "Kalem's formatting is no longer written into Org files",
     ),
     (
         "format.recent_colors",

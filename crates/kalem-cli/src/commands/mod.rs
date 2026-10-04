@@ -108,20 +108,16 @@ pub(crate) fn parse(file: &Path) -> Result<ExitCode> {
     let mut out = std::io::stdout().lock();
     // As the editors and `kalem check` decide what the file is.
     let mode = DocumentMode::detect(Some(file), text.as_bytes());
-    let tree = if fmt::is_klm(file, &text) {
-        format!("{:#?}", klm_syntax::parse(&text))
-    } else {
-        match mode {
-            DocumentMode::Org => format!("{:#?}", org_syntax::parse_file(&text, file).syntax()),
-            DocumentMode::Latex => format!("{:#?}", latex_syntax::parse(&text).syntax()),
-            DocumentMode::Markdown => markdown_tree(&text),
-            m => {
-                return Err(format!(
-                    "{}: kalem parse reads Org, Markdown, LaTeX and Kalem files, not {}",
-                    file.display(),
-                    m.title()
-                ));
-            }
+    let tree = match mode {
+        DocumentMode::Org => format!("{:#?}", org_syntax::parse_file(&text, file).syntax()),
+        DocumentMode::Latex => format!("{:#?}", latex_syntax::parse(&text).syntax()),
+        DocumentMode::Markdown => markdown_tree(&text),
+        m => {
+            return Err(format!(
+                "{}: kalem parse reads Org, Markdown and LaTeX files, not {}",
+                file.display(),
+                m.title()
+            ));
         }
     };
     writeln!(out, "{}", tree.trim_end()).map_err(|e| e.to_string())?;
@@ -325,12 +321,6 @@ pub(crate) fn check(
             results.extend(result);
             continue;
         }
-        if fmt::is_klm(f, &text) {
-            let (ok, result) = check_klm(f, &text, json, deny_warnings, &mut out)?;
-            failed |= !ok;
-            results.extend(result);
-            continue;
-        }
         let mode = kalem_core::DocumentMode::detect(Some(f), text.as_bytes());
         // A language pack's diagnostics (T2.7a.7).
         if let kalem_core::DocumentMode::Text { language: Some(l) } = &mode
@@ -380,8 +370,7 @@ pub(crate) fn check(
         };
         // Formatting an earlier Kalem wrote into an Org file (T2.13.13).
         let org = mode == kalem_core::DocumentMode::Org
-            && f.extension()
-                .is_some_and(|e| e.eq_ignore_ascii_case("org") || e.eq_ignore_ascii_case("klm"));
+            && f.extension().is_some_and(|e| e.eq_ignore_ascii_case("org"));
         if org {
             for (r, _) in kalem_core::kinds::markup(&parse.syntax()) {
                 diags.push(org_syntax::Diagnostic {
@@ -462,77 +451,6 @@ pub(crate) fn check(
     } else {
         ExitCode::SUCCESS
     })
-}
-
-/// `kalem check` of a LaTeX file: whether it passes, and its JSON result.
-/// `kalem check` of a Kalem format file: what the parser recovered from
-/// (RFC 0003 §15) as errors, an unknown command as a warning, and whether
-/// the file is in canonical form.
-fn check_klm(
-    f: &Path,
-    text: &str,
-    json: bool,
-    deny_warnings: bool,
-    out: &mut impl Write,
-) -> Result<(bool, Option<serde_json::Value>)> {
-    let doc = klm_syntax::parse(text);
-    let severity = |code: &str| {
-        if code == "unknown-command" {
-            "warning"
-        } else {
-            "error"
-        }
-    };
-    let canonical = klm_syntax::well_formed(&doc) && klm_syntax::fmt(&doc) == text;
-    let ok = doc
-        .diagnostics
-        .iter()
-        .all(|d| severity(d.code) == "warning" && !deny_warnings);
-    if json {
-        let list: Vec<serde_json::Value> = doc
-            .diagnostics
-            .iter()
-            .map(|d| {
-                let (line, col) = line_col(text, d.range.0);
-                serde_json::json!({
-                    "code": d.code,
-                    "severity": severity(d.code),
-                    "message": d.message,
-                    "start": d.range.0,
-                    "end": d.range.1,
-                    "line": line,
-                    "column": col,
-                })
-            })
-            .collect();
-        let v = serde_json::json!({
-            "file": f.display().to_string(),
-            "canonical": canonical,
-            "diagnostics": list,
-        });
-        return Ok((ok, Some(v)));
-    }
-    for d in &doc.diagnostics {
-        let (line, col) = line_col(text, d.range.0);
-        writeln!(
-            out,
-            "{}:{line}:{col}: {}[{}]: {}",
-            f.display(),
-            severity(d.code),
-            d.code,
-            d.message
-        )
-        .map_err(|e| e.to_string())?;
-    }
-    if klm_syntax::well_formed(&doc) && !canonical {
-        writeln!(
-            out,
-            "{}: info: not in canonical form (`kalem fmt` writes it)",
-            f.display()
-        )
-        .map_err(|e| e.to_string())?;
-    }
-    Ok((ok, None))
 }
 
 /// `kalem check` on a file a language pack serves: its diagnostics, each

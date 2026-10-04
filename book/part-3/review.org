@@ -1,5 +1,0 @@
-Even before a collaboration interface, the format defines the marks, so that files exchanged through git carry reviews:
-
-- ~\note[by="Ayşe" at=<2026-10-01 Thu 14:02>]{Is this claim sourced?}~: an inline review comment attached to the point where it stands, or to the preceding =\span[#id]= by ~on=#id~. Rendered as a margin note or a marker; excluded from print unless the stylesheet says otherwise.
-- ~\ins[by= at=]{…}~ and ~\del[by= at=]{…}~ with ~by=~ are tracked changes; without ~by=~ they are ordinary semantic insertions and deletions (6). The editor's Accept and Reject commands remove the marks; =kalem review accept --all= does it in batch.
-- =\comment{…}= (verbatim, block or inline) is the author's own comment, never rendered, unlike =\note= which is for others to read.

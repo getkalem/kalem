@@ -372,6 +372,8 @@ pub struct ViewerState {
     threads_cache: Option<(UnitAt, Vec<kalem_viewer::CommentThread>)>,
     /// The sheets' tabs (unit, name, color), by generation.
     tabs_cache: Option<(u64, Vec<SheetTab>)>,
+    /// Where the terminal last drew the grid, for the mouse.
+    pub hits: Option<GridHits>,
     /// Each sheet's view settings, read once.
     views: std::collections::HashMap<usize, kalem_viewer::SheetView>,
     /// Page Break Preview's pages, by unit and generation.
@@ -473,6 +475,62 @@ impl PageBreaks {
     /// How many pages.
     pub fn pages(&self) -> usize {
         (self.rows.len() + 1) * (self.cols.len() + 1)
+    }
+}
+
+/// Where the terminal drew a grid's parts, for the mouse: the screen
+/// columns of each column shown, the screen rows of each row, the
+/// letters' row, the numbers' columns and the sheets' tabs.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct GridHits {
+    /// Each column shown: its column, first screen column and width.
+    pub cols: Vec<(u32, u16, u16)>,
+    /// Each row shown: its row and screen row.
+    pub rows: Vec<(u32, u16)>,
+    /// The letters' screen row, when headings are shown.
+    pub letters: Option<u16>,
+    /// The row numbers' screen columns.
+    pub gutter: (u16, u16),
+    /// Each tab: its unit, screen row, first screen column and width.
+    pub tabs: Vec<(usize, u16, u16, u16)>,
+}
+
+/// What a point of a drawn grid is on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GridSpot {
+    /// A cell.
+    Cell(u32, u32),
+    /// A column's letter.
+    Column(u32),
+    /// A row's number.
+    Row(u32),
+    /// A sheet's tab.
+    Tab(usize),
+}
+
+impl GridHits {
+    /// What the screen point (`x`, `y`) is on.
+    pub fn at(&self, x: u16, y: u16) -> Option<GridSpot> {
+        if let Some(&(u, ..)) = self
+            .tabs
+            .iter()
+            .find(|(_, ty, tx, w)| *ty == y && (*tx..tx + w).contains(&x))
+        {
+            return Some(GridSpot::Tab(u));
+        }
+        let col = self
+            .cols
+            .iter()
+            .find(|(_, cx, w)| (*cx..cx + w).contains(&x))
+            .map(|c| c.0);
+        let row = self.rows.iter().find(|(_, ry)| *ry == y).map(|r| r.0);
+        if self.letters == Some(y) {
+            return col.map(GridSpot::Column);
+        }
+        if (self.gutter.0..self.gutter.0 + self.gutter.1).contains(&x) {
+            return row.map(GridSpot::Row);
+        }
+        Some(GridSpot::Cell(row?, col?))
     }
 }
 
@@ -625,6 +683,7 @@ impl ViewerState {
             threads_cache: None,
             tabs_cache: None,
             views: std::collections::HashMap::new(),
+            hits: None,
             pages_cache: None,
             pictures: std::collections::HashMap::new(),
         })
@@ -1805,7 +1864,14 @@ impl ViewerState {
     /// Tells the state how many rows and columns the frontend shows,
     /// frozen ones included, for paging and keeping the cursor in view.
     pub fn set_grid_visible(&mut self, rows: u32, cols: u32) {
-        self.grid_visible = (rows.max(1), cols.max(1));
+        let now = (rows.max(1), cols.max(1));
+        if now == self.grid_visible {
+            // The view scrolled by the wheel stays where it is, the cursor
+            // out of it as in a spreadsheet; it comes back when the cursor
+            // moves.
+            return;
+        }
+        self.grid_visible = now;
         let p = self.grid_pos();
         self.place(p.row, p.col);
     }
@@ -4655,6 +4721,62 @@ impl ViewerState {
         };
         self.pages_cache = Some((key, b.clone()));
         Some(b)
+    }
+
+    /// Ctrl+click: the selection kept as a range of several, and a new
+    /// one begun at a cell.
+    pub fn add_area(&mut self, row: u32, col: u32) {
+        if self.areas.is_empty() {
+            let s = self.selection();
+            self.areas.push(s);
+        }
+        let (row, col) = self.merge_at(row, col).map_or((row, col), |m| (m[0], m[1]));
+        self.areas.push([row, col, row, col]);
+        let mut p = self.grid_pos();
+        p.sel = None;
+        self.grid_pos.insert(self.unit, p);
+        self.place(row, col);
+    }
+
+    /// Ctrl+drag: the range begun last made to reach a cell.
+    pub fn extend_area(&mut self, row: u32, col: u32) {
+        let Some(last) = self.areas.last_mut() else {
+            return self.grid_extend_to(row, col);
+        };
+        let p = self.grid_pos.get(&self.unit).copied().unwrap_or_default();
+        let (r0, c0) = (p.row, p.col);
+        *last = [r0.min(row), c0.min(col), r0.max(row), c0.max(col)];
+    }
+
+    /// A selection dragged by its border and dropped with its top left
+    /// cell at (`row`, `col`): moved, or with `copy` copied (formulas,
+    /// values and formats), and selected there.
+    pub fn drop_selection(&mut self, row: u32, col: u32, copy: bool) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        if (row, col) == (s[0], s[1]) {
+            return Ok(());
+        }
+        let unit = self.unit;
+        if copy {
+            self.doc().paste_cells(
+                (unit, s),
+                (unit, row, col),
+                kalem_viewer::PasteKind::All,
+                false,
+            )
+        } else {
+            self.doc().move_cells_between(unit, s, unit, row, col)
+        }
+        .map_err(|e| e.to_string())?;
+        self.refresh();
+        self.grid_move_to(row, col);
+        if (s[0], s[1]) != (s[2], s[3]) {
+            self.grid_extend_to(row + s[2] - s[0], col + s[3] - s[1]);
+        }
+        Ok(())
     }
 
     /// The sheet shown's comment threads.
@@ -9069,6 +9191,95 @@ fn zoom_to(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResu
     }
 }
 
+/// The menu a right click opens (or Shift+F10, for the cells): the
+/// commands for the cells, the rows, the columns or a sheet's tab.
+fn context_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    let on = args.get("on").and_then(|x| x.as_str()).unwrap_or("cells");
+    if on == "tab"
+        && let Some(u) = args.get("unit").and_then(serde_json::Value::as_u64)
+        && let Some(v) = ctx
+            .document
+            .as_deref_mut()
+            .and_then(|d| d.viewer.as_deref_mut())
+    {
+        v.go_to(u as usize);
+    }
+    let none = serde_json::json!({});
+    let list: &[(&str, &str)] = match on {
+        "rows" => &[
+            ("edit.cut", "Cut"),
+            ("edit.copy", "Copy"),
+            ("edit.paste", "Paste"),
+            ("viewer.grid.insertRow", "Insert Rows"),
+            ("viewer.grid.deleteRow", "Delete Rows"),
+            ("viewer.grid.clear", "Clear Contents"),
+            ("viewer.grid.fitRowHeight", "Row Height to Fit"),
+            ("viewer.grid.tallerRow", "Taller Row"),
+            ("viewer.grid.shorterRow", "Shorter Row"),
+            ("viewer.grid.hideRows", "Hide"),
+            ("viewer.grid.unhideRows", "Unhide"),
+            ("viewer.grid.group", "Group"),
+        ],
+        "cols" => &[
+            ("edit.cut", "Cut"),
+            ("edit.copy", "Copy"),
+            ("edit.paste", "Paste"),
+            ("viewer.grid.insertColumn", "Insert Columns"),
+            ("viewer.grid.deleteColumn", "Delete Columns"),
+            ("viewer.grid.clear", "Clear Contents"),
+            ("viewer.grid.autofitColumn", "Column Width to Fit"),
+            ("viewer.grid.widenColumn", "Wider Column"),
+            ("viewer.grid.narrowColumn", "Narrower Column"),
+            ("viewer.grid.hideColumns", "Hide"),
+            ("viewer.grid.unhideColumns", "Unhide"),
+            ("viewer.grid.group", "Group"),
+        ],
+        "tab" => &[
+            ("viewer.grid.insertSheet", "Insert Sheet"),
+            ("viewer.grid.deleteSheet", "Delete Sheet"),
+            ("viewer.grid.renameSheet", "Rename"),
+            ("viewer.grid.moveSheetLeft", "Move Left"),
+            ("viewer.grid.moveSheetRight", "Move Right"),
+            ("viewer.grid.tabColor", "Tab Color"),
+            ("viewer.grid.hideSheet", "Hide"),
+            ("viewer.grid.unhideSheet", "Unhide"),
+            ("viewer.grid.protectSheet", "Protect Sheet"),
+            ("viewer.grid.sheetList", "All Sheets"),
+        ],
+        _ => &[
+            ("edit.cut", "Cut"),
+            ("edit.copy", "Copy"),
+            ("edit.paste", "Paste"),
+            ("viewer.grid.pasteSpecial", "Paste Special"),
+            ("viewer.grid.insertCells", "Insert…"),
+            ("viewer.grid.deleteCells", "Delete…"),
+            ("viewer.grid.clear", "Clear Contents"),
+            ("viewer.grid.clearFormats", "Clear Formats"),
+            ("viewer.grid.sortAscending", "Sort A to Z"),
+            ("viewer.grid.sortDescending", "Sort Z to A"),
+            ("viewer.grid.toggleFilter", "Filter"),
+            ("viewer.grid.numberFormat", "Number Format"),
+            ("viewer.grid.cellStyle", "Cell Style"),
+            ("viewer.grid.newComment", "New Comment"),
+            ("viewer.grid.editNote", "Note"),
+            ("viewer.grid.insertLink", "Link"),
+            ("viewer.grid.defineName", "Define Name"),
+        ],
+    };
+    let category = match on {
+        "rows" => "Rows",
+        "cols" => "Columns",
+        "tab" => "Sheet",
+        _ => "Cells",
+    };
+    let items = list
+        .iter()
+        .map(|(id, title)| menu_item(id, none.clone(), title, category))
+        .collect();
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
 /// Who writes comments: the account's name.
 fn comment_author() -> String {
     ["USER", "USERNAME", "LOGNAME"]
@@ -11338,6 +11549,13 @@ fn grid_commands() -> Vec<Command> {
             &["z ]"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.scroll_split(1, false)),
+        ),
+        cmd(
+            "viewer.grid.contextMenu",
+            "Context Menu",
+            &["shift+f10", "menu"],
+            IN_GRID,
+            context_menu,
         ),
         cmd(
             "viewer.grid.goToSpecial",

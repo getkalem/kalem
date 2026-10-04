@@ -5,8 +5,8 @@ the process).
 | RFC  | Title                                                        | Status                         | Source |
 |------+--------------------------------------------------------------+--------------------------------+--------|
 | 0001 | Kalem design document: vision, architecture, formats, roadmap | Accepted; changed by later RFCs | [[https://github.com/getkalem/kalem/blob/main/docs/design_document.md][docs/design_document.md]] |
-| 0002 | Standard modes, the Kalem format, and the Book               | Accepted (owner, 2026-09-30)   | [[https://github.com/getkalem/kalem/blob/main/docs/design_doc2.md][docs/design_doc2.md]] |
-| 0003 | The Kalem format (=.klm=), specification                     | Accepted, draft 0.2; frozen as the design record, the specification is Part III | [[https://github.com/getkalem/kalem/blob/main/rfcs/0003-kalem-format.md][rfcs/0003-kalem-format.md]] |
+| 0002 | Standard modes and the Book                                  | Accepted (owner, 2026-09-30); its sections on Kalem's own format withdrawn (2026-10-04) | [[https://github.com/getkalem/kalem/blob/main/docs/design_doc2.md][docs/design_doc2.md]] |
+| 0003 | The Kalem format (=.klm=), specification                     | Withdrawn (owner, 2026-10-04): the Kalem format was removed | none |
 
 The work breakdown that follows from them, with the state of every task,
 is [[https://github.com/getkalem/kalem/blob/main/docs/todo.md][docs/todo.md]].
@@ -24,8 +24,7 @@ is [[https://github.com/getkalem/kalem/blob/main/docs/todo.md][docs/todo.md]].
   reader and the TeX engines for LaTeX, RFC 4180 and spreadsheets for
   CSV, BibTeX and hayagriva for BibTeX, the CommonMark and GFM suites
   for Markdown), and Part II states what Kalem does with each format
-  precisely enough for another implementation to follow it. Part III is
-  the specification of the Kalem format, with its conformance suite.
+  precisely enough for another implementation to follow it.
 - *Two frontends, one core.* The graphical editor (gpui) and the
   terminal editor (ratatui) share =kalem-core=: the commands, keymaps,
   settings and view model. A feature is done when it works in both;
@@ -33,4 +32,4 @@ is [[https://github.com/getkalem/kalem/blob/main/docs/todo.md][docs/todo.md]].
 - *A small core, extended in Rust.* Org, Markdown, LaTeX, CSV and BibTeX
   are in the core; other modes and features come as plugins, compiled
   Rust run as WebAssembly components on the same contracts, with no
-  scripting engine in the editor (Part IV).
+  scripting engine in the editor (Part III).

@@ -42,18 +42,6 @@
 		</dict>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>Kalem document</string>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>LSHandlerRank</key>
-			<string>Owner</string>
-			<key>LSItemContentTypes</key>
-			<array>
-				<string>io.github.kalem-editor.klm</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeName</key>
 			<string>Text document</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
@@ -84,24 +72,6 @@
 				<array>
 					<string>org</string>
 					<string>org_archive</string>
-				</array>
-			</dict>
-		</dict>
-		<dict>
-			<key>UTTypeIdentifier</key>
-			<string>io.github.kalem-editor.klm</string>
-			<key>UTTypeDescription</key>
-			<string>Kalem document</string>
-			<key>UTTypeConformsTo</key>
-			<array>
-				<string>io.github.kalem-editor.org</string>
-				<string>public.plain-text</string>
-			</array>
-			<key>UTTypeTagSpecification</key>
-			<dict>
-				<key>public.filename-extension</key>
-				<array>
-					<string>klm</string>
 				</array>
 			</dict>
 		</dict>

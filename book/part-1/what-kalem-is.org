@@ -85,16 +85,6 @@ configurable key, and configuration is data that Kalem checks when it
 reads it ([[file:settings.org][Settings]]). Kalem borrows these tools from Emacs, and that
 is where the debt ends: it is made for anyone with text files.
 
-* The Kalem format, optional
-
-For documents the standard formats cannot carry, letters, papers,
-theses and books with page-quality output, Kalem is designing a format
-of its own, =.klm=: one command syntax, Org's outline and tasks, LaTeX
-mathematics, tables with formulas, and styles and page layout in a
-stylesheet, with a specification and a conformance suite (Part III).
-It is a track beside the standard formats, which come first, and Kalem
-never converts your files into it.
-
 * What Kalem is not
 
 Not a Microsoft Office clone: Word files will open through a plugin

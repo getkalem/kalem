@@ -33,8 +33,6 @@ cmd-file-new = New Document
 cmd-file-close = Close Document
 cmd-file-next = Next Document
 cmd-edit-repairDocument = Repair Document
-msg-klm-ill-formed = Not formatted: { $count } problems in the file; Repair Document fixes them
-msg-klm-repaired = Repaired { $problems } problems, { $lines } lines changed (Undo takes it back)
 cmd-edit-trimTrailingBlankLines = Delete Trailing Blank Lines
 cmd-edit-formatDocument = Format Document
 cmd-settings-set = Set a Setting
@@ -748,7 +746,6 @@ msg-export-needs-file = Save the document to a file first; the export goes besid
 msg-no-other-document = No other document to go back to
 status-files = files
 kind-org = Org
-kind-klm = Kalem
 kind-dropped-spans = { $count ->
     [one] { $count } formatted span
    *[other] { $count } formatted spans
@@ -1378,6 +1375,7 @@ cmd-viewer-grid-pageBreakPreview = Page Break Preview
 cmd-viewer-grid-split = Split
 cmd-viewer-grid-splitScrollUp = Scroll Top Pane Up
 cmd-viewer-grid-splitScrollDown = Scroll Top Pane Down
+cmd-viewer-grid-contextMenu = Context Menu
 cmd-viewer-grid-deleteDrawing = Delete Picture or Shape
 cmd-viewer-grid-moveDrawingUp = Move Picture Up
 cmd-viewer-grid-moveDrawingDown = Move Picture Down

@@ -429,12 +429,7 @@ impl<'a> Layout<'a> {
             let stamp = doc.version() ^ (kalem_highlight::generation() << 48);
             if p.as_ref().is_none_or(|(v, ..)| *v != stamp) {
                 let text = doc.text().as_str();
-                let lang = match &doc.meta.mode {
-                    kalem_core::DocumentMode::Text { language: Some(l) } => Some(l.as_str()),
-                    kalem_core::DocumentMode::Markdown => Some("md"),
-                    kalem_core::DocumentMode::Latex => Some("latex"),
-                    _ => None,
-                };
+                let lang = kalem_core::mode_view::highlight_language(doc);
                 // Very large files are colored a window at a time (T2.7a.3).
                 let found = lang.and_then(kalem_highlight::Language::find);
                 let large = text.len() > 4 << 20;
@@ -1225,84 +1220,48 @@ impl<'a> Layout<'a> {
             }
             None => {
                 // A very long line shows the part around the cursor.
-                let v = if self.doc.meta.mode == kalem_core::DocumentMode::Latex
+                let latex = self.doc.meta.mode == kalem_core::DocumentMode::Latex
                     && !self.source
-                    && range.len() <= view::LONG_LINE
-                {
-                    // LaTeX as the document reads; a formula over several
-                    // lines without its picture, its Unicode approximation.
-                    match self.math_text(&range) {
-                        Some(u) => {
-                            // Centered as LaTeX centers it (`fleqn`: flush
-                            // left, indented).
-                            let align = kalem_core::latex_view::display_align(self.doc);
-                            let text = if align == kalem_core::rich::Align::Center {
-                                u.trim_start().to_string()
-                            } else {
-                                u
-                            };
-                            view::LineView {
-                                range: range.clone(),
-                                runs: vec![view::Run {
-                                    src: range.clone(),
-                                    text,
-                                    verbatim: false,
-                                    style: view::Style::default(),
-                                    widget: None,
-                                }],
-                                align,
-                                ..view::LineView::default()
-                            }
+                    && range.len() <= view::LONG_LINE;
+                // LaTeX: a formula over several lines without its picture,
+                // its Unicode approximation (the terminal's own).
+                let v = match latex.then(|| self.math_text(&range)).flatten() {
+                    Some(u) => {
+                        // Centered as LaTeX centers it (`fleqn`: flush
+                        // left, indented).
+                        let align = kalem_core::latex_view::display_align(self.doc);
+                        let text = if align == kalem_core::rich::Align::Center {
+                            u.trim_start().to_string()
+                        } else {
+                            u
+                        };
+                        view::LineView {
+                            range: range.clone(),
+                            runs: vec![view::Run {
+                                src: range.clone(),
+                                text,
+                                verbatim: false,
+                                style: view::Style::default(),
+                                widget: None,
+                            }],
+                            align,
+                            ..view::LineView::default()
                         }
-                        None if let Some(p) =
-                            self.paragraphs.iter().find(|p| p.start == range.start) =>
-                        {
-                            kalem_core::latex_view::paragraph_view(
-                                self.doc,
-                                p.clone(),
-                                Some(self.cursor),
-                            )
-                        }
-                        None => kalem_core::latex_view::line_view(
+                    }
+                    // Every other line by its mode's view.
+                    None => {
+                        let paragraph = latex
+                            .then(|| self.paragraphs.iter().find(|p| p.start == range.start))
+                            .flatten()
+                            .cloned();
+                        kalem_core::mode_view::line_view(
                             self.doc,
+                            self.source,
                             range.clone(),
                             Some(self.cursor),
-                        ),
+                            paragraph,
+                        )
                     }
-                } else if kalem_core::bibtex::is_bib(self.doc)
-                    && !self.source
-                    && range.len() <= view::LONG_LINE
-                {
-                    // A BibTeX entry as a row of the grid.
-                    kalem_core::bibtex::line_view(self.doc, range.clone(), Some(self.cursor))
-                } else if self.doc.meta.mode == kalem_core::DocumentMode::Csv
-                    && !self.source
-                    && range.len() <= view::LONG_LINE
-                {
-                    // A CSV row as a row of the grid.
-                    let layout = kalem_core::csv::layout(self.doc);
-                    kalem_core::csv::line_view(
-                        &layout,
-                        self.text().as_str(),
-                        range.clone(),
-                        Some(self.cursor),
-                    )
-                } else if self.doc.meta.mode == kalem_core::DocumentMode::Markdown
-                    && !self.source
-                    && range.len() <= view::LONG_LINE
-                {
-                    // Markdown as it reads, markers hidden away from the
-                    // cursor.
-                    kalem_core::markdown::line_view(self.doc, range.clone(), Some(self.cursor))
-                } else {
-                    let mut v = view::plain_line_view(
-                        self.text().as_str(),
-                        range.clone(),
-                        Some(self.cursor),
-                    );
-                    // LaTeX's source view: the diagnostics flagged too.
-                    kalem_core::latex_view::flag_diagnostics(self.doc, &mut v);
-                    v
                 };
                 let empty = org_syntax::parse("");
                 let mut lg = render::glyphs(
@@ -1740,15 +1699,7 @@ impl EditorView {
         {
             return b.clone();
         }
-        let b = match doc.parse() {
-            // LaTeX: its displayed formulas and code, the text between.
-            _ if doc.meta.mode == kalem_core::DocumentMode::Markdown => {
-                Arc::new(kalem_core::markdown::blocks(doc))
-            }
-            _ if doc.latex().is_some() => Arc::new(kalem_core::latex_view::blocks(doc)),
-            Some((p, true)) => Arc::new(view::blocks(&p.syntax(), p.context())),
-            _ => Arc::new(Vec::new()),
-        };
+        let b = Arc::new(kalem_core::mode_view::blocks(doc));
         if !b.is_empty() {
             self.folds.retain(&b);
             self.blocks = Some((version, b.clone()));

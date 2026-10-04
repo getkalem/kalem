@@ -19,6 +19,10 @@ use crate::editor::Editor;
 /// rendered at.
 type Key = (u64, usize, u8, u32);
 
+/// A selection dragged by its border: its range, the cell taken, where
+/// its top left would land.
+type MoveDrag = ([u32; 4], (u32, u32), (u32, u32));
+
 /// The view's own state, kept by the editor.
 #[derive(Default)]
 pub struct ViewerView {
@@ -54,6 +58,11 @@ pub struct ViewerView {
     /// Cells being filled by dragging the fill handle: the source and the
     /// range the pointer has reached.
     fill_drag: Option<([u32; 4], [u32; 4])>,
+    /// The selection being dragged by its border: its range, the cell it
+    /// was taken by, and where its top left would land.
+    move_drag: Option<MoveDrag>,
+    /// Ranges being added to the selection with Ctrl (Command) and a drag.
+    adding: bool,
     /// The grid's columns and rows as last drawn: index, start, size, in
     /// the grid's own pixels.
     grid_lines: (Vec<GridLine>, Vec<GridLine>),
@@ -1112,6 +1121,88 @@ impl Editor {
                     .border_color(cursor),
             )
         });
+        // The selection's border: dragged, the cells move (with Control,
+        // Command or Option, a copy); a dashed frame where they would land.
+        let span = |m: [u32; 4]| -> Option<(f32, f32, f32, f32)> {
+            let xs: Vec<(f32, f32)> = (m[1]..=m[3])
+                .filter_map(|c| col_x.get(&c).copied())
+                .collect();
+            let ys: Vec<(f32, f32)> = (m[0]..=m[2])
+                .filter_map(|r| row_y.get(&r).copied())
+                .collect();
+            Some((
+                xs.first()?.0,
+                ys.first()?.0,
+                xs.iter().map(|v| v.1).sum::<f32>(),
+                ys.iter().map(|v| v.1).sum::<f32>(),
+            ))
+        };
+        let move_edges: Vec<gpui::Stateful<Div>> = match (
+            editable && self.viewer_view.move_drag.is_none() && !selecting,
+            span(sel),
+        ) {
+            (true, Some((x0, y0, w, h))) => {
+                let src = sel;
+                [
+                    (x0 - 2.0, y0 - 2.0, w + 4.0, 4.0),
+                    (x0 - 2.0, y0 + h - 2.0, w + 4.0, 4.0),
+                    (x0 - 2.0, y0 - 2.0, 4.0, h + 4.0),
+                    (x0 + w - 2.0, y0 - 2.0, 4.0, h + 4.0),
+                ]
+                .into_iter()
+                .enumerate()
+                .map(|(k, (x, y, ew, eh))| {
+                    div()
+                        .debug_selector(move || format!("viewer-grid-move-edge-{k}"))
+                        .id(SharedString::from(format!("move-edge-{k}")))
+                        .absolute()
+                        .left(px(x))
+                        .top(px(y))
+                        .w(px(ew))
+                        .h(px(eh))
+                        .cursor(gpui::CursorStyle::OpenHand)
+                        .on_mouse_down(
+                            MouseButton::Left,
+                            cx.listener(move |this, ev: &MouseDownEvent, _, cx| {
+                                cx.stop_propagation();
+                                let origin = this
+                                    .viewer_view
+                                    .bounds
+                                    .map_or(point(px(0.), px(0.)), |b| b.origin);
+                                let at = ev.position - origin;
+                                let (cols, rows) = &this.viewer_view.grid_lines;
+                                let grab = (
+                                    line_at(rows, f32::from(at.y))
+                                        .unwrap_or(src[0])
+                                        .clamp(src[0], src[2]),
+                                    line_at(cols, f32::from(at.x))
+                                        .unwrap_or(src[1])
+                                        .clamp(src[1], src[3]),
+                                );
+                                this.viewer_view.move_drag = Some((src, grab, (src[0], src[1])));
+                                cx.notify();
+                            }),
+                        )
+                })
+                .collect()
+            }
+            _ => Vec::new(),
+        };
+        let move_frame = self.viewer_view.move_drag.and_then(|(src, _, (r, c))| {
+            let (x0, y0, w, h) = span([r, c, r + src[2] - src[0], c + src[3] - src[1]])?;
+            Some(
+                div()
+                    .debug_selector(|| "viewer-grid-move-frame".into())
+                    .absolute()
+                    .left(px(x0))
+                    .top(px(y0))
+                    .w(px(w))
+                    .h(px(h))
+                    .border_2()
+                    .border_dashed()
+                    .border_color(cursor),
+            )
+        });
         // The cells a formula being typed points at.
         let pointer_frame = pointer.and_then(|m| {
             let xs: Vec<(f32, f32)> = (m[1]..=m[3])
@@ -1664,14 +1755,19 @@ impl Editor {
                 d.on_mouse_down(
                     MouseButton::Left,
                     cx.listener(move |this, ev: &MouseDownEvent, window, cx| {
+                        let add = ev.modifiers.control || ev.modifiers.platform;
                         if let Some(v) = this.doc.viewer.as_deref_mut() {
-                            // Shift and a click select to here; a drag selects as it goes.
+                            // Shift and a click select to here; Control (or
+                            // Command) adds a range; a drag selects as it goes.
                             if ev.modifiers.shift {
                                 v.grid_extend_to(r, c);
+                            } else if add {
+                                v.add_area(r, c);
                             } else {
                                 v.grid_move_to(r, c);
                             }
                         }
+                        this.viewer_view.adding = add;
                         this.viewer_view.selecting = true;
                         let handle = gpui::Focusable::focus_handle(this, cx);
                         window.focus(&handle, cx);
@@ -1682,22 +1778,44 @@ impl Editor {
                         cx.notify();
                     }),
                 )
-                .on_mouse_move(cx.listener(
-                    move |this, ev: &MouseMoveEvent, _, cx| {
-                        if !this.viewer_view.selecting
-                            || ev.pressed_button != Some(MouseButton::Left)
-                        {
+                .on_mouse_move(cx.listener(move |this, ev: &MouseMoveEvent, _, cx| {
+                    if !this.viewer_view.selecting || ev.pressed_button != Some(MouseButton::Left) {
+                        return;
+                    }
+                    if let Some(v) = this.doc.viewer.as_deref_mut() {
+                        if this.viewer_view.adding {
+                            v.extend_area(r, c);
+                            cx.notify();
                             return;
                         }
+                        let p = v.grid_pos();
+                        if (p.row, p.col) != (r, c) {
+                            v.grid_extend_to(r, c);
+                            cx.notify();
+                        }
+                    }
+                }))
+                // A right click: the cells' menu, the cell selected first
+                // when it is outside the selection.
+                .on_mouse_down(
+                    MouseButton::Right,
+                    cx.listener(move |this, _: &MouseDownEvent, window, cx| {
                         if let Some(v) = this.doc.viewer.as_deref_mut() {
-                            let p = v.grid_pos();
-                            if (p.row, p.col) != (r, c) {
-                                v.grid_extend_to(r, c);
-                                cx.notify();
+                            let s = v.selection();
+                            if !((s[0]..=s[2]).contains(&r) && (s[1]..=s[3]).contains(&c)) {
+                                v.grid_move_to(r, c);
                             }
                         }
-                    },
-                ))
+                        this.run_command(
+                            "viewer.grid.contextMenu",
+                            serde_json::json!({ "on": "cells" }),
+                            window,
+                            cx,
+                        );
+                        cx.stop_propagation();
+                        cx.notify();
+                    }),
+                )
             });
             let spills = overflow.into_iter().filter_map(|(x, span, c, centered)| {
                 let cell = cells.get(&(r, c))?;
@@ -1914,6 +2032,19 @@ impl Editor {
                                 cx.stop_propagation();
                                 cx.notify();
                             }),
+                        )
+                        .on_mouse_down(
+                            MouseButton::Right,
+                            cx.listener(move |this, _: &MouseDownEvent, window, cx| {
+                                this.run_command(
+                                    "viewer.grid.contextMenu",
+                                    serde_json::json!({ "on": "tab", "unit": u }),
+                                    window,
+                                    cx,
+                                );
+                                cx.stop_propagation();
+                                cx.notify();
+                            }),
                         );
                     if u == shown_unit {
                         t = t.bg(theme.background).font_weight(gpui::FontWeight::BOLD);
@@ -1970,6 +2101,8 @@ impl Editor {
                     .children(drawing_views)
                     .children(cut_mark)
                     .children(fill_frame)
+                    .children(move_frame)
+                    .children(move_edges)
                     .children(pointer_frame)
                     .children(arrow_layer)
                     .children(page_layer)
@@ -1997,6 +2130,31 @@ impl Editor {
                 }),
             )
             .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, _, cx| {
+                if let Some((src, grab, target)) = this.viewer_view.move_drag.as_mut() {
+                    if ev.pressed_button != Some(MouseButton::Left) {
+                        this.viewer_view.move_drag = None;
+                        cx.notify();
+                        return;
+                    }
+                    let origin = this
+                        .viewer_view
+                        .bounds
+                        .map_or(point(px(0.), px(0.)), |b| b.origin);
+                    let at = ev.position - origin;
+                    let (cols, rows) = &this.viewer_view.grid_lines;
+                    if let (Some(row), Some(col)) = (
+                        line_at(rows, f32::from(at.y)),
+                        line_at(cols, f32::from(at.x)),
+                    ) {
+                        // The cell taken stays under the pointer.
+                        *target = (
+                            (row + src[0]).saturating_sub(grab.0),
+                            (col + src[1]).saturating_sub(grab.1),
+                        );
+                    }
+                    cx.notify();
+                    return;
+                }
                 if let Some((src, target)) = this.viewer_view.fill_drag.as_mut() {
                     if ev.pressed_button != Some(MouseButton::Left) {
                         this.viewer_view.fill_drag = None;
@@ -2067,8 +2225,21 @@ impl Editor {
             }))
             .on_mouse_up(
                 MouseButton::Left,
-                cx.listener(move |this, _: &MouseUpEvent, _, cx| {
+                cx.listener(move |this, ev: &MouseUpEvent, _, cx| {
                     this.viewer_view.selecting = false;
+                    this.viewer_view.adding = false;
+                    if let Some((src, _, (r, c))) = this.viewer_view.move_drag.take() {
+                        let copy =
+                            ev.modifiers.control || ev.modifiers.platform || ev.modifiers.alt;
+                        if (r, c) != (src[0], src[1])
+                            && let Some(v) = this.doc.viewer.as_deref_mut()
+                            && let Err(e) = v.drop_selection(r, c, copy)
+                        {
+                            this.message(e, true);
+                        }
+                        cx.notify();
+                        return;
+                    }
                     if let Some((src, target)) = this.viewer_view.fill_drag.take() {
                         if target != src
                             && let Some(v) = this.doc.viewer.as_deref_mut()

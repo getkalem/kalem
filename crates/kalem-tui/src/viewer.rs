@@ -95,7 +95,10 @@ pub fn draw(
         draw_grid(v, caps, buf, Rect::new(pic.x, pic.y + 1, pic.width, grid_h));
         draw_formula_bar(v, caps, buf, bar);
         if let Some(row) = tab_row {
-            draw_tabs(&tabs, v.unit, caps, buf, row);
+            let spots = draw_tabs(&tabs, v.unit, caps, buf, row);
+            if let Some(h) = v.hits.as_mut() {
+                h.tabs = spots;
+            }
         }
     } else {
         match picker(images, caps) {
@@ -126,9 +129,11 @@ fn draw_tabs(
     caps: &Caps,
     buf: &mut Buffer,
     row: Rect,
-) {
+) -> Vec<(usize, u16, u16, u16)> {
+    let mut spots = Vec::new();
     let mut x = row.x;
     for (u, name, color) in tabs {
+        let start = x;
         if x >= row.right() {
             break;
         }
@@ -150,8 +155,10 @@ fn draw_tabs(
         let label = format!(" {name} ");
         let room = (row.right() - x) as usize;
         let (nx, _) = buf.set_stringn(x, row.y, &label, room, st);
+        spots.push((*u, row.y, start, nx - start));
         x = nx + 1;
     }
+    spots
 }
 
 /// A column's width in terminal cells: Excel's width in characters.
@@ -280,6 +287,26 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
     if v.grid_pos() != pos {
         return draw_grid(v, caps, buf, area);
     }
+    // Where each part went, for the mouse.
+    let mut hx = area.x + gutter;
+    v.hits = Some(kalem_core::viewer::GridHits {
+        cols: cols
+            .iter()
+            .map(|&(c, w)| {
+                let at = (c, hx, w);
+                hx += w;
+                at
+            })
+            .collect(),
+        rows: rows
+            .iter()
+            .enumerate()
+            .map(|(i, &(r, _))| (r, area.y + letters + i as u16))
+            .collect(),
+        letters: (letters > 0).then_some(area.y),
+        gutter: (area.x, gutter),
+        tabs: Vec::new(),
+    });
     let dim = Style::default().add_modifier(Modifier::DIM);
     let head = Style::default().add_modifier(Modifier::BOLD);
     // The cells in view.

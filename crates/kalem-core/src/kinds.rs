@@ -4,32 +4,17 @@
 //! formatting into Org files (`@@kalem:…@@` snippets, `#+ATTR_KALEM:` and
 //! `#+KALEM:` lines); such a file keeps its bytes and shows them as Emacs
 //! does, and [`markup`] finds them for `kalem check` and [`strip_markup`]
-//! takes them out. A `.klm` file opens as strict Org until the Kalem
-//! format's parser takes the extension (T2.13.3).
+//! takes them out.
 
 use std::path::Path;
 
 use crate::document::DocumentState;
 use crate::mode::DocumentMode;
 
-/// The file kind of an Org document: `klm` for a `.klm` file (opened as
-/// strict Org until the Kalem format's parser exists), else `org`, a
-/// document not saved yet included; `None` for other modes.
+/// The file kind of an Org document: `org`, a document not saved yet
+/// included; `None` for other modes.
 pub fn file_kind(doc: &DocumentState) -> Option<&'static str> {
-    if doc.meta.mode != DocumentMode::Org {
-        return None;
-    }
-    Some(if is_klm(doc.meta.path.as_deref()) {
-        "klm"
-    } else {
-        "org"
-    })
-}
-
-/// Whether `path` names a Kalem document.
-pub fn is_klm(path: Option<&Path>) -> bool {
-    path.and_then(Path::extension)
-        .is_some_and(|e| e.eq_ignore_ascii_case("klm"))
+    (doc.meta.mode == DocumentMode::Org).then_some("org")
 }
 
 /// What Kalem adds to Org, found in a document.
@@ -186,8 +171,6 @@ mod tests {
 
     #[test]
     fn kinds_and_relative_paths() {
-        assert!(is_klm(Some(Path::new("/a/notes.KLM"))));
-        assert!(!is_klm(Some(Path::new("/a/notes.org"))));
         assert_eq!(
             relative(Path::new("/p/a"), Path::new("/p/a/b.org")).as_deref(),
             Some("b.org")
