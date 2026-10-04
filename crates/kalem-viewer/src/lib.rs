@@ -553,6 +553,40 @@ pub enum FilterRule {
 /// level.
 pub type Outline = (Vec<(u32, u8)>, Vec<(u32, u8)>);
 
+/// A picture or a shape on a grid (not a chart).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Drawing {
+    /// Its name (`Picture 2`, `Rectangle 3`).
+    pub name: String,
+    /// Where it stands: first row, first column, last row, last column of
+    /// the cells it covers.
+    pub anchor: [u32; 4],
+    /// What it is.
+    pub kind: DrawingKind,
+}
+
+/// What a drawing is.
+#[derive(Debug, Clone, PartialEq)]
+pub enum DrawingKind {
+    /// A picture; its bytes through [`ViewerDocument::drawing_image`].
+    Picture,
+    /// A shape: its preset geometry (`rect`, `ellipse`, `roundRect`,
+    /// `rightArrow`), fill and line colors, its text, and whether it is a
+    /// text box.
+    Shape {
+        /// The preset geometry.
+        preset: String,
+        /// Its fill.
+        fill: Option<[u8; 3]>,
+        /// Its outline.
+        line: Option<[u8; 3]>,
+        /// The text in it.
+        text: String,
+        /// A text box (no fill nor outline of its own by default).
+        text_box: bool,
+    },
+}
+
 /// A table of a grid (a spreadsheet's Format as Table).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TableInfo {
@@ -1631,6 +1665,61 @@ pub trait ViewerDocument: Send {
 
     /// Sets how a unit prints.
     fn set_page_setup(&mut self, _unit: usize, _setup: &PageSetup) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The pictures and shapes of a unit, in order.
+    fn drawings(&mut self, _unit: usize) -> Vec<Drawing> {
+        Vec::new()
+    }
+
+    /// A picture's file bytes (by its place among the drawings).
+    fn drawing_image(&mut self, _unit: usize, _index: usize) -> Option<Vec<u8>> {
+        None
+    }
+
+    /// Puts a picture (PNG, JPEG or GIF bytes, `extension` naming which)
+    /// over cells `anchor`.
+    fn insert_picture(
+        &mut self,
+        _unit: usize,
+        _anchor: [u32; 4],
+        _bytes: &[u8],
+        _extension: &str,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Puts a shape (a preset geometry, or a text box) with `text` over
+    /// cells `anchor`.
+    fn insert_shape(
+        &mut self,
+        _unit: usize,
+        _anchor: [u32; 4],
+        _preset: &str,
+        _text: &str,
+        _text_box: bool,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Moves or sizes a drawing to cover cells `anchor`.
+    fn move_drawing(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _anchor: [u32; 4],
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Gives a shape new text.
+    fn set_shape_text(&mut self, _unit: usize, _index: usize, _text: &str) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Deletes a drawing.
+    fn delete_drawing(&mut self, _unit: usize, _index: usize) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
 
