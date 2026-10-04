@@ -1191,6 +1191,18 @@ pub trait ViewerDocument: Send {
         String::new()
     }
 
+    /// Hides rows (`rows`) or columns `from..=to`, or shows them again.
+    fn set_hidden(
+        &mut self,
+        _unit: usize,
+        _rows: bool,
+        _from: u32,
+        _to: u32,
+        _hidden: bool,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
     /// Changes the workbook's sheets; the unit to show after it.
     fn edit_sheets(&mut self, _edit: SheetEdit) -> Result<usize> {
         Err(ViewerError("This format is not edited".into()))
