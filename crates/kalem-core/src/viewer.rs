@@ -1891,6 +1891,63 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Custom Sort of the table at the cursor by several columns in turn.
+    pub fn sort_by(&mut self, keys: &[kalem_viewer::SortKey]) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (r, header) = self.table_target();
+        self.doc()
+            .sort_range_by(self.unit, r, keys, header)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The table Custom Sort sorts, with each column's header (or letter).
+    pub fn sort_columns(&mut self) -> Vec<(u32, String)> {
+        self.duplicates_target().2
+    }
+
+    /// Filters the cursor's column of the filter by a rule (`None`: clears
+    /// it).
+    pub fn filter_rule(&mut self, rule: Option<kalem_viewer::FilterRule>) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let col = self.grid_pos().col;
+        self.doc()
+            .filter_column_by(self.unit, col, rule)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Reapply: the filter's rules applied to the rows as they are now.
+    pub fn reapply_filter(&mut self) -> Result<(), String> {
+        self.doc()
+            .reapply_filter(self.unit)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The custom lists a sort can follow: the months and the days, in
+    /// English and Turkish, and the user's own.
+    pub fn sort_lists(&self) -> Vec<Vec<String>> {
+        let mut out: Vec<Vec<String>> = [
+            "January,February,March,April,May,June,July,August,September,October,November,December",
+            "Ocak,Şubat,Mart,Nisan,Mayıs,Haziran,Temmuz,Ağustos,Eylül,Ekim,Kasım,Aralık",
+            "Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday",
+            "Pazartesi,Salı,Çarşamba,Perşembe,Cuma,Cumartesi,Pazar",
+        ]
+        .iter()
+        .map(|l| l.split(',').map(str::to_owned).collect())
+        .collect();
+        out.extend(self.fill_lists.iter().cloned());
+        out
+    }
+
     /// The values a column of the filter shows, each once, for choosing:
     /// the cells under its header as shown, an empty text for empty cells.
     pub fn filter_values(&mut self, col: u32) -> Vec<String> {
@@ -7002,6 +7059,224 @@ fn from_above(ctx: &mut EditorContext<'_>, value: bool) -> CommandResult {
     ask_cell(ctx, Some(&text))
 }
 
+/// Custom Sort: a column, then its order (A to Z, Z to A, a custom
+/// list), then Sort or another level, the levels so far in `keys`.
+fn custom_sort(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::SortKey;
+    const ID: &str = "viewer.grid.customSort";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let mut keys: Vec<serde_json::Value> = args
+        .get("keys")
+        .and_then(|k| k.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let key_of = |k: &serde_json::Value| SortKey {
+        col: k
+            .get("col")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0) as u32,
+        descending: k.get("descending").and_then(serde_json::Value::as_bool) == Some(true),
+        list: k.get("list").and_then(|l| l.as_array()).map(|l| {
+            l.iter()
+                .filter_map(|x| x.as_str().map(str::to_owned))
+                .collect()
+        }),
+    };
+    if args.get("go").and_then(serde_json::Value::as_bool) == Some(true) {
+        let keys: Vec<SortKey> = keys.iter().map(key_of).collect();
+        return with(ctx, |v| v.sort_by(&keys));
+    }
+    let columns = v.sort_columns();
+    let name = |c: u64| {
+        columns
+            .iter()
+            .find(|x| u64::from(x.0) == c)
+            .map_or(String::new(), |x| x.1.clone())
+    };
+    let level = if keys.is_empty() {
+        "Sort By"
+    } else {
+        "Then By"
+    };
+    match (
+        args.get("col").and_then(serde_json::Value::as_u64),
+        args.get("order"),
+    ) {
+        (None, _) => {
+            let items = columns
+                .iter()
+                .map(|(c, n)| {
+                    menu_item(ID, serde_json::json!({ "keys": keys, "col": c }), n, level)
+                })
+                .collect();
+            ctx.requests.push(Request::Choose(items));
+        }
+        (Some(c), None) => {
+            let order = |o: serde_json::Value, title: &str| {
+                menu_item(
+                    ID,
+                    serde_json::json!({ "keys": keys, "col": c, "order": o }),
+                    title,
+                    &format!("{level} {}", name(c)),
+                )
+            };
+            let mut items = vec![
+                order(serde_json::json!("asc"), "A to Z, Smallest to Largest"),
+                order(serde_json::json!("desc"), "Z to A, Largest to Smallest"),
+            ];
+            for l in v.sort_lists() {
+                let shown: Vec<&str> = l.iter().take(3).map(String::as_str).collect();
+                items.push(order(
+                    serde_json::json!(l),
+                    &format!("Custom List: {}, …", shown.join(", ")),
+                ));
+            }
+            ctx.requests.push(Request::Choose(items));
+        }
+        (Some(c), Some(o)) => {
+            let mut key = serde_json::json!({ "col": c, "descending": o == "desc" });
+            if o.is_array() {
+                key["list"] = o.clone();
+            }
+            keys.push(key);
+            let described: Vec<String> = keys
+                .iter()
+                .map(|k| name(k["col"].as_u64().unwrap_or(0)))
+                .collect();
+            let category = format!("Sort by {}", described.join(", then "));
+            ctx.requests.push(Request::Choose(vec![
+                menu_item(
+                    ID,
+                    serde_json::json!({ "keys": keys, "go": true }),
+                    "Sort",
+                    &category,
+                ),
+                menu_item(
+                    ID,
+                    serde_json::json!({ "keys": keys }),
+                    "Then By…",
+                    &category,
+                ),
+            ]));
+        }
+    }
+    Ok(())
+}
+
+/// Filter by Condition: Excel's Text and Number Filters for the cursor's
+/// column, their values asked.
+fn filter_condition(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::{FilterOp, FilterRule};
+    const ID: &str = "viewer.grid.filterCondition";
+    let Some(op) = args.get("op").and_then(|o| o.as_str()) else {
+        let ops = [
+            ("equal", "Equals…"),
+            ("notEqual", "Does Not Equal…"),
+            ("beginsWith", "Begins With…"),
+            ("endsWith", "Ends With…"),
+            ("contains", "Contains…"),
+            ("notContains", "Does Not Contain…"),
+            ("greater", "Greater Than…"),
+            ("greaterOrEqual", "Greater Than or Equal To…"),
+            ("less", "Less Than…"),
+            ("lessOrEqual", "Less Than or Equal To…"),
+            ("between", "Between…"),
+            ("top", "Top 10…"),
+            ("bottom", "Bottom 10…"),
+            ("above", "Above Average"),
+            ("below", "Below Average"),
+        ];
+        let items = ops
+            .iter()
+            .map(|(o, t)| menu_item(ID, serde_json::json!({ "op": o }), t, "Filter"))
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    let value = args
+        .get("value")
+        .and_then(|x| x.as_str())
+        .map(str::to_owned);
+    let needs_value = !matches!(op, "above" | "below");
+    let Some(value) = value.or_else(|| (!needs_value).then(String::new)) else {
+        let default = if matches!(op, "top" | "bottom") {
+            "10"
+        } else {
+            ""
+        };
+        return ask_more(
+            ctx,
+            ID,
+            &serde_json::json!({ "op": op, "value_default": default }),
+            "value",
+        );
+    };
+    let op_of = |o: &str| match o {
+        "notEqual" => FilterOp::NotEqual,
+        "beginsWith" => FilterOp::BeginsWith,
+        "endsWith" => FilterOp::EndsWith,
+        "contains" => FilterOp::Contains,
+        "notContains" => FilterOp::NotContains,
+        "greater" => FilterOp::Greater,
+        "greaterOrEqual" => FilterOp::GreaterOrEqual,
+        "less" => FilterOp::Less,
+        "lessOrEqual" => FilterOp::LessOrEqual,
+        _ => FilterOp::Equal,
+    };
+    let rule = match op {
+        "between" => {
+            let Some(to) = args.get("to").and_then(|x| x.as_str()) else {
+                return ask_more(
+                    ctx,
+                    ID,
+                    &serde_json::json!({ "op": op, "value": value }),
+                    "to",
+                );
+            };
+            FilterRule::Custom {
+                first: (FilterOp::GreaterOrEqual, value),
+                second: Some((true, FilterOp::LessOrEqual, to.to_owned())),
+            }
+        }
+        "top" | "bottom" => match value.trim().parse::<u32>() {
+            Ok(count) => FilterRule::Top {
+                count,
+                percent: false,
+                bottom: op == "bottom",
+            },
+            Err(_) => {
+                ctx.messages.push(format!("Not a number: {value}"));
+                return Ok(());
+            }
+        },
+        "above" | "below" => FilterRule::Average {
+            above: op == "above",
+        },
+        o => FilterRule::Custom {
+            first: (op_of(o), value),
+            second: None,
+        },
+    };
+    with(ctx, |v| v.filter_rule(Some(rule)))
+}
+
+/// Filter by Selected Cell's Color: the cursor's column filtered to cells
+/// filled as the cursor's cell.
+fn filter_by_color(ctx: &mut EditorContext<'_>) -> CommandResult {
+    with(ctx, |v| {
+        let Some(fill) = v.cursor_cell().fill else {
+            return Err("The cell has no fill color".into());
+        };
+        v.filter_rule(Some(kalem_viewer::FilterRule::Fill(fill)))
+    })
+}
+
 /// Format Painter (`t p`): pressed once it takes the selection's format,
 /// again it paints it over the selection then chosen.
 fn format_painter(ctx: &mut EditorContext<'_>) -> CommandResult {
@@ -8261,6 +8536,34 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.customSort",
+            "Custom Sort",
+            &["s c"],
+            IN_GRID,
+            custom_sort,
+        ),
+        cmd(
+            "viewer.grid.filterCondition",
+            "Filter by Condition",
+            &["s f"],
+            IN_GRID,
+            filter_condition,
+        ),
+        cmd(
+            "viewer.grid.filterByColor",
+            "Filter by Selected Cell's Color",
+            &[],
+            IN_GRID,
+            |ctx, _| filter_by_color(ctx),
+        ),
+        cmd(
+            "viewer.grid.reapplyFilter",
+            "Reapply Filter",
+            &["ctrl+alt+l", "s r"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.reapply_filter()),
+        ),
         cmd(
             "viewer.grid.insertDate",
             "Insert Today's Date",

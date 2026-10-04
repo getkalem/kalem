@@ -2766,3 +2766,90 @@ fn editing_formulas() {
     assert!(prompt(&mut t).contains("=SUM(B5:$B$6x)"), "{}", t.screen());
     t.key(KeyCode::Esc);
 }
+
+#[test]
+fn custom_sort_and_filters() {
+    let mut t = T::open("customsort");
+    let rows = [
+        ["Ay", "Tutar"],
+        ["Mart", "30"],
+        ["Ocak", "10"],
+        ["Şubat", "20"],
+        ["Ocak", "5"],
+        ["Mart", "40"],
+    ];
+    for (r, row) in rows.iter().enumerate() {
+        for (c, v) in row.iter().enumerate() {
+            t.app.run_command(
+                "viewer.grid.setCell",
+                json!({ "row": r, "col": 8 + c, "value": v }),
+            );
+        }
+    }
+    let col = |t: &mut T, c: u32| -> Vec<String> {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        (1..6)
+            .map(|r| {
+                v.grid_move_to(r, c);
+                v.cell_input()
+            })
+            .collect()
+    };
+    // The menus: the columns by their headers, then the orders.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 8);
+    t.key(KeyCode::Char('s'));
+    t.key(KeyCode::Char('c'));
+    assert!(t.screen().contains("Ay (I)"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.customSort", json!({ "keys": [], "col": 8 }));
+    assert!(
+        t.screen().contains("Custom List: Ocak, Şubat, Mart"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    // By month, then amount largest first.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 8);
+    let months: Vec<&str> = vec!["Ocak", "Şubat", "Mart", "Nisan"];
+    t.app.run_command(
+        "viewer.grid.customSort",
+        json!({ "keys": [
+            { "col": 8, "descending": false, "list": months },
+            { "col": 9, "descending": true }
+        ], "go": true }),
+    );
+    assert_eq!(col(&mut t, 8), ["Ocak", "Ocak", "Şubat", "Mart", "Mart"]);
+    assert_eq!(col(&mut t, 9), ["10", "5", "20", "40", "30"]);
+    // A filter on the table; amounts over 15.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 8);
+    t.app.run_command("viewer.grid.toggleFilter", json!({}));
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 9);
+    t.key(KeyCode::Char('s'));
+    t.key(KeyCode::Char('f'));
+    assert!(t.screen().contains("Begins With"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 9);
+    t.app.run_command(
+        "viewer.grid.filterCondition",
+        json!({ "op": "greater", "value": "15" }),
+    );
+    let hidden = |t: &mut T| {
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .grid_layout()
+            .unwrap()
+            .hidden_rows
+    };
+    assert_eq!(hidden(&mut t), vec![1, 2]);
+    // Reapply after 5 becomes 50.
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 2, "col": 9, "value": "50" }),
+    );
+    t.app.run_command("viewer.grid.reapplyFilter", json!({}));
+    assert_eq!(hidden(&mut t), vec![1]);
+}

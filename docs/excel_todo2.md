@@ -27,7 +27,7 @@ be bound again.
 
 ## E23. Sorting and filtering more
 
-- [ ] E23 Custom Sort by several columns (levels), each ascending or
+- [x] E23 Custom Sort by several columns (levels), each ascending or
   descending, by value or by a custom list; AutoFilter's Text and Number
   Filters (begins with, contains, greater than, between, top 10, above
   average) and filtering by a cell's color; Reapply.
