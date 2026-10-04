@@ -3320,3 +3320,61 @@ fn go_to_special() {
     t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
     assert!(t.app.doc.viewer.as_deref_mut().unwrap().areas.is_empty());
 }
+
+#[test]
+fn pictures_and_shapes() {
+    let mut t = T::open("drawings");
+    let o = |t: &mut T, k: char| {
+        t.key(KeyCode::Char('o'));
+        let m = if k.is_uppercase() {
+            KeyModifiers::SHIFT
+        } else {
+            KeyModifiers::NONE
+        };
+        t.app.event(Event::Key(KeyEvent::new(KeyCode::Char(k), m)));
+    };
+    // An oval with text at A6: drawn as a box with its text.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(5, 0);
+    o(&mut t, 's');
+    assert!(t.screen().contains("Oval"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(5, 0);
+    t.app.run_command(
+        "viewer.grid.insertShape",
+        json!({ "shape": "ellipse", "value": "Hedef" }),
+    );
+    let s = t.screen();
+    assert!(s.contains("Hedef") && s.contains("┌"), "{s}");
+    // Moved right a column, made a column wider; its text changed.
+    o(&mut t, 'l');
+    o(&mut t, 'L');
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert_eq!(v.drawings()[0].anchor, [5, 1, 8, 4]);
+    t.app
+        .run_command("viewer.grid.editShapeText", json!({ "value": "Plan" }));
+    assert!(t.screen().contains("Plan"), "{}", t.screen());
+    // A picture from a file beside the workbook.
+    let png: Vec<u8> = vec![
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0,
+        0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 0x1F, 0x15, 0xC4, 0x89, 0, 0, 0, 13, 0x49, 0x44, 0x41,
+        0x54, 0x78, 0x9C, 0x63, 0xF8, 0xCF, 0xC0, 0xF0, 0x1F, 0, 5, 0, 1, 0xFF, 0x89, 0x99, 0x3D,
+        0x1D, 0, 0, 0, 0, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+    ];
+    std::fs::write(t.dir.join("logo.png"), &png).unwrap();
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 4);
+    t.app
+        .run_command("viewer.grid.insertPicture", json!({ "path": "logo.png" }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let all = v.drawings();
+    assert_eq!(all.len(), 2);
+    assert!(matches!(all[1].kind, kalem_viewer::DrawingKind::Picture));
+    assert!(v.drawing_bitmap(1).is_some());
+    // Saved with the workbook; the picture deleted.
+    t.app.run_command("app.save", json!({}));
+    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
+    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
+    assert_eq!(wb.drawings(0).len(), 2);
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 4);
+    o(&mut t, 'd');
+    assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().drawings().len(), 1);
+}

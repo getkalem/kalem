@@ -25,6 +25,8 @@ pub struct ViewerView {
     /// The bitmaps as gpui images: the unit shown, or every frame of an
     /// animation.
     images: Vec<(Key, Arc<RenderImage>)>,
+    /// A sheet's pictures as gpui images, by unit, place and generation.
+    pictures: std::collections::HashMap<(usize, usize, u64), Arc<RenderImage>>,
     /// Where a drag started, or last moved to.
     drag: Option<Point<Pixels>>,
     /// Where the button went down: released near it, it is a click.
@@ -848,6 +850,90 @@ impl Editor {
         );
         self.viewer_view.grid_lines.0.sort_by_key(|l| l.0);
         self.viewer_view.grid_lines.1.sort_by_key(|l| l.0);
+        // Pictures and shapes, over the cells they cover.
+        let drawings = v.drawings();
+        let generation = v.generation();
+        let unit = v.unit;
+        for (i, d) in drawings.iter().enumerate() {
+            if matches!(d.kind, kalem_viewer::DrawingKind::Picture)
+                && !self
+                    .viewer_view
+                    .pictures
+                    .contains_key(&(unit, i, generation))
+                && let Some(img) = v.drawing_bitmap(i).as_ref().and_then(render_image)
+            {
+                self.viewer_view.pictures.insert((unit, i, generation), img);
+            }
+        }
+        self.viewer_view
+            .pictures
+            .retain(|k, _| k.0 == unit && k.2 == generation);
+        let pictures = self.viewer_view.pictures.clone();
+        let drawing_views: Vec<_> = drawings
+            .iter()
+            .enumerate()
+            .filter_map(|(i, d)| {
+                let a = d.anchor;
+                let xs: Vec<(f32, f32)> = (a[1]..=a[3])
+                    .filter_map(|c| col_x.get(&c).copied())
+                    .collect();
+                let ys: Vec<(f32, f32)> = (a[0]..=a[2])
+                    .filter_map(|r| row_y.get(&r).copied())
+                    .collect();
+                let (x0, y0) = (xs.first()?.0, ys.first()?.0);
+                let w: f32 = xs.iter().map(|v| v.1).sum();
+                let h: f32 = ys.iter().map(|v| v.1).sum();
+                let base = div()
+                    .debug_selector(move || format!("viewer-grid-drawing-{i}"))
+                    .absolute()
+                    .left(px(x0))
+                    .top(px(y0))
+                    .w(px(w))
+                    .h(px(h))
+                    .overflow_hidden();
+                Some(match &d.kind {
+                    kalem_viewer::DrawingKind::Picture => base.children(
+                        pictures
+                            .get(&(unit, i, generation))
+                            .cloned()
+                            .map(|img| gpui::img(img).size_full()),
+                    ),
+                    kalem_viewer::DrawingKind::Shape {
+                        preset,
+                        fill,
+                        line,
+                        text,
+                        ..
+                    } => {
+                        let color = |c: [u8; 3]| -> gpui::Hsla {
+                            gpui::rgb(
+                                u32::from(c[0]) << 16 | u32::from(c[1]) << 8 | u32::from(c[2]),
+                            )
+                            .into()
+                        };
+                        let mut s = base.flex().items_center().justify_center().p(px(4.));
+                        if let Some(f) = fill {
+                            s = s.bg(color(*f));
+                        }
+                        if let Some(l) = line {
+                            s = s.border_1().border_color(color(*l));
+                        }
+                        s = match preset.as_str() {
+                            "ellipse" => s.rounded_full(),
+                            "roundRect" => s.rounded(px(10.)),
+                            _ => s,
+                        };
+                        // Light text on a dark fill, as Excel's shape style.
+                        let dark = fill.is_some_and(|f| {
+                            u32::from(f[0]) * 299 + u32::from(f[1]) * 587 + u32::from(f[2]) * 114
+                                < 128_000
+                        });
+                        s.text_color(if dark { gpui::white() } else { gpui::black() })
+                            .child(SharedString::from(text.clone()))
+                    }
+                })
+            })
+            .collect();
         let charts: Vec<_> = v
             .charts()
             .iter()
@@ -1653,6 +1739,7 @@ impl Editor {
                     .children(body)
                     .children(merges)
                     .children(charts)
+                    .children(drawing_views)
                     .children(cut_mark)
                     .children(fill_frame)
                     .children(pointer_frame)

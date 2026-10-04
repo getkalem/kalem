@@ -737,6 +737,27 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.run_until_parked();
     assert!(cx.debug_bounds("viewer-grid-arrows").is_none());
 
+    // A shape drawn over its cells; then undone.
+    e.update_in(cx, |e, window, cx| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(5, 0);
+        e.run_command(
+            "viewer.grid.insertShape",
+            serde_json::json!({ "shape": "ellipse", "value": "Hedef" }),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    let shape = cx.debug_bounds("viewer-grid-drawing-0").unwrap();
+    let a6 = cx.debug_bounds("viewer-grid-cell-5-0").unwrap();
+    assert_eq!(shape.origin, a6.origin);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("edit.undo", serde_json::json!({}), window, cx);
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("viewer-grid-drawing-0").is_none());
+
     // Find: the first match after the cursor, then the next with F3.
     e.update_in(cx, |e, window, cx| {
         e.run_command(

@@ -623,45 +623,125 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
             x += w;
         }
     }
-    // Charts over the cells they cover.
+    // Charts, pictures and shapes over the cells they cover.
     let charts = v.charts();
-    if !charts.is_empty() {
-        let x0 = area.x + gutter;
-        let mut col_x = std::collections::HashMap::new();
-        let mut x = x0;
-        for &(c, w) in &cols {
-            col_x.insert(c, (x, w));
-            x += w;
-        }
-        let row_y: std::collections::HashMap<u32, u16> = rows
-            .iter()
-            .enumerate()
-            .map(|(i, (r, _))| (*r, area.y + 1 + i as u16))
+    let drawings = v.drawings();
+    if charts.is_empty() && drawings.is_empty() {
+        return;
+    }
+    let x0 = area.x + gutter;
+    let mut col_x = std::collections::HashMap::new();
+    let mut x = x0;
+    for &(c, w) in &cols {
+        col_x.insert(c, (x, w));
+        x += w;
+    }
+    let row_y: std::collections::HashMap<u32, u16> = rows
+        .iter()
+        .enumerate()
+        .map(|(i, (r, _))| (*r, area.y + 1 + i as u16))
+        .collect();
+    let rect_of = |a: [u32; 4]| -> Option<Rect> {
+        let xs: Vec<(u16, u16)> = (a[1]..=a[3])
+            .filter_map(|c| col_x.get(&c).copied())
             .collect();
-        for chart in &charts {
-            let a = chart.anchor;
-            let xs: Vec<(u16, u16)> = (a[1]..=a[3])
-                .filter_map(|c| col_x.get(&c).copied())
-                .collect();
-            let ys: Vec<u16> = (a[0]..=a[2])
-                .filter_map(|r| row_y.get(&r).copied())
-                .collect();
-            let (Some(first_x), Some(last_x), Some(first_y), Some(last_y)) =
-                (xs.first(), xs.last(), ys.first(), ys.last())
-            else {
-                continue;
-            };
-            let rect = Rect::new(
+        let ys: Vec<u16> = (a[0]..=a[2])
+            .filter_map(|r| row_y.get(&r).copied())
+            .collect();
+        let (first_x, last_x, first_y, last_y) = (xs.first()?, xs.last()?, ys.first()?, ys.last()?);
+        Some(
+            Rect::new(
                 first_x.0,
                 *first_y,
                 (last_x.0 + last_x.1).saturating_sub(first_x.0),
                 (last_y + 1).saturating_sub(*first_y),
             )
-            .intersection(area);
-            if rect.width >= 6 && rect.height >= 3 {
-                crate::chart::draw(chart, caps, rect, buf);
-            }
+            .intersection(area),
+        )
+    };
+    for chart in &charts {
+        if let Some(rect) = rect_of(chart.anchor)
+            && rect.width >= 6
+            && rect.height >= 3
+        {
+            crate::chart::draw(chart, caps, rect, buf);
         }
+    }
+    for d in &drawings {
+        if let Some(rect) = rect_of(d.anchor)
+            && rect.width >= 3
+            && rect.height >= 2
+        {
+            draw_drawing(d, caps, rect, buf);
+        }
+    }
+}
+
+/// A picture or shape in a terminal: a box (in the shape's colors), its
+/// text inside, a picture's name.
+fn draw_drawing(d: &kalem_viewer::Drawing, caps: &Caps, rect: Rect, buf: &mut Buffer) {
+    use kalem_viewer::DrawingKind;
+    let rgb = |c: [u8; 3]| ratatui::style::Color::Rgb(c[0], c[1], c[2]);
+    let (fill, line, text) = match &d.kind {
+        DrawingKind::Picture => (
+            None,
+            None,
+            if caps.ascii {
+                format!("[{}]", d.name)
+            } else {
+                format!("▣ {}", d.name)
+            },
+        ),
+        DrawingKind::Shape {
+            fill, line, text, ..
+        } => (*fill, *line, text.clone()),
+    };
+    let mut style = Style::default();
+    if !caps.no_color {
+        if let Some(f) = fill {
+            style = style.bg(rgb(f));
+        }
+        if let Some(l) = line {
+            style = style.fg(rgb(l));
+        }
+    }
+    let (h, v, corners) = if caps.ascii {
+        ("-", "|", ["+", "+", "+", "+"])
+    } else {
+        ("─", "│", ["┌", "┐", "└", "┘"])
+    };
+    for y in rect.y..rect.y + rect.height {
+        for x in rect.x..rect.x + rect.width {
+            let top = y == rect.y;
+            let bottom = y + 1 == rect.y + rect.height;
+            let left = x == rect.x;
+            let right = x + 1 == rect.x + rect.width;
+            let sym = match (top, bottom, left, right) {
+                (true, _, true, _) => corners[0],
+                (true, _, _, true) => corners[1],
+                (_, true, true, _) => corners[2],
+                (_, true, _, true) => corners[3],
+                (true, _, _, _) | (_, true, _, _) => h,
+                (_, _, true, _) | (_, _, _, true) => v,
+                _ => " ",
+            };
+            buf[(x, y)].set_symbol(sym).set_style(style);
+        }
+    }
+    let inner = rect.width.saturating_sub(2) as usize;
+    let mut text_style = Style::default();
+    if !caps.no_color
+        && let Some(f) = fill
+    {
+        text_style = text_style.bg(rgb(f));
+    }
+    for (i, line) in text
+        .lines()
+        .take(rect.height.saturating_sub(2) as usize)
+        .enumerate()
+    {
+        let shown = format!("{line:^inner$}");
+        buf.set_stringn(rect.x + 1, rect.y + 1 + i as u16, shown, inner, text_style);
     }
 }
 

@@ -79,7 +79,7 @@ be bound again.
 
 ## E31. Pictures and shapes
 
-- [ ] E31 Insert a picture from a file onto the sheet, move and size it,
+- [x] E31 Insert a picture from a file onto the sheet, move and size it,
   delete it; text boxes and simple shapes; written as the sheet's drawing
   with its relationships.
 

@@ -356,6 +356,10 @@ pub struct ViewerState {
     /// A selection of several ranges (Go To Special's), until the cursor
     /// moves.
     pub areas: Vec<[u32; 4]>,
+    /// The sheet shown's pictures and shapes, by unit and generation.
+    drawings_cache: Option<(UnitAt, Vec<kalem_viewer::Drawing>)>,
+    /// Pictures decoded, by unit, place and generation.
+    pictures: std::collections::HashMap<(usize, usize, u64), Option<Bitmap>>,
 }
 
 /// What Find looks for in a grid, and how.
@@ -547,6 +551,8 @@ impl ViewerState {
             arrows: Vec::new(),
             watches: Vec::new(),
             areas: Vec::new(),
+            drawings_cache: None,
+            pictures: std::collections::HashMap::new(),
         })
     }
 
@@ -4097,6 +4103,150 @@ impl ViewerState {
         self.grid_move_to(first.0, first.1);
         self.areas = areas;
         Ok(n)
+    }
+
+    /// The sheet shown's pictures and shapes.
+    pub fn drawings(&mut self) -> Vec<kalem_viewer::Drawing> {
+        let key = (self.unit, self.generation);
+        if let Some((k, d)) = &self.drawings_cache
+            && *k == key
+        {
+            return d.clone();
+        }
+        let d = self.doc().drawings(self.unit);
+        self.drawings_cache = Some((key, d.clone()));
+        d
+    }
+
+    /// A picture decoded for drawing (by its place among the drawings).
+    pub fn drawing_bitmap(&mut self, index: usize) -> Option<Bitmap> {
+        let key = (self.unit, index, self.generation);
+        if let Some(b) = self.pictures.get(&key) {
+            return b.clone();
+        }
+        let b = self
+            .doc()
+            .drawing_image(self.unit, index)
+            .and_then(|bytes| image::load_from_memory(&bytes).ok())
+            .map(|img| {
+                let img = img.thumbnail(1600, 1600).to_rgba8();
+                Bitmap::new(img.width(), img.height(), img.into_raw())
+            });
+        self.pictures.insert(key, b.clone());
+        b
+    }
+
+    /// The picture or shape over the cursor's cell (the topmost).
+    pub fn drawing_at_cursor(&mut self) -> Option<(usize, kalem_viewer::Drawing)> {
+        let p = self.grid_pos();
+        self.drawings()
+            .into_iter()
+            .enumerate()
+            .rev()
+            .find(|(_, d)| {
+                let a = d.anchor;
+                (a[0]..=a[2]).contains(&p.row) && (a[1]..=a[3]).contains(&p.col)
+            })
+    }
+
+    /// Insert Picture: the image file put over cells from the cursor's,
+    /// as many as its size takes (twenty columns and forty rows at most).
+    pub fn insert_picture(&mut self, path: &std::path::Path) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+        let ext = path
+            .extension()
+            .map_or(String::new(), |e| e.to_string_lossy().to_lowercase());
+        let img = image::load_from_memory(&bytes).map_err(|e| format!("Not a picture: {e}"))?;
+        let l = self.grid_layout().ok_or("Not a sheet")?;
+        let p = self.grid_pos();
+        // Columns of the default width (`7 × width + 5` pixels), rows of
+        // the default height (four thirds of its points).
+        let col_px = l.default_width * 7.0 + 5.0;
+        let row_px = l.default_height * 4.0 / 3.0;
+        let cols = ((img.width() as f32 / col_px).ceil() as u32).clamp(1, 20);
+        let rows = ((img.height() as f32 / row_px).ceil() as u32).clamp(1, 40);
+        let anchor = [p.row, p.col, p.row + rows - 1, p.col + cols - 1];
+        self.doc()
+            .insert_picture(self.unit, anchor, &bytes, &ext)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Insert Shape or Text Box at the cursor: three columns by four rows.
+    pub fn insert_shape(&mut self, preset: &str, text: &str, text_box: bool) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let p = self.grid_pos();
+        let anchor = [p.row, p.col, p.row + 3, p.col + 2];
+        self.doc()
+            .insert_shape(self.unit, anchor, preset, text, text_box)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The picture or shape at the cursor moved (`grow` off) or made larger
+    /// or smaller by rows and columns; the cursor goes with a moved one.
+    pub fn nudge_drawing(&mut self, rows: i64, cols: i64, grow: bool) -> Result<(), String> {
+        let (i, d) = self
+            .drawing_at_cursor()
+            .ok_or("No picture or shape at the cursor")?;
+        let a = d.anchor;
+        let at = |v: u32, by: i64| (i64::from(v) + by).max(0) as u32;
+        let anchor = if grow {
+            [
+                a[0],
+                a[1],
+                at(a[2], rows).max(a[0]),
+                at(a[3], cols).max(a[1]),
+            ]
+        } else {
+            if (rows < 0 && a[0] == 0) || (cols < 0 && a[1] == 0) {
+                return Ok(());
+            }
+            [
+                at(a[0], rows),
+                at(a[1], cols),
+                at(a[2], rows),
+                at(a[3], cols),
+            ]
+        };
+        self.doc()
+            .move_drawing(self.unit, i, anchor)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        if !grow {
+            let p = self.grid_pos();
+            self.grid_move_to(at(p.row, rows), at(p.col, cols));
+        }
+        Ok(())
+    }
+
+    /// The shape at the cursor given new text.
+    pub fn set_shape_text(&mut self, text: &str) -> Result<(), String> {
+        let (i, _) = self.drawing_at_cursor().ok_or("No shape at the cursor")?;
+        self.doc()
+            .set_shape_text(self.unit, i, text)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The picture or shape at the cursor deleted.
+    pub fn delete_drawing(&mut self) -> Result<(), String> {
+        let (i, _) = self
+            .drawing_at_cursor()
+            .ok_or("No picture or shape at the cursor")?;
+        self.doc()
+            .delete_drawing(self.unit, i)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
     }
 
     /// The cursor's cell's hyperlink.
@@ -8037,6 +8187,103 @@ fn go_to_special(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
     Ok(())
 }
 
+/// Insert Picture: a file chosen, then the picture over the cells from
+/// the cursor's.
+fn insert_picture(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    let Some(path) = text_arg(args, "path") else {
+        ctx.requests.push(Request::PickFile {
+            command: "viewer.grid.insertPicture".into(),
+            arg: "path".into(),
+            args: serde_json::json!({}),
+        });
+        return Ok(());
+    };
+    let Some(doc) = ctx.document.as_deref_mut() else {
+        return Ok(());
+    };
+    let mut file = std::path::PathBuf::from(crate::settings::expand_home(&path));
+    if file.is_relative()
+        && let Some(dir) = doc.meta.path.as_ref().and_then(|p| p.parent())
+    {
+        file = dir.join(file);
+    }
+    with(ctx, |v| v.insert_picture(&file))
+}
+
+/// Insert Shape: a shape (or a text box) from the menu, its text asked.
+fn insert_shape(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.insertShape";
+    let Some(shape) = args.get("shape").and_then(|x| x.as_str()) else {
+        let item =
+            |k: &str, t: &str| menu_item(ID, serde_json::json!({ "shape": k }), t, "Insert Shape");
+        ctx.requests.push(Request::Choose(vec![
+            item("textBox", "Text Box"),
+            item("rect", "Rectangle"),
+            item("roundRect", "Rounded Rectangle"),
+            item("ellipse", "Oval"),
+            item("rightArrow", "Right Arrow"),
+        ]));
+        return Ok(());
+    };
+    let Some(text) = args
+        .get("value")
+        .and_then(|x| x.as_str())
+        .map(str::to_owned)
+    else {
+        return ask_more(ctx, ID, &serde_json::json!({ "shape": shape }), "value");
+    };
+    let shape = shape.to_owned();
+    with(ctx, |v| {
+        if shape == "textBox" {
+            v.insert_shape("rect", &text, true)
+        } else {
+            v.insert_shape(&shape, &text, false)
+        }
+    })
+}
+
+/// Edit Shape Text: the shape at the cursor's text asked, with what it has.
+fn edit_shape_text(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    match args.get("value").and_then(|x| x.as_str()) {
+        Some(t) => {
+            let t = t.to_owned();
+            with(ctx, |v| v.set_shape_text(&t))
+        }
+        None => {
+            let now = match v.drawing_at_cursor() {
+                Some((
+                    _,
+                    kalem_viewer::Drawing {
+                        kind: kalem_viewer::DrawingKind::Shape { text, .. },
+                        ..
+                    },
+                )) => text,
+                Some(_) => {
+                    ctx.messages.push("A picture has no text".into());
+                    return Ok(());
+                }
+                None => {
+                    ctx.messages.push("No shape at the cursor".into());
+                    return Ok(());
+                }
+            };
+            ask_more(
+                ctx,
+                "viewer.grid.editShapeText",
+                &serde_json::json!({ "value_default": now }),
+                "value",
+            )
+        }
+    }
+}
+
 /// Evaluate Formula (`z e`): the cursor's formula's steps, as a list.
 fn evaluate_formula(ctx: &mut EditorContext<'_>) -> CommandResult {
     let Some(v) = ctx
@@ -9827,6 +10074,90 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.insertPicture",
+            "Insert Picture",
+            &["o p"],
+            IN_GRID,
+            insert_picture,
+        ),
+        cmd(
+            "viewer.grid.insertShape",
+            "Insert Shape",
+            &["o s"],
+            IN_GRID,
+            insert_shape,
+        ),
+        cmd(
+            "viewer.grid.editShapeText",
+            "Edit Shape Text",
+            &["o t"],
+            IN_GRID,
+            edit_shape_text,
+        ),
+        cmd(
+            "viewer.grid.deleteDrawing",
+            "Delete Picture or Shape",
+            &["o d"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.delete_drawing()),
+        ),
+        cmd(
+            "viewer.grid.moveDrawingUp",
+            "Move Picture Up",
+            &["o k"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_drawing(-1, 0, false)),
+        ),
+        cmd(
+            "viewer.grid.moveDrawingDown",
+            "Move Picture Down",
+            &["o j"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_drawing(1, 0, false)),
+        ),
+        cmd(
+            "viewer.grid.moveDrawingLeft",
+            "Move Picture Left",
+            &["o h"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_drawing(0, -1, false)),
+        ),
+        cmd(
+            "viewer.grid.moveDrawingRight",
+            "Move Picture Right",
+            &["o l"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_drawing(0, 1, false)),
+        ),
+        cmd(
+            "viewer.grid.drawingTaller",
+            "Picture Taller",
+            &["o shift+j"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_drawing(1, 0, true)),
+        ),
+        cmd(
+            "viewer.grid.drawingShorter",
+            "Picture Shorter",
+            &["o shift+k"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_drawing(-1, 0, true)),
+        ),
+        cmd(
+            "viewer.grid.drawingWider",
+            "Picture Wider",
+            &["o shift+l"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_drawing(0, 1, true)),
+        ),
+        cmd(
+            "viewer.grid.drawingNarrower",
+            "Picture Narrower",
+            &["o shift+h"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.nudge_drawing(0, -1, true)),
+        ),
         cmd(
             "viewer.grid.goToSpecial",
             "Go To Special",
