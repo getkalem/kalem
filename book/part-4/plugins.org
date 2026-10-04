@@ -196,18 +196,31 @@ kalem_plugin::export_plugin!(WordCount);
 A command's scope is part of its description, so none is registered
 without one; the host refuses a scope naming no type, and an ID that is
 not the plugin's own (=wordcount.=). Arguments and results cross as
-JSON. =kalem::run= runs another command, built in or another plugin's;
-a plugin calls its own as functions, since a component is not entered
-again while it is inside a call. A handle a registration returns may
+JSON. =kalem::run= runs another command, built in or another plugin's,
+once the plugin's call returns: right after the plugin's command, in
+its context (a document's edit included), or at the editor's next tick
+when an event's handler asked; it is refused at once when there is no
+such command, and its result does not come back. A plugin calls its own
+commands as functions, since a component is not entered again while it
+is inside a call. A handle a registration returns may
 be disposed of; dropped, it keeps the registration, and the host takes
 back everything a plugin registered when it is deactivated. A vetoable
 event's first veto is the answer. Each call has the plugin's time
 budget; a command that loops is stopped.
 
-The host's side (=kalem_script::extension=) reaches the editor through
-a trait the editor implements over its registry and keymap; loading
-such plugins at start and running their commands from the palette come
-with the loader (T3.1.12).
+Kalem loads the extension plugins installed: a component that opens
+no files. =kalem plugin install DIR= installs one whose component is
+built, and at start a thread loads each (compiled once and cached, as
+a viewer is) and activates it when its manifest's =activation= says:
+=onStartup=, the default, or =onEvent:NAME= at the first event of that
+name (=onEvent:document:open=). A plugin is known by its ID's last part,
+=org.kalem.wordcount= as =wordcount=, and its commands are
+=wordcount.*=. Its commands join the palette, the menus' rules and the
+keymap in both editors as it registers them, its key bindings come
+before the profile's and the user's, its subscriptions hear the
+editors' events, and its notifications show in the status line. A
+plugin that traps or runs past its budget is stopped, what it
+registered is taken back, and the user is told.
 
 * What a plugin shows
 
@@ -234,7 +247,8 @@ already there, and replaces the panel's content with =ui::set_panel=;
 what the user does to a widget reaches the panel's handler with the
 widget's key. The host checks every tree before an editor sees it.
 Drawing the panels, the questions and the status items in both editors
-comes with the loader as well.
+comes next (T3.1.12's second step); until then a question stays
+unanswered.
 
 The first plugins planned:
 word count, Pomodoro, an export filter, a table function, a =jira:=

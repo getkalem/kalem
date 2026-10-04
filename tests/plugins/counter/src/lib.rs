@@ -80,7 +80,7 @@ impl Plugin for Counter {
         kalem::keymap("space c c", "counter.count", None)?;
         // Another's command, its result passed on.
         command("counter.cycle", Scope::all(), |args| {
-            kalem::run("org.todo.cycle", args)
+            kalem::run("org.todo.cycle", args).map(|()| "null".into())
         })?;
         // What the host refuses, the messages joined.
         command("counter.refused", Scope::all(), |_| {
@@ -143,8 +143,8 @@ impl Plugin for Counter {
             );
             Ok("null".into())
         })?;
-        command("counter.bad-trees", Scope::all(), |_| Ok(bad_trees()))?;
-        command("counter.foreign-panel", Scope::all(), |_| {
+        command("counter.badTrees", Scope::all(), |_| Ok(bad_trees()))?;
+        command("counter.foreignPanel", Scope::all(), |_| {
             ui::panel(
                 PanelSpec { id: "other.panel".into(), title: String::new(), placement: Placement::Side },
                 |_, _| {},

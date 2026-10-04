@@ -79,6 +79,9 @@ pub struct Prepared {
     pub servers: Vec<String>,
     /// The extensions it opens, for a viewer.
     pub opens: Vec<String>,
+    /// It has a component (`main`): a viewer when it opens files, else an
+    /// extension adding commands, keys and panels.
+    pub component: bool,
     /// Where it came from, as the user gave it (for updates).
     pub source: String,
     /// The unpacked folder, holding `plugin.json`.
@@ -451,12 +454,8 @@ fn read_prepared(source: &str, staging: &Path) -> Result<Prepared, String> {
     }
     let name = m["name"].as_str().unwrap_or(&id).to_string();
     let opens = strings(&m["opens"]);
+    let component = m.get("main").is_some();
     if let Some(main) = m.get("main").and_then(Value::as_str) {
-        if opens.is_empty() {
-            return Err(format!(
-                "{name} is a component that opens no files: Kalem loads component viewers today, other components with their part of the API"
-            ));
-        }
         let file = staging.join(main);
         if main.starts_with('/') || main.contains("..") || !file.is_file() {
             return Err(format!(
@@ -481,6 +480,7 @@ fn read_prepared(source: &str, staging: &Path) -> Result<Prepared, String> {
         .find(|i| i.id == id)
         .map(|i| i.version);
     Ok(Prepared {
+        component,
         name,
         version: m["version"].as_str().unwrap_or("").to_string(),
         description: m["description"].as_str().unwrap_or("").to_string(),
@@ -538,6 +538,8 @@ pub fn summary(p: &Prepared) -> Vec<String> {
             "Opens: {} (a component, run in Kalem's sandbox)",
             p.opens.join(", ")
         ));
+    } else if p.component {
+        out.push("Adds commands, keys and panels (a component, run in Kalem's sandbox)".into());
     }
     if p.permissions.iter().any(|x| x == "subprocess") || !p.servers.is_empty() {
         out.push(format!(
@@ -914,13 +916,17 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("kalem-prep-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("dist")).unwrap();
-        // A component that opens no files: not loadable yet.
+        // An extension whose component is not built.
         std::fs::write(
             dir.join("plugin.json"),
             r#"{"id":"org.x.wasm","name":"W","main":"dist/w.wasm"}"#,
         )
         .unwrap();
-        assert!(read_prepared("x", &dir).unwrap_err().contains("viewers"));
+        assert!(
+            read_prepared("x", &dir)
+                .unwrap_err()
+                .contains("kalem plugin build")
+        );
         // A viewer whose component is not built.
         std::fs::write(
             dir.join("plugin.json"),

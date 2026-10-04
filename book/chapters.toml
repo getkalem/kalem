@@ -37,6 +37,8 @@ code = [
   "crates/kalem-script/",
   "crates/kalem-plugin/",
   "crates/kalem-core/src/plugin_build.rs",
+  "crates/kalem-core/src/extensions.rs",
+  "crates/kalem-cli/src/extensions.rs",
 ]
 
 ["part-3/"]

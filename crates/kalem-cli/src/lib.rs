@@ -12,6 +12,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand, ValueEnum};
 
 mod commands;
+mod extensions;
 
 /// Kalem: a fast editor for plain-text documents, shown as they read and
 /// kept byte for byte: Org, LaTeX, CSV, BibTeX and code.
@@ -443,12 +444,13 @@ enum ViewFormat {
 /// Installs the plugins bundled into the binary (D28): the viewers of
 /// getkalem/plugins for pictures, workbooks and PDF files; then the
 /// component viewers the user installed, which take the place of a
-/// bundled viewer of the same name.
+/// bundled viewer of the same name, and the extension plugins installed.
 pub fn bundled_plugins() {
     kalem_core::viewer::register(std::sync::Arc::new(kalem_plugin_image_viewer::ImageViewer));
     kalem_core::viewer::register(std::sync::Arc::new(kalem_plugin_xlsx::XlsxViewer));
     kalem_core::viewer::register(std::sync::Arc::new(kalem_plugin_pdf_viewer::PdfViewer));
     component_viewers();
+    extensions::load();
 }
 
 /// The component viewers installed (`kalem plugin install` of a built
