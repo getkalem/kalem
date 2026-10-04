@@ -399,11 +399,18 @@ interface grid {
         style: string,
     }
 
+    /// A color a sort puts first: the font's or the fill's.
+    record sort-color {
+        font: bool,
+        rgb: rgb,
+    }
+
     record sort-key {
         col: u32,
         descending: bool,
         /// The values in the order they sort in; the others after them.
         %list: option<list<string>>,
+        color: option<sort-color>,
     }
 
     /// What a protected sheet still lets the user do.

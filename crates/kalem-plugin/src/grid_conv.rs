@@ -229,7 +229,8 @@ record!(kv::Validation, g::CellValidation {
 record!(kv::ValidationError, g::ValidationError { style, title, message });
 record!(kv::MacroEntry, g::MacroEntry { name, event });
 record!(kv::TableInfo, g::TableInfo { name, range, totals, style });
-record!(kv::SortKey, g::SortKey { col, descending, list });
+record!(kv::SortColor, g::SortColor { font, rgb });
+record!(kv::SortKey, g::SortKey { col, descending, list, color });
 
 impl Conv<g::FilterRule> for kv::FilterRule {
     fn conv(self) -> g::FilterRule {

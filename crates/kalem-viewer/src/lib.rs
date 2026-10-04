@@ -619,16 +619,28 @@ pub enum VAlign {
 }
 
 /// One level of a sort: a column, its order, and a custom list whose
-/// order its values follow.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// order its values follow, or a color its cells are sorted by.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct SortKey {
     /// The column (of the sheet).
     pub col: u32,
-    /// Largest or last first.
+    /// Largest or last first; for a color, its cells last.
     pub descending: bool,
     /// The values in the order they sort in (months, a user's list); the
     /// others after them.
     pub list: Option<Vec<String>>,
+    /// The cells of this fill (or font) color first, the others after in
+    /// the order they were (Excel's Sort by Color).
+    pub color: Option<SortColor>,
+}
+
+/// A color a sort puts first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SortColor {
+    /// The font's color rather than the fill's.
+    pub font: bool,
+    /// The color.
+    pub rgb: [u8; 3],
 }
 
 /// How a filter's custom condition compares a cell.
@@ -2444,7 +2456,9 @@ pub trait ViewerDocument: Send {
         header: bool,
     ) -> Result<Vec<usize>> {
         match keys {
-            [k] if k.list.is_none() => self.sort_range(unit, range, k.col, k.descending, header),
+            [k] if k.list.is_none() && k.color.is_none() => {
+                self.sort_range(unit, range, k.col, k.descending, header)
+            }
             _ => Err(ViewerError("This format sorts by one column".into())),
         }
     }
