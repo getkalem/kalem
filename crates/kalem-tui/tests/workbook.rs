@@ -2126,3 +2126,54 @@ fn frozen_panes() {
     t.app.run_command("edit.undo", json!({}));
     assert_eq!(frozen(&mut t), (1, 0));
 }
+
+#[test]
+fn notes() {
+    let mut t = T::open("notes");
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    // Shift+F2 asks with the note A2 has.
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::F(2),
+        KeyModifiers::SHIFT,
+    )));
+    let asked = t.screen();
+    t.key(KeyCode::Esc);
+    assert!(
+        asked.contains("Edit Note") && asked.contains("Paid on the first"),
+        "{asked}"
+    );
+    t.app
+        .run_command("viewer.grid.editNote", json!({ "value": "Kira ödendi" }));
+    assert!(
+        t.screen().contains("A2 · 1/3 · Kira ödendi"),
+        "{}",
+        t.screen()
+    );
+    // A new note on B3: its mark in the corner.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 1);
+    t.app
+        .run_command("viewer.grid.editNote", json!({ "value": "Kontrol et" }));
+    let s = t.screen();
+    let row3 = s
+        .lines()
+        .find(|l| l.trim_start().starts_with("3 Food"))
+        .unwrap();
+    assert!(row3.contains("431.5◥"), "{s}");
+    // Left empty, the note goes; Delete Note likewise.
+    t.app
+        .run_command("viewer.grid.editNote", json!({ "value": "" }));
+    assert!(!t.screen().contains("Kontrol et"), "{}", t.screen());
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.run_command("viewer.grid.deleteNote", json!({}));
+    assert!(!t.screen().contains("Kira"), "{}", t.screen());
+    // Saved as Excel reads it, then undone.
+    t.app.run_command("app.save", json!({}));
+    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
+    let wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
+    assert!(wb.comments(0).unwrap().is_empty());
+    for _ in 0..4 {
+        t.app.run_command("edit.undo", json!({}));
+    }
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    assert!(t.screen().contains("Paid on the first"), "{}", t.screen());
+}

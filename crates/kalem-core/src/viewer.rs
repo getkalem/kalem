@@ -3064,6 +3064,25 @@ impl ViewerState {
         Ok(())
     }
 
+    /// The cursor's cell's note.
+    pub fn cursor_note(&mut self) -> Option<String> {
+        let p = self.grid_pos();
+        self.doc().cell_note(self.unit, p.row, p.col)
+    }
+
+    /// Gives the cursor's cell a note, or takes it away (`None`).
+    pub fn set_note(&mut self, text: Option<String>) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let p = self.grid_pos();
+        self.doc()
+            .set_note(self.unit, p.row, p.col, text)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// The units that are hidden sheets.
     pub fn hidden_units(&mut self) -> Vec<usize> {
         self.doc().hidden_units()
@@ -5859,10 +5878,13 @@ fn sheet_command(ctx: &mut EditorContext<'_>, args: &serde_json::Value, op: &str
         "rename" => match text_arg(args, "value") {
             Some(name) => SheetEdit::Rename(unit, name.trim().to_owned()),
             None => {
+                // Asked with the name it has.
+                let name = v.structure().units[unit].label.clone();
+                let name = name.trim_end_matches(" (hidden)").to_owned();
                 return ask_more(
                     ctx,
                     "viewer.grid.renameSheet",
-                    &serde_json::json!({}),
+                    &serde_json::json!({ "value_default": name }),
                     "value",
                 );
             }
@@ -5927,6 +5949,34 @@ fn freeze_panes(ctx: &mut EditorContext<'_>) -> CommandResult {
         }
         v.set_frozen(p.row, p.col)
     })
+}
+
+/// New Note or Edit Note (Shift+F2): the note asked, with the text it has;
+/// left empty, the note goes.
+fn edit_note(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    match args.get("value").and_then(|x| x.as_str()) {
+        None => {
+            let current = v.cursor_note().unwrap_or_default();
+            ask_more(
+                ctx,
+                "viewer.grid.editNote",
+                &serde_json::json!({ "value_default": current }),
+                "value",
+            )
+        }
+        Some(t) if t.trim().is_empty() => with(ctx, |v| v.set_note(None)),
+        Some(t) => {
+            let t = t.to_owned();
+            with(ctx, |v| v.set_note(Some(t)))
+        }
+    }
 }
 
 /// Number Format: the selection's, from Excel's common ones or typed.
@@ -7156,6 +7206,20 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.editNote",
+            "Edit Note",
+            &["shift+f2"],
+            IN_GRID,
+            edit_note,
+        ),
+        cmd(
+            "viewer.grid.deleteNote",
+            "Delete Note",
+            &[],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.set_note(None)),
+        ),
         cmd(
             "viewer.grid.freezePanes",
             "Freeze Panes",

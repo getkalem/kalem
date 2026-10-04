@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Closing the last document no longer quits Kalem: an empty document takes its place.
 
 ### Added
+- Spreadsheets: notes added and edited (Shift+F2, asked with the text the note has) and deleted (Delete Note, or left empty), written as Excel's comments part with the note's shape in the sheet's VML drawing; Rename Sheet asks with the name the sheet has.
 - Spreadsheets: Freeze Panes at the cursor (`z f`, again to unfreeze), Freeze Top Row (`z t`), Freeze First Column (`z F`) and Unfreeze Panes (`z u`), written as the sheet view's frozen pane.
 - Spreadsheets: Hide and Unhide Rows (Ctrl+9, Ctrl+Shift+9, `z r`, `z R`) and Columns (Ctrl+0, Ctrl+Shift+0, `z c`, `z C`) of the selection, written as Excel writes them; the cursor leaves what it hides.
 - Spreadsheets: sheets inserted (Shift+F11, `S i`), deleted after asking (`S d`), renamed (`S r`, Excel's rules for names), moved left and right (`S h`, `S l`), hidden and unhidden (`S x`, `S u`), each one undo step; formulas, defined names, charts, pivot tables and hyperlinks naming a renamed sheet follow it, and those naming a deleted one become `#REF!`.

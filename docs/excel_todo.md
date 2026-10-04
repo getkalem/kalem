@@ -75,7 +75,7 @@ in the palette and can be bound again.
 
 ## E11. Notes
 
-- [ ] E11 Add, edit and delete a cell's note (Shift+F2), written as
+- [x] E11 Add, edit and delete a cell's note (Shift+F2), written as
   Excel's comments part with its drawing.
 
 ## E12. AutoSum and functions
