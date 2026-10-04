@@ -3935,3 +3935,56 @@ fn new_workbooks_and_copied_sheets() {
     v.grid_move_to(1, 0);
     assert_eq!(v.cell_input(), "Rent");
 }
+
+#[test]
+fn calculation() {
+    let mut t = T::open("calculation");
+    t.term = Terminal::new(TestBackend::new(120, 30)).unwrap();
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.set_cell(0, 10, "=L1+1").unwrap();
+    v.set_cell(0, 11, "=K1*0.5").unwrap();
+    // A circle: told in the status line, listed to go to.
+    assert!(
+        t.screen().contains("Circular references: K1"),
+        "{}",
+        t.screen()
+    );
+    t.app
+        .run_command("viewer.grid.circularReferences", json!({}));
+    assert!(
+        t.screen().contains("!K1") && t.screen().contains("!L1"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    // The options, Automatic marked; iterated, the circle settles.
+    t.key(KeyCode::Char('z'));
+    t.key(KeyCode::Char('o'));
+    assert!(t.screen().contains("Automatic ✓"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.calculationOptions",
+        json!({ "what": "iterate", "maximum iterations": "200", "maximum change": "0,000001" }),
+    );
+    assert!(
+        !t.screen().contains("Circular references"),
+        "{}",
+        t.screen()
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(0, 10);
+    let k1: f64 = v.grid_cells(0..1, 10..11)[0].2.text.parse().unwrap();
+    assert!((k1 - 2.0).abs() < 1e-4, "{k1}");
+    // Manual: said in the status line.
+    t.app.run_command(
+        "viewer.grid.calculationOptions",
+        json!({ "what": "manual" }),
+    );
+    assert!(t.screen().contains("Manual calculation"), "{}", t.screen());
+    t.app.run_command("app.save", json!({}));
+    let wb = kalem_plugin_xlsx::Workbook::open(std::fs::read(t.dir.join("budget.xlsx")).unwrap())
+        .unwrap();
+    let o = wb.calc_options();
+    assert!(o.iterate && o.max_iterations == 200);
+    assert_eq!(o.mode, kalem_viewer::CalcMode::Manual);
+}

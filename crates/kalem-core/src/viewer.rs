@@ -374,6 +374,8 @@ pub struct ViewerState {
     tabs_cache: Option<(u64, Vec<SheetTab>)>,
     /// Where the terminal last drew the grid, for the mouse.
     pub hits: Option<GridHits>,
+    /// The circular references, by generation.
+    circ_cache: Option<(u64, Vec<SheetCell>)>,
     /// Each sheet's view settings, read once.
     views: std::collections::HashMap<usize, kalem_viewer::SheetView>,
     /// Page Break Preview's pages, by unit and generation.
@@ -534,6 +536,9 @@ impl GridHits {
     }
 }
 
+/// A cell of a workbook: its sheet, row and column.
+pub type SheetCell = (usize, u32, u32);
+
 /// A sheet's tab: its unit, its name, its color.
 pub type SheetTab = (usize, String, Option<[u8; 3]>);
 
@@ -684,6 +689,7 @@ impl ViewerState {
             tabs_cache: None,
             views: std::collections::HashMap::new(),
             hits: None,
+            circ_cache: None,
             pages_cache: None,
             pictures: std::collections::HashMap::new(),
         })
@@ -1736,6 +1742,18 @@ impl ViewerState {
             }
             if let Some(sums) = self.selection_sums() {
                 parts.push(sums);
+            }
+            if self.doc().calc_options().mode == kalem_viewer::CalcMode::Manual {
+                parts.push("Manual calculation".into());
+            }
+            if let Some(&(u, r, c)) = self.circular_references().first() {
+                let at = format!("{}{}", crate::csv_tools::column_letters(c as usize), r + 1);
+                let sheet = if u == self.unit {
+                    String::new()
+                } else {
+                    format!("{}!", self.structure.units[u].label)
+                };
+                parts.push(format!("Circular references: {sheet}{at}"));
             }
             let view = self.sheet_view();
             if view.zoom != 100 {
@@ -4807,6 +4825,38 @@ impl ViewerState {
             self.edit_sheets(kalem_viewer::SheetEdit::Delete(unit))?;
         }
         Ok(name)
+    }
+
+    /// The workbook's circular references (sheet, row, column).
+    pub fn circular_references(&mut self) -> Vec<(usize, u32, u32)> {
+        if let Some((g, c)) = &self.circ_cache
+            && *g == self.generation
+        {
+            return c.clone();
+        }
+        let c = self.doc().circular_references();
+        self.circ_cache = Some((self.generation, c.clone()));
+        c
+    }
+
+    /// The workbook's calculation settings.
+    pub fn doc_calc_options(&mut self) -> kalem_viewer::CalcOptions {
+        self.doc().calc_options()
+    }
+
+    /// The calculation settings changed as `f` says.
+    pub fn update_calc(
+        &mut self,
+        f: impl FnOnce(&mut kalem_viewer::CalcOptions),
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let mut o = self.doc().calc_options();
+        f(&mut o);
+        self.doc().set_calc_options(o).map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
     }
 
     /// The sheet shown's comment threads.
@@ -9372,6 +9422,153 @@ fn move_or_copy(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
     }
 }
 
+/// Calculation Options: Automatic, Automatic except Data Tables or
+/// Manual; iterative calculation on (its limits asked) or off.
+fn calculation_options(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::CalcMode;
+    const ID: &str = "viewer.grid.calculationOptions";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let now = v.doc_calc_options();
+    let Some(what) = args.get("what").and_then(|x| x.as_str()).map(str::to_owned) else {
+        let mark = |on: bool, t: &str| {
+            if on {
+                format!("{t} ✓")
+            } else {
+                t.to_string()
+            }
+        };
+        let item = |w: &str, t: String| {
+            menu_item(
+                ID,
+                serde_json::json!({ "what": w }),
+                &t,
+                "Calculation Options",
+            )
+        };
+        let mut items = vec![
+            item(
+                "automatic",
+                mark(now.mode == CalcMode::Automatic, "Automatic"),
+            ),
+            item(
+                "exceptTables",
+                mark(
+                    now.mode == CalcMode::AutomaticExceptTables,
+                    "Automatic except Data Tables",
+                ),
+            ),
+            item("manual", mark(now.mode == CalcMode::Manual, "Manual")),
+        ];
+        items.push(if now.iterate {
+            item(
+                "iterateOff",
+                format!(
+                    "Iterative Calculation ✓ ({} times, {})",
+                    now.max_iterations, now.max_change
+                ),
+            )
+        } else {
+            item("iterate", "Iterative Calculation…".into())
+        });
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    match what.as_str() {
+        "automatic" => with(ctx, |v| v.update_calc(|o| o.mode = CalcMode::Automatic)),
+        "exceptTables" => with(ctx, |v| {
+            v.update_calc(|o| o.mode = CalcMode::AutomaticExceptTables)
+        }),
+        "manual" => with(ctx, |v| v.update_calc(|o| o.mode = CalcMode::Manual)),
+        "iterateOff" => with(ctx, |v| v.update_calc(|o| o.iterate = false)),
+        "iterate" => {
+            let Some(times) = text_arg(args, "maximum iterations") else {
+                let mut a = args.clone();
+                a["maximum iterations_default"] = serde_json::json!(now.max_iterations.to_string());
+                return ask_more(ctx, ID, &a, "maximum iterations");
+            };
+            let Some(change) = text_arg(args, "maximum change") else {
+                let mut a = args.clone();
+                a["maximum change_default"] = serde_json::json!(now.max_change.to_string());
+                return ask_more(ctx, ID, &a, "maximum change");
+            };
+            match (
+                times.trim().parse::<u32>(),
+                change.trim().replace(',', ".").parse::<f64>(),
+            ) {
+                (Ok(n), Ok(d)) => with(ctx, |v| {
+                    v.update_calc(|o| {
+                        o.iterate = true;
+                        o.max_iterations = n;
+                        o.max_change = d;
+                    })
+                }),
+                _ => {
+                    ctx.messages.push(format!(
+                        "Iterative Calculation: {times} times, {change}: not numbers"
+                    ));
+                    Ok(())
+                }
+            }
+        }
+        _ => Ok(()),
+    }
+}
+
+/// Circular References: the cells round a circle, one chosen to go to.
+fn circular_references(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.circularReferences";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    if let (Some(u), Some(r), Some(c)) = (
+        args.get("unit").and_then(serde_json::Value::as_u64),
+        args.get("row").and_then(serde_json::Value::as_u64),
+        args.get("col").and_then(serde_json::Value::as_u64),
+    ) {
+        v.go_to(u as usize);
+        v.grid_move_to(r as u32, c as u32);
+        return Ok(());
+    }
+    let all = v.circular_references();
+    if all.is_empty() {
+        ctx.messages.push("No circular references".into());
+        return Ok(());
+    }
+    let labels: Vec<String> = v
+        .structure()
+        .units
+        .iter()
+        .map(|u| u.label.clone())
+        .collect();
+    let items = all
+        .into_iter()
+        .map(|(u, r, c)| {
+            menu_item(
+                ID,
+                serde_json::json!({ "unit": u, "row": r, "col": c }),
+                &format!(
+                    "{}!{}",
+                    labels.get(u).cloned().unwrap_or_default(),
+                    cell_name(r, c)
+                ),
+                "Circular References",
+            )
+        })
+        .collect();
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
 /// Who writes comments: the account's name.
 fn comment_author() -> String {
     ["USER", "USERNAME", "LOGNAME"]
@@ -12159,6 +12356,20 @@ fn grid_commands() -> Vec<Command> {
             &["ctrl+shift+0", "z shift+c"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.set_hidden(false, false)),
+        ),
+        cmd(
+            "viewer.grid.calculationOptions",
+            "Calculation Options",
+            &["z o"],
+            IN_GRID,
+            calculation_options,
+        ),
+        cmd(
+            "viewer.grid.circularReferences",
+            "Circular References",
+            &[],
+            IN_GRID,
+            circular_references,
         ),
         cmd(
             "viewer.grid.moveOrCopySheet",

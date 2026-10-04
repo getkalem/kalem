@@ -44,7 +44,7 @@ new release of the xlsx plugin follows when the contract moves.
 
 ## E40. Calculation
 
-- [ ] E40 `NOW()` and `TODAY()` in the local time zone (the engine runs
+- [x] E40 `NOW()` and `TODAY()` in the local time zone (the engine runs
   in UTC); Automatic, Automatic except Data Tables and Manual
   calculation (`calcPr`), data tables then recalculated with every
   change; circular references found and shown (the cells), or
