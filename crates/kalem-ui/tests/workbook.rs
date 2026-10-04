@@ -713,6 +713,30 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
 
+    // Trace Precedents of D2: arrows drawn over the grid; then removed.
+    e.update_in(cx, |e, window, cx| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 3);
+        e.run_command(
+            "viewer.grid.tracePrecedents",
+            serde_json::json!({}),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("viewer-grid-arrows").is_some());
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.removeArrows",
+            serde_json::json!({}),
+            window,
+            cx,
+        );
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("viewer-grid-arrows").is_none());
+
     // Find: the first match after the cursor, then the next with F3.
     e.update_in(cx, |e, window, cx| {
         e.run_command(

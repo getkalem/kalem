@@ -3203,3 +3203,58 @@ fn protection() {
         t.screen()
     );
 }
+
+#[test]
+fn formula_auditing() {
+    let mut t = T::open("audit");
+    let z = |t: &mut T, k: char| {
+        t.key(KeyCode::Char('z'));
+        t.key(KeyCode::Char(k));
+    };
+    // D2's precedents: the cells it reads, marked.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 3);
+    let d2 = t.app.doc.viewer.as_deref_mut().unwrap().cell_input();
+    z(&mut t, ',');
+    let s = t.screen();
+    assert!(s.contains("precedent"), "{s}");
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(
+        !v.arrows.is_empty() && v.arrows.iter().all(|a| a.1 == (1, 3)),
+        "{d2}"
+    );
+    // B2's dependents: D2 and the sum under it.
+    v.arrows.clear();
+    v.grid_move_to(1, 1);
+    z(&mut t, '.');
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let to: Vec<(u32, u32)> = v.arrows.iter().map(|a| a.1).collect();
+    assert!(to.contains(&(1, 3)) && to.contains(&(4, 1)), "{to:?}");
+    z(&mut t, 'x');
+    assert!(t.app.doc.viewer.as_deref_mut().unwrap().arrows.is_empty());
+    // Evaluate Formula: D2 step by step to 2400.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 3);
+    let steps = t.app.doc.viewer.as_deref_mut().unwrap().evaluation_steps();
+    assert_eq!(steps.first(), Some(&d2));
+    assert_eq!(steps.last().map(String::as_str), Some("=2400"), "{steps:?}");
+    z(&mut t, 'e');
+    assert!(t.screen().contains("=2400"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    // Error Checking finds the division by zero.
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 6, "col": 1, "value": "=1/0" }),
+    );
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    z(&mut t, 'n');
+    assert!(t.screen().contains("B7: #DIV/0!"), "{}", t.screen());
+    // The Watch Window keeps D2's value in sight.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 3);
+    t.app
+        .run_command("viewer.grid.watchWindow", json!({ "do": "add" }));
+    assert!(
+        t.screen().contains("Budget!D2 = 2,400.00"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+}

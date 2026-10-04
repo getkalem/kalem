@@ -348,6 +348,11 @@ pub struct ViewerState {
     /// The outline's summary rows and whether each is collapsed, by unit
     /// and generation.
     outline_marks: Option<(UnitAt, Vec<(u32, bool)>)>,
+    /// Trace Precedents' and Dependents' arrows on the sheet shown: from
+    /// a range to a cell.
+    pub arrows: Vec<([u32; 4], (u32, u32))>,
+    /// The Watch Window's cells: unit, row, column.
+    pub watches: Vec<(usize, u32, u32)>,
 }
 
 /// What Find looks for in a grid, and how.
@@ -536,6 +541,8 @@ impl ViewerState {
             pointer: None,
             functions: None,
             outline_marks: None,
+            arrows: Vec::new(),
+            watches: Vec::new(),
         })
     }
 
@@ -2003,6 +2010,175 @@ impl ViewerState {
             .map_err(|e| e.to_string())?;
         self.refresh();
         Ok(())
+    }
+
+    /// The sheet shown's name, as references name it.
+    fn sheet_name(&self) -> String {
+        self.structure.units[self.unit]
+            .label
+            .trim_end_matches(" (hidden)")
+            .to_owned()
+    }
+
+    /// Whether a reference is to the sheet shown.
+    fn here(&self, r: &crate::formula_edit::Reference) -> bool {
+        r.sheet
+            .as_ref()
+            .is_none_or(|s| s.eq_ignore_ascii_case(&self.sheet_name()))
+    }
+
+    /// Trace Precedents: arrows from the cells the cursor's formula reads
+    /// (on this sheet); how many.
+    pub fn trace_precedents(&mut self) -> usize {
+        let p = self.grid_pos();
+        let input = self.cell_input();
+        if !input.starts_with('=') {
+            return 0;
+        }
+        let refs: Vec<[u32; 4]> = crate::formula_edit::references(&input)
+            .into_iter()
+            .filter(|r| self.here(r))
+            .map(|r| r.range)
+            .collect();
+        for r in &refs {
+            if !self.arrows.contains(&(*r, (p.row, p.col))) {
+                self.arrows.push((*r, (p.row, p.col)));
+            }
+        }
+        refs.len()
+    }
+
+    /// Trace Dependents: arrows to the cells of this sheet whose formulas
+    /// read the cursor's cell; how many.
+    pub fn trace_dependents(&mut self) -> usize {
+        let p = self.grid_pos();
+        let Some(l) = self.grid_layout() else {
+            return 0;
+        };
+        let mut found = Vec::new();
+        let mut row = 0;
+        while row < l.rows {
+            let to = (row + 1000).min(l.rows);
+            let formulas: Vec<(u32, u32)> = self
+                .grid_cells(row..to, 0..l.cols.max(1))
+                .into_iter()
+                .filter(|c| c.2.formula)
+                .map(|c| (c.0, c.1))
+                .collect();
+            for (r, c) in formulas {
+                let input = self.doc().cell_input(self.unit, r, c);
+                let reads = crate::formula_edit::references(&input)
+                    .into_iter()
+                    .any(|x| {
+                        self.here(&x)
+                            && (x.range[0]..=x.range[2]).contains(&p.row)
+                            && (x.range[1]..=x.range[3]).contains(&p.col)
+                    });
+                if reads {
+                    found.push((r, c));
+                }
+            }
+            row = to;
+        }
+        let from = [p.row, p.col, p.row, p.col];
+        for d in &found {
+            if !self.arrows.contains(&(from, *d)) {
+                self.arrows.push((from, *d));
+            }
+        }
+        found.len()
+    }
+
+    /// Evaluate Formula: the cursor's formula's steps to its value.
+    pub fn evaluation_steps(&mut self) -> Vec<String> {
+        let input = self.cell_input();
+        if !input.starts_with('=') {
+            return Vec::new();
+        }
+        let unit = self.unit;
+        let doc = self.doc.clone();
+        let mut eval = |fs: &[String]| -> Vec<Option<String>> {
+            doc.lock()
+                .map(|mut d| d.evaluate_formulas(unit, fs))
+                .unwrap_or_default()
+        };
+        crate::formula_edit::evaluation_steps(&input, &mut eval)
+    }
+
+    /// Error Checking: the cursor to the next cell after it (round the
+    /// sheet) showing an error, and what the error means.
+    pub fn next_error(&mut self) -> Option<String> {
+        const ERRORS: [(&str, &str); 8] = [
+            ("#DIV/0!", "A number is divided by zero"),
+            ("#VALUE!", "A value is of the wrong type"),
+            ("#REF!", "A reference is not valid"),
+            ("#NAME?", "A name or function is not recognized"),
+            ("#N/A", "A value is not available"),
+            ("#NUM!", "A number is not valid"),
+            ("#NULL!", "Two ranges do not intersect"),
+            ("#SPILL!", "A result cannot spill"),
+        ];
+        let p = self.grid_pos();
+        let l = self.grid_layout()?;
+        let mut found: Vec<(u32, u32, String)> = Vec::new();
+        let mut row = 0;
+        while row < l.rows {
+            let to = (row + 1000).min(l.rows);
+            for (r, c, cell) in self.grid_cells(row..to, 0..l.cols.max(1)) {
+                if ERRORS.iter().any(|e| e.0 == cell.text) {
+                    found.push((r, c, cell.text));
+                }
+            }
+            row = to;
+        }
+        found.sort_by_key(|f| (f.0, f.1));
+        let next = found
+            .iter()
+            .find(|f| (f.0, f.1) > (p.row, p.col))
+            .or_else(|| found.first())?
+            .clone();
+        self.grid_move_to(next.0, next.1);
+        let why = ERRORS.iter().find(|e| e.0 == next.2).map_or("", |e| e.1);
+        let name = format!(
+            "{}{}",
+            crate::csv_tools::column_letters(next.1 as usize),
+            next.0 + 1
+        );
+        Some(format!(
+            "{name}: {} — {why} ({} errors)",
+            next.2,
+            found.len()
+        ))
+    }
+
+    /// The Watch Window's lines: each watched cell's sheet and name, value
+    /// and formula.
+    pub fn watch_lines(&mut self) -> Vec<String> {
+        let watches = self.watches.clone();
+        watches
+            .iter()
+            .map(|&(u, r, c)| {
+                let name = self
+                    .structure
+                    .units
+                    .get(u)
+                    .map_or(String::new(), |x| x.label.clone());
+                let cell = format!("{}{}", crate::csv_tools::column_letters(c as usize), r + 1);
+                let shown = self
+                    .doc()
+                    .grid_cells(u, r..r + 1, c..c + 1)
+                    .first()
+                    .map(|x| x.2.text.clone())
+                    .unwrap_or_default();
+                let input = self.doc().cell_input(u, r, c);
+                let formula = if input.starts_with('=') {
+                    format!("  {input}")
+                } else {
+                    String::new()
+                };
+                format!("{name}!{cell} = {shown}{formula}")
+            })
+            .collect()
     }
 
     /// How the sheet shown is protected, when it is.
@@ -7701,6 +7877,99 @@ fn toggle_alignment(ctx: &mut EditorContext<'_>, which: &str) -> CommandResult {
     })
 }
 
+/// Evaluate Formula (`z e`): the cursor's formula's steps, as a list.
+fn evaluate_formula(ctx: &mut EditorContext<'_>) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let steps = v.evaluation_steps();
+    if steps.is_empty() {
+        ctx.messages.push("The cell has no formula".into());
+        return Ok(());
+    }
+    let items = steps
+        .iter()
+        .enumerate()
+        .map(|(i, s)| {
+            menu_item(
+                "viewer.grid.cancel",
+                serde_json::json!({}),
+                &format!("{}. {s}", i + 1),
+                "Evaluate Formula",
+            )
+        })
+        .collect();
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
+/// Watch Window (`z w`): the watched cells with their values; Add Watch
+/// for the cursor's cell, a watched one gone to or removed.
+fn watch_window(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.watchWindow";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let num = |k: &str| {
+        args.get(k)
+            .and_then(serde_json::Value::as_u64)
+            .map(|x| x as usize)
+    };
+    match (args.get("do").and_then(|d| d.as_str()), num("i")) {
+        (Some("add"), _) => {
+            let p = v.grid_pos();
+            let w = (v.unit, p.row, p.col);
+            if !v.watches.contains(&w) {
+                v.watches.push(w);
+            }
+        }
+        (Some("go"), Some(i)) => {
+            if let Some(&(u, r, c)) = v.watches.get(i) {
+                v.go_to(u);
+                v.grid_move_to(r, c);
+            }
+            return Ok(());
+        }
+        (Some("remove"), Some(i)) if i < v.watches.len() => {
+            v.watches.remove(i);
+        }
+        _ => {}
+    }
+    let mut items = vec![menu_item(
+        ID,
+        serde_json::json!({ "do": "add" }),
+        "Add Watch (the cursor's cell)",
+        "Watch Window",
+    )];
+    for (i, line) in v.watch_lines().into_iter().enumerate() {
+        items.push(menu_item(
+            ID,
+            serde_json::json!({ "do": "go", "i": i }),
+            &line,
+            "Watch Window",
+        ));
+        items.push(menu_item(
+            ID,
+            serde_json::json!({ "do": "remove", "i": i }),
+            &format!(
+                "Delete Watch: {}",
+                line.split(" = ").next().unwrap_or_default()
+            ),
+            "Watch Window",
+        ));
+    }
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
 /// Protect Sheet (`z k`): a password asked (none when left empty), then
 /// what the protected sheet still allows; on a protected sheet, Unprotect
 /// Sheet, its password asked when it has one.
@@ -9373,6 +9642,94 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.tracePrecedents",
+            "Trace Precedents",
+            &["z ,"],
+            IN_GRID,
+            |ctx, _| {
+                let Some(v) = ctx
+                    .document
+                    .as_deref_mut()
+                    .and_then(|d| d.viewer.as_deref_mut())
+                else {
+                    return Ok(());
+                };
+                let n = v.trace_precedents();
+                ctx.messages.push(match n {
+                    0 => "The formula reads no cells of this sheet".into(),
+                    n => format!("{n} precedent{}", if n == 1 { "" } else { "s" }),
+                });
+                Ok(())
+            },
+        ),
+        cmd(
+            "viewer.grid.traceDependents",
+            "Trace Dependents",
+            &["z ."],
+            IN_GRID,
+            |ctx, _| {
+                let Some(v) = ctx
+                    .document
+                    .as_deref_mut()
+                    .and_then(|d| d.viewer.as_deref_mut())
+                else {
+                    return Ok(());
+                };
+                let n = v.trace_dependents();
+                ctx.messages.push(match n {
+                    0 => "No formula of this sheet reads the cell".into(),
+                    n => format!("{n} dependent{}", if n == 1 { "" } else { "s" }),
+                });
+                Ok(())
+            },
+        ),
+        cmd(
+            "viewer.grid.removeArrows",
+            "Remove Arrows",
+            &["z x"],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    v.arrows.clear();
+                    Ok(())
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.evaluateFormula",
+            "Evaluate Formula",
+            &["z e"],
+            IN_GRID,
+            |ctx, _| evaluate_formula(ctx),
+        ),
+        cmd(
+            "viewer.grid.errorChecking",
+            "Error Checking",
+            &["z n"],
+            IN_GRID,
+            |ctx, _| {
+                let Some(v) = ctx
+                    .document
+                    .as_deref_mut()
+                    .and_then(|d| d.viewer.as_deref_mut())
+                else {
+                    return Ok(());
+                };
+                let m = v
+                    .next_error()
+                    .unwrap_or_else(|| "No errors on this sheet".into());
+                ctx.messages.push(m);
+                Ok(())
+            },
+        ),
+        cmd(
+            "viewer.grid.watchWindow",
+            "Watch Window",
+            &["z w"],
+            IN_GRID,
+            watch_window,
+        ),
         cmd(
             "viewer.grid.lockCells",
             "Lock Cell",

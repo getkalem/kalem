@@ -66,7 +66,7 @@ be bound again.
 
 ## E29. Formula auditing
 
-- [ ] E29 Trace Precedents and Trace Dependents drawn as arrows, Remove
+- [x] E29 Trace Precedents and Trace Dependents drawn as arrows, Remove
   Arrows; Evaluate Formula step by step; Error Checking that goes to each
   error and says what is wrong; Watch Window.
 

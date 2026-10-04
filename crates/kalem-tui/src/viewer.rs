@@ -277,6 +277,9 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
     let cut = v.cut_range();
     // The cells a formula being typed points at.
     let pointer = v.pointer;
+    // Trace Precedents' and Dependents' ends: the ranges read, the cells
+    // reading them.
+    let arrows = v.arrows.clone();
     // The outline's summary rows: − to collapse, + to expand.
     let marks = v.outline_marks();
     let merged = layout.merged.clone();
@@ -470,6 +473,20 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
                 style = style.add_modifier(Modifier::UNDERLINED | Modifier::BOLD);
                 if !caps.no_color {
                     style = style.fg(ratatui::style::Color::Cyan);
+                }
+            }
+            let read = arrows
+                .iter()
+                .any(|(m, _)| (m[0]..=m[2]).contains(&r) && (m[1]..=m[3]).contains(&c));
+            let reading = arrows.iter().any(|(_, d)| *d == (r, c));
+            if read || reading {
+                style = style.add_modifier(if reading {
+                    Modifier::BOLD
+                } else {
+                    Modifier::UNDERLINED
+                });
+                if !caps.no_color {
+                    style = style.fg(ratatui::style::Color::Blue);
                 }
             }
             if (r, c) == (pos.row, pos.col) {

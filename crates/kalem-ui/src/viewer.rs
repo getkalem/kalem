@@ -694,6 +694,7 @@ impl Editor {
         let cut = v.cut_range();
         let pointer = v.pointer;
         let marks = v.outline_marks();
+        let arrows = v.arrows.clone();
         let in_sel = move |r: u32, c: u32| {
             selecting && (sel[0]..=sel[2]).contains(&r) && (sel[1]..=sel[3]).contains(&c)
         };
@@ -1019,6 +1020,68 @@ impl Editor {
                     .border_dashed()
                     .border_color(theme.link),
             )
+        });
+        // Trace Precedents' and Dependents' arrows: from the middle of the
+        // range read to the middle of the cell reading it.
+        let middle = |m: [u32; 4]| -> Option<(f32, f32)> {
+            let xs: Vec<(f32, f32)> = (m[1]..=m[3])
+                .filter_map(|c| col_x.get(&c).copied())
+                .collect();
+            let ys: Vec<(f32, f32)> = (m[0]..=m[2])
+                .filter_map(|r| row_y.get(&r).copied())
+                .collect();
+            let (x0, y0) = (xs.first()?.0, ys.first()?.0);
+            let w: f32 = xs.iter().map(|v| v.1).sum();
+            let h: f32 = ys.iter().map(|v| v.1).sum();
+            Some((x0 + w / 2.0, y0 + h / 2.0))
+        };
+        let lines: Vec<((f32, f32), (f32, f32))> = arrows
+            .iter()
+            .filter_map(|(m, d)| Some((middle(*m)?, middle([d.0, d.1, d.0, d.1])?)))
+            .collect();
+        let link = theme.link;
+        let arrow_layer = (!lines.is_empty()).then(|| {
+            div()
+                .debug_selector(|| "viewer-grid-arrows".into())
+                .absolute()
+                .inset_0()
+                .child(
+                    gpui::canvas(
+                        |_, _, _| {},
+                        move |bounds, (), window, _| {
+                            let at = |(x, y): (f32, f32)| {
+                                gpui::point(bounds.origin.x + px(x), bounds.origin.y + px(y))
+                            };
+                            for &(a, b) in &lines {
+                                let mut p = gpui::PathBuilder::stroke(px(1.5));
+                                p.move_to(at(a));
+                                p.line_to(at(b));
+                                // The head: two strokes back from the end.
+                                let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+                                let len = (dx * dx + dy * dy).sqrt().max(1.0);
+                                let (ux, uy) = (dx / len, dy / len);
+                                for side in [-1.0f32, 1.0] {
+                                    let hx = b.0 - 8.0 * ux + side * 4.0 * uy;
+                                    let hy = b.1 - 8.0 * uy - side * 4.0 * ux;
+                                    p.move_to(at(b));
+                                    p.line_to(at((hx, hy)));
+                                }
+                                if let Ok(path) = p.build() {
+                                    window.paint_path(path, link);
+                                }
+                                // A dot where it starts.
+                                window.paint_quad(gpui::fill(
+                                    gpui::Bounds::new(
+                                        at((a.0 - 2.5, a.1 - 2.5)),
+                                        gpui::size(px(5.), px(5.)),
+                                    ),
+                                    link,
+                                ));
+                            }
+                        },
+                    )
+                    .size_full(),
+                )
         });
         let cut_mark = cut.and_then(|m| {
             let xs: Vec<(f32, f32)> = (m[1]..=m[3])
@@ -1588,6 +1651,7 @@ impl Editor {
                     .children(cut_mark)
                     .children(fill_frame)
                     .children(pointer_frame)
+                    .children(arrow_layer)
                     .children(fill_handle),
             )
             // A fill handle dropped past the grid still fills.
