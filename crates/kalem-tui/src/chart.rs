@@ -74,7 +74,15 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                             .get(i)
                             .cloned()
                             .unwrap_or_else(|| (i + 1).to_string()),
-                        color(caps, None, i),
+                        color(
+                            caps,
+                            chart
+                                .series
+                                .first()
+                                .and_then(|s| s.point_colors.iter().find(|p| p.0 == i))
+                                .map(|p| p.1),
+                            i,
+                        ),
                     )
                 })
                 .collect()
@@ -181,6 +189,7 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                         .enumerate()
                         .map(|(j, s)| {
                             let v = s.values.get(i).copied().flatten().unwrap_or(0.0);
+                            let own = s.point_colors.iter().find(|p| p.0 == i).map(|p| p.1);
                             Bar::default()
                                 .value(v.max(0.0).round() as u64)
                                 .text_value(if chart.labels.value {
@@ -192,7 +201,7 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                                 } else {
                                     String::new()
                                 })
-                                .style(color(caps, s.color, j))
+                                .style(color(caps, own.or(s.color), j))
                         })
                         .collect();
                     BarGroup::default()
@@ -365,7 +374,11 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                     y,
                     mark.repeat(n),
                     room,
-                    color(caps, None, i),
+                    color(
+                        caps,
+                        s.point_colors.iter().find(|p| p.0 == i).map(|p| p.1),
+                        i,
+                    ),
                 );
             }
         }

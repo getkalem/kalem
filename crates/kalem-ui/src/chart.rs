@@ -11,6 +11,18 @@ use kalem_viewer::{Chart, ChartKind, LegendPosition};
 /// Excel's default series colors.
 const PALETTE: [u32; 6] = [0x4472C4, 0xED7D31, 0xA5A5A5, 0xFFC000, 0x5B9BD5, 0x70AD47];
 
+/// A point's own color, else its series'.
+fn point_fill(s: &kalem_viewer::ChartSeries, i: usize, j: usize) -> Hsla {
+    color(
+        s.point_colors
+            .iter()
+            .find(|p| p.0 == i)
+            .map(|p| p.1)
+            .or(s.color),
+        j,
+    )
+}
+
 fn color(c: Option<[u8; 3]>, i: usize) -> Hsla {
     let v = c.map_or(PALETTE[i % PALETTE.len()], |[r, g, b]| {
         (u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b)
@@ -151,7 +163,14 @@ pub fn chart_view(
                             .get(i)
                             .cloned()
                             .unwrap_or_else(|| (i + 1).to_string()),
-                        color(None, i),
+                        color(
+                            chart
+                                .series
+                                .first()
+                                .and_then(|s| s.point_colors.iter().find(|p| p.0 == i))
+                                .map(|p| p.1),
+                            i,
+                        ),
                     )
                 })
                 .collect()
@@ -390,7 +409,7 @@ fn paint(
                     };
                     let start = i as f32 * group + group * 0.15 + j as f32 * bar;
                     let (a, z) = (scale(v).min(zero), scale(v).max(zero));
-                    let c = color(s.color, j);
+                    let c = point_fill(s, i, j);
                     if horizontal {
                         rect(x0 + a, y0 + start, z - a, bar, c, window);
                     } else {
@@ -505,7 +524,8 @@ fn paint(
                 let mut p = PathBuilder::fill();
                 p.add_polygon(&poly, true);
                 if let Ok(path) = p.build() {
-                    window.paint_path(path, color(None, i));
+                    let own = s.point_colors.iter().find(|p| p.0 == i).map(|p| p.1);
+                    window.paint_path(path, color(own, i));
                 }
                 if let Some(t) = label_text(chart, 0, i, v, total) {
                     let mid = angle + sweep / 2.0;
