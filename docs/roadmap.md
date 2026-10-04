@@ -42,9 +42,10 @@ the Windows job passes; no plugin pin can break `main`.
   and add a 90-minute timeout to every job. Then watch the first ten
   runs. S
   (done 2026-10-04: `cancel-in-progress` only for pull requests, `timeout-minutes: 90` on every job. Open: watch the first ten runs on `main`.)
-- [ ] R1.2 Windows tests: `lsp_service` and `plugin_install` fail on
+- [~] R1.2 Windows tests: `lsp_service` and `plugin_install` fail on
   every Windows run; read the logs, fix the path or process handling,
   make the fake server start on Windows, and mark nothing `#[ignore]`. M
+  (done 2026-10-04: four causes, each fixed: the plugin cache was mapped, so Windows refused to rewrite it while in use (and Linux got SIGBUS) — now read into memory; `canonicalize` gives verbatim paths where `..` is a name, so the plugin file check missed it — refused as a name too; the fake language server's verbatim URIs did not match the client's — URIs normalized to one spelling (`kalem_lsp::uri::normalize`), which also covers servers writing `file:///c%3A/`; the plugin test wrote a Windows path into a TOML basic string, where `\U` is an escape — a literal string now, and `file:///C:/` index URLs are read. Open: a green Windows run on `main`.)
 - [ ] R1.3 Plugin pins cannot break `main`: the three `getkalem/plugins`
   revisions move together, in one `[workspace.dependencies]` entry; a CI
   job builds the plugins against this checkout's `kalem-viewer` contract
