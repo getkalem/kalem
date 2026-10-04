@@ -168,7 +168,9 @@ fn child(work: &Path) {
     let config = kalem_core::Config::from_layers(&[(
         kalem_core::settings::Layer::User,
         None,
-        &format!("[plugins]\nindex = \"file://{}\"\n", index.display()),
+        // A TOML literal string: a Windows path's backslashes are not
+        // escapes there.
+        &format!("[plugins]\nindex = 'file://{}'\n", index.display()),
     )]);
     kalem_core::plugin_store::check_updates(&config);
     let t = Instant::now();

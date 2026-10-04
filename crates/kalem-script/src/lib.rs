@@ -221,7 +221,13 @@ impl Host {
         // engine's compatibility hash; wasmtime checks the version and
         // settings in its header again. A process able to write there can
         // change Kalem's settings and plugins as well.
-        unsafe { Component::deserialize_file(&self.engine, file) }
+        //
+        // Read into memory rather than mapped (`deserialize_file`): a
+        // mapped file that something rewrites in place while a component
+        // made from it is alive ends the process with SIGBUS; the bytes in
+        // memory cannot change under the component.
+        let bytes = std::fs::read(file).map_err(|e| Error::Invalid(e.to_string()))?;
+        unsafe { Component::deserialize(&self.engine, &bytes) }
             .map_err(|e| Error::Invalid(e.to_string()))
     }
 }

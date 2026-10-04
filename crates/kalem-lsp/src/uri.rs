@@ -48,16 +48,45 @@ pub fn to_path(uri: &str) -> Option<PathBuf> {
         }
     }
     let s = String::from_utf8(out).ok()?;
+    // A Windows verbatim path written as a URI (`file:////?/C:/x`, from a
+    // server that canonicalized without simplifying): its plain form.
+    let s = s.strip_prefix("//?/").map_or(s.clone(), String::from);
     // `/C:/x` on Windows.
-    let s = match s.as_bytes() {
+    let mut s = match s.as_bytes() {
         [b'/', d, b':', ..] if d.is_ascii_alphabetic() && cfg!(windows) => s[1..].to_string(),
         _ => s,
     };
+    // `c:` and `C:` are the same drive: one spelling.
+    if let [d, b':', ..] = s.as_bytes()
+        && d.is_ascii_lowercase()
+    {
+        s.replace_range(0..1, &d.to_ascii_uppercase().to_string());
+    }
     Some(PathBuf::from(s))
+}
+
+/// One spelling of a `file:` URI, whatever the server wrote: the drive
+/// letter's case, `%3A` for `:`, a verbatim `//?/` prefix. Documents and
+/// the diagnostics servers publish for them are matched by it. Other
+/// schemes are left as they are.
+pub fn normalize(uri: &str) -> String {
+    to_path(uri).map_or_else(|| uri.to_string(), |p| from_path(&p))
 }
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn one_spelling() {
+        // Verbatim, as `std::fs::canonicalize` gives on Windows.
+        assert_eq!(normalize("file:////?/C:/a/b.ex"), "file:///C:/a/b.ex");
+        assert_eq!(normalize("file:///tmp/a%20b.ex"), "file:///tmp/a%20b.ex");
+        assert_eq!(normalize("untitled:x"), "untitled:x");
+        if cfg!(windows) {
+            // VS Code's spelling: lower-case drive, `:` encoded.
+            assert_eq!(normalize("file:///c%3A/a/b.ex"), "file:///C:/a/b.ex");
+        }
+    }
+
     use super::*;
 
     #[test]

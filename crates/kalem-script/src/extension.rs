@@ -221,7 +221,11 @@ fn real_path(path: &str) -> Result<std::path::PathBuf, String> {
     if !p.is_absolute() {
         return Err(format!("`{path}` is not an absolute path"));
     }
-    if p.components().any(|c| matches!(c, Component::ParentDir)) {
+    // In a Windows verbatim path (`\\?\C:\…`, what `canonicalize`
+    // gives) `..` is not parsed as a parent but as a name: refused too.
+    if p.components()
+        .any(|c| matches!(c, Component::ParentDir) || c.as_os_str() == "..")
+    {
         return Err(format!("`{path}` goes up with `..`"));
     }
     // The longest part that exists, followed through its links, and the
@@ -1280,5 +1284,16 @@ impl Extension {
                 _ => None,
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(windows)]
+    #[test]
+    fn verbatim_paths_cannot_go_up() {
+        // `canonicalize` gives verbatim paths, where `..` is a name.
+        let e = super::real_path(r"\\?\C:\Users\a\..\b.txt").unwrap_err();
+        assert!(e.contains(".."), "{e}");
     }
 }
