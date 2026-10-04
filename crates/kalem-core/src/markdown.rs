@@ -1025,7 +1025,306 @@ pub fn line_view(
     let Some(md) = ready(doc) else {
         return crate::view::plain_line_view(doc.text().as_str(), range, cursor);
     };
-    view_line(&md, doc.text().as_str(), range, cursor)
+    let text = doc.text().as_str();
+    // A table away from the cursor: a grid, its columns lined up.
+    if crate::view::source_markers() != crate::view::Markers::Always
+        && let Some(table) = md
+            .on_line(md.line_of(range.start))
+            .find(|n| n.kind == MdKind::Table)
+            .map(|n| n.range.clone())
+        && !cursor.is_some_and(|c| table.start <= c && c <= table.end)
+    {
+        return table_row(&md, text, doc.version(), table, range);
+    }
+    view_line(&md, text, range, cursor)
+}
+
+/// The unescaped `|` of a table row, as offsets into the text.
+fn row_bars(text: &str, row: Range<usize>) -> Vec<usize> {
+    let mut out = Vec::new();
+    let mut prev = 0u8;
+    for (k, c) in text[row.clone()].bytes().enumerate() {
+        if c == b'|' && prev != b'\\' {
+            out.push(row.start + k);
+        }
+        prev = c;
+    }
+    out
+}
+
+/// Whether `row` is a table's delimiter row (`| --- | :-: |`).
+fn is_delimiter_row(text: &str, row: Range<usize>) -> bool {
+    let t = text[row].trim();
+    t.contains('-')
+        && t.bytes()
+            .all(|b| matches!(b, b'|' | b'-' | b':' | b' ' | b'\t'))
+}
+
+/// The cells of a row's view: the runs between its bars, the bars
+/// themselves dropped, a run cut where a bar falls inside it.
+fn row_cells(v: &LineView, bars: &[usize]) -> Vec<Vec<crate::view::Run>> {
+    let mut cells: Vec<Vec<crate::view::Run>> = vec![Vec::new()];
+    for r in &v.runs {
+        if !r.verbatim || r.src.is_empty() {
+            if let Some(c) = cells.last_mut() {
+                c.push(r.clone());
+            }
+            continue;
+        }
+        let mut start = r.src.start;
+        for &b in bars.iter().filter(|&&b| r.src.start <= b && b < r.src.end) {
+            if b > start {
+                let mut piece = r.clone();
+                piece.src = start..b;
+                piece.text = r.text[start - r.src.start..b - r.src.start].to_string();
+                if let Some(c) = cells.last_mut() {
+                    c.push(piece);
+                }
+            }
+            cells.push(Vec::new());
+            start = b + 1;
+        }
+        if start < r.src.end {
+            let mut piece = r.clone();
+            piece.src = start..r.src.end;
+            piece.text = r.text[start - r.src.start..].to_string();
+            if let Some(c) = cells.last_mut() {
+                c.push(piece);
+            }
+        }
+    }
+    cells
+}
+
+/// `cell` without the blanks around its content (source runs only).
+fn trim_cell(mut cell: Vec<crate::view::Run>) -> Vec<crate::view::Run> {
+    while let Some(r) = cell.first_mut() {
+        if !r.verbatim || r.widget.is_some() {
+            break;
+        }
+        let n = r.text.len() - r.text.trim_start_matches([' ', '\t']).len();
+        r.text.drain(..n);
+        r.src.start += n;
+        if !r.text.is_empty() {
+            break;
+        }
+        cell.remove(0);
+    }
+    while let Some(r) = cell.last_mut() {
+        if !r.verbatim || r.widget.is_some() {
+            break;
+        }
+        let keep = r.text.trim_end_matches([' ', '\t']).len();
+        let cut = r.text.len() - keep;
+        r.text.truncate(keep);
+        r.src.end -= cut;
+        if !r.text.is_empty() {
+            break;
+        }
+        cell.pop();
+    }
+    cell
+}
+
+/// How a column is aligned, from its delimiter cell: `:--` left, `--:`
+/// right, `:-:` center.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ColumnAlign {
+    Left,
+    Right,
+    Center,
+}
+
+/// The alignment of each cell of the table at `table`, from its
+/// delimiter row, indexed as the cells of a row.
+fn column_aligns(text: &str, table: &Range<usize>) -> Vec<ColumnAlign> {
+    let rows = text[table.clone()].split('\n');
+    let Some(delim) = rows.clone().find(|r| {
+        let t = r.trim();
+        t.contains('-')
+            && t.bytes()
+                .all(|b| matches!(b, b'|' | b'-' | b':' | b' ' | b'\t'))
+    }) else {
+        return Vec::new();
+    };
+    delim
+        .split('|')
+        .map(|c| {
+            let c = c.trim();
+            match (c.starts_with(':'), c.ends_with(':') && c.len() > 1) {
+                (true, true) => ColumnAlign::Center,
+                (false, true) => ColumnAlign::Right,
+                _ => ColumnAlign::Left,
+            }
+        })
+        .collect()
+}
+
+fn cell_width(cell: &[crate::view::Run]) -> usize {
+    cell.iter()
+        .map(|r| unicode_width::UnicodeWidthStr::width(r.text.as_str()))
+        .sum()
+}
+
+/// A table by the text's version, the text's address and the table's
+/// bytes.
+type TableKey = (u64, usize, Range<usize>);
+
+thread_local! {
+    /// The column widths of the tables drawn last.
+    static WIDTHS: std::cell::RefCell<Vec<(TableKey, std::rc::Rc<Vec<usize>>)>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// The width of each column of the table at `table`: its widest cell.
+fn column_widths(
+    md: &Md,
+    text: &str,
+    version: u64,
+    table: &Range<usize>,
+) -> std::rc::Rc<Vec<usize>> {
+    let key = (version, text.as_ptr() as usize, table.clone());
+    if let Some(w) = WIDTHS.with(|c| {
+        c.borrow()
+            .iter()
+            .find(|(k, _)| *k == key)
+            .map(|(_, w)| w.clone())
+    }) {
+        return w;
+    }
+    let mut widths: Vec<usize> = Vec::new();
+    let mut at = table.start;
+    while at < table.end {
+        let end = text[at..table.end].find('\n').map_or(table.end, |i| at + i);
+        let row = at..end;
+        if !is_delimiter_row(text, row.clone()) {
+            let v = view_line(md, text, row.clone(), None);
+            let bars = row_bars(text, row.clone());
+            for (i, c) in row_cells(&v, &bars).into_iter().enumerate() {
+                if widths.len() <= i {
+                    widths.push(0);
+                }
+                widths[i] = widths[i].max(cell_width(&trim_cell(c)));
+            }
+        }
+        at = end + 1;
+    }
+    let w = std::rc::Rc::new(widths);
+    WIDTHS.with(|c| {
+        let mut c = c.borrow_mut();
+        c.retain(|(k, _)| k.0 == version && k.1 == key.1);
+        c.truncate(16);
+        c.push((key, w.clone()));
+    });
+    w
+}
+
+/// Row `row` of the table at `table`, away from the cursor: its cells
+/// padded to their column's width, its bars drawn as lines, its delimiter
+/// row as a rule. The text is not changed; the row does not wrap.
+fn table_row(
+    md: &Md,
+    text: &str,
+    version: u64,
+    table: Range<usize>,
+    row: Range<usize>,
+) -> LineView {
+    use crate::view::{Run, Style};
+    let widths = column_widths(md, text, version, &table);
+    let bars = row_bars(text, row.clone());
+    let dim = Style {
+        dim: true,
+        ..Style::default()
+    };
+    let mut out = LineView {
+        range: row.clone(),
+        mono: true,
+        nowrap: true,
+        ..LineView::default()
+    };
+    if is_delimiter_row(text, row.clone()) {
+        // `| --- | :-: |` as `├─────┼─────┤`, the first and last bar
+        // where the row has them.
+        let lead = text[row.clone()].trim_start().starts_with('|');
+        let trail = text[row.clone()].trim_end().ends_with('|');
+        let mut s = String::new();
+        if lead {
+            s.push('├');
+        }
+        // The widths are by cell, the space before the first bar and
+        // after the last counted as cells.
+        let from = usize::from(lead).min(widths.len());
+        let to = widths.len().saturating_sub(usize::from(trail)).max(from);
+        let columns = &widths[from..to];
+        for (i, w) in columns.iter().enumerate() {
+            s.push_str(&"─".repeat(w + 2));
+            if i + 1 < columns.len() {
+                s.push('┼');
+            }
+        }
+        if trail {
+            s.push('┤');
+        }
+        out.runs.push(Run {
+            src: row,
+            text: s,
+            verbatim: false,
+            style: dim,
+            widget: None,
+        });
+        return out;
+    }
+    let v = view_line(md, text, row.clone(), None);
+    let lead = text[row.clone()].trim_start().starts_with('|');
+    let aligns = column_aligns(text, &table);
+    let cells = row_cells(&v, &bars);
+    let last = cells.len().saturating_sub(1);
+    let blank = |at: usize, n: usize| Run {
+        src: at..at,
+        text: " ".repeat(n),
+        verbatim: false,
+        style: Style::default(),
+        widget: None,
+    };
+    for (i, cell) in cells.into_iter().enumerate() {
+        // The space before the first bar and after the last is not a
+        // column's: shown as it is.
+        let edge = (lead && i == 0) || (i == last && i > 0);
+        if edge {
+            out.runs.extend(cell);
+        } else {
+            // Right after the bar before the cell (or the row's start).
+            let start = i
+                .checked_sub(1)
+                .and_then(|j| bars.get(j))
+                .map_or(row.start, |b| b + 1);
+            let end = bars.get(i).copied().unwrap_or(row.end);
+            let cell = trim_cell(cell);
+            let pad = widths
+                .get(i)
+                .map_or(0, |w| w.saturating_sub(cell_width(&cell)));
+            let (before, after) = match aligns.get(i).copied().unwrap_or(ColumnAlign::Left) {
+                ColumnAlign::Left => (0, pad),
+                ColumnAlign::Right => (pad, 0),
+                ColumnAlign::Center => (pad / 2, pad - pad / 2),
+            };
+            let from = cell.first().map_or(start, |r| r.src.start);
+            let to = cell.last().map_or(end, |r| r.src.end);
+            out.runs.push(blank(from, 1 + before));
+            out.runs.extend(cell);
+            out.runs.push(blank(to, after + 1));
+        }
+        if let Some(&b) = bars.get(i) {
+            out.runs.push(Run {
+                src: b..b + 1,
+                text: "│".into(),
+                verbatim: false,
+                style: dim,
+                widget: None,
+            });
+        }
+    }
+    out
 }
 
 /// A piece of the line: shown with a style, hidden, or replaced.
@@ -2823,6 +3122,68 @@ mod tests {
         d.selection = org_edit::Selection::caret(text.len() / 2);
         d.type_text("x", false, std::time::Instant::now());
         assert!(ready(&d).is_some());
+    }
+
+    /// A table away from the cursor is a grid: its cells padded to their
+    /// column's width, its bars lines, its delimiter row a rule; the row
+    /// does not wrap. With the cursor in it, its source.
+    #[test]
+    fn a_table_away_from_the_cursor_is_a_grid() {
+        let text = "Intro.\n\n| Variable | Used in | Purpose |\n| --- | --- | --- |\n| `DATABASE_URL` | prod | the system database |\n| PORT | prod | listen port |\n\nAfter.\n";
+        let meta = crate::Metadata {
+            path: None,
+            mode: crate::DocumentMode::Markdown,
+            line_ending: crate::LineEnding::Lf,
+            bom: false,
+            encoding: encoding_rs::UTF_8,
+            lossy: false,
+        };
+        let d = crate::DocumentState::new(
+            text,
+            meta,
+            std::sync::Arc::new(org_model::Settings::default()),
+        );
+        let shown =
+            |line: usize, cursor: Option<usize>| line_view(&d, d.text().line_range(line), cursor);
+        let rows: Vec<String> = (2..6).map(|l| shown(l, Some(0)).display()).collect();
+        assert_eq!(
+            rows,
+            [
+                "│ Variable     │ Used in │ Purpose             │",
+                "├──────────────┼─────────┼─────────────────────┤",
+                "│ DATABASE_URL │ prod    │ the system database │",
+                "│ PORT         │ prod    │ listen port         │",
+            ]
+        );
+        assert!(shown(2, Some(0)).nowrap && shown(2, Some(0)).mono);
+        // The text is the same; a click on a padded cell maps into it.
+        let v = shown(5, Some(0));
+        let at = v.source_offset(v.display().find("prod").unwrap());
+        assert_eq!(&text[at..at + 4], "prod");
+        // The cursor in the table: its source, as written.
+        let inside = text.find("PORT").unwrap();
+        assert_eq!(
+            shown(5, Some(inside)).display(),
+            "| PORT | prod | listen port |"
+        );
+        assert!(!shown(5, Some(inside)).nowrap);
+        // `:--`, `--:` and `:-:` line a column up to the left, the right
+        // and the middle.
+        let text = "| Name | Qty | Mid |\n|:--|--:|:-:|\n| apple | 3 | x |\n";
+        let mut d = d;
+        d.meta.mode = crate::DocumentMode::Markdown;
+        let all = d.text().len();
+        d.apply(
+            &{
+                let mut tx = org_edit::Transaction::new("t");
+                tx.edit(0..all, text);
+                tx
+            },
+            org_edit::ChangeKind::Command,
+            std::time::Instant::now(),
+        );
+        let row = line_view(&d, d.text().line_range(2), None).display();
+        assert_eq!(row, "│ apple │   3 │  x  │");
     }
 
     #[test]

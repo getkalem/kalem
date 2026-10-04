@@ -85,7 +85,13 @@ edits it as plain text. Concretely:
   away from the cursor; a task list item's =[ ]= or =[x]= is a checkbox
   while the cursor is off its line. Block quote markers and thematic
   breaks are dimmed; code blocks, HTML blocks, tables and front matter
-  are monospace, fences and front matter dimmed. Away from the cursor
+  are monospace, fences and front matter dimmed. A table away from the
+  cursor is drawn as a grid: each column as wide as its widest cell and
+  lined up as its delimiter cell says (=:--= left, =--:= right, =:-:=
+  centered), the bars as lines and the delimiter row as a rule, without
+  changing the text; in the graphical editor its rows do not wrap. With
+  the cursor in the table it shows its source, and Tab aligns the
+  source itself. Away from the cursor
   the front matter folds to its first line, as a property drawer does
   in Org, and opens when the cursor goes into it. The setting
   =editor.show_source_markers= (=cursor=, =always=, =never=) applies as
