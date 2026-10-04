@@ -416,14 +416,63 @@ fn paint(
             let bar = group * 0.7 / k;
             let scale = |v: f64| frac(v).clamp(0.0, 1.0) * across;
             let zero = scale(if log { lo } else { 0.0 });
-            for &v in &ticks {
+            // The value axis's gridlines (across it) and the categories'
+            // (between them), each as the chart asks.
+            let gl = chart.gridlines;
+            let (value_major, value_minor, cat_major, cat_minor) = if horizontal {
+                (
+                    gl.vertical_major,
+                    gl.vertical_minor,
+                    gl.horizontal_major,
+                    gl.horizontal_minor,
+                )
+            } else {
+                (
+                    gl.horizontal_major,
+                    gl.horizontal_minor,
+                    gl.vertical_major,
+                    gl.vertical_minor,
+                )
+            };
+            let faint = grid.opacity(0.45);
+            for (k, &v) in ticks.iter().enumerate() {
                 let at = scale(v);
+                if value_minor && let Some(&next) = ticks.get(k + 1) {
+                    let mid = scale((v + next) / 2.0);
+                    if horizontal {
+                        rect(x0 + mid, y0, 0.5, h, faint, window);
+                    } else {
+                        rect(x0, y0 + h - mid, w, 0.5, faint, window);
+                    }
+                }
                 if horizontal {
-                    rect(x0 + at, y0, 0.5, h, grid, window);
+                    if value_major {
+                        rect(x0 + at, y0, 0.5, h, grid, window);
+                    }
                     marks.push((x0 + at, y0 + h, tick_text(v), Place::Above));
                 } else {
-                    rect(x0, y0 + h - at, w, 0.5, grid, window);
+                    if value_major {
+                        rect(x0, y0 + h - at, w, 0.5, grid, window);
+                    }
                     marks.push((x0 + 2.0, y0 + h - at, tick_text(v), Place::Right));
+                }
+            }
+            for i in 1..n {
+                let at = i as f32 * group;
+                if cat_major {
+                    if horizontal {
+                        rect(x0, y0 + at, w, 0.5, grid, window);
+                    } else {
+                        rect(x0 + at, y0, 0.5, h, grid, window);
+                    }
+                }
+                if cat_minor {
+                    let mid = at - group / 2.0;
+                    if horizontal {
+                        rect(x0, y0 + mid, w, 0.5, faint, window);
+                    } else {
+                        rect(x0 + mid, y0, 0.5, h, faint, window);
+                    }
                 }
             }
             for i in 0..n {
@@ -471,10 +520,41 @@ fn paint(
                 Some(x0 + ((xv - xl) / (xh - xl)) as f32 * w)
             };
             let py = |v: f64| y0 + h - frac(v).clamp(-0.05, 1.05) * h;
-            for &v in &ticks {
+            let gl = chart.gridlines;
+            let faint = grid.opacity(0.45);
+            for (k, &v) in ticks.iter().enumerate() {
                 let y = y0 + h - frac(v) * h;
-                rect(x0, y, w, 0.5, grid, window);
+                if gl.horizontal_minor
+                    && let Some(&next) = ticks.get(k + 1)
+                {
+                    rect(
+                        x0,
+                        y0 + h - frac((v + next) / 2.0) * h,
+                        w,
+                        0.5,
+                        faint,
+                        window,
+                    );
+                }
+                if gl.horizontal_major {
+                    rect(x0, y, w, 0.5, grid, window);
+                }
                 marks.push((x0 + 2.0, y, tick_text(v), Place::Right));
+            }
+            // Vertical lines: at each category, or quarters of the x range.
+            let steps = if chart.kind == ChartKind::Scatter {
+                4
+            } else {
+                n.max(2) - 1
+            };
+            for k in 0..=steps {
+                let x = x0 + w * k as f32 / steps as f32;
+                if gl.vertical_major {
+                    rect(x, y0, 0.5, h, grid, window);
+                }
+                if gl.vertical_minor && k < steps {
+                    rect(x + w / steps as f32 / 2.0, y0, 0.5, h, faint, window);
+                }
             }
             for (j, s) in chart.series.iter().enumerate() {
                 let c = color(s.color, j);

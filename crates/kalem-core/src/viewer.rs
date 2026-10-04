@@ -2240,6 +2240,21 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Shows or hides the gridlines of the chart under the cursor.
+    pub fn set_gridlines(&mut self, lines: kalem_viewer::Gridlines) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (i, _) = self
+            .chart_at_cursor()
+            .ok_or("Put the cursor on a chart to set its gridlines")?;
+        self.doc()
+            .set_gridlines(self.unit, i, lines)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// Removes the chart over the cursor's cell.
     pub fn delete_chart(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -4104,6 +4119,66 @@ fn chart_area(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandR
     }
 }
 
+/// Gridlines: the four kinds as a checklist in the palette, as Excel's
+/// Gridlines menu; choosing one shows or hides it at once and offers the
+/// list again.
+fn gridlines_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::{ChartKind, Gridlines};
+    const ID: &str = "viewer.grid.gridlines";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some((i, _)) = v.chart_at_cursor() else {
+        ctx.messages
+            .push("Put the cursor on a chart to set its gridlines".into());
+        return Ok(());
+    };
+    let chart = v.charts()[i].clone();
+    if matches!(chart.kind, ChartKind::Pie | ChartKind::Doughnut) {
+        ctx.messages
+            .push("A pie has no axes, and no gridlines".into());
+        return Ok(());
+    }
+    let mut g = chart.gridlines;
+    if let Some(which) = args.get("toggle").and_then(|t| t.as_str()) {
+        match which {
+            "horizontalMajor" => g.horizontal_major = !g.horizontal_major,
+            "horizontalMinor" => g.horizontal_minor = !g.horizontal_minor,
+            "verticalMajor" => g.vertical_major = !g.vertical_major,
+            _ => g.vertical_minor = !g.vertical_minor,
+        }
+        if let Err(e) = v.set_gridlines(g) {
+            ctx.messages.push(e);
+            return Ok(());
+        }
+    }
+    let line = |key: &str, title: &str, on: bool| {
+        menu_item(
+            ID,
+            serde_json::json!({ "toggle": key }),
+            &format!("{} {title}", if on { "☑" } else { "☐" }),
+            "Gridlines",
+        )
+    };
+    let Gridlines {
+        horizontal_major,
+        horizontal_minor,
+        vertical_major,
+        vertical_minor,
+    } = g;
+    ctx.requests.push(Request::Choose(vec![
+        line("horizontalMajor", "Major Horizontal", horizontal_major),
+        line("horizontalMinor", "Minor Horizontal", horizontal_minor),
+        line("verticalMajor", "Major Vertical", vertical_major),
+        line("verticalMinor", "Minor Vertical", vertical_minor),
+    ]));
+    Ok(())
+}
+
 /// Insert Chart: the kinds offered, then the chart of the selection.
 fn insert_chart(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::ChartKind;
@@ -5713,6 +5788,13 @@ fn grid_commands() -> Vec<Command> {
             &["h b"],
             IN_GRID,
             chart_area,
+        ),
+        cmd(
+            "viewer.grid.gridlines",
+            "Gridlines",
+            &["h g"],
+            IN_GRID,
+            gridlines_menu,
         ),
         cmd(
             "viewer.grid.deleteChart",

@@ -1120,6 +1120,33 @@ fn charts() {
         "viewer.grid.chartArea",
         json!({ "part": "plotBackground", "color": "auto" }),
     );
+    // Gridlines: the checklist, its horizontal ones on as made; vertical
+    // ones shown from the palette, the list offered again.
+    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('g'));
+    let s = t.screen();
+    assert!(
+        s.contains("☑ Major Horizontal") && s.contains("☐ Major Vertical"),
+        "{s}"
+    );
+    for ch in "Major Vert".chars() {
+        t.key(KeyCode::Char(ch));
+    }
+    t.key(KeyCode::Enter);
+    assert!(t.screen().contains("☑ Major Vertical"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    let g = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].gridlines;
+    assert!(g.horizontal_major && g.vertical_major && !g.horizontal_minor);
+    t.app.run_command(
+        "viewer.grid.gridlines",
+        json!({ "toggle": "horizontalMajor" }),
+    );
+    t.key(KeyCode::Esc);
+    assert!(
+        !t.app.doc.viewer.as_deref_mut().unwrap().charts()[i]
+            .gridlines
+            .horizontal_major
+    );
     // A column chart's slices do not stand out.
     t.app.run_command("viewer.grid.explodeSlice", json!({}));
     assert!(t.screen().contains("Only a pie's"), "{}", t.screen());
