@@ -127,6 +127,57 @@ pub fn column_pages(widths: &[f32], room: f32) -> Vec<std::ops::Range<usize>> {
     out
 }
 
+/// Where pages begin after the first, each with whether a manual break
+/// starts it.
+pub type Breaks = Vec<(u32, bool)>;
+
+/// Where pages begin after the first, along rows or columns of `sizes`
+/// (each one's place and size in inches) in `room` inches a page; each
+/// with whether a manual break (`manual`) starts it.
+pub fn page_starts(sizes: &[(u32, f32)], room: f32, manual: &[u32]) -> Breaks {
+    let mut out = Vec::new();
+    let mut used = 0.0;
+    for (k, &(i, size)) in sizes.iter().enumerate() {
+        if k > 0 && manual.contains(&i) {
+            out.push((i, true));
+            used = 0.0;
+        } else if k > 0 && used > 0.0 && used + size > room + 0.001 {
+            out.push((i, false));
+            used = 0.0;
+        }
+        used += size;
+    }
+    out
+}
+
+/// A sheet's pages as Page Break Preview shows them: where pages begin
+/// along the rows and the columns of the area printed, each with whether
+/// a manual break starts it. Row heights are in points, column widths in
+/// characters, as a grid's layout gives them.
+pub fn page_breaks(
+    setup: &PageSetup,
+    rows: &[(u32, f32)],
+    cols: &[(u32, f32)],
+) -> (Breaks, Breaks) {
+    let (pw, ph, _) = paper(setup.paper);
+    let (pw, ph) = if setup.landscape { (ph, pw) } else { (pw, ph) };
+    let [l, r, t, b] = setup.margins;
+    let (room_w, room_h) = ((pw - l - r).max(1.0), (ph - t - b).max(1.0));
+    let widths: Vec<(u32, f32)> = cols.iter().map(|&(c, w)| (c, inches(w))).collect();
+    let total: f32 = widths.iter().map(|x| x.1).sum();
+    let scale = if setup.fit_width && total > room_w {
+        room_w / total
+    } else {
+        1.0
+    };
+    let widths: Vec<(u32, f32)> = widths.into_iter().map(|(c, w)| (c, w * scale)).collect();
+    let heights: Vec<(u32, f32)> = rows.iter().map(|&(i, h)| (i, h / 72.0 * scale)).collect();
+    (
+        page_starts(&heights, room_h, &setup.row_breaks),
+        page_starts(&widths, room_w, &[]),
+    )
+}
+
 fn color(c: [u8; 3]) -> String {
     format!("{:02X}{:02X}{:02X}", c[0], c[1], c[2])
 }
@@ -327,6 +378,10 @@ mod tests {
         assert_eq!(column_pages(&[3.0, 3.0, 3.0], 7.0), vec![0..2, 2..3]);
         assert_eq!(column_pages(&[9.0, 1.0], 7.0), vec![0..1, 1..2]);
         assert_eq!(column_pages(&[], 7.0), Vec::<std::ops::Range<usize>>::new());
+        // Rows: a page every two, a manual break before the third row.
+        let sizes = [(0, 3.0), (1, 3.0), (2, 3.0), (3, 3.0), (4, 3.0)];
+        assert_eq!(page_starts(&sizes, 7.0, &[]), vec![(2, false), (4, false)]);
+        assert_eq!(page_starts(&sizes, 7.0, &[1]), vec![(1, true), (3, false)]);
     }
 
     #[test]

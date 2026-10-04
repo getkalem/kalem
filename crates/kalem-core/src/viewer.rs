@@ -363,6 +363,10 @@ pub struct ViewerState {
     threads_cache: Option<(UnitAt, Vec<kalem_viewer::CommentThread>)>,
     /// The sheets' tabs (unit, name, color), by generation.
     tabs_cache: Option<(u64, Vec<SheetTab>)>,
+    /// Each sheet's view settings, read once.
+    views: std::collections::HashMap<usize, kalem_viewer::SheetView>,
+    /// Page Break Preview's pages, by unit and generation.
+    pages_cache: Option<(UnitAt, PageBreaks)>,
     /// Pictures decoded, by unit, place and generation.
     pictures: std::collections::HashMap<(usize, usize, u64), Option<Bitmap>>,
 }
@@ -430,6 +434,38 @@ impl GridSearch {
 
 /// A unit at a generation.
 type UnitAt = (usize, u64);
+
+/// A grid's panes: the top pane's rows and the left pane's columns
+/// (first and how many: the frozen ones, or a split's), and whether they
+/// are a split, whose main pane may show any row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Panes {
+    /// The top pane's first row and how many rows it shows.
+    pub rows: (u32, u32),
+    /// The left pane's first column and how many columns it shows.
+    pub cols: (u32, u32),
+    /// A split rather than frozen panes.
+    pub split: bool,
+}
+
+/// Page Break Preview's pages: the area printed, and where pages begin
+/// along its rows and columns (with whether a manual break starts them).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PageBreaks {
+    /// The area printed.
+    pub area: [u32; 4],
+    /// The rows a page begins at, after the first.
+    pub rows: Vec<(u32, bool)>,
+    /// The columns a page begins at, after the first.
+    pub cols: Vec<(u32, bool)>,
+}
+
+impl PageBreaks {
+    /// How many pages.
+    pub fn pages(&self) -> usize {
+        (self.rows.len() + 1) * (self.cols.len() + 1)
+    }
+}
 
 /// A sheet's tab: its unit, its name, its color.
 pub type SheetTab = (usize, String, Option<[u8; 3]>);
@@ -562,6 +598,8 @@ impl ViewerState {
             drawings_cache: None,
             threads_cache: None,
             tabs_cache: None,
+            views: std::collections::HashMap::new(),
+            pages_cache: None,
             pictures: std::collections::HashMap::new(),
         })
     }
@@ -1532,6 +1570,17 @@ impl ViewerState {
             if let Some(sums) = self.selection_sums() {
                 parts.push(sums);
             }
+            let view = self.sheet_view();
+            if view.zoom != 100 {
+                parts.push(format!("{}%", view.zoom));
+            }
+            if let Some(b) = self.page_breaks() {
+                let n = b.pages();
+                parts.push(format!(
+                    "Page Break Preview: {n} page{}",
+                    if n == 1 { "" } else { "s" }
+                ));
+            }
             if let Some(note) = self.doc().cell_note(self.unit, p.row, p.col) {
                 parts.push(note.lines().next().unwrap_or_default().to_string());
             }
@@ -1656,15 +1705,19 @@ impl ViewerState {
     /// Scrolls by whole rows and columns, the cursor kept.
     pub fn grid_scroll(&mut self, rows: i64, cols: i64) {
         let Some(l) = self.grid_layout() else { return };
+        let panes = self.panes();
+        let (min_top, min_left) = if panes.split {
+            (0, 0)
+        } else {
+            (panes.rows.1, panes.cols.1)
+        };
         let mut p = self.grid_pos();
-        p.top = (i64::from(p.top) + rows).clamp(
-            i64::from(l.frozen.0),
-            i64::from(l.max_rows.saturating_sub(1)),
-        ) as u32;
-        p.left = (i64::from(p.left) + cols).clamp(
-            i64::from(l.frozen.1),
-            i64::from(l.max_cols.saturating_sub(1)),
-        ) as u32;
+        p.top = (i64::from(p.top) + rows)
+            .clamp(i64::from(min_top), i64::from(l.max_rows.saturating_sub(1)))
+            as u32;
+        p.left = (i64::from(p.left) + cols)
+            .clamp(i64::from(min_left), i64::from(l.max_cols.saturating_sub(1)))
+            as u32;
         self.grid_pos.insert(self.unit, p);
     }
 
@@ -1695,19 +1748,22 @@ impl ViewerState {
         let mut p = self.grid_pos();
         p.row = row.min(l.max_rows.saturating_sub(1));
         p.col = col.min(l.max_cols.saturating_sub(1));
-        let (fr, fc) = l.frozen;
+        let panes = self.panes();
+        let (fr, fc) = (panes.rows.1, panes.cols.1);
         let rows = self.grid_visible.0.saturating_sub(fr).max(1);
         let cols = self.grid_visible.1.saturating_sub(fc).max(1);
-        p.top = p.top.max(fr);
-        p.left = p.left.max(fc);
-        if p.row >= fr {
+        // Frozen rows stay out of the main pane; a split's may show any.
+        let (min_top, min_left) = if panes.split { (0, 0) } else { (fr, fc) };
+        p.top = p.top.max(min_top);
+        p.left = p.left.max(min_left);
+        if p.row >= min_top {
             if p.row < p.top {
                 p.top = p.row;
             } else if p.row >= p.top + rows {
                 p.top = p.row + 1 - rows;
             }
         }
-        if p.col >= fc {
+        if p.col >= min_left {
             if p.col < p.left {
                 p.left = p.col;
             } else if p.col >= p.left + cols {
@@ -4349,6 +4405,148 @@ impl ViewerState {
         drop(doc);
         self.refresh();
         Ok(())
+    }
+
+    /// How the sheet shown is shown: zoom, gridlines, headings, Page
+    /// Break Preview, split.
+    pub fn sheet_view(&mut self) -> kalem_viewer::SheetView {
+        if let Some(v) = self.views.get(&self.unit) {
+            return *v;
+        }
+        let v = self.doc().sheet_view(self.unit);
+        self.views.insert(self.unit, v);
+        v
+    }
+
+    /// Changes how the sheet shown is shown, kept in the file when it is
+    /// edited (only on screen when it is shown, not edited).
+    pub fn update_view(
+        &mut self,
+        f: impl FnOnce(&mut kalem_viewer::SheetView),
+    ) -> Result<(), String> {
+        let mut v = self.sheet_view();
+        f(&mut v);
+        v.zoom = v.zoom.clamp(10, 400);
+        if self.grid_editable() {
+            self.doc()
+                .set_sheet_view(self.unit, v)
+                .map_err(|e| e.to_string())?;
+        }
+        self.views.insert(self.unit, v);
+        self.changed();
+        let p = self.grid_pos();
+        self.place(p.row, p.col);
+        Ok(())
+    }
+
+    /// The grid's zoom, 1 for 100%.
+    pub fn grid_zoom(&mut self) -> f32 {
+        f32::from(self.sheet_view().zoom) / 100.0
+    }
+
+    /// The panes: frozen rows and columns, or a split's.
+    pub fn panes(&mut self) -> Panes {
+        if let Some([rows, cols, top, left]) = self.sheet_view().split {
+            return Panes {
+                rows: (top, rows),
+                cols: (left, cols),
+                split: true,
+            };
+        }
+        let (fr, fc) = self.grid_layout().map_or((0, 0), |l| l.frozen);
+        Panes {
+            rows: (0, fr),
+            cols: (0, fc),
+            split: false,
+        }
+    }
+
+    /// Split: the window in panes that scroll apart, at the cursor (the
+    /// rows above it and the columns left of it in the top and left
+    /// panes); again, the split taken away. Frozen panes are unfrozen.
+    pub fn toggle_split(&mut self) -> Result<(), String> {
+        if self.sheet_view().split.is_some() {
+            return self.update_view(|v| v.split = None);
+        }
+        if self.grid_layout().is_some_and(|l| l.frozen != (0, 0)) {
+            self.set_frozen(0, 0)?;
+        }
+        let p = self.grid_pos();
+        let mut rows = p.row.saturating_sub(p.top);
+        let cols = p.col.saturating_sub(p.left);
+        if rows == 0 && cols == 0 {
+            // At the view's corner: halfway down.
+            rows = (self.grid_visible.0 / 2).max(1);
+        }
+        let (top, left) = (p.top, p.left);
+        self.update_view(|v| v.split = Some([rows, cols, top, left]))?;
+        // The main pane goes on from the cursor's row.
+        let mut q = self.grid_pos();
+        q.top = q.row.max(top + rows);
+        q.left = if cols > 0 {
+            q.col.max(left + cols)
+        } else {
+            q.left
+        };
+        self.grid_pos.insert(self.unit, q);
+        let (r, c) = (q.row, q.col);
+        self.place(r, c);
+        Ok(())
+    }
+
+    /// Scrolls a split's top pane (or, `cols`, its left pane).
+    pub fn scroll_split(&mut self, by: i64, cols: bool) -> Result<(), String> {
+        let Some([rows, n, top, left]) = self.sheet_view().split else {
+            return Err("The window is not split".into());
+        };
+        let at = |v: u32| (i64::from(v) + by).max(0) as u32;
+        let split = if cols {
+            [rows, n, top, at(left)]
+        } else {
+            [rows, n, at(top), left]
+        };
+        self.update_view(|v| v.split = Some(split))
+    }
+
+    /// Page Break Preview's pages of the sheet shown, when it is on.
+    pub fn page_breaks(&mut self) -> Option<PageBreaks> {
+        if !self.sheet_view().page_break_preview {
+            return None;
+        }
+        let key = (self.unit, self.generation);
+        if let Some((k, b)) = &self.pages_cache
+            && *k == key
+        {
+            return Some(b.clone());
+        }
+        let l = self.grid_layout()?;
+        let setup = self.page_setup();
+        let area =
+            setup
+                .print_area
+                .unwrap_or([0, 0, l.rows.saturating_sub(1), l.cols.saturating_sub(1)]);
+        let heights: std::collections::HashMap<u32, f32> = l.heights.iter().copied().collect();
+        let rows: Vec<(u32, f32)> = (area[0]..=area[2])
+            .filter(|r| !l.hidden_rows.contains(r))
+            .map(|r| (r, heights.get(&r).copied().unwrap_or(l.default_height)))
+            .collect();
+        let cols: Vec<(u32, f32)> = (area[1]..=area[3])
+            .filter(|c| !l.hidden_cols.contains(c))
+            .map(|c| {
+                (
+                    c,
+                    l.widths.get(c as usize).copied().unwrap_or(l.default_width),
+                )
+            })
+            .collect();
+        let (r, c) = crate::sheet_print::page_breaks(&setup, &rows, &cols);
+        let b = PageBreaks {
+            area,
+            rows: r,
+            cols: c,
+        };
+        self.pages_cache = Some((key, b.clone()));
+        Some(b)
     }
 
     /// The sheet shown's comment threads.
@@ -8738,6 +8936,31 @@ fn scenarios(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
     with(ctx, |v| v.scenario("add", &name, &list, &comment))
 }
 
+/// Zoom: the sheet shown at a percentage asked (10 to 400).
+fn zoom_to(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    let Some(text) = text_arg(args, "value") else {
+        let now = ctx
+            .document
+            .as_deref_mut()
+            .and_then(|d| d.viewer.as_deref_mut())
+            .map_or(100, |v| v.sheet_view().zoom);
+        return ask_more(
+            ctx,
+            "viewer.grid.zoom",
+            &serde_json::json!({ "value_default": now.to_string() }),
+            "value",
+        );
+    };
+    match text.trim().trim_end_matches('%').trim().parse::<u16>() {
+        Ok(z) if (10..=400).contains(&z) => with(ctx, |v| v.update_view(|s| s.zoom = z)),
+        _ => {
+            ctx.messages
+                .push(format!("Zoom: {text} is not 10% to 400%"));
+            Ok(())
+        }
+    }
+}
+
 /// Who writes comments: the account's name.
 fn comment_author() -> String {
     ["USER", "USERNAME", "LOGNAME"]
@@ -10935,6 +11158,78 @@ fn grid_commands() -> Vec<Command> {
             &["shift+s s"],
             IN_GRID,
             sheet_list,
+        ),
+        cmd(
+            "viewer.grid.zoomIn",
+            "Zoom In",
+            &["z ="],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.update_view(|s| s.zoom = (s.zoom / 10 + 1) * 10)),
+        ),
+        cmd(
+            "viewer.grid.zoomOut",
+            "Zoom Out",
+            &["z -"],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    v.update_view(|s| s.zoom = (s.zoom.div_ceil(10) - 1) * 10)
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.zoom100",
+            "Zoom to 100%",
+            &["z 0"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.update_view(|s| s.zoom = 100)),
+        ),
+        cmd("viewer.grid.zoom", "Zoom", &[], IN_GRID, zoom_to),
+        cmd(
+            "viewer.grid.toggleGridlines",
+            "Gridlines",
+            &["z l"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.update_view(|s| s.gridlines = !s.gridlines)),
+        ),
+        cmd(
+            "viewer.grid.toggleHeadings",
+            "Headings",
+            &["z shift+h"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.update_view(|s| s.headings = !s.headings)),
+        ),
+        cmd(
+            "viewer.grid.pageBreakPreview",
+            "Page Break Preview",
+            &["z b"],
+            IN_GRID,
+            |ctx, _| {
+                with(ctx, |v| {
+                    v.update_view(|s| s.page_break_preview = !s.page_break_preview)
+                })
+            },
+        ),
+        cmd(
+            "viewer.grid.split",
+            "Split",
+            &["z shift+s"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.toggle_split()),
+        ),
+        cmd(
+            "viewer.grid.splitScrollUp",
+            "Scroll Top Pane Up",
+            &["z ["],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.scroll_split(-1, false)),
+        ),
+        cmd(
+            "viewer.grid.splitScrollDown",
+            "Scroll Top Pane Down",
+            &["z ]"],
+            IN_GRID,
+            |ctx, _| with(ctx, |v| v.scroll_split(1, false)),
         ),
         cmd(
             "viewer.grid.goToSpecial",

@@ -3552,3 +3552,87 @@ fn comments_and_sheet_tabs() {
     assert_eq!((threads.len(), threads[0].done), (1, true));
     assert_eq!(wb.tab_color(0), Some(0xFF0000));
 }
+
+#[test]
+fn sheet_views() {
+    let mut t = T::open("views");
+    t.term = Terminal::new(TestBackend::new(100, 30)).unwrap();
+    let z = |t: &mut T, k: char| {
+        t.key(KeyCode::Char('z'));
+        let m = if k.is_uppercase() {
+            KeyModifiers::SHIFT
+        } else {
+            KeyModifiers::NONE
+        };
+        t.app.event(Event::Key(KeyEvent::new(KeyCode::Char(k), m)));
+    };
+    let line = |t: &mut T, needle: &str| -> String {
+        t.screen()
+            .lines()
+            .find(|l| l.contains(needle))
+            .unwrap_or_default()
+            .to_string()
+    };
+    // Zoom: in, then a percentage asked; a wrong one refused.
+    z(&mut t, '=');
+    assert!(t.screen().contains("110%"), "{}", t.screen());
+    t.app
+        .run_command("viewer.grid.zoom", json!({ "value": "150%" }));
+    assert!(t.screen().contains("150%"), "{}", t.screen());
+    t.app
+        .run_command("viewer.grid.zoom", json!({ "value": "900" }));
+    assert!(t.screen().contains("not 10% to 400%"), "{}", t.screen());
+    // Gridlines off: the cells' lines go; headings off: the numbers go.
+    assert!(line(&mut t, "Rent").contains('│'));
+    z(&mut t, 'l');
+    assert!(!line(&mut t, "Rent").contains('│'), "{}", t.screen());
+    assert!(line(&mut t, "Rent").trim_start().starts_with('2'));
+    z(&mut t, 'H');
+    assert!(line(&mut t, "Rent").starts_with("Rent"), "{}", t.screen());
+    z(&mut t, 'H');
+    z(&mut t, 'l');
+    // Page Break Preview: a break above row 4 makes two pages.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    t.app
+        .run_command("viewer.grid.pageSetup", json!({ "what": "break" }));
+    z(&mut t, 'b');
+    assert!(
+        t.screen().contains("Page Break Preview: 2 pages"),
+        "{}",
+        t.screen()
+    );
+    let b = t
+        .app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .page_breaks()
+        .unwrap();
+    assert_eq!(b.rows, vec![(3, true)]);
+    // Split at row 3: the top pane scrolls by itself.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 0);
+    z(&mut t, 'S');
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let p = v.panes();
+    assert!(p.split && p.rows == (0, 2), "{p:?}");
+    z(&mut t, ']');
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().panes().rows,
+        (1, 2)
+    );
+    // The cursor's row in the main pane even when the top pane shows it.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    assert!(line(&mut t, "Rent").contains("Rent"));
+    // Kept in the file; the document is changed, to save.
+    assert!(t.app.doc.is_modified());
+    t.app.run_command("app.save", json!({}));
+    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
+    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
+    let raw = wb.view_raw(0);
+    assert_eq!((raw.zoom, raw.preview), (150, true));
+    assert!(raw.split.is_some_and(|s| s.top_left.row == 1));
+    // Split again: gone.
+    z(&mut t, 'S');
+    assert!(!t.app.doc.viewer.as_deref_mut().unwrap().panes().split);
+}

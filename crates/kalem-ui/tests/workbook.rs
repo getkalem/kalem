@@ -818,6 +818,53 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
         0
     );
 
+    // Zoom 200%: the cells twice as large; headings off: the cells start
+    // at the left; Page Break Preview: the page's number over it.
+    let a2 = cx.debug_bounds("viewer-grid-cell-1-0").unwrap();
+    e.update_in(cx, |e, window, cx| {
+        e.run_command(
+            "viewer.grid.zoom",
+            serde_json::json!({ "value": "200" }),
+            window,
+            cx,
+        );
+        e.run_command(
+            "viewer.grid.toggleHeadings",
+            serde_json::json!({}),
+            window,
+            cx,
+        );
+        e.run_command(
+            "viewer.grid.pageBreakPreview",
+            serde_json::json!({}),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    let big = cx.debug_bounds("viewer-grid-cell-1-0").unwrap();
+    assert!(big.size.height > a2.size.height * 1.6, "{a2:?} {big:?}");
+    assert!(big.origin.x < a2.origin.x);
+    assert!(cx.debug_bounds("viewer-grid-page-1").is_some());
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("viewer.grid.zoom100", serde_json::json!({}), window, cx);
+        e.run_command(
+            "viewer.grid.toggleHeadings",
+            serde_json::json!({}),
+            window,
+            cx,
+        );
+        e.run_command(
+            "viewer.grid.pageBreakPreview",
+            serde_json::json!({}),
+            window,
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("viewer-grid-pages").is_none());
+    assert_eq!(cx.debug_bounds("viewer-grid-cell-1-0").unwrap(), a2);
+
     // Goal Seek: D2 (B2+C2) made 1000 by changing B2; then undone.
     e.update_in(cx, |e, window, cx| {
         e.run_command(

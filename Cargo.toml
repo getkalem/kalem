@@ -49,11 +49,11 @@ kalem-plugin = { path = "crates/kalem-plugin", version = "0.0.1" }
 # (tools/check-plugin-pins.sh, in CI): bump the three lines at once.
 # The image viewer, a plugin of getkalem/plugins bundled into the binary
 # (D28) until components load (T3.1.12).
-kalem-plugin-image-viewer = { git = "https://github.com/getkalem/plugins", rev = "c1f69fca1a7b71a171850a3b7a418fa86b2ec7fb" }
+kalem-plugin-image-viewer = { git = "https://github.com/getkalem/plugins", rev = "2d8ed3424f372096505da4dece47cfe6dfcb0608" }
 # Excel workbooks (T3.7.4), bundled the same way.
-kalem-plugin-xlsx = { git = "https://github.com/getkalem/plugins", rev = "c1f69fca1a7b71a171850a3b7a418fa86b2ec7fb" }
+kalem-plugin-xlsx = { git = "https://github.com/getkalem/plugins", rev = "2d8ed3424f372096505da4dece47cfe6dfcb0608" }
 # PDF files (T3.7.3), bundled the same way.
-kalem-plugin-pdf-viewer = { git = "https://github.com/getkalem/plugins", rev = "c1f69fca1a7b71a171850a3b7a418fa86b2ec7fb" }
+kalem-plugin-pdf-viewer = { git = "https://github.com/getkalem/plugins", rev = "2d8ed3424f372096505da4dece47cfe6dfcb0608" }
 
 # The plugins build against this checkout's contract, not its copy on
 # GitHub.

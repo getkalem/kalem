@@ -102,7 +102,7 @@ be bound again.
 
 ## E35. Views
 
-- [ ] E35 Zoom of the sheet (Ctrl+wheel, a percentage) kept in the file;
+- [x] E35 Zoom of the sheet (Ctrl+wheel, a percentage) kept in the file;
   Split the window into panes that scroll apart; Page Break Preview;
   gridlines and headings shown or hidden, kept in the sheet view.
 

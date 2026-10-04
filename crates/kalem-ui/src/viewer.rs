@@ -545,7 +545,13 @@ impl Editor {
         };
         // The grid's text is a little smaller than the body's, its rows
         // roomier, so that a sheet reads as a sheet.
-        let text_size = (theme.size * 0.93).round();
+        // The sheet's zoom scales its text, so its rows and columns too.
+        let zoom = self
+            .doc
+            .viewer
+            .as_deref_mut()
+            .map_or(1.0, |v| v.grid_zoom());
+        let text_size = (theme.size * 0.93 * zoom).round().max(4.0);
         let measure = |t: &str| -> f32 {
             f32::from(
                 window
@@ -608,10 +614,20 @@ impl Editor {
             (w * digit + 2.0 * PAD).clamp(24.0, 800.0)
         };
         let pos = v.grid_pos();
-        let gutter =
-            ((pos.top + 200).max(layout.rows).to_string().len() as f32 * digit + 16.0).max(40.0);
-        // Rows and columns in view: the frozen ones, then from the scroll on.
-        let pick = |frozen: u32,
+        let view = v.sheet_view();
+        let panes = v.panes();
+        let pages = v.page_breaks();
+        let headings = view.headings;
+        let gridlines = view.gridlines;
+        let gutter = if headings {
+            ((pos.top + 200).max(layout.rows).to_string().len() as f32 * digit + 16.0).max(40.0)
+        } else {
+            0.0
+        };
+        // Rows and columns in view: the top (left) pane's, frozen or split,
+        // then from the scroll on.
+        let pick = |(origin, frozen): (u32, u32),
+                    split: bool,
                     first: u32,
                     max: u32,
                     hidden: &[u32],
@@ -621,13 +637,19 @@ impl Editor {
             let mut out = Vec::new();
             let mut used = 0.0;
             let mut full = 0;
-            let mut i = 0;
+            let mut i = origin;
+            let pane_end = (origin + frozen).min(max);
+            let main = if split { first } else { first.max(frozen) };
+            let mut in_pane = frozen > 0;
             while i < max && used < room {
-                if i == frozen.min(max) || (i >= frozen && i < first.max(frozen)) {
-                    i = i.max(first.max(frozen));
+                if in_pane && i >= pane_end {
+                    in_pane = false;
+                    i = main;
                     if i >= max {
                         break;
                     }
+                } else if !in_pane && i < main {
+                    i = main;
                 }
                 if !hidden.contains(&i) {
                     let w = size(i);
@@ -642,20 +664,23 @@ impl Editor {
             (out, full)
         };
         let (cols, full_cols) = pick(
-            layout.frozen.1,
+            panes.cols,
+            panes.split,
             pos.left,
             layout.max_cols,
             &layout.hidden_cols,
             bounds.0 - gutter,
             &col_px,
         );
+        let letters_h = if headings { row_h } else { 0.0 };
         let (rows, full_rows) = pick(
-            layout.frozen.0,
+            panes.rows,
+            panes.split,
             pos.top,
             layout.max_rows,
             &layout.hidden_rows,
             // The formula bar, the letters and the tabs.
-            bounds.1 - 2.0 * row_h - tab_h,
+            bounds.1 - row_h - letters_h - tab_h,
             &row_px,
         );
         v.set_grid_visible(full_rows.max(1), full_cols.max(1));
@@ -668,26 +693,19 @@ impl Editor {
         };
         let mut cells = std::collections::HashMap::new();
         let mut invalid = std::collections::HashSet::new();
-        let split = |list: &[(u32, f32)], frozen: u32| -> Vec<std::ops::Range<u32>> {
-            let mut out = Vec::new();
-            for part in [
-                list.iter()
-                    .map(|x| x.0)
-                    .filter(|&i| i < frozen)
-                    .collect::<Vec<_>>(),
-                list.iter()
-                    .map(|x| x.0)
-                    .filter(|&i| i >= frozen)
-                    .collect::<Vec<_>>(),
-            ] {
-                if let (Some(a), Some(b)) = (part.first(), part.last()) {
-                    out.push(*a..*b + 1);
+        // The rows (or columns) in view as runs of consecutive ones.
+        let split = |list: &[(u32, f32)]| -> Vec<std::ops::Range<u32>> {
+            let mut out: Vec<std::ops::Range<u32>> = Vec::new();
+            for &(i, _) in list {
+                match out.last_mut() {
+                    Some(last) if last.end == i => last.end = i + 1,
+                    _ => out.push(i..i + 1),
                 }
             }
             out
         };
-        for rr in split(&rows, layout.frozen.0) {
-            for cr in split(&cols, layout.frozen.1) {
+        for rr in split(&rows) {
+            for cr in split(&cols) {
                 for (r, c, cell) in v.grid_cells(rr.clone(), cr.clone()) {
                     cells.insert((r, c), cell);
                 }
@@ -845,7 +863,7 @@ impl Editor {
             x += w;
         }
         let mut row_y = std::collections::HashMap::new();
-        let mut y = 2.0 * row_h;
+        let mut y = row_h + letters_h;
         for &(r, h) in &rows {
             row_y.insert(r, (y, h));
             y += h;
@@ -1431,10 +1449,10 @@ impl Editor {
                     .px(px(PAD))
                     .flex()
                     .items_center()
-                    .overflow_hidden()
-                    .border_r_1()
-                    .border_b_1()
-                    .border_color(theme.border);
+                    .overflow_hidden();
+                if gridlines {
+                    d = d.border_r_1().border_b_1().border_color(theme.border);
+                }
                 if cell.is_none_or(|c| !c.wrap) {
                     d = d.whitespace_nowrap();
                 }
@@ -1729,9 +1747,125 @@ impl Editor {
                 .flex_row()
                 .flex_none()
                 .h(px(rh))
-                .child(number)
+                .children(headings.then_some(number))
                 .children(row_cells)
                 .children(spills)
+        });
+        // Page Break Preview: what does not print grayed, a blue line where
+        // each page begins (dashed where it falls by itself, solid at a
+        // manual break), each page's number over it.
+        let page_layer = pages.map(|p| {
+            let blue = gpui::rgb(0x2F6FD6);
+            let a = p.area;
+            let mut kids: Vec<Div> = Vec::new();
+            let span_x = |c0: u32, c1: u32| -> Option<(f32, f32)> {
+                let xs: Vec<(f32, f32)> =
+                    (c0..=c1).filter_map(|c| col_x.get(&c).copied()).collect();
+                let x0 = xs.iter().map(|v| v.0).fold(f32::MAX, f32::min);
+                let x1 = xs.iter().map(|v| v.0 + v.1).fold(f32::MIN, f32::max);
+                (!xs.is_empty()).then_some((x0, x1))
+            };
+            let span_y = |r0: u32, r1: u32| -> Option<(f32, f32)> {
+                let ys: Vec<(f32, f32)> =
+                    (r0..=r1).filter_map(|r| row_y.get(&r).copied()).collect();
+                let y0 = ys.iter().map(|v| v.0).fold(f32::MAX, f32::min);
+                let y1 = ys.iter().map(|v| v.0 + v.1).fold(f32::MIN, f32::max);
+                (!ys.is_empty()).then_some((y0, y1))
+            };
+            for (&r, &(y, h)) in &row_y {
+                if r < a[0] || r > a[2] {
+                    kids.push(
+                        div()
+                            .absolute()
+                            .left(px(gutter))
+                            .right_0()
+                            .top(px(y))
+                            .h(px(h))
+                            .bg(theme.muted)
+                            .opacity(0.25),
+                    );
+                }
+            }
+            for (&c, &(x, w)) in &col_x {
+                if c < a[1] || c > a[3] {
+                    kids.push(
+                        div()
+                            .absolute()
+                            .left(px(x))
+                            .w(px(w))
+                            .top(px(row_h + letters_h))
+                            .bottom_0()
+                            .bg(theme.muted)
+                            .opacity(0.25),
+                    );
+                }
+            }
+            let (ax, ay) = (span_x(a[1], a[3]), span_y(a[0], a[2]));
+            for &(r, manual) in &p.rows {
+                if let (Some(&(y, _)), Some((x0, x1))) = (row_y.get(&r), ax) {
+                    let line = div()
+                        .absolute()
+                        .left(px(x0))
+                        .w(px(x1 - x0))
+                        .top(px(y - 1.0))
+                        .h(px(0.))
+                        .border_t_2()
+                        .border_color(blue);
+                    kids.push(if manual { line } else { line.border_dashed() });
+                }
+            }
+            for &(c, manual) in &p.cols {
+                if let (Some(&(x, _)), Some((y0, y1))) = (col_x.get(&c), ay) {
+                    let line = div()
+                        .absolute()
+                        .top(px(y0))
+                        .h(px(y1 - y0))
+                        .left(px(x - 1.0))
+                        .w(px(0.))
+                        .border_l_2()
+                        .border_color(blue);
+                    kids.push(if manual { line } else { line.border_dashed() });
+                }
+            }
+            // Pages are numbered down, then over.
+            let starts = |first: u32, last: u32, breaks: &[(u32, bool)]| -> Vec<(u32, u32)> {
+                let mut b: Vec<u32> = vec![first];
+                b.extend(breaks.iter().map(|x| x.0));
+                b.iter()
+                    .enumerate()
+                    .map(|(k, &s)| (s, b.get(k + 1).map_or(last, |n| n - 1)))
+                    .collect()
+            };
+            let bands_r = starts(a[0], a[2], &p.rows);
+            let bands_c = starts(a[1], a[3], &p.cols);
+            for (j, &(c0, c1)) in bands_c.iter().enumerate() {
+                for (i, &(r0, r1)) in bands_r.iter().enumerate() {
+                    let n = j * bands_r.len() + i + 1;
+                    if let (Some((x0, x1)), Some((y0, y1))) = (span_x(c0, c1), span_y(r0, r1)) {
+                        kids.push(
+                            div()
+                                .debug_selector(move || format!("viewer-grid-page-{n}"))
+                                .absolute()
+                                .left(px(x0))
+                                .w(px(x1 - x0))
+                                .top(px(y0))
+                                .h(px(y1 - y0))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .text_size(px(text_size * 3.0))
+                                .text_color(theme.muted)
+                                .opacity(0.35)
+                                .child(SharedString::from(format!("Page {n}"))),
+                        );
+                    }
+                }
+            }
+            div()
+                .debug_selector(|| "viewer-grid-pages".into())
+                .absolute()
+                .inset_0()
+                .children(kids)
         });
         let tab_strip = (tab_h > 0.0).then(|| {
             div()
@@ -1829,7 +1963,7 @@ impl Editor {
                     .flex()
                     .flex_col()
                     .child(formula_bar)
-                    .child(letters)
+                    .children(headings.then_some(letters))
                     .children(body)
                     .children(merges)
                     .children(charts)
@@ -1838,6 +1972,7 @@ impl Editor {
                     .children(fill_frame)
                     .children(pointer_frame)
                     .children(arrow_layer)
+                    .children(page_layer)
                     .children(fill_handle),
             )
             .children(tab_strip)
@@ -2022,6 +2157,24 @@ impl Editor {
             )
             .on_scroll_wheel(cx.listener(move |this, ev: &ScrollWheelEvent, _, cx| {
                 let d = ev.delta.pixel_delta(px(row_h));
+                if ev.modifiers.platform || ev.modifiers.control {
+                    // Command (Control) and the wheel: the sheet's zoom.
+                    let step = -f32::from(d.y) / row_h;
+                    if step.abs() >= 0.5
+                        && let Some(v) = this.doc.viewer.as_deref_mut()
+                    {
+                        let by = if step > 0.0 { 10 } else { -10 };
+                        let r = v.update_view(|s| {
+                            s.zoom = (i32::from(s.zoom) + by).clamp(10, 400) as u16;
+                        });
+                        if let Err(e) = r {
+                            this.message(e, true);
+                        }
+                        cx.notify();
+                    }
+                    cx.stop_propagation();
+                    return;
+                }
                 if let Some(v) = this.doc.viewer.as_deref_mut() {
                     let rows = (-f32::from(d.y) / row_h).round() as i64;
                     let cols = (-f32::from(d.x) / (digit * 9.0)).round() as i64;

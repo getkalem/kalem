@@ -167,7 +167,8 @@ fn col_cells(layout: &kalem_viewer::GridLayout, col: u32) -> u16 {
 /// The rows or columns in view: the frozen ones, then from `first` on,
 /// hidden ones skipped, until `room` runs out.
 fn in_view(
-    frozen: u32,
+    (origin, frozen): (u32, u32),
+    split: bool,
     first: u32,
     max: u32,
     hidden: &[u32],
@@ -188,12 +189,13 @@ fn in_view(
         used = used.saturating_add(w);
         true
     };
-    for i in 0..frozen.min(max) {
+    for i in origin..(origin + frozen).min(max) {
         if !push(i, &mut out) {
             return out;
         }
     }
-    let mut i = first.max(frozen);
+    // A split's main pane may show any row; frozen rows stay above.
+    let mut i = if split { first } else { first.max(frozen) };
     while i < max && push(i, &mut out) {
         i += 1;
     }
@@ -231,16 +233,28 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
         return;
     }
     let pos = v.grid_pos();
-    let gutter = ((pos.top + u32::from(area.height))
-        .max(layout.rows)
-        .to_string()
-        .len() as u16
-        + 1)
-    .max(4);
+    let view = v.sheet_view();
+    let panes = v.panes();
+    let pages = v.page_breaks();
+    // Without headings: no letters, no row numbers.
+    let (gutter, letters) = if view.headings {
+        (
+            ((pos.top + u32::from(area.height))
+                .max(layout.rows)
+                .to_string()
+                .len() as u16
+                + 1)
+            .max(4),
+            1,
+        )
+    } else {
+        (0, 0)
+    };
     let room_w = area.width.saturating_sub(gutter);
-    let room_h = area.height.saturating_sub(1);
+    let room_h = area.height.saturating_sub(letters);
     let cols = in_view(
-        layout.frozen.1,
+        panes.cols,
+        panes.split,
         pos.left,
         layout.max_cols,
         &layout.hidden_cols,
@@ -248,7 +262,8 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
         |c| col_cells(&layout, c) + 1,
     );
     let rows = in_view(
-        layout.frozen.0,
+        panes.rows,
+        panes.split,
         pos.top,
         layout.max_rows,
         &layout.hidden_rows,
@@ -271,46 +286,78 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
     let mut cells = std::collections::HashMap::new();
     let mut invalid = std::collections::HashSet::new();
     let has_list = v.cursor_has_list();
-    let ranges = |list: &[(u32, u16)], frozen: u32| -> Vec<std::ops::Range<u32>> {
-        let mut r = Vec::new();
-        let f: Vec<u32> = list.iter().map(|x| x.0).filter(|&i| i < frozen).collect();
-        let s: Vec<u32> = list.iter().map(|x| x.0).filter(|&i| i >= frozen).collect();
-        for part in [f, s] {
-            if let (Some(a), Some(b)) = (part.first(), part.last()) {
-                r.push(*a..*b + 1);
+    // The rows (or columns) in view as runs of consecutive ones.
+    let ranges = |list: &[(u32, u16)]| -> Vec<std::ops::Range<u32>> {
+        let mut r: Vec<std::ops::Range<u32>> = Vec::new();
+        for &(i, _) in list {
+            match r.last_mut() {
+                Some(last) if last.end == i => last.end = i + 1,
+                _ => r.push(i..i + 1),
             }
         }
         r
     };
-    for rr in ranges(&rows, layout.frozen.0) {
-        for cr in ranges(&cols, layout.frozen.1) {
+    for rr in ranges(&rows) {
+        for cr in ranges(&cols) {
             for (r, c, cell) in v.grid_cells(rr.clone(), cr.clone()) {
                 cells.insert((r, c), cell);
             }
             invalid.extend(v.invalid_cells(rr.clone(), cr));
         }
     }
-    // Letters.
-    buf.set_stringn(
-        area.x,
-        area.y,
-        " ".repeat(gutter as usize),
-        gutter as usize,
-        dim,
-    );
-    let mut x = area.x + gutter;
-    for &(c, w) in &cols {
-        let name = kalem_core::csv_tools::column_letters(c as usize);
-        let style = if c == pos.col {
-            head.add_modifier(Modifier::REVERSED)
+    // Page Break Preview: the first row and column of each page.
+    let blue = |st: Style| {
+        if caps.no_color {
+            st.add_modifier(Modifier::UNDERLINED)
         } else {
-            head
-        };
-        let label = format!("{name:^width$}", width = w.saturating_sub(1) as usize);
-        buf.set_stringn(x, area.y, &label, w.saturating_sub(1) as usize, style);
-        x += w;
+            st.fg(ratatui::style::Color::Rgb(0x2F, 0x6F, 0xD6))
+        }
+    };
+    let page_row = |r: u32| {
+        pages
+            .as_ref()
+            .is_some_and(|p| p.rows.iter().any(|x| x.0 == r))
+    };
+    let page_col = |c: u32| {
+        pages
+            .as_ref()
+            .is_some_and(|p| p.cols.iter().any(|x| x.0 == c))
+    };
+    let printed = |r: u32, c: u32| {
+        pages.as_ref().is_none_or(|p| {
+            (p.area[0]..=p.area[2]).contains(&r) && (p.area[1]..=p.area[3]).contains(&c)
+        })
+    };
+    // Letters.
+    if letters > 0 {
+        buf.set_stringn(
+            area.x,
+            area.y,
+            " ".repeat(gutter as usize),
+            gutter as usize,
+            dim,
+        );
+        let mut x = area.x + gutter;
+        for &(c, w) in &cols {
+            let name = kalem_core::csv_tools::column_letters(c as usize);
+            let mut style = if c == pos.col {
+                head.add_modifier(Modifier::REVERSED)
+            } else {
+                head
+            };
+            if page_col(c) {
+                style = blue(style);
+            }
+            let label = format!("{name:^width$}", width = w.saturating_sub(1) as usize);
+            buf.set_stringn(x, area.y, &label, w.saturating_sub(1) as usize, style);
+            x += w;
+        }
     }
-    let sep = if caps.ascii { "|" } else { "│" };
+    let sep = match (view.gridlines, caps.ascii) {
+        (false, _) => " ",
+        (true, true) => "|",
+        (true, false) => "│",
+    };
     let sel = v.selection();
     let selecting = v.grid_pos().sel.is_some();
     let cut = v.cut_range();
@@ -331,19 +378,28 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
             .copied()
     };
     for (i, &(r, _)) in rows.iter().enumerate() {
-        let y = area.y + 1 + i as u16;
-        let style = if r == pos.row {
+        let y = area.y + letters + i as u16;
+        let mut style = if r == pos.row {
             head.add_modifier(Modifier::REVERSED)
         } else {
             dim
         };
-        buf.set_stringn(
-            area.x,
-            y,
-            format!("{:>w$} ", r + 1, w = gutter as usize - 1),
-            gutter as usize,
-            style,
-        );
+        if page_row(r) {
+            style = blue(
+                style
+                    .remove_modifier(Modifier::DIM)
+                    .add_modifier(Modifier::BOLD),
+            );
+        }
+        if gutter > 0 {
+            buf.set_stringn(
+                area.x,
+                y,
+                format!("{:>w$} ", r + 1, w = gutter as usize - 1),
+                gutter as usize,
+                style,
+            );
+        }
         if let Some((_, collapsed)) = marks.iter().find(|m| m.0 == r) {
             let mark = match (caps.ascii, collapsed) {
                 (_, true) => "+",
@@ -669,7 +725,20 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
                 buf[(x + inner as u16 - 1, y)].set_symbol(if caps.ascii { "v" } else { "▾" });
             }
             if (!first || !next_in_merge) && !no_line.contains(&c) {
-                buf.set_stringn(x + inner as u16, y, sep, 1, dim);
+                // Page Break Preview: a heavy blue line where a page begins.
+                if page_col(c + 1) && printed(r, c) {
+                    let mark = if caps.ascii { "#" } else { "┃" };
+                    buf.set_stringn(x + inner as u16, y, mark, 1, blue(Style::default()));
+                } else {
+                    buf.set_stringn(x + inner as u16, y, sep, 1, dim);
+                }
+            }
+            // Outside the area printed: dimmed, as Excel grays it.
+            if !printed(r, c) {
+                for k in 0..inner as u16 {
+                    let cell = &mut buf[(x + k, y)];
+                    cell.modifier.insert(Modifier::DIM);
+                }
             }
             // Borders: a side as the line beside the cell in its color, the
             // bottom as the cell underlined.
@@ -728,7 +797,7 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
     let row_y: std::collections::HashMap<u32, u16> = rows
         .iter()
         .enumerate()
-        .map(|(i, (r, _))| (*r, area.y + 1 + i as u16))
+        .map(|(i, (r, _))| (*r, area.y + letters + i as u16))
         .collect();
     let rect_of = |a: [u32; 4]| -> Option<Rect> {
         let xs: Vec<(u16, u16)> = (a[1]..=a[3])
