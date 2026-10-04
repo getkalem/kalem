@@ -1511,6 +1511,10 @@ impl ViewerState {
         self.grid_cache = None;
         self.changed();
     }
+    /// Whether unit `unit` is a grid (a worksheet).
+    pub fn is_grid_unit(&self, unit: usize) -> bool {
+        self.grids.get(unit).copied().unwrap_or(false)
+    }
 
     /// Whether the unit shown is a grid (a sheet, a table).
     pub fn is_grid(&self) -> bool {
@@ -1902,6 +1906,75 @@ impl ViewerState {
             .map_err(|e| e.to_string())?;
         self.refresh();
         Ok(())
+    }
+
+    /// How the sheet shown prints.
+    pub fn page_setup(&mut self) -> kalem_viewer::PageSetup {
+        self.doc().page_setup(self.unit).unwrap_or_default()
+    }
+
+    /// Sets how the sheet shown prints.
+    pub fn set_page_setup(&mut self, setup: &kalem_viewer::PageSetup) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc()
+            .set_page_setup(self.unit, setup)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Unit `unit` as it prints: `area`, else its print area, else its
+    /// used range; `None` for an empty sheet.
+    pub fn sheet_print(
+        &mut self,
+        unit: usize,
+        area: Option<[u32; 4]>,
+    ) -> Option<crate::sheet_print::SheetPrint> {
+        let shown = self.unit;
+        self.unit = unit;
+        let out = (|| {
+            let l = self.grid_layout()?;
+            let setup = self.doc().page_setup(unit).unwrap_or_default();
+            let used = (l.rows > 0 && l.cols > 0).then(|| [0, 0, l.rows - 1, l.cols - 1]);
+            let area = area.or(setup.print_area).or(used)?;
+            let columns: Vec<u32> = (area[1]..=area[3])
+                .filter(|c| !l.hidden_cols.contains(c))
+                .collect();
+            let widths = columns
+                .iter()
+                .map(|c| {
+                    l.widths
+                        .get(*c as usize)
+                        .copied()
+                        .unwrap_or(l.default_width)
+                })
+                .collect();
+            let mut rows = setup.title_rows.map_or(area[0], |t| t.0.min(area[0]))..area[2] + 1;
+            rows.start = rows.start.min(area[0]);
+            let cells = self
+                .grid_cells(rows, area[1]..area[3] + 1)
+                .into_iter()
+                .map(|(r, c, g)| ((r, c), g))
+                .collect();
+            let name = self.structure.units[unit]
+                .label
+                .trim_end_matches(" (hidden)")
+                .to_owned();
+            Some(crate::sheet_print::SheetPrint {
+                name,
+                area,
+                columns,
+                widths,
+                hidden_rows: l.hidden_rows,
+                cells,
+                merged: l.merged,
+                setup,
+            })
+        })();
+        self.unit = shown;
+        out
     }
 
     /// Format as Table: the selection, else the data around the cursor,
@@ -7355,6 +7428,275 @@ fn format_as_table(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Com
     Ok(())
 }
 
+/// Page Setup (`z p`): orientation, paper, margins, fitting one page wide,
+/// the print area, the rows printed on every page, the header and the
+/// footer, page breaks.
+fn page_setup(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.pageSetup";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let mut s = v.page_setup();
+    let sel = v.selection();
+    let row = v.grid_pos().row;
+    let what = args.get("what").and_then(|w| w.as_str()).unwrap_or("");
+    let value = args
+        .get("value")
+        .and_then(|x| x.as_str())
+        .map(str::to_owned);
+    let item = |what: &str, title: &str| {
+        menu_item(ID, serde_json::json!({ "what": what }), title, "Page Setup")
+    };
+    let choice = |what: &str, value: &str, title: &str| {
+        menu_item(
+            ID,
+            serde_json::json!({ "what": what, "value": value }),
+            title,
+            "Page Setup",
+        )
+    };
+    match what {
+        "" => {
+            let on = |b: bool| if b { "on" } else { "off" };
+            let items = vec![
+                item(
+                    "orientation",
+                    if s.landscape {
+                        "Orientation: Landscape"
+                    } else {
+                        "Orientation: Portrait"
+                    },
+                ),
+                item("paper", "Paper Size…"),
+                item("margins", "Margins…"),
+                item("fit", &format!("Fit to One Page Wide: {}", on(s.fit_width))),
+                item("area", "Set Print Area (the selection)"),
+                item("clearArea", "Clear Print Area"),
+                item(
+                    "titles",
+                    "Print Titles (the selection's rows on every page)",
+                ),
+                item("clearTitles", "Clear Print Titles"),
+                item("header", "Header…"),
+                item("footer", "Footer…"),
+                item("break", "Insert Page Break (above the cursor's row)"),
+                item("unbreak", "Remove Page Break"),
+                item("resetBreaks", "Reset All Page Breaks"),
+            ];
+            ctx.requests.push(Request::Choose(items));
+            return Ok(());
+        }
+        "orientation" => s.landscape = !s.landscape,
+        "paper" => match value.as_deref().and_then(|v| v.parse().ok()) {
+            Some(code) => s.paper = code,
+            None => {
+                ctx.requests.push(Request::Choose(vec![
+                    choice("paper", "9", "A4"),
+                    choice("paper", "1", "Letter"),
+                    choice("paper", "5", "Legal"),
+                    choice("paper", "8", "A3"),
+                ]));
+                return Ok(());
+            }
+        },
+        "margins" => match value.as_deref() {
+            Some("normal") => s.margins = [0.7, 0.7, 0.75, 0.75],
+            Some("wide") => s.margins = [1.0, 1.0, 1.0, 1.0],
+            Some("narrow") => s.margins = [0.25, 0.25, 0.75, 0.75],
+            _ => {
+                ctx.requests.push(Request::Choose(vec![
+                    choice("margins", "normal", "Normal"),
+                    choice("margins", "wide", "Wide"),
+                    choice("margins", "narrow", "Narrow"),
+                ]));
+                return Ok(());
+            }
+        },
+        "fit" => s.fit_width = !s.fit_width,
+        "area" => s.print_area = Some(sel),
+        "clearArea" => s.print_area = None,
+        "titles" => s.title_rows = Some((sel[0], sel[2])),
+        "clearTitles" => s.title_rows = None,
+        "header" | "footer" => match value {
+            Some(text) => {
+                if what == "header" {
+                    s.header = text;
+                } else {
+                    s.footer = text;
+                }
+            }
+            None => {
+                let now = if what == "header" {
+                    &s.header
+                } else {
+                    &s.footer
+                };
+                return ask_more(
+                    ctx,
+                    ID,
+                    &serde_json::json!({ "what": what, "value_default": now }),
+                    "value",
+                );
+            }
+        },
+        "break" => {
+            if row > 0 && !s.row_breaks.contains(&row) {
+                s.row_breaks.push(row);
+            }
+        }
+        "unbreak" => s.row_breaks.retain(|r| *r != row),
+        "resetBreaks" => s.row_breaks.clear(),
+        _ => return Ok(()),
+    }
+    with(ctx, |v| v.set_page_setup(&s))
+}
+
+/// Print Preview, Export to PDF and Print: the sheet shown (or the
+/// selection, or every visible sheet of the workbook) as LaTeX, compiled
+/// with LuaLaTeX in the background; then shown in Kalem, written beside
+/// the workbook, or handed to the system's print dialog.
+fn sheet_pdf(ctx: &mut EditorContext<'_>, args: &serde_json::Value, mode: &str) -> CommandResult {
+    const EXPORT: &str = "viewer.grid.exportPdf";
+    let Some(doc) = ctx.document.as_deref_mut() else {
+        return Ok(());
+    };
+    let book = doc.meta.path.clone();
+    let Some(v) = doc.viewer.as_deref_mut() else {
+        return Ok(());
+    };
+    let scope = args.get("scope").and_then(|x| x.as_str());
+    if mode == "export" && scope.is_none() {
+        let item = |s: &str, t: &str| {
+            menu_item(
+                EXPORT,
+                serde_json::json!({ "scope": s }),
+                t,
+                "Export to PDF",
+            )
+        };
+        ctx.requests.push(Request::Choose(vec![
+            item("sheet", "Active Sheet"),
+            item("selection", "Selection"),
+            item("workbook", "Entire Workbook"),
+        ]));
+        return Ok(());
+    }
+    let sheets: Vec<crate::sheet_print::SheetPrint> = match scope.unwrap_or("sheet") {
+        "workbook" => {
+            let hidden = v.hidden_units();
+            let units: Vec<usize> = (0..v.structure().units.len())
+                .filter(|u| !hidden.contains(u) && v.is_grid_unit(*u))
+                .collect();
+            units
+                .into_iter()
+                .filter_map(|u| v.sheet_print(u, None))
+                .collect()
+        }
+        "selection" => {
+            let sel = v.selection();
+            let unit = v.unit;
+            v.sheet_print(unit, Some(sel)).into_iter().collect()
+        }
+        _ => {
+            let unit = v.unit;
+            v.sheet_print(unit, None).into_iter().collect()
+        }
+    };
+    if sheets.is_empty() {
+        ctx.messages
+            .push("Nothing to print: the sheet is empty".into());
+        return Ok(());
+    }
+    let file = book
+        .as_ref()
+        .and_then(|p| p.file_name())
+        .map_or(String::new(), |f| f.to_string_lossy().into_owned());
+    let now = jiff::Zoned::now().datetime();
+    let date = format!("{:02}.{:02}.{:04}", now.day(), now.month(), now.year());
+    let time = format!("{:02}:{:02}", now.hour(), now.minute());
+    let tex = crate::sheet_print::document(&sheets, &file, &date, &time);
+    let tool = crate::pdf::detect(crate::pdf::Engine::LuaLatex, &crate::pdf::tex_search_path())
+        .ok_or_else(|| crate::command::CommandError::new(crate::l10n::tr("msg-no-latex")))?;
+    let dir = std::env::temp_dir().join(format!(
+        "kalem-print-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_nanos())
+    ));
+    std::fs::create_dir_all(&dir).map_err(|e| crate::command::CommandError::new(e.to_string()))?;
+    let stem = book
+        .as_ref()
+        .and_then(|p| p.file_stem())
+        .map_or("Book".into(), |s| s.to_string_lossy().into_owned());
+    let name = match scope {
+        Some("workbook") => stem.clone(),
+        _ => format!("{stem} - {}", sheets[0].name),
+    };
+    let tex_path = dir.join(format!("{}.tex", name.replace(['/', '\\'], "-")));
+    std::fs::write(&tex_path, tex).map_err(|e| crate::command::CommandError::new(e.to_string()))?;
+    let target = book
+        .as_ref()
+        .and_then(|p| p.parent())
+        .map(|d| d.join(format!("{name}.pdf")));
+    let mode = mode.to_owned();
+    ctx.messages.push(crate::l10n::tr("msg-compiling-pdf"));
+    crate::jobs::spawn(crate::l10n::tr("msg-compiling-pdf"), move || {
+        let failed = |message: String| crate::jobs::Finished {
+            message,
+            error: true,
+            open: None,
+        };
+        // Twice: the second run knows the number of pages.
+        let _ = crate::pdf::compile(&tool, crate::pdf::Engine::LuaLatex, &tex_path);
+        let compiled = match crate::pdf::compile(&tool, crate::pdf::Engine::LuaLatex, &tex_path) {
+            Ok(c) => c,
+            Err(e) => return failed(format!("The PDF was not made: {e}")),
+        };
+        let Some(pdf) = compiled.pdf else {
+            let first = compiled
+                .problems
+                .iter()
+                .find(|p| p.error)
+                .map_or(String::new(), |p| p.message.clone());
+            return failed(format!("The PDF was not made: {first}"));
+        };
+        match mode.as_str() {
+            "export" => {
+                let Some(target) = target else {
+                    return failed("Save the workbook first".into());
+                };
+                if let Err(e) = std::fs::copy(&pdf, &target) {
+                    return failed(e.to_string());
+                }
+                crate::jobs::Finished {
+                    message: format!("Saved as {}", target.display()),
+                    error: false,
+                    open: None,
+                }
+            }
+            "print" => crate::jobs::Finished {
+                message: "Printing".into(),
+                error: false,
+                open: Some(crate::input::LinkAction::Print(pdf)),
+            },
+            _ => crate::jobs::Finished {
+                message: String::new(),
+                error: false,
+                open: Some(crate::input::LinkAction::File {
+                    path: pdf.display().to_string(),
+                    search: None,
+                }),
+            },
+        }
+    });
+    Ok(())
+}
+
 /// Format Painter (`t p`): pressed once it takes the selection's format,
 /// again it paints it over the selection then chosen.
 fn format_painter(ctx: &mut EditorContext<'_>) -> CommandResult {
@@ -8614,6 +8956,30 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.pageSetup",
+            "Page Setup",
+            &["z p"],
+            IN_GRID,
+            page_setup,
+        ),
+        cmd(
+            "viewer.grid.printPreview",
+            "Print Preview",
+            &["ctrl+f2"],
+            IN_GRID,
+            |ctx, args| sheet_pdf(ctx, args, "preview"),
+        ),
+        cmd(
+            "viewer.grid.exportPdf",
+            "Export to PDF",
+            &[],
+            IN_GRID,
+            |ctx, args| sheet_pdf(ctx, args, "export"),
+        ),
+        cmd("viewer.grid.print", "Print", &[], IN_GRID, |ctx, args| {
+            sheet_pdf(ctx, args, "print")
+        }),
         cmd(
             "viewer.grid.formatAsTable",
             "Format as Table",

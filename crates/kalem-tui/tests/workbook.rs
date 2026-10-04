@@ -2898,3 +2898,73 @@ fn tables() {
     v.grid_move_to(1, 1);
     assert!(v.table_at_cursor().is_some());
 }
+
+#[test]
+fn page_setup_and_pdf() {
+    let mut t = T::open("print");
+    // z p: the page setup's menu.
+    t.key(KeyCode::Char('z'));
+    t.key(KeyCode::Char('p'));
+    assert!(
+        t.screen().contains("Orientation: Portrait"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.pageSetup", json!({ "what": "orientation" }));
+    t.app.run_command(
+        "viewer.grid.pageSetup",
+        json!({ "what": "paper", "value": "8" }),
+    );
+    t.app.run_command(
+        "viewer.grid.pageSetup",
+        json!({ "what": "footer", "value": "&CSayfa &P / &N" }),
+    );
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(0, 0);
+        v.grid_extend_to(0, 3);
+    }
+    t.app
+        .run_command("viewer.grid.pageSetup", json!({ "what": "titles" }));
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    t.app
+        .run_command("viewer.grid.pageSetup", json!({ "what": "break" }));
+    let s = t.app.doc.viewer.as_deref_mut().unwrap().page_setup();
+    assert!(s.landscape && s.paper == 8);
+    assert_eq!(
+        (s.title_rows, s.row_breaks.clone()),
+        (Some((0, 0)), vec![3])
+    );
+    assert_eq!(s.footer, "&CSayfa &P / &N");
+    // Saved with the workbook as Excel reads it.
+    t.app.run_command("app.save", json!({}));
+    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
+    let wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
+    assert!(
+        wb.defined_names()
+            .iter()
+            .any(|n| n.name == "_xlnm.Print_Titles")
+    );
+    // Exported as a PDF beside the workbook, when LaTeX is there.
+    let tex = kalem_core::pdf::detect(
+        kalem_core::pdf::Engine::LuaLatex,
+        &kalem_core::pdf::tex_search_path(),
+    );
+    t.app.run_command("viewer.grid.exportPdf", json!({}));
+    assert!(t.screen().contains("Entire Workbook"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    if tex.is_some() {
+        t.app
+            .run_command("viewer.grid.exportPdf", json!({ "scope": "sheet" }));
+        let done = kalem_core::jobs::wait_all();
+        assert!(
+            done.iter().all(|d| !d.error),
+            "{:?}",
+            done.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+        let pdf = t.dir.join("budget - Budget.pdf");
+        assert!(std::fs::metadata(&pdf).unwrap().len() > 1000);
+    }
+}

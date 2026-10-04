@@ -41,7 +41,7 @@ be bound again.
 
 ## E25. Page setup and printing
 
-- [ ] E25 Page Layout: orientation, paper size, margins, Fit to one page
+- [x] E25 Page Layout: orientation, paper size, margins, Fit to one page
   wide, Print Area, Print Titles (rows repeated on each page), headers
   and footers, page breaks; Print Preview and Export to PDF of the sheet,
   the selection or the workbook.
