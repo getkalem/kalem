@@ -1578,6 +1578,18 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// Begins a batch: the edits until [`ViewerDocument::end_batch`] undo
+    /// as one step.
+    fn begin_batch(&mut self) {}
+
+    /// Ends a batch begun with [`ViewerDocument::begin_batch`].
+    fn end_batch(&mut self) {}
+
+    /// The ranges a unit's conditional formats cover.
+    fn conditional_ranges(&mut self, _unit: usize) -> Vec<[u32; 4]> {
+        Vec::new()
+    }
+
     /// Formulas (without `=`) computed as if in a cell of a unit, each
     /// result written as a formula would write it (`1200`, `"text"`,
     /// `TRUE`, `#DIV/0!`); `None` where the engine cannot.
