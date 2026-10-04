@@ -533,6 +533,22 @@ pub struct Chart {
     pub labels: DataLabels,
     /// Its value axis's scale.
     pub scale: AxisScale,
+    /// The chart area's background.
+    pub background: Paint,
+    /// The chart area's border.
+    pub border: Paint,
+}
+
+/// How a chart's background or border is painted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Paint {
+    /// As the spreadsheet's style has it.
+    #[default]
+    Automatic,
+    /// Not at all: no fill, no line.
+    None,
+    /// In a color.
+    Color([u8; 3]),
 }
 
 /// A value axis's scale; `None` where the spreadsheet chooses.
@@ -1218,6 +1234,18 @@ pub trait ViewerDocument: Send {
         _series: usize,
         _point: Option<usize>,
         _percent: u32,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Sets the background and the border of the chart area of the chart
+    /// at `index` of [`ViewerDocument::charts`].
+    fn set_chart_area(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _background: Paint,
+        _border: Paint,
     ) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
