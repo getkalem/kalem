@@ -2680,11 +2680,7 @@ impl App {
                 self.last_click = Some((now, m.column, m.row));
                 if let Some((Widget::Checkbox(_), start, _)) = widget {
                     self.doc.move_cursor(start, false);
-                    let id = if self.doc.meta.mode == DocumentMode::Markdown {
-                        "markdown.toggleCheckbox"
-                    } else {
-                        "list.toggleCheckbox"
-                    };
+                    let id = kalem_core::mode_view::checkbox_command(&self.doc);
                     self.run_command(id, Value::Null);
                     return;
                 }

@@ -2427,12 +2427,7 @@ impl Editor {
             return;
         }
         let text = self.doc.text().as_str();
-        let lang = match &self.doc.meta.mode {
-            DocumentMode::Text { language: Some(l) } => Some(l.as_str()),
-            DocumentMode::Markdown => Some("md"),
-            DocumentMode::Latex => Some("latex"),
-            _ => None,
-        };
+        let lang = kalem_core::mode_view::highlight_language(&self.doc);
         // Very large files are colored a window at a time (T2.7a.3).
         // Markdown as it reads colors only its code blocks (each on its
         // own, `line::code_spans`): the whole text's colors, slow to make
@@ -2772,23 +2767,13 @@ impl Editor {
         };
         if open && widget.is_none() {
             self.doc.move_cursor(pos, false);
-            let id = if self.doc.latex().is_some() {
-                "latex.link.open"
-            } else if self.doc.meta.mode == DocumentMode::Markdown {
-                "markdown.openLink"
-            } else {
-                "org.link.open"
-            };
+            let id = kalem_core::mode_view::open_link_command(&self.doc);
             self.run_command(id, Value::Null, window, cx);
             return;
         }
         if let Some((src, Widget::Checkbox(_))) = widget {
             self.doc.move_cursor(src.start, false);
-            let id = if self.doc.meta.mode == DocumentMode::Markdown {
-                "markdown.toggleCheckbox"
-            } else {
-                "list.toggleCheckbox"
-            };
+            let id = kalem_core::mode_view::checkbox_command(&self.doc);
             self.run_command(id, Value::Null, window, cx);
             return;
         }

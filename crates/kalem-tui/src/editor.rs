@@ -429,12 +429,7 @@ impl<'a> Layout<'a> {
             let stamp = doc.version() ^ (kalem_highlight::generation() << 48);
             if p.as_ref().is_none_or(|(v, ..)| *v != stamp) {
                 let text = doc.text().as_str();
-                let lang = match &doc.meta.mode {
-                    kalem_core::DocumentMode::Text { language: Some(l) } => Some(l.as_str()),
-                    kalem_core::DocumentMode::Markdown => Some("md"),
-                    kalem_core::DocumentMode::Latex => Some("latex"),
-                    _ => None,
-                };
+                let lang = kalem_core::mode_view::highlight_language(doc);
                 // Very large files are colored a window at a time (T2.7a.3).
                 let found = lang.and_then(kalem_highlight::Language::find);
                 let large = text.len() > 4 << 20;

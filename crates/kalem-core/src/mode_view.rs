@@ -80,6 +80,34 @@ pub fn outline_items(doc: &mut DocumentState) -> Option<Vec<OutlineItem>> {
         .or_else(|| crate::viewer::outline_items(doc))
 }
 
+/// The language the highlighter colors `doc` as: a code file's, and the
+/// source of Markdown and LaTeX.
+pub fn highlight_language(doc: &DocumentState) -> Option<&str> {
+    match &doc.meta.mode {
+        DocumentMode::Text { language: Some(l) } => Some(l.as_str()),
+        DocumentMode::Markdown => Some("md"),
+        DocumentMode::Latex => Some("latex"),
+        _ => None,
+    }
+}
+
+/// The command a Ctrl-click (Cmd-click) on a link runs in `doc`.
+pub fn open_link_command(doc: &DocumentState) -> &'static str {
+    match doc.meta.mode {
+        DocumentMode::Latex => "latex.link.open",
+        DocumentMode::Markdown => "markdown.openLink",
+        _ => "org.link.open",
+    }
+}
+
+/// The command a click on a checkbox runs in `doc`.
+pub fn checkbox_command(doc: &DocumentState) -> &'static str {
+    match doc.meta.mode {
+        DocumentMode::Markdown => "markdown.toggleCheckbox",
+        _ => "list.toggleCheckbox",
+    }
+}
+
 /// Plain text, and every mode's source view but Org's: the text as it is,
 /// monospace, LaTeX's diagnostics flagged.
 struct Plain;
