@@ -20,7 +20,6 @@ gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4
 # Canonical paths without Windows's `\\?\` prefix where it is not needed.
 dunce = "1"
 org-syntax = { path = "crates/org-syntax", version = "0.0.1" }
-klm-syntax = { path = "crates/klm-syntax" }
 # Markdown (D19): Kalem's fork of comrak, with the sourcepos fixes an editor
 # needs (T2.7c.1a), pinned to a commit of its `kalem-main` branch.
 comrak = { git = "https://github.com/getkalem/comrak", rev = "9f854603485a72b5fb17dd3a27d92679e92fe551", default-features = false }

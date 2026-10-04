@@ -396,7 +396,6 @@ fn the_two_editors_show_the_same_on_the_corpus(cx: &mut TestAppContext) {
         "tests/corpus/org-mode/examples",
         "tests/corpus/synthetic",
         "tests/corpus/tables",
-        "tests/corpus/klm",
         "tests/corpus/latex/synthetic",
         "tests/corpus/markdown/readmes",
         "tests/corpus/markdown/vault/foam-docs",

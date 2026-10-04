@@ -3591,15 +3591,15 @@ fn menus_and_toolbar_follow_the_mode(cx: &mut TestAppContext) {
             })
             .collect()
     };
-    let klm = ids("org", "klm");
+    let org = ids("org", "org");
     let latex = ids("latex", "latex");
-    assert!(klm.iter().any(|i| i == "org.emphasis.italic"));
+    assert!(org.iter().any(|i| i == "org.emphasis.italic"));
     assert!(!latex.iter().any(|i| i == "org.emphasis.italic"));
     assert!(!latex.iter().any(|i| i == "org.headline.setLevel"));
     assert!(!latex.iter().any(|i| i == "export.html"));
     assert!(latex.iter().any(|i| i == "app.save"));
     // Commands that turn on the cursor stay: Fold is on a heading only.
-    assert!(klm.iter().any(|i| i == "view.fold"));
+    assert!(org.iter().any(|i| i == "view.fold"));
     // No separator at either end of a menu, nor two in a row.
     for m in kalem_ui::workspace::menus_for(&reg, &doc("latex", "latex")) {
         let sep: Vec<bool> = m
@@ -3625,7 +3625,7 @@ fn menus_and_toolbar_follow_the_mode(cx: &mut TestAppContext) {
     assert!(latex.iter().any(|i| i == "latex.insert.equation"));
     assert!(latex.iter().any(|i| i == "latex.build"));
     assert!(
-        !klm.iter()
+        !org.iter()
             .any(|i| i.starts_with("latex.") || i.starts_with("csv."))
     );
     let csv = ids("csv", "csv");

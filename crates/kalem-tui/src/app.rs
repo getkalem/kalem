@@ -4970,11 +4970,7 @@ impl App {
         // Mode, position, counts, formula.
         let (l, c) = self.doc.text().line_col(self.doc.selection.head);
         let mode = match &self.doc.meta.mode {
-            // The file kind: strict Org, or a Kalem document (§3.7).
-            DocumentMode::Org => match kalem_core::kinds::file_kind(&self.doc) {
-                Some("klm") => tr!("kind-klm"),
-                _ => tr!("kind-org"),
-            },
+            DocumentMode::Org => tr!("kind-org"),
             DocumentMode::Markdown => "Markdown".into(),
             DocumentMode::Csv => "CSV".into(),
             DocumentMode::Latex => "LaTeX".into(),

@@ -39,7 +39,6 @@ pub mod key_tables;
 pub mod keymap;
 pub mod keys;
 pub mod kinds;
-pub mod klm;
 pub mod l10n;
 pub mod languages;
 pub mod latex_build;

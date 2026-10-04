@@ -439,13 +439,13 @@ pub enum DocumentsRequest {
     },
 }
 
-/// The scratch document: `scratch.klm` in the state directory, or for
+/// The scratch document: `scratch.org` in the state directory, or for
 /// the project at `project` one named after it there, so nothing is
 /// written into the project.
 pub fn scratch_path(project: Option<&std::path::Path>) -> Option<std::path::PathBuf> {
     let dir = crate::logging::state_dir()?.join("scratch");
     Some(match project {
-        None => dir.join("scratch.klm"),
+        None => dir.join("scratch.org"),
         Some(root) => {
             use std::hash::{Hash, Hasher};
             let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -453,7 +453,7 @@ pub fn scratch_path(project: Option<&std::path::Path>) -> Option<std::path::Path
             let name = root
                 .file_name()
                 .map_or_else(|| "project".into(), |n| n.to_string_lossy().into_owned());
-            dir.join(format!("{name}-{:08x}.klm", h.finish() as u32))
+            dir.join(format!("{name}-{:08x}.org", h.finish() as u32))
         }
     })
 }
@@ -579,7 +579,6 @@ pub fn canonical_type(name: &str) -> String {
 pub fn known_text_type(t: &str) -> bool {
     const TYPES: &[&str] = &[
         "org",
-        "klm",
         "markdown",
         "csv",
         "text",
@@ -603,9 +602,9 @@ pub fn known_text_type(t: &str) -> bool {
 
 /// The text types a command serves: all, or a list of them, less some
 /// (§11.2). A type is the innermost at the cursor: the file's (`org`,
-/// `klm`, `markdown`, `csv`, `text`, a language such as `rs`), or inside an
-/// Org document a source block's language, an export block's back-end or
-/// `latex` in a formula. `klm` is a kind of `org`: `org` takes it in.
+/// `markdown`, `csv`, `text`, a language such as `rs`), or inside an Org
+/// document a source block's language, an export block's back-end or
+/// `latex` in a formula.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Scope {
     /// The types, `None` for all.
@@ -639,18 +638,9 @@ impl Scope {
         }
     }
 
-    /// The types a scope type stands for: `org` takes in `klm`.
-    fn expand(t: &str) -> Vec<&str> {
-        if t == "org" {
-            vec!["org", "klm"]
-        } else {
-            vec![t]
-        }
-    }
-
     /// Whether the scope serves `text_type`.
     pub fn serves(&self, text_type: &str) -> bool {
-        let is = |t: &String| Scope::expand(t).contains(&text_type);
+        let is = |t: &String| t == text_type;
         self.types.as_ref().is_none_or(|ts| ts.iter().any(is)) && !self.except.iter().any(is)
     }
 
@@ -659,8 +649,7 @@ impl Scope {
         let eq = |t: &str| WhenClause::Eq("textType".into(), crate::when::Value::Str(t.into()));
         let any = |ts: &[String]| {
             ts.iter()
-                .flat_map(|t| Scope::expand(t))
-                .map(eq)
+                .map(|t| eq(t))
                 .reduce(|a, b| WhenClause::Or(Box::new(a), Box::new(b)))
         };
         let only = self.types.as_deref().and_then(any);
@@ -1107,7 +1096,7 @@ mod tests {
         let Some(own) = scratch_path(None) else {
             return;
         };
-        assert!(own.ends_with("scratch/scratch.klm"), "{}", own.display());
+        assert!(own.ends_with("scratch/scratch.org"), "{}", own.display());
         let a = scratch_path(Some(std::path::Path::new("/w/notes"))).unwrap();
         let b = scratch_path(Some(std::path::Path::new("/x/notes"))).unwrap();
         assert!(

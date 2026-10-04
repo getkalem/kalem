@@ -9,9 +9,8 @@ package kalem:plugin@0.1.0;
 interface kalem {
     /// The text types a command serves (§11.2): every type, or some, less
     /// some. A type is the innermost at the cursor: the file's (`org`,
-    /// `klm`, `markdown`, `csv`, a language such as `python`), or a source
-    /// block's language, `latex` in a formula, front matter's `yaml`;
-    /// `klm` is a kind of `org`.
+    /// `markdown`, `csv`, a language such as `python`), or a source
+    /// block's language, `latex` in a formula, front matter's `yaml`.
     record scope {
         /// The types; `none` for all of them.
         types: option<list<string>>,

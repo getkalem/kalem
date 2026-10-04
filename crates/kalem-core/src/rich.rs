@@ -4,8 +4,7 @@
 //! blocks.
 //!
 //! Earlier versions of Kalem wrote their own formatting into Org files
-//! (`@@kalem:…@@`, `#+ATTR_KALEM:`, `#+KALEM:`); that ended with T2.13.13,
-//! and word-processor formatting returns with the Kalem format (RFC 0003).
+//! (`@@kalem:…@@`, `#+ATTR_KALEM:`, `#+KALEM:`); that ended with T2.13.13.
 //! `crate::kinds` still finds it in old files.
 
 use std::sync::{Arc, Mutex};
