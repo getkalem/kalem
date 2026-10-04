@@ -776,7 +776,7 @@ fn paint(
         };
         let shaped = window
             .text_system()
-            .shape_line(t.into(), size, &[run], None);
+            .shape_line(crate::one_line(&t), size, &[run], None);
         let tw = f32::from(shaped.width);
         let (ox, oy) = match place {
             Place::Above => (x - tw / 2.0, y - f32::from(lh)),
