@@ -1,0 +1,22 @@
+[package]
+name = "kalem-plugin-reach"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "An extension plugin for tests: files and the network through kalem-plugin's `fs` and `net`, granted by permissions (T3.1.6)"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+kalem-plugin = { path = "../../../crates/kalem-plugin" }
+serde_json = "1"
+
+[profile.release]
+opt-level = "s"
+panic = "abort"
+strip = "symbols"
+
+# Built for wasm32-unknown-unknown by `kalem-script`'s tests, apart from
+# the workspace.
+[workspace]

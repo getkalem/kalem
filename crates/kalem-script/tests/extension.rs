@@ -11,8 +11,9 @@ use std::time::Duration;
 
 mod common;
 
+use kalem_script::extension::http;
 use kalem_script::extension::{
-    Answer, CommandSpec, Editor, Event, EventKind, Extension, Level, PanelEvent, PanelSpec,
+    Answer, CommandSpec, Editor, Event, EventKind, Extension, Grants, Level, PanelEvent, PanelSpec,
     Question, Reply, StatusOptions, VERSION, WidgetKind, WidgetTree, api,
 };
 use kalem_script::{Error, Host, Limits};
@@ -27,6 +28,9 @@ struct State {
     questions: BTreeMap<u64, Question>,
     status: BTreeMap<String, String>,
     panels: BTreeMap<String, Option<WidgetTree>>,
+    own: BTreeMap<String, String>,
+    workspace: Vec<std::path::PathBuf>,
+    fetched: Vec<(u64, String)>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -34,7 +38,7 @@ struct Fake(Arc<Mutex<State>>);
 
 impl Editor for Fake {
     fn add_command(&mut self, plugin: &str, spec: &CommandSpec) -> Result<(), String> {
-        assert_eq!(plugin, "counter");
+        assert!(plugin == "counter" || plugin == "reach", "{plugin}");
         let mut s = self.0.lock().unwrap();
         if s.commands.contains_key(&spec.id) {
             return Err("taken".into());
@@ -107,6 +111,27 @@ impl Editor for Fake {
     fn remove_panel(&mut self, id: &str) {
         self.0.lock().unwrap().panels.remove(id);
     }
+
+    fn setting(&mut self, key: &str) -> Option<String> {
+        (key == "editor.font_size").then(|| "14".into())
+    }
+
+    fn own_setting(&mut self, _plugin: &str, key: &str) -> Option<String> {
+        self.0.lock().unwrap().own.get(key).cloned()
+    }
+
+    fn set_own_setting(&mut self, _plugin: &str, key: &str, value: &str) -> Result<(), String> {
+        self.0.lock().unwrap().own.insert(key.into(), value.into());
+        Ok(())
+    }
+
+    fn workspace(&mut self) -> Vec<std::path::PathBuf> {
+        self.0.lock().unwrap().workspace.clone()
+    }
+
+    fn fetch(&mut self, _plugin: &str, id: u64, request: http::Request) {
+        self.0.lock().unwrap().fetched.push((id, request.url));
+    }
 }
 
 /// The labels of panel `id`'s widgets, in the tree's order.
@@ -130,8 +155,15 @@ fn counter(limits: Limits) -> Option<(Extension, Fake)> {
     let host = Host::new(None).unwrap();
     let plugin = host.load(&bytes).unwrap();
     let fake = Fake::default();
-    let mut ext =
-        Extension::new(&host, &plugin, "counter", Box::new(fake.clone()), limits).unwrap();
+    let mut ext = Extension::new(
+        &host,
+        &plugin,
+        "counter",
+        Box::new(fake.clone()),
+        Grants::default(),
+        limits,
+    )
+    .unwrap();
     ext.activate().unwrap().unwrap();
     Some((ext, fake))
 }
@@ -366,4 +398,211 @@ fn deactivation_closes_questions_status_and_panels() {
     );
     assert!(s.status.is_empty());
     assert!(s.panels.is_empty());
+}
+
+#[test]
+fn settings_are_read_set_and_watched() {
+    let Some((mut ext, fake)) = counter(Limits::default()) else {
+        return;
+    };
+    assert_eq!(run(&mut ext, "counter.settings"), Ok("14 \"hello\"".into()));
+    assert_eq!(
+        fake.0
+            .lock()
+            .unwrap()
+            .own
+            .get("greeting")
+            .map(String::as_str),
+        Some("\"hello\"")
+    );
+    let mut watches = ext.watches();
+    watches.sort();
+    assert_eq!(
+        watches,
+        [
+            ("editor.font_size".to_string(), false),
+            ("greeting".to_string(), true)
+        ]
+    );
+    assert!(ext.setting_changed("greeting", true).unwrap());
+    assert!(
+        !ext.setting_changed("greeting", false).unwrap(),
+        "not Kalem's"
+    );
+    assert!(!ext.setting_changed("editor.theme", false).unwrap());
+    assert_eq!(
+        fake.0.lock().unwrap().notes,
+        [(Level::Info, "greeting changed".to_string())]
+    );
+}
+
+/// The reach plugin instantiated with `permissions`, its workspace `root`.
+fn reach(permissions: &[&str], root: &std::path::Path) -> Option<Result<(Extension, Fake), Error>> {
+    let bytes = common::component("reach")?;
+    let host = Host::new(None).unwrap();
+    let plugin = host.load(&bytes).unwrap();
+    let fake = Fake::default();
+    fake.0.lock().unwrap().workspace = vec![root.to_path_buf()];
+    let ext = Extension::new(
+        &host,
+        &plugin,
+        "reach",
+        Box::new(fake.clone()),
+        Grants::from_permissions(permissions),
+        Limits::default(),
+    );
+    Some(ext.map(|mut e| {
+        e.activate().unwrap().unwrap();
+        (e, fake)
+    }))
+}
+
+fn call(ext: &mut Extension, id: &str, args: serde_json::Value) -> Result<String, String> {
+    ext.run_command(id, &args.to_string()).unwrap()
+}
+
+#[test]
+fn files_are_reached_only_as_granted() {
+    let dir = std::env::temp_dir().join(format!("kalem-reach-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let root = dir.join("project");
+    std::fs::create_dir_all(root.join("sub")).unwrap();
+    std::fs::write(root.join("a.txt"), "inside").unwrap();
+    std::fs::write(dir.join("secret.txt"), "outside").unwrap();
+    let root = root.canonicalize().unwrap();
+    let dir = dir.canonicalize().unwrap();
+    let p = |path: &std::path::Path| path.to_string_lossy().into_owned();
+
+    // No permission: the component imports `fs`, which is not granted.
+    match reach(&[], &root) {
+        None => return,
+        Some(Err(Error::NotGranted(names))) => {
+            assert!(names.iter().any(|n| n.contains("fs")), "{names:?}")
+        }
+        Some(other) => panic!("{:?}", other.map(|_| ())),
+    }
+    let (mut ext, _) = reach(&["fs:read:workspace", "net:fetch:example.com"], &root)
+        .unwrap()
+        .unwrap();
+    let read = |ext: &mut Extension, path: &std::path::Path| {
+        call(ext, "reach.read", serde_json::json!({ "path": p(path) }))
+    };
+    assert_eq!(read(&mut ext, &root.join("a.txt")), Ok("inside".into()));
+    assert!(
+        read(&mut ext, &dir.join("secret.txt"))
+            .unwrap_err()
+            .contains("outside")
+    );
+    assert!(
+        read(&mut ext, &root.join("../secret.txt"))
+            .unwrap_err()
+            .contains("..")
+    );
+    assert!(
+        call(
+            &mut ext,
+            "reach.read",
+            serde_json::json!({ "path": "a.txt" })
+        )
+        .unwrap_err()
+        .contains("absolute")
+    );
+    let listed = call(
+        &mut ext,
+        "reach.list",
+        serde_json::json!({ "dir": p(&root) }),
+    )
+    .unwrap();
+    assert_eq!(
+        listed,
+        format!("{}\n{}/", p(&root.join("a.txt")), p(&root.join("sub")))
+    );
+    // Reading is not writing.
+    let write = |ext: &mut Extension, path: &std::path::Path| {
+        call(
+            ext,
+            "reach.write",
+            serde_json::json!({ "path": p(path), "text": "new" }),
+        )
+    };
+    assert!(write(&mut ext, &root.join("b.txt")).is_err());
+    // A link out of the project is followed, and refused.
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(&dir, root.join("up")).unwrap();
+        assert!(read(&mut ext, &root.join("up/secret.txt")).is_err());
+    }
+
+    let (mut ext, _) = reach(&["fs:write:workspace", "net:fetch:example.com"], &root)
+        .unwrap()
+        .unwrap();
+    assert_eq!(write(&mut ext, &root.join("new/b.txt")), Ok("null".into()));
+    assert_eq!(
+        std::fs::read_to_string(root.join("new/b.txt")).unwrap(),
+        "new"
+    );
+    assert!(write(&mut ext, &dir.join("c.txt")).is_err());
+
+    let (mut ext, _) = reach(&["fs:read:all", "net:fetch:example.com"], &root)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        read(&mut ext, &dir.join("secret.txt")),
+        Ok("outside".into())
+    );
+    assert!(write(&mut ext, &root.join("d.txt")).is_err());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn fetches_reach_only_granted_domains_and_answer_later() {
+    let root = std::env::temp_dir();
+    let (mut ext, fake) = match reach(&["fs:read:workspace", "net:fetch:example.com"], &root) {
+        None => return,
+        Some(r) => r.unwrap(),
+    };
+    let fetch = |ext: &mut Extension, url: &str| {
+        call(ext, "reach.fetch", serde_json::json!({ "url": url }))
+    };
+    assert_eq!(
+        fetch(&mut ext, "https://api.example.com/v1?q=1"),
+        Ok("null".into())
+    );
+    for refused in [
+        "https://example.org/",
+        "https://notexample.com/",
+        "https://example.com.evil.net/",
+        "ftp://example.com/",
+        "https://user@evil.net/?example.com",
+    ] {
+        assert!(fetch(&mut ext, refused).is_err(), "{refused}");
+    }
+    let fetched = fake.0.lock().unwrap().fetched.clone();
+    assert_eq!(fetched.len(), 1);
+    let (id, url) = &fetched[0];
+    assert_eq!(url, "https://api.example.com/v1?q=1");
+    assert_eq!(
+        call(&mut ext, "reach.last", serde_json::Value::Null),
+        Ok(String::new())
+    );
+    let response = http::Response {
+        status: 200,
+        headers: Vec::new(),
+        body: b"ok".to_vec(),
+    };
+    assert!(ext.respond(*id, Ok(response.clone())).unwrap());
+    assert!(!ext.respond(*id, Ok(response)).unwrap(), "answered once");
+    assert_eq!(
+        call(&mut ext, "reach.last", serde_json::Value::Null),
+        Ok("200 ok".into())
+    );
+}
+
+#[test]
+fn grants_read_from_permissions() {
+    let g = Grants::from_permissions(&["fs:read:workspace", "net:fetch:Example.com", "subprocess"]);
+    assert!(g.fs() && g.net() && !g.write_workspace && !g.read_all);
+    assert!(g.allows_url("http://example.com:8080/x"));
+    assert!(!Grants::default().fs() && !Grants::default().net());
+    assert!(Grants::from_permissions(&["net:fetch:*"]).allows_url("https://any.where/"));
 }

@@ -440,6 +440,8 @@ impl App {
         mut issues: Vec<KeymapIssue>,
     ) -> Result<App, OpenError> {
         let doc = new_document(path, &config)?;
+        // What plugins read (`kalem.settings`).
+        kalem_core::extensions::set_config(&config);
         let registry = CommandRegistry::with_builtins();
         let (full, more) = Keymap::build_with(
             &registry,
@@ -1962,6 +1964,7 @@ impl App {
             .and_then(|(_, p)| p.clone());
         self.config = Config::load(path.as_deref(), workspace.as_deref());
         self.config.apply_process_settings();
+        kalem_core::extensions::set_config(&self.config);
         self.rebuild_keys();
         self.message(tr!("msg-reloaded-settings"), false);
     }

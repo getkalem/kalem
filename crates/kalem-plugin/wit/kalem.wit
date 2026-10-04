@@ -229,6 +229,7 @@ interface kalem {
 interface plugin {
     use kalem.{event, reply};
     use ui.{answer, panel-event};
+    use http.{response};
 
     /// Called once when the plugin is loaded: it registers its commands,
     /// keys and subscriptions.
@@ -251,6 +252,12 @@ interface plugin {
 
     /// What the user did to widget `key` of the plugin's panel `panel`.
     on-panel: func(panel: string, key: string, event: panel-event);
+
+    /// A setting the plugin watches changed (`settings.watch`).
+    on-setting: func(key: string, %own: bool);
+
+    /// The response to the plugin's request `request` (`net.fetch`).
+    on-response: func(request: u64, response: result<response, string>);
 }
 
 /// A plugin extending the editor: commands, keys and events, and what it
@@ -259,5 +266,8 @@ interface plugin {
 world extension {
     import kalem;
     import ui;
+    import settings;
+    import fs;
+    import net;
     export plugin;
 }

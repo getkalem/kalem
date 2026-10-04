@@ -22,6 +22,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
+use crate::extension::kalem::plugin::http::Response;
 use crate::extension::kalem::plugin::kalem as api;
 use crate::extension::kalem::plugin::ui::{Answer, PanelEvent};
 
@@ -41,6 +42,8 @@ type CommandFn = Box<dyn FnMut(&str) -> Result<String, String>>;
 type EventFn = Box<dyn FnMut(&Event) -> Reply>;
 pub(crate) type AnswerFn = Box<dyn FnOnce(Answer)>;
 pub(crate) type PanelFn = Box<dyn FnMut(&str, &PanelEvent)>;
+pub(crate) type SettingFn = Box<dyn FnMut(&str)>;
+pub(crate) type ResponseFn = Box<dyn FnOnce(Result<Response, String>)>;
 
 /// The plugin's handlers, by command, subscription, question and panel.
 #[derive(Default)]
@@ -49,6 +52,10 @@ pub(crate) struct Handlers {
     events: HashMap<u64, Option<EventFn>>,
     pub(crate) answers: HashMap<u64, AnswerFn>,
     pub(crate) panels: HashMap<String, Option<PanelFn>>,
+    /// Watched settings: the key, whether it is the plugin's own, and the
+    /// handler, by the watch's ID.
+    pub(crate) watches: HashMap<u64, (String, bool, Option<SettingFn>)>,
+    pub(crate) responses: HashMap<u64, ResponseFn>,
 }
 
 thread_local! {
@@ -101,6 +108,7 @@ pub(crate) enum Local {
     Command(String),
     Event(u64),
     Panel(String),
+    Watch(u64),
     Other,
 }
 
@@ -131,6 +139,9 @@ impl Disposable {
                 }
                 Local::Panel(id) => {
                     h.panels.remove(id);
+                }
+                Local::Watch(id) => {
+                    h.watches.remove(id);
                 }
                 Local::Other => {}
             }
@@ -253,6 +264,43 @@ pub fn dispatch_panel(panel: &str, key: &str, event: &PanelEvent) {
     });
 }
 
+/// Hands a change of setting `key` to the handlers watching it (the
+/// host's `on-setting`).
+#[doc(hidden)]
+pub fn dispatch_setting(key: &str, own: bool) {
+    let ids: Vec<u64> = HANDLERS.with(|h| {
+        h.borrow()
+            .watches
+            .iter()
+            .filter(|(_, (k, o, _))| k == key && *o == own)
+            .map(|(id, _)| *id)
+            .collect()
+    });
+    for id in ids {
+        let taken = HANDLERS.with(|h| h.borrow_mut().watches.get_mut(&id).and_then(|w| w.2.take()));
+        if let Some(mut f) = taken {
+            f(key);
+            HANDLERS.with(|h| {
+                if let Some(w) = h.borrow_mut().watches.get_mut(&id)
+                    && w.2.is_none()
+                {
+                    w.2 = Some(f);
+                }
+            });
+        }
+    }
+}
+
+/// Hands the response to request `request` to its handler, once (the
+/// host's `on-response`).
+#[doc(hidden)]
+pub fn dispatch_response(request: u64, response: Result<Response, String>) {
+    let taken = HANDLERS.with(|h| h.borrow_mut().responses.remove(&request));
+    if let Some(f) = taken {
+        f(response);
+    }
+}
+
 /// Forgets every handler (after `deactivate`).
 #[doc(hidden)]
 pub fn clear() {
@@ -298,6 +346,17 @@ macro_rules! export_plugin {
                 event: $crate::ui::PanelEvent,
             ) {
                 $crate::kalem::dispatch_panel(&panel, &key, &event)
+            }
+
+            fn on_setting(key: ::std::string::String, own: bool) {
+                $crate::kalem::dispatch_setting(&key, own)
+            }
+
+            fn on_response(
+                request: u64,
+                response: ::std::result::Result<$crate::net::Response, ::std::string::String>,
+            ) {
+                $crate::kalem::dispatch_response(request, response)
             }
         }
 
