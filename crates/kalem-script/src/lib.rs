@@ -31,6 +31,7 @@ use wasmtime::{Config, Engine, ResourceLimiter, Store, Trap};
 
 pub use wasmtime::component::Linker;
 
+pub mod extension;
 pub mod viewer;
 
 /// How often the time budget's clock ticks.
@@ -106,8 +107,19 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub struct Host {
     engine: Engine,
     cache: Option<PathBuf>,
-    /// Stops the clock's thread when the host goes.
-    running: Arc<AtomicBool>,
+    clock: Arc<Clock>,
+}
+
+/// The time budget's clock: its thread ticks the engine's epochs until the
+/// host and every instance made through it have gone, so an instance kept
+/// after its host is still stopped when it loops.
+#[derive(Debug)]
+struct Clock(Arc<AtomicBool>);
+
+impl Drop for Clock {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Relaxed);
+    }
 }
 
 impl fmt::Debug for Host {
@@ -115,12 +127,6 @@ impl fmt::Debug for Host {
         f.debug_struct("Host")
             .field("cache", &self.cache)
             .finish_non_exhaustive()
-    }
-}
-
-impl Drop for Host {
-    fn drop(&mut self) {
-        self.running.store(false, Ordering::Relaxed);
     }
 }
 
@@ -144,7 +150,7 @@ impl Host {
         Ok(Host {
             engine,
             cache,
-            running,
+            clock: Arc::new(Clock(running)),
         })
     }
 
@@ -299,6 +305,7 @@ impl Plugin {
             store,
             instance,
             limits,
+            _clock: host.clock.clone(),
         })
     }
 }
@@ -381,6 +388,7 @@ pub struct Instance<T: 'static> {
     store: Store<Data<T>>,
     instance: wasmtime::component::Instance,
     limits: Limits,
+    _clock: Arc<Clock>,
 }
 
 impl<T: 'static> fmt::Debug for Instance<T> {

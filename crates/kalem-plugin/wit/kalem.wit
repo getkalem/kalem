@@ -1,0 +1,251 @@
+package kalem:plugin@0.1.0;
+
+/// The editor's commands, keys and events (design §11.2 to §11.4): what a
+/// plugin adds to the palette, menus and keymap, and what it hears.
+///
+/// A plugin's commands are run by the host calling the plugin's
+/// `run-command`, and the events it subscribed to arrive through its
+/// `on-event` (the `plugin` interface).
+interface kalem {
+    /// The text types a command serves (§11.2): every type, or some, less
+    /// some. A type is the innermost at the cursor: the file's (`org`,
+    /// `klm`, `markdown`, `csv`, a language such as `python`), or a source
+    /// block's language, `latex` in a formula, front matter's `yaml`;
+    /// `klm` is a kind of `org`.
+    record scope {
+        /// The types; `none` for all of them.
+        types: option<list<string>>,
+        /// Types left out.
+        except: list<string>,
+    }
+
+    /// A command a plugin adds.
+    record command-spec {
+        /// `pluginId.action`: the plugin's ID, a dot, and lower case words
+        /// (`wordcount.show`).
+        id: string,
+        /// For the palette and the menus.
+        title: string,
+        /// The palette's group.
+        category: string,
+        /// Where it applies; required (§11.2).
+        scope: scope,
+        /// A when-clause of structural context, joined to the scope's:
+        /// `inTable`, `hasSelection && !inHeading`.
+        when: option<string>,
+        /// Its default keys, written as `keymap.json` writes them
+        /// (`ctrl+alt+w`, `space n w`).
+        keys: list<string>,
+        /// A JSON schema of its arguments; the editor asks for the
+        /// required ones a key or the palette does not give.
+        args-schema: option<string>,
+    }
+
+    /// The kinds of events (§11.3).
+    enum event-kind {
+        app-ready,
+        document-open,
+        document-close,
+        document-before-save,
+        document-after-save,
+        document-changed,
+        selection-changed,
+        headline-todo-changed,
+        headline-tags-changed,
+        headline-scheduled,
+        table-before-recalc,
+        table-recalculated,
+        babel-before-execute,
+        babel-after-execute,
+        export-before,
+        export-after,
+        workspace-file-changed,
+    }
+
+    /// A byte range of a document's text.
+    record range {
+        start: u64,
+        end: u64,
+    }
+
+    /// A document opened. Documents are numbered by the editor.
+    record document-opened {
+        document: u64,
+        /// Its file, if it has one.
+        path: option<string>,
+    }
+
+    /// A document about to be saved, or saved.
+    record document-saved {
+        document: u64,
+        path: string,
+    }
+
+    /// A document's text changed (debounced).
+    record document-changed {
+        document: u64,
+        /// The version of its text.
+        version: u64,
+        /// The changed ranges in that version, sorted and disjoint.
+        ranges: list<range>,
+    }
+
+    /// The selection moved.
+    record selection-changed {
+        document: u64,
+        anchor: u64,
+        head: u64,
+    }
+
+    /// A headline's TODO keyword changed.
+    record todo-changed {
+        document: u64,
+        /// Where the headline starts.
+        headline: u64,
+        %from: option<string>,
+        to: option<string>,
+    }
+
+    /// A headline's tags changed.
+    record tags-changed {
+        document: u64,
+        headline: u64,
+        tags: list<string>,
+    }
+
+    /// A headline was scheduled, or its schedule removed.
+    record scheduled {
+        document: u64,
+        headline: u64,
+        timestamp: option<string>,
+    }
+
+    /// A table about to be recalculated, or recalculated.
+    record table-event {
+        document: u64,
+        /// Where the table starts.
+        table: u64,
+    }
+
+    /// A source block about to run.
+    record babel-before {
+        document: u64,
+        /// Where the block starts.
+        block: u64,
+        language: string,
+    }
+
+    /// A source block ran.
+    record babel-after {
+        document: u64,
+        block: u64,
+        language: string,
+        success: bool,
+    }
+
+    /// An export about to start.
+    record export-before {
+        document: u64,
+        /// Such as `html`.
+        backend: string,
+    }
+
+    /// An export done.
+    record export-after {
+        document: u64,
+        backend: string,
+        /// The file written, if any.
+        output: option<string>,
+    }
+
+    /// An event; positions are byte offsets in the document's text.
+    variant event {
+        app-ready,
+        document-open(document-opened),
+        document-close(u64),
+        /// Vetoable.
+        document-before-save(document-saved),
+        document-after-save(document-saved),
+        document-changed(document-changed),
+        selection-changed(selection-changed),
+        headline-todo-changed(todo-changed),
+        headline-tags-changed(tags-changed),
+        headline-scheduled(scheduled),
+        table-before-recalc(table-event),
+        table-recalculated(table-event),
+        /// Vetoable.
+        babel-before-execute(babel-before),
+        /// Vetoable: a veto drops the result.
+        babel-after-execute(babel-after),
+        /// Vetoable.
+        export-before(export-before),
+        /// Vetoable: a veto discards the output.
+        export-after(export-after),
+        workspace-file-changed(string),
+    }
+
+    /// A handler's answer.
+    variant reply {
+        /// Go on.
+        proceed,
+        /// Stop a vetoable event, with the reason for the user; ignored
+        /// for the others.
+        veto(string),
+    }
+
+    /// Something a plugin registered: a command, a key binding, a
+    /// subscription. Dropping the handle keeps it; everything a plugin
+    /// registered goes when it is deactivated.
+    resource disposable {
+        /// Its number: a subscription's, as `on-event` is given it.
+        id: func() -> u64;
+        /// Takes it back.
+        dispose: func();
+    }
+
+    /// The version of the API the host implements, `0.1.0`.
+    version: func() -> string;
+
+    /// Adds a command. Refused when its ID is not the plugin's or not
+    /// new, its scope names no type, or a key does not parse.
+    command: func(spec: command-spec) -> result<disposable, string>;
+
+    /// Runs a command, built in or another plugin's, with its arguments
+    /// as JSON (`null` for none); its result as JSON.
+    run: func(id: string, args: string) -> result<string, string>;
+
+    /// Binds `keys` to a command, when `when` holds (and the command's
+    /// own clause).
+    keymap: func(keys: string, command: string, when: option<string>) -> result<disposable, string>;
+
+    /// Subscribes to events of `kind`: each arrives at the plugin's
+    /// `on-event` with the subscription's ID.
+    on: func(kind: event-kind) -> result<disposable, string>;
+}
+
+/// What a plugin exports for the editor to call.
+interface plugin {
+    use kalem.{event, reply};
+
+    /// Called once when the plugin is loaded: it registers its commands,
+    /// keys and subscriptions.
+    activate: func() -> result<_, string>;
+
+    /// Called before the plugin is unloaded; the host takes back what it
+    /// registered after.
+    deactivate: func();
+
+    /// Runs the plugin's command `id` with its arguments as JSON; its
+    /// result as JSON (`null` for none).
+    run-command: func(id: string, args: string) -> result<string, string>;
+
+    /// An event the plugin subscribed to with `on`.
+    on-event: func(subscription: u64, event: event) -> reply;
+}
+
+/// A plugin extending the editor: commands, keys and events. Later
+/// interfaces of the API (§11.4) are imported here as they come.
+world extension {
+    import kalem;
+    export plugin;
+}

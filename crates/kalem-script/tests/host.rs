@@ -113,6 +113,21 @@ fn an_endless_loop_is_stopped() {
 }
 
 #[test]
+fn an_instance_outliving_its_host_is_still_stopped() {
+    let host = Host::new(None).unwrap();
+    let limits = Limits {
+        time: Duration::from_millis(50),
+        ..Limits::default()
+    };
+    let mut i = tools(&host)
+        .instantiate(&host, &host.linker::<()>(), (), limits)
+        .unwrap();
+    drop(host);
+    let out = i.call::<(), ()>("spin", ());
+    assert!(matches!(out, Err(Error::Timeout(_))), "{out:?}");
+}
+
+#[test]
 fn memory_past_the_limit_is_refused() {
     let host = Host::new(None).unwrap();
     let p = tools(&host);
