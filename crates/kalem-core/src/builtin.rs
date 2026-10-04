@@ -267,6 +267,18 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("csv.sortView", object(&[("reverse", "boolean", false)])),
         ("csv.setDelimiter", object(&[("delimiter", "string", true)])),
         (
+            "app.newWorkbook",
+            object(&[("path", "string", false), ("replace", "boolean", false)]),
+        ),
+        (
+            "app.newFromTemplate",
+            object(&[
+                ("template", "string", false),
+                ("path", "string", false),
+                ("replace", "boolean", false),
+            ]),
+        ),
+        (
             "csv.openAsWorkbook",
             object(&[
                 ("delimiter", "string", false),
@@ -4182,6 +4194,123 @@ fn plugin_commands() -> Vec<Command> {
     ]
 }
 
+/// Where a new workbook goes: the path asked (the folder of the file
+/// open, `Book1.xlsx` or the next free name offered), its extension added,
+/// and a file there replaced only when chosen. `Ok(None)` when it asked.
+fn new_file_target(
+    ctx: &mut EditorContext<'_>,
+    id: &str,
+    args: &Value,
+    stem: &str,
+    ext: &str,
+) -> Result<Option<std::path::PathBuf>, CommandError> {
+    let dir = ctx
+        .document
+        .as_deref()
+        .and_then(|d| d.meta.path.as_ref())
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+        .or_else(|| std::env::var_os("HOME").map(std::path::PathBuf::from))
+        .unwrap_or_default();
+    let Some(path) = args.get("path").and_then(Value::as_str) else {
+        let free = (1..)
+            .map(|n| dir.join(format!("{stem}{n}.{ext}")))
+            .find(|p| !p.exists())
+            .unwrap_or_else(|| dir.join(format!("{stem}.{ext}")));
+        let mut a = args.clone();
+        a["path_default"] = Value::String(free.display().to_string());
+        request(
+            ctx,
+            Request::Ask {
+                command: id.into(),
+                args: a,
+                arg: "path".into(),
+            },
+        )?;
+        return Ok(None);
+    };
+    let mut target = std::path::PathBuf::from(crate::settings::expand_home(path.trim()));
+    if target.is_relative() {
+        target = dir.join(target);
+    }
+    if target.extension().is_none() {
+        target.set_extension(ext);
+    }
+    if target.exists() && !arg_bool(args, "replace") {
+        let name = target
+            .file_name()
+            .map_or(String::new(), |f| f.to_string_lossy().into_owned());
+        let mut a = args.clone();
+        a["path"] = Value::String(target.display().to_string());
+        a["replace"] = Value::Bool(true);
+        let item = crate::palette::PaletteItem {
+            id: crate::palette::invocation(id, &a),
+            title: format!("Replace {name}"),
+            category: format!("{name} exists"),
+            keys: String::new(),
+            also: String::new(),
+        };
+        request(ctx, Request::Choose(vec![item]))?;
+        return Ok(None);
+    }
+    Ok(Some(target))
+}
+
+/// New Workbook: a blank workbook of one sheet, written where asked and
+/// opened.
+fn new_workbook(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult {
+    let Some(target) = new_file_target(ctx, "app.newWorkbook", args, "Book", "xlsx")? else {
+        return Ok(());
+    };
+    let bytes = crate::workbook_io::blank_xlsx(&["Sheet1".to_string()]);
+    std::fs::write(&target, bytes).map_err(|e| CommandError::new(e.to_string()))?;
+    request(
+        ctx,
+        Request::Open {
+            path: Some(target.display().to_string()),
+        },
+    )
+}
+
+/// New from Template: a template (`.xltx`, `.xltm`) chosen, a workbook made
+/// of it written where asked and opened.
+fn new_from_template(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult {
+    const ID: &str = "app.newFromTemplate";
+    let Some(template) = args
+        .get("template")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+    else {
+        return request(
+            ctx,
+            Request::PickFile {
+                command: ID.into(),
+                arg: "template".into(),
+                args: args.clone(),
+            },
+        );
+    };
+    let template = std::path::PathBuf::from(crate::settings::expand_home(&template));
+    let macros = template
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("xltm"));
+    let stem = template
+        .file_stem()
+        .map_or("Book".into(), |s| s.to_string_lossy().into_owned());
+    let ext = if macros { "xlsm" } else { "xlsx" };
+    let Some(target) = new_file_target(ctx, ID, args, &stem, ext)? else {
+        return Ok(());
+    };
+    let bytes = std::fs::read(&template).map_err(|e| CommandError::new(e.to_string()))?;
+    let bytes = crate::workbook_io::template_to_workbook(&bytes).map_err(CommandError::new)?;
+    std::fs::write(&target, bytes).map_err(|e| CommandError::new(e.to_string()))?;
+    request(
+        ctx,
+        Request::Open {
+            path: Some(target.display().to_string()),
+        },
+    )
+}
+
 /// Open as Workbook (Excel's Text Import Wizard): the file's records
 /// read with a delimiter and an encoding chosen, each column as General,
 /// Text, a date in an order, or left out; written as a workbook beside it
@@ -4565,6 +4694,22 @@ fn plain_commands() -> Vec<Command> {
             &["ctrl+shift+s"],
             None,
             |ctx, _| request(ctx, Request::SaveAs),
+        ),
+        cmd(
+            "app.newWorkbook",
+            "New Workbook",
+            "File",
+            &[],
+            None,
+            new_workbook,
+        ),
+        cmd(
+            "app.newFromTemplate",
+            "New from Template",
+            "File",
+            &[],
+            None,
+            new_from_template,
         ),
         cmd("app.quit", "Quit", "File", &["ctrl+q"], None, |ctx, _| {
             request(ctx, Request::Quit)

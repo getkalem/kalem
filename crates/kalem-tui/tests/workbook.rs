@@ -3830,3 +3830,108 @@ fn the_mouse_on_the_grid() {
     mouse(&mut t, MouseEventKind::ScrollDown, b2, none);
     assert_eq!(t.app.doc.viewer.as_deref().unwrap().grid_pos().top, 3);
 }
+
+#[test]
+fn new_workbooks_and_copied_sheets() {
+    let mut t = T::open("new-books");
+    let budget = t.dir.join("budget.xlsx");
+    let labels = |t: &mut T| -> Vec<String> {
+        t.app
+            .doc
+            .viewer
+            .as_deref()
+            .unwrap()
+            .structure()
+            .units
+            .iter()
+            .map(|u| u.label.clone())
+            .collect()
+    };
+    let first = labels(&mut t)[0].clone();
+    // A copy after the sheet, named as Excel names one.
+    t.app
+        .run_command("viewer.grid.moveOrCopySheet", json!({ "what": "copy" }));
+    assert_eq!(labels(&mut t)[1], format!("{first} (2)"));
+    // New Workbook: a blank one, opened.
+    t.app
+        .run_command("app.newWorkbook", json!({ "path": "Yeni.xlsx" }));
+    assert!(
+        t.app
+            .doc
+            .meta
+            .path
+            .as_deref()
+            .is_some_and(|p| p.ends_with("Yeni.xlsx"))
+    );
+    assert_eq!(labels(&mut t), vec!["Sheet1".to_string()]);
+    assert!(t.app.doc.viewer.as_deref_mut().unwrap().grid_editable());
+    // The budget's first sheet copied into it, then the copy moved there.
+    t.app.open_path(&budget, None);
+    // The copy is shown after it is made: the first sheet first.
+    t.app.doc.viewer.as_deref_mut().unwrap().go_to(0);
+    let n = labels(&mut t).len();
+    let yeni = t.dir.join("Yeni.xlsx");
+    t.app.run_command(
+        "viewer.grid.moveOrCopySheet",
+        json!({ "what": "copyOut", "workbook": yeni.display().to_string() }),
+    );
+    assert!(t.screen().contains("Copied as"), "{}", t.screen());
+    t.app.doc.viewer.as_deref_mut().unwrap().go_to(1);
+    t.app.run_command(
+        "viewer.grid.moveOrCopySheet",
+        json!({ "what": "moveOut", "workbook": yeni.display().to_string() }),
+    );
+    assert_eq!(labels(&mut t).len(), n - 1);
+    let mut wb = kalem_plugin_xlsx::Workbook::open(std::fs::read(&yeni).unwrap()).unwrap();
+    let names: Vec<String> = wb.sheets().iter().map(|s| s.name.clone()).collect();
+    assert_eq!(
+        names,
+        vec!["Sheet1".to_string(), first.clone(), format!("{first} (2)")]
+    );
+    assert_eq!(
+        wb.edit_text(1, kalem_plugin_xlsx::CellRef::new(1, 0))
+            .unwrap(),
+        "Rent"
+    );
+    // New from Template: a workbook made of a template.
+    let parts = kalem_core::workbook_io::unzip(&std::fs::read(&budget).unwrap()).unwrap();
+    let parts: Vec<(String, Vec<u8>)> = parts
+        .into_iter()
+        .map(|(n, b)| {
+            if n == "[Content_Types].xml" {
+                let t = String::from_utf8_lossy(&b).replace(
+                    "spreadsheetml.sheet.main+xml",
+                    "spreadsheetml.template.main+xml",
+                );
+                (n, t.into_bytes())
+            } else {
+                (n, b)
+            }
+        })
+        .collect();
+    let list: Vec<(&str, &[u8], bool)> = parts
+        .iter()
+        .map(|(n, b)| (n.as_str(), b.as_slice(), true))
+        .collect();
+    std::fs::write(
+        t.dir.join("Rapor.xltx"),
+        kalem_core::workbook_io::zip(&list),
+    )
+    .unwrap();
+    t.app.run_command(
+        "app.newFromTemplate",
+        json!({ "template": t.dir.join("Rapor.xltx").display().to_string(), "path": "Rapor Ekim" }),
+    );
+    assert!(
+        t.app
+            .doc
+            .meta
+            .path
+            .as_deref()
+            .is_some_and(|p| p.ends_with("Rapor Ekim.xlsx"))
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(v.grid_editable());
+    v.grid_move_to(1, 0);
+    assert_eq!(v.cell_input(), "Rent");
+}

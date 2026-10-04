@@ -37,7 +37,7 @@ new release of the xlsx plugin follows when the contract moves.
 
 ## E39. New workbooks and copied sheets
 
-- [ ] E39 New Workbook (a blank `Book1.xlsx`, saved where asked) and New
+- [x] E39 New Workbook (a blank `Book1.xlsx`, saved where asked) and New
   from a template (`.xltx`, `.xltm`); Move or Copy Sheet: a copy of the
   sheet in the same workbook (its formulas, names, tables, charts and
   pictures along), or moved or copied into another open workbook.

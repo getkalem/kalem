@@ -3800,7 +3800,7 @@ impl ViewerState {
         }
         let places_change = matches!(
             edit,
-            SheetEdit::Insert(_) | SheetEdit::Delete(_) | SheetEdit::Move(..)
+            SheetEdit::Insert(_) | SheetEdit::Delete(_) | SheetEdit::Move(..) | SheetEdit::Copy(..)
         );
         let hiding = matches!(edit, SheetEdit::Hide(_, true));
         let mut shown = self.doc().edit_sheets(edit).map_err(|e| e.to_string())?;
@@ -4777,6 +4777,36 @@ impl ViewerState {
             self.grid_extend_to(row + s[2] - s[0], col + s[3] - s[1]);
         }
         Ok(())
+    }
+
+    /// The sheet shown copied into the workbook at `path` (written there),
+    /// or with `keep` off moved there; the copy's name.
+    pub fn copy_sheet_to_file(&mut self, path: &Path, keep: bool) -> Result<String, String> {
+        if !keep && !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let viewer = for_file(path)
+            .filter(|v| v.extensions().contains(&"xlsx"))
+            .ok_or_else(|| format!("{} is not a workbook", path.display()))?;
+        let mut dst = viewer
+            .open(FileHandle::new(path))
+            .map_err(|e| e.to_string())?;
+        if !dst.grid(0).is_some_and(|l| l.editable) {
+            return Err("Kalem writes .xlsx and .xlsm workbooks".into());
+        }
+        let unit = self.unit;
+        let at = {
+            let mut d = self.doc();
+            crate::workbook_io::copy_sheet_into(d.as_mut(), unit, dst.as_mut())?
+        };
+        let name = dst.structure().units[at].label.clone();
+        let bytes = dst.save().map_err(|e| e.to_string())?.bytes;
+        crate::files::write(path, &bytes, crate::files::SaveOptions::default())
+            .map_err(|e| e.to_string())?;
+        if !keep {
+            self.edit_sheets(kalem_viewer::SheetEdit::Delete(unit))?;
+        }
+        Ok(name)
     }
 
     /// The sheet shown's comment threads.
@@ -9240,6 +9270,7 @@ fn context_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
             ("viewer.grid.renameSheet", "Rename"),
             ("viewer.grid.moveSheetLeft", "Move Left"),
             ("viewer.grid.moveSheetRight", "Move Right"),
+            ("viewer.grid.moveOrCopySheet", "Move or Copy…"),
             ("viewer.grid.tabColor", "Tab Color"),
             ("viewer.grid.hideSheet", "Hide"),
             ("viewer.grid.unhideSheet", "Unhide"),
@@ -9278,6 +9309,67 @@ fn context_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
         .collect();
     ctx.requests.push(Request::Choose(items));
     Ok(())
+}
+
+/// Move or Copy: the sheet shown copied after itself or to the end, moved
+/// to the start or the end, or copied or moved into another workbook
+/// (chosen as a file).
+fn move_or_copy(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::SheetEdit;
+    const ID: &str = "viewer.grid.moveOrCopySheet";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some(what) = args.get("what").and_then(|x| x.as_str()).map(str::to_owned) else {
+        let item =
+            |w: &str, t: &str| menu_item(ID, serde_json::json!({ "what": w }), t, "Move or Copy");
+        ctx.requests.push(Request::Choose(vec![
+            item("copy", "Copy (after this sheet)"),
+            item("copyEnd", "Copy to the End"),
+            item("first", "Move to the Beginning"),
+            item("last", "Move to the End"),
+            item("copyOut", "Copy to Another Workbook…"),
+            item("moveOut", "Move to Another Workbook…"),
+        ]));
+        return Ok(());
+    };
+    let (unit, n) = (v.unit, v.structure().units.len());
+    match what.as_str() {
+        "copy" => with(ctx, |v| v.edit_sheets(SheetEdit::Copy(unit, unit + 1))),
+        "copyEnd" => with(ctx, |v| v.edit_sheets(SheetEdit::Copy(unit, n))),
+        "first" => with(ctx, |v| v.edit_sheets(SheetEdit::Move(unit, 0))),
+        "last" => with(ctx, |v| v.edit_sheets(SheetEdit::Move(unit, n - 1))),
+        "copyOut" | "moveOut" => {
+            let Some(path) = text_arg(args, "workbook") else {
+                ctx.requests.push(Request::PickFile {
+                    command: ID.into(),
+                    arg: "workbook".into(),
+                    args: serde_json::json!({ "what": what }),
+                });
+                return Ok(());
+            };
+            let path = std::path::PathBuf::from(crate::settings::expand_home(&path));
+            let keep = what == "copyOut";
+            match v.copy_sheet_to_file(&path, keep) {
+                Ok(name) => {
+                    let file = path
+                        .file_name()
+                        .map_or(String::new(), |f| f.to_string_lossy().into_owned());
+                    ctx.messages.push(format!(
+                        "{} as {name} into {file}",
+                        if keep { "Copied" } else { "Moved" }
+                    ));
+                }
+                Err(e) => ctx.messages.push(e),
+            }
+            Ok(())
+        }
+        _ => Ok(()),
+    }
 }
 
 /// Who writes comments: the account's name.
@@ -12067,6 +12159,13 @@ fn grid_commands() -> Vec<Command> {
             &["ctrl+shift+0", "z shift+c"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.set_hidden(false, false)),
+        ),
+        cmd(
+            "viewer.grid.moveOrCopySheet",
+            "Move or Copy Sheet",
+            &["shift+s m"],
+            IN_GRID,
+            move_or_copy,
         ),
         cmd(
             "viewer.grid.insertSheet",
