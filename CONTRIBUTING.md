@@ -5,7 +5,7 @@ Thank you for your interest in Kalem. This page says how to set up, what the rul
 ## Before you start
 
 - Read [the Kalem Book](https://getkalem.github.io/kalem): Part I is the manual, Part II says what Kalem does with each format and how that is tested, Part IV covers extending Kalem. The design is in [`docs/design_document.md`](docs/design_document.md) (RFC 0001) and [`docs/design_doc2.md`](docs/design_doc2.md) (RFC 0002).
-- [`docs/todo.md`](docs/todo.md) lists the open tasks in order; [`docs/todo_old.md`](docs/todo_old.md) keeps the done ones and the decisions. Task IDs such as `T2.7h.4` are used in issues and pull requests.
+- [`docs/roadmap.md`](docs/roadmap.md) is the plan: milestones with their tasks (`R1.1`, …) and exit criteria, from the evaluation in [`docs/evaluation-2026-10.md`](docs/evaluation-2026-10.md). [`docs/todo.md`](docs/todo.md) and [`docs/todo_old.md`](docs/todo_old.md) keep the record of what was done and why; their ids (`T2.7h.4`) are still cited.
 - For a larger change, open an issue first. Changes to the design go through an RFC ([`rfcs/README.md`](rfcs/README.md)).
 
 ## Setup

@@ -1,3 +1,5 @@
+> **Superseded (2026-10-04).** The live plan is `docs/roadmap.md`, written from the evaluation in `docs/evaluation-2026-10.md`. This file stays as the record of what was done and why; its item ids are cited from the roadmap. Do not add new items here.
+
 # Kalem — What remains, in order
 
 Kalem's working task list since 2026-10-01: every task of the former list, now [`todo_old.md`](todo_old.md), that was not done, in the order it is to be done, under general headings. Each task keeps its ID and its full text from `todo.md`: the reason (**Why**), the test (**How it is tested**), the done-criterion (**Done when**) and the "done:" notes of the tasks in progress. `todo_old.md` keeps the done and cancelled tasks, the history, the decision table and the rejected ideas, and is no longer updated; a task keeps its ID in both.
