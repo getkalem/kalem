@@ -54,7 +54,7 @@ be bound again.
 
 ## E27. Cell styles and more alignment
 
-- [ ] E27 The built-in cell styles (Normal, Good, Bad, Neutral, Heading 1
+- [x] E27 The built-in cell styles (Normal, Good, Bad, Neutral, Heading 1
   to 4, Title, Total, Currency, Percent); indent (increase and decrease),
   text rotated or vertical, Shrink to Fit, Center Across Selection.
 

@@ -1205,9 +1205,28 @@ impl Editor {
                 );
             // Text wider than its cell runs on over the empty cells at its
             // right, as in a spreadsheet; drawn above them.
-            let mut overflow: Vec<(f32, f32, u32)> = Vec::new();
+            let mut overflow: Vec<(f32, f32, u32, bool)> = Vec::new();
             let mut x = gutter;
             for (k, &(c, w)) in cols.iter().enumerate() {
+                // Center Across Selection: over the empty cells at its right
+                // that have it too.
+                if let Some(cell) = cells.get(&(r, c))
+                    && cell.center_across
+                    && !cell.text.is_empty()
+                {
+                    let mut span = w;
+                    for &(c2, w2) in &cols[k + 1..] {
+                        match cells.get(&(r, c2)) {
+                            Some(x2) if x2.center_across && x2.text.is_empty() => span += w2,
+                            _ => break,
+                        }
+                    }
+                    if span > w {
+                        overflow.push((x, span, c, true));
+                        x += w;
+                        continue;
+                    }
+                }
                 if let Some(cell) = cells.get(&(r, c))
                     && !cell.numeric
                     && !cell.wrap
@@ -1230,7 +1249,7 @@ impl Editor {
                             span += w2;
                         }
                         if span > w {
-                            overflow.push((x, span, c));
+                            overflow.push((x, span, c, false));
                         }
                     }
                 }
@@ -1266,6 +1285,9 @@ impl Editor {
                         d = d.justify_end();
                     } else if matches!(cell.align, kalem_viewer::Align::Center) {
                         d = d.justify_center();
+                    } else if cell.indent > 0 {
+                        // Indented: about three characters a level.
+                        d = d.pl(px(PAD + f32::from(cell.indent) * 9.0));
                     }
                     if let Some(f) = cell.fill {
                         d = d.bg(rgb(f));
@@ -1321,10 +1343,18 @@ impl Editor {
                     if cell.strike {
                         d = d.line_through();
                     }
+                    // Shrink to Fit: text wider than the cell made smaller.
+                    let wide = measure(&cell.text) + 2.0 * PAD;
+                    if cell.shrink && wide > w && !cell.wrap {
+                        let base = cell
+                            .font_size
+                            .map_or(theme.size, |t| f32::from(t) / 10.0 * 4.0 / 3.0);
+                        d = d.text_size(px((base * (w - 2.0 * PAD) / (wide - 2.0 * PAD)).max(4.0)));
+                    }
                     if !spilled.contains(&c) {
                         // A number too wide shows as #, as Excel shows it;
                         // text ends in an ellipsis.
-                        let text = if cell.numeric && measure(&cell.text) + 2.0 * PAD > w {
+                        let text = if cell.numeric && !cell.shrink && wide > w {
                             "#".repeat(((w - 2.0 * PAD) / measure("#")).max(1.0) as usize)
                         } else {
                             cell.text.clone()
@@ -1474,7 +1504,7 @@ impl Editor {
                     },
                 ))
             });
-            let spills = overflow.into_iter().filter_map(|(x, span, c)| {
+            let spills = overflow.into_iter().filter_map(|(x, span, c, centered)| {
                 let cell = cells.get(&(r, c))?;
                 let mut d = div()
                     .absolute()
@@ -1488,6 +1518,9 @@ impl Editor {
                     .overflow_hidden()
                     .whitespace_nowrap();
                 d = valign(d, cell.valign);
+                if centered {
+                    d = d.justify_center();
+                }
                 if let Some(c) = cell.color {
                     d = d.text_color(rgb(c));
                 }

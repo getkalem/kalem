@@ -3061,3 +3061,66 @@ fn groups_and_subtotals() {
     // The two totals and the grand total each sum a group up.
     assert_eq!(v.outline_marks().len(), 3);
 }
+
+#[test]
+fn cell_styles_and_alignment() {
+    let mut t = T::open("styles");
+    let tk = |t: &mut T, k: char| {
+        t.key(KeyCode::Char('t'));
+        t.key(KeyCode::Char(k));
+    };
+    let line = |t: &mut T, start: &str| {
+        let s = t.screen();
+        s.lines()
+            .find(|l| l.trim_start().starts_with(start))
+            .unwrap_or_default()
+            .to_owned()
+    };
+    // Cell Styles (t y): Good on A2.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    tk(&mut t, 'y');
+    assert!(t.screen().contains("Heading 1"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.cellStyle", json!({ "style": "good" }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert_eq!(v.cursor_cell().fill, Some([0xC6, 0xEF, 0xCE]));
+    // Indented two levels: four columns in.
+    v.grid_move_to(2, 0);
+    tk(&mut t, ']');
+    tk(&mut t, ']');
+    let l3 = line(&mut t, "3");
+    assert!(l3.trim_start().starts_with("3     Food"), "{l3:?}");
+    tk(&mut t, '[');
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert_eq!(v.cursor_cell().indent, 1);
+    // Center Across Selection over A7:D7.
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 6, "col": 0, "value": "Rapor" }),
+    );
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(6, 0);
+        v.grid_extend_to(6, 3);
+    }
+    tk(&mut t, 'a');
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    let row7 = line(&mut t, "7");
+    let at = row7
+        .find("Rapor")
+        .unwrap_or_else(|| panic!("{}", t.screen()));
+    assert!(at > 20 && !row7[..at].contains('│'), "{}", t.screen());
+    // Orientation and Shrink to Fit kept in the cell.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    tk(&mut t, 'o');
+    assert!(t.screen().contains("Vertical Text"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app
+        .run_command("viewer.grid.textRotation", json!({ "rotation": 90 }));
+    tk(&mut t, 'k');
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let c = v.cursor_cell();
+    assert_eq!((c.rotation, c.shrink), (90, true));
+}

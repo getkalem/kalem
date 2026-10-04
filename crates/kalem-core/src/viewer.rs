@@ -7525,6 +7525,143 @@ fn format_as_table(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Com
     Ok(())
 }
 
+/// Cell Styles: Excel's built-in styles, applied as their formats.
+fn cell_style(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::{BorderSet, StyleChange};
+    const ID: &str = "viewer.grid.cellStyle";
+    let styles = [
+        ("normal", "Normal"),
+        ("good", "Good"),
+        ("bad", "Bad"),
+        ("neutral", "Neutral"),
+        ("heading1", "Heading 1"),
+        ("heading2", "Heading 2"),
+        ("heading3", "Heading 3"),
+        ("heading4", "Heading 4"),
+        ("title", "Title"),
+        ("total", "Total"),
+        ("comma", "Comma"),
+        ("currency", "Currency"),
+        ("percent", "Percent"),
+    ];
+    let Some(name) = args.get("style").and_then(|x| x.as_str()) else {
+        let items = styles
+            .iter()
+            .map(|(k, t)| menu_item(ID, serde_json::json!({ "style": k }), t, "Cell Styles"))
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    let dark = Some([0x44, 0x54, 0x6A]);
+    let fill_font = |fill: [u8; 3], font: [u8; 3]| StyleChange {
+        fill: Some(Some(fill)),
+        color: Some(Some(font)),
+        ..StyleChange::default()
+    };
+    let heading = |size: f32, line: Option<[u8; 3]>| StyleChange {
+        bold: Some(true),
+        size: Some(size),
+        color: Some(dark),
+        borders: line.map(|c| (BorderSet::Bottom, Some(c))),
+        ..StyleChange::default()
+    };
+    let change = match name {
+        "normal" => return with(ctx, |v| v.clear_formats(false)),
+        "good" => fill_font([0xC6, 0xEF, 0xCE], [0x00, 0x61, 0x00]),
+        "bad" => fill_font([0xFF, 0xC7, 0xCE], [0x9C, 0x00, 0x06]),
+        "neutral" => fill_font([0xFF, 0xEB, 0x9C], [0x9C, 0x57, 0x00]),
+        "heading1" => heading(15.0, Some([0x44, 0x72, 0xC4])),
+        "heading2" => heading(13.0, Some([0xA2, 0xB8, 0xE1])),
+        "heading3" => heading(11.0, Some([0x8E, 0xA9, 0xDB])),
+        "heading4" => heading(11.0, None),
+        "title" => StyleChange {
+            size: Some(18.0),
+            color: Some(dark),
+            face: Some("Calibri Light".into()),
+            ..StyleChange::default()
+        },
+        "total" => StyleChange {
+            bold: Some(true),
+            borders: Some((BorderSet::Top, Some([0x44, 0x72, 0xC4]))),
+            ..StyleChange::default()
+        },
+        "comma" => StyleChange {
+            number_format: Some("#,##0.00".into()),
+            ..StyleChange::default()
+        },
+        "currency" => StyleChange {
+            number_format: Some("#,##0.00 \"₺\"".into()),
+            ..StyleChange::default()
+        },
+        "percent" => StyleChange {
+            number_format: Some("0%".into()),
+            ..StyleChange::default()
+        },
+        other => {
+            ctx.messages.push(format!("No such style: {other}"));
+            return Ok(());
+        }
+    };
+    with(ctx, |v| v.change_style(change))
+}
+
+/// Increase (`by` 1) or Decrease (-1) Indent of the selection, from the
+/// cursor's cell's indent.
+fn step_indent(ctx: &mut EditorContext<'_>, by: i32) -> CommandResult {
+    with(ctx, |v| {
+        let now = i32::from(v.cursor_cell().indent);
+        let n = (now + by).clamp(0, 15) as u8;
+        v.change_style(kalem_viewer::StyleChange {
+            indent: Some(n),
+            ..kalem_viewer::StyleChange::default()
+        })
+    })
+}
+
+/// Orientation: the text's angle, from Excel's menu.
+fn text_rotation(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.textRotation";
+    let Some(r) = args.get("rotation").and_then(serde_json::Value::as_u64) else {
+        let item =
+            |r: u16, t: &str| menu_item(ID, serde_json::json!({ "rotation": r }), t, "Orientation");
+        ctx.requests.push(Request::Choose(vec![
+            item(45, "Angle Counterclockwise"),
+            item(135, "Angle Clockwise"),
+            item(255, "Vertical Text"),
+            item(90, "Rotate Text Up"),
+            item(180, "Rotate Text Down"),
+            item(0, "Horizontal"),
+        ]));
+        return Ok(());
+    };
+    with(ctx, |v| {
+        v.change_style(kalem_viewer::StyleChange {
+            rotation: Some(r as u16),
+            ..kalem_viewer::StyleChange::default()
+        })
+    })
+}
+
+/// A toggle of the cursor's cell (Shrink to Fit, Center Across Selection)
+/// given to the selection.
+fn toggle_alignment(ctx: &mut EditorContext<'_>, which: &str) -> CommandResult {
+    with(ctx, |v| {
+        let c = v.cursor_cell();
+        let change = if which == "shrink" {
+            kalem_viewer::StyleChange {
+                shrink: Some(!c.shrink),
+                ..kalem_viewer::StyleChange::default()
+            }
+        } else {
+            kalem_viewer::StyleChange {
+                center_across: Some(!c.center_across),
+                ..kalem_viewer::StyleChange::default()
+            }
+        };
+        v.change_style(change)
+    })
+}
+
 /// Subtotal: at each change in a column, a function, added to a column,
 /// each chosen from a menu.
 fn subtotal(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
@@ -9112,6 +9249,48 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.cellStyle",
+            "Cell Styles",
+            &["t y"],
+            IN_GRID,
+            cell_style,
+        ),
+        cmd(
+            "viewer.grid.increaseIndent",
+            "Increase Indent",
+            &["ctrl+alt+tab", "t ]"],
+            IN_GRID,
+            |ctx, _| step_indent(ctx, 1),
+        ),
+        cmd(
+            "viewer.grid.decreaseIndent",
+            "Decrease Indent",
+            &["ctrl+alt+shift+tab", "t ["],
+            IN_GRID,
+            |ctx, _| step_indent(ctx, -1),
+        ),
+        cmd(
+            "viewer.grid.textRotation",
+            "Orientation",
+            &["t o"],
+            IN_GRID,
+            text_rotation,
+        ),
+        cmd(
+            "viewer.grid.shrinkToFit",
+            "Shrink to Fit",
+            &["t k"],
+            IN_GRID,
+            |ctx, _| toggle_alignment(ctx, "shrink"),
+        ),
+        cmd(
+            "viewer.grid.centerAcrossSelection",
+            "Center Across Selection",
+            &["t a"],
+            IN_GRID,
+            |ctx, _| toggle_alignment(ctx, "across"),
+        ),
         cmd(
             "viewer.grid.group",
             "Group",

@@ -310,6 +310,35 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
         }
         let mut x = area.x + gutter;
         let mut overflow: Option<(String, Style)> = None;
+        // Center Across Selection: a cell's text over the empty cells at
+        // its right that have it too, their column lines left out.
+        let mut across: std::collections::HashMap<u32, usize> = std::collections::HashMap::new();
+        let mut no_line: std::collections::HashSet<u32> = std::collections::HashSet::new();
+        let mut under: std::collections::HashSet<u32> = std::collections::HashSet::new();
+        for (k, &(c, w)) in cols.iter().enumerate() {
+            let Some(cell) = cells.get(&(r, c)) else {
+                continue;
+            };
+            if !cell.center_across || cell.text.is_empty() {
+                continue;
+            }
+            let mut total = w as usize;
+            let mut last = c;
+            for &(c2, w2) in &cols[k + 1..] {
+                match cells.get(&(r, c2)) {
+                    Some(x) if x.center_across && x.text.is_empty() => {
+                        no_line.insert(last);
+                        under.insert(c2);
+                        total += w2 as usize;
+                        last = c2;
+                    }
+                    _ => break,
+                }
+            }
+            if last != c {
+                across.insert(c, total - 1);
+            }
+        }
         for &(c, w) in &cols {
             let merge = merge_of(r, c);
             // A merged cell is drawn by its first cell over the whole width
@@ -415,6 +444,10 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
                         format!("{t:>inner$}")
                     } else if center {
                         format!("{t:^inner$}")
+                    } else if cell.indent > 0 {
+                        // Indented: two columns a level.
+                        let pad = " ".repeat(usize::from(cell.indent) * 2);
+                        format!("{pad}{t}").chars().take(inner).collect()
                     } else {
                         t
                     }
@@ -445,7 +478,18 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
             if in_sel || (r, c) == (pos.row, pos.col) || first {
                 buf.set_stringn(x, y, " ".repeat(inner), inner, style);
             }
-            buf.set_stringn(x + icon_w as u16, y, &text, inner - icon_w, style);
+            match (across.get(&c), cell) {
+                (Some(&total), Some(cell)) => {
+                    let t: String = cell.text.chars().filter(|ch| !ch.is_control()).collect();
+                    let shown = format!("{t:^total$}");
+                    buf.set_stringn(x, y, &shown, total, style);
+                }
+                // The cells it runs over draw nothing of their own.
+                _ if under.contains(&c) => {}
+                _ => {
+                    buf.set_stringn(x + icon_w as u16, y, &text, inner - icon_w, style);
+                }
+            }
             if let Some(cell) = cell
                 && (r, c) != (pos.row, pos.col)
                 && !in_sel
@@ -513,7 +557,7 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
             if (r, c) == (pos.row, pos.col) && has_list && inner > 0 {
                 buf[(x + inner as u16 - 1, y)].set_symbol(if caps.ascii { "v" } else { "▾" });
             }
-            if !first || !next_in_merge {
+            if (!first || !next_in_merge) && !no_line.contains(&c) {
                 buf.set_stringn(x + inner as u16, y, sep, 1, dim);
             }
             // Borders: a side as the line beside the cell in its color, the
