@@ -37,10 +37,11 @@ Items marked `(owner)` below wait on one of these; nothing else should.
 Exit: `main` has a completed, green CI run on every push for a week;
 the Windows job passes; no plugin pin can break `main`.
 
-- [ ] R1.1 CI completes on `main`: keep `cancel-in-progress` for pull
+- [~] R1.1 CI completes on `main`: keep `cancel-in-progress` for pull
   requests, drop it for `main` (`cancel-in-progress: ${{ github.event_name == 'pull_request' }}`),
   and add a 90-minute timeout to every job. Then watch the first ten
   runs. S
+  (done 2026-10-04: `cancel-in-progress` only for pull requests, `timeout-minutes: 90` on every job. Open: watch the first ten runs on `main`.)
 - [ ] R1.2 Windows tests: `lsp_service` and `plugin_install` fail on
   every Windows run; read the logs, fix the path or process handling,
   make the fake server start on Windows, and mark nothing `#[ignore]`. M
