@@ -4066,3 +4066,92 @@ fn find_all_and_spelling() {
     let words = std::fs::read_to_string(config.join("dictionaries/words.txt")).unwrap();
     assert!(words.contains("Kalemli"));
 }
+
+#[test]
+fn pasting_and_filling_more() {
+    let mut t = T::open("paste-more");
+    let input = |t: &mut T, r: u32, c: u32| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(r, c);
+        v.cell_input()
+    };
+    let select = |t: &mut T, a: (u32, u32), b: (u32, u32)| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(a.0, a.1);
+        v.grid_extend_to(b.0, b.1);
+    };
+    // Paste Link: references to B2:C3.
+    select(&mut t, (1, 1), (2, 2));
+    t.app.run_command("viewer.grid.copy", json!({}));
+    select(&mut t, (0, 10), (0, 10));
+    t.app
+        .run_command("viewer.grid.pasteSpecial", json!({ "what": "link" }));
+    assert_eq!(input(&mut t, 0, 10), "=B2");
+    assert_eq!(input(&mut t, 1, 11), "=C3");
+    // Operations: 5 added to a number, multiplying a formula.
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.set_cell(9, 10, "10").unwrap();
+    v.set_cell(10, 10, "=1+1").unwrap();
+    v.set_cell(0, 12, "5").unwrap();
+    v.set_cell(2, 12, "7").unwrap();
+    select(&mut t, (0, 12), (0, 12));
+    t.app.run_command("viewer.grid.copy", json!({}));
+    select(&mut t, (9, 10), (9, 10));
+    t.app
+        .run_command("viewer.grid.pasteSpecial", json!({ "what": "add" }));
+    assert_eq!(input(&mut t, 9, 10), "15");
+    select(&mut t, (10, 10), (10, 10));
+    t.app
+        .run_command("viewer.grid.pasteSpecial", json!({ "what": "multiply" }));
+    assert_eq!(input(&mut t, 10, 10), "=(1+1)*5");
+    // Skip Blanks: M1:M3's empty M2 leaves K11 alone.
+    select(&mut t, (0, 12), (2, 12));
+    t.app.run_command("viewer.grid.copy", json!({}));
+    select(&mut t, (9, 10), (9, 10));
+    t.app
+        .run_command("viewer.grid.pasteSpecial", json!({ "what": "skipBlanks" }));
+    assert_eq!(
+        (
+            input(&mut t, 9, 10),
+            input(&mut t, 10, 10),
+            input(&mut t, 11, 10)
+        ),
+        ("5".into(), "=(1+1)*5".into(), "7".into())
+    );
+    // Insert Copied Cells: A2:A3 at A5, Sum moved down.
+    select(&mut t, (1, 0), (2, 0));
+    t.app.run_command("viewer.grid.copy", json!({}));
+    select(&mut t, (4, 0), (4, 0));
+    t.app
+        .run_command("viewer.grid.insertCopiedCells", json!({}));
+    assert_eq!(
+        (input(&mut t, 4, 0), input(&mut t, 6, 0)),
+        ("Rent".into(), "Sum".into())
+    );
+    // Series: 2, 5, 8… down N1:N5; months from a month's end.
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.set_cell(0, 13, "2").unwrap();
+    v.set_cell(0, 14, "2026-01-31").unwrap();
+    select(&mut t, (0, 13), (4, 13));
+    t.app.run_command(
+        "viewer.grid.series",
+        json!({ "type": "linear", "step value": "3", "stop value": "" }),
+    );
+    assert_eq!(input(&mut t, 4, 13), "14");
+    select(&mut t, (0, 14), (2, 14));
+    t.app.run_command(
+        "viewer.grid.series",
+        json!({ "type": "month", "step value": "1", "stop value": "" }),
+    );
+    assert_eq!(input(&mut t, 1, 14), "2026-02-28");
+    // Fill Justify: words joined, broken to the column's width.
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.set_cell(20, 1, "bir iki").unwrap();
+    v.set_cell(21, 1, "üç").unwrap();
+    select(&mut t, (20, 1), (22, 1));
+    t.app.run_command("viewer.grid.fillJustify", json!({}));
+    assert_eq!(
+        (input(&mut t, 20, 1), input(&mut t, 21, 1)),
+        ("bir iki".into(), "üç".into())
+    );
+}

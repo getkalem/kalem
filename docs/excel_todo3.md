@@ -61,7 +61,7 @@ new release of the xlsx plugin follows when the contract moves.
 
 ## E42. Pasting and filling, the rest
 
-- [ ] E42 Paste Link (references to the copied cells); Paste Special's
+- [x] E42 Paste Link (references to the copied cells); Paste Special's
   operations (add, subtract, multiply, divide) and Skip Blanks; Insert
   Copied Cells shifting the others down or right; the Series dialog
   (linear and growth steps, a stop value, dates by day, weekday, month
