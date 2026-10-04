@@ -1427,6 +1427,22 @@ pub trait ViewerDocument: Send {
         Vec::new()
     }
 
+    /// Fills `target` (first row, first column, last row, last column),
+    /// which holds `source` and goes past it one way, from `source`, as a
+    /// spreadsheet's fill handle: with `series`, numbers, dates, numbered
+    /// text and month or day names continue as the source goes; else the
+    /// source is copied over again (Fill Down). Formulas move their
+    /// relative references either way, and cells keep the source's format.
+    fn fill(
+        &mut self,
+        _unit: usize,
+        _source: [u32; 4],
+        _target: [u32; 4],
+        _series: bool,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
     /// Sorts a range's rows by column `key` (a spreadsheet's Sort), the
     /// first row kept in place when `header`.
     fn sort_range(
