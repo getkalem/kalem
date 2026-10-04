@@ -397,15 +397,14 @@ fn paint(
             .map(|g| lo + (hi - lo) * f64::from(g) / 4.0)
             .collect()
     };
-    let tick_text = |v: f64| {
-        if v.abs() >= 1000.0 || v.fract() == 0.0 {
-            format!("{v:.0}")
-        } else {
-            format!("{v:.2}")
-                .trim_end_matches('0')
-                .trim_end_matches('.')
-                .to_owned()
-        }
+    // The axis's own number format, else a plain number.
+    let tick_text = |v: f64| match &chart.axis_format {
+        Some(code) => kalem_core::viewer::format_axis_number(v, code),
+        None if v.abs() >= 1000.0 || v.fract() == 0.0 => format!("{v:.0}"),
+        None => format!("{v:.2}")
+            .trim_end_matches('0')
+            .trim_end_matches('.')
+            .to_owned(),
     };
     match chart.kind {
         ChartKind::Column | ChartKind::Bar => {

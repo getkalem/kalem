@@ -1147,6 +1147,32 @@ fn charts() {
             .gridlines
             .horizontal_major
     );
+    // The value axis's number format: the presets with an example, then
+    // a percent; the cells' own again.
+    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('n'));
+    let s = t.screen();
+    assert!(
+        s.contains("#,##0.00   1,234.50") && s.contains("The Cells' Own"),
+        "{s}"
+    );
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.axisFormat",
+        json!({ "format": "#,##0 \"TL\"" }),
+    );
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i]
+            .axis_format
+            .as_deref(),
+        Some("#,##0 \"TL\"")
+    );
+    t.app
+        .run_command("viewer.grid.axisFormat", json!({ "format": "auto" }));
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].axis_format,
+        None
+    );
     // A column chart's slices do not stand out.
     t.app.run_command("viewer.grid.explodeSlice", json!({}));
     assert!(t.screen().contains("Only a pie's"), "{}", t.screen());
@@ -1187,4 +1213,29 @@ fn charts() {
     t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
     let s = t.screen();
     assert!(s.contains("» Rent"), "{s}");
+    // The line chart's axis in percent, written on its labels.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app
+        .run_command("viewer.grid.insertChart", json!({ "kind": "line" }));
+    let a = t
+        .app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .charts()
+        .last()
+        .unwrap()
+        .anchor;
+    t.app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_move_to(a[0], a[1]);
+    t.app
+        .run_command("viewer.grid.axisFormat", json!({ "format": "#,##0,\"K\"" }));
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    let s = t.screen();
+    assert!(s.contains("0K"), "{s}");
 }
