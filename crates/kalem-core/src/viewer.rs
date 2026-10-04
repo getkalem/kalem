@@ -338,6 +338,9 @@ pub struct ViewerState {
     pub painter: Option<(usize, [u32; 4])>,
     /// Show Formulas: formula cells show their formulas, not their values.
     pub show_formulas: bool,
+    /// The text entries of a column, for AutoComplete: unit, column and
+    /// generation they were read at.
+    col_entries: Option<((usize, u32, u64), Vec<String>)>,
 }
 
 /// What Find looks for in a grid, and how.
@@ -519,6 +522,7 @@ impl ViewerState {
             copied: None,
             painter: None,
             show_formulas: false,
+            col_entries: None,
         })
     }
 
@@ -3428,6 +3432,63 @@ impl ViewerState {
             row = to;
         }
         out
+    }
+
+    /// AutoComplete: the one text entry of the cursor's column that begins
+    /// with what is typed (in either case), longer than it; none for
+    /// numbers, formulas, or when several entries would do.
+    pub fn column_completion(&mut self, typed: &str) -> Option<String> {
+        if typed.is_empty() || typed.starts_with('=') || typed.parse::<f64>().is_ok() {
+            return None;
+        }
+        let p = self.grid_pos();
+        let key = (self.unit, p.col, self.generation);
+        if self.col_entries.as_ref().is_none_or(|(k, _)| *k != key) {
+            let rows = self.grid_layout().map_or(0, |l| l.rows);
+            let mut entries: Vec<String> = Vec::new();
+            let mut row = 0;
+            while row < rows {
+                let to = (row + 1000).min(rows);
+                for (_, _, c) in self.grid_cells(row..to, p.col..p.col + 1) {
+                    if !c.numeric && !c.formula && !c.text.is_empty() && !entries.contains(&c.text)
+                    {
+                        entries.push(c.text);
+                    }
+                }
+                row = to;
+            }
+            self.col_entries = Some((key, entries));
+        }
+        let low = typed.to_lowercase();
+        let found: Vec<&String> = self
+            .col_entries
+            .as_ref()?
+            .1
+            .iter()
+            .filter(|e| {
+                e.to_lowercase().starts_with(&low) && e.chars().count() > typed.chars().count()
+            })
+            .collect();
+        // Several entries differing only in case are one.
+        let first = found.first()?;
+        found
+            .iter()
+            .all(|e| e.to_lowercase() == first.to_lowercase())
+            .then(|| (*first).clone())
+    }
+
+    /// Ctrl+Enter: `input` entered into every selected cell, formulas moved
+    /// for each as from (`row`, `col`).
+    pub fn enter_in_selection(&mut self, row: u32, col: u32, input: &str) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        self.doc()
+            .enter_in_range(self.unit, s, (row, col), input)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
     }
 
     /// The cursor's cell's hyperlink.
@@ -6861,6 +6922,53 @@ fn save_sheet_csv(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comm
     Ok(())
 }
 
+/// Today's date (`time` off) or the time now, as typed into a cell.
+fn now_entry(time: bool) -> String {
+    let now = jiff::Zoned::now().datetime();
+    if time {
+        format!("{:02}:{:02}", now.hour(), now.minute())
+    } else {
+        format!("{:04}-{:02}-{:02}", now.year(), now.month(), now.day())
+    }
+}
+
+/// Ctrl+; and Ctrl+Shift+;: today's date or the time entered into the
+/// cursor's cell.
+fn insert_now(ctx: &mut EditorContext<'_>, time: bool) -> CommandResult {
+    with(ctx, |v| {
+        if !v.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let p = v.grid_pos();
+        v.set_cell(p.row, p.col, &now_entry(time))
+    })
+}
+
+/// Ctrl+' and Ctrl+Shift+": the cell above's formula (as it is written)
+/// or its value (as shown), to be entered into the cursor's cell.
+fn from_above(ctx: &mut EditorContext<'_>, value: bool) -> CommandResult {
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let p = v.grid_pos();
+    if p.row == 0 {
+        return Ok(());
+    }
+    let text = if value {
+        v.grid_cells(p.row - 1..p.row, p.col..p.col + 1)
+            .first()
+            .map(|c| c.2.text.clone())
+            .unwrap_or_default()
+    } else {
+        v.doc().cell_input(v.unit, p.row - 1, p.col)
+    };
+    ask_cell(ctx, Some(&text))
+}
+
 /// Format Painter (`t p`): pressed once it takes the selection's format,
 /// again it paints it over the selection then chosen.
 fn format_painter(ctx: &mut EditorContext<'_>) -> CommandResult {
@@ -7999,6 +8107,18 @@ fn grid_width(ctx: &mut EditorContext<'_>, by: f32) -> CommandResult {
     })
 }
 
+/// Whether a prompt's answer is a cell's entry: where Ctrl+Enter enters
+/// it into every selected cell and AutoComplete offers the column's text.
+pub fn cell_entry_prompt(command: &str, arg: &str) -> bool {
+    command == "viewer.grid.setCell" && arg == "value"
+}
+
+/// Whether a prompt's answer may hold line breaks (Alt+Enter): a cell's
+/// entry, a note.
+pub fn multiline_prompt(command: &str, arg: &str) -> bool {
+    cell_entry_prompt(command, arg) || (command == "viewer.grid.editNote" && arg == "value")
+}
+
 /// The commands of grid units (a workbook's sheets).
 fn grid_commands() -> Vec<Command> {
     let all = vec![
@@ -8108,6 +8228,34 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.insertDate",
+            "Insert Today's Date",
+            &["ctrl+;", "g ;"],
+            IN_GRID,
+            |ctx, _| insert_now(ctx, false),
+        ),
+        cmd(
+            "viewer.grid.insertTime",
+            "Insert the Time",
+            &["ctrl+shift+;", "g ,"],
+            IN_GRID,
+            |ctx, _| insert_now(ctx, true),
+        ),
+        cmd(
+            "viewer.grid.formulaFromAbove",
+            "Copy Formula from Above",
+            &["ctrl+'", "g '"],
+            IN_GRID,
+            |ctx, _| from_above(ctx, false),
+        ),
+        cmd(
+            "viewer.grid.valueFromAbove",
+            "Copy Value from Above",
+            &["ctrl+shift+'", "g v"],
+            IN_GRID,
+            |ctx, _| from_above(ctx, true),
+        ),
         cmd(
             "viewer.grid.saveSheetAsCsv",
             "Save Sheet as CSV",
@@ -8513,6 +8661,10 @@ fn grid_commands() -> Vec<Command> {
                     .unwrap_or_default()
                     .to_string();
                 let force = args.get("force").and_then(serde_json::Value::as_bool) == Some(true);
+                // Ctrl+Enter: into every selected cell, the selection kept.
+                if args.get("inRange").and_then(serde_json::Value::as_bool) == Some(true) {
+                    return with(ctx, |v| v.enter_in_selection(row, col, &value));
+                }
                 if !force && refused(ctx, row, col, &value) {
                     return Ok(());
                 }

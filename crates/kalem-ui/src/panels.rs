@@ -61,6 +61,10 @@ pub struct Palette {
     /// Where the cursor was when the line search opened: its source in
     /// the search, and the selection's anchor and head, to go back to.
     pub origin: Option<(usize, usize, usize)>,
+    /// AutoComplete's offer for a cell's entry being typed.
+    pub offer: Option<String>,
+    /// The offer turned down (Delete) until the input changes.
+    pub declined: bool,
 }
 
 impl Palette {
@@ -92,6 +96,8 @@ impl Palette {
             resumable: false,
             lines: None,
             origin: None,
+            offer: None,
+            declined: false,
         }
     }
 
@@ -451,6 +457,92 @@ impl Editor {
         cx.notify();
     }
 
+    /// The command and argument a cell's entry is asked for, when the
+    /// palette asks for one.
+    fn cell_entry(&self) -> Option<(String, String)> {
+        let a = self.palette.as_ref()?.arg.as_ref()?;
+        Some((a.command.clone(), a.name.clone()))
+    }
+
+    /// AutoComplete's offer for what is typed into a cell's entry: the
+    /// column's one entry it begins, the cursor at the end.
+    fn refresh_offer(&mut self) {
+        let wanted = self
+            .cell_entry()
+            .is_some_and(|(c, n)| kalem_core::viewer::cell_entry_prompt(&c, &n));
+        let Some(p) = &mut self.palette else { return };
+        p.declined = false;
+        p.offer = None;
+        if !wanted || p.back != 0 {
+            return;
+        }
+        let typed = p.input.clone();
+        let offer = self
+            .doc
+            .viewer
+            .as_deref_mut()
+            .and_then(|v| v.column_completion(&typed));
+        if let Some(p) = &mut self.palette {
+            p.offer = offer;
+        }
+    }
+
+    /// The keys of a cell's entry: Alt+Enter a line break (in a note too),
+    /// Ctrl+Enter into every selected cell, Enter taking AutoComplete's
+    /// offer and Delete turning it down.
+    fn cell_entry_key(
+        &mut self,
+        k: &Keystroke,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) -> bool {
+        let Some((command, name)) = self.cell_entry() else {
+            return false;
+        };
+        let Some(p) = &mut self.palette else {
+            return false;
+        };
+        let m = &k.modifiers;
+        if k.key == "enter" && m.alt && kalem_core::viewer::multiline_prompt(&command, &name) {
+            kalem_core::line_edit::insert(&mut p.input, p.back, "\n");
+            p.input_changed();
+            p.offer = None;
+            cx.notify();
+            return true;
+        }
+        if !kalem_core::viewer::cell_entry_prompt(&command, &name) {
+            return false;
+        }
+        let offer = p.offer.clone().filter(|_| !p.declined && p.back == 0);
+        match k.key.as_str() {
+            "delete" if offer.is_some() => {
+                p.declined = true;
+                cx.notify();
+                true
+            }
+            "enter" if m.control || m.platform => {
+                let Some(a) = p.arg.take() else { return false };
+                let input = std::mem::take(&mut p.input);
+                self.palette = None;
+                let mut args = a.args;
+                args["inRange"] = Value::Bool(true);
+                let args = kalem_core::command::with_argument(args, &a.name, input.into());
+                self.run_command(&a.command, args, window, cx);
+                cx.notify();
+                true
+            }
+            "enter" => {
+                if let Some(full) = offer {
+                    p.input = full;
+                    p.back = 0;
+                }
+                // Entered as usual.
+                false
+            }
+            _ => false,
+        }
+    }
+
     /// Keys for the open palette; `true` if used. Typed text comes through
     /// [`Editor::panel_input`].
     pub fn palette_key(
@@ -461,6 +553,9 @@ impl Editor {
     ) -> bool {
         self.apply_resume();
         self.remember_picker();
+        if self.cell_entry_key(k, window, cx) {
+            return true;
+        }
         let Some(p) = &mut self.palette else {
             return false;
         };
@@ -487,6 +582,7 @@ impl Editor {
             if kalem_core::line_edit::apply(&mut p.input, &mut p.back, edit) {
                 p.input_changed();
             }
+            self.refresh_offer();
             self.preview_line(cx);
             cx.notify();
             return true;
@@ -540,6 +636,7 @@ impl Editor {
         if let Some(p) = &mut self.palette {
             kalem_core::line_edit::insert(&mut p.input, p.back, text);
             p.input_changed();
+            self.refresh_offer();
             self.remember_picker();
             self.preview_line(cx);
             cx.notify();
@@ -744,7 +841,15 @@ impl Editor {
         let mut note = String::new();
         // The typed text with the cursor drawn where it is.
         let (before, after) = kalem_core::line_edit::split(&p.input, p.back);
-        let typed = format!("{before}▏{after}");
+        // A line break in a cell's entry shows as ↵; AutoComplete's offer
+        // after the cursor.
+        let rest = p
+            .offer
+            .as_ref()
+            .filter(|_| !p.declined)
+            .map(|f| f.chars().skip(p.input.chars().count()).collect::<String>())
+            .unwrap_or_default();
+        let typed = format!("{before}▏{after}").replace('\n', "↵");
         let prompt = match (&p.arg, &p.pick, &p.search) {
             _ if p.lines.is_some() => {
                 let n = p.lines.as_ref().map_or(0, |l| l.hits.len());
@@ -892,7 +997,18 @@ impl Editor {
                                 .flex()
                                 .flex_row()
                                 .justify_between()
-                                .child(SharedString::from(prompt))
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .child(SharedString::from(prompt))
+                                        .child(
+                                            div()
+                                                .debug_selector(|| "palette-offer".into())
+                                                .text_color(theme.muted)
+                                                .child(SharedString::from(rest)),
+                                        ),
+                                )
                                 .child(
                                     div()
                                         .text_color(theme.muted)

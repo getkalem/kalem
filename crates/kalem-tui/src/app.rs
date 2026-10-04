@@ -117,6 +117,8 @@ struct Prompt {
     input: String,
     /// The cursor, as characters after it ([`kalem_core::line_edit`]).
     back: usize,
+    /// AutoComplete's offer turned down (Delete) until the input changes.
+    declined: bool,
 }
 
 /// A message in the status line.
@@ -1486,6 +1488,7 @@ impl App {
                 ),
                 input,
                 back: 0,
+                declined: false,
                 kind: PromptKind::Arg {
                     command: id.to_string(),
                     args,
@@ -2116,6 +2119,7 @@ impl App {
             label: label.to_string(),
             input,
             back: 0,
+            declined: false,
         });
         self.dirty = true;
     }
@@ -3874,8 +3878,54 @@ impl App {
                 | PromptKind::Reload
                 | PromptKind::Overwrite
         );
+        // A cell's entry: Alt+Enter a line break, Ctrl+Enter into every
+        // selected cell, AutoComplete's offer taken with Enter or turned
+        // down with Delete.
+        if let PromptKind::Arg {
+            command,
+            name,
+            args,
+            ..
+        } = &p.kind
+        {
+            let (command, name) = (command.clone(), name.clone());
+            let alt = k.modifiers.contains(KeyModifiers::ALT);
+            let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
+            if k.code == KeyCode::Enter
+                && alt
+                && kalem_core::viewer::multiline_prompt(&command, &name)
+            {
+                kalem_core::line_edit::insert(&mut p.input, p.back, "\n");
+                p.declined = false;
+                self.prompt = Some(p);
+                return;
+            }
+            if kalem_core::viewer::cell_entry_prompt(&command, &name) {
+                let offer = self.completion_offer(&p);
+                if k.code == KeyCode::Delete && offer.is_some() {
+                    p.declined = true;
+                    self.prompt = Some(p);
+                    return;
+                }
+                if k.code == KeyCode::Enter && ctrl {
+                    let mut args = args.clone();
+                    args["inRange"] = serde_json::Value::Bool(true);
+                    let args =
+                        kalem_core::command::with_argument(args, &name, p.input.clone().into());
+                    self.run_command(&command, args);
+                    return;
+                }
+                if k.code == KeyCode::Enter
+                    && let Some(full) = offer
+                {
+                    p.input = full;
+                    p.back = 0;
+                }
+            }
+        }
         if !yes_no && let Some(edit) = line_key(&k) {
             kalem_core::line_edit::apply(&mut p.input, &mut p.back, edit);
+            p.declined = false;
             self.prompt = Some(p);
             return;
         }
@@ -3925,6 +3975,7 @@ impl App {
             KeyCode::Enter => {}
             KeyCode::Char(c) if input::text(&k).is_some() => {
                 kalem_core::line_edit::insert(&mut p.input, p.back, c.encode_utf8(&mut [0; 4]));
+                p.declined = false;
                 self.prompt = Some(p);
                 return;
             }
@@ -3972,6 +4023,19 @@ impl App {
             }
             _ => {}
         }
+    }
+
+    /// What AutoComplete offers for a cell's entry being typed: the column's
+    /// one entry it begins, with the cursor at the end and the offer not
+    /// turned down.
+    fn completion_offer(&mut self, p: &Prompt) -> Option<String> {
+        let PromptKind::Arg { command, name, .. } = &p.kind else {
+            return None;
+        };
+        if p.declined || p.back != 0 || !kalem_core::viewer::cell_entry_prompt(command, name) {
+            return None;
+        }
+        self.doc.viewer.as_deref_mut()?.column_completion(&p.input)
     }
 
     /// An answer to a file operation's question: `y`/`n`, or `o`, `s`, `k`
@@ -4563,6 +4627,14 @@ impl App {
             self.dirty = false;
             return;
         }
+        let offer = match self.prompt.take() {
+            Some(p) => {
+                let o = self.completion_offer(&p);
+                self.prompt = Some(p);
+                o
+            }
+            None => None,
+        };
         if let Some(p) = &self.prompt {
             buf.set_stringn(
                 area.x + 1,
@@ -4582,8 +4654,24 @@ impl App {
                 }
                 before.insert(0, '…');
             }
-            let shown = format!("{before}{after}");
+            // A line break in a cell's entry shows as ↵.
+            let before = before.replace('\n', "↵");
+            let shown = format!("{before}{}", after.replace('\n', "↵"));
             buf.set_stringn(area.x + 1 + lw, y, &shown, room, bar);
+            // AutoComplete's offer after what is typed, faint.
+            if let Some(full) = &offer {
+                let rest: String = full.chars().skip(p.input.chars().count()).collect();
+                let at = area.x + 1 + lw + shown.width() as u16;
+                if at < area.right() {
+                    buf.set_stringn(
+                        at,
+                        y,
+                        &rest,
+                        (area.right() - at) as usize,
+                        bar.add_modifier(Modifier::DIM),
+                    );
+                }
+            }
             let x = (area.x + 1 + lw + before.width() as u16).min(area.right().saturating_sub(1));
             f.set_cursor_position((x, y));
             self.dirty = false;

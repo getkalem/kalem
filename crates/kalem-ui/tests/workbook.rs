@@ -619,6 +619,46 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
 
+    // AutoComplete in a cell's entry: "fo" offers Food, Enter takes it;
+    // Alt+Enter a line break.
+    e.update_in(cx, |e, window, cx| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(6, 0);
+        e.run_command("viewer.grid.edit", serde_json::json!({}), window, cx);
+    });
+    e.update(cx, |e, cx| e.panel_input("fo", cx));
+    cx.run_until_parked();
+    let offer = e.update(cx, |e, _| e.palette.as_ref().and_then(|p| p.offer.clone()));
+    assert_eq!(offer.as_deref(), Some("Food"));
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    let a7 = e.update(cx, |e, _| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(6, 0);
+        v.cell_input()
+    });
+    assert_eq!(a7, "Food");
+    e.update_in(cx, |e, window, cx| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(7, 0);
+        e.run_command("viewer.grid.edit", serde_json::json!({}), window, cx);
+    });
+    e.update(cx, |e, cx| e.panel_input("a", cx));
+    cx.simulate_keystrokes("alt-enter");
+    e.update(cx, |e, cx| e.panel_input("b", cx));
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    let a8 = e.update(cx, |e, _| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(7, 0);
+        v.cell_input()
+    });
+    assert_eq!(a8, "a\nb");
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("edit.undo", serde_json::json!({}), window, cx);
+        e.run_command("edit.undo", serde_json::json!({}), window, cx);
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    });
+    cx.run_until_parked();
+
     // Find: the first match after the cursor, then the next with F3.
     e.update_in(cx, |e, window, cx| {
         e.run_command(

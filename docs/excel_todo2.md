@@ -12,7 +12,7 @@ be bound again.
 
 ## E21. Typing into cells
 
-- [ ] E21 Alt+Enter for a line break in a cell; Ctrl+Enter enters the
+- [x] E21 Alt+Enter for a line break in a cell; Ctrl+Enter enters the
   same text into every selected cell; Ctrl+; today's date, Ctrl+Shift+;
   the time; Ctrl+' the formula of the cell above, Ctrl+Shift+" its value;
   AutoComplete of text from entries already in the column.

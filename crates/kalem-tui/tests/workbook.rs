@@ -2633,3 +2633,83 @@ fn sheet_saved_as_csv() {
     // The workbook itself is as it was.
     assert!(!t.screen().contains("budget.xlsx •"), "{}", t.screen());
 }
+
+#[test]
+fn typing_into_cells() {
+    let mut t = T::open("typing");
+    let input = |t: &mut T, r: u32, c: u32| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(r, c);
+        v.cell_input()
+    };
+    let edit = |t: &mut T, r: u32, c: u32| {
+        t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(r, c);
+        t.app.run_command("viewer.grid.edit", json!({}));
+    };
+    let typ = |t: &mut T, s: &str| {
+        for ch in s.chars() {
+            t.key(KeyCode::Char(ch));
+        }
+    };
+    // AutoComplete: "Fo" offers Food from the column; Enter takes it.
+    edit(&mut t, 6, 0);
+    typ(&mut t, "fo");
+    assert!(t.screen().contains("food"), "{}", t.screen());
+    t.key(KeyCode::Enter);
+    assert_eq!(input(&mut t, 6, 0), "Food");
+    // Delete turns the offer down.
+    edit(&mut t, 7, 0);
+    typ(&mut t, "Tr");
+    t.key(KeyCode::Delete);
+    t.key(KeyCode::Enter);
+    assert_eq!(input(&mut t, 7, 0), "Tr");
+    // Alt+Enter: a line break, the cell wrapped.
+    edit(&mut t, 8, 0);
+    typ(&mut t, "Kira");
+    t.app
+        .event(Event::Key(KeyEvent::new(KeyCode::Enter, KeyModifiers::ALT)));
+    assert!(t.screen().contains("Kira↵"), "{}", t.screen());
+    typ(&mut t, "Ocak");
+    t.key(KeyCode::Enter);
+    assert_eq!(input(&mut t, 8, 0), "Kira\nOcak");
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert!(v.cursor_cell().wrap);
+    // Ctrl+Enter: into every selected cell, references moved.
+    v.grid_move_to(9, 1);
+    v.grid_extend_to(10, 2);
+    t.app.run_command("viewer.grid.edit", json!({}));
+    typ(&mut t, "=B2*2");
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Enter,
+        KeyModifiers::CONTROL,
+    )));
+    assert_eq!(input(&mut t, 10, 2), "=B2*2");
+    assert_eq!(input(&mut t, 9, 1), "=A1*2");
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(input(&mut t, 9, 1), "");
+    // Today's date, the time; the formula and the value from above.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(11, 0);
+    t.app.run_command("viewer.grid.insertDate", json!({}));
+    let year = jiff::Zoned::now().year().to_string();
+    assert!(
+        input(&mut t, 11, 0).contains(&year),
+        "{}",
+        input(&mut t, 11, 0)
+    );
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(11, 1);
+    t.app.run_command("viewer.grid.insertTime", json!({}));
+    assert!(
+        input(&mut t, 11, 1).contains(':'),
+        "{}",
+        input(&mut t, 11, 1)
+    );
+    let d5 = input(&mut t, 4, 3);
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(5, 3);
+    t.app.run_command("viewer.grid.formulaFromAbove", json!({}));
+    assert!(t.screen().contains(&d5), "{d5} {}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(5, 3);
+    t.app.run_command("viewer.grid.valueFromAbove", json!({}));
+    assert!(t.screen().contains("4,293.75"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+}
