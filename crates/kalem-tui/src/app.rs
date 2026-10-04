@@ -136,6 +136,9 @@ pub struct App {
     /// Problems in the keymap files.
     pub keymap_issues: Vec<KeymapIssue>,
     bus: EventBus,
+    /// The plugins' registrations the commands and keys were built with
+    /// (`kalem_core::extensions::generation`).
+    plugins_seen: u64,
     watcher: Option<FileWatcher>,
     changed_files: Rc<RefCell<Vec<PathBuf>>>,
     /// The document.
@@ -443,6 +446,8 @@ impl App {
         let (keymap, more) = full.for_terminal(caps.kitty_keyboard);
         issues.extend(more);
         let mut bus = EventBus::new();
+        // The plugins hear every event (`kalem_core::extensions`).
+        bus.subscribe(None, kalem_core::extensions::event);
         let changed_files: Rc<RefCell<Vec<PathBuf>>> = Rc::default();
         let queue = changed_files.clone();
         bus.subscribe(Some(EventKind::WorkspaceFileChanged), move |e| {
@@ -468,6 +473,7 @@ impl App {
             keymap,
             keymap_issues: issues,
             bus,
+            plugins_seen: kalem_core::extensions::generation(),
             watcher,
             changed_files,
             doc,
@@ -1942,6 +1948,13 @@ impl App {
             .and_then(|(_, p)| p.clone());
         self.config = Config::load(path.as_deref(), workspace.as_deref());
         self.config.apply_process_settings();
+        self.rebuild_keys();
+        self.message(tr!("msg-reloaded-settings"), false);
+    }
+
+    /// Builds the keymap again from the commands, the profile and the
+    /// user's `keymap.json`.
+    fn rebuild_keys(&mut self) {
         let user = settings::config_dir().map(|d| d.join("keymap.json"));
         let entries = match user.as_deref().map(std::fs::read_to_string) {
             Some(Ok(text)) => {
@@ -1956,7 +1969,6 @@ impl App {
             &self.config.vim_leader(),
         );
         self.keymap = full.for_terminal(self.caps.kitty_keyboard).0;
-        self.message(tr!("msg-reloaded-settings"), false);
     }
 
     /// Saves `key` in the user's settings and reads the settings again.
@@ -4006,6 +4018,18 @@ impl App {
     }
 
     pub fn tick(&mut self, now: Instant) {
+        // The plugins' commands and keys changed: built again; the
+        // commands their event handlers asked for, run.
+        let plugins = kalem_core::extensions::generation();
+        if plugins != self.plugins_seen {
+            self.plugins_seen = plugins;
+            self.registry = CommandRegistry::with_builtins();
+            self.rebuild_keys();
+            self.dirty = true;
+        }
+        for (id, args) in kalem_core::extensions::take_runs() {
+            self.run_command(&id, args);
+        }
         // Language servers: the document in step, their answers shown.
         kalem_core::lsp::sync(&self.doc);
         if kalem_core::lsp::tick() {

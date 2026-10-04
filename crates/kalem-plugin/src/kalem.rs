@@ -159,8 +159,9 @@ pub fn command(
 }
 
 /// Runs a command, built in or another plugin's, with arguments as JSON
-/// (`"null"` for none). A plugin runs its own commands as functions.
-pub fn run(id: &str, args: &str) -> Result<String, String> {
+/// (`"null"` for none), once the plugin's call returns. A plugin runs its
+/// own commands as functions.
+pub fn run(id: &str, args: &str) -> Result<(), String> {
     api::run(id, args)
 }
 

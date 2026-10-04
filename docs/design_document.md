@@ -1173,7 +1173,7 @@ The API is defined in WIT (D6); the Rust bindings are generated from it and publ
 pub mod kalem {
     pub const VERSION: &str;
     pub fn command(id: &str, spec: CommandSpec) -> Disposable;        // title, run, scope (11.2), when, keys
-    pub fn run(id: &str, args: &[Value]) -> Result<Value>;
+    pub fn run(id: &str, args: &[Value]) -> Result<()>;                // queued: runs once the plugin's call returns (T3.1.12)
     pub fn keymap(keys: &str, command_id: &str, when: Option<&str>) -> Disposable;
     pub fn on<E: Event>(handler: impl Fn(E) + 'static) -> Disposable;
 

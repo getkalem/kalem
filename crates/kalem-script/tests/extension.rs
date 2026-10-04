@@ -66,9 +66,9 @@ impl Editor for Fake {
         self.0.lock().unwrap().bindings.remove(&id);
     }
 
-    fn run(&mut self, id: &str, args: &str) -> Result<String, String> {
+    fn run(&mut self, id: &str, args: &str) -> Result<(), String> {
         self.0.lock().unwrap().ran.push((id.into(), args.into()));
-        Ok("\"DONE\"".into())
+        Ok(())
     }
 
     fn notify(&mut self, _plugin: &str, message: &str, level: Level) {
@@ -173,7 +173,7 @@ fn a_plugin_registers_its_commands_and_runs_them() {
     // Another's command, through the editor.
     assert_eq!(
         ext.run_command("counter.cycle", "{\"n\":1}").unwrap(),
-        Ok("\"DONE\"".into())
+        Ok("null".into())
     );
     assert_eq!(
         fake.0.lock().unwrap().ran,
@@ -331,12 +331,12 @@ fn a_panel_is_filled_and_hears_its_widgets() {
         "not its panel"
     );
 
-    let out = run(&mut ext, "counter.bad-trees").unwrap();
+    let out = run(&mut ext, "counter.badTrees").unwrap();
     let errors: Vec<&str> = out.lines().collect();
     assert_eq!(errors.len(), 6, "{out}");
     assert!(errors.iter().all(|e| !e.is_empty()), "{out}");
     assert_eq!(labels(&fake, "counter.panel")[0], "1", "the panel kept");
-    let foreign = run(&mut ext, "counter.foreign-panel").unwrap_err();
+    let foreign = run(&mut ext, "counter.foreignPanel").unwrap_err();
     assert!(foreign.contains("not the plugin's"), "{foreign}");
 }
 

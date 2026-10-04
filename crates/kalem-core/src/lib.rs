@@ -19,6 +19,7 @@ pub mod dates;
 pub mod dired;
 pub mod document;
 pub mod events;
+pub mod extensions;
 pub mod files;
 pub mod find;
 pub mod formulas;

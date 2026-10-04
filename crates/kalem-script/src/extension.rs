@@ -83,8 +83,9 @@ pub trait Editor: Send + 'static {
     /// Removes binding `id`.
     fn remove_binding(&mut self, id: u64);
 
-    /// Runs command `id` with `args` as JSON; its result as JSON.
-    fn run(&mut self, id: &str, args: &str) -> Result<String, String>;
+    /// Runs command `id` with `args` as JSON once the plugin's call
+    /// returns; refused when there is no such command.
+    fn run(&mut self, id: &str, args: &str) -> Result<(), String>;
 
     /// Shows `message` from plugin `plugin`.
     fn notify(&mut self, plugin: &str, message: &str, level: Level);
@@ -233,7 +234,7 @@ impl api::Host for Session {
             .map_err(|e| e.to_string())
     }
 
-    fn run(&mut self, id: String, args: String) -> Result<String, String> {
+    fn run(&mut self, id: String, args: String) -> Result<(), String> {
         // The plugin is inside a call: running its own command would enter
         // it again, which a component does not allow.
         if self.owns(&id) {

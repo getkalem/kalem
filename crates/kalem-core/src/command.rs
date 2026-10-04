@@ -484,24 +484,20 @@ impl CommandError {
 /// The result of a command.
 pub type CommandResult = Result<(), CommandError>;
 
-/// A script function registered by a plugin (phase 3).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ScriptCallbackId(pub u64);
-
 /// What runs a command.
 #[derive(Clone)]
 pub enum CommandHandler {
     /// A Rust function.
     Native(fn(&mut EditorContext<'_>, &Value) -> CommandResult),
-    /// A script callback.
-    Script(ScriptCallbackId),
+    /// The plugin of this ID, through `crate::extensions`.
+    Plugin(String),
 }
 
 impl fmt::Debug for CommandHandler {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CommandHandler::Native(_) => f.write_str("Native"),
-            CommandHandler::Script(id) => write!(f, "Script({})", id.0),
+            CommandHandler::Plugin(id) => write!(f, "Plugin({id})"),
         }
     }
 }
@@ -913,7 +909,7 @@ impl CommandRegistry {
         CommandRegistry::default()
     }
 
-    /// A registry with the built-in commands.
+    /// A registry with the built-in commands and the plugins'.
     pub fn with_builtins() -> CommandRegistry {
         let mut r = CommandRegistry::new();
         for mut c in crate::builtin::commands() {
@@ -921,6 +917,11 @@ impl CommandRegistry {
                 c.scope = Some(crate::builtin::default_scope(&c));
             }
             r.register(c).expect("built-in commands are valid");
+        }
+        // And the plugins' (`crate::extensions`), checked when they were
+        // added.
+        for c in crate::extensions::commands() {
+            let _ = r.register(c);
         }
         r
     }
@@ -1008,8 +1009,14 @@ impl CommandRegistry {
         };
         match &c.handler {
             CommandHandler::Native(f) => f(ctx, args),
-            CommandHandler::Script(_) => {
-                Err(CommandError::new("Script commands are not available yet"))
+            // The commands the plugin asked to run follow it, in the same
+            // context.
+            CommandHandler::Plugin(_) => {
+                crate::extensions::run(id, args)?;
+                for (next, args) in crate::extensions::take_runs() {
+                    self.execute(&next, ctx, &args)?;
+                }
+                Ok(())
             }
         }
     }

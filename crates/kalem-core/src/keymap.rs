@@ -358,6 +358,13 @@ impl Keymap {
                 });
             }
         }
+        // The plugins' bindings, as default keys (`crate::extensions`), to
+        // the commands there are.
+        all.extend(
+            crate::extensions::bindings()
+                .into_iter()
+                .filter(|b| registry.get(&b.command).is_some()),
+        );
         // In the Vim profile the Word-like keys with Control or Alt give
         // way to Vim's while the Vim layer is on (`vimActive`; Control
         // only where it is Vim's, `vimOwnsCtrl`, not Command on macOS):

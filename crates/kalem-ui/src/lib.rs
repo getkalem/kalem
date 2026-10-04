@@ -53,7 +53,12 @@ pub fn shared(config: Config) -> editor::Shared {
         )),
         jobs: Rc::default(),
         completers: kalem_core::completers::Registry::with_builtins(),
-        bus: Rc::default(),
+        bus: Rc::new(RefCell::new({
+            let mut bus = kalem_core::events::EventBus::new();
+            // The plugins hear every event (`kalem_core::extensions`).
+            bus.subscribe(None, kalem_core::extensions::event);
+            bus
+        })),
         last: Rc::default(),
         problems: std::cell::Cell::new(0),
         config,
@@ -128,6 +133,7 @@ pub fn run(path: Option<PathBuf>) {
         cx.activate(true);
         cx.spawn(async move |cx| {
             let mut first = !started_with_file;
+            let mut plugins = kalem_core::extensions::generation();
             loop {
                 cx.background_executor()
                     .timer(std::time::Duration::from_millis(if first {
@@ -154,6 +160,18 @@ pub fn run(path: Option<PathBuf>) {
                             .bus
                             .borrow_mut()
                             .emit(&kalem_core::events::Event::AppReady);
+                    }
+                    // The plugins' commands and keys changed: every window
+                    // gets them; the commands their event handlers asked
+                    // for run in the active editor.
+                    let now = kalem_core::extensions::generation();
+                    if now != plugins {
+                        plugins = now;
+                        workspace::plugins_changed(cx);
+                    }
+                    let runs = kalem_core::extensions::take_runs();
+                    if !runs.is_empty() {
+                        workspace::run_queued(runs, cx);
                     }
                 });
             }

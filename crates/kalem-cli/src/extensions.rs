@@ -1,0 +1,444 @@
+//! The installed extension plugins, loaded into the editors (T3.1.12): the
+//! components of the `extension` world, run in `kalem-script`'s host and
+//! offered to the editors as `kalem_core::extensions::Extensions`.
+//!
+//! A plugin's manifest (`plugin.json`) names its component (`main`) and
+//! when it starts (`activation`): `onStartup`, the default, or
+//! `onEvent:NAME` for the first event of that name (`onEvent:document:open`).
+//! It is known by the last part of its ID (`org.kalem.wordcount` is
+//! `wordcount`, its commands `wordcount.*`). A plugin that fails (a trap,
+//! its time or memory spent) is stopped, what it registered taken back,
+//! and the user told.
+
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use kalem_core::command::{Command, CommandHandler, CommandSource, Scope};
+use kalem_core::events::Event;
+use kalem_core::keys::KeySequence;
+use kalem_core::when::WhenClause;
+use kalem_script::extension::{self as x, Editor, Extension, Question};
+use kalem_script::{Host, Limits};
+
+/// The editor as a plugin reaches it: `kalem_core::extensions` and the
+/// background notices.
+struct Bridge;
+
+impl Editor for Bridge {
+    fn add_command(&mut self, plugin: &str, spec: &x::CommandSpec) -> Result<(), String> {
+        let mut default_keys = Vec::new();
+        for k in &spec.keys {
+            default_keys.push(KeySequence::parse(k).ok_or_else(|| format!("`{k}` are not keys"))?);
+        }
+        let when = spec
+            .when
+            .as_deref()
+            .map(WhenClause::parse)
+            .transpose()
+            .map_err(|e| format!("`{}`: {e:?}", spec.when.as_deref().unwrap_or_default()))?;
+        let args_schema = spec
+            .args_schema
+            .as_deref()
+            .map(serde_json::from_str)
+            .transpose()
+            .map_err(|e| format!("The arguments' schema: {e}"))?;
+        kalem_core::extensions::add_command(Command {
+            id: spec.id.clone(),
+            title: spec.title.clone(),
+            category: spec.category.clone(),
+            default_keys,
+            when,
+            handler: CommandHandler::Plugin(plugin.to_string()),
+            args_schema,
+            source: CommandSource::Plugin(plugin.to_string()),
+            scope: Some(Scope {
+                types: spec.scope.types.clone(),
+                except: spec.scope.except.clone(),
+            }),
+        })
+    }
+
+    fn remove_command(&mut self, id: &str) {
+        kalem_core::extensions::remove_command(id);
+    }
+
+    fn add_binding(
+        &mut self,
+        id: u64,
+        keys: &str,
+        command: &str,
+        when: Option<&str>,
+    ) -> Result<(), String> {
+        kalem_core::extensions::add_binding(binding_id(id), keys, command, when)
+    }
+
+    fn remove_binding(&mut self, id: u64) {
+        kalem_core::extensions::remove_binding(binding_id(id));
+    }
+
+    fn run(&mut self, id: &str, args: &str) -> Result<(), String> {
+        if !kalem_core::extensions::known(id) {
+            return Err(format!("Unknown command `{id}`"));
+        }
+        let args = serde_json::from_str(args).map_err(|e| format!("The arguments: {e}"))?;
+        kalem_core::extensions::queue_run(id, args);
+        Ok(())
+    }
+
+    fn notify(&mut self, plugin: &str, message: &str, level: x::Level) {
+        kalem_core::jobs::notice(
+            format!("{plugin}: {message}"),
+            matches!(level, x::Level::Error),
+        );
+    }
+
+    // Questions, status items and panels are shown by the editors with
+    // T3.1.12's second step; until then a question stays unanswered.
+    fn ask(&mut self, _plugin: &str, _request: u64, _question: Question) {}
+
+    fn withdraw(&mut self, _request: u64) {}
+
+    fn set_status(&mut self, _plugin: &str, _id: &str, _text: &str, _o: &x::StatusOptions) {}
+
+    fn remove_status(&mut self, _plugin: &str, _id: &str) {}
+
+    fn add_panel(&mut self, _plugin: &str, _spec: &x::PanelSpec) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn set_panel(&mut self, _id: &str, _tree: &x::WidgetTree) {}
+
+    fn remove_panel(&mut self, _id: &str) {}
+}
+
+/// Binding numbers are each plugin's own: they are told apart by the
+/// plugin's place in the list, in the high bits.
+fn binding_id(id: u64) -> u64 {
+    PLUGIN.with(|p| (p.get() << 40) | id)
+}
+
+thread_local! {
+    /// The place of the plugin being called, for [`binding_id`].
+    static PLUGIN: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// An installed extension plugin.
+struct Loaded {
+    /// Its short ID, its commands' prefix.
+    id: String,
+    file: PathBuf,
+    activation: Vec<String>,
+    limits: Limits,
+    /// Running, once activated.
+    extension: Option<Extension>,
+    /// Stopped after a failure; not started again until Kalem restarts.
+    failed: bool,
+}
+
+/// The installed extension plugins.
+struct Plugins {
+    host: Arc<Host>,
+    list: Vec<Loaded>,
+}
+
+impl Plugins {
+    /// Starts plugin `i`: loaded (from the cache when compiled before),
+    /// instantiated over the bridge, and activated.
+    fn activate(&mut self, i: usize) {
+        PLUGIN.with(|p| p.set(i as u64 + 1));
+        let host = self.host.clone();
+        let l = &mut self.list[i];
+        let started = host
+            .load_file(&l.file)
+            .and_then(|plugin| Extension::new(&host, &plugin, &l.id, Box::new(Bridge), l.limits))
+            .map_err(|e| e.to_string())
+            .and_then(|mut ext| match ext.activate() {
+                Ok(Ok(())) => Ok(ext),
+                Ok(Err(e)) => {
+                    let _ = ext.deactivate();
+                    Err(e)
+                }
+                Err(e) => {
+                    let _ = ext.deactivate();
+                    Err(e.to_string())
+                }
+            });
+        match started {
+            Ok(ext) => l.extension = Some(ext),
+            Err(e) => {
+                l.failed = true;
+                kalem_core::jobs::notice(format!("The plugin {} did not start: {e}", l.id), true);
+            }
+        }
+    }
+
+    /// Stops plugin `i` after `error`: what it registered is taken back.
+    fn fail(&mut self, i: usize, error: &kalem_script::Error) {
+        PLUGIN.with(|p| p.set(i as u64 + 1));
+        let l = &mut self.list[i];
+        if let Some(mut ext) = l.extension.take() {
+            let _ = ext.deactivate();
+        }
+        l.failed = true;
+        kalem_core::jobs::notice(format!("The plugin {} was stopped: {error}", l.id), true);
+    }
+}
+
+impl kalem_core::extensions::Extensions for Plugins {
+    fn run(&mut self, id: &str, args: &str) -> Result<(), String> {
+        let Some(i) = self.list.iter().position(|l| {
+            l.extension
+                .as_ref()
+                .is_some_and(|e| e.commands().contains(id))
+        }) else {
+            return Err(format!("No plugin runs `{id}`"));
+        };
+        PLUGIN.with(|p| p.set(i as u64 + 1));
+        let Some(ext) = self.list[i].extension.as_mut() else {
+            return Err(format!("No plugin runs `{id}`"));
+        };
+        match ext.run_command(id, args) {
+            Ok(Ok(_)) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(e) => {
+                let message = e.to_string();
+                self.fail(i, &e);
+                Err(message)
+            }
+        }
+    }
+
+    fn event(&mut self, event: &Event) -> Option<String> {
+        let name = event.kind().name();
+        let waiting = format!("onEvent:{name}");
+        for i in 0..self.list.len() {
+            let l = &self.list[i];
+            if l.extension.is_none() && !l.failed && l.activation.contains(&waiting) {
+                self.activate(i);
+            }
+        }
+        if self.list.iter().all(|l| l.extension.is_none()) {
+            return None;
+        }
+        let wit = to_wit(event);
+        let kind = x::kind(&wit);
+        let mut veto = None;
+        for i in 0..self.list.len() {
+            let Some(ext) = self.list[i].extension.as_mut() else {
+                continue;
+            };
+            if !ext.wants(kind) {
+                continue;
+            }
+            PLUGIN.with(|p| p.set(i as u64 + 1));
+            match ext.event(&wit) {
+                Ok(x::Reply::Veto(why)) if veto.is_none() && event.kind().vetoable() => {
+                    veto = Some(why);
+                }
+                Ok(_) => {}
+                Err(e) => self.fail(i, &e),
+            }
+        }
+        veto
+    }
+}
+
+/// `event` in the API's terms.
+fn to_wit(event: &Event) -> x::Event {
+    use x::api;
+    let path = |p: &std::path::Path| p.to_string_lossy().into_owned();
+    match event {
+        Event::AppReady => x::Event::AppReady,
+        Event::DocumentOpen { doc, path: p } => x::Event::DocumentOpen(api::DocumentOpened {
+            document: doc.0,
+            path: p.as_deref().map(path),
+        }),
+        Event::DocumentClose { doc } => x::Event::DocumentClose(doc.0),
+        Event::DocumentBeforeSave { doc, path: p } => {
+            x::Event::DocumentBeforeSave(api::DocumentSaved {
+                document: doc.0,
+                path: path(p),
+            })
+        }
+        Event::DocumentAfterSave { doc, path: p } => {
+            x::Event::DocumentAfterSave(api::DocumentSaved {
+                document: doc.0,
+                path: path(p),
+            })
+        }
+        Event::DocumentChanged {
+            doc,
+            version,
+            ranges,
+        } => x::Event::DocumentChanged(api::DocumentChanged {
+            document: doc.0,
+            version: *version,
+            ranges: ranges
+                .iter()
+                .map(|r| api::Range {
+                    start: r.start as u64,
+                    end: r.end as u64,
+                })
+                .collect(),
+        }),
+        Event::SelectionChanged { doc, anchor, head } => {
+            x::Event::SelectionChanged(api::SelectionChanged {
+                document: doc.0,
+                anchor: *anchor as u64,
+                head: *head as u64,
+            })
+        }
+        Event::HeadlineTodoChanged {
+            doc,
+            headline,
+            from,
+            to,
+        } => x::Event::HeadlineTodoChanged(api::TodoChanged {
+            document: doc.0,
+            headline: *headline as u64,
+            from: from.clone(),
+            to: to.clone(),
+        }),
+        Event::HeadlineTagsChanged {
+            doc,
+            headline,
+            tags,
+        } => x::Event::HeadlineTagsChanged(api::TagsChanged {
+            document: doc.0,
+            headline: *headline as u64,
+            tags: tags.clone(),
+        }),
+        Event::HeadlineScheduled {
+            doc,
+            headline,
+            timestamp,
+        } => x::Event::HeadlineScheduled(api::Scheduled {
+            document: doc.0,
+            headline: *headline as u64,
+            timestamp: timestamp.clone(),
+        }),
+        Event::TableBeforeRecalc { doc, table } => x::Event::TableBeforeRecalc(api::TableEvent {
+            document: doc.0,
+            table: *table as u64,
+        }),
+        Event::TableRecalculated { doc, table } => x::Event::TableRecalculated(api::TableEvent {
+            document: doc.0,
+            table: *table as u64,
+        }),
+        Event::BabelBeforeExecute {
+            doc,
+            block,
+            language,
+        } => x::Event::BabelBeforeExecute(api::BabelBefore {
+            document: doc.0,
+            block: *block as u64,
+            language: language.clone(),
+        }),
+        Event::BabelAfterExecute {
+            doc,
+            block,
+            language,
+            success,
+        } => x::Event::BabelAfterExecute(api::BabelAfter {
+            document: doc.0,
+            block: *block as u64,
+            language: language.clone(),
+            success: *success,
+        }),
+        Event::ExportBefore { doc, backend } => x::Event::ExportBefore(api::ExportBefore {
+            document: doc.0,
+            backend: backend.clone(),
+        }),
+        Event::ExportAfter {
+            doc,
+            backend,
+            output,
+        } => x::Event::ExportAfter(api::ExportAfter {
+            document: doc.0,
+            backend: backend.clone(),
+            output: output.as_deref().map(path),
+        }),
+        Event::WorkspaceFileChanged { path: p } => x::Event::WorkspaceFileChanged(path(p)),
+    }
+}
+
+/// The installed extension plugins: a plugin with a `main` component that
+/// opens no files.
+fn installed() -> Vec<Loaded> {
+    let mut list = Vec::new();
+    for p in kalem_core::plugin_store::installed() {
+        let Ok(text) = std::fs::read_to_string(p.dir.join("plugin.json")) else {
+            continue;
+        };
+        let Ok(m) = serde_json::from_str::<serde_json::Value>(&text) else {
+            continue;
+        };
+        let Some(main) = m["main"].as_str() else {
+            continue;
+        };
+        if m["opens"].as_array().is_some_and(|a| !a.is_empty()) {
+            continue;
+        }
+        let strings = |v: &serde_json::Value| -> Vec<String> {
+            v.as_array()
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|e| e.as_str().map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        let mut activation = strings(&m["activation"]);
+        if activation.is_empty() {
+            activation.push("onStartup".into());
+        }
+        let defaults = Limits::default();
+        let limits = Limits {
+            memory: m["limits"]["memory_mb"]
+                .as_u64()
+                .map_or(defaults.memory, |mb| (mb as usize) << 20),
+            time: m["limits"]["time_ms"]
+                .as_u64()
+                .map_or(defaults.time, std::time::Duration::from_millis),
+        };
+        list.push(Loaded {
+            id: p.id.rsplit('.').next().unwrap_or(&p.id).to_string(),
+            file: p.dir.join(main),
+            activation,
+            limits,
+            extension: None,
+            failed: false,
+        });
+    }
+    list
+}
+
+/// Loads the installed extension plugins on a thread, starts those that
+/// start with Kalem, and offers them to the editors; their commands and
+/// keys reach the editors as they register them. Without any, nothing
+/// starts.
+pub(crate) fn load() {
+    let list = installed();
+    if list.is_empty() {
+        return;
+    }
+    let _ = std::thread::Builder::new()
+        .name("kalem-extensions".into())
+        .spawn(move || {
+            let cache = kalem_core::logging::state_dir().map(|d| d.join("plugin-cache"));
+            let host = match Host::new(cache) {
+                Ok(h) => Arc::new(h),
+                Err(e) => {
+                    kalem_core::jobs::notice(format!("Plugins cannot run: {e}"), true);
+                    return;
+                }
+            };
+            let mut plugins = Plugins { host, list };
+            for i in 0..plugins.list.len() {
+                if plugins.list[i].activation.iter().any(|a| a == "onStartup") {
+                    plugins.activate(i);
+                }
+            }
+            kalem_core::extensions::install(Box::new(plugins));
+        });
+}

@@ -2310,6 +2310,41 @@ pub fn open_window(path: Option<PathBuf>, shared: Rc<Shared>, cx: &mut App) {
     }
 }
 
+/// The plugins' commands or keys changed: commands and keys built again
+/// for every window, as after the settings change.
+pub fn plugins_changed(cx: &mut App) {
+    let Some(old) = cx
+        .windows()
+        .into_iter()
+        .find_map(|w| w.downcast::<Workspace>())
+        .and_then(|w| w.read(cx).ok().map(|ws| ws.shared.clone()))
+    else {
+        return;
+    };
+    let new = crate::preferences::rebuild(&old, old.config.clone());
+    crate::preferences::apply(Rc::new(new), cx);
+}
+
+/// Runs the commands plugins asked for outside their own (from an
+/// event's handler) in the active window's editor.
+pub fn run_queued(runs: Vec<(String, serde_json::Value)>, cx: &mut App) {
+    let Some(w) = cx
+        .active_window()
+        .and_then(|w| w.downcast::<Workspace>())
+        .or_else(|| cx.windows().iter().find_map(|w| w.downcast::<Workspace>()))
+    else {
+        return;
+    };
+    let _ = w.update(cx, |ws, window, cx| {
+        let editor = ws.editor.clone();
+        editor.update(cx, |e, cx| {
+            for (id, args) in runs {
+                e.run_command(&id, args, window, cx);
+            }
+        });
+    });
+}
+
 /// Saves the active window's session as the last one, on quitting.
 pub fn save_last_session(cx: &mut App) {
     let mut windows: Vec<gpui::AnyWindowHandle> = cx.active_window().into_iter().collect();
