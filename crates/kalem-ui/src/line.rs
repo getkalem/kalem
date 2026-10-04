@@ -1269,6 +1269,7 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
             min: px(0.),
         });
     }
+    let nowrap_row = view.nowrap;
     Prepared {
         view: Rc::new(view),
         pieces,
@@ -1282,6 +1283,7 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
         rule: false,
         // A spreadsheet's rows do not wrap: they scroll sideways.
         nowrap: !editor.wrap
+            || nowrap_row
             || (editor.doc.meta.mode == kalem_core::DocumentMode::Csv && !editor.source),
         spacing: 1.,
         fit,

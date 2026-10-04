@@ -18,9 +18,9 @@ expression: "screen_of(\"snap.md\", MD, Caps::full(), 60, 34, at(\"**strong\"))"
 16  > A quoted line                                         |DD..D
 17  > and another.                                          |DD..D
 18                                                          |DD
-19  | Name  | Qty |                                         |DD..D.......D.....D
-20  |:------|----:|                                         |DD..DDDDDDDDDDDDDDD
-21  | apple |   3 |                                         |DD..D.......D.....D
+19  │ Name  │ Qty │                                         |DD..D.......D.....D
+20  ├───────┼─────┤                                         |DD..DDDDDDDDDDDDDDD
+21  │ apple │   3 │                                         |DD..D.......D.....D
 22                                                          |DD
 23  ```rust                                                 |DD..DDDDDDD
 24  fn main() { println!("hi"); }                           |DD..kkkkkkkkkkkkkkkkkkkkkkkkkkkkk
