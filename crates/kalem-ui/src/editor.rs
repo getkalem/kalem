@@ -328,6 +328,8 @@ pub struct Editor {
     /// A wheel scroll happened: the cursor follows in the next frame (see
     /// `follow_scroll_now`).
     follow_scroll: bool,
+    /// The cursor's row of the view before the scroll, kept by it.
+    scroll_row: Option<usize>,
     /// A message for the status bar, and whether it is an error.
     pub status: Option<(String, bool)>,
     pub(crate) goal_x: Option<Pixels>,
@@ -507,6 +509,7 @@ impl Editor {
             painted: Rc::default(),
             reveal_again: None,
             follow_scroll: false,
+            scroll_row: None,
             status: None,
             goal_x: None,
             last_command: None,
@@ -595,19 +598,12 @@ impl Editor {
         e
     }
 
-    /// After a wheel scroll: a cursor gone out of sight moves to the first
-    /// or last line wholly in view, at the same column, so typing does not
-    /// jump back. A selection stays where it is, and a split view is left
-    /// alone (each pane scrolls its own list).
-    fn follow_scroll_now(&mut self, cx: &mut Context<'_, Self>) {
-        if self.other.is_some() || self.visible.is_empty() {
-            return;
+    /// The list items wholly in view, by the last layout: the first and
+    /// the last.
+    fn items_in_view(&self) -> Option<(usize, usize)> {
+        if self.visible.is_empty() {
+            return None;
         }
-        let sel = self.doc.selection;
-        if sel.anchor != sel.head {
-            return;
-        }
-        // The items wholly in view, by the last layout.
         let view = self.list.viewport_bounds();
         let top = self.list.logical_scroll_top();
         let mut first = top.item_ix + usize::from(top.offset_in_item > px(0.));
@@ -618,19 +614,41 @@ impl Editor {
             last += 1;
         }
         first = first.min(self.visible.len() - 1);
-        last = last.clamp(first, self.visible.len() - 1);
+        Some((first, last.clamp(first, self.visible.len() - 1)))
+    }
+
+    /// The row of the view the cursor is on (its line among the lines
+    /// wholly in view), for a scroll to keep (`follow_scroll_now`).
+    fn cursor_row(&self) -> Option<usize> {
+        let (first, last) = self.items_in_view()?;
+        let line = self.doc.text().line_of(self.doc.selection.head);
+        let i = self.item_of(line)?;
+        (first <= i && i <= last).then(|| i - first)
+    }
+
+    /// After a wheel scroll: the cursor keeps its row of the view, as
+    /// Doom Emacs does (`scroll-preserve-screen-position`): at the top it
+    /// stays at the top whichever way the text scrolls; a cursor that was
+    /// out of view goes to the first line in view. Its column is kept, so
+    /// typing does not jump back. A selection stays where it is, and a
+    /// split view is left alone (each pane scrolls its own list).
+    fn follow_scroll_now(&mut self, cx: &mut Context<'_, Self>) {
+        if self.other.is_some() {
+            return;
+        }
+        let sel = self.doc.selection;
+        if sel.anchor != sel.head {
+            return;
+        }
+        let Some((first, last)) = self.items_in_view() else {
+            return;
+        };
+        let target = (first + self.scroll_row.unwrap_or(0)).min(last);
         let text = self.doc.text();
         let line = text.line_of(sel.head);
-        let Some(i) = self.item_of(line) else {
+        if self.item_of(line) == Some(target) {
             return;
-        };
-        let target = if i < first {
-            first
-        } else if i > last {
-            last
-        } else {
-            return;
-        };
+        }
         let Some(&to) = self.visible.get(target) else {
             return;
         };
@@ -4152,6 +4170,9 @@ impl gpui::Render for Editor {
         self.apply_resume();
         if std::mem::take(&mut self.follow_scroll) {
             self.follow_scroll_now(cx);
+        } else {
+            // Where the cursor shows, for the next scroll to keep.
+            self.scroll_row = self.cursor_row();
         }
         // The cursor revealed once more, the lines around it measured by
         // the last frame's layout.

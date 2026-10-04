@@ -56,6 +56,15 @@ fn words(s: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut w = String::new();
     for c in s.chars() {
+        // The terminal writes a superscript or subscript digit as its
+        // Unicode character, the window raises or lowers the digit itself.
+        let c = match "⁰¹²³⁴⁵⁶⁷⁸⁹".chars().position(|d| d == c) {
+            Some(i) => char::from(b'0' + i as u8),
+            None => match "₀₁₂₃₄₅₆₇₈₉".chars().position(|d| d == c) {
+                Some(i) => char::from(b'0' + i as u8),
+                None => c,
+            },
+        };
         if c.is_alphanumeric() {
             w.push(c);
         } else if !w.is_empty() {

@@ -4285,10 +4285,10 @@ fn csv_clicks_reach_every_cell(cx: &mut TestAppContext) {
     assert_eq!(csv_click_cells(&e, 4, cx), vec![]);
 }
 
-/// Scrolling with the wheel brings a cursor that would go out of sight
-/// along, to the nearest line in view, as Emacs does (asked by the owner,
-/// 2026-10-04): scrolling back up after scrolling down no longer leaves it
-/// at the bottom of the document.
+/// Scrolling with the wheel keeps the cursor on its row of the view, as
+/// Doom Emacs does (asked by the owner, 2026-10-04): a cursor at the top
+/// stays at the top while scrolling down and back up, instead of staying
+/// at the bottom of the document or of the window.
 #[gpui::test]
 fn the_cursor_follows_the_scroll(cx: &mut TestAppContext) {
     let text: String = (0..400).map(|i| format!("line {i}\n")).collect();
@@ -4320,15 +4320,25 @@ fn the_cursor_follows_the_scroll(cx: &mut TestAppContext) {
     let line = |cx: &mut VisualTestContext| {
         e.read_with(cx, |e, _| e.doc.text().line_of(e.doc.selection.head))
     };
-    // Down: the cursor leaves the top and comes to the first line in view.
+    let top_line = |cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| {
+            let top = e.list.logical_scroll_top();
+            let i = top.item_ix + usize::from(top.offset_in_item > gpui::px(0.));
+            e.visible[i]
+        })
+    };
+    // Down: the cursor stays on the top row.
     wheel(-3000., cx);
     let down = line(cx);
     assert!(down > 10, "{down}");
-    // Further down, then back up: it comes along from below.
+    assert_eq!(down, top_line(cx));
     wheel(-3000., cx);
     let further = line(cx);
     assert!(further > down, "{further} {down}");
+    assert_eq!(further, top_line(cx));
+    // Back up: still on the top row, not left at the bottom.
     wheel(2500., cx);
     let up = line(cx);
     assert!(up < further, "{up} {further}");
+    assert_eq!(up, top_line(cx));
 }
