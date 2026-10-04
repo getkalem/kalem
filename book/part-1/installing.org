@@ -23,3 +23,13 @@ your =PATH= when Rust came with rustup.
 Releases are planned for macOS (Apple silicon and Intel), Linux (x86-64
 and ARM) and Windows (x86-64), with a terminal-only archive for servers
 and minimal systems.
+
+The terminal-only build leaves out the graphical editor, and with it the
+viewers of PDF files, pictures and workbooks and the plugin host, which
+are a third of the binary: such files are refused as not text, and
+installed plugins do not run. Name them to keep them:
+
+#+begin_src sh
+cargo install --path crates/kalem --no-default-features --features tui
+cargo install --path crates/kalem --no-default-features --features tui,viewers,plugins
+#+end_src

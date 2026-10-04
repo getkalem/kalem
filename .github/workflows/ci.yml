@@ -26,6 +26,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: The bundled plugins at one revision
         run: sh tools/check-plugin-pins.sh
+      - name: Nothing more from Zed's repository
+        run: sh tools/check-zed-deps.sh
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -116,6 +118,26 @@ jobs:
       - run: cargo build -p kalem-editor --no-default-features --features tui
       - name: No gpui in the dependency tree
         run: "! cargo tree -p kalem-editor --no-default-features --features tui | grep -q gpui"
+
+  binary-size:
+    name: binary size
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux libraries for the graphical editor (gpui)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
+            libx11-xcb-dev libxcb1-dev libfontconfig-dev libfreetype-dev libvulkan-dev
+      # The release binaries, as cargo-dist and the terminal-only release
+      # build them, against their ceilings (roadmap R2.1).
+      - run: cargo build --release --locked -p kalem-editor --no-default-features --features tui
+      - run: sh tools/check-binary-size.sh target/release/kalem terminal
+      - run: cargo build --release --locked -p kalem-editor
+      - run: sh tools/check-binary-size.sh target/release/kalem full
 
   fuzz:
     name: fuzz (short run)

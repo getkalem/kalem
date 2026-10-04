@@ -6,6 +6,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 authors.workspace = true
 keywords = ["org-mode", "editor", "wysiwyg", "latex", "tui"]
 categories = ["text-editors", "command-line-utilities"]
@@ -16,12 +17,17 @@ name = "kalem"
 path = "src/main.rs"
 
 [features]
-default = ["gui", "tui"]
+default = ["gui", "tui", "viewers", "plugins"]
 # The graphical editor (gpui). Without it: the terminal-only build, for
-# servers and minimal systems (`--no-default-features --features tui`).
+# servers and minimal systems (`--no-default-features --features tui`),
+# which leaves out the viewers and the plugin host too unless named.
 gui = ["dep:kalem-ui"]
 # The terminal editor.
 tui = ["dep:kalem-tui"]
+# The bundled viewers of pictures, PDF files and workbooks.
+viewers = ["kalem-cli/viewers"]
+# The plugin host (Wasmtime) for installed component plugins.
+plugins = ["kalem-cli/plugins"]
 
 [dependencies]
 kalem-cli.workspace = true

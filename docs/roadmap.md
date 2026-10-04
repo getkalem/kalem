@@ -75,7 +75,7 @@ Exit: a tagged `v0.1.0` with binaries for macOS (arm64, x86-64), Linux
 README installs it in two commands; the release checklist run once on
 each platform with the results in the release issue.
 
-- [ ] R2.1 Binary size under the target: measure the contribution of
+- [~] R2.1 Binary size under the target: measure the contribution of
   each bundled plugin and of Wasmtime (`cargo bloat`), then take the
   cheapest of: `panic = "abort"`, `opt-level = "s"` on cold crates (the
   decoders, Wasmtime, fonts), the viewers as features that the full
@@ -84,41 +84,79 @@ each platform with the results in the release issue.
   too; its target is the harder one.
   Target: full build under 40 MB, terminal-only under 15 MB, both
   recorded by a CI step that fails over the target. M (T2.9.11, D28)
-- [ ] R2.2 Crash debt (T1.8.11, TS.10): turn on `clippy::unwrap_used`
+  Measured 2026-10-04 (Linux x86-64, stripped): the terminal-only build
+  was 62.5 MiB with the viewers and Wasmtime (the workbook viewer and
+  its engine had grown it since D28). Done: the viewers and the plugin
+  host are features (`viewers`, `plugins`) the full build turns on and
+  the terminal-only build leaves out (40.8 MiB; 60.3 MiB with them);
+  Wasmtime, Cranelift, the workbook engine and the citation styles at
+  `opt-level = "s"` (2 MiB). Tried and left: every dependency at `"s"`
+  (4 MiB more, unbenchmarked), unifying the crates present twice (small
+  ones). Not taken: `panic = "abort"`, which would end the program on a
+  plugin handler's panic that `catch_unwind` now contains. CI's
+  `binary size` job holds both builds to ceilings
+  (`tools/binary-size.txt`), lowered as sizes drop. What remains of the
+  terminal-only 40.8 MiB: 25 MiB of code (kalem-core 4 MiB, std 3 MiB,
+  the citation styles 2 MiB, the exporters, the LaTeX pictures' PDF and
+  image decoders) and 10 MiB of data (the syntax definitions). The
+  15 MiB target needs one of those left out of the terminal build, or
+  a new target: the owner's call.
+- [x] R2.2 Crash debt (T1.8.11, TS.10): turn on `clippy::unwrap_used`
   and `expect_used` for `kalem-core`, `org-edit`, `kalem-ui` and
   `kalem-tui` with `#[expect]` on each justified site; replace the 313
   `.expect(` and 32 `panic!(` on keystroke and command paths; the
   when-clause `expect` at startup (`builtin.rs:34`) becomes a test. The
   crash report (design §14) is checked by a test that panics on purpose.
   M
-- [ ] R2.3 `release.yml` from `dist generate`, a `v0.1.0` tag, release
+  Done 2026-10-04: the four crates warn on `unwrap_used`, `expect_used`
+  and `panic` (tests allowed, `clippy.toml`). Of the 153 sites outside
+  tests, 45 edits became `Transaction::edit` (a release drops a
+  transaction whose edits overlap instead of crashing), 29 poisoned
+  locks are used as they are, the built-in commands' keys and
+  when-clauses are checked by `every_builtin_parses`, most of the rest
+  became `let … else`, and 13 invariants carry `#[expect]` with the
+  reason. `kalem-core/tests/crash_report.rs` panics on purpose.
+- [~] R2.3 `release.yml` from `dist generate`, a `v0.1.0` tag, release
   notes cut from the Unreleased section of the changelog, which becomes
   `## 0.1.0`. The `kalem gui --help` bug (T1.8.12) fixed first. S
   (T1.8.1)
+  Done: T1.8.12; `release.yml` from `dist generate` with a runner per
+  target (`ubuntu-20.04` is retired, gpui is not cross-compiled) and the
+  windowing libraries; `release-terminal.yml` attaches the terminal-only
+  archives. Open: the tag and the changelog's `## 0.1.0`, after R2.4.
 - [ ] R2.4 The release checklist run by hand on macOS, Linux (X11 and
   Wayland) and Windows, results in the release issue, each failure
   either fixed or recorded as a known issue in the README. L, owner's
   machines (T1.5.20, T1.4.10, T1.5.9a, T2.7h.37)
-- [ ] R2.5 README rewritten to what Kalem is (T2.10.11, T1.8.7): the
+- [~] R2.5 README rewritten to what Kalem is (T2.10.11, T1.8.7): the
   positioning of D21; "works today" generated from the mode table; PDF,
   pictures and Excel mentioned; the install commands; a GIF of both
   editors on the first screen; the speed claims point at the CI
   benchmarks of M4 rather than at a hand measurement. M
+  Done: the viewers and plugins, the install commands, the speed claim
+  pointing at the performance page. Open: the GIF (a recording of both
+  editors), "works today" generated from the mode table, and the M4
+  benchmarks.
 - [ ] R2.6 TeX on a clean machine (owner, D5): either tectonic downloaded
   on demand with a prompt, or a clear "install TeX Live or MiKTeX"
   message with the link, in both editors. S after the decision
-- [ ] R2.7 Building without Zed's repository (T2.8.6): pin to a
+- [~] R2.7 Building without Zed's repository (T2.8.6): pin to a
   `gpui-unofficial` snapshot or vendor the two crates; CONTRIBUTING says
   how large the clone is until then; a CI guard fails a pull request that
   adds a `zed-industries` git dependency. M
+  Done: `tools/check-zed-deps.sh` in CI and `tools/pre-push.sh`;
+  CONTRIBUTING gives the fetch (400 MB of history, a 100 MB checkout).
+  Open: the snapshot or the vendored crates.
 - [ ] R2.8 Signing: macOS notarization and a Homebrew cask; Windows
   code signing and an MSI; Linux AppImage. Each needs the owner's
   certificates and accounts. L, owner (T2.8.1, T2.8.2, T2.8.3)
 - [ ] R2.9 The one-page site at the Book's domain (owner, D7) exported
   from `book/part-1` by Kalem itself (T1.8.10). M
-- [ ] R2.10 Public repository settings: the contact address (owner,
+- [~] R2.10 Public repository settings: the contact address (owner,
   T0.1.9), issue labels `good first issue` and `help wanted`, the five
   dependabot pull requests merged or closed (T1.8.8). S
+  Done: the labels exist and no dependabot pull request is open. Open:
+  the contact address (owner).
 - [ ] R2.11 Early access and announcements: ten users from the personas,
   the Org list draft sent, then HN and the subreddits after R2.8.
   Owner (T1.8.4, T1.8.5, T1.8.9)
