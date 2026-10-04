@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A test that panics on purpose checks the crash report: `crash-DATE.txt` beside the log, with the report's header, the panic and where the log is.
 
 ### Changed
+- Org is on the document mode contract (`org_mode::OrgMode`) as LaTeX, Markdown, CSV and `.klm` are; every file of the Org corpus passes its conformance check.
 - Switch Project shows the project's folder in the file manager the first time in a session, rather than the file last open in it; afterwards it shows that file.
 - `kalem-core`, `org-edit`, `kalem-ui` and `kalem-tui` warn on `unwrap`, `expect` and `panic!` outside tests. The edits that cannot overlap use `Transaction::edit`, which a release turns into no change rather than a crash should they overlap; a poisoned lock is used as it is; the default keys and when-clauses of the built-in commands are checked by a test instead of at start.
 - CI fails a change that adds a dependency on Zed's repository other than gpui and gpui_platform.
