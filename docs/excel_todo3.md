@@ -103,11 +103,14 @@ new release of the xlsx plugin follows when the contract moves.
 
 ## E46. Charts, the rest
 
-- [ ] E46 Combo charts (columns and a line) with a secondary axis;
+- [x] E46 Combo charts (columns and a line) with a secondary axis;
   trendlines (linear, exponential, moving average) with their equation
   and R²; error bars; data labels from cells; a chart moved to a sheet
   of its own (a chart sheet) and back; chart templates; stock, radar,
   bubble, histogram and waterfall charts drawn.
+  (Histograms and waterfalls are drawn, not made; LibreOffice shows
+  labels from cells as values. A series moved into a combo's other plot
+  comes after the first plot's series.)
 
 ## E47. PivotTables, the rest
 

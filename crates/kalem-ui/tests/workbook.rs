@@ -1626,3 +1626,81 @@ fn typing_on_a_cell(cx: &mut TestAppContext) {
     assert_eq!(t, "42");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// E46: a combo chart with a trendline and error bars, and the kinds
+/// drawn from shapes, painted without trouble.
+#[gpui::test]
+fn charts_the_rest(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open(cx);
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    let run = |cx: &mut VisualTestContext, id: &str, args: serde_json::Value| {
+        e.update_in(cx, |e, window, cx| e.run_command(id, args, window, cx));
+        cx.run_until_parked();
+    };
+    e.update(cx, |e, _| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1)
+    });
+    run(
+        cx,
+        "viewer.grid.insertChart",
+        serde_json::json!({ "kind": "column", "title": "Spending" }),
+    );
+    let (n, a) = e.update(cx, |e, _| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let c = v.charts();
+        let a = c.last().unwrap().anchor;
+        v.grid_move_to(a[0] + 1, a[1] + 1);
+        (v.chart_at_cursor().unwrap().0, a)
+    });
+    run(
+        cx,
+        "viewer.grid.seriesKind",
+        serde_json::json!({ "series": 1, "kind": "line", "secondary": true }),
+    );
+    run(
+        cx,
+        "viewer.grid.trendline",
+        serde_json::json!({ "series": 0, "kind": "linear", "show": "both" }),
+    );
+    run(
+        cx,
+        "viewer.grid.errorBars",
+        serde_json::json!({ "series": 0, "kind": "stdErr" }),
+    );
+    e.update(cx, |e, _| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(a[0], 0)
+    });
+    cx.run_until_parked();
+    let key = format!("viewer-grid-chart-plot-{n}");
+    assert!(
+        cx.debug_bounds(Box::leak(key.clone().into_boxed_str()))
+            .is_some()
+    );
+    for kind in ["radar", "bubble", "stock"] {
+        e.update(cx, |e, _| {
+            e.doc
+                .viewer
+                .as_deref_mut()
+                .unwrap()
+                .grid_move_to(a[0] + 1, a[1] + 1)
+        });
+        run(
+            cx,
+            "viewer.grid.chartKind",
+            serde_json::json!({ "kind": kind }),
+        );
+        e.update(cx, |e, _| {
+            e.doc.viewer.as_deref_mut().unwrap().grid_move_to(a[0], 0)
+        });
+        cx.run_until_parked();
+        let k = e.update(cx, |e, _| {
+            e.doc.viewer.as_deref_mut().unwrap().charts()[n].kind
+        });
+        assert_eq!(format!("{k:?}").to_lowercase(), kind);
+        assert!(
+            cx.debug_bounds(Box::leak(key.clone().into_boxed_str()))
+                .is_some()
+        );
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}

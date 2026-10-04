@@ -4379,3 +4379,120 @@ fn typing_on_a_cell() {
     v.grid_move_to(10, 1);
     assert_eq!(v.cell_input(), "427");
 }
+
+#[test]
+fn charts_the_rest() {
+    let mut t = T::open("charts-rest");
+    kalem_core::viewer::use_template_folder(&t.dir.join("templates"));
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app.run_command(
+        "viewer.grid.insertChart",
+        json!({ "kind": "column", "title": "Spending" }),
+    );
+    let n = t.app.doc.viewer.as_deref_mut().unwrap().charts().len() - 1;
+    let a = t.app.doc.viewer.as_deref_mut().unwrap().charts()[n].anchor;
+    let on_chart = |t: &mut T| {
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .grid_move_to(a[0] + 1, a[1] + 1);
+    };
+    on_chart(&mut t);
+    // The chart the cursor is on, others of the sheet under it or not.
+    let n = t
+        .app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .chart_at_cursor()
+        .unwrap()
+        .0;
+    let chart = |t: &mut T| t.app.doc.viewer.as_deref_mut().unwrap().charts()[n].clone();
+    // The series offered, then the kinds.
+    t.app.run_command("viewer.grid.seriesKind", json!({}));
+    assert!(t.screen().contains("Q2"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.seriesKind", json!({ "series": 1 }));
+    assert!(
+        t.screen().contains("Line on the Secondary Axis"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.seriesKind",
+        json!({ "series": 1, "kind": "line", "secondary": true }),
+    );
+    // Q2 a line on the secondary axis, after the columns' series.
+    let c = chart(&mut t);
+    let q2 = c.series.iter().find(|s| s.name == "Q2").unwrap();
+    assert_eq!(q2.kind, Some(kalem_viewer::ChartKind::Line));
+    assert!(q2.secondary);
+    // A linear trendline with its equation; error bars of 10%.
+    t.app.run_command(
+        "viewer.grid.trendline",
+        json!({ "series": 0, "kind": "linear", "show": "both" }),
+    );
+    t.app.run_command(
+        "viewer.grid.errorBars",
+        json!({ "series": 0, "kind": "percent", "value": "10" }),
+    );
+    t.app.run_command(
+        "viewer.grid.labelsFromCells",
+        json!({ "series": 0, "mode": "range", "range": [1, 0, 4, 0] }),
+    );
+    let c = chart(&mut t);
+    let tl = c.series[0].trendline.unwrap();
+    assert!(tl.equation && tl.r_squared);
+    assert_eq!(c.series[0].error_bars.unwrap().value, 10.0);
+    assert_eq!(c.series[0].cell_labels.len(), 4);
+    // Drawn without trouble.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    assert!(t.screen().contains("Spending"));
+    // Saved as a template, given to a new line chart.
+    on_chart(&mut t);
+    t.app
+        .run_command("viewer.grid.saveChartTemplate", json!({ "value": "Mine" }));
+    assert!(t.dir.join("templates/Mine.crtx").exists());
+    // Moved to a chart sheet of its own, and back.
+    on_chart(&mut t);
+    t.app
+        .run_command("viewer.grid.moveChart", json!({ "value": "Chart1" }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert_eq!(v.structure().units.last().unwrap().label, "Chart1");
+    assert_eq!(v.charts().len(), 1);
+    assert!(t.screen().contains("Spending"), "{}", t.screen());
+    t.app.run_command("viewer.grid.moveChart", json!({}));
+    assert!(t.screen().contains("Object in"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.moveChart", json!({ "target": 0 }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    assert_eq!(v.unit, 0);
+    assert!(
+        v.charts()
+            .iter()
+            .any(|c| c.title.as_deref() == Some("Spending"))
+    );
+    // The template given to another chart.
+    v.grid_move_to(20, 0);
+    v.grid_extend_to(24, 1);
+    t.app
+        .run_command("viewer.grid.insertChart", json!({ "kind": "line" }));
+    let m = t.app.doc.viewer.as_deref_mut().unwrap().charts().len() - 1;
+    let b = t.app.doc.viewer.as_deref_mut().unwrap().charts()[m].anchor;
+    t.app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .grid_move_to(b[0] + 1, b[1] + 1);
+    t.app
+        .run_command("viewer.grid.applyChartTemplate", json!({ "name": "Mine" }));
+    let c = t.app.doc.viewer.as_deref_mut().unwrap().charts()[m].clone();
+    assert_eq!(c.kind, kalem_viewer::ChartKind::Column);
+}

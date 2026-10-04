@@ -3091,6 +3091,119 @@ impl ViewerState {
         Ok(())
     }
 
+    /// The chart under the cursor's index, or a message to put the cursor
+    /// on one.
+    fn chart_index(&mut self, doing: &str) -> Result<usize, String> {
+        if !self.grid_editable() && doing != "move it" {
+            return Err("This file is shown, not edited".into());
+        }
+        self.chart_at_cursor()
+            .map(|c| c.0)
+            .ok_or_else(|| format!("Put the cursor on a chart to {doing}"))
+    }
+
+    /// Draws a series of the chart under the cursor as `kind` (`None` the
+    /// chart's), on the secondary axis or the primary: a combo chart.
+    pub fn set_series_kind(
+        &mut self,
+        series: usize,
+        kind: Option<kalem_viewer::ChartKind>,
+        secondary: bool,
+    ) -> Result<(), String> {
+        let i = self.chart_index("change a series' kind")?;
+        self.doc()
+            .set_series_kind(self.unit, i, series, kind, secondary)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Gives a series of the chart under the cursor a trendline, or none.
+    pub fn set_trendline(
+        &mut self,
+        series: usize,
+        trendline: Option<kalem_viewer::Trendline>,
+    ) -> Result<(), String> {
+        let i = self.chart_index("add a trendline")?;
+        self.doc()
+            .set_trendline(self.unit, i, series, trendline)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Gives a series of the chart under the cursor error bars, or none.
+    pub fn set_error_bars(
+        &mut self,
+        series: usize,
+        bars: Option<kalem_viewer::ErrorBars>,
+    ) -> Result<(), String> {
+        let i = self.chart_index("add error bars")?;
+        self.doc()
+            .set_error_bars(self.unit, i, series, bars)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Labels a series of the chart under the cursor with the texts of
+    /// `range`'s cells, or no more.
+    pub fn set_label_cells(
+        &mut self,
+        series: usize,
+        range: Option<[u32; 4]>,
+    ) -> Result<(), String> {
+        let i = self.chart_index("label its points")?;
+        self.doc()
+            .set_label_cells(self.unit, i, series, range)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Move Chart: the chart under the cursor onto a new chart sheet named
+    /// `name`, which is shown.
+    pub fn move_chart_to_sheet(&mut self, name: &str) -> Result<(), String> {
+        let i = self.chart_index("move it")?;
+        let unit = self
+            .doc()
+            .move_chart_to_sheet(self.unit, i, name)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        self.go_to(unit);
+        Ok(())
+    }
+
+    /// Move Chart back: the chart sheet's chart onto sheet `target`, near
+    /// its top left; that sheet shown.
+    pub fn move_chart_to_grid(&mut self, target: usize) -> Result<(), String> {
+        let unit = self
+            .doc()
+            .move_chart_to_grid(self.unit, target, [1, 1, 15, 8])
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        self.go_to(unit);
+        Ok(())
+    }
+
+    /// The chart under the cursor as a chart template's bytes.
+    pub fn chart_template(&mut self) -> Result<Vec<u8>, String> {
+        let i = self.chart_index("save it as a template")?;
+        self.doc()
+            .chart_template(self.unit, i)
+            .map_err(|e| e.to_string())
+    }
+
+    /// Gives the chart under the cursor a template's look.
+    pub fn apply_chart_template(&mut self, template: &[u8]) -> Result<(), String> {
+        let i = self.chart_index("give it a template")?;
+        self.doc()
+            .apply_chart_template(self.unit, i, template)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// Colors a series of the chart under the cursor, or gives it the
     /// theme's color again.
     pub fn set_series_color(
@@ -7601,6 +7714,450 @@ fn point_color(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Command
             Ok(())
         }
     }
+}
+
+/// The series of the chart under the cursor a command acts on: `series`
+/// of its arguments, the only one, or a menu of them (the arguments kept)
+/// then `None`.
+fn pick_series(
+    ctx: &mut EditorContext<'_>,
+    id: &str,
+    title: &str,
+    args: &serde_json::Value,
+) -> Option<usize> {
+    if let Some(n) = args.get("series").and_then(serde_json::Value::as_u64) {
+        return Some(n as usize);
+    }
+    let v = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())?;
+    let Some((i, _)) = v.chart_at_cursor() else {
+        ctx.messages
+            .push(format!("Put the cursor on a chart: {title}"));
+        return None;
+    };
+    let chart = v.charts()[i].clone();
+    if chart.series.len() == 1 {
+        return Some(0);
+    }
+    let items = chart
+        .series
+        .iter()
+        .enumerate()
+        .map(|(k, s)| {
+            let mut a = args.clone();
+            if !a.is_object() {
+                a = serde_json::json!({});
+            }
+            a["series"] = serde_json::json!(k);
+            let name = if s.name.is_empty() {
+                format!("Series {}", k + 1)
+            } else {
+                s.name.clone()
+            };
+            menu_item(id, a, &name, title)
+        })
+        .collect();
+    ctx.requests.push(Request::Choose(items));
+    None
+}
+
+/// Change Series Chart Type: a series drawn as columns, a line or an area,
+/// on the primary or the secondary axis: a combo chart.
+fn series_kind(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::ChartKind as K;
+    const ID: &str = "viewer.grid.seriesKind";
+    let Some(series) = pick_series(ctx, ID, "Change Series Chart Type", args) else {
+        return Ok(());
+    };
+    let Some(kind) = args.get("kind").and_then(|k| k.as_str()) else {
+        let item = |k: &str, second: bool, t: &str| {
+            menu_item(
+                ID,
+                serde_json::json!({ "series": series, "kind": k, "secondary": second }),
+                t,
+                "Change Series Chart Type",
+            )
+        };
+        ctx.requests.push(Request::Choose(vec![
+            item("column", false, "Clustered Column"),
+            item("line", false, "Line"),
+            item("area", false, "Area"),
+            item("line", true, "Line on the Secondary Axis"),
+            item("column", true, "Column on the Secondary Axis"),
+            item("area", true, "Area on the Secondary Axis"),
+            item("chart", false, "The Chart's Own Kind"),
+        ]));
+        return Ok(());
+    };
+    let kind = match kind {
+        "column" => Some(K::Column),
+        "line" => Some(K::Line),
+        "area" => Some(K::Area),
+        _ => None,
+    };
+    let secondary = args
+        .get("secondary")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    with(ctx, |v| v.set_series_kind(series, kind, secondary))
+}
+
+/// Trendline: a series' trendline of a kind (a polynomial's order, a
+/// moving average's period asked), its equation and R² shown or not; or
+/// none.
+fn trendline(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::{TrendKind as T, Trendline};
+    const ID: &str = "viewer.grid.trendline";
+    let Some(series) = pick_series(ctx, ID, "Trendline", args) else {
+        return Ok(());
+    };
+    let kinds = [
+        ("linear", T::Linear, "Linear"),
+        ("exponential", T::Exponential, "Exponential"),
+        ("logarithmic", T::Logarithmic, "Logarithmic"),
+        ("polynomial", T::Polynomial, "Polynomial…"),
+        ("power", T::Power, "Power"),
+        ("movingAverage", T::MovingAverage, "Moving Average…"),
+    ];
+    let Some(kind) = args.get("kind").and_then(|k| k.as_str()) else {
+        let mut items: Vec<_> = kinds
+            .iter()
+            .map(|(k, _, t)| {
+                menu_item(
+                    ID,
+                    serde_json::json!({ "series": series, "kind": k }),
+                    t,
+                    "Trendline",
+                )
+            })
+            .collect();
+        items.push(menu_item(
+            ID,
+            serde_json::json!({ "series": series, "kind": "none" }),
+            "None",
+            "Trendline",
+        ));
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    if kind == "none" {
+        return with(ctx, |v| v.set_trendline(series, None));
+    }
+    let Some(&(_, tk, _)) = kinds.iter().find(|x| x.0 == kind) else {
+        return Ok(());
+    };
+    // A polynomial's order or a moving average's period.
+    let number = args
+        .get("value")
+        .and_then(|x| x.as_str())
+        .and_then(|x| x.trim().parse::<u32>().ok());
+    if matches!(tk, T::Polynomial | T::MovingAverage) && number.is_none() {
+        return ask_more(
+            ctx,
+            ID,
+            &serde_json::json!({ "series": series, "kind": kind, "value_default": "2" }),
+            "value",
+        );
+    }
+    let Some(show) = args.get("show").and_then(|x| x.as_str()) else {
+        let item = |k: &str, t: &str| {
+            let mut a = serde_json::json!({ "series": series, "kind": kind, "show": k });
+            if let Some(n) = number {
+                a["value"] = serde_json::json!(n.to_string());
+            }
+            menu_item(ID, a, t, "Trendline: show")
+        };
+        ctx.requests.push(Request::Choose(vec![
+            item("both", "Equation and R²"),
+            item("equation", "Equation"),
+            item("r2", "R²"),
+            item("neither", "Neither"),
+        ]));
+        return Ok(());
+    };
+    let t = Trendline {
+        kind: tk,
+        order: if tk == T::Polynomial {
+            number.unwrap_or(2)
+        } else {
+            0
+        },
+        period: if tk == T::MovingAverage {
+            number.unwrap_or(2)
+        } else {
+            0
+        },
+        equation: matches!(show, "both" | "equation"),
+        r_squared: matches!(show, "both" | "r2"),
+    };
+    with(ctx, |v| v.set_trendline(series, Some(t)))
+}
+
+/// Error Bars: a series' bars of the standard error, a percentage, a
+/// number of standard deviations or a fixed amount; or none.
+fn error_bars(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::{ErrorBars, ErrorKind as E};
+    const ID: &str = "viewer.grid.errorBars";
+    let Some(series) = pick_series(ctx, ID, "Error Bars", args) else {
+        return Ok(());
+    };
+    let Some(kind) = args.get("kind").and_then(|k| k.as_str()) else {
+        let item = |k: &str, t: &str| {
+            menu_item(
+                ID,
+                serde_json::json!({ "series": series, "kind": k }),
+                t,
+                "Error Bars",
+            )
+        };
+        ctx.requests.push(Request::Choose(vec![
+            item("stdErr", "Standard Error"),
+            item("percent", "Percentage…"),
+            item("stdDev", "Standard Deviation…"),
+            item("fixed", "Fixed Amount…"),
+            item("none", "None"),
+        ]));
+        return Ok(());
+    };
+    let ek = match kind {
+        "stdErr" => E::StdErr,
+        "percent" => E::Percent,
+        "stdDev" => E::StdDev,
+        "fixed" => E::Fixed,
+        _ => return with(ctx, |v| v.set_error_bars(series, None)),
+    };
+    let value = args
+        .get("value")
+        .and_then(|x| x.as_str())
+        .and_then(|x| x.trim().trim_end_matches('%').parse::<f64>().ok());
+    let value = match (ek, value) {
+        (E::StdErr, _) => 0.0,
+        (_, Some(v)) => v,
+        (_, None) => {
+            let default = match ek {
+                E::Percent => "5",
+                _ => "1",
+            };
+            return ask_more(
+                ctx,
+                ID,
+                &serde_json::json!({ "series": series, "kind": kind, "value_default": default }),
+                "value",
+            );
+        }
+    };
+    with(ctx, |v| {
+        v.set_error_bars(series, Some(ErrorBars { kind: ek, value }))
+    })
+}
+
+/// Data Labels from Cells: a series' labels the texts of the selected
+/// cells, point by point; or no more.
+fn labels_from_cells(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.labelsFromCells";
+    let Some(series) = pick_series(ctx, ID, "Data Labels from Cells", args) else {
+        return Ok(());
+    };
+    match args.get("mode").and_then(|m| m.as_str()) {
+        Some("none") => with(ctx, |v| v.set_label_cells(series, None)),
+        Some(_) => {
+            let range = args.get("range").and_then(|r| r.as_array()).map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_u64())
+                    .map(|x| x as u32)
+                    .collect::<Vec<_>>()
+            });
+            let Some(&[a, b, c, d]) = range.as_deref().and_then(|r| <&[u32; 4]>::try_from(r).ok())
+            else {
+                return Ok(());
+            };
+            with(ctx, |v| v.set_label_cells(series, Some([a, b, c, d])))
+        }
+        None => {
+            let Some(v) = ctx
+                .document
+                .as_deref_mut()
+                .and_then(|d| d.viewer.as_deref_mut())
+            else {
+                return Ok(());
+            };
+            let sel = v.selection();
+            let name = v.selection_name();
+            ctx.requests.push(Request::Choose(vec![
+                menu_item(
+                    ID,
+                    serde_json::json!({ "series": series, "mode": "range", "range": sel }),
+                    &format!("From the Selection ({name})"),
+                    "Data Labels from Cells",
+                ),
+                menu_item(
+                    ID,
+                    serde_json::json!({ "series": series, "mode": "none" }),
+                    "None",
+                    "Data Labels from Cells",
+                ),
+            ]));
+            Ok(())
+        }
+    }
+}
+
+/// Move Chart: the chart under the cursor onto a new chart sheet (its
+/// name asked); on a chart sheet, its chart onto a sheet chosen.
+fn move_chart(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.moveChart";
+    if let Some(target) = args.get("target").and_then(serde_json::Value::as_u64) {
+        return with(ctx, |v| v.move_chart_to_grid(target as usize));
+    }
+    if let Some(name) = text_arg(args, "value") {
+        return with(ctx, |v| v.move_chart_to_sheet(&name));
+    }
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    if v.chart_at_cursor().is_none() {
+        ctx.messages
+            .push("Put the cursor on a chart to move it".into());
+        return Ok(());
+    }
+    // A chart sheet: back onto a sheet of cells.
+    if !v.grid_editable() {
+        let hidden = v.hidden_units();
+        let here = v.unit;
+        let units: Vec<usize> = (0..v.structure().units.len())
+            .filter(|u| *u != here && !hidden.contains(u) && v.is_grid_unit(*u))
+            .collect();
+        let items = units
+            .iter()
+            .map(|u| {
+                let name = v.structure().units[*u].label.clone();
+                menu_item(
+                    ID,
+                    serde_json::json!({ "target": u }),
+                    &format!("Object in {name}"),
+                    "Move Chart",
+                )
+            })
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    }
+    let free = (1..)
+        .map(|n| format!("Chart{n}"))
+        .find(|n| {
+            !v.structure()
+                .units
+                .iter()
+                .any(|u| u.label.eq_ignore_ascii_case(n))
+        })
+        .unwrap_or_default();
+    ask_more(
+        ctx,
+        ID,
+        &serde_json::json!({ "value_default": free }),
+        "value",
+    )
+}
+
+static TEMPLATES: std::sync::RwLock<Option<std::path::PathBuf>> = std::sync::RwLock::new(None);
+
+/// Chart templates kept in `folder` instead of the configuration's
+/// (tests, which must not touch the user's).
+pub fn use_template_folder(folder: &std::path::Path) {
+    *TEMPLATES.write().unwrap_or_else(|e| e.into_inner()) = Some(folder.to_path_buf());
+}
+
+/// Where chart templates (`.crtx`) are kept: `chart-templates/` in the
+/// configuration's folder.
+pub fn template_folder() -> std::path::PathBuf {
+    if let Some(f) = TEMPLATES.read().unwrap_or_else(|e| e.into_inner()).clone() {
+        return f;
+    }
+    crate::settings::config_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("chart-templates")
+}
+
+/// Save as Template: the chart under the cursor kept as a chart template
+/// of the name asked.
+fn save_chart_template(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.saveChartTemplate";
+    let Some(name) = text_arg(args, "value") else {
+        return ask_more(
+            ctx,
+            ID,
+            &serde_json::json!({ "value_default": "Chart" }),
+            "value",
+        );
+    };
+    let name = name.replace(['/', '\\'], "-");
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let bytes = match v.chart_template() {
+        Ok(b) => b,
+        Err(e) => {
+            ctx.messages.push(e);
+            return Ok(());
+        }
+    };
+    let dir = template_folder();
+    let path = dir.join(format!("{name}.crtx"));
+    std::fs::create_dir_all(&dir)
+        .and_then(|()| std::fs::write(&path, bytes))
+        .map_err(|e| crate::command::CommandError::new(e.to_string()))?;
+    ctx.messages.push(format!("Saved as {}", path.display()));
+    Ok(())
+}
+
+/// Apply a Template: one of the chart templates kept, chosen, given to the
+/// chart under the cursor.
+fn apply_chart_template(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.applyChartTemplate";
+    let dir = template_folder();
+    let Some(name) = args.get("name").and_then(|n| n.as_str()) else {
+        let mut names: Vec<String> = std::fs::read_dir(&dir)
+            .map(|d| {
+                d.filter_map(Result::ok)
+                    .filter_map(|e| {
+                        let p = e.path();
+                        if !p
+                            .extension()
+                            .is_some_and(|x| x.eq_ignore_ascii_case("crtx"))
+                        {
+                            return None;
+                        }
+                        Some(p.file_stem()?.to_string_lossy().into_owned())
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        names.sort();
+        if names.is_empty() {
+            ctx.messages
+                .push("No chart templates yet: Save as Template keeps one".into());
+            return Ok(());
+        }
+        let items = names
+            .iter()
+            .map(|n| menu_item(ID, serde_json::json!({ "name": n }), n, "Chart Templates"))
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    let bytes = std::fs::read(dir.join(format!("{name}.crtx")))
+        .map_err(|e| crate::command::CommandError::new(e.to_string()))?;
+    with(ctx, |v| v.apply_chart_template(&bytes))
 }
 
 /// Series Color: the series chosen (when there are several), then a
@@ -15147,6 +15704,9 @@ fn grid_commands() -> Vec<Command> {
                     ("pie", K::Pie, "Pie"),
                     ("doughnut", K::Doughnut, "Doughnut"),
                     ("scatter", K::Scatter, "Scatter"),
+                    ("radar", K::Radar, "Radar"),
+                    ("bubble", K::Bubble, "Bubble"),
+                    ("stock", K::Stock, "Stock (High, Low, Close)"),
                 ];
                 if let Some((_, kind, _)) = args
                     .get("kind")
@@ -15182,6 +15742,55 @@ fn grid_commands() -> Vec<Command> {
                 ctx.requests.push(Request::Choose(items));
                 Ok(())
             },
+        ),
+        cmd(
+            "viewer.grid.seriesKind",
+            "Change Series Chart Type",
+            &["p m"],
+            IN_GRID,
+            series_kind,
+        ),
+        cmd(
+            "viewer.grid.trendline",
+            "Trendline",
+            &["p r"],
+            IN_GRID,
+            trendline,
+        ),
+        cmd(
+            "viewer.grid.errorBars",
+            "Error Bars",
+            &["p w"],
+            IN_GRID,
+            error_bars,
+        ),
+        cmd(
+            "viewer.grid.labelsFromCells",
+            "Data Labels from Cells",
+            &["p a"],
+            IN_GRID,
+            labels_from_cells,
+        ),
+        cmd(
+            "viewer.grid.moveChart",
+            "Move Chart",
+            &["p o"],
+            IN_GRID,
+            move_chart,
+        ),
+        cmd(
+            "viewer.grid.saveChartTemplate",
+            "Save as Template",
+            &["p v"],
+            IN_GRID,
+            save_chart_template,
+        ),
+        cmd(
+            "viewer.grid.applyChartTemplate",
+            "Apply Chart Template",
+            &["p u"],
+            IN_GRID,
+            apply_chart_template,
         ),
         cmd(
             "viewer.grid.seriesColor",

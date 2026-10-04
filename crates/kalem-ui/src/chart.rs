@@ -6,6 +6,7 @@ use gpui::{
     Bounds, Hsla, InteractiveElement, ParentElement, PathBuilder, Pixels, SharedString, Styled,
     div, point, px, size,
 };
+use kalem_core::chart_math::{self, Shape, is_main};
 use kalem_viewer::{Chart, ChartKind, LegendPosition, Paint};
 
 /// Excel's default series colors.
@@ -42,7 +43,7 @@ pub fn chart_view(
 ) -> gpui::Div {
     let axes = !matches!(
         chart.kind,
-        ChartKind::Pie | ChartKind::Doughnut | ChartKind::Other
+        ChartKind::Pie | ChartKind::Doughnut | ChartKind::Radar | ChartKind::Other
     );
     let rgb = |[r, g, b]: [u8; 3]| -> Hsla {
         gpui::rgb((u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b)).into()
@@ -319,11 +320,17 @@ pub fn chart_view(
 enum Place {
     Above,
     Right,
+    Left,
     Center,
 }
 
 /// A data label's text: the parts the chart asks for, as Excel joins them.
 fn label_text(chart: &Chart, series: usize, i: usize, v: f64, total: f64) -> Option<String> {
+    // A series labeled from cells shows their texts.
+    let own = &chart.series.get(series)?.cell_labels;
+    if !own.is_empty() {
+        return own.get(i).filter(|t| !t.is_empty()).cloned();
+    }
     let l = chart.labels;
     let mut parts = Vec::new();
     if l.series {
@@ -378,11 +385,21 @@ fn paint(
         .map(|s| s.values.len())
         .max()
         .unwrap_or(0);
-    let values = chart.series.iter().flat_map(|s| s.values.iter().flatten());
+    let values = chart
+        .series
+        .iter()
+        // A waterfall's range is its running totals', not its steps'.
+        .filter(|s| !s.secondary && chart.kind != ChartKind::Waterfall)
+        .flat_map(|s| s.values.iter().flatten());
     let (mut lo, mut hi) = (0f64, f64::MIN);
     for v in values {
         lo = lo.min(*v);
         hi = hi.max(*v);
+    }
+    // Error bars, a waterfall's running totals.
+    if let Some((a, b)) = chart_math::value_bounds(chart, false) {
+        lo = lo.min(a);
+        hi = hi.max(b);
     }
     if hi <= lo {
         hi = lo + 1.0;
@@ -462,7 +479,10 @@ fn paint(
         ChartKind::Column | ChartKind::Bar => {
             let horizontal = chart.kind == ChartKind::Bar;
             let (along, across) = if horizontal { (h, w) } else { (w, h) };
-            let k = chart.series.len().max(1) as f32;
+            let mains: Vec<usize> = (0..chart.series.len())
+                .filter(|&j| is_main(chart, &chart.series[j]))
+                .collect();
+            let k = mains.len().max(1) as f32;
             let group = along / n.max(1) as f32;
             let bar = group * 0.7 / k;
             let scale = |v: f64| frac(v).clamp(0.0, 1.0) * across;
@@ -527,11 +547,12 @@ fn paint(
                 }
             }
             for i in 0..n {
-                for (j, s) in chart.series.iter().enumerate() {
+                for (m, &j) in mains.iter().enumerate() {
+                    let s = &chart.series[j];
                     let Some(v) = s.values.get(i).copied().flatten() else {
                         continue;
                     };
-                    let start = i as f32 * group + group * 0.15 + j as f32 * bar;
+                    let start = i as f32 * group + group * 0.15 + m as f32 * bar;
                     let (a, z) = (scale(v).min(zero), scale(v).max(zero));
                     let c = point_fill(s, i, j);
                     if horizontal {
@@ -620,6 +641,9 @@ fn paint(
                 }
             }
             for (j, s) in chart.series.iter().enumerate() {
+                if !is_main(chart, s) {
+                    continue;
+                }
                 let c = color(s.color, j);
                 let pts: Vec<(f32, f32)> = s
                     .values
@@ -735,7 +759,210 @@ fn paint(
                 angle += sweep;
             }
         }
-        ChartKind::Other => {}
+        ChartKind::Histogram | ChartKind::Waterfall | ChartKind::Stock | ChartKind::Bubble => {
+            let gl = chart.gridlines;
+            for &v in &ticks {
+                let y = y0 + h - frac(v) * h;
+                if gl.horizontal_major {
+                    rect(x0, y, w, 0.5, grid, window);
+                }
+                marks.push((x0 + 2.0, y, tick_text(v), Place::Right, true));
+            }
+        }
+        ChartKind::Radar | ChartKind::Other => {}
+    }
+    // The shapes of the kinds drawn from shapes, and what goes over the
+    // plain kinds: a combo chart's other series, trendlines, error bars.
+    let rgb = |[r, g, b]: [u8; 3], alpha: f32| -> Hsla {
+        let c: Hsla = gpui::rgb((u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b)).into();
+        c.opacity(alpha)
+    };
+    let xs: Vec<f64> = chart
+        .series
+        .iter()
+        .flat_map(|s| s.x.iter().flatten().copied())
+        .collect();
+    let (sxl, sxh) = if xs.is_empty() {
+        (1.0, n.max(2) as f64)
+    } else {
+        let a = xs.iter().copied().fold(f64::MAX, f64::min);
+        let b = xs.iter().copied().fold(f64::MIN, f64::max);
+        (a, if b > a { b } else { a + 1.0 })
+    };
+    let map_x = |x: f64| -> f32 {
+        match chart.kind {
+            ChartKind::Line | ChartKind::Area => x0 + (x / (n.max(2) - 1) as f64) as f32 * w,
+            ChartKind::Scatter | ChartKind::Bubble => x0 + ((x - sxl) / (sxh - sxl)) as f32 * w,
+            _ => x0 + (x as f32 + 0.5) * w / n.max(1) as f32,
+        }
+    };
+    // The secondary axis: its own scale, its labels at the right.
+    let second = chart_math::value_bounds(chart, true).map(|(a, b)| {
+        let a = a.min(0.0);
+        let b = if b > a { b } else { a + 1.0 };
+        let step = kalem_core::sheet_chart::nice_step(a, b);
+        ((a / step).floor() * step, (b / step).ceil() * step, step)
+    });
+    if let Some((a, b, step)) = second {
+        let mut v = a;
+        while v <= b + step * 1e-9 {
+            let y = y0 + h - ((v - a) / (b - a)) as f32 * h;
+            marks.push((x0 + w - 2.0, y, tick_text(v), Place::Left, true));
+            v += step;
+        }
+    }
+    let map_y = |v: f64, secondary: bool| -> f32 {
+        match (secondary, second) {
+            (true, Some((a, b, _))) => y0 + h - ((v - a) / (b - a)) as f32 * h,
+            _ => y0 + h - frac(v).clamp(-0.05, 1.05) * h,
+        }
+    };
+    let side = w.min(h);
+    let paint_shape = |sh: &Shape,
+                       at: &dyn Fn(f64, f64) -> (f32, f32),
+                       marks: &mut Vec<(f32, f32, String, Place, bool)>,
+                       window: &mut gpui::Window| {
+        match sh {
+            Shape::Line {
+                points,
+                color: c,
+                width,
+                dashed,
+            } if points.len() > 1 => {
+                let pts: Vec<(f32, f32)> = points.iter().map(|p| at(p.0, p.1)).collect();
+                let mut segments: Vec<Vec<(f32, f32)>> = Vec::new();
+                if *dashed {
+                    // Dashes of 5 pixels, gaps of 3.
+                    let mut on = true;
+                    let mut left = 5.0f32;
+                    let mut cur = vec![pts[0]];
+                    for pair in pts.windows(2) {
+                        let (mut a, b) = (pair[0], pair[1]);
+                        let mut len = ((b.0 - a.0).powi(2) + (b.1 - a.1).powi(2)).sqrt();
+                        while len > left {
+                            let t = left / len;
+                            let m = (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t);
+                            if on {
+                                cur.push(m);
+                                segments.push(std::mem::take(&mut cur));
+                            } else {
+                                cur = vec![m];
+                            }
+                            on = !on;
+                            len -= left;
+                            a = m;
+                            left = if on { 5.0 } else { 3.0 };
+                        }
+                        left -= len;
+                        if on {
+                            cur.push(b);
+                        }
+                    }
+                    if on && cur.len() > 1 {
+                        segments.push(cur);
+                    }
+                } else {
+                    segments.push(pts);
+                }
+                for seg in segments.into_iter().filter(|s| s.len() > 1) {
+                    let mut p = PathBuilder::stroke(px(*width));
+                    p.move_to(point(px(seg[0].0), px(seg[0].1)));
+                    for (x, y) in &seg[1..] {
+                        p.line_to(point(px(*x), px(*y)));
+                    }
+                    if let Ok(path) = p.build() {
+                        window.paint_path(path, rgb(*c, 1.0));
+                    }
+                }
+            }
+            Shape::Rect { x, y, color: c } => {
+                let (a, b) = (at(x.0, y.0), at(x.1, y.1));
+                rect(
+                    a.0.min(b.0),
+                    a.1.min(b.1),
+                    (b.0 - a.0).abs(),
+                    (b.1 - a.1).abs(),
+                    rgb(*c, 1.0),
+                    window,
+                );
+            }
+            Shape::Polygon {
+                points,
+                color: c,
+                alpha,
+            } if points.len() > 2 => {
+                let poly: Vec<_> = points
+                    .iter()
+                    .map(|p| {
+                        let (x, y) = at(p.0, p.1);
+                        point(px(x), px(y))
+                    })
+                    .collect();
+                let mut p = PathBuilder::fill();
+                p.add_polygon(&poly, true);
+                if let Ok(path) = p.build() {
+                    window.paint_path(path, rgb(*c, *alpha));
+                }
+            }
+            Shape::Dot {
+                at: c0,
+                radius,
+                color: c,
+                alpha,
+            } => {
+                let (cx, cy) = at(c0.0, c0.1);
+                let r = radius * side;
+                let poly: Vec<_> = (0..24)
+                    .map(|k| {
+                        let a = std::f32::consts::TAU * k as f32 / 24.0;
+                        point(px(cx + r * a.cos()), px(cy + r * a.sin()))
+                    })
+                    .collect();
+                let mut p = PathBuilder::fill();
+                p.add_polygon(&poly, true);
+                if let Ok(path) = p.build() {
+                    window.paint_path(path, rgb(*c, *alpha));
+                }
+            }
+            Shape::Text {
+                at: c0,
+                text,
+                above,
+            } => {
+                let (x, y) = at(c0.0, c0.1);
+                let place = if *above { Place::Left } else { Place::Center };
+                let y = if *above { y - 8.0 } else { y };
+                marks.push((x, y, text.clone(), place, false));
+            }
+            _ => {}
+        }
+    };
+    if chart.kind == ChartKind::Radar {
+        let (rx, ry) = (x0 + (w - side) / 2.0, y0 + (h - side) / 2.0);
+        for sh in chart_math::special(chart).unwrap_or_default() {
+            paint_shape(
+                &sh,
+                &|x, y| (rx + x as f32 * side, ry + (1.0 - y as f32) * side),
+                &mut marks,
+                window,
+            );
+        }
+    } else if let Some(shapes) = chart_math::special(chart) {
+        for sh in &shapes {
+            paint_shape(sh, &|x, y| (map_x(x), map_y(y, false)), &mut marks, window);
+        }
+    } else if !matches!(
+        chart.kind,
+        ChartKind::Bar | ChartKind::Pie | ChartKind::Doughnut | ChartKind::Other
+    ) {
+        for (sh, secondary) in chart_math::overlays(chart) {
+            paint_shape(
+                &sh,
+                &|x, y| (map_x(x), map_y(y, secondary)),
+                &mut marks,
+                window,
+            );
+        }
     }
     // The data labels over what was drawn.
     let fs = px(10.);
@@ -782,6 +1009,7 @@ fn paint(
             Place::Above => (x - tw / 2.0, y - f32::from(lh)),
             Place::Right => (x, y - f32::from(lh) / 2.0),
             Place::Center => (x - tw / 2.0, y - f32::from(lh) / 2.0),
+            Place::Left => (x - tw, y - f32::from(lh) / 2.0),
         };
         let _ = shaped.paint(
             point(px(ox), px(oy)),

@@ -205,7 +205,7 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
             .unwrap_or_else(|| (i + 1).to_string())
     };
     match chart.kind {
-        ChartKind::Column | ChartKind::Bar => {
+        ChartKind::Column | ChartKind::Bar | ChartKind::Histogram => {
             let n = chart
                 .series
                 .iter()
@@ -213,7 +213,12 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                 .max()
                 .unwrap_or(0);
             let horizontal = chart.kind == ChartKind::Bar;
-            let k = chart.series.len().max(1) as u16;
+            let k = chart
+                .series
+                .iter()
+                .filter(|s| kalem_core::chart_math::is_main(chart, s))
+                .count()
+                .max(1) as u16;
             let slots = if horizontal { plot.height } else { plot.width };
             let bar_width = (slots / (n as u16 * (k + 1)).max(1)).max(1);
             let groups: Vec<BarGroup<'_>> = (0..n)
@@ -222,6 +227,7 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                         .series
                         .iter()
                         .enumerate()
+                        .filter(|(_, s)| kalem_core::chart_math::is_main(chart, s))
                         .map(|(j, s)| {
                             let v = s.values.get(i).copied().flatten().unwrap_or(0.0);
                             let own = s.point_colors.iter().find(|p| p.0 == i).map(|p| p.1);
@@ -304,7 +310,7 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
             if caps.ascii {
                 return summary(chart, plot, buf);
             }
-            let points: Vec<Vec<(f64, f64)>> = chart
+            let mut points: Vec<Vec<(f64, f64)>> = chart
                 .series
                 .iter()
                 .map(|s| {
@@ -322,6 +328,20 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                         .collect()
                 })
                 .collect();
+            // A combo chart's other series, trendlines and error bars as
+            // lines of their own (on the one value axis the terminal draws).
+            let mut extra: Vec<[u8; 3]> = Vec::new();
+            for (sh, _) in kalem_core::chart_math::overlays(chart) {
+                if let kalem_core::chart_math::Shape::Line {
+                    points: p,
+                    color: c,
+                    ..
+                } = sh
+                {
+                    points.push(p);
+                    extra.push(c);
+                }
+            }
             let all = points.iter().flatten();
             let (mut x0, mut x1, mut y0, mut y1) = (f64::MAX, f64::MIN, 0f64, f64::MIN);
             for (x, y) in all {
@@ -342,19 +362,30 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
             if y1 <= y0 {
                 y1 = y0 + 1.0;
             }
+            let n_series = chart.series.len();
             let datasets: Vec<Dataset<'_>> = points
                 .iter()
-                .zip(&chart.series)
                 .enumerate()
-                .map(|(i, (p, s))| {
+                .filter(|(i, _)| {
+                    *i >= n_series || kalem_core::chart_math::is_main(chart, &chart.series[*i])
+                })
+                .map(|(i, p)| {
+                    let (style, scatter) = if i < n_series {
+                        (
+                            color(caps, chart.series[i].color, i),
+                            chart.kind == ChartKind::Scatter,
+                        )
+                    } else {
+                        (color(caps, Some(extra[i - n_series]), 0), false)
+                    };
                     Dataset::default()
                         .marker(Marker::Braille)
-                        .graph_type(if chart.kind == ChartKind::Scatter {
+                        .graph_type(if scatter {
                             GraphType::Scatter
                         } else {
                             GraphType::Line
                         })
-                        .style(color(caps, s.color, i))
+                        .style(style)
                         .data(p)
                 })
                 .collect();
@@ -434,8 +465,115 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                 );
             }
         }
+        ChartKind::Waterfall | ChartKind::Stock | ChartKind::Bubble | ChartKind::Radar => {
+            if caps.ascii {
+                return summary(chart, plot, buf);
+            }
+            let shapes = kalem_core::chart_math::special(chart).unwrap_or_default();
+            draw_shapes(&shapes, chart.kind == ChartKind::Radar, caps, plot, buf);
+        }
         ChartKind::Other => summary(chart, plot, buf),
     }
+}
+
+/// Shapes drawn with braille dots: rectangles filled, lines, circles,
+/// texts; within their own bounds (a radar's unit square).
+fn draw_shapes(
+    shapes: &[kalem_core::chart_math::Shape],
+    unit: bool,
+    caps: &Caps,
+    area: Rect,
+    buf: &mut Buffer,
+) {
+    use kalem_core::chart_math::Shape;
+    use ratatui::widgets::canvas::{Canvas, Circle, Line as CLine};
+    let mut pts: Vec<(f64, f64)> = Vec::new();
+    for sh in shapes {
+        match sh {
+            Shape::Line { points, .. } | Shape::Polygon { points, .. } => pts.extend(points),
+            Shape::Rect { x, y, .. } => {
+                pts.push((x.0, y.0));
+                pts.push((x.1, y.1));
+            }
+            Shape::Dot { at, .. } | Shape::Text { at, .. } => pts.push(*at),
+        }
+    }
+    let (mut x0, mut x1, mut y0, mut y1) = if unit {
+        (0.0, 1.0, 0.0, 1.0)
+    } else {
+        (f64::MAX, f64::MIN, 0f64, f64::MIN)
+    };
+    if !unit {
+        for (x, y) in &pts {
+            x0 = x0.min(*x);
+            x1 = x1.max(*x);
+            y0 = y0.min(*y);
+            y1 = y1.max(*y);
+        }
+        if x0 > x1 {
+            return;
+        }
+        x0 -= 0.5;
+        x1 += 0.5;
+        if y1 <= y0 {
+            y1 = y0 + 1.0;
+        }
+    }
+    let tint = |c: [u8; 3]| {
+        if caps.no_color {
+            Color::Reset
+        } else {
+            Color::Rgb(c[0], c[1], c[2])
+        }
+    };
+    let side = (x1 - x0).min(y1 - y0);
+    Canvas::default()
+        .marker(Marker::Braille)
+        .x_bounds([x0, x1])
+        .y_bounds([y0, y1])
+        .paint(|ctx| {
+            for sh in shapes {
+                match sh {
+                    Shape::Line {
+                        points, color: c, ..
+                    } => {
+                        for w in points.windows(2) {
+                            ctx.draw(&CLine::new(w[0].0, w[0].1, w[1].0, w[1].1, tint(*c)));
+                        }
+                    }
+                    Shape::Rect { x, y, color: c } => {
+                        // Filled with vertical strokes.
+                        let steps = 12;
+                        for k in 0..=steps {
+                            let xi = x.0 + (x.1 - x.0) * f64::from(k) / f64::from(steps);
+                            ctx.draw(&CLine::new(xi, y.0, xi, y.1, tint(*c)));
+                        }
+                    }
+                    Shape::Polygon {
+                        points, color: c, ..
+                    } => {
+                        for w in points.windows(2) {
+                            ctx.draw(&CLine::new(w[0].0, w[0].1, w[1].0, w[1].1, tint(*c)));
+                        }
+                    }
+                    Shape::Dot {
+                        at,
+                        radius,
+                        color: c,
+                        ..
+                    } => ctx.draw(&Circle {
+                        x: at.0,
+                        y: at.1,
+                        radius: f64::from(*radius) * side,
+                        color: tint(*c),
+                    }),
+                    Shape::Text { at, text, .. } => {
+                        ctx.print(at.0, at.1, Line::from(text.clone()));
+                    }
+                }
+            }
+        })
+        .render(area, buf);
 }
 
 /// A chart the terminal does not draw: what it holds, in words.

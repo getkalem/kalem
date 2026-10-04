@@ -3,6 +3,7 @@
 //! and scatter charts with their title, axes, gridlines, axis titles,
 //! legend and value labels, in the colors the file gives or Office's.
 
+use crate::chart_math::{self, Shape, is_main};
 use kalem_viewer::{Chart, ChartKind, LegendPosition, Paint};
 
 const PALETTE: [[u8; 3]; 6] = [
@@ -198,6 +199,12 @@ pub fn tikz(chart: &Chart, w: f32, h: f32) -> String {
     }
     if pie {
         pie_chart(&mut out, chart, left, right, bottom, top);
+    } else if chart.kind == ChartKind::Radar {
+        let side = (right - left).min(top - bottom);
+        let (x0, y0) = ((left + right - side) / 2.0, (top + bottom - side) / 2.0);
+        for sh in chart_math::special(chart).unwrap_or_default() {
+            shape(&mut out, &sh, &|x, y| (x0 + x * side, y0 + y * side), side);
+        }
     } else if chart.kind == ChartKind::Other {
         out.push_str(&format!(
             "\\node at ({:.3},{:.3}) {{Chart}};\n",
@@ -262,7 +269,7 @@ fn pie_chart(out: &mut String, chart: &Chart, left: f64, right: f64, bottom: f64
 
 fn axes_chart(out: &mut String, chart: &Chart, left: f64, right: f64, bottom: f64, top: f64) {
     let horizontal = chart.kind == ChartKind::Bar;
-    let scatter = chart.kind == ChartKind::Scatter;
+    let scatter = matches!(chart.kind, ChartKind::Scatter | ChartKind::Bubble);
     let stacked = chart.stacked
         && matches!(
             chart.kind,
@@ -283,7 +290,12 @@ fn axes_chart(out: &mut String, chart: &Chart, left: f64, right: f64, bottom: f6
     let mut hi: f64 = 0.0;
     for j in 0..n {
         let (mut pos, mut neg) = (0.0, 0.0);
-        for s in &chart.series {
+        // A waterfall's range is its running totals', not its steps'.
+        for s in chart
+            .series
+            .iter()
+            .filter(|s| is_main(chart, s) && chart.kind != ChartKind::Waterfall)
+        {
             let v = s.values.get(j).copied().flatten().unwrap_or(0.0);
             if stacked {
                 if v >= 0.0 {
@@ -298,6 +310,11 @@ fn axes_chart(out: &mut String, chart: &Chart, left: f64, right: f64, bottom: f6
         }
         lo = lo.min(neg);
         hi = hi.max(pos);
+    }
+    // Error bars, a waterfall's totals, series of other kinds.
+    if let Some((a, b)) = chart_math::value_bounds(chart, false) {
+        lo = lo.min(a);
+        hi = hi.max(b);
     }
     let log = chart.scale.log;
     let tf = |v: f64| {
@@ -505,21 +522,72 @@ fn axes_chart(out: &mut String, chart: &Chart, left: f64, right: f64, bottom: f6
             crate::sheet_print::escape(t)
         ));
     }
-    let label = |out: &mut String, x: f64, y: f64, v: f64, anchor: &str| {
-        if chart.labels.value {
+    // A point's label: its cell's text, else its value when shown.
+    let label = |out: &mut String, x: f64, y: f64, v: f64, anchor: &str, si: usize, j: usize| {
+        let own = &chart.series[si].cell_labels;
+        let text = if own.is_empty() {
+            chart
+                .labels
+                .value
+                .then(|| tick(v, 1.0, chart.axis_format.as_deref()))
+        } else {
+            own.get(j)
+                .filter(|t| !t.is_empty())
+                .map(|t| crate::sheet_print::escape(t))
+        };
+        if let Some(text) = text {
             out.push_str(&format!(
-                "\\node[anchor={anchor},inner sep=1pt] at ({x:.3},{y:.3}) {{{}}};\n",
-                tick(v, 1.0, chart.axis_format.as_deref())
+                "\\node[anchor={anchor},inner sep=1pt] at ({x:.3},{y:.3}) {{{text}}};\n"
             ));
         }
     };
-    let count = chart.series.len().max(1);
+    let mains: Vec<usize> = (0..chart.series.len())
+        .filter(|&i| is_main(chart, &chart.series[i]))
+        .collect();
+    let count = mains.len().max(1);
+    // The secondary axis: its own scale, its labels at the right.
+    let second = chart_math::value_bounds(chart, true).map(|(a, b)| {
+        let (a, b) = (a.min(0.0), b.max(a + f64::EPSILON));
+        let step = nice_step(a, b);
+        ((a / step).floor() * step, (b / step).ceil() * step, step)
+    });
+    if let Some((slo, shi, step)) = second {
+        let mut v = slo;
+        while v <= shi + step * 1e-9 {
+            let y = pb + (v - slo) / (shi - slo) * (pt - pb);
+            out.push_str(&format!(
+                "\\node[anchor=west] at ({pr:.3},{y:.3}) {{{}}};\n",
+                tick(v, step, None)
+            ));
+            v += step;
+        }
+    }
+    let map = |x: f64, y: f64, secondary: bool| -> (f64, f64) {
+        let px = if scatter {
+            pl + (x - xlo) / (xhi - xlo).max(f64::EPSILON) * (pr - pl)
+        } else {
+            pl + slot * (x + 0.5)
+        };
+        let py = match (secondary, second) {
+            (true, Some((slo, shi, _))) => pb + (y - slo) / (shi - slo) * (pt - pb),
+            _ => along(y),
+        };
+        (px, py)
+    };
+    if let Some(shapes) = chart_math::special(chart) {
+        let side = (pr - pl).min(pt - pb);
+        for sh in &shapes {
+            shape(out, sh, &|x, y| map(x, y, false), side);
+        }
+        return;
+    }
     match chart.kind {
         ChartKind::Column | ChartKind::Bar => {
             let mut pos = vec![0.0; n];
             let mut neg = vec![0.0; n];
             let width = slot * 0.7 / if stacked { 1.0 } else { count as f64 };
-            for (i, s) in chart.series.iter().enumerate() {
+            for (k, &i) in mains.iter().enumerate() {
+                let s = &chart.series[i];
                 let c = color_of(series_color(chart, i));
                 for j in 0..n {
                     let Some(v) = s.values.get(j).copied().flatten() else {
@@ -537,7 +605,7 @@ fn axes_chart(out: &mut String, chart: &Chart, left: f64, right: f64, bottom: f6
                     let off = if stacked {
                         -width / 2.0
                     } else {
-                        -slot * 0.35 + width * i as f64
+                        -slot * 0.35 + width * k as f64
                     };
                     let (a, b) = (along(from), along(to));
                     if horizontal {
@@ -546,21 +614,22 @@ fn axes_chart(out: &mut String, chart: &Chart, left: f64, right: f64, bottom: f6
                             "\\fill[{c}] ({a:.3},{y0:.3}) rectangle ({b:.3},{:.3});\n",
                             y0 + width
                         ));
-                        label(out, b, y0 + width / 2.0, v, "west");
+                        label(out, b, y0 + width / 2.0, v, "west", i, j);
                     } else {
                         let x0 = mid + off;
                         out.push_str(&format!(
                             "\\fill[{c}] ({x0:.3},{a:.3}) rectangle ({:.3},{b:.3});\n",
                             x0 + width
                         ));
-                        label(out, x0 + width / 2.0, b, v, "south");
+                        label(out, x0 + width / 2.0, b, v, "south", i, j);
                     }
                 }
             }
         }
         ChartKind::Area => {
             let mut base = vec![0.0; n];
-            for (i, s) in chart.series.iter().enumerate() {
+            for &i in &mains {
+                let s = &chart.series[i];
                 let c = color_of(series_color(chart, i));
                 let mut upper = Vec::new();
                 let mut lower = Vec::new();
@@ -583,7 +652,8 @@ fn axes_chart(out: &mut String, chart: &Chart, left: f64, right: f64, bottom: f6
             }
         }
         ChartKind::Line | ChartKind::Scatter => {
-            for (i, s) in chart.series.iter().enumerate() {
+            for &i in &mains {
+                let s = &chart.series[i];
                 let c = color_of(series_color(chart, i));
                 let mut path: Vec<String> = Vec::new();
                 let mut points = Vec::new();
@@ -599,7 +669,7 @@ fn axes_chart(out: &mut String, chart: &Chart, left: f64, right: f64, bottom: f6
                     };
                     let y = along(v);
                     path.push(format!("({x:.3},{y:.3})"));
-                    points.push((x, y, v));
+                    points.push((x, y, v, j));
                 }
                 if !scatter && path.len() > 1 {
                     out.push_str(&format!(
@@ -607,13 +677,89 @@ fn axes_chart(out: &mut String, chart: &Chart, left: f64, right: f64, bottom: f6
                         path.join(" -- ")
                     ));
                 }
-                for (x, y, v) in points {
+                for (x, y, v, j) in points {
                     out.push_str(&format!(
                         "\\fill[{c}] ({x:.3},{y:.3}) circle[radius=0.025];\n"
                     ));
-                    label(out, x, y, v, "south");
+                    label(out, x, y, v, "south", i, j);
                 }
             }
+        }
+        _ => {}
+    }
+    // A combo chart's other series, trendlines, error bars.
+    if !horizontal {
+        let side = (pr - pl).min(pt - pb);
+        for (sh, secondary) in chart_math::overlays(chart) {
+            shape(out, &sh, &|x, y| map(x, y, secondary), side);
+        }
+    }
+}
+
+/// A shape drawn with `at` placing its points, in inches; a dot's radius
+/// a share of `side`.
+fn shape(out: &mut String, sh: &Shape, at: &dyn Fn(f64, f64) -> (f64, f64), side: f64) {
+    let path = |pts: &[(f64, f64)]| -> String {
+        pts.iter()
+            .map(|p| {
+                let (x, y) = at(p.0, p.1);
+                format!("({x:.3},{y:.3})")
+            })
+            .collect::<Vec<_>>()
+            .join(" -- ")
+    };
+    match sh {
+        Shape::Line {
+            points,
+            color,
+            width,
+            dashed,
+        } if points.len() > 1 => out.push_str(&format!(
+            "\\draw[{},line width={width}pt{}] {};\n",
+            color_of(*color),
+            if *dashed { ",dashed" } else { "" },
+            path(points)
+        )),
+        Shape::Rect { x, y, color } => {
+            let (a, b) = (at(x.0, y.0), at(x.1, y.1));
+            out.push_str(&format!(
+                "\\fill[{}] ({:.3},{:.3}) rectangle ({:.3},{:.3});\n",
+                color_of(*color),
+                a.0,
+                a.1,
+                b.0,
+                b.1
+            ));
+        }
+        Shape::Polygon {
+            points,
+            color,
+            alpha,
+        } if points.len() > 2 => out.push_str(&format!(
+            "\\fill[{},fill opacity={alpha}] {} -- cycle;\n",
+            color_of(*color),
+            path(points)
+        )),
+        Shape::Dot {
+            at: c,
+            radius,
+            color,
+            alpha,
+        } => {
+            let (x, y) = at(c.0, c.1);
+            out.push_str(&format!(
+                "\\fill[{},fill opacity={alpha}] ({x:.3},{y:.3}) circle[radius={:.3}];\n",
+                color_of(*color),
+                f64::from(*radius) * side
+            ));
+        }
+        Shape::Text { at: c, text, above } => {
+            let (x, y) = at(c.0, c.1);
+            out.push_str(&format!(
+                "\\node[{}inner sep=1pt] at ({x:.3},{y:.3}) {{{}}};\n",
+                if *above { "anchor=south east," } else { "" },
+                crate::sheet_print::escape(text)
+            ));
         }
         _ => {}
     }
@@ -657,5 +803,66 @@ mod tests {
         assert!(t.contains("arc[start angle=90.00"), "{t}");
         chart.kind = ChartKind::Line;
         assert!(tikz(&chart, 3.0, 2.0).contains(" -- "));
+    }
+
+    #[test]
+    fn combo_waterfall_and_radar_as_tikz() {
+        use kalem_viewer::{ErrorBars, ErrorKind, TrendKind, Trendline};
+        let series = |name: &str, v: &[f64]| ChartSeries {
+            name: name.into(),
+            values: v.iter().map(|x| Some(*x)).collect(),
+            ..ChartSeries::default()
+        };
+        let mut combo = Chart {
+            kind: ChartKind::Column,
+            title: Some("Combo".into()),
+            categories: vec!["a".into(), "b".into(), "c".into(), "d".into()],
+            series: vec![
+                series("Sales", &[10.0, 14.0, 13.0, 19.0]),
+                series("Share", &[0.2, 0.3, 0.25, 0.4]),
+            ],
+            legend: Some(LegendPosition::Bottom),
+            ..Chart::default()
+        };
+        combo.series[1].kind = Some(ChartKind::Line);
+        combo.series[1].secondary = true;
+        combo.series[0].trendline = Some(Trendline {
+            kind: TrendKind::Linear,
+            equation: true,
+            r_squared: true,
+            ..Trendline::default()
+        });
+        combo.series[0].error_bars = Some(ErrorBars {
+            kind: ErrorKind::Percent,
+            value: 10.0,
+        });
+        let mut fall = Chart {
+            kind: ChartKind::Waterfall,
+            title: Some("Waterfall".into()),
+            categories: vec!["Start".into(), "Up".into(), "Down".into(), "End".into()],
+            series: vec![series("Cash", &[100.0, 30.0, -50.0, 80.0])],
+            ..Chart::default()
+        };
+        fall.series[0].subtotals = vec![3];
+        let radar = Chart {
+            kind: ChartKind::Radar,
+            title: Some("Radar".into()),
+            categories: vec!["a".into(), "b".into(), "c".into(), "d".into(), "e".into()],
+            series: vec![series("One", &[3.0, 4.0, 2.0, 5.0, 4.0])],
+            ..Chart::default()
+        };
+        let mut out = String::from("\\documentclass{article}\\usepackage{tikz}\\begin{document}\n");
+        for c in [&combo, &fall, &radar] {
+            let t = tikz(c, 4.0, 2.6);
+            assert!(t.contains("\\end{tikzpicture}"));
+            out.push_str(&t);
+            out.push_str("\n\n");
+        }
+        assert!(out.contains("dashed"), "a trendline");
+        assert!(out.contains("R² = "), "its R²");
+        out.push_str("\\end{document}\n");
+        if let Ok(dir) = std::env::var("KALEM_TEX_OUT") {
+            std::fs::write(format!("{dir}/charts.tex"), &out).unwrap();
+        }
     }
 }
