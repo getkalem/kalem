@@ -1164,6 +1164,17 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// Changes the kind of the chart at `index` of
+    /// [`ViewerDocument::charts`], its series and settings kept.
+    fn set_chart_kind(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _kind: ChartKind,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
     /// Removes the chart at `index` of [`ViewerDocument::charts`].
     fn delete_chart(&mut self, _unit: usize, _index: usize) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
