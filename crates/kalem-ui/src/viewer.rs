@@ -695,8 +695,13 @@ impl Editor {
         let pointer = v.pointer;
         let marks = v.outline_marks();
         let arrows = v.arrows.clone();
+        // Go To Special's ranges, selected together.
+        let areas = v.areas.clone();
         let in_sel = move |r: u32, c: u32| {
-            selecting && (sel[0]..=sel[2]).contains(&r) && (sel[1]..=sel[3]).contains(&c)
+            (selecting && (sel[0]..=sel[2]).contains(&r) && (sel[1]..=sel[3]).contains(&c))
+                || areas
+                    .iter()
+                    .any(|m| (m[0]..=m[2]).contains(&r) && (m[1]..=m[3]).contains(&c))
         };
         let rgb = |c: [u8; 3]| -> gpui::Hsla {
             gpui::rgb(u32::from(c[0]) << 16 | u32::from(c[1]) << 8 | u32::from(c[2])).into()

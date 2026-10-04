@@ -353,6 +353,9 @@ pub struct ViewerState {
     pub arrows: Vec<([u32; 4], (u32, u32))>,
     /// The Watch Window's cells: unit, row, column.
     pub watches: Vec<(usize, u32, u32)>,
+    /// A selection of several ranges (Go To Special's), until the cursor
+    /// moves.
+    pub areas: Vec<[u32; 4]>,
 }
 
 /// What Find looks for in a grid, and how.
@@ -543,6 +546,7 @@ impl ViewerState {
             outline_marks: None,
             arrows: Vec::new(),
             watches: Vec::new(),
+            areas: Vec::new(),
         })
     }
 
@@ -1606,6 +1610,7 @@ impl ViewerState {
     /// Puts the cursor on a cell and scrolls it into view; the selection
     /// goes; a cell inside a merged one is its first cell.
     pub fn grid_move_to(&mut self, row: u32, col: u32) {
+        self.areas.clear();
         let (row, col) = self.merge_at(row, col).map_or((row, col), |m| (m[0], m[1]));
         let mut p = self.grid_pos();
         p.sel = None;
@@ -1699,6 +1704,7 @@ impl ViewerState {
     /// Selects from the selection's start (the cursor, when none) to a cell
     /// (Shift and a click, a drag).
     pub fn grid_extend_to(&mut self, row: u32, col: u32) {
+        self.areas.clear();
         let mut p = self.grid_pos();
         if p.sel.is_none() {
             p.sel = Some((p.row, p.col));
@@ -3158,12 +3164,16 @@ impl ViewerState {
         if !self.grid_editable() {
             return Err("This file is shown, not edited".into());
         }
-        let s = self.selection();
-        self.doc()
-            .change_style(self.unit, s, change)
-            .map_err(|e| e.to_string())?;
+        let areas = self.selection_areas();
+        let unit = self.unit;
+        let r = self.in_batch(|d| {
+            for s in &areas {
+                d.change_style(unit, *s, change.clone())?;
+            }
+            Ok(())
+        });
         self.refresh();
-        Ok(())
+        r
     }
 
     /// Which cells along a line hold something: rows `a..b` of column
@@ -3996,12 +4006,97 @@ impl ViewerState {
         if !self.grid_editable() {
             return Err("This file is shown, not edited".into());
         }
-        let s = self.selection();
-        self.doc()
-            .enter_in_range(self.unit, s, (row, col), input)
-            .map_err(|e| e.to_string())?;
+        let areas = self.selection_areas();
+        let unit = self.unit;
+        let r = self.in_batch(|d| {
+            for s in &areas {
+                d.enter_in_range(unit, *s, (row, col), input)?;
+            }
+            Ok(())
+        });
         self.refresh();
-        Ok(())
+        r
+    }
+
+    /// Go To Special: the cells of a kind (`blanks`, `constants`,
+    /// `formulas`, `errors`, `visible`, `notes`, `conditional`,
+    /// `validation`) in the selection, or the used range when it is one
+    /// cell, selected together; how many cells in how many ranges.
+    pub fn go_to_special(&mut self, kind: &str) -> Result<(usize, usize), String> {
+        const ERRORS: [&str; 8] = [
+            "#DIV/0!", "#VALUE!", "#REF!", "#NAME?", "#N/A", "#NUM!", "#NULL!", "#SPILL!",
+        ];
+        let l = self.grid_layout().ok_or("Not a sheet")?;
+        if kind == "last" {
+            self.grid_move_to(l.rows.saturating_sub(1), l.cols.saturating_sub(1));
+            return Ok((1, 1));
+        }
+        let s = self.selection();
+        let scope = if (s[0], s[1]) == (s[2], s[3]) {
+            [0, 0, l.rows.saturating_sub(1), l.cols.saturating_sub(1)]
+        } else {
+            s
+        };
+        let mut cells: Vec<(u32, u32)> = Vec::new();
+        match kind {
+            "visible" => {
+                for r in scope[0]..=scope[2] {
+                    if l.hidden_rows.contains(&r) {
+                        continue;
+                    }
+                    for c in scope[1]..=scope[3] {
+                        if !l.hidden_cols.contains(&c) {
+                            cells.push((r, c));
+                        }
+                    }
+                }
+            }
+            "conditional" => {
+                for m in self.doc().conditional_ranges(self.unit) {
+                    for r in m[0].max(scope[0])..=m[2].min(scope[2]) {
+                        for c in m[1].max(scope[1])..=m[3].min(scope[3]) {
+                            cells.push((r, c));
+                        }
+                    }
+                }
+            }
+            _ => {
+                let got: std::collections::HashMap<(u32, u32), GridCell> = self
+                    .grid_cells(scope[0]..scope[2] + 1, scope[1]..scope[3] + 1)
+                    .into_iter()
+                    .map(|(r, c, g)| ((r, c), g))
+                    .collect();
+                for r in scope[0]..=scope[2] {
+                    for c in scope[1]..=scope[3] {
+                        let g = got.get(&(r, c));
+                        let filled = g.is_some_and(|g| !g.text.is_empty() || g.formula);
+                        let take = match kind {
+                            "blanks" => !filled,
+                            "constants" => filled && g.is_some_and(|g| !g.formula),
+                            "formulas" => g.is_some_and(|g| g.formula),
+                            "errors" => g.is_some_and(|g| ERRORS.contains(&g.text.as_str())),
+                            "notes" => g.is_some_and(|g| g.note),
+                            "validation" => self.doc().validation(self.unit, r, c).is_some(),
+                            _ => false,
+                        };
+                        if take {
+                            cells.push((r, c));
+                        }
+                    }
+                }
+            }
+        }
+        if cells.is_empty() {
+            return Err("No cells were found".into());
+        }
+        cells.sort_unstable();
+        cells.dedup();
+        let areas = areas_of(&cells);
+        let n = (cells.len(), areas.len());
+        let first = cells[0];
+        self.grid_move_to(first.0, first.1);
+        self.areas = areas;
+        Ok(n)
     }
 
     /// The cursor's cell's hyperlink.
@@ -4084,12 +4179,37 @@ impl ViewerState {
         if !self.grid_editable() {
             return Err("This file is shown, not edited".into());
         }
-        let s = self.selection();
-        self.doc()
-            .clear_cells(self.unit, s)
-            .map_err(|e| e.to_string())?;
+        let areas = self.selection_areas();
+        let unit = self.unit;
+        let r = self.in_batch(|d| {
+            for s in &areas {
+                d.clear_cells(unit, *s)?;
+            }
+            Ok(())
+        });
         self.refresh();
-        Ok(())
+        r
+    }
+
+    /// The ranges selected: Go To Special's several, else the selection.
+    pub fn selection_areas(&mut self) -> Vec<[u32; 4]> {
+        if self.areas.is_empty() {
+            vec![self.selection()]
+        } else {
+            self.areas.clone()
+        }
+    }
+
+    /// Edits of the document as one undo step.
+    fn in_batch(
+        &mut self,
+        f: impl FnOnce(&mut dyn ViewerDocument) -> kalem_viewer::Result<()>,
+    ) -> Result<(), String> {
+        let mut d = self.doc();
+        d.begin_batch();
+        let r = f(&mut **d);
+        d.end_batch();
+        r.map_err(|e| e.to_string())
     }
 
     /// The selection as tab-separated text, rows on lines, as spreadsheets
@@ -7877,6 +7997,46 @@ fn toggle_alignment(ctx: &mut EditorContext<'_>, which: &str) -> CommandResult {
     })
 }
 
+/// Go To Special (Ctrl+G is the palette: `g s`): the kinds of cell, then
+/// those cells selected together.
+fn go_to_special(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.goToSpecial";
+    let Some(kind) = args.get("kind").and_then(|k| k.as_str()) else {
+        let item =
+            |k: &str, t: &str| menu_item(ID, serde_json::json!({ "kind": k }), t, "Go To Special");
+        ctx.requests.push(Request::Choose(vec![
+            item("blanks", "Blanks"),
+            item("constants", "Constants"),
+            item("formulas", "Formulas"),
+            item("errors", "Errors"),
+            item("visible", "Visible Cells Only"),
+            item("last", "Last Cell"),
+            item("notes", "Notes"),
+            item("conditional", "Conditional Formats"),
+            item("validation", "Data Validation"),
+        ]));
+        return Ok(());
+    };
+    let kind = kind.to_owned();
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    match v.go_to_special(&kind) {
+        Ok((cells, areas)) if kind != "last" => ctx.messages.push(format!(
+            "{cells} cell{} in {areas} range{}",
+            if cells == 1 { "" } else { "s" },
+            if areas == 1 { "" } else { "s" }
+        )),
+        Ok(_) => {}
+        Err(e) => ctx.messages.push(e),
+    }
+    Ok(())
+}
+
 /// Evaluate Formula (`z e`): the cursor's formula's steps, as a list.
 fn evaluate_formula(ctx: &mut EditorContext<'_>) -> CommandResult {
     let Some(v) = ctx
@@ -9521,6 +9681,31 @@ fn grid_width(ctx: &mut EditorContext<'_>, by: f32) -> CommandResult {
     })
 }
 
+/// Cells (sorted by row, then column) as few ranges: runs along each row,
+/// the same runs on rows after one another joined.
+pub fn areas_of(cells: &[(u32, u32)]) -> Vec<[u32; 4]> {
+    let mut runs: Vec<[u32; 4]> = Vec::new();
+    for &(r, c) in cells {
+        match runs.last_mut() {
+            Some(run) if run[0] == r && run[3] + 1 == c => run[3] = c,
+            _ => runs.push([r, c, r, c]),
+        }
+    }
+    let mut out: Vec<[u32; 4]> = Vec::new();
+    for run in runs {
+        // The same columns on the row right above: one taller range.
+        if let Some(a) = out
+            .iter_mut()
+            .find(|a| a[2] + 1 == run[0] && a[1] == run[1] && a[3] == run[3])
+        {
+            a[2] = run[0];
+        } else {
+            out.push(run);
+        }
+    }
+    out
+}
+
 /// Whether a prompt's answer is a cell's entry: where Ctrl+Enter enters
 /// it into every selected cell and AutoComplete offers the column's text.
 pub fn cell_entry_prompt(command: &str, arg: &str) -> bool {
@@ -9642,6 +9827,20 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| select_all(ctx),
         ),
         cmd("viewer.grid.goTo", "Go To", &["f5", "g o"], IN_GRID, go_to),
+        cmd(
+            "viewer.grid.goToSpecial",
+            "Go To Special",
+            &["g s"],
+            IN_GRID,
+            go_to_special,
+        ),
+        cmd(
+            "viewer.grid.selectVisible",
+            "Select Visible Cells",
+            &["alt+;"],
+            IN_GRID,
+            |ctx, _| go_to_special(ctx, &serde_json::json!({ "kind": "visible" })),
+        ),
         cmd(
             "viewer.grid.tracePrecedents",
             "Trace Precedents",
@@ -11405,6 +11604,15 @@ fn grid_commands() -> Vec<Command> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cells_as_ranges() {
+        let cells = [(0, 0), (0, 1), (1, 0), (1, 1), (1, 3), (3, 2)];
+        assert_eq!(
+            areas_of(&cells),
+            vec![[0, 0, 1, 1], [1, 3, 1, 3], [3, 2, 3, 2]]
+        );
+    }
 
     #[test]
     fn decimals_increased_and_decreased() {

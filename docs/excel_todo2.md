@@ -72,7 +72,7 @@ be bound again.
 
 ## E30. Go To Special and sheet-wide selection
 
-- [ ] E30 Go To Special: blanks, constants, formulas (by kind of result),
+- [x] E30 Go To Special: blanks, constants, formulas (by kind of result),
   errors, visible cells only (Alt+;), the last cell, cells with notes,
   conditional formats or data validation; the cells found selected
   together.

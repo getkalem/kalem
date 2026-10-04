@@ -3258,3 +3258,65 @@ fn formula_auditing() {
     );
     t.key(KeyCode::Esc);
 }
+
+#[test]
+fn go_to_special() {
+    let mut t = T::open("special");
+    let select = |t: &mut T, a: (u32, u32), b: (u32, u32)| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(a.0, a.1);
+        v.grid_extend_to(b.0, b.1);
+    };
+    // g s: the kinds.
+    t.key(KeyCode::Char('g'));
+    t.key(KeyCode::Char('s'));
+    assert!(t.screen().contains("Blanks"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    // The blanks of A1:E5: column E, typed into at once with Ctrl+Enter.
+    select(&mut t, (0, 0), (4, 4));
+    t.app
+        .run_command("viewer.grid.goToSpecial", json!({ "kind": "blanks" }));
+    assert!(t.screen().contains("5 cells in 1 range"), "{}", t.screen());
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().areas,
+        vec![[0, 4, 4, 4]]
+    );
+    t.app.run_command("viewer.grid.edit", json!({}));
+    t.key(KeyCode::Char('-'));
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Enter,
+        KeyModifiers::CONTROL,
+    )));
+    let input = |t: &mut T, r: u32, c: u32| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(r, c);
+        v.cell_input()
+    };
+    assert_eq!(
+        (input(&mut t, 0, 4), input(&mut t, 4, 4)),
+        ("-".into(), "-".into())
+    );
+    t.app.run_command("edit.undo", json!({}));
+    assert_eq!(input(&mut t, 2, 4), "");
+    // Formulas of the budget: the totals and the sums.
+    select(&mut t, (0, 0), (4, 3));
+    t.app
+        .run_command("viewer.grid.goToSpecial", json!({ "kind": "formulas" }));
+    let areas = t.app.doc.viewer.as_deref_mut().unwrap().areas.clone();
+    assert_eq!(areas, vec![[1, 3, 3, 3], [4, 1, 4, 3]]);
+    // Visible cells only (Alt+;) around a hidden row: two ranges.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 0);
+    t.app.run_command("viewer.grid.hideRows", json!({}));
+    select(&mut t, (1, 0), (3, 1));
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char(';'),
+        KeyModifiers::ALT,
+    )));
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().areas,
+        vec![[1, 0, 1, 1], [3, 0, 3, 1]]
+    );
+    // Moving the cursor ends it.
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    assert!(t.app.doc.viewer.as_deref_mut().unwrap().areas.is_empty());
+}

@@ -275,6 +275,8 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
     let sel = v.selection();
     let selecting = v.grid_pos().sel.is_some();
     let cut = v.cut_range();
+    // Go To Special's ranges, selected together.
+    let areas = v.areas.clone();
     // The cells a formula being typed points at.
     let pointer = v.pointer;
     // Trace Precedents' and Dependents' ends: the ranges read, the cells
@@ -351,7 +353,10 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
             let next_in_merge =
                 merge.is_some_and(|m| c < m[3] && cols.iter().any(|(cc, _)| *cc == c + 1));
             let in_sel =
-                selecting && (sel[0]..=sel[2]).contains(&r) && (sel[1]..=sel[3]).contains(&c);
+                (selecting && (sel[0]..=sel[2]).contains(&r) && (sel[1]..=sel[3]).contains(&c))
+                    || areas
+                        .iter()
+                        .any(|m| (m[0]..=m[2]).contains(&r) && (m[1]..=m[3]).contains(&c));
             let in_cut =
                 cut.is_some_and(|m| (m[0]..=m[2]).contains(&r) && (m[1]..=m[3]).contains(&c));
             let sel_style = |st: Style| {
