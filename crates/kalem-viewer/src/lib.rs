@@ -543,6 +543,9 @@ pub struct Chart {
     pub plot_border: Paint,
     /// Which gridlines it draws.
     pub gridlines: Gridlines,
+    /// The value axis's number format (`#,##0.00`, `0%`); `None` for the
+    /// cells' own.
+    pub axis_format: Option<String>,
 }
 
 /// A chart's gridlines, by the way they run: horizontal ones come from
@@ -1289,6 +1292,17 @@ pub trait ViewerDocument: Send {
         _unit: usize,
         _index: usize,
         _lines: Gridlines,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Sets the number format of the value axis's labels of the chart at
+    /// `index` of [`ViewerDocument::charts`]; `None` takes the cells' own.
+    fn set_axis_format(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _format: Option<String>,
     ) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
