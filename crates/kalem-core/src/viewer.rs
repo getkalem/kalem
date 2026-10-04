@@ -2608,6 +2608,29 @@ impl ViewerState {
         Ok(n)
     }
 
+    /// Changes the selection's format (Format Cells).
+    pub fn change_style(&mut self, change: kalem_viewer::StyleChange) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        self.doc()
+            .change_style(self.unit, s, change)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The cursor's cell as drawn (its format), for toggles that follow it.
+    pub fn cursor_cell(&mut self) -> GridCell {
+        let p = self.grid_pos();
+        self.grid_cells(p.row..p.row + 1, p.col..p.col + 1)
+            .into_iter()
+            .next()
+            .map(|c| c.2)
+            .unwrap_or_default()
+    }
+
     /// Clears the selection's values, formats kept (Delete).
     pub fn clear_selection(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -5018,6 +5041,170 @@ fn custom_lists(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
     }
 }
 
+/// Bold, Italic, Underline and Strikethrough: on for the selection when
+/// the cursor's cell has it off, else off, as Excel toggles them.
+fn toggle_font(ctx: &mut EditorContext<'_>, which: &str) -> CommandResult {
+    use kalem_viewer::StyleChange;
+    with(ctx, |v| {
+        let c = v.cursor_cell();
+        let change = match which {
+            "bold" => StyleChange {
+                bold: Some(!c.bold),
+                ..StyleChange::default()
+            },
+            "italic" => StyleChange {
+                italic: Some(!c.italic),
+                ..StyleChange::default()
+            },
+            "underline" => StyleChange {
+                underline: Some(!c.underline),
+                ..StyleChange::default()
+            },
+            _ => StyleChange {
+                strike: Some(!c.strike),
+                ..StyleChange::default()
+            },
+        };
+        v.change_style(change)
+    })
+}
+
+/// Font Color and Fill Color: Excel's standard colors, a typed #RRGGBB,
+/// automatic, and for a fill none.
+fn color_style(ctx: &mut EditorContext<'_>, args: &serde_json::Value, fill: bool) -> CommandResult {
+    use kalem_viewer::StyleChange;
+    let id = if fill {
+        "viewer.grid.fillColor"
+    } else {
+        "viewer.grid.fontColor"
+    };
+    let typed = args.get("value").and_then(|x| x.as_str());
+    let pick = |c: Option<[u8; 3]>| {
+        if fill {
+            StyleChange {
+                fill: Some(c),
+                ..StyleChange::default()
+            }
+        } else {
+            StyleChange {
+                color: Some(c),
+                ..StyleChange::default()
+            }
+        }
+    };
+    match args.get("color").and_then(|c| c.as_str()).or(typed) {
+        Some("auto" | "none") => with(ctx, |v| v.change_style(pick(None))),
+        Some("custom") => ask_more(ctx, id, &serde_json::json!({}), "value"),
+        Some(c) => match hex_color(c) {
+            Some(rgb) => with(ctx, |v| v.change_style(pick(Some(rgb)))),
+            None => {
+                ctx.messages.push(format!("Not a color: {c} (#RRGGBB)"));
+                Ok(())
+            }
+        },
+        None => {
+            let category = if fill { "Fill Color" } else { "Font Color" };
+            let mut items = color_menu(id, &serde_json::json!({}), category);
+            if fill {
+                items.insert(
+                    0,
+                    menu_item(
+                        id,
+                        serde_json::json!({ "color": "none" }),
+                        "No Fill",
+                        category,
+                    ),
+                );
+            }
+            ctx.requests.push(Request::Choose(items));
+            Ok(())
+        }
+    }
+}
+
+/// Font Size and Font: the common ones, or typed.
+fn font_choice(ctx: &mut EditorContext<'_>, args: &serde_json::Value, size: bool) -> CommandResult {
+    use kalem_viewer::StyleChange;
+    let id = if size {
+        "viewer.grid.fontSize"
+    } else {
+        "viewer.grid.fontFace"
+    };
+    let given = args.get("value").and_then(|x| {
+        x.as_str()
+            .map(str::to_string)
+            .or_else(|| x.as_f64().map(|n| n.to_string()))
+    });
+    if let Some(v) = given.clone().filter(|v| v != "custom") {
+        if size {
+            let t = v.replace(',', ".");
+            return match t.trim().trim_end_matches("pt").trim().parse::<f32>() {
+                Ok(n) if (1.0..=409.0).contains(&n) => with(ctx, |vw| {
+                    vw.change_style(StyleChange {
+                        size: Some(n),
+                        ..StyleChange::default()
+                    })
+                }),
+                _ => {
+                    ctx.messages
+                        .push(format!("Not a font size: {v} (1 to 409 points)"));
+                    Ok(())
+                }
+            };
+        }
+        let face = v.trim().to_string();
+        if face.is_empty() {
+            return Ok(());
+        }
+        return with(ctx, |vw| {
+            vw.change_style(StyleChange {
+                face: Some(face),
+                ..StyleChange::default()
+            })
+        });
+    }
+    if given.is_some() {
+        return ask_more(ctx, id, &serde_json::json!({}), "value");
+    }
+    let mut items: Vec<_> = if size {
+        [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72]
+            .iter()
+            .map(|n| {
+                menu_item(
+                    id,
+                    serde_json::json!({ "value": n.to_string() }),
+                    &format!("{n} pt"),
+                    "Font Size",
+                )
+            })
+            .collect()
+    } else {
+        [
+            "Calibri",
+            "Arial",
+            "Times New Roman",
+            "Cambria",
+            "Courier New",
+            "Georgia",
+            "Verdana",
+            "Tahoma",
+            "Segoe UI",
+            "Aptos",
+        ]
+        .iter()
+        .map(|f| menu_item(id, serde_json::json!({ "value": f }), f, "Font"))
+        .collect()
+    };
+    items.push(menu_item(
+        id,
+        serde_json::json!({ "value": "custom" }),
+        "Custom…",
+        if size { "Font Size" } else { "Font" },
+    ));
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
 /// Insert Chart: the kinds offered, then the chart of the selection.
 fn insert_chart(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::ChartKind;
@@ -6683,6 +6870,62 @@ fn grid_commands() -> Vec<Command> {
             &["alt+f5"],
             IN_GRID,
             |ctx, _| with(ctx, |v| v.refresh_pivots()),
+        ),
+        cmd(
+            "viewer.grid.bold",
+            "Bold",
+            &["ctrl+b", "t b"],
+            IN_GRID,
+            |ctx, _| toggle_font(ctx, "bold"),
+        ),
+        cmd(
+            "viewer.grid.italic",
+            "Italic",
+            &["ctrl+i", "t i"],
+            IN_GRID,
+            |ctx, _| toggle_font(ctx, "italic"),
+        ),
+        cmd(
+            "viewer.grid.underline",
+            "Underline",
+            &["ctrl+u", "t u"],
+            IN_GRID,
+            |ctx, _| toggle_font(ctx, "underline"),
+        ),
+        cmd(
+            "viewer.grid.strikethrough",
+            "Strikethrough",
+            &["ctrl+5", "t s"],
+            IN_GRID,
+            |ctx, _| toggle_font(ctx, "strike"),
+        ),
+        cmd(
+            "viewer.grid.fontColor",
+            "Font Color",
+            &["t c"],
+            IN_GRID,
+            |ctx, args| color_style(ctx, args, false),
+        ),
+        cmd(
+            "viewer.grid.fillColor",
+            "Fill Color",
+            &["t f"],
+            IN_GRID,
+            |ctx, args| color_style(ctx, args, true),
+        ),
+        cmd(
+            "viewer.grid.fontSize",
+            "Font Size",
+            &["t z"],
+            IN_GRID,
+            |ctx, args| font_choice(ctx, args, true),
+        ),
+        cmd(
+            "viewer.grid.fontFace",
+            "Font",
+            &["t n"],
+            IN_GRID,
+            |ctx, args| font_choice(ctx, args, false),
         ),
         cmd(
             "viewer.grid.fillDown",

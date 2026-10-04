@@ -14,7 +14,7 @@ in the palette and can be bound again.
 
 ## E1. Font formatting
 
-- [ ] E1 Bold, italic, underline and strikethrough of the selection
+- [x] E1 Bold, italic, underline and strikethrough of the selection
   (Ctrl+B, Ctrl+I, Ctrl+U, Ctrl+5), its font color, fill color, font size
   and typeface: Format Cells' Font and Fill, written as a cell style
   (`<xf>` with a `<font>` and `<fill>`), every cell of the selection.

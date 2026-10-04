@@ -1467,3 +1467,76 @@ fn flash_fill() {
     assert_eq!(input(&mut t, 2, 4), "");
     assert_eq!(input(&mut t, 1, 4), "RENT:1,200.00");
 }
+
+#[test]
+fn font_formatting() {
+    let mut t = T::open("font");
+    let cell = |t: &mut T, row: u32, col: u32| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(row, col);
+        v.cursor_cell()
+    };
+    // A2:B3 bold with Ctrl+B, then not, with it again.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 0);
+        v.grid_extend_to(2, 1);
+    }
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('b'),
+        KeyModifiers::CONTROL,
+    )));
+    assert!(cell(&mut t, 2, 1).bold);
+    let s = t.screen();
+    let buf = t.term.backend().buffer().clone();
+    assert!(
+        buf.content()
+            .iter()
+            .any(|c| c.symbol() == "R" && c.modifier.contains(ratatui::style::Modifier::BOLD)),
+        "{s}"
+    );
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 0);
+        v.grid_extend_to(2, 1);
+    }
+    t.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('b'),
+        KeyModifiers::CONTROL,
+    )));
+    assert!(!cell(&mut t, 1, 0).bold);
+    // Italic, a red font, a yellow fill, 14 point Arial on A2.
+    // Ctrl+I is Tab to a terminal: t i.
+    t.key(KeyCode::Char('t'));
+    t.key(KeyCode::Char('i'));
+    t.app
+        .run_command("viewer.grid.fontColor", json!({ "color": "#FF0000" }));
+    t.app.run_command("viewer.grid.fillColor", json!({}));
+    assert!(t.screen().contains("No Fill"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.fillColor", json!({ "color": "#FFFF00" }));
+    t.app
+        .run_command("viewer.grid.fontSize", json!({ "value": "14" }));
+    t.app
+        .run_command("viewer.grid.fontFace", json!({ "value": "Arial" }));
+    let c = cell(&mut t, 1, 0);
+    assert!(c.italic);
+    assert_eq!(
+        (c.color, c.fill),
+        (Some([0xFF, 0, 0]), Some([0xFF, 0xFF, 0]))
+    );
+    assert_eq!((c.font_size, c.face.as_deref()), (Some(140), Some("Arial")));
+    // Saved as Excel reads it; undone step by step.
+    t.app.run_command("app.save", json!({}));
+    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
+    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
+    let s = wb.sheet(0).unwrap().cells[&kalem_plugin_xlsx::CellRef::new(1, 0)].style;
+    assert!(wb.style(s).italic && wb.style(s).font.as_deref() == Some("Arial"));
+    for _ in 0..5 {
+        t.app.run_command("edit.undo", json!({}));
+    }
+    let c = cell(&mut t, 1, 0);
+    // Back to the workbook's own black.
+    assert!(!c.italic && c.fill.is_none() && c.color == Some([0, 0, 0]));
+}

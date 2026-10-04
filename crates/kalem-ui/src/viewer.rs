@@ -1061,6 +1061,13 @@ impl Editor {
                     if cell.bold {
                         d = d.font_weight(gpui::FontWeight::BOLD);
                     }
+                    // The cell's own size and typeface.
+                    if let Some(tenths) = cell.font_size {
+                        d = d.text_size(px(f32::from(tenths) / 10.0 * 4.0 / 3.0));
+                    }
+                    if let Some(face) = &cell.face {
+                        d = d.font_family(SharedString::from(face.clone()));
+                    }
                     if cell.italic {
                         d = d.italic();
                     }
@@ -1237,6 +1244,13 @@ impl Editor {
                     }
                     if cell.bold {
                         d = d.font_weight(gpui::FontWeight::BOLD);
+                    }
+                    // The cell's own size and typeface.
+                    if let Some(tenths) = cell.font_size {
+                        d = d.text_size(px(f32::from(tenths) / 10.0 * 4.0 / 3.0));
+                    }
+                    if let Some(face) = &cell.face {
+                        d = d.font_family(SharedString::from(face.clone()));
                     }
                     if cell.italic {
                         d = d.italic();
@@ -1418,6 +1432,13 @@ impl Editor {
                 }
                 if cell.bold {
                     d = d.font_weight(gpui::FontWeight::BOLD);
+                }
+                // The cell's own size and typeface.
+                if let Some(tenths) = cell.font_size {
+                    d = d.text_size(px(f32::from(tenths) / 10.0 * 4.0 / 3.0));
+                }
+                if let Some(face) = &cell.face {
+                    d = d.font_family(SharedString::from(face.clone()));
                 }
                 if cell.italic {
                     d = d.italic();
