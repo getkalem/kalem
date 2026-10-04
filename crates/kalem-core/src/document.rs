@@ -1767,6 +1767,16 @@ impl DocumentState {
             self.dired.as_ref().is_some_and(|d| d.wdired.is_some()),
         );
         c.flag("hasSelection", self.selection.anchor != self.selection.head);
+        // The text has a comment syntax (Toggle Comment): not a viewer's
+        // file, not a listing.
+        c.flag(
+            "hasComments",
+            self.viewer.is_none()
+                && self.dired.is_none()
+                && crate::code::language_at(self)
+                    .and_then(|l| crate::code::comment_style(&l))
+                    .is_some(),
+        );
         // A plugin's question waits, a plugin has a panel.
         c.flag("pluginAsks", crate::extensions::asking());
         c.flag("pluginPanels", crate::extensions::has_panels());

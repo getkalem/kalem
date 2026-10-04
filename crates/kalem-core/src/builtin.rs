@@ -5075,7 +5075,7 @@ fn plain_commands() -> Vec<Command> {
                 "Toggle Comment",
                 "Edit",
                 &["ctrl+alt+c"],
-                None,
+                Some("hasComments"),
                 |ctx, _| {
                     let now = ctx.now;
                     let d = ctx.doc()?;

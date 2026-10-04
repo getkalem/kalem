@@ -155,6 +155,7 @@ and a string compare equal when the string reads as that number.
 | =editorLanguage= | A plain text file's language, as detected (=rs=, =python=)                                                                           | document    |
 | =textType=       | The text type at the cursor (see [[*Text types][Text types]])                                                                                         | cursor      |
 | =hasSelection=   | Text is selected                                                                                                                     | cursor      |
+| =hasComments=    | The text has a comment syntax (Toggle Comment); not in a viewer or the file manager                                                  | document    |
 | =narrowed=       | The document is narrowed to a part                                                                                                   | editor      |
 | =modified=       | The document has unsaved changes                                                                                                     | editor      |
 | =wdired=         | The file manager's listing is being edited                                                                                           | editor      |
