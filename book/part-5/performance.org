@@ -27,7 +27,7 @@ Measured on 2026-09-28 on an Apple M1 Max (macOS 15.1, Rust 1.98.1), with other 
 | Incremental parse, keystroke in a paragraph                                                                                              | 0.05 ms                  | under 2 ms          |
 | Memory, empty document (graphical)                                                                                                       | 47 MB                    | under 80 MB         |
 | Memory, 10 MB document (graphical)                                                                                                       | 252 MB                   | under 500 MB        |
-| Binary size (full)                                                                                                                       | 48.9 MB (macOS arm64, 2026-10-03, D28): missed | under 40 MB         |
+| Binary size (full)                                                                                                                       | 83.3 MiB (Linux x86-64, 2026-10-04; 48.9 MB on macOS arm64 on 2026-10-03, before the workbook viewer grew): missed | under 40 MB         |
 | Saving a 10 MB document                                                                                                                  | 20 ms                    | under 100 ms        |
 | Terminal frontend startup (terminal-only build)                                                                                          | 13 ms                    | under 50 ms         |
 | CLI =check= on a 1 MB file                                                                                                               | 91 ms                    | under 100 ms        |

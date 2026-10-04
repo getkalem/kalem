@@ -94,7 +94,8 @@ each platform with the results in the release issue.
   (4 MiB more, unbenchmarked), unifying the crates present twice (small
   ones). Not taken: `panic = "abort"`, which would end the program on a
   plugin handler's panic that `catch_unwind` now contains. CI's
-  `binary size` job holds both builds to ceilings
+  `binary size` job holds both builds to ceilings (the full build is
+  83.3 MiB on Linux)
   (`tools/binary-size.txt`), lowered as sizes drop. What remains of the
   terminal-only 40.8 MiB: 25 MiB of code (kalem-core 4 MiB, std 3 MiB,
   the citation styles 2 MiB, the exporters, the LaTeX pictures' PDF and
