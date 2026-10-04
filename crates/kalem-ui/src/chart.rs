@@ -83,7 +83,19 @@ pub fn chart_view(
         );
     }
     let plot = chart.clone();
-    let canvas = div().flex_1().min_h(px(10.)).relative().child(
+    let mut canvas = div()
+        .debug_selector(move || format!("viewer-grid-chart-plot-{index}"))
+        .flex_1()
+        .min_h(px(10.))
+        .relative();
+    // The plot area painted as the file says.
+    if let Paint::Color(c) = chart.plot_background {
+        canvas = canvas.bg(rgb(c));
+    }
+    if let Paint::Color(c) = chart.plot_border {
+        canvas = canvas.border_1().border_color(rgb(c));
+    }
+    let canvas = canvas.child(
         gpui::canvas(
             |_, _, _| {},
             move |bounds, (), window, cx| paint(&plot, bounds, border, (&font, text), window, cx),

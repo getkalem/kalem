@@ -1086,6 +1086,40 @@ fn charts() {
         "viewer.grid.chartArea",
         json!({ "part": "border", "color": "auto" }),
     );
+    // The plot area: offered with the chart area, painted light gray.
+    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('b'));
+    assert!(
+        t.screen().contains("Plot Area Background"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.chartArea",
+        json!({ "part": "plotBackground", "color": "#F2F2F2" }),
+    );
+    let c5 = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].clone();
+    assert_eq!(c5.plot_background, kalem_viewer::Paint::Color([0xF2; 3]));
+    assert_eq!(
+        c5.background,
+        kalem_viewer::Paint::Automatic,
+        "the chart area's untouched"
+    );
+    t.screen();
+    let gray = ratatui::style::Color::Rgb(0xF2, 0xF2, 0xF2);
+    assert!(
+        t.term
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .any(|c| c.bg == gray)
+    );
+    t.app.run_command(
+        "viewer.grid.chartArea",
+        json!({ "part": "plotBackground", "color": "auto" }),
+    );
     // A column chart's slices do not stand out.
     t.app.run_command("viewer.grid.explodeSlice", json!({}));
     assert!(t.screen().contains("Only a pie's"), "{}", t.screen());

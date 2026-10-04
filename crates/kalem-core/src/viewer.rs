@@ -2220,6 +2220,26 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Paints the plot area (background and border, inside the axes) of
+    /// the chart under the cursor.
+    pub fn set_plot_area(
+        &mut self,
+        background: kalem_viewer::Paint,
+        border: kalem_viewer::Paint,
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (i, _) = self
+            .chart_at_cursor()
+            .ok_or("Put the cursor on a chart to paint it")?;
+        self.doc()
+            .set_plot_area(self.unit, i, background, border)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// Removes the chart over the cursor's cell.
     pub fn delete_chart(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -4002,29 +4022,48 @@ fn chart_area(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandR
                 &format!("Border… ({})", show(chart.border)),
                 "Chart Area",
             ),
+            menu_item(
+                ID,
+                serde_json::json!({ "part": "plotBackground" }),
+                &format!("Plot Area Background… ({})", show(chart.plot_background)),
+                "Chart Area",
+            ),
+            menu_item(
+                ID,
+                serde_json::json!({ "part": "plotBorder" }),
+                &format!("Plot Area Border… ({})", show(chart.plot_border)),
+                "Chart Area",
+            ),
         ];
         ctx.requests.push(Request::Choose(items));
         return Ok(());
     };
-    let background = part == "background";
+    // Which paint: the chart area's or the plot area's, its fill or line.
+    let plot = part.starts_with("plot");
+    let background = part == "background" || part == "plotBackground";
+    let (now_bg, now_border) = if plot {
+        (chart.plot_background, chart.plot_border)
+    } else {
+        (chart.background, chart.border)
+    };
     let apply = |ctx: &mut EditorContext<'_>, p: Paint| {
         let (bg, border) = if background {
-            (p, chart.border)
+            (p, now_border)
         } else {
-            (chart.background, p)
+            (now_bg, p)
         };
-        with(ctx, |v| v.set_chart_area(bg, border))
+        if plot {
+            with(ctx, |v| v.set_plot_area(bg, border))
+        } else {
+            with(ctx, |v| v.set_chart_area(bg, border))
+        }
     };
     let typed = args.get("value").and_then(|x| x.as_str());
     match args.get("color").and_then(|c| c.as_str()).or(typed) {
         Some("auto") => apply(ctx, Paint::Automatic),
         Some("none") => apply(ctx, Paint::None),
         Some("custom") => {
-            let now = match if background {
-                chart.background
-            } else {
-                chart.border
-            } {
+            let now = match if background { now_bg } else { now_border } {
                 Paint::Color(c) => format!("#{:02X}{:02X}{:02X}", c[0], c[1], c[2]),
                 _ => String::new(),
             };
@@ -4043,10 +4082,11 @@ fn chart_area(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandR
             }
         },
         None => {
-            let category = if background {
-                "Chart Background"
-            } else {
-                "Chart Border"
+            let category = match (plot, background) {
+                (false, true) => "Chart Background",
+                (false, false) => "Chart Border",
+                (true, true) => "Plot Area Background",
+                (true, false) => "Plot Area Border",
             };
             let mut items = color_menu(ID, &serde_json::json!({ "part": part }), category);
             items.insert(

@@ -175,6 +175,11 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
         }
         _ => inner,
     };
+    if !caps.no_color
+        && let Paint::Color(c) = chart.plot_background
+    {
+        buf.set_style(plot, Style::default().bg(tint(c)));
+    }
     let label = |i: usize| {
         chart
             .categories
