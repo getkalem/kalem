@@ -2200,6 +2200,26 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Paints the chart area (background and border) of the chart under
+    /// the cursor.
+    pub fn set_chart_area(
+        &mut self,
+        background: kalem_viewer::Paint,
+        border: kalem_viewer::Paint,
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (i, _) = self
+            .chart_at_cursor()
+            .ok_or("Put the cursor on a chart to paint it")?;
+        self.doc()
+            .set_chart_area(self.unit, i, background, border)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// Removes the chart over the cursor's cell.
     pub fn delete_chart(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -3941,6 +3961,109 @@ fn explode_slice(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
     Ok(())
 }
 
+/// Chart Area: its background or its border, then a color, none, or the
+/// style's again.
+fn chart_area(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::Paint;
+    const ID: &str = "viewer.grid.chartArea";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some((i, _)) = v.chart_at_cursor() else {
+        ctx.messages
+            .push("Put the cursor on a chart to paint it".into());
+        return Ok(());
+    };
+    let chart = v.charts()[i].clone();
+    let show = |p: Paint| match p {
+        Paint::Automatic => "automatic".to_string(),
+        Paint::None => "none".to_string(),
+        Paint::Color(c) => format!("#{:02X}{:02X}{:02X}", c[0], c[1], c[2]),
+    };
+    let Some(part) = args
+        .get("part")
+        .and_then(|p| p.as_str())
+        .map(str::to_string)
+    else {
+        let items = vec![
+            menu_item(
+                ID,
+                serde_json::json!({ "part": "background" }),
+                &format!("Background… ({})", show(chart.background)),
+                "Chart Area",
+            ),
+            menu_item(
+                ID,
+                serde_json::json!({ "part": "border" }),
+                &format!("Border… ({})", show(chart.border)),
+                "Chart Area",
+            ),
+        ];
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    let background = part == "background";
+    let apply = |ctx: &mut EditorContext<'_>, p: Paint| {
+        let (bg, border) = if background {
+            (p, chart.border)
+        } else {
+            (chart.background, p)
+        };
+        with(ctx, |v| v.set_chart_area(bg, border))
+    };
+    let typed = args.get("value").and_then(|x| x.as_str());
+    match args.get("color").and_then(|c| c.as_str()).or(typed) {
+        Some("auto") => apply(ctx, Paint::Automatic),
+        Some("none") => apply(ctx, Paint::None),
+        Some("custom") => {
+            let now = match if background {
+                chart.background
+            } else {
+                chart.border
+            } {
+                Paint::Color(c) => format!("#{:02X}{:02X}{:02X}", c[0], c[1], c[2]),
+                _ => String::new(),
+            };
+            ask_more(
+                ctx,
+                ID,
+                &serde_json::json!({ "part": part, "value_default": now }),
+                "value",
+            )
+        }
+        Some(c) => match hex_color(c) {
+            Some(rgb) => apply(ctx, Paint::Color(rgb)),
+            None => {
+                ctx.messages.push(format!("Not a color: {c} (#RRGGBB)"));
+                Ok(())
+            }
+        },
+        None => {
+            let category = if background {
+                "Chart Background"
+            } else {
+                "Chart Border"
+            };
+            let mut items = color_menu(ID, &serde_json::json!({ "part": part }), category);
+            items.insert(
+                0,
+                menu_item(
+                    ID,
+                    serde_json::json!({ "part": part, "color": "none" }),
+                    if background { "No Fill" } else { "No Border" },
+                    category,
+                ),
+            );
+            ctx.requests.push(Request::Choose(items));
+            Ok(())
+        }
+    }
+}
+
 /// Insert Chart: the kinds offered, then the chart of the selection.
 fn insert_chart(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::ChartKind;
@@ -5543,6 +5666,13 @@ fn grid_commands() -> Vec<Command> {
             &["h e"],
             IN_GRID,
             explode_slice,
+        ),
+        cmd(
+            "viewer.grid.chartArea",
+            "Chart Area",
+            &["h b"],
+            IN_GRID,
+            chart_area,
         ),
         cmd(
             "viewer.grid.deleteChart",

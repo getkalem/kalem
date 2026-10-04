@@ -753,6 +753,37 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             .color
     });
     assert_eq!(color, Some([0x70, 0xAD, 0x47]));
+    // Its area: a light background and no border.
+    e.update_in(cx, |e, window, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let a = v.charts().last().unwrap().anchor;
+        v.grid_move_to(a[0], a[1]);
+        e.run_command(
+            "viewer.grid.chartArea",
+            serde_json::json!({ "part": "background", "color": "#DEEBF7" }),
+            window,
+            cx,
+        );
+        e.run_command(
+            "viewer.grid.chartArea",
+            serde_json::json!({ "part": "border", "color": "none" }),
+            window,
+            cx,
+        );
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    });
+    cx.run_until_parked();
+    let (bg, border) = e.update(cx, |e, _| {
+        let c = e.doc.viewer.as_deref_mut().unwrap().charts();
+        (c.last().unwrap().background, c.last().unwrap().border)
+    });
+    assert_eq!(
+        (bg, border),
+        (
+            kalem_viewer::Paint::Color([0xDE, 0xEB, 0xF7]),
+            kalem_viewer::Paint::None
+        )
+    );
     assert!(
         cx.debug_bounds(Box::leak(
             format!("viewer-grid-chart-{}", count - 1).into_boxed_str()

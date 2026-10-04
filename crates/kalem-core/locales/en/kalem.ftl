@@ -1266,6 +1266,7 @@ cmd-viewer-grid-chartKind = Change Chart Type
 cmd-viewer-grid-seriesColor = Series Color
 cmd-viewer-grid-pointColor = Slice Color
 cmd-viewer-grid-explodeSlice = Explode Slice
+cmd-viewer-grid-chartArea = Chart Area
 cmd-viewer-grid-moveChartUp = Move Chart Up
 cmd-viewer-grid-moveChartDown = Move Chart Down
 cmd-viewer-grid-moveChartLeft = Move Chart Left
