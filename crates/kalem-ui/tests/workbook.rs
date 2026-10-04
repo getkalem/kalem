@@ -610,6 +610,57 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
         e.doc.viewer.as_deref_mut().unwrap().charts()[n - 1].labels
     });
     assert!(labels.category && labels.percent && !labels.value);
+    // A column chart on a logarithmic scale, then every 500 from 0.
+    e.update_in(cx, |e, window, cx| {
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+        e.run_command(
+            "viewer.grid.insertChart",
+            serde_json::json!({ "kind": "column" }),
+            window,
+            cx,
+        );
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let a = v.charts().last().unwrap().anchor;
+        v.grid_move_to(a[0], a[1]);
+        e.run_command(
+            "viewer.grid.axisScale",
+            serde_json::json!({ "field": "log" }),
+            window,
+            cx,
+        );
+        v_scale_check(e, true);
+        e.run_command(
+            "viewer.grid.axisScale",
+            serde_json::json!({ "field": "log" }),
+            window,
+            cx,
+        );
+        e.run_command(
+            "viewer.grid.axisScale",
+            serde_json::json!({ "field": "major", "value": "500" }),
+            window,
+            cx,
+        );
+        e.run_command(
+            "viewer.grid.axisScale",
+            serde_json::json!({ "field": "min", "value": "0" }),
+            window,
+            cx,
+        );
+        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    });
+    cx.run_until_parked();
+    let sc = e.update(cx, |e, _| {
+        e.doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .charts()
+            .last()
+            .unwrap()
+            .scale
+    });
+    assert_eq!((sc.min, sc.major, sc.log), (Some(0.0), Some(500.0), false));
     assert!(
         cx.debug_bounds(Box::leak(
             format!("viewer-grid-chart-{}", n - 1).into_boxed_str()
@@ -619,4 +670,10 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     assert_eq!(resized[..2], moved[..2]);
     assert_eq!(resized[2], moved[2] - 3, "{moved:?} → {resized:?}");
     let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The scale of the last chart, logarithmic or not.
+fn v_scale_check(e: &mut kalem_ui::editor::Editor, log: bool) {
+    let v = e.doc.viewer.as_deref_mut().unwrap();
+    assert_eq!(v.charts().last().unwrap().scale.log, log);
 }

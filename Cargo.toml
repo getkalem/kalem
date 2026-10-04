@@ -45,7 +45,7 @@ kalem-plugin = { path = "crates/kalem-plugin", version = "0.0.1" }
 # (D28) until components load (T3.1.12).
 kalem-plugin-image-viewer = { git = "https://github.com/getkalem/plugins", rev = "1d34eef4f98a9392d3316f2467f6a008d675c689" }
 # Excel workbooks (T3.7.4), bundled the same way.
-kalem-plugin-xlsx = { git = "https://github.com/getkalem/plugins", rev = "ca79fc6ae84be5bfe731aa85b4b8da1b00947084" }
+kalem-plugin-xlsx = { git = "https://github.com/getkalem/plugins", rev = "a28640baf5388401dd93e49ce8b6a88e53c1fbe3" }
 # PDF files (T3.7.3), bundled the same way.
 kalem-plugin-pdf-viewer = { git = "https://github.com/getkalem/plugins", rev = "6e7cef2747f8495eedcdfa4093ca24d2c151fb5a" }
 

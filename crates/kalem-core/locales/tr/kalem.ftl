@@ -1180,6 +1180,7 @@ cmd-viewer-grid-horizontalAxisTitle = Yatay Eksen Başlığı
 cmd-viewer-grid-verticalAxisTitle = Dikey Eksen Başlığı
 cmd-viewer-grid-chartLegend = Grafik Göstergesi
 cmd-viewer-grid-dataLabels = Veri Etiketleri
+cmd-viewer-grid-axisScale = Eksen Ölçeği
 cmd-viewer-grid-moveChartUp = Grafiği Yukarı Taşı
 cmd-viewer-grid-moveChartDown = Grafiği Aşağı Taşı
 cmd-viewer-grid-moveChartLeft = Grafiği Sola Taşı

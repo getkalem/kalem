@@ -2113,6 +2113,21 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Sets the value axis's scale of the chart under the cursor.
+    pub fn set_axis_scale(&mut self, scale: kalem_viewer::AxisScale) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (i, _) = self
+            .chart_at_cursor()
+            .ok_or("Put the cursor on a chart to scale its axis")?;
+        self.doc()
+            .set_axis_scale(self.unit, i, scale)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// Removes the chart over the cursor's cell.
     pub fn delete_chart(&mut self) -> Result<(), String> {
         if !self.grid_editable() {
@@ -3396,6 +3411,118 @@ fn data_labels(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Command
     }
     ctx.requests.push(Request::Choose(items));
     Ok(())
+}
+
+/// Axis Scale: the value axis's minimum, maximum and major unit asked for
+/// (empty for automatic), the logarithmic scale turned on or off, or all
+/// back to automatic.
+fn axis_scale(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::AxisScale;
+    const ID: &str = "viewer.grid.axisScale";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some((i, _)) = v.chart_at_cursor() else {
+        ctx.messages
+            .push("Put the cursor on a chart to scale its axis".into());
+        return Ok(());
+    };
+    let now = v.charts()[i].scale;
+    let show = |x: Option<f64>| x.map_or(String::new(), |x| format!("{x}"));
+    let field = args.get("field").and_then(|f| f.as_str()).unwrap_or("");
+    let set =
+        |ctx: &mut EditorContext<'_>, scale: AxisScale| with(ctx, |v| v.set_axis_scale(scale));
+    match field {
+        "auto" => set(ctx, AxisScale::default()),
+        "log" => set(
+            ctx,
+            AxisScale {
+                log: !now.log,
+                ..now
+            },
+        ),
+        "min" | "max" | "major" => {
+            let Some(text) = args.get("value").and_then(|x| x.as_str()) else {
+                let current = match field {
+                    "min" => show(now.min),
+                    "max" => show(now.max),
+                    _ => show(now.major),
+                };
+                return ask_more(
+                    ctx,
+                    ID,
+                    &serde_json::json!({ "field": field, "value_default": current }),
+                    "value",
+                );
+            };
+            let t = text.trim();
+            // A decimal comma as well as a point.
+            let t = if t.contains(',') && !t.contains('.') {
+                t.replace(',', ".")
+            } else {
+                t.to_string()
+            };
+            let n = if t.is_empty() {
+                None
+            } else {
+                match t.parse::<f64>() {
+                    Ok(n) => Some(n),
+                    Err(_) => {
+                        ctx.messages.push(format!("Not a number: {text}"));
+                        return Ok(());
+                    }
+                }
+            };
+            let scale = match field {
+                "min" => AxisScale { min: n, ..now },
+                "max" => AxisScale { max: n, ..now },
+                _ => AxisScale { major: n, ..now },
+            };
+            set(ctx, scale)
+        }
+        _ => {
+            let c = "Axis Scale";
+            let line = |title: &str, x: Option<f64>| {
+                format!(
+                    "{title}… ({})",
+                    x.map_or("automatic".into(), |x| format!("{x}"))
+                )
+            };
+            let items = vec![
+                menu_item(
+                    ID,
+                    serde_json::json!({ "field": "min" }),
+                    &line("Minimum", now.min),
+                    c,
+                ),
+                menu_item(
+                    ID,
+                    serde_json::json!({ "field": "max" }),
+                    &line("Maximum", now.max),
+                    c,
+                ),
+                menu_item(
+                    ID,
+                    serde_json::json!({ "field": "major" }),
+                    &line("Major Unit", now.major),
+                    c,
+                ),
+                menu_item(
+                    ID,
+                    serde_json::json!({ "field": "log" }),
+                    &format!("{} Logarithmic Scale", if now.log { "☑" } else { "☐" }),
+                    c,
+                ),
+                menu_item(ID, serde_json::json!({ "field": "auto" }), "Automatic", c),
+            ];
+            ctx.requests.push(Request::Choose(items));
+            Ok(())
+        }
+    }
 }
 
 /// Insert Chart: the kinds offered, then the chart of the selection.
@@ -4921,6 +5048,13 @@ fn grid_commands() -> Vec<Command> {
             &["h d"],
             IN_GRID,
             data_labels,
+        ),
+        cmd(
+            "viewer.grid.axisScale",
+            "Axis Scale",
+            &["h s"],
+            IN_GRID,
+            axis_scale,
         ),
         cmd(
             "viewer.grid.deleteChart",

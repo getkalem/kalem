@@ -292,6 +292,78 @@ fn paint(
     if hi <= lo {
         hi = lo + 1.0;
     }
+    // The value axis's scale: its own bounds, or a logarithmic one between
+    // powers of ten.
+    let sc = chart.scale;
+    let log = sc.log;
+    if log {
+        let positive = chart
+            .series
+            .iter()
+            .flat_map(|s| s.values.iter().flatten())
+            .copied()
+            .filter(|v| *v > 0.0);
+        let (mut a, mut b) = (f64::MAX, f64::MIN);
+        for v in positive {
+            a = a.min(v);
+            b = b.max(v);
+        }
+        if a > b {
+            (a, b) = (1.0, 10.0);
+        }
+        lo = 10f64.powf(a.log10().floor());
+        hi = 10f64.powf(b.log10().ceil()).max(lo * 10.0);
+    }
+    if let Some(m) = sc.min {
+        lo = m;
+    }
+    if let Some(m) = sc.max {
+        hi = m;
+    }
+    if hi <= lo {
+        hi = lo + 1.0;
+    }
+    let t = |v: f64| {
+        if log {
+            v.max(f64::MIN_POSITIVE).log10()
+        } else {
+            v
+        }
+    };
+    let frac = |v: f64| ((t(v) - t(lo)) / (t(hi) - t(lo))) as f32;
+    // Where the gridlines go: every major unit, each power of ten, or
+    // quarters.
+    let ticks: Vec<f64> = if log {
+        let mut v = 10f64.powf(lo.log10().ceil());
+        let mut out = Vec::new();
+        while v <= hi * 1.0001 && out.len() < 30 {
+            out.push(v);
+            v *= 10.0;
+        }
+        out
+    } else if let Some(m) = sc.major.filter(|m| *m > 0.0 && (hi - lo) / m <= 50.0) {
+        let mut v = (lo / m).ceil() * m;
+        let mut out = Vec::new();
+        while v <= hi + m * 1e-9 {
+            out.push(v);
+            v += m;
+        }
+        out
+    } else {
+        (0..=4)
+            .map(|g| lo + (hi - lo) * f64::from(g) / 4.0)
+            .collect()
+    };
+    let tick_text = |v: f64| {
+        if v.abs() >= 1000.0 || v.fract() == 0.0 {
+            format!("{v:.0}")
+        } else {
+            format!("{v:.2}")
+                .trim_end_matches('0')
+                .trim_end_matches('.')
+                .to_owned()
+        }
+    };
     match chart.kind {
         ChartKind::Column | ChartKind::Bar => {
             let horizontal = chart.kind == ChartKind::Bar;
@@ -299,14 +371,16 @@ fn paint(
             let k = chart.series.len().max(1) as f32;
             let group = along / n.max(1) as f32;
             let bar = group * 0.7 / k;
-            let scale = |v: f64| ((v - lo) / (hi - lo)) as f32 * across;
-            let zero = scale(0.0);
-            for g in 1..4 {
-                let t = across * g as f32 / 4.0;
+            let scale = |v: f64| frac(v).clamp(0.0, 1.0) * across;
+            let zero = scale(if log { lo } else { 0.0 });
+            for &v in &ticks {
+                let at = scale(v);
                 if horizontal {
-                    rect(x0 + t, y0, 0.5, h, grid, window);
+                    rect(x0 + at, y0, 0.5, h, grid, window);
+                    marks.push((x0 + at, y0 + h, tick_text(v), Place::Above));
                 } else {
-                    rect(x0, y0 + h - t, w, 0.5, grid, window);
+                    rect(x0, y0 + h - at, w, 0.5, grid, window);
+                    marks.push((x0 + 2.0, y0 + h - at, tick_text(v), Place::Right));
                 }
             }
             for i in 0..n {
@@ -353,9 +427,11 @@ fn paint(
                 };
                 Some(x0 + ((xv - xl) / (xh - xl)) as f32 * w)
             };
-            let py = |v: f64| y0 + h - ((v - lo) / (hi - lo)) as f32 * h;
-            for g in 1..4 {
-                rect(x0, y0 + h * g as f32 / 4.0, w, 0.5, grid, window);
+            let py = |v: f64| y0 + h - frac(v).clamp(-0.05, 1.05) * h;
+            for &v in &ticks {
+                let y = y0 + h - frac(v) * h;
+                rect(x0, y, w, 0.5, grid, window);
+                marks.push((x0 + 2.0, y, tick_text(v), Place::Right));
             }
             for (j, s) in chart.series.iter().enumerate() {
                 let c = color(s.color, j);

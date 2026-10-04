@@ -205,7 +205,9 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
                 .iter()
                 .flat_map(|s| s.values.iter().flatten())
                 .fold(0f64, |m, v| m.max(v.round()))
-                .max(1.0) as u64;
+                .max(1.0);
+            // The axis's own maximum, when it has one.
+            let top = chart.scale.max.unwrap_or(top).max(1.0).round() as u64;
             let mut bc = BarChart::default()
                 .bar_width(bar_width)
                 .group_gap(1)
@@ -277,6 +279,12 @@ pub fn draw(chart: &Chart, caps: &Caps, area: Rect, buf: &mut Buffer) {
             }
             if x0 > x1 {
                 return;
+            }
+            if let Some(m) = chart.scale.min {
+                y0 = m;
+            }
+            if let Some(m) = chart.scale.max {
+                y1 = m;
             }
             if y1 <= y0 {
                 y1 = y0 + 1.0;

@@ -892,6 +892,46 @@ fn charts() {
             .labels
             .any()
     );
+    // The value axis scaled: the menu, then a maximum typed with a decimal
+    // comma, a major unit, and back to automatic.
+    t.key(KeyCode::Char('h'));
+    t.key(KeyCode::Char('s'));
+    let s = t.screen();
+    assert!(
+        s.contains("Maximum") && s.contains("Logarithmic Scale"),
+        "{s}"
+    );
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.axisScale",
+        json!({ "field": "max", "value": "5000,5" }),
+    );
+    t.app.run_command(
+        "viewer.grid.axisScale",
+        json!({ "field": "major", "value": "1000" }),
+    );
+    let sc = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].scale;
+    assert_eq!(
+        (sc.max, sc.major, sc.min),
+        (Some(5000.5), Some(1000.0), None)
+    );
+    t.app.run_command(
+        "viewer.grid.axisScale",
+        json!({ "field": "min", "value": "9999" }),
+    );
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i]
+            .scale
+            .min,
+        None,
+        "a minimum over the maximum is refused"
+    );
+    t.app
+        .run_command("viewer.grid.axisScale", json!({ "field": "auto" }));
+    assert_eq!(
+        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].scale,
+        kalem_viewer::AxisScale::default()
+    );
     // A line chart in braille.
     t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
     t.app
