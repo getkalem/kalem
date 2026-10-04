@@ -1306,6 +1306,24 @@ pub trait ViewerDocument: Send {
         Err(ViewerError("This format is not edited".into()))
     }
 
+    /// A cell's hyperlink: a web or mail address or a file as written, or
+    /// a place in the document after `#` (`#Sheet2!A1`).
+    fn cell_link(&mut self, _unit: usize, _row: u32, _col: u32) -> Option<String> {
+        None
+    }
+
+    /// Gives a cell a hyperlink (as [`ViewerDocument::cell_link`] reads
+    /// it), or takes it away (`None`).
+    fn set_link(
+        &mut self,
+        _unit: usize,
+        _row: u32,
+        _col: u32,
+        _target: Option<String>,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
     /// Gives a cell a note, or takes it away (`None`).
     fn set_note(
         &mut self,
