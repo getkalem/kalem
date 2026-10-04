@@ -6353,7 +6353,7 @@ fn grid_commands() -> Vec<Command> {
         cmd(
             "viewer.grid.legendFont",
             "Legend Font",
-            &["h shift+l"],
+            &["p shift+l"],
             IN_GRID,
             |ctx, args| font_menu(ctx, args, "legend"),
         ),
