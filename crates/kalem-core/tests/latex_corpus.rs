@@ -161,5 +161,19 @@ fn arxiv_papers() {
         }
         kalem_core::latex_view::blocks(&d);
         kalem_core::latex_view::outline_items(&d);
+        // `kalem fmt` and `kalem fmt --align` settle at the first run
+        // (publish_todo 3.3: the alignment's padding was read as
+        // indentation, and grew at every run in 35 of these files).
+        if let Ok(text) = std::str::from_utf8(&bytes) {
+            for align in [false, true] {
+                let once = kalem_core::latex_fmt::format(text, align);
+                let twice = kalem_core::latex_fmt::format(&once, align);
+                assert!(
+                    once == twice,
+                    "{} (align {align}) changes again",
+                    path.display()
+                );
+            }
+        }
     }
 }

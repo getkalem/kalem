@@ -83,7 +83,10 @@ fn step(text: &str, root: &SyntaxNode) -> Option<String> {
         let next = begin + nl + 1;
         let line_end = text[next..].find('\n').map_or(text.len(), |i| next + i);
         let line = &text[next..line_end];
-        if line.trim().is_empty() || line.trim_start().starts_with("\\end") {
+        // A row whose first cell is empty starts with the padding that
+        // lines its `&` up (`--align`), not with the step.
+        let t = line.trim_start();
+        if t.is_empty() || t.starts_with("\\end") || t.starts_with('&') {
             continue;
         }
         let l = lead(line);
@@ -239,6 +242,17 @@ fn align_ampersands(text: &str) -> String {
         if rows.len() < 2 {
             continue;
         }
+        // A row whose first cell is empty starts with the padding that
+        // lined its `&` up last time: its indentation is the other rows'.
+        if let Some(common) = rows
+            .iter()
+            .find(|r| !r.2[0].is_empty())
+            .map(|r| r.1.clone())
+        {
+            for r in rows.iter_mut().filter(|r| r.2[0].is_empty()) {
+                r.1.clone_from(&common);
+            }
+        }
         let columns = rows.iter().map(|r| r.2.len()).max().unwrap_or(0);
         let widths: Vec<usize> = (0..columns)
             .map(|c| {
@@ -256,7 +270,14 @@ fn align_ampersands(text: &str) -> String {
                 line.push_str(c);
                 if i + 1 < n {
                     line.push_str(&" ".repeat(widths[i] - c.width()));
-                    line.push_str(" & ");
+                    // No first cell in any row: the `&` starts the line,
+                    // with no space that the next run would read as
+                    // indentation.
+                    line.push_str(if i == 0 && widths[0] == 0 {
+                        "& "
+                    } else {
+                        " & "
+                    });
                 }
             }
             if !tail.is_empty() {
@@ -306,6 +327,29 @@ mod tests {
         // Not indented: left as it is (apart from blanks).
         let flat = "\\begin{itemize}\n\\item a\n\\end{itemize}\n";
         assert_eq!(format(flat, false), flat);
+    }
+
+    #[test]
+    fn a_row_with_an_empty_first_cell_is_not_an_indentation() {
+        // The padding before its first `&` is alignment, not the step:
+        // read as the step, it grew the indentation at every run
+        // (publish_todo 3.3).
+        let text = "\\begin{document}\n\\begin{tabular}{ll}\n & b \\\\\nlonger & c \\\\\n\\end{tabular}\n\\begin{itemize}\n  \\item x\n\\end{itemize}\n\\end{document}\n";
+        let once = format(text, true);
+        assert_eq!(format(&once, true), once, "{once}");
+        assert!(once.contains("\n  longer & c"), "{once}");
+        assert!(once.contains("\n         & b"), "{once}");
+        // A document that does not indent keeps its lines' indentation,
+        // but not the padding of such a row.
+        let flat = "\\begin{tabular}{ll}\n & b \\\\\nlonger & c \\\\\n\\end{tabular}\n";
+        let once = format(flat, true);
+        assert_eq!(format(&once, true), once, "{once}");
+        assert!(once.contains("\n       & b"), "{once}");
+        // Rows that all start with `&`: no space added before it.
+        let all = "\\begin{align}\n  x =\n  & a \\\\\n  & bb\n\\end{align}\n";
+        let once = format(all, true);
+        assert_eq!(format(&once, true), once, "{once}");
+        assert!(once.contains("\n  & a \\\\\n  & bb\n"), "{once}");
     }
 
     #[test]

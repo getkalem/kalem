@@ -523,11 +523,16 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   (done for the CLI: `read_doc` decodes as the editors do; a file it
   cannot read is reported and the others checked. The `.bib` part
   (`bibliography-unreadable` for Latin-1) is open.)
-- [ ] **Major, verified.** `kalem fmt --align` is not idempotent: a table
+- [x] **Major, verified.** `kalem fmt --align` is not idempotent: a table
   row whose first cell is empty starts with alignment padding, which
   `step()` (`latex_fmt.rs:69-97`) reads as the indentation step, so the
   indent grows on every run (35 of 171 corpus files never settle; the
   example in the audit goes 1 → 12 → 23 spaces).
+  (done 2026-10-05: `step` skips a line starting with `&`; such a row
+  takes the indentation of the environment's other rows, and when no
+  row has a first cell the `&` starts the line with no space before it.
+  All 181 files of the corpus settle at the first run, with and without
+  `--align`, which `latex_corpus.rs`'s `arxiv_papers` now checks.)
 - [ ] **Major, reported (confirmed with pdflatex by the audit).**
   `kalem fmt` changes verbatim output: the `\end{verbatim}` line counts
   as outside the environment and is indented (`latex_fmt.rs:105`,
