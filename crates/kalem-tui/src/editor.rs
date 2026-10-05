@@ -1783,6 +1783,46 @@ impl EditorView {
         self.drawn.as_ref()?.hit(&l, col, row)
     }
 
+    /// A click at screen cell (`col`, `row`) on a row of the CSV grid,
+    /// `at` the source offset under it: the cell between the bars around
+    /// it, as a spreadsheet takes it (`kalem_core::csv::cell_at_bars`):
+    /// the offset to go to, and the column of a cell past the end of its
+    /// record. `None` off the grid, or on a record that wraps.
+    pub fn csv_hit(
+        &self,
+        doc: &DocumentState,
+        col: u16,
+        row: u16,
+        at: usize,
+    ) -> Option<(usize, Option<usize>)> {
+        if doc.meta.mode != kalem_core::DocumentMode::Csv || self.source {
+            return None;
+        }
+        let drawn = self.drawn.as_ref()?;
+        let hit = drawn.rows.iter().find(|r| r.y == row)?;
+        if drawn
+            .lines
+            .iter()
+            .any(|l| l.line == hit.line && l.rows != 1)
+        {
+            return None;
+        }
+        // The bars drawn on the row (not a `│` of a value), by the middle
+        // of their cell.
+        let text = doc.text().as_str();
+        let mut bars = Vec::new();
+        let mut x = f32::from(hit.x0) - f32::from(hit.scrolled);
+        for g in &hit.glyphs {
+            if g.text == "│" && !text[g.src.min(text.len())..].starts_with('│') {
+                bars.push(x + 0.5);
+            }
+            x += f32::from(g.width);
+        }
+        let line_start = doc.text().line_start(hit.line);
+        let step = (kalem_core::csv::SHEET_MIN_WIDTH + 3) as f32;
+        kalem_core::csv::cell_at_bars(doc, line_start, &bars, step, f32::from(col) + 0.5, at)
+    }
+
     /// Draws the document into `area` of `buf`; returns the cursor's cell.
     pub fn draw(
         &mut self,

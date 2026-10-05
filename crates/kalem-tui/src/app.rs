@@ -2678,10 +2678,17 @@ impl App {
                 }
             }
             MouseEventKind::Down(MouseButton::Left) => {
-                let Some((pos, widget)) = self.editor.hit(&self.doc, &self.caps, m.column, m.row)
+                let Some((mut pos, widget)) =
+                    self.editor.hit(&self.doc, &self.caps, m.column, m.row)
                 else {
                     return;
                 };
+                // A CSV grid's cell: by the bars around the click.
+                let mut cell = None;
+                if let Some((to, past)) = self.editor.csv_hit(&self.doc, m.column, m.row, pos) {
+                    pos = to;
+                    cell = past;
+                }
                 let now = Instant::now();
                 let double = self.last_click.is_some_and(|(t, x, y)| {
                     now.duration_since(t) < Duration::from_millis(400)
@@ -2749,6 +2756,9 @@ impl App {
                     self.select_word(pos);
                 } else {
                     self.doc.move_cursor(pos, shift);
+                    if let Some(c) = cell.filter(|_| !shift) {
+                        self.doc.select_csv_virtual(c);
+                    }
                 }
                 self.editor.viewport.goal_x = None;
                 self.after_change(true);

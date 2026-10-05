@@ -339,6 +339,57 @@ pub fn deleted(
     Some(tx.select(Selection::caret(unit.start)))
 }
 
+/// A click at `x` on the grid row of the record starting at `line_start`,
+/// given the positions of the row's bars (`bars`: the left edge of its
+/// first column, then the right edge of each column that shows) and the
+/// width of an empty column (`step`), in the frontend's unit: the cell
+/// between the bars around it, as a spreadsheet takes it. A click on the
+/// cell's text keeps its place there (`at`); on its padding or bar it goes
+/// to the cell's nearer end, not into the next cell over. A cell past the
+/// record's end (a short record's missing cell, an empty column right of
+/// the data) gives the record's end and its column. `None` left of the
+/// grid or off a record.
+pub fn cell_at_bars(
+    doc: &crate::DocumentState,
+    line_start: usize,
+    bars: &[f32],
+    step: f32,
+    x: f32,
+    at: usize,
+) -> Option<(usize, Option<usize>)> {
+    if doc.meta.mode != crate::DocumentMode::Csv {
+        return None;
+    }
+    let layout = layout(doc);
+    let (_, rec) = layout.record_at(doc.text().as_str(), line_start)?;
+    // Without the spreadsheet look the first column has no bar on its
+    // left: its left is the row's.
+    let mut edges = Vec::with_capacity(bars.len() + 1);
+    if !layout.view.sheet {
+        edges.push(f32::MIN);
+    }
+    edges.extend_from_slice(bars);
+    let bars = edges.as_slice();
+    let bar = bars.iter().rposition(|b| *b <= x)?;
+    // Past the last bar: the empty columns drawn on to the edge (with
+    // the spreadsheet look; else the record's last cell).
+    let mut k = bar;
+    if !layout.view.sheet {
+        k = k.min(rec.fields.len().saturating_sub(1));
+    } else if bar + 1 == bars.len() && step > 0.0 {
+        k += ((x - bars[bar]) / step) as usize;
+    }
+    // The bars are those of the columns that show, the hidden ones left
+    // out.
+    let col = (0..)
+        .filter(|j| !layout.columns.hidden.contains(j))
+        .nth(k)?;
+    Some(match rec.fields.get(col) {
+        Some(f) => (at.clamp(f.range.start, f.range.end), None),
+        None => (rec.range.end, Some(col)),
+    })
+}
+
 /// Clears the cells of rows `rows` and columns `cols` (both inclusive):
 /// their values emptied, the delimiters kept; the cursor at the first.
 pub fn clear_cells(

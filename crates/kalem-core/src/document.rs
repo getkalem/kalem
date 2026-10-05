@@ -1178,13 +1178,29 @@ impl DocumentState {
             self.apply(&tx, ChangeKind::Typing, now);
             return true;
         }
-        let Some(tx) = crate::csv::typed(
-            self.text.as_str(),
-            &rec,
-            self.selection.head,
-            text,
-            &layout.dialect,
-        ) else {
+        // Right before or after a quoted field's quotes: inside them, so
+        // that the field stays one (`"x"Q` is not CSV).
+        let mut pos = self.selection.head;
+        if let Some(f) = rec
+            .fields
+            .get(col)
+            .filter(|f| f.quoted && f.range.len() >= 2)
+        {
+            if pos == f.range.start {
+                pos += 1;
+            } else if pos == f.range.end {
+                pos -= 1;
+            }
+        }
+        let Some(tx) = crate::csv::typed(self.text.as_str(), &rec, pos, text, &layout.dialect)
+            .or_else(|| {
+                (pos != self.selection.head).then(|| {
+                    let mut tx = Transaction::new("Typing");
+                    tx.edit(pos..pos, text);
+                    tx.select(Selection::caret(pos + text.len()))
+                })
+            })
+        else {
             return false;
         };
         self.apply(&tx, ChangeKind::Typing, now);

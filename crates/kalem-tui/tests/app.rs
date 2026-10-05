@@ -3676,6 +3676,67 @@ fn csv_backspace_and_delete_keep_the_delimiters() {
 }
 
 #[test]
+fn csv_cells_are_clicked_anywhere_in_them() {
+    // A click anywhere between a cell's bars selects it: on the padding
+    // after the bar it selected the cell before, and a short record's
+    // missing cells went to its last field (typing there broke the field).
+    let text = "name,age,city,note\nAda,36,İzmir,first\nÇağla,7\nBob,5,\"Bursa\",x\n";
+    let mut t = with_file(text, "d.csv", Config::default(), (110, 10));
+    t.draw();
+    let mut bad = Vec::new();
+    for (row, name) in [(0, "name"), (1, "Ada"), (2, "Çağla"), (3, "Bob")] {
+        let y = (0..10).find(|&y| t.row(y).contains(name)).expect("the row");
+        let bars: Vec<u16> = t
+            .row(y)
+            .chars()
+            .enumerate()
+            .filter(|(_, c)| *c == '│')
+            .map(|(i, _)| i as u16)
+            .collect();
+        for j in 0..4 {
+            let (l, r) = (bars[j], bars[j + 1]);
+            for x in [l + 1, (l + r) / 2, r - 1] {
+                mouse(
+                    &mut t,
+                    MouseEventKind::Down(MouseButton::Left),
+                    x,
+                    y,
+                    KeyModifiers::NONE,
+                );
+                let got = kalem_core::csv::cell_at(&t.app.doc).map(|(_, r, _, c)| (r, c));
+                if got != Some((row, j)) {
+                    bad.push((row, j, x, got));
+                }
+            }
+        }
+    }
+    assert_eq!(bad, vec![]);
+    assert_eq!(t.text(), text);
+    // Çağla's missing D cell, typed in.
+    let y = (0..10).find(|&y| t.row(y).contains("Çağla")).unwrap();
+    let bars: Vec<u16> = t
+        .row(y)
+        .chars()
+        .enumerate()
+        .filter(|(_, c)| *c == '│')
+        .map(|(i, _)| i as u16)
+        .collect();
+    mouse(
+        &mut t,
+        MouseEventKind::Down(MouseButton::Left),
+        (bars[3] + bars[4]) / 2,
+        y,
+        KeyModifiers::NONE,
+    );
+    t.typ("Q");
+    assert!(t.text().contains("Çağla,7,,Q\n"), "{}", t.text());
+    // After Bursa's closing quote (End of the cell): typed inside it.
+    t.at(t.text().find("\"Bursa\"").unwrap() + 7);
+    t.typ("!");
+    assert!(t.text().contains("\"Bursa!\""), "{}", t.text());
+}
+
+#[test]
 fn csv_malformed_field_in_the_status_bar() {
     let text = "name,note\napple,6\" long\n";
     let mut t = with_file(text, "d.csv", Config::default(), (100, 8));

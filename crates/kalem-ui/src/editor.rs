@@ -2892,42 +2892,20 @@ impl Editor {
         if self.doc.meta.mode != DocumentMode::Csv || self.source {
             return None;
         }
-        let layout = kalem_core::csv::layout(&self.doc);
-        if !layout.view.sheet {
-            return None;
-        }
-        let (_, rec) = layout.record_at(self.doc.text().as_str(), p.view.range.start)?;
         // The middles of the bars of the text, from the grid's left edge.
         let x_at = |o: usize| p.layout.caret(o).origin.x;
-        let mut edges = Vec::new();
+        let mut bars = Vec::new();
         let mut o = 0;
         for (i, r) in p.view.runs.iter().enumerate() {
             if i > 0 && !r.verbatim {
                 for (k, _) in r.text.match_indices('│') {
-                    edges.push((x_at(o + k) + x_at(o + k + '│'.len_utf8())) / 2.);
+                    bars.push(f32::from((x_at(o + k) + x_at(o + k + '│'.len_utf8())) / 2.));
                 }
             }
             o += r.text.len();
         }
-        let bar = edges.iter().rposition(|e| *e <= x)?;
-        // Past the last bar: the empty columns drawn on to the edge.
-        let mut k = bar;
-        if bar + 1 == edges.len() {
-            let char_w = x_at(1) - x_at(0);
-            let step = char_w * (kalem_core::csv::SHEET_MIN_WIDTH + 3) as f32;
-            if step > px(1.) {
-                k += ((x - edges[bar]) / step) as usize;
-            }
-        }
-        // The bars are those of the columns that show, the hidden ones left
-        // out.
-        let col = (0..)
-            .filter(|j| !layout.columns.hidden.contains(j))
-            .nth(k)?;
-        match rec.fields.get(col) {
-            Some(f) => Some((at.clamp(f.range.start, f.range.end), None)),
-            None => Some((rec.range.end, Some(col))),
-        }
+        let step = f32::from(x_at(1) - x_at(0)) * (kalem_core::csv::SHEET_MIN_WIDTH + 3) as f32;
+        kalem_core::csv::cell_at_bars(&self.doc, p.view.range.start, &bars, step, f32::from(x), at)
     }
 
     /// Mouse down: place the cursor, toggle a checkbox, fold a heading.
