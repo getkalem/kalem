@@ -130,7 +130,7 @@ Why the native copies are still there, as found on 2026-10-05:
 
 ## W6. Speed and limits measured on components
 
-- [~] W6 The workbook, PDF and picture measurements of the native copy
+- [x] W6 The workbook, PDF and picture measurements of the native copy
   repeated through the component: opening and scrolling a million-cell
   workbook, a held arrow key, a 100,000-cell paste, sorting, a long PDF
   scrolled; the costs found removed (cells asked for in larger batches and
@@ -170,9 +170,9 @@ Why the native copies are still there, as found on 2026-10-05:
   million 768 MB, ten million (a million rows of ten) 2 GB: past a
   viewer's 1 GB. Built-in components now take their manifests' limits as
   installed ones do, and the workbook plugin's manifest asks for 4 GB, the
-  most a 32-bit component addresses (getkalem/plugins 6d2a305). Open:
-  Kalem's pins moved to that revision, so the built-in workbook component
-  gets it, and the plugin's next release. Beyond 4 GB a workbook opens
+  most a 32-bit component addresses (getkalem/plugins 6d2a305; Kalem's
+  pins at f42b517 since 2026-10-05, so the built-in one has it). Open:
+  the plugin's next release. Beyond 4 GB a workbook opens
   only natively, which W9 must weigh. Found in the plugin, for both
   copies: after every edit the first frame re-reads the sheet's data
   validations from its whole XML, 70 ms natively in a million-cell sheet,
