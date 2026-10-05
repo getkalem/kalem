@@ -80,11 +80,18 @@ pub fn all() -> Vec<Arc<dyn LanguagePack>> {
 /// The pack serving `language`.
 pub fn for_language(language: &str) -> Option<Arc<dyn LanguagePack>> {
     let language = crate::command::canonical_type(language);
-    all().into_iter().find(|p| {
-        p.languages()
-            .iter()
-            .any(|l| crate::command::canonical_type(l) == language)
-    })
+    all()
+        .into_iter()
+        .find(|p| {
+            p.languages()
+                .iter()
+                .any(|l| crate::command::canonical_type(l) == language)
+        })
+        // BibTeX, a format of the core: its own checks.
+        .or_else(|| {
+            (language == crate::command::canonical_type("bib"))
+                .then(|| Arc::new(crate::bibtex::Pack) as Arc<dyn LanguagePack>)
+        })
 }
 
 /// The language of a text document, as packs see it.

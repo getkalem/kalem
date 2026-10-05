@@ -620,12 +620,20 @@ documents, `kalem check`'s round trip and diagnostics, a missing
 
 ### 3.4 BibTeX
 
-- [ ] **Major, verified (code).** `kalem check` and the top-level help
+- [x] **Major, verified (code).** `kalem check` and the top-level help
   say BibTeX files are checked; a `.bib` only goes through the Org
   parser (`commands/mod.rs:324-370`). An unbalanced brace gives exit 0
   and no diagnostics; there are no BibTeX diagnostics in the editor
   either. Either add a check (balanced braces, duplicate keys, missing
   required fields) or drop the claim.
+  (done 2026-10-05: `bibtex::problems` finds an entry not closed before
+  the next one, an entry without a key, a key two entries use (as BibTeX,
+  regardless of case) and a field the standard styles require of the
+  type (biblatex's `date` and `journaltitle` counting); `bibtex::Pack`
+  serves them as BibTeX's language pack when no plugin does, so `kalem
+  check` reports them (exit 1) and the status bar says them. On the
+  corpus's bibliographies it finds what BibTeX warns about. Test
+  `a_bib_files_problems`.)
 - [x] **Major.** `kalem fmt` on `.bib` (see 3.3).
   (done.)
 - [ ] **Minor, reported.** Two `.bib` files open show the first one's

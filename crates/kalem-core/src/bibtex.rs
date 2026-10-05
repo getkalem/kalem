@@ -342,6 +342,103 @@ pub fn short_authors(authors: &str) -> String {
     }
 }
 
+/// The fields BibTeX's standard styles require of an entry type: each
+/// item is one field, or alternatives (`author|editor`); biblatex's names
+/// (`date` for `year`, `journaltitle` for `journal`) count too.
+fn required(kind: &str) -> &'static [&'static str] {
+    match kind {
+        "article" => &["author", "title", "journal|journaltitle", "year|date"],
+        "book" => &["author|editor", "title", "publisher", "year|date"],
+        "inbook" => &[
+            "author|editor",
+            "title",
+            "chapter|pages",
+            "publisher",
+            "year|date",
+        ],
+        "incollection" => &["author", "title", "booktitle", "publisher", "year|date"],
+        "inproceedings" | "conference" => &["author", "title", "booktitle", "year|date"],
+        "mastersthesis" | "phdthesis" | "thesis" => {
+            &["author", "title", "school|institution", "year|date"]
+        }
+        "techreport" | "report" => &["author", "title", "institution", "year|date"],
+        "proceedings" => &["title", "year|date"],
+        "unpublished" => &["author", "title", "note"],
+        "manual" => &["title"],
+        "booklet" => &["title"],
+        _ => &[],
+    }
+}
+
+/// The problems of a BibTeX file, in text order: an entry not closed
+/// before the next one, an entry without a key, a key two entries use,
+/// and a field the entry's type requires missing (publish_todo 3.4).
+pub fn problems(text: &str) -> Vec<crate::modes::ModeDiagnostic> {
+    use crate::modes::ModeDiagnostic;
+    let mut out = Vec::new();
+    let mut seen: std::collections::HashMap<String, Range<usize>> =
+        std::collections::HashMap::new();
+    for e in entries(text) {
+        let at = e.range.start..e.kind.end;
+        let closer = text.as_bytes().get(e.close).copied();
+        if !matches!(closer, Some(b'}' | b')')) {
+            out.push(ModeDiagnostic {
+                range: at.clone(),
+                code: "bibtex-unclosed".into(),
+                message: crate::l10n::tr("bibtex-unclosed"),
+            });
+        }
+        let key = text[e.key.clone()].trim();
+        if key.is_empty() {
+            out.push(ModeDiagnostic {
+                range: at.clone(),
+                code: "bibtex-no-key".into(),
+                message: crate::l10n::tr("bibtex-no-key"),
+            });
+        } else if seen.insert(key.to_lowercase(), e.key.clone()).is_some() {
+            out.push(ModeDiagnostic {
+                range: e.key.clone(),
+                code: "bibtex-duplicate-key".into(),
+                message: crate::tr!("bibtex-duplicate-key", key = key),
+            });
+        }
+        let kind = text[e.kind.clone()].to_ascii_lowercase();
+        for need in required(&kind) {
+            if !need.split('|').any(|f| e.field(text, f).is_some()) {
+                out.push(ModeDiagnostic {
+                    range: at.clone(),
+                    code: "bibtex-missing-field".into(),
+                    message: crate::tr!(
+                        "bibtex-missing-field",
+                        kind = kind.as_str(),
+                        field = need.replace('|', " / ")
+                    ),
+                });
+            }
+        }
+    }
+    out
+}
+
+/// BibTeX's checks as a language pack: what `kalem check` runs on a
+/// `.bib` file and the status bar says, when no plugin serves BibTeX.
+#[derive(Debug)]
+pub struct Pack;
+
+impl crate::packs::LanguagePack for Pack {
+    fn id(&self) -> &'static str {
+        "bibtex"
+    }
+
+    fn languages(&self) -> &[&str] {
+        &["bib"]
+    }
+
+    fn diagnostics(&self, text: &str) -> Vec<crate::modes::ModeDiagnostic> {
+        problems(text)
+    }
+}
+
 /// Whether `doc` is a BibTeX file.
 pub fn is_bib(doc: &crate::DocumentState) -> bool {
     matches!(&doc.meta.mode, crate::DocumentMode::Text { language: Some(l) } if l.eq_ignore_ascii_case("bib"))
@@ -835,6 +932,34 @@ pub fn status(doc: &crate::DocumentState) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_bib_files_problems() {
+        let text = "@article{knuth84,\n  author = {Knuth},\n  title = {Literate Programming},\n  year = 1984,\n}\n@book{knuth84,\n  editor = {X},\n  title = {T},\n  publisher = {P},\n  date = {2020},\n}\n@article{open,\n  title = {Unclosed {brace},\n@misc{,\n  note = {n}\n}\n";
+        let p = super::problems(text);
+        let codes: Vec<&str> = p.iter().map(|d| d.code.as_str()).collect();
+        assert_eq!(
+            codes,
+            [
+                // knuth84: an article without its journal.
+                "bibtex-missing-field",
+                // The book reuses the key; editor and date stand in.
+                "bibtex-duplicate-key",
+                // open: not closed, and neither author, journal nor year.
+                "bibtex-unclosed",
+                "bibtex-missing-field",
+                "bibtex-missing-field",
+                "bibtex-missing-field",
+                // An entry without a key.
+                "bibtex-no-key",
+            ],
+            "{p:#?}"
+        );
+        assert!(p[0].message.contains("journal"), "{}", p[0].message);
+        // `kalem check` and the status bar get them through the packs.
+        let pack = crate::packs::for_language("bib").expect("BibTeX's pack");
+        assert_eq!(pack.diagnostics(text).len(), p.len());
+    }
+
     use super::*;
 
     const BIB: &str = "% My references\n@string{tug = \"TUGboat\"}\n\n@book{knuth84,\n  author = {Donald E. Knuth},\n  title = {The {\\TeX}book},\n  year = 1984,\n}\n\n@Article{lamport,\n  author = \"Lamport, Leslie and Mittelbach, Frank and Goossens, Michel\",\n  title = {G{\\\"o}del and {\\c C}ay},\n  journal = tug # { 1},\n  year = {1994}\n}\n";
