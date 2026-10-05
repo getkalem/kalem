@@ -1653,8 +1653,15 @@ pub fn frozen_width(layout: &Layout) -> Option<usize> {
 
 /// The cell at the cursor of the CSV document `doc`: the layout, the row,
 /// its record and the column.
+/// A cell selected past the end of its record (`DocumentState::
+/// csv_virtual`) is that column, beyond the record's fields.
 pub fn cell_at(doc: &crate::DocumentState) -> Option<(std::rc::Rc<Layout>, usize, Record, usize)> {
-    cell_at_offset(doc, doc.selection.head)
+    let (layout, row, rec, col) = cell_at_offset(doc, doc.selection.head)?;
+    let col = match doc.csv_virtual_col() {
+        Some(c) if c >= rec.fields.len() && doc.selection.head == rec.range.end => c,
+        _ => col,
+    };
+    Some((layout, row, rec, col))
 }
 
 /// Rows and columns of a rectangle of cells, each as first and last.

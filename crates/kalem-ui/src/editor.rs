@@ -270,6 +270,9 @@ pub struct Hit {
     pub copy: Option<usize>,
     /// A table of contents row there, with its heading's start.
     pub jump: Option<usize>,
+    /// A CSV grid's cell past the end of its record there (a short
+    /// record's missing cell, an empty column): its column.
+    pub cell: Option<usize>,
 }
 
 /// A line as last painted: for hit testing, the caret and IME.
@@ -2796,6 +2799,7 @@ impl Editor {
                     fold: Some(*start),
                     copy: None,
                     jump: None,
+                    cell: None,
                 });
             }
             if let Some((_, start)) = p.buttons.iter().find(|(b, _)| b.contains(&pos)) {
@@ -2805,6 +2809,7 @@ impl Editor {
                     fold: None,
                     copy: Some(*start),
                     jump: None,
+                    cell: None,
                 });
             }
             if let Some((_, start)) = p.jumps.iter().find(|(b, _)| b.contains(&pos)) {
@@ -2814,6 +2819,7 @@ impl Editor {
                     fold: None,
                     copy: None,
                     jump: Some(*start),
+                    cell: None,
                 });
             }
         }
@@ -2844,6 +2850,7 @@ impl Editor {
                     fold: None,
                     copy: None,
                     jump: None,
+                    cell: None,
                 });
             }
         }
@@ -2855,8 +2862,10 @@ impl Editor {
         }
         let d = p.layout.index_for_position(pos - origin);
         let mut at = p.view.source_offset(d);
-        if let Some(cell) = self.csv_cell_at_x(p, pos.x - origin.x, at) {
-            at = cell;
+        let mut cell = None;
+        if let Some((to, past)) = self.csv_cell_at_x(p, pos.x - origin.x, at) {
+            at = to;
+            cell = past;
         }
         Some(Hit {
             pos: at,
@@ -2864,6 +2873,7 @@ impl Editor {
             fold: None,
             copy: None,
             jump: None,
+            cell,
         })
     }
 
@@ -2871,7 +2881,10 @@ impl Editor {
     /// cell between the bars around it, as a spreadsheet takes it. A click
     /// on the cell's text keeps its place there (`at`); one on its padding
     /// or bar goes to the cell's nearer end, not into the next cell over.
-    fn csv_cell_at_x(&self, p: &Painted, x: Pixels, at: usize) -> Option<usize> {
+    /// A cell past the end of its record (a short record's missing cell,
+    /// an empty column right of the data) goes to the record's end, with
+    /// its column.
+    fn csv_cell_at_x(&self, p: &Painted, x: Pixels, at: usize) -> Option<(usize, Option<usize>)> {
         if self.doc.meta.mode != DocumentMode::Csv || self.source {
             return None;
         }
@@ -2892,9 +2905,25 @@ impl Editor {
             }
             o += r.text.len();
         }
-        let col = edges.iter().rposition(|e| *e <= x)?;
-        let f = rec.fields.get(col)?;
-        Some(at.clamp(f.range.start, f.range.end))
+        let bar = edges.iter().rposition(|e| *e <= x)?;
+        // Past the last bar: the empty columns drawn on to the edge.
+        let mut k = bar;
+        if bar + 1 == edges.len() {
+            let char_w = x_at(1) - x_at(0);
+            let step = char_w * (kalem_core::csv::SHEET_MIN_WIDTH + 3) as f32;
+            if step > px(1.) {
+                k += ((x - edges[bar]) / step) as usize;
+            }
+        }
+        // The bars are those of the columns that show, the hidden ones left
+        // out.
+        let col = (0..)
+            .filter(|j| !layout.columns.hidden.contains(j))
+            .nth(k)?;
+        match rec.fields.get(col) {
+            Some(f) => Some((at.clamp(f.range.start, f.range.end), None)),
+            None => Some((rec.range.end, Some(col))),
+        }
     }
 
     /// Mouse down: place the cursor, toggle a checkbox, fold a heading.
@@ -2918,6 +2947,7 @@ impl Editor {
             fold,
             copy,
             jump,
+            cell,
         }) = self.hit(ev.position)
         else {
             return;
@@ -3029,7 +3059,12 @@ impl Editor {
                 self.doc.move_cursor(r.start, false);
                 self.doc.move_cursor(end, true);
             }
-            _ => self.doc.move_cursor(pos, ev.modifiers.shift),
+            _ => {
+                self.doc.move_cursor(pos, ev.modifiers.shift);
+                if let Some(c) = cell.filter(|_| !ev.modifiers.shift) {
+                    self.doc.select_csv_virtual(c);
+                }
+            }
         }
         self.dragging = true;
         self.goal_x = None;

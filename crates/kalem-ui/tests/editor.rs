@@ -4407,3 +4407,46 @@ fn csv_cells_are_clicked_anywhere_in_them(cx: &mut TestAppContext) {
     cx.run_until_parked();
     assert_eq!(csv_unclickable(&e, &[0, 1, 2, 3], 4, cx), vec![]);
 }
+
+/// A short record's missing cells and the empty columns right of the
+/// data are selected by a click, the file left as it is; typing there
+/// adds the fields up to the cell (they went to the record's last cell).
+#[gpui::test]
+fn csv_cells_past_a_record_are_clicked_and_typed_in(cx: &mut TestAppContext) {
+    let text = "name,age,city,note\nAda,36,İzmir,first\nÇağla,7\nBob,5,Bursa,x\n";
+    let (e, cx) = open_named(text, "short.csv", || None, cx);
+    cx.run_until_parked();
+    // Every cell of the short row, and two empty columns on.
+    assert_eq!(csv_unclickable(&e, &[0, 1, 2, 3], 6, cx), vec![]);
+    assert_eq!(
+        e.read_with(cx, |e, _| e.doc.text().as_str().to_string()),
+        text
+    );
+    // A click on the short row's last missing cell, then typing.
+    let edges = csv_edges(4, cx);
+    let y = e.read_with(cx, |e, _| e.painted.borrow()[&2].bounds.center().y);
+    cx.simulate_click(
+        gpui::point((edges[2] + edges[3]) / 2., y),
+        gpui::Modifiers::default(),
+    );
+    cx.run_until_parked();
+    cx.simulate_input("a, b");
+    cx.run_until_parked();
+    assert_eq!(
+        e.read_with(cx, |e, _| e.doc.text().as_str().to_string()),
+        "name,age,city,note\nAda,36,İzmir,first\nÇağla,7,,\"a, b\"\nBob,5,Bursa,x\n"
+    );
+    // An empty column right of the data: a fifth field.
+    let y = e.read_with(cx, |e, _| e.painted.borrow()[&3].bounds.center().y);
+    cx.simulate_click(
+        gpui::point(edges[3] + (edges[3] - edges[2]) / 2., y),
+        gpui::Modifiers::default(),
+    );
+    cx.run_until_parked();
+    cx.simulate_input("9");
+    cx.run_until_parked();
+    assert!(
+        e.read_with(cx, |e, _| e.doc.text().as_str().to_string())
+            .ends_with("Bob,5,Bursa,x,9\n")
+    );
+}

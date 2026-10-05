@@ -151,6 +151,12 @@ pub struct DocumentState {
     /// The next paste into this CSV document writes over the cells from
     /// the cursor's down and to the right (Paste as Block), once.
     pub csv_paste_block: bool,
+    /// A cell of a CSV grid selected past the end of its record (a short
+    /// record's missing cell, an empty column right of the data): the
+    /// cursor at the record's end, the version of the text and the
+    /// column. It holds while neither moves (`csv_virtual_col`); typing
+    /// there adds the fields up to it.
+    pub csv_virtual: Option<(usize, u64, usize)>,
     /// A BibTeX grid's sort: the column (`bibtex::COLUMNS`) and whether
     /// descending; the file keeps its order.
     pub bib_sort: Option<(usize, bool)>,
@@ -274,6 +280,7 @@ impl DocumentState {
             csv_view: crate::csv::View::default(),
             csv_columns: crate::csv::Columns::default(),
             csv_paste_block: false,
+            csv_virtual: None,
             bib_sort: None,
         }
     }
@@ -738,6 +745,27 @@ impl DocumentState {
         self.serial
     }
 
+    /// The column of the CSV cell selected past the end of its record,
+    /// while the cursor and the text stay as they were (`csv_virtual`).
+    pub fn csv_virtual_col(&self) -> Option<usize> {
+        let (head, version, col) = self.csv_virtual?;
+        (self.selection.anchor == head && self.selection.head == head && self.version == version)
+            .then_some(col)
+    }
+
+    /// Selects the CSV cell at column `col` of the record at the cursor,
+    /// past its end: the cursor goes to the record's end.
+    pub fn select_csv_virtual(&mut self, col: usize) {
+        let Some((_, _, rec, _)) = crate::csv::cell_at(self) else {
+            return;
+        };
+        if col < rec.fields.len() {
+            return;
+        }
+        self.selection = Selection::caret(rec.range.end);
+        self.csv_virtual = Some((rec.range.end, self.version, col));
+    }
+
     /// The version of the text, incremented by every change.
     pub fn version(&self) -> u64 {
         self.version
@@ -1140,9 +1168,16 @@ impl DocumentState {
         {
             return false;
         }
-        let Some((layout, _, rec, _)) = crate::csv::cell_at(self) else {
+        let Some((layout, _, rec, col)) = crate::csv::cell_at(self) else {
             return false;
         };
+        // A cell past the record's end: the fields up to it, then the text.
+        if col >= rec.fields.len() {
+            let tx = crate::csv::set_cell(self.text.as_str(), &rec, col, text, &layout.dialect);
+            self.csv_virtual = None;
+            self.apply(&tx, ChangeKind::Typing, now);
+            return true;
+        }
         let Some(tx) = crate::csv::typed(
             self.text.as_str(),
             &rec,

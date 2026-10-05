@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - The toolbar's `//` (Toggle Comment) shows only in text with a comment syntax, not over a workbook, a PDF or a picture (new when-clause key `hasComments`).
+- CSV grid in the graphical editor: a short record's missing cells and the empty columns right of the data are selected by a click (they went to the record's last cell); typing there adds the fields up to the cell, and a click alone leaves the file as it is.
 - CSV grid in the graphical editor: a click anywhere in a cell selects it; on the padding right after a column bar it selected the cell before.
 - Scrolling with the wheel or the trackpad brings the cursor to the top line of the window, whichever way it scrolls (scrolling up it stayed at the bottom), and typing does not jump back.
 - Workbooks in the graphical editor: a cell's entry (Enter, F2) takes the characters typed; it took none, a file a viewer shows having no text to take them. A character typed on a cell starts its entry with it, as in Excel, in both editors; what is typed shows in the cell as it is typed (and in the formula bar), running on to the right, the cursor in it.
