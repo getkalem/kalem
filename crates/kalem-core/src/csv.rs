@@ -288,6 +288,84 @@ pub fn typed(
     Some(tx.select(Selection::caret(caret)))
 }
 
+/// Backspace (`forward` false) or Delete at `pos` in a field of record
+/// `rec`, as the grid deletes: within the field's value only, so that a
+/// delimiter or a quote is never deleted (two cells merged, a field left
+/// open); a doubled quote goes as one character. `None` when there is
+/// nothing to delete there (at the start of the value for Backspace, at
+/// its end for Delete, or past the record's fields).
+pub fn deleted(
+    text: &str,
+    rec: &Record,
+    pos: usize,
+    forward: bool,
+    d: &Dialect,
+) -> Option<Transaction> {
+    use unicode_segmentation::UnicodeSegmentation;
+    let f = rec
+        .fields
+        .iter()
+        .find(|f| f.range.start <= pos && pos <= f.range.end)?;
+    // The value's bytes: inside the quotes of a quoted field.
+    let (start, end) = if f.quoted && f.range.len() >= 2 {
+        (f.range.start + 1, f.range.end - 1)
+    } else {
+        (f.range.start, f.range.end)
+    };
+    let pos = pos.clamp(start, end);
+    // The value as units: a doubled quote, or a grapheme.
+    let q = d.quote as char;
+    let qq = format!("{q}{q}");
+    let mut units = Vec::new();
+    let mut at = start;
+    let body = &text[start..end];
+    let mut graphemes = body.grapheme_indices(true).peekable();
+    while let Some((i, g)) = graphemes.next() {
+        let mut len = g.len();
+        if f.quoted && g == q.to_string() && body[i..].starts_with(&qq) {
+            graphemes.next();
+            len = qq.len();
+        }
+        units.push(at..at + len);
+        at += len;
+    }
+    let unit = if forward {
+        units.into_iter().find(|u| u.start >= pos)?
+    } else {
+        units.into_iter().rev().find(|u| u.end <= pos)?
+    };
+    let mut tx = Transaction::new("Delete");
+    tx.edit(unit.clone(), "");
+    Some(tx.select(Selection::caret(unit.start)))
+}
+
+/// Clears the cells of rows `rows` and columns `cols` (both inclusive):
+/// their values emptied, the delimiters kept; the cursor at the first.
+pub fn clear_cells(
+    text: &str,
+    layout: &Layout,
+    rows: (usize, usize),
+    cols: (usize, usize),
+) -> Option<Transaction> {
+    let mut idx = layout.index.borrow_mut();
+    let mut tx = Transaction::new("Clear Cells");
+    let mut first = None;
+    for row in rows.0..=rows.1 {
+        let Some(rec) = idx.record(text, row, &layout.dialect) else {
+            break;
+        };
+        for f in rec.fields.iter().take(cols.1 + 1).skip(cols.0) {
+            first.get_or_insert(f.range.start);
+            if !f.range.is_empty() {
+                tx.replace(f.range.clone(), "").ok()?;
+            }
+        }
+    }
+    let first = first?;
+    let caret = tx.map(first, org_edit::Assoc::Before);
+    Some(tx.select(Selection::caret(caret)))
+}
+
 /// Finds the dialect of `text` from its first records: the delimiter that
 /// gives the most records with the same number of fields (more than one),
 /// a header when the first record's values are all text where later ones

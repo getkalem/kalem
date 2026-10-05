@@ -443,6 +443,11 @@ document is closed; it is not written to the file.
   terminal) go to the same column of the next and previous record, as in
   a spreadsheet; Enter on the last record adds an empty one. In the
   source view Enter breaks the line as in any text.
+- Backspace and Delete delete within a cell's value: at the start of a
+  cell Backspace (at its end Delete) does nothing rather than delete the
+  delimiter and merge two cells, the quotes of a quoted field stay, and a
+  doubled quote goes as one character. A selection over more than one
+  cell clears the cells, keeping the rows and the delimiters.
 - A short record's missing cells and the empty columns right of the data
   can be selected (by a click, Tab, Enter or Go to Cell) without a change
   to the file; typing there adds the empty fields up to the cell, then

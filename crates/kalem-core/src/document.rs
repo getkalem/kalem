@@ -1191,6 +1191,63 @@ impl DocumentState {
         true
     }
 
+    /// Backspace (`forward` false) or Delete in a CSV file's grid (not
+    /// its source view): within a cell's value, never its delimiters or
+    /// quotes; a selection over more than one cell clears the cells
+    /// (rather than merging them, and the rows). Whether the key was
+    /// taken so; else `delete_backward` or `delete_forward` deletes.
+    pub fn delete_in_grid(&mut self, forward: bool, now: Instant) -> bool {
+        if self.meta.mode != DocumentMode::Csv || !self.extra.is_empty() {
+            return false;
+        }
+        let Some((layout, row, rec, col)) = crate::csv::cell_at(self) else {
+            return false;
+        };
+        let s = self.selection;
+        if s.anchor != s.head {
+            let Some((_, row0, _, col0)) = crate::csv::cell_at_offset(self, s.anchor) else {
+                return false;
+            };
+            if (row0, col0) == (row, col) {
+                // Within one cell: its value only.
+                let Some(f) = rec.fields.get(col) else {
+                    return false;
+                };
+                let (a, b) = if f.quoted && f.range.len() >= 2 {
+                    (f.range.start + 1, f.range.end - 1)
+                } else {
+                    (f.range.start, f.range.end)
+                };
+                let (lo, hi) = (s.anchor.min(s.head).max(a), s.anchor.max(s.head).min(b));
+                if lo < hi {
+                    let mut tx = Transaction::new("Delete");
+                    tx.edit(lo..hi, "");
+                    let tx = tx.select(Selection::caret(lo));
+                    self.apply(&tx, ChangeKind::Typing, now);
+                } else {
+                    self.selection = Selection::caret(s.head);
+                }
+                return true;
+            }
+            let rows = (row0.min(row), row0.max(row));
+            let cols = (col0.min(col), col0.max(col));
+            if let Some(tx) = crate::csv::clear_cells(self.text.as_str(), &layout, rows, cols) {
+                self.apply(&tx, ChangeKind::Command, now);
+            }
+            return true;
+        }
+        if let Some(tx) = crate::csv::deleted(
+            self.text.as_str(),
+            &rec,
+            self.selection.head,
+            forward,
+            &layout.dialect,
+        ) {
+            self.apply(&tx, ChangeKind::Typing, now);
+        }
+        true
+    }
+
     pub fn type_text(&mut self, text: &str, blank_field: bool, now: Instant) {
         if !self.extra.is_empty() {
             self.insert_text(text, now);

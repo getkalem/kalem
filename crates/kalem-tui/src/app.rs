@@ -3847,7 +3847,9 @@ impl App {
                 self.after_change(true);
             }
             KeyCode::Backspace => {
-                if let Some(m) = self.doc.delete_backward(now) {
+                if (self.editor.source || !self.doc.delete_in_grid(false, now))
+                    && let Some(m) = self.doc.delete_backward(now)
+                {
                     self.message(m, false);
                 }
                 self.editor.viewport.goal_x = None;
@@ -3857,7 +3859,9 @@ impl App {
                 }
             }
             KeyCode::Delete => {
-                if let Some(m) = self.doc.delete_forward(now) {
+                if (self.editor.source || !self.doc.delete_in_grid(true, now))
+                    && let Some(m) = self.doc.delete_forward(now)
+                {
                     self.message(m, false);
                 }
                 self.editor.viewport.goal_x = None;

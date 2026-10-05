@@ -2418,7 +2418,9 @@ impl Editor {
                 true
             }
             "backspace" => {
-                if let Some(m) = self.doc.delete_backward(now) {
+                if (self.source || !self.doc.delete_in_grid(false, now))
+                    && let Some(m) = self.doc.delete_backward(now)
+                {
                     self.message(m, false);
                 }
                 self.goal_x = None;
@@ -2429,7 +2431,9 @@ impl Editor {
                 true
             }
             "delete" => {
-                if let Some(m) = self.doc.delete_forward(now) {
+                if (self.source || !self.doc.delete_in_grid(true, now))
+                    && let Some(m) = self.doc.delete_forward(now)
+                {
                     self.message(m, false);
                 }
                 self.goal_x = None;

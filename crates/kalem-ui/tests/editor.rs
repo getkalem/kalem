@@ -3318,12 +3318,13 @@ fn import_table_reads_csv_as_csv_mode(cx: &mut TestAppContext) {
 
 #[gpui::test]
 fn enter_in_csv_keeps_no_indentation(cx: &mut TestAppContext) {
-    // Leading tabs are empty fields: Enter does not copy them.
+    // Leading tabs are empty fields: Enter on the last record adds an
+    // empty one (the cell below, as in a spreadsheet), none copied.
     let text = "\ta\tb\n";
     let (e, cx) = open_named(text, "d.tsv", || None, cx);
     at(&e, 4, cx);
     cx.simulate_keystrokes("enter");
-    assert_eq!(text_of(&e, cx), "\ta\tb\n\n");
+    assert_eq!(text_of(&e, cx), "\ta\tb\n\t\t\n");
 }
 
 #[gpui::test]
@@ -4496,4 +4497,51 @@ fn csv_enter_moves_between_cells(cx: &mut TestAppContext) {
         e2.read_with(cx2, |e, _| e.doc.text().as_str().to_string()),
         "a,b,c\n1,x\n"
     );
+}
+
+/// Backspace and Delete in the CSV grid delete within a cell's value:
+/// never a delimiter (two cells merged) or a quote (a field left open);
+/// a selection over cells of several rows clears them (it merged rows).
+#[gpui::test]
+fn csv_deleting_keeps_the_cells(cx: &mut TestAppContext) {
+    let text = "id,ad,şehir\n1,Ayşe,İzmir\n2,\"a, \"\"b\"\"\",\n3,,x\n";
+    let (e, cx) = open_named(text, "del.csv", || None, cx);
+    let body =
+        |cx: &mut VisualTestContext| e.read_with(cx, |e, _| e.doc.text().as_str().to_string());
+    let at = |off: usize, cx: &mut VisualTestContext| {
+        e.update(cx, |e, _| e.doc.move_cursor(off, false));
+    };
+    // At the start of İzmir: Backspace leaves the delimiter.
+    at(text.find("İzmir").unwrap(), cx);
+    cx.simulate_keystrokes("backspace");
+    assert_eq!(body(cx), text);
+    // At the end of Ayşe: Delete leaves it; Backspace deletes the ş's e.
+    at(text.find("Ayşe").unwrap() + "Ayşe".len(), cx);
+    cx.simulate_keystrokes("delete");
+    assert_eq!(body(cx), text);
+    cx.simulate_keystrokes("backspace");
+    assert_eq!(body(cx), text.replace("Ayşe", "Ayş"));
+    let text = body(cx);
+    // Right inside the opening quote: the quote stays.
+    at(text.find("\"a,").unwrap() + 1, cx);
+    cx.simulate_keystrokes("backspace");
+    assert_eq!(body(cx), text);
+    // After a doubled quote: both go, as one character.
+    at(text.find("b\"\"").unwrap() + 3, cx);
+    cx.simulate_keystrokes("backspace");
+    assert_eq!(body(cx), text.replacen("b\"\"", "b", 1));
+    let text = body(cx);
+    // An empty cell: Delete moves no column.
+    at(text.find("3,").unwrap() + 2, cx);
+    cx.simulate_keystrokes("delete");
+    assert_eq!(body(cx), text);
+    // From B2 to C4: the cells cleared, the rows and delimiters kept.
+    at(text.find("Ayş").unwrap(), cx);
+    cx.simulate_keystrokes("shift-down shift-down");
+    e.update(cx, |e, _| {
+        let end = e.doc.text().as_str().rfind('x').unwrap() + 1;
+        e.doc.move_cursor(end, true);
+    });
+    cx.simulate_keystrokes("backspace");
+    assert_eq!(body(cx), "id,ad,şehir\n1,,\n2,,\n3,,\n");
 }

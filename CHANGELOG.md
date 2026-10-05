@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - The toolbar's `//` (Toggle Comment) shows only in text with a comment syntax, not over a workbook, a PDF or a picture (new when-clause key `hasComments`).
+- CSV grid, both editors: Backspace and Delete delete within a cell's value; at a cell's start or end they deleted the delimiter and merged two cells (or shifted the columns), and right inside a quote they left the field open. A doubled quote goes as one character, and a selection over cells of several rows clears them instead of merging the rows.
 - CSV grid, both editors: Enter and Shift+Enter (Alt+Enter in a terminal) go to the cell below and above, as in a spreadsheet; Enter broke the record in two. Enter on the last record adds an empty one. Tab, Enter and Go to Cell reach a short record's missing cells (they stopped at its last field).
 - CSV grid in the graphical editor: a short record's missing cells and the empty columns right of the data are selected by a click (they went to the record's last cell); typing there adds the fields up to the cell, and a click alone leaves the file as it is.
 - CSV grid in the graphical editor: a click anywhere in a cell selects it; on the padding right after a column bar it selected the cell before.

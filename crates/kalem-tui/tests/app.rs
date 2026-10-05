@@ -3660,6 +3660,22 @@ fn enter_in_csv_keeps_no_indentation() {
 }
 
 #[test]
+fn csv_backspace_and_delete_keep_the_delimiters() {
+    // In the grid they delete within a cell's value: at its start
+    // Backspace, at its end Delete, merged two cells.
+    let text = "a,b\n1,22\n";
+    let mut t = with_file(text, "d.csv", Config::default(), (60, 8));
+    t.at(text.find("22").unwrap());
+    t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    assert_eq!(t.text(), text);
+    t.at(text.find("1,").unwrap() + 1);
+    t.key(KeyCode::Delete, KeyModifiers::NONE);
+    assert_eq!(t.text(), text);
+    t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    assert_eq!(t.text(), "a,b\n,22\n");
+}
+
+#[test]
 fn csv_malformed_field_in_the_status_bar() {
     let text = "name,note\napple,6\" long\n";
     let mut t = with_file(text, "d.csv", Config::default(), (100, 8));
