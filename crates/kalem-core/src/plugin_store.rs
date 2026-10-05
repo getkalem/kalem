@@ -1098,9 +1098,10 @@ mod tests {
             resolve_file("https://example.com/kalem/index.json", "w-1.0.wasm"),
             "https://example.com/kalem/w-1.0.wasm"
         );
+        // A path on disk, joined with the system's separator.
         assert_eq!(
             resolve_source("file:///home/ada/index.json", "./mine"),
-            "/home/ada/./mine"
+            Path::new("/home/ada").join("./mine").to_string_lossy()
         );
     }
 
