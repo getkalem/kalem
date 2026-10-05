@@ -75,11 +75,15 @@ pub(crate) fn check() -> Result<ExitCode> {
         }
         let mut failed = false;
         for (p, v) in viewers {
-            match v.check() {
+            let runs = match v {
+                Ok(v) => v.check().map_err(|e| e.0),
+                Err(why) => Err(why),
+            };
+            match runs {
                 Ok(()) => println!("{} {}: runs", p.id, p.version),
                 Err(e) => {
                     failed = true;
-                    println!("{} {}: cannot run: {}", p.id, p.version, e.0);
+                    println!("{} {}: cannot run: {e}", p.id, p.version);
                 }
             }
         }

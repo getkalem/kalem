@@ -170,9 +170,31 @@ viewer's limits are 1 GB and 10 s a call, more than §11.6's defaults,
 since a viewer holds a whole file; a manifest may set others,
 =limits.memory_mb= and =limits.time_ms=.
 
-A component built against another version of the plugin API cannot be
-bound: Kalem then opens its files with the bundled viewer it replaces
-and says so (in the status bar, and on =kalem view='s standard error).
+* Versions of the plugin API
+
+The plugin API is the WIT package =kalem:plugin= (=crates/kalem-plugin/wit=),
+version 0.2.0; a component's manifest names the version it was built
+against (="api": "^0.2"=). The rules, so that a plugin built once keeps
+working:
+
+- A released interface never changes: no function, field, case or type
+  of it is added, removed or altered. The released ones (=viewer=,
+  =files=, =clock=, =grid=) are copied in =wit-frozen/0.2.0/=, and a test
+  (=tests/frozen.rs=) fails a change to them.
+- What is new goes into a new interface (=grid-2=, in a file of its
+  own) released with the next patch version (0.2.1); the worlds, kept in
+  =worlds.wit=, export it. Kalem binds the interfaces a component has, so
+  one built against 0.2.0 still runs on a Kalem of 0.2.1, without what
+  it does not export.
+- Something removed stays as a function that refuses, until a new minor
+  version (0.3) is cut for everything at once.
+
+Components from before 0.2.0 (the manifests that say =^0.1=, built while
+the API had no version and changed with every spreadsheet feature) are
+not tried: Kalem says the plugin needs an update and opens their files
+with the bundled viewer. A component that cannot be bound for another
+reason is treated the same way (in the status bar, and on =kalem view='s
+standard error).
 =kalem plugin check= starts every installed component viewer once, as
 opening a file would, and exits 1 when one cannot run; the /Released
 plugins/ workflow runs it on the index's plugins every day and when the

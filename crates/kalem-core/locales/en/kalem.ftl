@@ -1622,6 +1622,7 @@ plugin-available-from = { $version } available · { $from }
 plugin-none-installed = No plugins installed: Browse Plugins lists them
 plugin-not-installed = { $id } is not installed
 plugin-update = Update { $name }
+plugin-api-mismatch = { $name } { $version } was built for plugin API { $api }, and this Kalem's is { $ours }: update the plugin (the bundled viewer opens its files meanwhile)
 plugin-from-short = from { $source }
 plugin-remove = Remove { $name }
 plugin-asks-first = asks first

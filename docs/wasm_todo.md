@@ -48,13 +48,25 @@ Why the native copies are still there, as found on 2026-10-05:
 
 ## W2. A versioned plugin API
 
-- [ ] W2 The WIT package given a real version and a rule written down
+- [~] W2 The WIT package given a real version and a rule written down
   (`docs/` and the Book's plugin part): a released version is never
   changed; new functions go into new interfaces (`grid-2`, …) or new
   versions of the package, records never gain fields after release, a
   removed function stays as a stub that refuses. `kalem-plugin` and
   `kalem-viewer` published at that version (T3.1.3's open part) so plugins
   depend on a release, not on Kalem's `main`.
+  (done 2026-10-05 but the publishing: the package is `kalem:plugin@0.2.0`
+  (`kalem_script::API_VERSION`); the released files (`viewer`, `files`,
+  `clock`, `grid`) are copied in `crates/kalem-plugin/wit-frozen/0.2.0/`
+  and `tests/frozen.rs` fails a change to them; the worlds moved to
+  `worlds.wit`; the rule is in the Book's "Versions of the plugin API"
+  and CONTRIBUTING: new functions in new interfaces with a patch version,
+  removals as refusing stubs until a 0.3. A component whose manifest
+  names another API (`^0.1`, everything released so far) is not tried:
+  `plugin-api-mismatch` says so and the bundled viewer opens its files;
+  the template says `^0.2`. Open, the owner's: publishing `kalem-plugin`
+  and `kalem-viewer` on crates.io, and releasing the three viewer
+  plugins built against 0.2.0.)
 
 ## W3. The host binding older components
 

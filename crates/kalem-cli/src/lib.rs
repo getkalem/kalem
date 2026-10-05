@@ -467,9 +467,17 @@ pub fn bundled_plugins() {
 /// the first file they open does not wait; without any, no engine starts.
 #[cfg(feature = "plugins")]
 fn component_viewers() {
-    let loaded: Vec<_> = installed_viewers().into_iter().map(|(_, v)| v).collect();
-    for v in &loaded {
-        kalem_core::viewer::register(v.clone());
+    let mut loaded = Vec::new();
+    for (_, v) in installed_viewers() {
+        match v {
+            Ok(v) => {
+                kalem_core::viewer::register(v.clone());
+                loaded.push(v);
+            }
+            // Built for another API: not tried, the bundled viewer of the
+            // same name opens its files, and the user is told.
+            Err(why) => kalem_core::jobs::notice(why, true),
+        }
     }
     if !loaded.is_empty() {
         let _ = std::thread::Builder::new()
@@ -484,11 +492,12 @@ fn component_viewers() {
 
 /// The installed plugins that are component viewers, each with its
 /// viewer (not compiled yet), which falls back to the bundled viewer of
-/// the same name when it cannot run.
+/// the same name when it cannot run; or why it is not tried (its manifest
+/// names another version of the plugin API).
 #[cfg(feature = "plugins")]
 pub(crate) fn installed_viewers() -> Vec<(
     kalem_core::plugin_store::Installed,
-    std::sync::Arc<kalem_script::viewer::ComponentViewer>,
+    Result<std::sync::Arc<kalem_script::viewer::ComponentViewer>, String>,
 )> {
     use kalem_script::viewer::{ComponentViewer, VIEWER_LIMITS};
     let mut host: Option<std::sync::Arc<kalem_script::Host>> = None;
@@ -512,6 +521,18 @@ pub(crate) fn installed_viewers() -> Vec<(
             })
             .unwrap_or_default();
         if opens.is_empty() {
+            continue;
+        }
+        let api = m["api"].as_str();
+        if !kalem_script::api_compatible(api) {
+            let why = kalem_core::tr!(
+                "plugin-api-mismatch",
+                name = p.name.clone(),
+                version = p.version.clone(),
+                api = api.unwrap_or_default().to_string(),
+                ours = kalem_script::API_VERSION
+            );
+            out.push((p, Err(why)));
             continue;
         }
         if host.is_none() {
@@ -547,7 +568,7 @@ pub(crate) fn installed_viewers() -> Vec<(
                 std::sync::Arc::new(|text| kalem_core::jobs::notice(text, true)),
             ),
         );
-        out.push((p, v));
+        out.push((p, Ok(v)));
     }
     out
 }

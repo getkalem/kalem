@@ -1,0 +1,21 @@
+package kalem:plugin@0.2.0;
+
+// The worlds of the viewer plugins. They are kept apart from the
+// interfaces: a released interface never changes (the Book, Part III,
+// "Versions of the plugin API"), while a world gains the new interfaces
+// a later version adds, which the host binds when a component has them.
+
+/// A plugin opening files that are not text.
+world document-viewer {
+    import files;
+    import clock;
+    export viewer;
+}
+
+/// A plugin opening files of sheets of cells: workbooks, databases.
+world spreadsheet-viewer {
+    import files;
+    import clock;
+    export viewer;
+    export grid;
+}

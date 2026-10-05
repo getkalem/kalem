@@ -19,6 +19,35 @@
 //! The API a plugin implements is WIT (T3.1.3); this crate is the engine
 //! underneath, generic over it.
 
+/// The version of the plugin API this host implements: the WIT package
+/// `kalem:plugin` of `kalem-plugin/wit`. A released interface never
+/// changes; a later version adds interfaces, so a component built against
+/// any `0.2.x` binds what it has (the Book, Part III, "Versions of the
+/// plugin API").
+pub const API_VERSION: &str = "0.2.0";
+
+/// Whether a manifest's `api` requirement (`^0.2`, `0.2`, `^0.2.1`)
+/// names this host's API: the same `0.MINOR` before 1.0, the same major
+/// after. A manifest without one is tried.
+pub fn api_compatible(requirement: Option<&str>) -> bool {
+    let Some(req) = requirement.map(str::trim).filter(|r| !r.is_empty()) else {
+        return true;
+    };
+    let nums = |v: &str| -> Vec<u64> {
+        v.trim_start_matches(['^', '~', '='])
+            .split('.')
+            .map_while(|p| p.trim().parse().ok())
+            .collect()
+    };
+    let (want, have) = (nums(req), nums(API_VERSION));
+    match (want.first(), want.get(1)) {
+        (Some(0), Some(minor)) => have.first() == Some(&0) && have.get(1) == Some(minor),
+        (Some(0), None) => have.first() == Some(&0),
+        (Some(major), _) => have.first() == Some(major),
+        (None, _) => true,
+    }
+}
+
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -450,5 +479,17 @@ impl<T: Send + 'static> Instance<T> {
     /// The host's data, to change.
     pub fn data_mut(&mut self) -> &mut T {
         &mut self.store.data_mut().user
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn api_requirements() {
+        assert!(super::api_compatible(Some("^0.2")));
+        assert!(super::api_compatible(Some("0.2.1")));
+        assert!(super::api_compatible(None));
+        assert!(!super::api_compatible(Some("^0.1")));
+        assert!(!super::api_compatible(Some("^1.0")));
     }
 }

@@ -106,7 +106,10 @@ fn a_viewer_without_its_files_is_refused() {
     let plugin = host.load(&bytes).unwrap();
     // The `files` interface not granted: the plugin is refused, named.
     match plugin.instantiate(&host, &host.linker::<()>(), (), Limits::default()) {
-        Err(Error::NotGranted(names)) => assert_eq!(names, ["kalem:plugin/files@0.1.0"]),
+        Err(Error::NotGranted(names)) => assert_eq!(
+            names,
+            [format!("kalem:plugin/files@{}", kalem_script::API_VERSION)]
+        ),
         other => panic!("{other:?}"),
     }
 }

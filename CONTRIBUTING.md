@@ -62,6 +62,7 @@ Several people (and agents) push to `main` the same day. CI lets every run on `m
 - Push related commits together rather than one at a time; at most about once an hour while the last run on `main` is still going, so runs do not queue behind each other.
 - When `main` is red from your push, fix it before anything else; when it is red from someone else's, say so to them rather than push on top.
 - A change to the viewer contract (`crates/kalem-viewer`) and the bundled plugins' bump go in one push: the three plugins are pinned at one revision of `getkalem/plugins` ([`tools/check-plugin-pins.sh`](tools/check-plugin-pins.sh)).
+- The plugin API's released WIT interfaces never change (`crates/kalem-plugin/tests/frozen.rs`): a new function goes into a new interface in a file of its own, exported by the worlds in `worlds.wit` (the Book, Part III, "Versions of the plugin API").
 
 ## License
 
