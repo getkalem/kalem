@@ -1272,7 +1272,7 @@ Wrong or stale text a first reader meets. Each is a text change.
   crates.io question only; it is a binary-distribution question first.
   Decide D18 (regenerate the table from the Org manual's public list, or
   state the provenance and licence) before tagging.
-- [ ] **Minor.** `tests/corpus/LICENSES.md`: no rows for `model/*.org`,
+- [~] **Minor.** `tests/corpus/LICENSES.md`: no rows for `model/*.org`,
   `tables/*.org`, `latex/synthetic/*.tex`, the fetch scripts, `tests/csv`
   and `tests/latex` (CONTRIBUTING.md:36 requires them); the 51 arXiv
   rows after "## Extended corpus" have no header row, so GitHub renders
@@ -1282,6 +1282,14 @@ Wrong or stale text a first reader meets. Each is a text change.
   LPPL or publisher terms, not the papers' CC BY; CC BY attribution
   wants the authors' names, the register gives only arXiv ids. The
   non-redistributable sample stays the draft release `arxiv-sample-2024`.
+  (done 2026-10-06 but the owner's call: rows for `model/`, `tables/`,
+  `latex/synthetic/`, the fetch scripts, `tests/csv` and `tests/latex`;
+  the arXiv sources under a heading and a header row, each with its
+  authors from arXiv's API; the 24 class and style files listed with
+  the terms each states. Open: 13 state none and `aaai25.sty` reserves
+  its rights; keep them as published-for-submission files, or take
+  them out (the tests that read the sources would lose their packages'
+  definitions).)
 - [x] **Minor.** `book/appendices/licenses.org` omits the Foxit fonts,
   ICC profiles and CMaps, the comrak and ironcalc forks, gpui, wasmtime,
   the Vim digraph table (`vim/digraphs.txt`, no stated provenance), the
