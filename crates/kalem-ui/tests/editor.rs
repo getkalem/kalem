@@ -4577,3 +4577,27 @@ fn csv_pasting_into_cells(cx: &mut TestAppContext) {
     paste("5\" ekran", cx);
     assert_eq!(body(cx), "a,b,c\n1,\"Ayşe5\"\" ekran\",x\n2,Çağrı,y\n");
 }
+
+/// Copy and Cut in the CSV grid take cells over one row too (Cut ate the
+/// delimiters and shifted the columns), and without a selection the
+/// cursor's cell, as a spreadsheet does.
+#[gpui::test]
+fn csv_copy_and_cut_cells_of_one_row(cx: &mut TestAppContext) {
+    let text = "a,b,c,d\n1,Ayşe,İzmir,9\n";
+    let (e, cx) = open_named(text, "copy.csv", || None, cx);
+    let body =
+        |cx: &mut VisualTestContext| e.read_with(cx, |e, _| e.doc.text().as_str().to_string());
+    let clip = |cx: &mut VisualTestContext| cx.read_from_clipboard().and_then(|c| c.text());
+    // No selection: the cell.
+    at(&e, text.find("Ayşe").unwrap() + 1, cx);
+    cx.simulate_keystrokes(&format!("{}-c", primary()));
+    assert_eq!(clip(cx).as_deref().map(str::trim_end), Some("Ayşe"));
+    // B2 to C2: two cells, as tab-separated values; Cut empties them.
+    e.update(cx, |e, _| {
+        e.doc.move_cursor(text.find("Ayşe").unwrap(), false);
+        e.doc.move_cursor(text.find("İzmir").unwrap() + 2, true);
+    });
+    cx.simulate_keystrokes(&format!("{}-x", primary()));
+    assert_eq!(clip(cx).as_deref().map(str::trim_end), Some("Ayşe\tİzmir"));
+    assert_eq!(body(cx), "a,b,c,d\n1,,,9\n");
+}

@@ -1319,9 +1319,10 @@ impl Editor {
             Request::SaveAs => self.save_as(window, cx),
             Request::Quit => cx.emit(DocEvent::Quit),
             Request::Copy | Request::Cut
-                if !self.source && kalem_core::csv::cell_rectangle(&self.doc).is_some() =>
+                if !self.source && kalem_core::csv::copies_cells(&self.doc) =>
             {
-                // A rectangle of cells copies as cells.
+                // A rectangle of cells copies as cells, and no selection
+                // the cursor's cell.
                 let id = if r == Request::Cut {
                     "csv.cutCells"
                 } else {

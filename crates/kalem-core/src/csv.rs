@@ -1797,8 +1797,8 @@ pub fn cell_at(doc: &crate::DocumentState) -> Option<(std::rc::Rc<Layout>, usize
 pub type Rectangle = ((usize, usize), (usize, usize));
 
 /// The rows and columns of the rectangle of cells a selection spans in a
-/// CSV document: from the anchor's cell to the cursor's, when they are in
-/// different rows (a selection within one row stays text).
+/// CSV document: from the anchor's cell to the cursor's, when they are
+/// different cells (a selection within one cell stays text).
 pub fn cell_rectangle(doc: &crate::DocumentState) -> Option<Rectangle> {
     let sel = doc.selection;
     if sel.anchor == sel.head || !doc.extra.is_empty() {
@@ -1806,7 +1806,17 @@ pub fn cell_rectangle(doc: &crate::DocumentState) -> Option<Rectangle> {
     }
     let (_, r1, _, c1) = cell_at(doc)?;
     let (_, r0, _, c0) = cell_at_offset(doc, sel.anchor)?;
-    (r0 != r1).then_some(((r0.min(r1), r0.max(r1)), (c0.min(c1), c0.max(c1))))
+    ((r0, c0) != (r1, c1)).then_some(((r0.min(r1), r0.max(r1)), (c0.min(c1), c0.max(c1))))
+}
+
+/// Whether Copy and Cut in the grid of the CSV document `doc` take cells
+/// (`csv.copyCells`, `csv.cutCells`) rather than text: a selection over
+/// more than one cell, or none (the cursor's cell, as a spreadsheet
+/// copies it). A selection within one cell is text.
+pub fn copies_cells(doc: &crate::DocumentState) -> bool {
+    doc.meta.mode == crate::DocumentMode::Csv
+        && doc.extra.is_empty()
+        && (doc.selection.anchor == doc.selection.head || cell_rectangle(doc).is_some())
 }
 
 /// The byte ranges of the cells of [`cell_rectangle`], one per row, from

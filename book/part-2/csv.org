@@ -401,7 +401,7 @@ to Org Table, Open as Plain Text) and in the palette of both editors.
 | =csv.setDelimiter=     | Set Delimiter                     |                 | No                       |
 | =csv.setQuote=         | Set Quote Character               |                 | No                       |
 | =csv.toggleHeader=     | First Row Is a Header             |                 | No                       |
-| =csv.editField=        | Edit Field                        | C-c `           | Yes, the cell            |
+| =csv.editField=        | Edit Field                        | =SPC m b e=     | Yes, the cell            |
 | =csv.setField=         | Set Field                         |                 | Yes, the cell            |
 | =csv.replaceInColumn=  | Replace in Column                 |                 | Yes, the changed cells   |
 | =csv.killField=        | Kill Field                        |                 | Yes, the cell            |
@@ -576,7 +576,8 @@ keeps its dialect and every byte the command does not name.
   that is not empty. Both show a preview first: the first eight records
   as they would be, in the palette; choosing one makes the edit (the
   command again with =confirmed=), Escape leaves the file as it is.
-- /Edit Field/ (=C-c `= in the Emacs keymap, as in an Org table) edits
+- /Edit Field/ (=SPC m b e= in Vim; no key otherwise, so that Ctrl+C
+  copies) edits
   the cursor's field in a one-line editor in the palette, its value
   unquoted; /Set Field/ (=value=, and =row= and =column= counted from 0,
   the cursor's when left out) writes it quoted as the dialect needs.
@@ -602,8 +603,10 @@ keeps its dialect and every byte the command does not name.
   Cells/) copies them as tab-separated values, a line a row, what a
   spreadsheet pastes as a range and what /Paste as Block/ writes back;
   Cut (and /Cut Cells/) copies them and empties them, the rows and
-  columns staying. A selection within one row stays text. In the source
-  view a selection is always text.
+  columns staying; so does a selection over cells of one row. Without a
+  selection Copy and Cut take the cursor's cell, as in a spreadsheet. A
+  selection within one cell stays text. In the source view a selection
+  is always text.
 - /Sort File by Columns/ (=columns=) sorts by several columns in order,
   named by letter or number with =-= for descending (=B, -A= or =2 -1=);
   values compare as /Sort File by Column/ compares them.

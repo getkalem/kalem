@@ -1846,9 +1846,10 @@ impl App {
             }
             Request::SetSetting { key, value, quiet } => self.set_setting(&key, &value, quiet),
             Request::Copy | Request::Cut
-                if !self.editor.source && kalem_core::csv::cell_rectangle(&self.doc).is_some() =>
+                if !self.editor.source && kalem_core::csv::copies_cells(&self.doc) =>
             {
-                // A rectangle of cells copies as cells.
+                // A rectangle of cells copies as cells, and no selection
+                // the cursor's cell.
                 let id = if r == Request::Cut {
                     "csv.cutCells"
                 } else {

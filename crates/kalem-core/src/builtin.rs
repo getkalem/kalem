@@ -3031,7 +3031,7 @@ fn csv_commands() -> Vec<Command> {
                 .collect();
             request(ctx, Request::Choose(items))
         }),
-        c("csv.editField", "Edit Field", &["ctrl+c `"], |ctx, _| {
+        c("csv.editField", "Edit Field", &[], |ctx, _| {
             let d = ctx.doc()?;
             let (layout, row, rec, col) = crate::csv::cell_at(d)
                 .ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))?;
