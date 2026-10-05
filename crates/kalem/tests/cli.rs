@@ -676,3 +676,36 @@ fn a_plugin_turned_off_is_listed_and_enabled_again() {
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn a_build_that_cannot_start_says_so_in_json() {
+    // `--engine tectonic` where Tectonic is not installed: the build does
+    // not start, and `--format json` says why as JSON (it printed text).
+    let path = std::env::var_os("PATH").unwrap_or_default();
+    if std::env::split_paths(&path).any(|d| d.join("tectonic").is_file()) {
+        return;
+    }
+    let dir = std::env::temp_dir().join(format!("kalem-cli-no-tectonic-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("main.tex");
+    std::fs::write(
+        &file,
+        "\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n",
+    )
+    .unwrap();
+    let (code, out, _) = kalem(&[
+        "latex",
+        "build",
+        "--format",
+        "json",
+        "--engine",
+        "tectonic",
+        file.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 1);
+    let v: serde_json::Value = serde_json::from_str(out.trim()).expect(&out);
+    assert!(v["pdf"].is_null(), "{v}");
+    assert!(v["error"].as_str().is_some_and(|e| !e.is_empty()), "{v}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

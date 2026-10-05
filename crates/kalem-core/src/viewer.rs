@@ -13601,8 +13601,13 @@ fn sheet_pdf(ctx: &mut EditorContext<'_>, args: &serde_json::Value, mode: &str) 
     let date = format!("{:02}.{:02}.{:04}", now.day(), now.month(), now.year());
     let time = format!("{:02}:{:02}", now.hour(), now.minute());
     let tex = crate::sheet_print::document(&sheets, &file, &date, &time);
-    let tool = crate::pdf::detect(crate::pdf::Engine::LuaLatex, &crate::pdf::tex_search_path())
-        .ok_or_else(|| crate::command::CommandError::new(crate::l10n::tr("msg-no-latex")))?;
+    let search = crate::pdf::tex_search_path();
+    let tool = crate::pdf::detect(crate::pdf::Engine::LuaLatex, &search).ok_or_else(|| {
+        crate::command::CommandError::new(crate::pdf::missing(
+            crate::pdf::Engine::LuaLatex,
+            &search,
+        ))
+    })?;
     let dir = std::env::temp_dir().join(format!(
         "kalem-print-{}-{}",
         std::process::id(),

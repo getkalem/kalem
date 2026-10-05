@@ -262,11 +262,7 @@ fn compile_pdf(file: &Path, text: &str, tex: &Path) -> bool {
     );
     let search = std::env::var_os("PATH").unwrap_or_default();
     let Some(tool) = pdf::detect(engine, &search) else {
-        eprintln!(
-            "{}: {}",
-            file.display(),
-            kalem_core::l10n::tr("msg-no-latex")
-        );
+        eprintln!("{}: {}", file.display(), pdf::missing(engine, &search));
         return false;
     };
     match pdf::compile(&tool, engine, tex) {

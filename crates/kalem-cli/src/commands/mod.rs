@@ -638,7 +638,21 @@ pub(crate) fn latex_build(
         Some(e) => kalem_core::pdf::Engine::from_keyword(Some(e)),
         None => latex_build::engine(&root_text, &project.model, "auto"),
     };
-    let built = latex_build::build(&root, engine, outdir)?;
+    let built = match latex_build::build(&root, engine, outdir) {
+        Ok(b) => b,
+        // No TeX, or the build could not start: said as JSON too.
+        Err(e) if json => {
+            let v = serde_json::json!({
+                "root": root.display().to_string(),
+                "pdf": null,
+                "problems": [],
+                "error": e,
+            });
+            writeln!(std::io::stdout().lock(), "{v}").map_err(|e| e.to_string())?;
+            return Ok(ExitCode::from(1));
+        }
+        Err(e) => return Err(e),
+    };
     let failed =
         built.problems.iter().any(|p| p.severity == Severity::Error) || built.pdf.is_none();
     let mut out = std::io::stdout().lock();

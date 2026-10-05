@@ -570,7 +570,7 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   around what it applies to (`latex-deprecated-font-math`) and offers no
   Quick Fix, as nothing replaces it word for word; outside math as
   before. Test `an_old_font_command_in_math_has_no_text_fix`.)
-- [ ] **Major (R2.6, owner's D5).** On a machine without TeX both
+- [x] **Major (R2.6, owner's D5).** On a machine without TeX both
   editors say only "No LaTeX found: install TeX Live, MacTeX, MiKTeX or
   tectonic" (`msg-no-latex`, `latex_build.rs:540`): no link, no install
   command. `pdf::detect` (`pdf.rs:125-138`) gives the same message when
@@ -578,6 +578,17 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   pdflatex-only install). `kalem latex build --format json` prints text
   in this case. TikZ pictures are always compiled with pdflatex
   (`tex_pictures.rs:218`), so they stay source in fontspec documents.
+  (done 2026-10-05: `pdf::missing` tells the two apart: without TeX the
+  message gives the command that installs TeX Live here (Homebrew's
+  MacTeX, winget's MiKTeX, apt, dnf, pacman or zypper by
+  `/etc/os-release`, else tug.org's link) and Tectonic's site; with TeX
+  but not the engine, it names both (`msg-latex-engine-missing`). Every
+  build path uses it (Build PDF, Org's PDF export, a workbook's print,
+  `kalem export`). `kalem latex build --format json` answers with JSON
+  and an `error` field. A picture is compiled with the engine its
+  preamble needs (`engine_of`). Tests `what_to_install_without_tex`,
+  `a_picture_takes_its_documents_engine`,
+  `a_build_that_cannot_start_says_so_in_json`.)
 - [ ] **Minor, reported.** `\nocite{*}` is flagged "No bibliography has
   the key @*" (`latex_check.rs:591` lacks the `*` filter of `:503`);
   fails `--deny-warnings`. The LaTeX messages use Org's `@key` spelling.

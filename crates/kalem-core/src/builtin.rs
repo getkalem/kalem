@@ -862,7 +862,7 @@ fn pdf_then(ctx: &mut EditorContext<'_>, subtree: bool, print: bool) -> CommandR
     );
     let search = std::env::var_os("PATH").unwrap_or_default();
     let tool = crate::pdf::detect_preferring(engine, &search, ctx.config.str("export.pdf_engine"))
-        .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-latex")))?;
+        .ok_or_else(|| CommandError::new(crate::pdf::missing(engine, &search)))?;
     let subtree = subtree.then_some(doc.selection.head);
     let settings = org_export::Settings {
         body_only: false,

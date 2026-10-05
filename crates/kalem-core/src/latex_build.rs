@@ -606,7 +606,7 @@ fn build_inner(
     search: &std::ffi::OsStr,
 ) -> Result<Built, String> {
     let search = search.to_os_string();
-    let mut tool = pdf::detect(engine, &search).ok_or_else(|| crate::l10n::tr("msg-no-latex"))?;
+    let mut tool = pdf::detect(engine, &search).ok_or_else(|| pdf::missing(engine, &search))?;
     let dir = root.parent().map(Path::to_path_buf).unwrap_or_default();
     if let Some(d) = out_dir {
         std::fs::create_dir_all(dir.join(d)).map_err(|e| e.to_string())?;

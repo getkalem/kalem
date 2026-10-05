@@ -137,6 +137,61 @@ pub fn detect(engine: Engine, path: &std::ffi::OsStr) -> Option<Tool> {
     find("tectonic", path).map(Tool::Tectonic)
 }
 
+/// Why no tool was found for `engine` in `path` ([`detect`] gave none),
+/// for the user (publish_todo 3.3, D5): the engine is missing while TeX
+/// is installed (a fontspec document on a pdfLaTeX-only install), or there
+/// is no TeX at all, said with the command that installs it here.
+pub fn missing(engine: Engine, path: &std::ffi::OsStr) -> String {
+    let installed: Vec<&str> = ["pdflatex", "xelatex", "lualatex", "latexmk", "tectonic"]
+        .into_iter()
+        .filter(|p| find(p, path).is_some())
+        .collect();
+    if let Some(found) = installed.first() {
+        return crate::tr!(
+            "msg-latex-engine-missing",
+            engine = engine.program(),
+            found = *found
+        );
+    }
+    crate::tr!("msg-no-latex", command = install_command(&os_release()))
+}
+
+/// The command that installs TeX Live (or MacTeX, MiKTeX) on this system;
+/// on Linux, `os_release` is `/etc/os-release`'s text, which names the
+/// distribution.
+pub fn install_command(os_release: &str) -> String {
+    if cfg!(target_os = "macos") {
+        return "brew install --cask mactex-no-gui".into();
+    }
+    if cfg!(windows) {
+        return "winget install MiKTeX.MiKTeX".into();
+    }
+    let field = |k: &str| {
+        os_release
+            .lines()
+            .find_map(|l| l.strip_prefix(k))
+            .map(|v| v.trim_matches('"').to_ascii_lowercase())
+            .unwrap_or_default()
+    };
+    let ids = format!("{} {}", field("ID="), field("ID_LIKE="));
+    let has = |d: &str| ids.split_whitespace().any(|i| i == d);
+    if has("debian") || has("ubuntu") {
+        "sudo apt install texlive-latex-extra texlive-xetex latexmk".into()
+    } else if has("fedora") || has("rhel") {
+        "sudo dnf install texlive-scheme-medium latexmk".into()
+    } else if has("arch") {
+        "sudo pacman -S texlive-basic texlive-latexextra texlive-xetex".into()
+    } else if has("opensuse") || has("suse") {
+        "sudo zypper install texlive-scheme-medium texlive-latexmk".into()
+    } else {
+        "https://tug.org/texlive".into()
+    }
+}
+
+fn os_release() -> String {
+    std::fs::read_to_string("/etc/os-release").unwrap_or_default()
+}
+
 /// [`detect`], with the tool `export.pdf_engine` names (`latexmk` or
 /// `tectonic`) tried first; `auto` is [`detect`].
 pub fn detect_preferring(engine: Engine, path: &std::ffi::OsStr, preference: &str) -> Option<Tool> {
@@ -404,6 +459,46 @@ pub fn report(org: &Path, problems: &[Problem]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn what_to_install_without_tex() {
+        let dir = std::env::temp_dir().join(format!("kalem-no-tex-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.clone().into_os_string();
+        // Nothing of TeX: the command that installs it.
+        let none = missing(Engine::XeLatex, &path);
+        assert!(none.contains(&install_command(&os_release())), "{none}");
+        // pdfLaTeX alone, a document asking for XeLaTeX: said as such.
+        let pdflatex = dir.join(if cfg!(windows) {
+            "pdflatex.exe"
+        } else {
+            "pdflatex"
+        });
+        std::fs::write(&pdflatex, "").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&pdflatex, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let engine = missing(Engine::XeLatex, &path);
+        assert!(
+            engine.contains("xelatex") && engine.contains("pdflatex"),
+            "{engine}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+        if cfg!(target_os = "linux") {
+            assert_eq!(
+                install_command("ID=ubuntu\nID_LIKE=debian\n"),
+                "sudo apt install texlive-latex-extra texlive-xetex latexmk"
+            );
+            assert_eq!(
+                install_command("ID=\"fedora\"\n"),
+                "sudo dnf install texlive-scheme-medium latexmk"
+            );
+            assert_eq!(install_command(""), "https://tug.org/texlive");
+        }
+    }
 
     const LOG: &str = "This is pdfTeX, Version 3.141592653\n\
 (./notes.tex\n\

@@ -25,6 +25,20 @@ struct Job {
     pdf: PathBuf,
     dir: Option<PathBuf>,
     key: u64,
+    /// The engine the picture's document needs.
+    engine: crate::pdf::Engine,
+}
+
+/// The engine a picture's standalone document needs, as Build PDF
+/// chooses one for a document (a `fontspec` preamble needs XeLaTeX,
+/// publish_todo 3.3); Tectonic's XeTeX as XeLaTeX.
+fn engine_of(doc: &str) -> crate::pdf::Engine {
+    use crate::pdf::Engine;
+    let model = latex_model::Model::new(&latex_syntax::parse(doc));
+    match crate::latex_build::engine(doc, &model, "auto") {
+        Engine::Tectonic => Engine::XeLatex,
+        e => e,
+    }
 }
 
 static STATES: Mutex<Option<HashMap<u64, State>>> = Mutex::new(None);
@@ -180,7 +194,8 @@ fn compile_cached(prefix: &str, doc: &str, dir: Option<&Path>) -> Option<PathBuf
         return Some(pdf);
     }
     let search = crate::pdf::tex_search_path();
-    crate::pdf::find("pdflatex", &search)?;
+    let engine = engine_of(doc);
+    crate::pdf::find(engine.program(), &search)?;
     let tex = cache.join(format!("{name}.tex"));
     std::fs::write(&tex, doc).ok()?;
     set(key, State::Pending(pdf.clone()));
@@ -189,6 +204,7 @@ fn compile_cached(prefix: &str, doc: &str, dir: Option<&Path>) -> Option<PathBuf
         pdf: pdf.clone(),
         dir: dir.map(Path::to_path_buf),
         key,
+        engine,
     };
     let mut q = QUEUE.lock().ok()?;
     let tx = q.get_or_insert_with(|| {
@@ -210,12 +226,12 @@ fn set(key: u64, state: State) {
     }
 }
 
-/// Runs pdflatex on a picture's file; its PDF is written beside it under
-/// another name and moved in place when whole, so that a picture is never
-/// read half written.
+/// Runs the picture's engine on its file; its PDF is written beside it
+/// under another name and moved in place when whole, so that a picture is
+/// never read half written.
 fn compile(job: &Job) {
     let search = crate::pdf::tex_search_path();
-    let Some(program) = crate::pdf::find("pdflatex", &search) else {
+    let Some(program) = crate::pdf::find(job.engine.program(), &search) else {
         set(job.key, State::Failed);
         return;
     };
@@ -283,6 +299,17 @@ mod tests {
         assert_eq!(
             p,
             "\n\n\\usepackage{amsmath}\n\\usetikzlibrary{arrows}\n\\newcommand{\\R}{\\mathbb{R}}\n"
+        );
+    }
+
+    #[test]
+    fn a_picture_takes_its_documents_engine() {
+        use crate::pdf::Engine;
+        assert_eq!(engine_of("\\usepackage{amsmath}\n"), Engine::PdfLatex);
+        assert_eq!(engine_of("\\usepackage{fontspec}\n"), Engine::XeLatex);
+        assert_eq!(
+            engine_of("% !TEX program = lualatex\n\\usepackage{amsmath}\n"),
+            Engine::LuaLatex
         );
     }
 
