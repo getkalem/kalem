@@ -69,9 +69,12 @@ fn an_installed_plugin_adds_commands_the_registry_runs() {
     let plugin = root.join("config/plugins/org.test.counter");
     std::fs::create_dir_all(&plugin).unwrap();
     std::fs::write(plugin.join("counter.wasm"), bytes).unwrap();
+    // Its commands write the settings file: a budget a slow CI runner
+    // keeps to (the default 100 ms was passed on Windows).
     std::fs::write(
         plugin.join("plugin.json"),
-        r#"{"id": "org.test.counter", "name": "Counter", "main": "counter.wasm"}"#,
+        r#"{"id": "org.test.counter", "name": "Counter", "main": "counter.wasm",
+            "limits": {"time_ms": 5000}}"#,
     )
     .unwrap();
     // A plugin reaching files and the network, as its permissions allow:
