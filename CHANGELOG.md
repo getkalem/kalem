@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - The toolbar's `//` (Toggle Comment) shows only in text with a comment syntax, not over a workbook, a PDF or a picture (new when-clause key `hasComments`).
+- CSV grid, both editors: Enter and Shift+Enter (Alt+Enter in a terminal) go to the cell below and above, as in a spreadsheet; Enter broke the record in two. Enter on the last record adds an empty one. Tab, Enter and Go to Cell reach a short record's missing cells (they stopped at its last field).
 - CSV grid in the graphical editor: a short record's missing cells and the empty columns right of the data are selected by a click (they went to the record's last cell); typing there adds the fields up to the cell, and a click alone leaves the file as it is.
 - CSV grid in the graphical editor: a click anywhere in a cell selects it; on the padding right after a column bar it selected the cell before.
 - Scrolling with the wheel or the trackpad brings the cursor to the top line of the window, whichever way it scrolls (scrolling up it stayed at the bottom), and typing does not jump back.

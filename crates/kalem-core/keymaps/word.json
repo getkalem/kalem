@@ -26,6 +26,10 @@
   { "keys": "enter", "command": "markdown.newline", "when": "editorMode == markdown && inMarkdownList" },
   // In a spreadsheet, Enter edits the cell and Tab moves to the next one.
   { "keys": "enter", "command": "viewer.grid.edit", "when": "editorMode == viewer && viewerGrid" },
+  // In a CSV file's grid, Enter and Shift+Enter go to the cell below and
+  // above (in its source view they break the line).
+  { "keys": "enter", "command": "csv.cellBelow", "when": "editorMode == csv && !sourceView" },
+  { "keys": "shift+enter", "command": "csv.cellAbove", "when": "editorMode == csv && !sourceView", "terminalKeys": "alt+enter" },
   { "keys": "tab", "command": "viewer.grid.right", "when": "editorMode == viewer && viewerGrid" },
   { "keys": "shift+tab", "command": "viewer.grid.left", "when": "editorMode == viewer && viewerGrid" },
   { "keys": "ctrl+1", "command": "latex.section.setLevel", "args": { "level": 1 }, "when": "editorMode == latex" },

@@ -3645,17 +3645,18 @@ fn latex_sections_fold() {
 #[test]
 fn enter_in_csv_keeps_no_indentation() {
     // Leading tabs are empty fields and leading blanks are part of a
-    // value: Enter does not copy them into the next record.
+    // value: Enter on the last record adds an empty one (the cell below,
+    // as in a spreadsheet), with none of them copied.
     let text = "\ta\tb\n";
     let mut t = with_file(text, "d.tsv", Config::default(), (60, 8));
     t.at(text.find('b').unwrap() + 1);
     t.key(KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!(t.text(), "\ta\tb\n\n");
+    assert_eq!(t.text(), "\ta\tb\n\t\t\n");
     let text = "  x,y\n";
     let mut t = with_file(text, "d.csv", Config::default(), (60, 8));
     t.at(text.find('y').unwrap() + 1);
     t.key(KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!(t.text(), "  x,y\n\n");
+    assert_eq!(t.text(), "  x,y\n,\n");
 }
 
 #[test]

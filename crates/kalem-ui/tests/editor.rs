@@ -4450,3 +4450,50 @@ fn csv_cells_past_a_record_are_clicked_and_typed_in(cx: &mut TestAppContext) {
             .ends_with("Bob,5,Bursa,x,9\n")
     );
 }
+
+/// Enter and Shift+Enter in the CSV grid go to the cell below and above,
+/// as in a spreadsheet (Enter broke the record in two); they and Tab
+/// reach a short record's missing cells, typed in as fields.
+#[gpui::test]
+fn csv_enter_moves_between_cells(cx: &mut TestAppContext) {
+    let text = "name,age,city\nAda,36,İzmir\nÇağla,7\nBob,5,Bursa\n";
+    let (e, cx) = open_named(text, "enter.csv", || None, cx);
+    let cell = |cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| {
+            kalem_core::csv::cell_at(&e.doc).map(|(_, r, _, c)| (r, c))
+        })
+    };
+    let body =
+        |cx: &mut VisualTestContext| e.read_with(cx, |e, _| e.doc.text().as_str().to_string());
+    // To C1 (İzmir's header): Tab twice.
+    cx.simulate_keystrokes("tab tab");
+    assert_eq!(cell(cx), Some((0, 2)));
+    cx.simulate_keystrokes("enter");
+    assert_eq!(cell(cx), Some((1, 2)));
+    // Down into the short record's missing cell, the file unchanged.
+    cx.simulate_keystrokes("enter");
+    assert_eq!(cell(cx), Some((2, 2)));
+    assert_eq!(body(cx), text);
+    cx.simulate_keystrokes("shift-enter");
+    assert_eq!(cell(cx), Some((1, 2)));
+    cx.simulate_keystrokes("enter");
+    cx.simulate_input("Ordu");
+    assert_eq!(
+        body(cx),
+        "name,age,city\nAda,36,İzmir\nÇağla,7,Ordu\nBob,5,Bursa\n"
+    );
+    // Tab from a short record's last field to its missing cell.
+    let text2 = "a,b,c\n1\n";
+    let (e2, cx2) = open_named(text2, "tab.csv", || None, cx);
+    e2.update(cx2, |e, _| e.doc.move_cursor(6, false));
+    cx2.simulate_keystrokes("tab");
+    let c = e2.read_with(cx2, |e, _| {
+        kalem_core::csv::cell_at(&e.doc).map(|(_, r, _, c)| (r, c))
+    });
+    assert_eq!(c, Some((1, 1)));
+    cx2.simulate_input("x");
+    assert_eq!(
+        e2.read_with(cx2, |e, _| e.doc.text().as_str().to_string()),
+        "a,b,c\n1,x\n"
+    );
+}

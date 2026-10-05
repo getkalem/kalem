@@ -370,6 +370,8 @@ to Org Table, Open as Plain Text) and in the palette of both editors.
 |------------------------+-----------------------------------+-----------------+--------------------------|
 | =csv.nextField=        | Next Field                        | Tab             | Only past the last field |
 | =csv.previousField=    | Previous Field                    | Shift+Tab       | No                       |
+| =csv.cellBelow=        | Cell Below                        | Enter           | Only past the last row   |
+| =csv.cellAbove=        | Cell Above                        | Shift+Enter     | No                       |
 | =csv.insertRow=        | Insert Row                        | Alt+Shift+Down  | Yes                      |
 | =csv.deleteRow=        | Delete Row                        | Alt+Shift+Up    | Yes                      |
 | =csv.moveRowUp=        | Move Row Up                       | Alt+Up          | Yes                      |
@@ -437,6 +439,14 @@ document is closed; it is not written to the file.
 - /Previous Field/ goes to the previous field; from the first field, to
   the last field of the previous record; in the first field of the first
   record it does nothing.
+- /Cell Below/ (Enter) and /Cell Above/ (Shift+Enter; Alt+Enter in a
+  terminal) go to the same column of the next and previous record, as in
+  a spreadsheet; Enter on the last record adds an empty one. In the
+  source view Enter breaks the line as in any text.
+- A short record's missing cells and the empty columns right of the data
+  can be selected (by a click, Tab, Enter or Go to Cell) without a change
+  to the file; typing there adds the empty fields up to the cell, then
+  the value.
 
 ** Rows
 

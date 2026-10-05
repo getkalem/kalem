@@ -1177,6 +1177,14 @@ fn csv_edit(
         let text = d.text().as_str();
         let r = layout.index.borrow_mut().record(text, row, &layout.dialect);
         if let Some(r) = r {
+            // A column past the record's end (and on the grid): its
+            // missing cell, selected without a change to the file.
+            let columns = layout.widths.len();
+            if col >= r.fields.len() && col < columns {
+                d.selection = org_edit::Selection::caret(r.range.end);
+                d.select_csv_virtual(col);
+                return Ok(());
+            }
             let at = r
                 .fields
                 .get(col)
@@ -2797,7 +2805,7 @@ fn csv_commands() -> Vec<Command> {
     vec![
         c("csv.nextField", "Next Field", &["tab"], |ctx, _| {
             csv_edit(ctx, |text, l, row, rec, col| {
-                if col + 1 < rec.fields.len() {
+                if col + 1 < rec.fields.len().max(l.widths.len()) {
                     return Ok((None, Some((row, col + 1))));
                 }
                 let n = l.index.borrow_mut().count(text, &l.dialect);
@@ -2810,6 +2818,27 @@ fn csv_commands() -> Vec<Command> {
                     Some(crate::csv::insert_row(text, rec, columns, &l.dialect)),
                     Some((row + 1, 0)),
                 ))
+            })
+        }),
+        // Enter and Shift+Enter: the cell below or above, as in a
+        // spreadsheet (Enter broke the record in two). Past the last row
+        // Enter adds one, as Tab does.
+        c("csv.cellBelow", "Cell Below", &[], |ctx, _| {
+            csv_edit(ctx, |text, l, row, rec, col| {
+                let n = l.index.borrow_mut().count(text, &l.dialect);
+                if row + 1 < n {
+                    return Ok((None, Some((row + 1, col))));
+                }
+                let columns = l.widths.len().max(rec.fields.len());
+                Ok((
+                    Some(crate::csv::insert_row(text, rec, columns, &l.dialect)),
+                    Some((row + 1, col)),
+                ))
+            })
+        }),
+        c("csv.cellAbove", "Cell Above", &[], |ctx, _| {
+            csv_edit(ctx, |_, _, row, _, col| {
+                Ok((None, row.checked_sub(1).map(|r| (r, col))))
             })
         }),
         c(
