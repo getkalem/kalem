@@ -962,6 +962,7 @@ msg-no-fix = No fix here: put the cursor on a flagged construct with an obvious 
 msg-build-cancelling = Stopping the build…
 msg-no-build = No build is running
 msg-build-cancelled = Build cancelled
+msg-build-queued = A build is running: the PDF is built again when it ends
 msg-no-problems = No problems in this document
 latex-build-problem = Build: { $message }
 latex-diagnostic-fixable = { $mark } { $message } (Quick Fix fixes it)

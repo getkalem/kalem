@@ -551,12 +551,18 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   `.bib`, `.sty` and `.cls` (same cause as the Markdown blocker): a
   `.bib` abstract with `| x |` lines is "aligned".
   (done: such files are left as they are.)
-- [ ] **Major, reported.** F5 while a build runs starts a second build on
+- [x] **Major, reported.** F5 while a build runs starts a second build on
   the same `.aux`/`.pdf` (`builtin.rs:1369-1408` has no running-job
   check); `CURRENT` keeps only the newest (`latex_build.rs:519`), so
   Cancel stops the second only; build-on-save is skipped silently while
   a job runs and nothing is queued, so the PDF can be older than the
   last save. The Book says "one build at a time".
+  (done 2026-10-05: Build PDF while a build runs queues the build
+  (`latex_build::queue`, the last asked wins) and says so
+  (`msg-build-queued`); the running job builds it when it ends; a save
+  with build-on-save goes the same way instead of being skipped; Cancel
+  Build forgets the queued one. Test
+  `a_build_asked_for_during_one_waits_for_it`.)
 - [ ] **Major, verified (code).** Quick Fix for `\bf`, `\rm`, `\it` is
   offered inside math (`latex_check.rs:146-165`, no `in_math` check):
   `$\bf x$` → `$\bfseries x$`, which pdflatex rejects.

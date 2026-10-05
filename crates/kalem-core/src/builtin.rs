@@ -1562,12 +1562,29 @@ fn latex_build(ctx: &mut EditorContext<'_>) -> CommandResult {
         ctx.config.str("latex.engine").trim(),
     );
     let out = ctx.config.str("latex.output_directory").trim().to_string();
+    let out_dir = (!out.is_empty()).then(|| std::path::PathBuf::from(&out));
+    // One build at a time on the same `.aux` and `.pdf`: one asked for
+    // while another runs is built when it ends (publish_todo 3.3).
+    if crate::latex_build::running() {
+        crate::latex_build::queue((root, engine, out_dir));
+        ctx.messages.push(crate::l10n::tr("msg-build-queued"));
+        return Ok(());
+    }
     let open_after = ctx.config.bool("export.open_after");
     let status = crate::l10n::tr("msg-compiling-pdf");
     ctx.messages.push(status.clone());
     crate::jobs::spawn(status, move || {
-        let out_dir = (!out.is_empty()).then(|| std::path::PathBuf::from(&out));
-        match crate::latex_build::build(&root, engine, out_dir.as_deref()) {
+        let (mut root, mut engine, mut out_dir) = (root, engine, out_dir);
+        let mut result = crate::latex_build::build(&root, engine, out_dir.as_deref());
+        while let Some((r, e, o)) = crate::latex_build::take_queued() {
+            // The one before shows its problems in the text all the same.
+            if let Ok(b) = &result {
+                crate::latex_build::record(&root, &b.problems);
+            }
+            (root, engine, out_dir) = (r, e, o);
+            result = crate::latex_build::build(&root, engine, out_dir.as_deref());
+        }
+        match result {
             Err(e) => crate::jobs::Finished {
                 message: crate::tr!("msg-pdf-failed", error = e),
                 error: true,

@@ -1346,8 +1346,11 @@ lists).
 * Building
 
 /Build PDF/ (=latex.build=, F5) compiles the project's root document in
-the background; =latex.build_on_save= builds on each save, one build at
-a time; /Cancel Build/ (=latex.cancelBuild=) kills the program that runs.
+the background; =latex.build_on_save= builds on each save. One build
+runs at a time: a build asked for while another runs (=F5=, or a save) is
+made when it ends, the last asked for only; /Cancel Build/
+(=latex.cancelBuild=) kills the program that runs and forgets the one
+asked for.
 =kalem latex build FILE= does the same on the command line.
 
 ** SyncTeX

@@ -1919,12 +1919,9 @@ impl Editor {
                 kalem_core::lsp::saved(&self.doc);
                 self.disk_conflict = false;
                 self.message(tr!("msg-saved"), false);
-                // A LaTeX document builds on save when asked to, one build
-                // at a time.
-                if self.doc.latex().is_some()
-                    && self.shared.config.bool("latex.build_on_save")
-                    && !kalem_core::jobs::running()
-                {
+                // A LaTeX document builds on save when asked to; one
+                // saved while a build runs is built when it ends.
+                if self.doc.latex().is_some() && self.shared.config.bool("latex.build_on_save") {
                     self.run_command("latex.build", serde_json::Value::Null, window, cx);
                 }
             }

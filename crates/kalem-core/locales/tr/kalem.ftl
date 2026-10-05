@@ -887,6 +887,7 @@ msg-no-fix = Burada düzeltme yok: imleci açık bir düzeltmesi olan işaretli 
 msg-build-cancelling = Derleme durduruluyor…
 msg-no-build = Çalışan bir derleme yok
 msg-build-cancelled = Derleme iptal edildi
+msg-build-queued = Bir derleme sürüyor: bitince PDF yeniden derlenir
 msg-no-problems = Bu belgede sorun yok
 latex-build-problem = Derleme: { $message }
 latex-diagnostic-fixable = { $mark } { $message } (Hızlı Düzeltme düzeltir)

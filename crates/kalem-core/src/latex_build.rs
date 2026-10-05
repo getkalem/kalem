@@ -524,9 +524,34 @@ fn tool_name(tool: &Tool) -> String {
 /// The flag of the build that runs, which [`cancel`] raises.
 static CURRENT: std::sync::Mutex<Option<Arc<AtomicBool>>> = std::sync::Mutex::new(None);
 
-/// Stops the build that runs, if one does (Cancel Build); `false` when
-/// none does.
+/// A build asked for while one runs: the root, engine and output folder
+/// of the last one asked, built when the running one ends (one build at
+/// a time, on the same `.aux` and `.pdf`).
+pub type Queued = (PathBuf, Engine, Option<PathBuf>);
+
+static AGAIN: std::sync::Mutex<Option<Queued>> = std::sync::Mutex::new(None);
+
+/// Whether a build runs.
+pub fn running() -> bool {
+    CURRENT.lock().is_ok_and(|c| c.is_some())
+}
+
+/// Asks for `build` once the running one ends; the last asked wins.
+pub fn queue(build: Queued) {
+    if let Ok(mut a) = AGAIN.lock() {
+        *a = Some(build);
+    }
+}
+
+/// The build asked for while one ran, if any, taken.
+pub fn take_queued() -> Option<Queued> {
+    AGAIN.lock().ok().and_then(|mut a| a.take())
+}
+
+/// Stops the build that runs, if one does (Cancel Build), and forgets the
+/// one asked for after it; `false` when none runs.
 pub fn cancel() -> bool {
+    let _ = take_queued();
     match CURRENT.lock().ok().and_then(|c| c.clone()) {
         Some(flag) => {
             flag.store(true, Ordering::SeqCst);
@@ -820,6 +845,27 @@ mod tests {
     }
 
     use super::*;
+
+    #[test]
+    fn a_build_asked_for_during_one_waits_for_it() {
+        let flag = Arc::new(AtomicBool::new(false));
+        *CURRENT.lock().unwrap() = Some(flag.clone());
+        assert!(running());
+        let a = (PathBuf::from("a.tex"), Engine::PdfLatex, None);
+        let b = (PathBuf::from("b.tex"), Engine::XeLatex, None);
+        queue(a);
+        queue(b.clone());
+        // The last asked is the one built next, once.
+        assert_eq!(take_queued(), Some(b.clone()));
+        assert_eq!(take_queued(), None);
+        // Cancel stops the build and forgets the one asked for.
+        queue(b);
+        assert!(cancel());
+        assert!(flag.load(Ordering::SeqCst));
+        assert_eq!(take_queued(), None);
+        *CURRENT.lock().unwrap() = None;
+        assert!(!running());
+    }
 
     #[cfg(unix)]
     #[test]
