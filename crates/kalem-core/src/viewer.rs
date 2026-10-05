@@ -1839,11 +1839,17 @@ impl ViewerState {
                 doc.save().map_err(|e| e.to_string())?;
                 Ok(bytes)
             }
-            "xlsx" | "xlsm" | "xltx" | "xltm" if editable => self.save().map(|o| o.bytes),
+            // The package's content types as the new extension says
+            // (Excel refuses an `.xlsx` declared a macro workbook).
+            "xlsx" | "xlsm" | "xltx" | "xltm" if editable => {
+                let bytes = self.save()?.bytes;
+                crate::workbook_io::retype(&bytes, &ext)
+            }
             "xlsx" | "xlsm" | "xltx" | "xltm" => {
                 let viewer = self.viewer.clone();
                 let mut doc = self.doc();
-                crate::workbook_io::to_xlsx(viewer.as_ref(), doc.as_mut())
+                let bytes = crate::workbook_io::to_xlsx(viewer.as_ref(), doc.as_mut())?;
+                crate::workbook_io::retype(&bytes, &ext)
             }
             "xls" | "xlsb" => Err(format!(
                 "Kalem does not write .{ext} files: save it as .xlsx or .ods"

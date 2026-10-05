@@ -776,6 +776,98 @@ pub fn template_to_workbook(bytes: &[u8]) -> Result<Vec<u8>, String> {
     Ok(zip(&list))
 }
 
+/// The main part's content type of a workbook saved as `extension`.
+fn main_content_type(extension: &str) -> Option<&'static str> {
+    Some(match extension {
+        "xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml",
+        "xlsm" => "application/vnd.ms-excel.sheet.macroEnabled.main+xml",
+        "xltx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml",
+        "xltm" => "application/vnd.ms-excel.template.macroEnabled.main+xml",
+        _ => return None,
+    })
+}
+
+/// The workbook `bytes` as a file of `extension` declares itself: the
+/// workbook part's content type of a workbook, a macro-enabled workbook,
+/// a template or a macro-enabled template, and, where macros are not
+/// allowed, without its VBA project (Excel refuses an `.xlsx` that keeps
+/// one). The bytes as they are when nothing changes.
+pub fn retype(bytes: &[u8], extension: &str) -> Result<Vec<u8>, String> {
+    let Some(target) = main_content_type(extension) else {
+        return Ok(bytes.to_vec());
+    };
+    let mut entries = unzip(bytes)?;
+    let macros = matches!(extension, "xlsm" | "xltm");
+    let is_vba = |name: &str| {
+        let n = name.trim_start_matches('/');
+        n.starts_with("xl/vbaProject") && n.ends_with(".bin")
+    };
+    let mut changed = false;
+    if !macros && entries.iter().any(|(n, _)| is_vba(n)) {
+        entries.retain(|(n, _)| !is_vba(n));
+        changed = true;
+    }
+    for (name, body) in &mut entries {
+        let text = String::from_utf8_lossy(body).into_owned();
+        let new = match name.as_str() {
+            "[Content_Types].xml" => {
+                let mut t = text.clone();
+                for ext in ["xlsx", "xlsm", "xltx", "xltm"] {
+                    let from = main_content_type(ext).unwrap_or_default();
+                    if from != target {
+                        t = t.replace(from, target);
+                    }
+                }
+                if !macros {
+                    // The VBA project's own overrides, and its extension's
+                    // default when nothing else is a `.bin`.
+                    t = drop_elements(&t, "Override", |e| e.contains("/xl/vbaProject"));
+                    t = drop_elements(&t, "Default", |e| {
+                        e.contains("application/vnd.ms-office.vbaProject")
+                    });
+                }
+                t
+            }
+            "xl/_rels/workbook.xml.rels" if !macros => drop_elements(&text, "Relationship", |e| {
+                e.contains("/relationships/vbaProject")
+            }),
+            _ => continue,
+        };
+        if new != text {
+            *body = new.into_bytes();
+            changed = true;
+        }
+    }
+    if !changed {
+        return Ok(bytes.to_vec());
+    }
+    let list: Vec<(&str, &[u8], bool)> = entries
+        .iter()
+        .map(|(n, b)| (n.as_str(), b.as_slice(), true))
+        .collect();
+    Ok(zip(&list))
+}
+
+/// `xml` without the empty elements `<NAME …/>` for which `drop` is true.
+fn drop_elements(xml: &str, name: &str, drop: impl Fn(&str) -> bool) -> String {
+    let open = format!("<{name} ");
+    let mut out = String::with_capacity(xml.len());
+    let mut rest = xml;
+    while let Some(i) = rest.find(&open) {
+        let Some(len) = rest[i..].find("/>").map(|k| k + 2) else {
+            break;
+        };
+        out.push_str(&rest[..i]);
+        let element = &rest[i..i + len];
+        if !drop(element) {
+            out.push_str(element);
+        }
+        rest = &rest[i + len..];
+    }
+    out.push_str(rest);
+    out
+}
+
 /// Rows of entries (as typed) as a new Excel workbook of one sheet.
 pub fn rows_to_xlsx(sheet: &str, rows: &[Vec<String>]) -> Vec<u8> {
     let mut cells = BTreeMap::new();
@@ -1374,6 +1466,69 @@ fn point_as_text(v: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_workbook_saved_as_another_kind_says_so() {
+        // A macro-enabled workbook: its content type, its VBA project.
+        let book = build_xlsx(&[("S".to_owned(), BTreeMap::new())]);
+        let mut entries = unzip(&book).unwrap();
+        for (name, body) in &mut entries {
+            let text = String::from_utf8_lossy(body).into_owned();
+            if name == "[Content_Types].xml" {
+                *body = text
+                    .replace(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml",
+                        "application/vnd.ms-excel.sheet.macroEnabled.main+xml",
+                    )
+                    .replace(
+                        "</Types>",
+                        "<Default Extension=\"bin\" ContentType=\"application/vnd.ms-office.vbaProject\"/></Types>",
+                    )
+                    .into_bytes();
+            } else if name == "xl/_rels/workbook.xml.rels" {
+                *body = text
+                    .replace(
+                        "</Relationships>",
+                        "<Relationship Id=\"rIdV\" Type=\"http://schemas.microsoft.com/office/2006/relationships/vbaProject\" Target=\"vbaProject.bin\"/></Relationships>",
+                    )
+                    .into_bytes();
+            }
+        }
+        entries.push(("xl/vbaProject.bin".into(), b"VBA".to_vec()));
+        let list: Vec<(&str, &[u8], bool)> = entries
+            .iter()
+            .map(|(n, b)| (n.as_str(), b.as_slice(), true))
+            .collect();
+        let xlsm = zip(&list);
+        // Kept as it is in its own kind.
+        assert_eq!(retype(&xlsm, "xlsm").unwrap(), xlsm);
+        let part = |bytes: &[u8], name: &str| {
+            unzip(bytes)
+                .unwrap()
+                .into_iter()
+                .find(|(n, _)| n == name)
+                .map(|(_, b)| String::from_utf8(b).unwrap())
+        };
+        let xlsx = retype(&xlsm, "xlsx").unwrap();
+        let types = part(&xlsx, "[Content_Types].xml").unwrap();
+        assert!(types.contains("spreadsheetml.sheet.main+xml"), "{types}");
+        assert!(
+            !types.contains("macroEnabled") && !types.contains("vbaProject"),
+            "{types}"
+        );
+        assert!(part(&xlsx, "xl/vbaProject.bin").is_none());
+        assert!(
+            !part(&xlsx, "xl/_rels/workbook.xml.rels")
+                .unwrap()
+                .contains("vbaProject")
+        );
+        let xltx = retype(&xlsx, "xltx").unwrap();
+        assert!(
+            part(&xltx, "[Content_Types].xml")
+                .unwrap()
+                .contains("spreadsheetml.template.main+xml")
+        );
+    }
+
     use super::*;
 
     #[test]

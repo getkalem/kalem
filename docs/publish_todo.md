@@ -738,13 +738,19 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   formulas are written without `t="array"`/`cm` and become `@`-formulas.
   Kalem shows the right values (IronCalc accepts the names), so the user
   finds out in Excel.
-- [ ] **Major, reported.** Save As to another workbook extension keeps
+- [x] **Major, reported.** Save As to another workbook extension keeps
   the old content types (`save_as_format("xlsx")` returns the same
   package, `kalem-core/src/viewer.rs:1723`): `.xlsm` → `.xlsx` keeps
   `vbaProject.bin` and the macro content type, `.xltx` → `.xlsx` keeps
   the template type; Excel answers "file format or extension is not
   valid". `template_to_workbook` exists but is used only by New from
   Template.
+  (done 2026-10-06 in Kalem: `workbook_io::retype` gives the workbook
+  part the content type of `.xlsx`, `.xlsm`, `.xltx` or `.xltm` and,
+  where macros are not allowed, drops the VBA project with its
+  relationship and content types; the bytes stay as they are when
+  nothing changes. `save_as_format` uses it for edited and converted
+  workbooks alike. Test `a_workbook_saved_as_another_kind_says_so`.)
 - [ ] **Major, reported.** A password-protected `.xlsx` (an OLE
   container) fails with "malformed package: no end of central directory
   record" (`xlsx/src/workbook.rs:365`, `package.rs:192`); detect
