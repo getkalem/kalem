@@ -636,16 +636,19 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   `a_bib_files_problems`.)
 - [x] **Major.** `kalem fmt` on `.bib` (see 3.3).
   (done.)
-- [ ] **Minor, reported.** Two `.bib` files open show the first one's
+- [x] **Minor, reported.** Two `.bib` files open show the first one's
   grid (`bibtex::grid` memo keyed by version only, see section 2).
+  (done there: the grid's memo keys on the document's serial.)
 
 ### 3.5 CSV and TSV
 
-- [ ] **Major, verified.** `sep=` with a multi-byte delimiter aborts the
+- [x] **Major, verified.** `sep=` with a multi-byte delimiter aborts the
   process (section 2).
-- [ ] **Major, verified (code).** The memos shared between documents
+  (done there.)
+- [x] **Major, verified (code).** The memos shared between documents
   (section 2).
-- [ ] **Major, reported (large files).** Whole-file work on every
+  (done there: the document's serial in every key.)
+- [x] **Major, reported (large files).** Whole-file work on every
   keystroke and on every cursor line: `column_status` re-runs
   `column_stats` → `rows()` (a String per field of the whole file) on
   every version and the status bar asks every frame (`csv.rs:2263-2291`,
@@ -654,6 +657,16 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   file; `shown_lines`'s `kept` is O(records × ranges). The grid_speed
   tests time only the first layout. Measure with a 100k-row file before
   release and fix the status-bar path at least.
+  (done 2026-10-05, measured by `a_large_file_at_each_keystroke_and_step`
+  in `tests/csv.rs` (100,000 rows of eight columns, a filter and a sort
+  on): the filter's memo no longer keys on the cursor's line, and the
+  view's records, their order and what the filter keeps are worked out
+  once a version, the cursor's record added by a search (`Shown`); the
+  status bar's numbers read the column's field of each record instead
+  of every field as a `String`. Twenty steps of the cursor went from
+  9.7 s to 38 ms in a release build (92 s to 0.3 s in a debug one), the
+  status bar after a keystroke from 113 ms to 40 ms; the test fails
+  past its ceilings.)
 - [ ] **Minor, reported.** The dialect is detected once at first layout
   and frozen (`csv.rs:1560-1566`): a new or empty `.tsv` locks in `,`
   (detection ignores the extension, `csv.rs:457`), so Insert Column in a

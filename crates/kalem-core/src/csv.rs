@@ -1180,20 +1180,28 @@ pub(crate) fn number(v: &str, comma_decimal: bool) -> Option<f64> {
 }
 
 pub fn column_stats(text: &str, d: &Dialect, col: usize) -> Option<(usize, f64, f64, f64, f64)> {
-    let rows = rows(text, d);
-    let nums: Vec<f64> = rows
-        .iter()
-        .skip(usize::from(d.header))
-        .filter_map(|r| r.get(col))
-        .filter_map(|v| number(v, d.delimiter == b';'))
-        .collect();
-    if nums.is_empty() {
-        return None;
+    // Record by record, only the column's field read: the status bar asks
+    // at every keystroke (publish_todo 3.5).
+    let mut idx = Index::new(text);
+    let n = idx.count(text, d);
+    let (mut count, mut sum, mut min, mut max) = (0usize, 0.0, f64::INFINITY, f64::NEG_INFINITY);
+    for i in usize::from(d.header)..n {
+        let Some(r) = idx.record(text, i, d) else {
+            continue;
+        };
+        let Some(x) = r
+            .fields
+            .get(col)
+            .and_then(|f| number(&value(text, f, d), d.delimiter == b';'))
+        else {
+            continue;
+        };
+        count += 1;
+        sum += x;
+        min = f64::min(min, x);
+        max = f64::max(max, x);
     }
-    let sum: f64 = nums.iter().sum();
-    let min = nums.iter().copied().fold(f64::INFINITY, f64::min);
-    let max = nums.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    Some((nums.len(), sum, sum / nums.len() as f64, min, max))
+    (count > 0).then(|| (count, sum, sum / count as f64, min, max))
 }
 
 /// How the grid shows a CSV document (view state, never written to the
@@ -2162,7 +2170,7 @@ pub fn filter_rows(
 
 /// What a filter's memo is for: the text's version, the filter, the
 /// cursor's line.
-type FilterKey = (u64, u64, String, usize);
+type FilterKey = (u64, u64, String);
 
 /// What a CSV document's filter keeps.
 #[derive(Debug)]
@@ -2188,9 +2196,10 @@ pub fn filtered(doc: &crate::DocumentState) -> Option<std::rc::Rc<Filtered>> {
         return None;
     }
     let text = doc.text().as_str();
-    // The record at the cursor stays, so the key is its line.
-    let line = doc.text().line_of(doc.selection.head.min(text.len()));
-    let key = (doc.serial(), doc.version(), needle.to_string(), line);
+    // Without the cursor: the record at the cursor stays shown, which
+    // `shown_lines` adds, so a step of the cursor reads the file again no
+    // more (publish_todo 3.5).
+    let key = (doc.serial(), doc.version(), needle.to_string());
     FILTERED.with(|m| {
         if let Some((k, v)) = &*m.borrow()
             && *k == key
@@ -2198,8 +2207,7 @@ pub fn filtered(doc: &crate::DocumentState) -> Option<std::rc::Rc<Filtered>> {
             return Some(v.clone());
         }
         let layout = layout(doc);
-        let (ranges, matched, total) =
-            filter_rows(text, &layout.dialect, needle, doc.selection.head);
+        let (ranges, matched, total) = filter_rows(text, &layout.dialect, needle, usize::MAX);
         let v = std::rc::Rc::new(Filtered {
             ranges,
             matched,
@@ -2211,18 +2219,66 @@ pub fn filtered(doc: &crate::DocumentState) -> Option<std::rc::Rc<Filtered>> {
 }
 
 /// What a shown-lines memo is for: the document, the version, the
-/// filter, the sort, the cursor's line.
-type ShownKey = (u64, u64, Option<String>, Option<(usize, bool)>, usize);
+/// filter, the sort.
+type ShownKey = (u64, u64, Option<String>, Option<(usize, bool)>);
+
+/// The lines shown with the cursor's record added, by the view and that
+/// record.
+type CursorShown = ((ShownKey, usize), std::rc::Rc<Vec<usize>>);
+
+/// The records of a filtered or sorted view, worked out once a version
+/// (the cursor's steps reuse them).
+struct Shown {
+    /// Each record's start, in file order.
+    starts: Vec<usize>,
+    /// Each record's first and last line, in file order.
+    lines: Vec<(usize, usize)>,
+    /// The records in the view's order.
+    order: Vec<usize>,
+    /// Whether the filter keeps each record (all, without one).
+    kept: Vec<bool>,
+    /// The lines shown when the cursor is on a record the filter keeps.
+    base: std::rc::Rc<Vec<usize>>,
+}
+
+impl Shown {
+    /// The lines shown, record `extra` too (the cursor's, which stays
+    /// shown though the filter leaves it out).
+    fn lines_with(&self, extra: Option<usize>, t: &crate::text::Text, all: bool) -> Vec<usize> {
+        let mut out = Vec::new();
+        for &i in &self.order {
+            if !self.kept.get(i).copied().unwrap_or(false) && Some(i) != extra {
+                continue;
+            }
+            if let Some(&(first, last)) = self.lines.get(i) {
+                out.extend(first..=last);
+            }
+        }
+        // The empty line after a final line feed, when all rows show.
+        let n = t.line_count();
+        if all && n > 0 && t.line_range(n - 1).is_empty() && !out.contains(&(n - 1)) {
+            out.push(n - 1);
+        }
+        if out.is_empty() {
+            out.push(0);
+        }
+        out
+    }
+}
 
 thread_local! {
-    static SHOWN: std::cell::RefCell<Option<(ShownKey, std::rc::Rc<Vec<usize>>)>> =
+    static SHOWN: std::cell::RefCell<Option<(ShownKey, std::rc::Rc<Shown>)>> =
+        const { std::cell::RefCell::new(None) };
+    /// The lines with the cursor's record added, for that record.
+    static WITH_CURSOR: std::cell::RefCell<Option<CursorShown>> =
         const { std::cell::RefCell::new(None) };
 }
 
 /// The lines of a CSV document in the order its view shows them, when a
 /// filter or a sort is on (`None` otherwise): the header first, then the
-/// records the filter keeps, in the order of the sorted column; the file
-/// keeps its order.
+/// records the filter keeps and the cursor's, in the order of the sorted
+/// column; the file keeps its order. Worked out once a version: a step
+/// of the cursor costs a search (publish_todo 3.5).
 pub fn shown_lines(doc: &crate::DocumentState) -> Option<std::rc::Rc<Vec<usize>>> {
     if doc.meta.mode != crate::DocumentMode::Csv {
         return None;
@@ -2233,62 +2289,89 @@ pub fn shown_lines(doc: &crate::DocumentState) -> Option<std::rc::Rc<Vec<usize>>
     }
     let t = doc.text();
     let text = t.as_str();
-    let line = t.line_of(doc.selection.head.min(text.len()));
     let key = (
         doc.serial(),
         doc.version(),
         doc.csv_filter.clone(),
         doc.csv_sort,
-        line,
     );
-    if let Some(v) = SHOWN.with(|m| {
+    let cached = SHOWN.with(|m| {
         m.borrow()
             .as_ref()
             .filter(|(k, _)| *k == key)
             .map(|(_, v)| v.clone())
+    });
+    let shown = match cached {
+        Some(v) => v,
+        None => {
+            let layout = layout(doc);
+            let d = &layout.dialect;
+            let mut idx = Index::new(text);
+            let n = idx.count(text, d);
+            let records: Vec<Record> = (0..n).filter_map(|i| idx.record(text, i, d)).collect();
+            let starts: Vec<usize> = records.iter().map(|r| r.range.start).collect();
+            let lines = records
+                .iter()
+                .map(|r| {
+                    (
+                        t.line_of(r.range.start),
+                        t.line_of(r.range.end.max(r.range.start)),
+                    )
+                })
+                .collect();
+            // The filter's ranges and the records, both in file order.
+            let kept = match &filter {
+                None => vec![true; records.len()],
+                Some(f) => {
+                    let mut k = 0;
+                    starts
+                        .iter()
+                        .map(|&s| {
+                            while k < f.ranges.len() && f.ranges[k].end <= s {
+                                k += 1;
+                            }
+                            f.ranges.get(k).is_some_and(|x| x.start <= s && s < x.end)
+                        })
+                        .collect()
+                }
+            };
+            let order = match doc.csv_sort {
+                Some((col, reverse)) => sorted_order(text, d, col, reverse),
+                None => (0..records.len()).collect(),
+            };
+            let mut shown = Shown {
+                starts,
+                lines,
+                order,
+                kept,
+                base: std::rc::Rc::new(Vec::new()),
+            };
+            shown.base = std::rc::Rc::new(shown.lines_with(None, t, filter.is_none()));
+            let shown = std::rc::Rc::new(shown);
+            SHOWN.with(|m| *m.borrow_mut() = Some((key.clone(), shown.clone())));
+            shown
+        }
+    };
+    // The cursor's record, which stays shown.
+    let cursor = doc.selection.head.min(text.len());
+    let rec = shown
+        .starts
+        .partition_point(|&s| s <= cursor)
+        .checked_sub(1);
+    let Some(rec) = rec.filter(|&r| !shown.kept.get(r).copied().unwrap_or(true)) else {
+        return Some(shown.base.clone());
+    };
+    let wkey = (key, rec);
+    if let Some(v) = WITH_CURSOR.with(|m| {
+        m.borrow()
+            .as_ref()
+            .filter(|(k, _)| *k == wkey)
+            .map(|(_, v)| v.clone())
     }) {
         return Some(v);
     }
-    let layout = layout(doc);
-    let d = &layout.dialect;
-    let mut idx = Index::new(text);
-    let n = idx.count(text, d);
-    let records: Vec<Record> = (0..n).filter_map(|i| idx.record(text, i, d)).collect();
-    let kept = |r: &Record| {
-        filter.as_ref().is_none_or(|f| {
-            f.ranges
-                .iter()
-                .any(|x| x.start <= r.range.start && r.range.start < x.end)
-        })
-    };
-    let order: Vec<usize> = match doc.csv_sort {
-        Some((col, reverse)) => sorted_order(text, d, col, reverse),
-        None => (0..records.len()).collect(),
-    };
-    let mut out = Vec::new();
-    for i in order {
-        let Some(r) = records.get(i) else { continue };
-        if !kept(r) {
-            continue;
-        }
-        let first = t.line_of(r.range.start);
-        let last = t.line_of(r.range.end.max(r.range.start));
-        out.extend(first..=last);
-    }
-    // The empty line after a final line feed, when all rows show.
-    let lines = t.line_count();
-    if filter.is_none()
-        && lines > 0
-        && !out.contains(&(lines - 1))
-        && t.line_range(lines - 1).is_empty()
-    {
-        out.push(lines - 1);
-    }
-    if out.is_empty() {
-        out.push(0);
-    }
-    let v = std::rc::Rc::new(out);
-    SHOWN.with(|m| *m.borrow_mut() = Some((key, v.clone())));
+    let v = std::rc::Rc::new(shown.lines_with(Some(rec), t, filter.is_none()));
+    WITH_CURSOR.with(|m| *m.borrow_mut() = Some((wkey, v.clone())));
     Some(v)
 }
 

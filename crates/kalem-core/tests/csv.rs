@@ -1,3 +1,4 @@
+#![allow(clippy::print_stderr)]
 //! CSV files as spreadsheets save them (T2.7d.7, T2.7d.8): each file in
 //! `tests/csv` opens with its dialect found, edits one cell and saves with
 //! every other byte as it was (the byte order mark, CR LF, the delimiter,
@@ -205,5 +206,71 @@ fn dialect_kept_and_set_by_hand() {
     assert_eq!(csv::layout(&d).dialect.delimiter, b';');
     run(&mut d, "csv.detectDialect", serde_json::json!({}));
     assert_eq!(csv::layout(&d).dialect.delimiter, b',');
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A file of 100,000 rows: what the status bar and the view ask at a
+/// keystroke and at each step of the cursor, with a filter and a sort on
+/// (publish_todo 3.5), each against a ceiling.
+#[test]
+fn a_large_file_at_each_keystroke_and_step() {
+    let dir = std::env::temp_dir().join(format!("kalem-csv-large-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("large.csv");
+    let mut text = String::from("id,name,qty,price,city,code,flag,note\n");
+    for i in 0..100_000 {
+        text.push_str(&format!(
+            "{i},item {i},{},{}.{:02},city {},{:05},{},\"note, {i}\"\n",
+            i % 97,
+            i % 1000,
+            i % 100,
+            i % 50,
+            i * 7 % 100_000,
+            i % 2
+        ));
+    }
+    std::fs::write(&path, &text).unwrap();
+    let base = kalem_core::settings::Config::default().parse_base();
+    let mut d =
+        DocumentState::open(&path, Arc::new(org_model::Settings::default()), &base).unwrap();
+    assert_eq!(d.meta.mode, DocumentMode::Csv);
+    let time = |f: &mut dyn FnMut()| {
+        let t = Instant::now();
+        f();
+        t.elapsed().as_millis()
+    };
+    let _ = csv::layout(&d);
+    // The cursor in the quantities' column, row 500.
+    let line = d.text().line_range(500);
+    d.selection = org_edit::Selection::caret(line.start + "500,item 500,".len());
+    let first = time(&mut || {
+        let _ = csv::status(&d);
+    });
+    // A keystroke: the status bar's numbers again.
+    d.insert_text("1", Instant::now());
+    let keystroke = time(&mut || {
+        let _ = csv::status(&d);
+    });
+    // Twenty steps down with a filter and a sort on.
+    d.csv_filter = Some("city 7".into());
+    d.csv_sort = Some((3, false));
+    let _ = csv::shown_lines(&d);
+    let _ = csv::status(&d);
+    let steps = time(&mut || {
+        for i in 0..20 {
+            let l = d.text().line_range(501 + i);
+            d.selection = org_edit::Selection::caret(l.start);
+            let _ = csv::shown_lines(&d);
+            let _ = csv::status(&d);
+        }
+    });
+    eprintln!("status first {first} ms, after a keystroke {keystroke} ms, 20 steps {steps} ms");
+    let debug = cfg!(debug_assertions);
+    let (key_ceiling, step_ceiling) = if debug { (2000, 1000) } else { (300, 100) };
+    assert!(
+        keystroke <= key_ceiling,
+        "a keystroke's status: {keystroke} ms"
+    );
+    assert!(steps <= step_ceiling, "twenty steps: {steps} ms");
     let _ = std::fs::remove_dir_all(&dir);
 }
