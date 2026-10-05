@@ -68,7 +68,7 @@ The application is called **Kalem** ("pen" in Turkish). Naming conventions:
 
 ### 1.1 One sentence
 
-A fast, single-binary, open source editor that shows plain-text documents the way they read and keeps them plain text: Org, LaTeX, CSV, BibTeX, Markdown and code, each opened as itself, edited in place and written back exactly as its standard defines it, nothing added and nothing dropped; a document format of Kalem's own, `.klm`, for what those formats cannot carry; Emacs's file manager, projects and keys without Emacs; and the same editor in a window and in a terminal, with every document operation available from the command line. (The one sentence of 2026-09-27 was "Typora for Org"; the Org mode remains the first and most complete of the standard modes.)
+A fast, single-binary, open source editor that shows plain-text documents the way they read and keeps them plain text: Org, LaTeX, CSV, BibTeX, Markdown and code, each opened as itself, edited in place and written back exactly as its standard defines it, nothing added and nothing dropped; a document format of Kalem's own, `.klm`, for what those formats cannot carry (withdrawn on 2026-10-04); Emacs's file manager, projects and keys without Emacs; and the same editor in a window and in a terminal, with every document operation available from the command line. (The one sentence of 2026-09-27 was "Typora for Org"; the Org mode remains the first and most complete of the standard modes.)
 
 ### 1.2 Problem
 
@@ -174,7 +174,7 @@ What users expect from Word, Excel and PowerPoint, the Org equivalent and its st
 
 ### 2.3 File model
 
-- **A document is a single `.org` or `.klm` file (RFC 0003 for `.klm`).** UTF-8. Line endings are taken from the file (LF or CRLF) and preserved. A BOM is preserved.
+- **A document is a single `.org` file.** (`.klm`, RFC 0003, was withdrawn on 2026-10-04.) UTF-8. Line endings are taken from the file (LF or CRLF) and preserved. A BOM is preserved.
 - **Attachments are side files.** Org does not embed binary data. Images and attachments are linked with relative paths. A pasted or dropped image is written to `<document-name>_assets/` and a relative link is inserted; the folder name is configurable. Compatibility with org-attach's `data/` layout is provided (`:ATTACH_DIR:` and `attachment:` links are resolved).
 - **A workspace folder is optional.** It is needed for the agenda, multi-file search and `id:` link resolution.
 - **Saving is atomic.** Write to a temporary file, then rename. Optional `.bak`.
@@ -190,7 +190,7 @@ macOS 12+, Linux (X11 and Wayland), Windows 10+. Single binary, no installation 
 - In-buffer settings (`#+TODO`, `#+TAGS`, `#+STARTUP`, `#+PROPERTY`) are honored. Kalem never writes its own settings into a document unless the user explicitly asks.
 - Newly generated syntax follows the document's existing style: indentation, blank-line rules, upper or lower case `#+` keywords, the TODO keyword sequence.
 - Table alignment is identical to Emacs's `org-table-align`; otherwise every save would produce table diffs.
-- A `.org` file never receives Kalem's own markup, with no opt-in. Word-like formatting belongs to the Kalem format (RFC 0003).
+- A `.org` file never receives Kalem's own markup, with no opt-in. Word-like formatting belonged to the Kalem format (RFC 0003), withdrawn on 2026-10-04.
 - No file locking.
 
 ### 2.6 Other files: a general purpose text editor
@@ -200,7 +200,7 @@ Kalem opens any file: a text file in one of the document modes below, every othe
 | Mode | Files | View |
 |---|---|---|
 | Org | `.org`, `.org_archive` | The WYSIWYG editor (the rest of this document); strict Org, Kalem writes nothing Org does not define |
-| Kalem format | `.klm`; stylesheets `.klms` | The rendered editor of the Kalem format (RFC 0003): one command syntax, Org's structure, LaTeX mathematics, styles and layout, canonical serialization |
+| Kalem format (withdrawn on 2026-10-04) | `.klm`; stylesheets `.klms` | The rendered editor of the Kalem format (RFC 0003): one command syntax, Org's structure, LaTeX mathematics, styles and layout, canonical serialization |
 | Markdown | `.md`, `.markdown`, `.mdown`, `.mkd` | A WYSIWYG view like the Org one: hidden markers revealed at the cursor, rendered headings, lists, task lists, tables, images and math (2.6.1) |
 | CSV | `.csv`, `.tsv`, `.tab` | An editable grid, like a light spreadsheet (2.6.2) |
 | LaTeX | `.tex`, `.ltx` (`.sty`, `.cls`, `.bst` as plain text) | The rendered editor for LaTeX documents (9.5): standard LaTeX stays standard LaTeX |
@@ -483,7 +483,7 @@ The terminal shows colors and highlights and aligns short lines; it cannot show 
 5. **Lightness is a feature.** Every new dependency is justified by its effect on binary size and startup time.
 6. **Superset of Emacs, not a copy of its limits.** Same meaning for every file Emacs opens; none of Emacs's implementation limits (3.6).
 7. **The terminal is never second class** (asked by the owner, 2026-09-28). Wherever it is possible, the terminal frontend supports a feature as strongly as the graphical one: the same commands, keymaps, settings, panels and plugins, and a terminal form for everything a character grid can carry (text, glyphs, colors, images through the graphics protocols, OSC 8 links, OSC 52 clipboard). A feature lands in both frontends together and is done only when it works in both; what the terminal cannot show (fonts, sizes, pixel layout) gets its nearest honest form and is listed in `book/part-5/terminal-parity.org`, never dropped silently. People over SSH and in tmux (P6) are first-class users.
-8. **Only the Kalem format is ours** (owner, 2026-09-30). `.klm` is the one format Kalem designs; every other format, Org, Markdown, CSV, LaTeX, and the files plugins open, is implemented to its own specification with nothing added, removed or changed, and nothing of Kalem's written into it. Anything Kalem wants to add to a document lives in `.klm` alone (D24, D53, D55).
+8. **Only the Kalem format is ours** (owner, 2026-09-30; the format withdrawn on 2026-10-04, after which Kalem designs no format and adds to none). `.klm` was the one format Kalem designs; every other format, Org, Markdown, CSV, LaTeX, and the files plugins open, is implemented to its own specification with nothing added, removed or changed, and nothing of Kalem's written into it. Anything Kalem wants to add to a document lives in `.klm` alone (D24, D53, D55).
 
 ### 4.2 Crate map
 

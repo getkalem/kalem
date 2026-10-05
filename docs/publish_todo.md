@@ -998,13 +998,18 @@ Wrong or stale text a first reader meets. Each is a text change.
     turned off after three stops, the repository's plugins and tags,
     and `kalem plugin dev`'s reload; the overview's table and the
     glossary say the same.)
-  - `book/part-5/decisions.org`: D31–D53 still read "*Decided* … RFC 0003",
+  - [x] `book/part-5/decisions.org`: D31–D53 still read "*Decided* … RFC 0003",
     D52 "Typst embedded as the default", D53 "Part III is the home of the
     Kalem format"; D21, D24, D59 mention the format. Mark them withdrawn
     (owner, 2026-10-04). `docs/design_document.md` lines 177, 193, 203,
     486 describe `.klm` in the present tense under a removal banner.
-  - `book/part-5/decisions/D30-latex-subset.org` is not in `index.org`
+    (done 2026-10-06: D31 to D52 withdrawn, D53's `.klm` and Part III
+    halves, D21, D24 and D59 no longer lean on the format; the design
+    document's five places say it was withdrawn.)
+  - [x] `book/part-5/decisions/D30-latex-subset.org` is not in `index.org`
     (never published; `decisions.org:34` names it as text).
+    (done 2026-10-06: in the index, with a title; `kalem book check`
+    finds 61 pages and no problem.)
   - Folders `part-4` and `part-5` hold Parts III and IV; there is no
     `part-3`. Rename before the URLs are public, or accept it.
   - No Part I chapter for the PDF, picture and workbook viewers (keys,

@@ -79,6 +79,7 @@ repository, in Org, and =kalem book build= turns it into this site.
 - [[file:part-5/decisions/D18-entity-table-provenance.org][D18: Entity table provenance]]
 - [[file:part-5/decisions/D20-file-operations.org][D20: File operations]]
 - [[file:part-5/decisions/D28-plugin-abi.org][D28: Plugin ABI and its engine]]
+- [[file:part-5/decisions/D30-latex-subset.org][D30: The rendered subset of LaTeX]]
 - [[file:part-5/performance.org][Performance]]
 - [[file:part-5/terminal-parity.org][Terminal parity]]
 

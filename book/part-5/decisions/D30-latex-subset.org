@@ -1,3 +1,4 @@
+#+title: D30: The rendered subset of LaTeX
 - Status: *Decided* (2026-10-02), from the arXiv study of T2.7h.1
 - Decision: the rendered view of LaTeX covers what the study found papers write: structure, text and its formatting, references and citations (BibTeX's and a document's own bibliography), lists, floats with captions, theorems, tables (as the grid, or as text with their cells apart), formulas through the math renderer, colors and boxes, and every definition and setting as dimmed markup. What it does not render stays as source, never hidden (rule 3 of the standard modes). The coverage target (T2.7h.36) is *99.9% of the body rendered in every field*, formulas the renderer cannot read counted as source; the mode is not released below it.
 - Tasks: T2.7h.1, T2.7h.36
