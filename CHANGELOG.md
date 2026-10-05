@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - The toolbar's `//` (Toggle Comment) shows only in text with a comment syntax, not over a workbook, a PDF or a picture (new when-clause key `hasComments`).
+- CSV grid, both editors: a record with a quoted line break shows as a row of the grid two (or more) lines high, each line its fields' parts in their columns; it showed as plain text out of the grid, and clicks on it landed in the wrong cells.
 - CSV filter and sort read Turkish: `izmir`, `IZMIR` and `İZMİR` find `İzmir` and `ÇAĞRI` finds `Çağrı` (none did), and a sort puts Ç after C, Ğ after G, I before İ, Ö after O, Ş after S and Ü after U (they sorted after Z).
 - CSV grid in the terminal editor: rows wider than the terminal scroll sideways instead of wrapping; wrapped, their bars and the column letters no longer lined up and Down went through the pieces of a row.
 - CSV grid, both editors: with cells of several rows or columns selected, Delete Row and Delete Column delete them all (only the cursor's went), and typing goes into the cursor's cell, as a spreadsheet types into the active cell (it replaced the text between, merging cells and rows).

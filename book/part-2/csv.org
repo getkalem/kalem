@@ -312,8 +312,11 @@ cut; the fields after it on that row shift right. The header row is
 bold. The fields are shown verbatim, so the cursor moves through their
 real characters and every keystroke edits the file at that place.
 
-A line that is part of a record spanning several lines (a quoted line
-break) is shown as plain text, exactly as written. In the terminal
+A record spanning several lines (a quoted line break) is a row of the
+grid as many lines high: each line shows the parts of the fields on it
+in their columns, the other cells blank and the bars where every row has
+them, and the row number on the first line, as a spreadsheet shows a
+cell of several lines. In the terminal
 editor a line longer than 16 KiB is shown as plain text too. /Toggle
 Source View/ shows the whole file as text; /Open as Plain Text/ switches
 the document to text mode.

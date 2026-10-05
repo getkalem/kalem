@@ -4651,3 +4651,36 @@ fn csv_selection_rows_columns_and_typing(cx: &mut TestAppContext) {
     cx.simulate_input("x");
     assert_eq!(body(cx), "a,b,c\n1,2,3\n4,5,x6\n7,8,9\n");
 }
+
+/// A record with a quoted line break shows as a row of the grid two lines
+/// high, each line its fields' parts in their columns (it showed as plain
+/// text, out of the grid, and clicks landed in the wrong cells).
+#[gpui::test]
+fn csv_record_of_two_lines_is_a_grid_row(cx: &mut TestAppContext) {
+    let text = "name,age,city,note\nEve,5,\"two\nlines\",x\nFay,9,Bursa,end\n";
+    let (e, cx) = open_named(text, "lines.csv", || None, cx);
+    cx.run_until_parked();
+    let shown =
+        |l: usize, cx: &mut VisualTestContext| e.read_with(cx, |e, _| e.line_view(l).display());
+    let (first, second, fay) = (shown(1, cx), shown(2, cx), shown(3, cx));
+    // The bars of both lines where Fay's are.
+    let bars = |s: &str| -> Vec<usize> {
+        s.chars()
+            .enumerate()
+            .filter(|(_, c)| *c == '│')
+            .map(|(i, _)| i)
+            .collect()
+    };
+    assert_eq!(bars(&first), bars(&fay), "{first}\n{fay}");
+    assert_eq!(bars(&second), bars(&fay), "{second}\n{fay}");
+    assert!(first.contains("Eve") && first.contains("\"two"), "{first}");
+    assert!(
+        second.contains("lines\"") && second.contains('x'),
+        "{second}"
+    );
+    // The row number on the first line only.
+    assert!(first.trim_start().starts_with('2'), "{first}");
+    assert!(!second.trim_start().starts_with('3'), "{second}");
+    // Every cell, from either line.
+    assert_eq!(csv_unclickable(&e, &[0, 1, 2, 3], 4, cx), vec![]);
+}

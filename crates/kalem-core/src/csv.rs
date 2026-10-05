@@ -361,7 +361,15 @@ pub fn cell_at_bars(
         return None;
     }
     let layout = layout(doc);
-    let (_, rec) = layout.record_at(doc.text().as_str(), line_start)?;
+    let text = doc.text().as_str();
+    // The record of the line, which may start on a line above (a quoted
+    // line break).
+    let rec = {
+        let mut idx = layout.index.borrow_mut();
+        let row = idx.row_at(text, line_start, &layout.dialect);
+        idx.record(text, row, &layout.dialect)
+            .filter(|r| r.range.start <= line_start && line_start <= r.range.end)?
+    };
     // Without the spreadsheet look the first column has no bar on its
     // left: its left is the row's.
     let mut edges = Vec::with_capacity(bars.len() + 1);
@@ -1593,12 +1601,36 @@ pub fn line_view(
 ) -> crate::view::LineView {
     use crate::view::{LineView, Run, Style};
     use unicode_width::UnicodeWidthStr;
-    let Some((row, rec)) = layout
-        .record_at(text, line.start)
-        .filter(|(_, r)| r.range.end <= line.end)
-    else {
-        return crate::view::plain_line_view(text, line, None);
+    // The record of the line. One that spans lines (a quoted line break)
+    // shows on each of its lines the parts of its fields there, in their
+    // columns, as a spreadsheet shows a cell of several lines (it showed
+    // as plain text, out of the grid).
+    let (row, rec) = {
+        let mut idx = layout.index.borrow_mut();
+        let row = idx.row_at(text, line.start, &layout.dialect);
+        match idx.record(text, row, &layout.dialect) {
+            Some(r)
+                if r.range.start == line.start
+                    || (r.range.start < line.start && line.start <= r.range.end) =>
+            {
+                (row, r)
+            }
+            _ => return crate::view::plain_line_view(text, line, None),
+        }
     };
+    let spans = rec.range.start < line.start || rec.range.end > line.end;
+    let first_line = rec.range.start == line.start;
+    // A range of the record, or a position, as far as it is on the line.
+    let clip = |r: Range<usize>| -> Option<Range<usize>> {
+        if !spans {
+            Some(r)
+        } else if r.end < line.start || r.start > line.end {
+            None
+        } else {
+            Some(r.start.max(line.start)..r.end.min(line.end))
+        }
+    };
+    let on_line = |p: usize| p.clamp(line.start, line.end);
     let header = row == 0 && layout.dialect.header;
     let view = layout.view;
     // The cell at the cursor, in a spreadsheet-looking grid.
@@ -1664,7 +1696,11 @@ pub fn line_view(
         let here = active.is_some();
         runs.push(Run {
             src: line.start..line.start,
-            text: format!(" {:<w$} ", row + 1, w = layout.gutter),
+            text: if first_line {
+                format!(" {:<w$} ", row + 1, w = layout.gutter)
+            } else {
+                " ".repeat(layout.gutter + 2)
+            },
             verbatim: false,
             style: Style {
                 bold: here,
@@ -1679,7 +1715,11 @@ pub fn line_view(
         // The row number, in the gutter.
         runs.push(deco(
             line.start,
-            format!("{:>w$} ", row + 1, w = layout.gutter),
+            if first_line {
+                format!("{:>w$} ", row + 1, w = layout.gutter)
+            } else {
+                " ".repeat(layout.gutter + 1)
+            },
             true,
         ));
     }
@@ -1703,8 +1743,9 @@ pub fn line_view(
             } else {
                 f.range.start
             };
+            let start = on_line(start);
             runs.push(Run {
-                src: start..end,
+                src: start..on_line(end).max(start),
                 text: String::new(),
                 verbatim: false,
                 style: Style::default(),
@@ -1712,7 +1753,10 @@ pub fn line_view(
             });
             continue;
         }
-        let s = &text[f.range.clone()];
+        // The field's part on the line, and where its ends fall on it.
+        let part = clip(f.range.clone());
+        let s = part.clone().map_or("", |p| &text[p]);
+        let (f_start, f_end) = (on_line(f.range.start), on_line(f.range.end));
         let last = Some(j) == shown_last;
         let on = active == Some(j);
         // A value longer than a width set by hand shows cut, but whole at
@@ -1721,7 +1765,7 @@ pub fn line_view(
             .columns
             .widths
             .get(&j)
-            .filter(|&&w| s.width() > w && !at_cursor(f))
+            .filter(|&&w| !spans && s.width() > w && !at_cursor(f))
             .map(|&w| truncate(s, w));
         let s_width = cut.as_ref().map_or(s.width(), |c| c.width());
         if view.coordinates && !view.sheet {
@@ -1733,7 +1777,7 @@ pub fn line_view(
             } else {
                 " ".repeat(letters.len() + 1)
             };
-            runs.push(deco(f.range.start, label, true));
+            runs.push(deco(f_start, label, true));
         }
         let pad = width_of(j).saturating_sub(s_width);
         let right =
@@ -1746,7 +1790,7 @@ pub fn line_view(
             r
         };
         if right && pad > 0 {
-            runs.push(mark(deco(f.range.start, " ".repeat(pad), false)));
+            runs.push(mark(deco(f_start, " ".repeat(pad), false)));
         }
         if let Some(c) = cut {
             runs.push(mark(Run {
@@ -1756,48 +1800,51 @@ pub fn line_view(
                 style: style_of(j),
                 widget: None,
             }));
-        } else if !s.is_empty() {
+        } else if let Some(p) = part.clone().filter(|_| !s.is_empty()) {
             runs.push(mark(Run {
-                src: f.range.clone(),
+                src: p,
                 text: s.to_string(),
                 verbatim: true,
                 style: style_of(j),
                 widget: None,
             }));
         } else if on && pad == 0 {
-            runs.push(mark(deco(f.range.start, " ".into(), false)));
+            runs.push(mark(deco(f_start, " ".into(), false)));
         }
         if last && (on || view.sheet) && pad > 0 && !right {
-            runs.push(mark(deco(f.range.end, " ".repeat(pad), false)));
+            runs.push(mark(deco(f_end, " ".repeat(pad), false)));
         }
         if last && view.sheet {
             // The edge after the last cell, then empty cells to the last
             // column, so the grid goes on.
-            runs.push(bar(f.range.end, " │"));
+            runs.push(bar(f_end, " │"));
             for k in
                 (rec.fields.len()..sheet_w.len()).filter(|k| !layout.columns.hidden.contains(k))
             {
-                runs.push(bar(
-                    f.range.end,
-                    &format!("{} │", " ".repeat(width_of(k) + 1)),
-                ));
+                runs.push(bar(f_end, &format!("{} │", " ".repeat(width_of(k) + 1))));
             }
         }
         if !last {
             // The padding, then the delimiter drawn as a bar.
             if pad > 0 && !right {
-                runs.push(mark(deco(f.range.end, " ".repeat(pad), false)));
+                runs.push(mark(deco(f_end, " ".repeat(pad), false)));
             }
-            runs.push(Run {
-                src: f.range.end..f.range.end + 1,
-                text: " │ ".into(),
-                verbatim: false,
-                style: Style {
-                    dim: true,
-                    ..Style::default()
-                },
-                widget: None,
-            });
+            // The delimiter, drawn as a bar; on a line it is not on, a bar
+            // alone.
+            if line.start <= f.range.end && f.range.end < line.end {
+                runs.push(Run {
+                    src: f.range.end..f.range.end + 1,
+                    text: " │ ".into(),
+                    verbatim: false,
+                    style: Style {
+                        dim: true,
+                        ..Style::default()
+                    },
+                    widget: None,
+                });
+            } else {
+                runs.push(bar(f_end, " │ "));
+            }
         }
     }
     LineView {
@@ -2629,12 +2676,20 @@ mod tests {
         // Editing positions map through: after `Ada` is in the field.
         let at = t.find("Ada").unwrap() + 3;
         assert_eq!(v.source_offset(v.display_offset(at)), at);
-        // A record over two lines shows as written.
-        assert_eq!(line_view(&l, t, lines[3].clone(), None).display(), "\"two");
-        assert_eq!(
+        // A record over two lines shows on each line its fields' parts
+        // there, in their columns: the bar where the other rows have it.
+        let bar_at = |s: String| s.chars().position(|c| c == '│');
+        let (a, b) = (
+            line_view(&l, t, lines[3].clone(), None).display(),
             line_view(&l, t, lines[4].clone(), None).display(),
-            "lines\",1"
         );
+        assert!(
+            a.starts_with("\"two") && b.starts_with("lines\""),
+            "{a}\n{b}"
+        );
+        assert!(b.trim_end().ends_with('1'), "{b}");
+        assert_eq!(bar_at(a), bar_at(v.display()));
+        assert_eq!(bar_at(b), bar_at(v.display()));
     }
 
     #[test]
