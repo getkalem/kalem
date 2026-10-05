@@ -171,3 +171,21 @@ fn a_component_is_offered_as_the_rust_contract() {
         Ok(_) => panic!("a file that is not one opened"),
     }
 }
+
+/// A component's interfaces are bound as it has them (wasm_todo W3): a
+/// document viewer, which exports no `grid`, binds with no grid; a sheet
+/// viewer binds its grid.
+#[test]
+fn interfaces_bound_as_the_component_has_them() {
+    let host = Host::new(None).unwrap();
+    if let Some(bytes) = pages() {
+        let plugin = host.load(&bytes).unwrap();
+        let v = Viewer::new(&host, &plugin, Limits::default()).unwrap();
+        assert!(!v.is_grid());
+    }
+    if let Some(bytes) = component("sheet") {
+        let plugin = host.load(&bytes).unwrap();
+        let v = Viewer::new(&host, &plugin, Limits::default()).unwrap();
+        assert!(v.is_grid());
+    }
+}

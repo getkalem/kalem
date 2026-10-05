@@ -70,12 +70,22 @@ Why the native copies are still there, as found on 2026-10-05:
 
 ## W3. The host binding older components
 
-- [ ] W3 The host links a component by what it exports, not by the whole
+- [~] W3 The host links a component by what it exports, not by the whole
   world: functions it lacks answer as the contract's defaults do
   (`ViewerDocument`'s default methods already say "not edited" or give
   nothing), so a component built against an older API version still opens
   its files and offers what it has. Tested with a component built against
   the previous version kept in `tests/plugins`.
+  (done 2026-10-05 at the granularity W2's rule leaves: a released
+  interface never loses a function, so a component has an interface or
+  not. `Viewer::new` binds `viewer`, then each further interface on its
+  own (`grid::GuestIndices`), left out when the component does not export
+  it, refused when it exports it differently; names are looked up
+  semver-compatibly by Wasmtime (`grid@0.2.0` finds `grid@0.2.1`, either
+  way), so a 0.2.0 component runs on a 0.2.x Kalem. Test
+  `interfaces_bound_as_the_component_has_them`. Open: the fixture of a
+  component built against the previous version, which needs a 0.2.1 to
+  exist (the first interface added).)
 
 ## W4. Components built by Kalem's build
 

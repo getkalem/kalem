@@ -137,7 +137,7 @@ pub struct Viewer {
     instance: crate::Instance<Files>,
     api: DocumentViewer,
     /// The `grid` exports, for a viewer of sheets of cells.
-    grid: Option<spreadsheet::SpreadsheetViewer>,
+    grid: Option<grid::Guest>,
 }
 
 impl std::fmt::Debug for Viewer {
@@ -168,10 +168,6 @@ impl Viewer {
             |d: &mut crate::Data<Files>| &mut d.user,
         )
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
-        let exports_grid = plugin
-            .exports(host)
-            .iter()
-            .any(|e| e.starts_with("kalem:plugin/grid@"));
         let mut instance = plugin.instantiate(host, &linker, Files::default(), limits)?;
         // A component built against another version of the API than this
         // Kalem's (a function or a record's field added since) does not
@@ -184,15 +180,24 @@ impl Viewer {
         let api = instance
             .bindings(|store, i| DocumentViewer::new(store, i))
             .map_err(stale)?;
-        let grid = if exports_grid {
-            Some(
-                instance
-                    .bindings(|store, i| spreadsheet::SpreadsheetViewer::new(store, i))
-                    .map_err(stale)?,
-            )
-        } else {
-            None
-        };
+        // The interfaces beside `viewer` bound one by one, as the
+        // component has them (wasm_todo W3): one it does not export is left
+        // out (a component built against an earlier 0.2.x lacks those
+        // added since), one it exports must match. Names are looked up
+        // semver-compatibly, so `grid@0.2.0` finds a component's
+        // `grid@0.2.3`.
+        let grid = instance
+            .bindings(|store, i| {
+                let pre = i.instance_pre(&*store);
+                let name = format!("kalem:plugin/grid@{}", crate::API_VERSION);
+                if pre.component().get_export_index(None, &name).is_none() {
+                    return Ok(None);
+                }
+                grid::GuestIndices::new(&pre)?
+                    .load(&mut *store, i)
+                    .map(Some)
+            })
+            .map_err(stale)?;
         Ok(Viewer {
             instance,
             api,
@@ -247,7 +252,7 @@ impl Viewer {
         &mut self,
         f: impl FnOnce(&grid::Guest, &mut wasmtime::Store<crate::Data<Files>>) -> wasmtime::Result<R>,
     ) -> Option<crate::Result<R>> {
-        let g = self.grid.as_ref()?.kalem_plugin_grid();
+        let g = self.grid.as_ref()?;
         Some(self.instance.run(|s| f(g, s)))
     }
 }

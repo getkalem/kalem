@@ -16,7 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A test that panics on purpose checks the crash report: `crash-DATE.txt` beside the log, with the report's header, the panic and where the log is.
 
 ### Changed
-- The plugin API has a version, 0.2.0, and its released interfaces never change (new functions go into new interfaces); a component plugin whose manifest names another version, as every one released before does (`^0.1`), is not run: Kalem says it needs an update and opens its files with the bundled viewer.
+- The plugin API has a version, 0.2.0, and its released interfaces never change (new functions go into new interfaces, which Kalem binds when a component has them, so one built against an earlier 0.2.x still runs); a component plugin whose manifest names another version, as every one released before does (`^0.1`), is not run: Kalem says it needs an update and opens its files with the bundled viewer.
 - The workbook plugin built as a component opens `.xls`, `.xlsb` and `.ods` files too, as the bundled one does (calamine builds for WebAssembly); it was OOXML only.
 - Markdown: a code block is drawn on the code background from fence to fence, and away from the cursor its fences show only the language (```` ```bash ```` as `bash`).
 - Documents take the whole window by default: `editor.line_width` is 0 (it was 80, which left half of a wide window empty); set it to 80 for a page-wide column.
