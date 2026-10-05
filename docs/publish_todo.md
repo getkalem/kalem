@@ -842,10 +842,15 @@ documents, `kalem check`'s round trip and diagnostics, a missing
 
 ### 3.9 Pictures
 
-- [ ] **Major, reported (memory).** An animated GIF, APNG or WebP is
+- [~] **Major, reported (memory).** An animated GIF, APNG or WebP is
   decoded whole at full size before the 40 MP budget applies
   (`image-viewer/src/lib.rs:303-338`; `GifDecoder::new` has no limits):
   a 600-frame 720p screen recording needs about 2.2 GB of RGBA.
+  (done in getkalem/plugins f072980, for image-viewer 0.0.2: the frames
+  are counted first and each scaled to the budget as it is decoded, so
+  at most one stands at full size; sizes round down so the budget holds.
+  Test: `an_animation_over_the_budget_keeps_every_frame_smaller`. Open:
+  the release.)
 - [x] **Major, verified (code).** The README lists SVG as a viewer
   format; `viewer::for_file` (`viewer.rs:156-161`) returns `None` for
   anything that is text, so an SVG opens as XML source. Either add a
@@ -853,11 +858,18 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   (done 2026-10-05: the README's row no longer lists SVG and says an SVG
   file opens as its XML, as design §2.6 has text files, and shows as a
   picture where a document links it.)
-- [ ] **Minor, verified (Cargo.toml).** resvg is built with
+- [x] **Minor, verified (Cargo.toml).** resvg is built with
   `default-features = false` (`image-viewer/Cargo.toml:22`,
   `kalem-core/Cargo.toml:30`), which drops `text` and `raster-images`:
   SVG text labels and embedded rasters are never drawn (inline pictures
   in Org and Markdown too).
+  (done 2026-10-06 in Kalem: kalem-core's resvg has both, the system's
+  fonts read once when an SVG first has text, each generic family named
+  to a font that is there; test
+  `svg_text_and_embedded_pictures_are_drawn`. It costs 1.05 MiB: the
+  shaper and the second gif and zune-jpeg resvg 0.45 asks for. The
+  picture plugin keeps them off: a component has no fonts, as its README
+  says, and an SVG file opens as text in Kalem.)
 - [ ] **Minor, gaps.** HEIC and AVIF (phone photos) are not supported;
   multi-page TIFF shows page 1 only; ICC profiles are reported but not
   applied; `kalem view --to png book.xlsx` writes a 1×1 PNG and exits 0.

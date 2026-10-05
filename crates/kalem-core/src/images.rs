@@ -409,6 +409,66 @@ pub fn pdf_svg(data: Vec<u8>) -> Result<String, String> {
     ))
 }
 
+/// The system's fonts, for the text of SVG pictures: read once, when a
+/// picture first has text. Each generic family (`serif`, `sans-serif`,
+/// `monospace`) names a font that is there, the serif one also standing
+/// for any family missing.
+fn system_fonts() -> std::sync::Arc<resvg::usvg::fontdb::Database> {
+    static FONTS: std::sync::OnceLock<std::sync::Arc<resvg::usvg::fontdb::Database>> =
+        std::sync::OnceLock::new();
+    FONTS
+        .get_or_init(|| {
+            let mut db = resvg::usvg::fontdb::Database::new();
+            db.load_system_fonts();
+            let first = |names: &[&str]| {
+                names
+                    .iter()
+                    .find(|n| {
+                        db.faces()
+                            .any(|f| f.families.iter().any(|(family, _)| family == *n))
+                    })
+                    .map(|n| n.to_string())
+            };
+            let serif = first(&[
+                "Times New Roman",
+                "Times",
+                "DejaVu Serif",
+                "Liberation Serif",
+                "Noto Serif",
+            ])
+            .or_else(|| {
+                db.faces()
+                    .next()
+                    .and_then(|f| f.families.first().map(|(n, _)| n.clone()))
+            });
+            let sans = first(&[
+                "Arial",
+                "Helvetica",
+                "DejaVu Sans",
+                "Liberation Sans",
+                "Noto Sans",
+            ]);
+            let mono = first(&[
+                "Courier New",
+                "Menlo",
+                "DejaVu Sans Mono",
+                "Liberation Mono",
+                "Noto Sans Mono",
+            ]);
+            if let Some(f) = serif {
+                db.set_serif_family(f);
+            }
+            if let Some(f) = sans {
+                db.set_sans_serif_family(f);
+            }
+            if let Some(f) = mono {
+                db.set_monospace_family(f);
+            }
+            std::sync::Arc::new(db)
+        })
+        .clone()
+}
+
 /// An EPS or PostScript picture as PDF: converted once by Ghostscript
 /// (which `epstopdf` and LaTeX use too), found where TeX's programs are,
 /// and kept in the pictures' cache by the file's path, size and time.
@@ -472,10 +532,13 @@ pub fn decode(file: &Path, max: u32) -> Result<image::RgbaImage, String> {
         if ext("pdf") || postscript {
             data = pdf_svg(data)?.into_bytes();
         }
-        let opts = resvg::usvg::Options {
+        let mut opts = resvg::usvg::Options {
             resources_dir: file.parent().map(Path::to_path_buf),
             ..Default::default()
         };
+        if data.windows(5).any(|w| w == b"<text") {
+            opts.fontdb = system_fonts();
+        }
         let tree = resvg::usvg::Tree::from_data(&data, &opts).map_err(|e| e.to_string())?;
         let sz = tree.size();
         // A formula TeX typeset (10pt) at the size of the editor's text.
@@ -695,6 +758,38 @@ mod tests {
         assert_eq!(img.dimensions(), (40, 20));
         assert_eq!(img.get_pixel(10, 10).0, [255, 0, 0, 255]);
         assert!(decode(&dir.join("missing.png"), 100).is_err());
+    }
+
+    #[test]
+    fn svg_text_and_embedded_pictures_are_drawn() {
+        let dir = std::env::temp_dir().join(format!("kalem-svg-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        // A PNG and a JPEG beside the SVG; a PDF figure's come as data.
+        image::RgbaImage::from_pixel(4, 4, image::Rgba([0, 0, 255, 255]))
+            .save(dir.join("blue.png"))
+            .unwrap();
+        image::RgbImage::from_pixel(8, 8, image::Rgb([0, 255, 0]))
+            .save(dir.join("green.jpg"))
+            .unwrap();
+        let svg = dir.join("figure.svg");
+        std::fs::write(
+            &svg,
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="200" height="90"><image x="0" y="0" width="40" height="40" href="blue.png"/><image x="0" y="50" width="40" height="40" href="green.jpg"/><text x="60" y="40" font-family="sans-serif" font-size="32">Kalem</text></svg>"#,
+        )
+        .unwrap();
+        let img = decode(&svg, 1000).unwrap();
+        assert_eq!(img.get_pixel(20, 20).0, [0, 0, 255, 255]);
+        let g = img.get_pixel(20, 70).0;
+        assert!(g[1] > 200 && g[0] < 60 && g[2] < 60 && g[3] == 255, "{g:?}");
+        // The text, where the system has a font.
+        if !system_fonts().is_empty() {
+            let inked = (60..200)
+                .flat_map(|x| (0..60).map(move |y| (x, y)))
+                .filter(|&(x, y)| img.get_pixel(x, y).0[3] > 0)
+                .count();
+            assert!(inked > 100, "{inked} pixels of text");
+        }
+        std::fs::remove_dir_all(&dir).ok();
     }
 }
 
