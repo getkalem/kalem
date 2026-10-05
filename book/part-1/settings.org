@@ -9,12 +9,15 @@ The terminal editor has no settings panel: /Settings/ (Ctrl+,, or
 Alt+, where the terminal cannot send it) shows the path of
 =settings.toml= in the status line. Edit the file there, or use the
 commands that change a setting, such as /Toggle Folder Tree/ or
-/Toggle Line Numbers/, which save it. Kalem reads its settings files
-when it starts, so after editing one by hand, restart it; a change
-made in the panel or by such a command is read at once.
+/Toggle Line Numbers/, which save it. After editing a settings file
+or =keymap.json= by hand, /Reload Settings and Keys/ (=help.reload=, in
+the palette; =SPC h r r= with Vim's keys) reads them again in both
+editors; a change made in the panel or by such a command is read at
+once.
 
-The settings you are most likely to change; [[file:../appendices/settings.org][the Settings appendix]]
-lists every one, generated from the code.
+The settings you are most likely to change; [[https://getkalem.github.io/kalem/appendices/settings.html][the Settings appendix]]
+of the Book's site lists every one, generated from the code
+(=kalem book build= makes it).
 
 | Setting                   | Default    | What it does                                                 |
 |---------------------------+------------+--------------------------------------------------------------|

@@ -522,7 +522,8 @@ used again unless a byte order mark names another.
 On save the text is encoded in the document's encoding, the byte order
 mark written if the file had one. When a character cannot be written in
 the encoding (a =ł= in a Windows-1254 file), the save stops and says
-which character and encoding; Save with Encoding (UTF-8) is the way out.
+which character and encoding: take the character out, or Save with
+Encoding UTF-8, which writes the whole file in UTF-8 from then on.
 A file read with replacement characters (bytes that are not in the
 encoding chosen, shown as =�=) is not saved over: Save says so, and
 Reopen with Encoding reads it in the right one. Save with Encoding and

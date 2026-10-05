@@ -1072,17 +1072,28 @@ Wrong or stale text a first reader meets. Each is a text change.
     the one it gives; "one build at a time" was right since the queue;
     the pictures are said to be found from the root and
     `\graphicspath`, PDF and EPS included.)
-  - `book/part-1/settings.org:12-14` says to restart after hand edits
+  - [x] `book/part-1/settings.org:12-14` says to restart after hand edits
     (Reload Settings and Keys exists); line 16 links
     `../appendices/settings.org`, which exists only on the built site.
-  - `book/part-2/plain-text.org:525` and `msg-unencodable` give the
+    (done 2026-10-06: Reload Settings and Keys, with its key; the
+    appendix linked on the site.)
+  - [x] `book/part-2/plain-text.org:525` and `msg-unencodable` give the
     destructive encoding advice (section 2).
+    (done 2026-10-06: both say to take the character out, or to save
+    the whole file as UTF-8 knowing it; the lossy case is section 2's
+    refusal.)
   - `book/part-5/performance.org:30,35` gives 83.3 and 40.8 MiB; CI
     measures 85.4 and 42.3. The Book is published from `main` only
     (`index.org:21-23`), with no version banner and no link back to the
     repository or the releases: after 0.1 it describes unreleased code.
-  - The three plugin READMEs are stale (xlsx "not yet bundled", pdf
+  - [x] The three plugin READMEs are stale (xlsx "not yet bundled", pdf
     "search reads every page once", image "text needs fonts").
+    (done 2026-10-06, getkalem/plugins bdbce25: built in as released
+    components, `.xls`/`.xlsb`/`.ods` in the component, no "not yet"
+    grid view, `wasm32-unknown-unknown` and `kalem plugin build`. The
+    PDF search sentence is true now (texts kept, fonts parsed once a
+    call), and a component has no fonts for SVG text, as the image
+    README says.)
 - [ ] **docs/**
   - `docs/README.md:9` lists `excel_todo.md` and `excel_todo2.md` but
     not `excel_todo3.md`; R1.6 is ticked although only `todo_old.md`
