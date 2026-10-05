@@ -1056,7 +1056,7 @@ Wrong or stale text a first reader meets. Each is a text change.
     (done 2026-10-06: the three limits went, the expansion is said
     before the display steps with a true example, and the accent step
     names the dotless i.)
-  - `book/part-2/latex.org`: 1508 says bibliographies resolve from the
+  - [x] `book/part-2/latex.org`: 1508 says bibliographies resolve from the
     edited file's folder (the root's, `latex_view.rs:338`); the
     diagnostics table at 1192 omits `latex-label-clash`,
     `latex-label-unwritten`, `latex-label-before-caption`,
@@ -1064,6 +1064,14 @@ Wrong or stale text a first reader meets. Each is a text change.
     says verbatim is untouched (3.3); 1349 says one build at a time
     (3.3); `latex-files.org:32` says pictures are found "as LaTeX finds
     it" (3.3).
+    (done 2026-10-06: the bibliography limit went; the diagnostics table
+    has the three label checks, `bibliography-entry-skipped` and the
+    deprecated fonts in math; `tectonic` is named as an engine, in the
+    setting and in the tools; formatting lists the verbatim environments
+    it keeps and their `\end` lines; the build's message without TeX is
+    the one it gives; "one build at a time" was right since the queue;
+    the pictures are said to be found from the root and
+    `\graphicspath`, PDF and EPS included.)
   - `book/part-1/settings.org:12-14` says to restart after hand edits
     (Reload Settings and Keys exists); line 16 links
     `../appendices/settings.org`, which exists only on the built site.

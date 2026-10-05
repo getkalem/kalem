@@ -1189,24 +1189,28 @@ to the next and previous cell. A table that is not simple stays source.
 (=latex_check=). Each has a stable code and a severity: /warning/
 (probably wrong, a red wavy line) or /info/ (style, a blue one).
 
-| Code                        | Severity                    | When                                                                                                                                           | Fix                                                                                               |
-|-----------------------------+-----------------------------+------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------|
-| =latex-syntax=              | warning                     | what the parser closed or skipped (the messages of Error tolerance)                                                                            |                                                                                                   |
-| =latex-duplicate-label=     | warning                     | a =\label= of this file whose key is defined more than once in the project                                                                     |                                                                                                   |
-| =latex-undefined-reference= | warning                     | a key of a reference command of this file that no =\label= of the project defines                                                              |                                                                                                   |
-| =cite-unknown-key=          | warning                     | a citation key of this file that no bibliography file has (checked when at least one file could be read)                                       |                                                                                                   |
-| =bibliography-unreadable=   | warning                     | a bibliography file that cannot be read, reported on this file's =\bibliography= or =\addbibresource=                                          |                                                                                                   |
-| =cite-unused-entry=         | info                        | an entry nothing in the project cites; reported on the root document's bibliography command, only when every file was read and no =\nocite{*}= |                                                                                                   |
-| =latex-missing-file=        | warning                     | an =\input=, =\include=, =\subfile=, =\import= or =\subimport= of this file that resolves to no readable file (a cycle too)                    |                                                                                                   |
-| =latex-missing-picture=     | warning                     | an =\includegraphics= whose file is found neither from the file's folder nor from the root's (with =\graphicspath= and LaTeX's extensions)     |                                                                                                   |
-| =latex-item-outside-list=   | warning                     | an =\item= in the body outside any list (LaTeX's "Lonely \item")                                                                               |                                                                                                   |
-| =latex-too-deep=            | warning                     | the fifth =enumerate= or =itemize= inside lists of its kind, or the seventh list in all ("Too deeply nested")                                  |                                                                                                   |
-| =latex-deprecated=          | info                        | =\bf= =\it= =\rm= =\sc= =\sf= =\tt= =\sl= =\cal=                                                                                               | =\bfseries= =\itshape= =\rmfamily= =\scshape= =\sffamily= =\ttfamily= =\slshape=; none for =\cal= |
-| =latex-deprecated=          | info                        | =$$…$$=                                                                                                                                        | =\[…\]=                                                                                           |
-| =latex-tie=                 | info                        | =\ref=, =\eqref=, =\cite=, =\cref=, =\autoref= or =\pageref= after a space that follows text, outside math                                     | =~= for the space                                                                                 |
-| =latex-ellipsis=            | info                        | =...= in text outside math (the first in each run of text)                                                                                     | =\ldots{}=                                                                                        |
-| =latex-quotes=              | info                        | ="= in text outside math                                                                                                                       |                                                                                                   |
-| =latex-build=               | warning; info for bad boxes | a problem the last build's log reported on a line of this file                                                                                 |                                                                                                   |
+| Code                         | Severity                    | When                                                                                                                                                               | Fix                                                                                                                                                           |
+|------------------------------+-----------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =latex-syntax=               | warning                     | what the parser closed or skipped (the messages of Error tolerance)                                                                                                |                                                                                                                                                               |
+| =latex-duplicate-label=      | warning                     | a =\label= of this file whose key is defined more than once in the project                                                                                         |                                                                                                                                                               |
+| =latex-label-clash=          | warning                     | a second =\label= on one line of an amsmath environment, where amsmath stops with "Multiple \label's"                                                              |                                                                                                                                                               |
+| =latex-label-unwritten=      | warning                     | a =\label= on a line without a number (=\nonumber=, =\notag=) with no numbered line after it: LaTeX never writes it, and =\ref= prints ??                          |                                                                                                                                                               |
+| =latex-label-before-caption= | warning                     | a =\label= in a float before its =\caption=: it refers to the section, or with the caption package to nothing                                                      |                                                                                                                                                               |
+| =latex-undefined-reference=  | warning                     | a key of a reference command of this file that no =\label= of the project defines                                                                                  |                                                                                                                                                               |
+| =cite-unknown-key=           | warning                     | a citation key of this file that no bibliography file has (checked when at least one file could be read)                                                           |                                                                                                                                                               |
+| =bibliography-unreadable=    | warning                     | a bibliography file that cannot be read, reported on this file's =\bibliography= or =\addbibresource=                                                              |                                                                                                                                                               |
+| =bibliography-entry-skipped= | warning                     | an entry of a bibliography file left out for a syntax error (the others are read, as BibTeX goes on), reported on this file's bibliography command with the reason |                                                                                                                                                               |
+| =cite-unused-entry=          | info                        | an entry nothing in the project cites; reported on the root document's bibliography command, only when every file was read and no =\nocite{*}=                     |                                                                                                                                                               |
+| =latex-missing-file=         | warning                     | an =\input=, =\include=, =\subfile=, =\import= or =\subimport= of this file that resolves to no readable file (a cycle too)                                        |                                                                                                                                                               |
+| =latex-missing-picture=      | warning                     | an =\includegraphics= whose file is found neither from the file's folder nor from the root's (with =\graphicspath= and LaTeX's extensions)                         |                                                                                                                                                               |
+| =latex-item-outside-list=    | warning                     | an =\item= in the body outside any list (LaTeX's "Lonely \item")                                                                                                   |                                                                                                                                                               |
+| =latex-too-deep=             | warning                     | the fifth =enumerate= or =itemize= inside lists of its kind, or the seventh list in all ("Too deeply nested")                                                      |                                                                                                                                                               |
+| =latex-deprecated=           | info                        | =\bf= =\it= =\rm= =\sc= =\sf= =\tt= =\sl= =\cal=                                                                                                                   | =\bfseries= =\itshape= =\rmfamily= =\scshape= =\sffamily= =\ttfamily= =\slshape=; none for =\cal=, nor in math, where the message names =\mathbf= and its kin |
+| =latex-deprecated=           | info                        | =$$…$$=                                                                                                                                                            | =\[…\]=                                                                                                                                                       |
+| =latex-tie=                  | info                        | =\ref=, =\eqref=, =\cite=, =\cref=, =\autoref= or =\pageref= after a space that follows text, outside math                                                         | =~= for the space                                                                                                                                             |
+| =latex-ellipsis=             | info                        | =...= in text outside math (the first in each run of text)                                                                                                         | =\ldots{}=                                                                                                                                                    |
+| =latex-quotes=               | info                        | ="= in text outside math                                                                                                                                           |                                                                                                                                                               |
+| =latex-build=                | warning; info for bad boxes | a problem the last build's log reported on a line of this file                                                                                                     |                                                                                                                                                               |
 
 Outside math means outside formulas, math environments and verbatim
 environments. The project is found as Projects says; the labels and
@@ -1307,9 +1311,12 @@ document's own step, the most common indentation the first line of an
 environment adds to its =\begin= line (a document that does not indent
 its environments keeps its indentation); runs of blank lines made one;
 blanks at line ends removed; one line ending at the end. Verbatim text
-(verbatim environment bodies and verbatim arguments, and the bodies of
-=alltt= and of the environments =\lstnewenvironment= declares) is not
-touched.
+is not touched, nor the =\end= line where it ends: verbatim environment
+bodies and verbatim arguments, the bodies of =alltt=, of fancyvrb's,
+PythonTeX's, LuaLaTeX's, SageTeX's and tcolorbox's listing
+environments, and of the environments =\lstnewenvironment=,
+=\DefineVerbatimEnvironment= (and its kin), =\newtcblisting= and
+minted's =\newminted= declare; none of them votes for the step.
 =--align= lines up the top-level =&= of the rows of =tabular=,
 =tabularx=, =longtable=, =array=, =align=, =alignat=, =flalign=,
 =eqnarray=, the matrices and =cases= written one row a line
@@ -1390,20 +1397,23 @@ The first of these that applies:
 4. pdfLaTeX.
 
 A name of step 1 or 2 means XeLaTeX when it is =xelatex=, LuaLaTeX when
-it is =lualatex=, and pdfLaTeX for anything else.
+it is =lualatex=, Tectonic when it is =tectonic= (which then runs alone,
+below), and pdfLaTeX for anything else.
 
 ** The tool
 
 Looked for in =PATH=, in this order:
 
-| Tool             | When                                   | Command line (in the root's folder)                                                                                                                                                                                                                                                                                                |
-|------------------+----------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| =latexmk=        | =latexmk= and the engine are installed | =latexmk -pdf -interaction=nonstopmode -file-line-error -halt-on-error -pdflatex= (or =-xelatex=, =-lualatex=) =[-outdir=DIR] FILE=                                                                                                                                                                                                |
-| the engine alone | the engine is installed                | =ENGINE -interaction=nonstopmode -file-line-error [-output-directory=DIR] FILE=; then =biber STEM= when the run left =STEM.bcf=, or =bibtex STEM= when =STEM.aux= has =\bibdata{= (looked for beside the engine, then in =PATH=; run in the output folder); then the engine twice more after a bibliography run, once more without |
-| =tectonic=       | neither is installed                   | =tectonic --keep-logs [--outdir=DIR] FILE= (tectonic's own engine)                                                                                                                                                                                                                                                                 |
+| Tool             | When                                                  | Command line (in the root's folder)                                                                                                                                                                                                                                                                                                |
+|------------------+-------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =latexmk=        | =latexmk= and the engine are installed                | =latexmk -pdf -interaction=nonstopmode -file-line-error -halt-on-error -pdflatex= (or =-xelatex=, =-lualatex=) =[-outdir=DIR] FILE=                                                                                                                                                                                                |
+| the engine alone | the engine is installed                               | =ENGINE -interaction=nonstopmode -file-line-error [-output-directory=DIR] FILE=; then =biber STEM= when the run left =STEM.bcf=, or =bibtex STEM= when =STEM.aux= has =\bibdata{= (looked for beside the engine, then in =PATH=; run in the output folder); then the engine twice more after a bibliography run, once more without |
+| =tectonic=       | named as the engine, or neither of those is installed | =tectonic --keep-logs --synctex [--outdir=DIR] FILE= (tectonic's own engine)                                                                                                                                                                                                                                                       |
 
-Without any of them, the build fails with "No LaTeX found: install TeX
-Live, MacTeX, MiKTeX or tectonic". =latex.output_directory= (or
+Without any of them, the build fails and says what to install: the
+command that installs TeX Live here (Homebrew's MacTeX, winget's MiKTeX,
+or the Linux distribution's packages), and Tectonic's site; with TeX
+but not the engine the document needs, it names both. =latex.output_directory= (or
 =--outdir=) names a folder relative to the root's, created if needed;
 the PDF and the log are looked for there as =STEM.pdf= and =STEM.log=.
 
@@ -1477,13 +1487,13 @@ Each parses without diagnostics and compiles with pdflatex in the tests.
 
 * Settings
 
-| Setting                  | Default | Meaning                                                            |
-|--------------------------+---------+--------------------------------------------------------------------|
-| =latex.engine=           | =auto=  | the TeX engine: =auto=, =pdflatex=, =xelatex= or =lualatex=        |
-| =latex.build_on_save=    | =false= | build the PDF each time a LaTeX document is saved                  |
-| =latex.output_directory= | empty   | where builds go, relative to the root document; empty: beside it   |
-| =latex.root=             | empty   | the root document, relative to the project's folder (step 4 above) |
-| =export.open_after=      | =false= | open the PDF of a build and the files pandoc writes                |
+| Setting                  | Default | Meaning                                                                 |
+|--------------------------+---------+-------------------------------------------------------------------------|
+| =latex.engine=           | =auto=  | the TeX engine: =auto=, =pdflatex=, =xelatex=, =lualatex= or =tectonic= |
+| =latex.build_on_save=    | =false= | build the PDF each time a LaTeX document is saved                       |
+| =latex.output_directory= | empty   | where builds go, relative to the root document; empty: beside it        |
+| =latex.root=             | empty   | the root document, relative to the project's folder (step 4 above)      |
+| =export.open_after=      | =false= | open the PDF of a build and the files pandoc writes                     |
 
 * Limits and known gaps
 
@@ -1509,9 +1519,7 @@ roadmap (=docs/roadmap.md=; the old ids of =docs/todo.md= in brackets):
   macros defined in other files (the root's preamble) are not applied
   reliably. =\newenvironment= definitions are not given to the renderer.
 - *References and citations.* =\pageref= shows the key, as there are no
-  pages; =\cpageref= stays source. In the view, bibliography files are
-  resolved from the edited file's folder; =kalem check= resolves them
-  from the root's, as LaTeX does.
+  pages; =\cpageref= stays source.
 - *Editing.* No typographic dashes while typing, and no style for the
   blank lines around an insert (T2.7h.15).
 - *Completion.* No texlab bridge (T2.7h.17, which needs the language
@@ -1521,8 +1529,9 @@ roadmap (=docs/roadmap.md=; the old ids of =docs/todo.md= in brackets):
   cursor's page through SyncTeX, and Ctrl-click on it goes back to the
   source; it is not yet a panel beside the text that follows each build
   (T2.7h.24), and the terminal editor cannot go from the page to the
-  source. Tectonic is used only when no TeX engine is installed and is
-  not downloaded on demand (D5); no debounce beyond one build at a time
+  source. Tectonic is used when the document or =latex.engine= names it,
+  or when no TeX engine is installed, and is not downloaded on demand
+  (D5); no debounce beyond one build at a time
   (T2.7h.22). A build compiles the files as saved on disk.
 - *Performance.* A keystroke in a 10 MB document takes about 78 ms: the
   blocks are found again over the whole text and the screen's model is

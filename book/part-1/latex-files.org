@@ -30,7 +30,9 @@ itself.
   =\newtheorem= show their names and numbers, and =proof= its "Proof."
   and ∎.
 - Figures and tables :: =\includegraphics= shows the picture (PNG,
-  JPEG or SVG, found as LaTeX finds it) at the width asked for, and
+  JPEG, SVG, PDF or EPS, found where LaTeX looks: the root document's
+  folder and the =\graphicspath= folders, with LaTeX's extensions when
+  the name has none) at the width asked for, and
   =\caption= shows as "Figure 1: …" with LaTeX's number (=Şekil= and
   =Tablo= with babel's =turkish=). A =tabular= (also =tabularx=,
   =array=, =longtable=) written one row a line, with plain columns,
