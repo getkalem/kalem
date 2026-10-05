@@ -194,6 +194,12 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.png]
 opt-level = 3
+[profile.dev.package.fdeflate]
+opt-level = 3
+[profile.dev.package."simd-adler32"]
+opt-level = 3
+[profile.dev.package.crc32fast]
+opt-level = 3
 [profile.dev.package.moxcms]
 opt-level = 3
 [profile.dev.package."pic-scale"]
@@ -211,6 +217,10 @@ opt-level = 3
 [profile.dev.package.taffy]
 opt-level = 3
 [profile.dev.package."kalem-plugin-xlsx"]
+opt-level = 3
+# Its formula engine: a cell typed in a million-cell workbook took 3 s to
+# recalculate in a debug build, half a second optimized (wasm_todo W6).
+[profile.dev.package.ironcalc_base]
 opt-level = 3
 # The plugins' engine (kalem-script): a debug build compiles the PDF
 # viewer's component in 7 s, an optimized engine in half a second.
@@ -241,6 +251,11 @@ opt-level = 3
 [profile.dev.package.regalloc2]
 opt-level = 3
 [profile.dev.package.wasmparser]
+opt-level = 3
+# The host's side of the components' functions (the bindings, generic code
+# of wasmtime's instantiated here): a page's 4 MB of pixels lifted out of
+# a component took 40 ms in a debug build (wasm_todo W6).
+[profile.dev.package."kalem-script"]
 opt-level = 3
 
 [profile.bench]

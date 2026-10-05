@@ -4369,6 +4369,7 @@ name = "kalem-cli"
 version = "0.0.1"
 dependencies = [
  "clap",
+ "image",
  "jiff",
  "kalem-components",
  "kalem-core",

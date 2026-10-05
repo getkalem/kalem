@@ -130,7 +130,7 @@ Why the native copies are still there, as found on 2026-10-05:
 
 ## W6. Speed and limits measured on components
 
-- [ ] W6 The workbook, PDF and picture measurements of the native copy
+- [~] W6 The workbook, PDF and picture measurements of the native copy
   repeated through the component: opening and scrolling a million-cell
   workbook, a held arrow key, a 100,000-cell paste, sorting, a long PDF
   scrolled; the costs found removed (cells asked for in larger batches and
@@ -138,6 +138,45 @@ Why the native copies are still there, as found on 2026-10-05:
   has not changed, the memory limit raised by the manifest where a
   workbook needs it); each measurement a test with its ceiling, as
   `grid_speed.rs`.
+  (2026-10-05: `crates/kalem-cli/tests/component_speed.rs`, run by CI's
+  components job in a debug build, as the owner runs Kalem: every
+  measurement fails past four times the native copy's time unless done
+  within a frame, and a million cells must fit in 512 MB. Debug build,
+  Apple M1 Max:
+
+  | Measurement | Native | Component |
+  |---|---|---|
+  | workbook of 36,000 cells opened | 24 ms | 31 ms |
+  | 200 steps of a held arrow key | 204 ms | 280 ms |
+  | 60 frames, nothing changed | 67 ms | 88 ms |
+  | 100,000 cells pasted | 243 ms | 324 ms |
+  | 3,000 rows sorted | 299 ms | 373 ms |
+  | million cells opened | 650 ms | 855 ms |
+  | million cells, a cell typed | 536 ms | 560 ms |
+  | 6-megapixel PNG opened and drawn | 59 ms | 99 ms |
+  | 50 PDF pages drawn | 921 ms | 1,614 ms |
+
+  Found and removed: in a debug build the host's bindings (generic code
+  of wasmtime's, instantiated in kalem-script) lifted a page's pixels
+  byte by byte, 40 ms a PDF page; kalem-script is now optimized in the dev
+  profile, as are ironcalc_base (a cell typed in a million-cell workbook
+  recalculated in 3 s natively) and png's fdeflate, simd-adler32 and
+  crc32fast (a 6-megapixel picture opened in 120 ms natively). Not done,
+  as not found: what a frame asks is cached by generation already
+  (layout, tabs, panes, outline, drawings, the cursor's validation), and
+  the cells, asked anew each frame, cost 1.5 ms through the component for
+  a screenful; a cache of them would risk cells shown stale for no frame
+  saved. A million numeric cells need 256 MB inside the component, four
+  million 768 MB, ten million (a million rows of ten) 2 GB: past a
+  viewer's 1 GB. Built-in components now take their manifests' limits as
+  installed ones do, and the workbook plugin's manifest asks for 4 GB, the
+  most a 32-bit component addresses (getkalem/plugins 6d2a305). Open:
+  Kalem's pins moved to that revision, so the built-in workbook component
+  gets it, and the plugin's next release. Beyond 4 GB a workbook opens
+  only natively, which W9 must weigh. Found in the plugin, for both
+  copies: after every edit the first frame re-reads the sheet's data
+  validations from its whole XML, 70 ms natively in a million-cell sheet,
+  140 ms through the component.)
 
 ## W7. The editors' tests through components
 

@@ -53,8 +53,16 @@ workspace = true
 [dev-dependencies]
 # The viewer contract, for comparing the xlsx component with the bundled plugin.
 kalem-viewer.workspace = true
+# A large picture made for measuring the image viewer's component.
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 # The workbook viewer built as a component and run by the plugin host.
 [[test]]
 name = "xlsx_component"
 required-features = ["viewers", "plugins"]
+
+# wasm_todo W6: the bundled viewers measured through the built-in
+# components against their native copies.
+[[test]]
+name = "component_speed"
+required-features = ["viewers", "components"]

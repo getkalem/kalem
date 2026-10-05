@@ -485,6 +485,22 @@ fn manifest_opens(m: &serde_json::Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// A manifest's `limits` (`memory_mb`, `time_ms`), else a viewer's: a
+/// workbook viewer may ask for more memory than the default (wasm_todo
+/// W6), whether it is installed or built in.
+#[cfg(feature = "plugins")]
+fn manifest_limits(m: &serde_json::Value) -> kalem_script::Limits {
+    use kalem_script::viewer::VIEWER_LIMITS;
+    kalem_script::Limits {
+        memory: m["limits"]["memory_mb"]
+            .as_u64()
+            .map_or(VIEWER_LIMITS.memory, |mb| (mb as usize) << 20),
+        time: m["limits"]["time_ms"]
+            .as_u64()
+            .map_or(VIEWER_LIMITS.time, std::time::Duration::from_millis),
+    }
+}
+
 /// The bundled plugins built into Kalem as components (wasm_todo W5), each
 /// with its manifest: none without the feature `components`.
 #[cfg(feature = "plugins")]
@@ -510,7 +526,7 @@ pub fn embedded_components() -> Vec<(serde_json::Value, &'static [u8])> {
 /// viewer of the same name, which opens its files should it not run.
 #[cfg(feature = "plugins")]
 pub(crate) fn embedded_viewers() -> Vec<std::sync::Arc<kalem_script::viewer::ComponentViewer>> {
-    use kalem_script::viewer::{ComponentViewer, VIEWER_LIMITS};
+    use kalem_script::viewer::ComponentViewer;
     let mut out = Vec::new();
     for (m, bytes) in embedded_components() {
         let Some(host) = viewer_host() else {
@@ -523,11 +539,18 @@ pub(crate) fn embedded_viewers() -> Vec<std::sync::Arc<kalem_script::viewer::Com
             .into_iter()
             .find(|v| v.id() == id);
         out.push(std::sync::Arc::new(
-            ComponentViewer::embedded(host, bytes, id, name, &manifest_opens(&m), VIEWER_LIMITS)
-                .with_fallback(
-                    bundled,
-                    std::sync::Arc::new(|text| kalem_core::jobs::notice(text, true)),
-                ),
+            ComponentViewer::embedded(
+                host,
+                bytes,
+                id,
+                name,
+                &manifest_opens(&m),
+                manifest_limits(&m),
+            )
+            .with_fallback(
+                bundled,
+                std::sync::Arc::new(|text| kalem_core::jobs::notice(text, true)),
+            ),
         ));
     }
     out
@@ -601,7 +624,7 @@ pub(crate) fn installed_viewers() -> Vec<(
     kalem_core::plugin_store::Installed,
     Result<std::sync::Arc<kalem_script::viewer::ComponentViewer>, String>,
 )> {
-    use kalem_script::viewer::{ComponentViewer, VIEWER_LIMITS};
+    use kalem_script::viewer::ComponentViewer;
     let mut out = Vec::new();
     for p in kalem_core::plugin_store::installed() {
         let Ok(text) = std::fs::read_to_string(p.dir.join("plugin.json")) else {
@@ -639,15 +662,7 @@ pub(crate) fn installed_viewers() -> Vec<(
         let Some(h) = viewer_host() else {
             return out;
         };
-        // A manifest may ask for other limits than a viewer's.
-        let limits = kalem_script::Limits {
-            memory: m["limits"]["memory_mb"]
-                .as_u64()
-                .map_or(VIEWER_LIMITS.memory, |mb| (mb as usize) << 20),
-            time: m["limits"]["time_ms"]
-                .as_u64()
-                .map_or(VIEWER_LIMITS.time, std::time::Duration::from_millis),
-        };
+        let limits = manifest_limits(&m);
         // `org.kalem.pdf-viewer` is the viewer `pdf-viewer`, replacing
         // the bundled one.
         let id = p.id.rsplit('.').next().unwrap_or(&p.id).to_string();
@@ -869,6 +884,21 @@ mod tests {
                 .render_long_help()
                 .to_string()
                 .contains("Usage: kalem parse")
+        );
+    }
+
+    #[cfg(feature = "plugins")]
+    #[test]
+    fn a_manifest_sets_a_viewers_limits() {
+        use kalem_script::viewer::VIEWER_LIMITS;
+        let m = serde_json::json!({ "limits": { "memory_mb": 3072 } });
+        let l = super::manifest_limits(&m);
+        assert_eq!(l.memory, 3072 << 20);
+        assert_eq!(l.time, VIEWER_LIMITS.time);
+        let none = super::manifest_limits(&serde_json::json!({}));
+        assert_eq!(
+            (none.memory, none.time),
+            (VIEWER_LIMITS.memory, VIEWER_LIMITS.time)
         );
     }
 }

@@ -175,7 +175,10 @@ crates/kalem --features components=, with the =wasm32-unknown-unknown=
 target installed) has the three bundled viewers built in as components
 too, made from the same sources, and uses them in the place of the
 native copies; =kalem plugin list= marks them /built in/. An installed
-copy of one is used only when it is newer.
+copy of one is used only when it is newer. Their manifests set their
+limits as an installed one's do. Through a component a viewer takes one
+to two times its native copy's time (a test measures each against it);
+a workbook needs about 256 MB inside the component for a million cells.
 
 * Versions of the plugin API
 
