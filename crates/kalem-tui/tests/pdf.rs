@@ -22,7 +22,11 @@ fn status(app: &mut App) -> String {
 
 #[test]
 fn a_pdf_opens_page_by_page() {
-    kalem_core::viewer::register(kalem_components::viewer("org.kalem.pdf-viewer").unwrap());
+    // Compiled before the waits below are timed: on a slow machine the
+    // component's compilation takes seconds.
+    let pdf = kalem_components::viewer("org.kalem.pdf-viewer").unwrap();
+    pdf.plugin().unwrap();
+    kalem_core::viewer::register(pdf);
     let dir = std::env::temp_dir().join(format!("kalem-tui-pdf-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();

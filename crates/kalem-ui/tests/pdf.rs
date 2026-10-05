@@ -21,7 +21,11 @@ fn test_settings(dir: &std::path::Path) -> Option<std::path::PathBuf> {
 }
 
 fn open(cx: &mut TestAppContext) -> (Entity<Workspace>, &mut VisualTestContext) {
-    kalem_core::viewer::register(kalem_components::viewer("org.kalem.pdf-viewer").unwrap());
+    // Compiled before the waits below are timed: on a slow machine the
+    // component's compilation takes seconds.
+    let pdf = kalem_components::viewer("org.kalem.pdf-viewer").unwrap();
+    pdf.plugin().unwrap();
+    kalem_core::viewer::register(pdf);
     static N: AtomicUsize = AtomicUsize::new(0);
     let n = N.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!("kalem-ui-pdf-{}-{n}", std::process::id()));
@@ -62,7 +66,7 @@ fn state(ws: &Entity<Workspace>, cx: &mut VisualTestContext) -> (String, f32, St
 /// Waits while a page renders on its thread, the repaint timer fired.
 fn settle(ws: &Entity<Workspace>, cx: &mut VisualTestContext) {
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
-    for _ in 0..500 {
+    for _ in 0..2000 {
         cx.run_until_parked();
         let busy = e.read_with(cx, |e, _| {
             e.doc
