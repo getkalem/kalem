@@ -38,6 +38,8 @@ repository, in Org, and =kalem book build= turns it into this site.
 - [[file:part-1/latex-files.org][LaTeX files]]
 - [[file:part-1/latex-for-auctex-users.org][LaTeX for AUCTeX users]]
 - [[file:part-1/csv-files.org][CSV files]]
+- [[file:part-1/markdown-files.org][Markdown files]]
+- [[file:part-1/pdf-pictures-and-workbooks.org][PDF files, pictures and workbooks]]
 - [[file:part-1/settings.org][Settings]]
 - [[file:part-1/files.org][Files]]
 - [[file:part-1/the-command-line.org][The command line]]

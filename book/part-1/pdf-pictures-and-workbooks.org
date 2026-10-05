@@ -1,0 +1,45 @@
+PDF files, pictures and Excel workbooks open in viewers: plugins that
+run in Kalem's sandbox, built into it (see [[file:../part-4/plugins.org][Plugins]]). A file that is
+text, an SVG picture among them, opens as text; =kalem view FILE= shows
+a viewer's file on the command line.
+
+The keys are a viewer's own while it has the focus: Page Down and Page
+Up, or =n= and =p=, go to the next and the previous page or frame, Home
+and End to the first and the last; =+= and =-= zoom, =0= fits the
+window, =w= the width and =1= shows the actual size; the arrows (or
+=h= =j= =k= =l=) pan; =r= turns the view; =i= shows the file's
+information; =y= copies the picture; Shift+N and Shift+P open the next
+and the previous file of the folder. Find (Ctrl+F) searches a PDF's
+text. The terminal editor draws a page or a picture through its
+terminal's graphics (kitty's, iTerm2's or Sixel), else in half-block
+cells, and with colors off shows its text.
+
+- PDF :: Pages with their outline in the sidebar, their page labels and
+  their links; text is selected and copied as on paper. A PDF
+  that LaTeX built goes back to its source line on Ctrl-click (Cmd-click
+  on macOS). A PDF with a password asks for it, hidden as typed, and
+  keeps it until Kalem quits.
+- Pictures :: PNG and APNG, JPEG, GIF, WebP, BMP, TIFF, ICO, QOI, TGA,
+  the PNM family, DDS, OpenEXR and Radiance HDR. An animation plays
+  (=.= pauses it); a photograph is turned as its EXIF orientation says;
+  the information names the camera, the lens and the exposure. A
+  picture larger than 8,192 pixels on its longer side, or 40 megapixels
+  over all its frames, is shown scaled down, and the information gives
+  both sizes.
+- Workbooks :: =.xlsx=, =.xlsm=, =.xltx= and =.xltm= open as their sheets,
+  as grids with their styles, formulas and charts, and are edited as a
+  spreadsheet is: typing in a cell, formulas recalculated, rows and
+  columns inserted and deleted with every reference moved, sorting,
+  filters, number formats, charts, and macros run when you ask for one
+  by name. Saving writes only what you changed, every other part of the
+  file copied byte for byte, and asks Excel to recalculate the
+  formulas when it opens the file. An =.ods=, =.xls= or =.xlsb= is
+  converted as it opens: Kalem asks before saving it back in its own
+  format, saying what it keeps (number formats are lost), and Save As
+  =.xlsx= leaves the original alone. A workbook protected by a password
+  cannot be opened yet.
+
+A viewer that fails, runs past its time or out of its memory stops: the
+editor closes its document at once and says why, and goes on. A viewer
+that stops three times is turned off until it is updated;
+=kalem plugin enable ID= turns it on again.

@@ -1,0 +1,31 @@
+Markdown files (=.md=, =.markdown=, =.mdown=, =.mkd=, =.gfm=) open as
+documents, read as GitHub reads them: away from the cursor the markers
+are hidden, headings take their sizes, emphasis, code, links, pictures,
+formulas (=$…$=, and =$$…$$= on one line) and task list checkboxes are
+drawn, a table is a grid and YAML front matter folds to its first line.
+On the cursor's line the source shows, so every character can be
+edited where it stands. The file is never rewritten: what you did not
+type stays as it was, byte for byte.
+
+Ctrl+B, Ctrl+I and Ctrl+K put =**=, =*= or a link around the selection
+(again to take them off). Enter continues a list or a quote, with the
+next number or an empty checkbox, and ends it on an empty item; Tab
+nests an item under the one before it, Shift+Tab takes it out, and
+Alt+Up and Alt+Down move it with what it holds. A click on a checkbox,
+or Ctrl+Shift+C, ticks it. In a table, Tab aligns the table and goes to
+the next cell, and the table keys of Org move and insert rows and
+columns; F9 computes a table's =<!-- TBLFM: … -->= formulas as Org
+does.
+
+/Open Link/ (Ctrl-click, or Cmd-click on macOS) follows a link: a web
+address, another file (at its =#heading= when it names one), a heading
+of this document, or a wiki link, =[[Page]]=, as Obsidian and Logseq
+write them; typing =[[= offers the project's Markdown files. Pictures
+dropped or pasted on the document are copied into =images/= beside it
+and linked. /Edit Properties/ edits the front matter's fields one at a
+time. /Copy as HTML/ and /Copy as Rich Text/ copy the selection as
+GitHub would show it, and /Convert to Org/ writes the document as Org.
+
+Export, printing and =kalem fmt= are for Org and LaTeX; a Markdown file
+is left as it is. [[file:../part-2/markdown.org][Markdown]] in Part II says what is read, drawn and
+tested.
