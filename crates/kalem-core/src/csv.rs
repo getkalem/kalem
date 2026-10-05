@@ -386,6 +386,23 @@ pub fn cell_at_bars(
     x: f32,
     at: usize,
 ) -> Option<(usize, Option<usize>)> {
+    let (rec, col) = column_at_bars(doc, line_start, bars, step, x)?;
+    Some(match rec.fields.get(col) {
+        Some(f) => (at.clamp(f.range.start, f.range.end), None),
+        None => (rec.range.end, Some(col)),
+    })
+}
+
+/// The column a click at `x` falls in on the grid row of the line starting
+/// at `line_start`, by its bars (as [`cell_at_bars`] reads them), with the
+/// line's record. `None` left of the grid or off a record.
+pub fn column_at_bars(
+    doc: &crate::DocumentState,
+    line_start: usize,
+    bars: &[f32],
+    step: f32,
+    x: f32,
+) -> Option<(Record, usize)> {
     if doc.meta.mode != crate::DocumentMode::Csv {
         return None;
     }
@@ -421,10 +438,7 @@ pub fn cell_at_bars(
     let col = (0..)
         .filter(|j| !layout.columns.hidden.contains(j))
         .nth(k)?;
-    Some(match rec.fields.get(col) {
-        Some(f) => (at.clamp(f.range.start, f.range.end), None),
-        None => (rec.range.end, Some(col)),
-    })
+    Some((rec, col))
 }
 
 /// Clears the cells of rows `rows` and columns `cols` (both inclusive):

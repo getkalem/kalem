@@ -2682,6 +2682,21 @@ impl App {
                 }
             }
             MouseEventKind::Down(MouseButton::Left) => {
+                // A CSV grid's letter selects its column, a row's number the
+                // row, as in a spreadsheet.
+                if let Some(h) = self.editor.csv_header_hit(&self.doc, m.column, m.row) {
+                    let (id, args) = match h {
+                        crate::editor::CsvHeader::Column(c) => {
+                            ("csv.selectColumn", serde_json::json!({ "column": c }))
+                        }
+                        crate::editor::CsvHeader::Row(r) => {
+                            ("csv.selectRow", serde_json::json!({ "row": r }))
+                        }
+                    };
+                    self.run_command(id, args);
+                    self.after_change(true);
+                    return;
+                }
                 let Some((mut pos, widget)) =
                     self.editor.hit(&self.doc, &self.caps, m.column, m.row)
                 else {

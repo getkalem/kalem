@@ -19,6 +19,15 @@ use tui_rich_text::{Drawn, Lines, Options, Viewport};
 
 use crate::render::{self, Glyph, WidgetAt};
 
+/// A CSV grid's header clicked: a column's letter or a row's number.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CsvHeader {
+    /// The column.
+    Column(usize),
+    /// The row (the record's index).
+    Row(usize),
+}
+
 /// The editor view's state, kept across frames.
 #[derive(Debug, Default)]
 pub struct EditorView {
@@ -70,6 +79,8 @@ pub struct EditorView {
     /// Lines do not wrap whatever `wrap` says: a CSV grid with its first
     /// column frozen scrolls sideways (set when drawing).
     unwrapped: bool,
+    /// The screen row of a CSV grid's column letters (set when drawing).
+    letters_row: Option<u16>,
     /// A plain text document's highlighting and indentation step, for its
     /// text version.
     plain: PlainCache,
@@ -1783,6 +1794,57 @@ impl EditorView {
         self.drawn.as_ref()?.hit(&l, col, row)
     }
 
+    /// A click at screen cell (`col`, `row`) on a CSV grid's headers: a
+    /// column's letter or a row's number (left of the grid's first bar).
+    pub fn csv_header_hit(&self, doc: &DocumentState, col: u16, row: u16) -> Option<CsvHeader> {
+        if doc.meta.mode != kalem_core::DocumentMode::Csv || self.source {
+            return None;
+        }
+        let drawn = self.drawn.as_ref()?;
+        let on_letters = self.letters_row == Some(row);
+        // The letters line up with the rows: read a drawn row's bars.
+        let hit = if on_letters {
+            drawn.rows.iter().find(|r| {
+                !doc.text().line_range(r.line).is_empty()
+                    && drawn.lines.iter().any(|l| l.line == r.line && l.rows == 1)
+            })?
+        } else {
+            drawn.rows.iter().find(|r| r.y == row)?
+        };
+        let bars = self.bars(doc, hit);
+        let line_start = doc.text().line_start(hit.line);
+        let x = f32::from(col) + 0.5;
+        if on_letters {
+            let step = (kalem_core::csv::SHEET_MIN_WIDTH + 3) as f32;
+            let (_, c) = kalem_core::csv::column_at_bars(doc, line_start, &bars, step, x)?;
+            return Some(CsvHeader::Column(c));
+        }
+        let layout = kalem_core::csv::layout(doc);
+        if !layout.view.sheet || !bars.first().is_some_and(|b| x < *b) {
+            return None;
+        }
+        let r = layout
+            .index
+            .borrow_mut()
+            .row_at(doc.text().as_str(), line_start, &layout.dialect);
+        Some(CsvHeader::Row(r))
+    }
+
+    /// The bars drawn on a row (not a `│` of a value), by the middle of
+    /// their cell.
+    fn bars(&self, doc: &DocumentState, hit: &tui_rich_text::RowHit<WidgetAt>) -> Vec<f32> {
+        let text = doc.text().as_str();
+        let mut bars = Vec::new();
+        let mut x = f32::from(hit.x0) - f32::from(hit.scrolled);
+        for g in &hit.glyphs {
+            if g.text == "│" && !text[g.src.min(text.len())..].starts_with('│') {
+                bars.push(x + 0.5);
+            }
+            x += f32::from(g.width);
+        }
+        bars
+    }
+
     /// A click at screen cell (`col`, `row`) on a row of the CSV grid,
     /// `at` the source offset under it: the cell between the bars around
     /// it, as a spreadsheet takes it (`kalem_core::csv::cell_at_bars`):
@@ -1807,17 +1869,7 @@ impl EditorView {
         {
             return None;
         }
-        // The bars drawn on the row (not a `│` of a value), by the middle
-        // of their cell.
-        let text = doc.text().as_str();
-        let mut bars = Vec::new();
-        let mut x = f32::from(hit.x0) - f32::from(hit.scrolled);
-        for g in &hit.glyphs {
-            if g.text == "│" && !text[g.src.min(text.len())..].starts_with('│') {
-                bars.push(x + 0.5);
-            }
-            x += f32::from(g.width);
-        }
+        let bars = self.bars(doc, hit);
         let line_start = doc.text().line_start(hit.line);
         let step = (kalem_core::csv::SHEET_MIN_WIDTH + 3) as f32;
         kalem_core::csv::cell_at_bars(doc, line_start, &bars, step, f32::from(col) + 0.5, at)
@@ -1879,6 +1931,7 @@ impl EditorView {
                 .then(|| kalem_core::csv::layout(doc))
                 .filter(|l| l.view.sheet);
         let letters_area = Rect { height: 1, ..area };
+        self.letters_row = sheet.as_ref().map(|_| letters_area.y);
         let area = if sheet.is_some() {
             Rect {
                 y: area.y + 1,

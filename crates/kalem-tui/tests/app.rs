@@ -3811,6 +3811,49 @@ fn csv_row_numbers_stay_when_scrolled_sideways() {
 }
 
 #[test]
+fn csv_letters_and_row_numbers_select() {
+    // A click on a column's letter selects the column, one on a row's
+    // number the row, as in a spreadsheet (and in the graphical editor).
+    let text = "a,b,c\n1,2,3\n4,5,6\n";
+    let mut t = with_file(text, "heads.csv", Config::default(), (60, 8));
+    t.at(0);
+    let letters = (0..8)
+        .find(|&y| {
+            let r = t.row(y);
+            r.contains(" A ") && r.contains(" B ") && r.contains(" C ")
+        })
+        .expect("the letters");
+    let x = t.row(letters).chars().position(|c| c == 'B').unwrap() as u16;
+    mouse(
+        &mut t,
+        MouseEventKind::Down(MouseButton::Left),
+        x,
+        letters,
+        KeyModifiers::NONE,
+    );
+    assert_eq!(
+        kalem_core::csv::cell_rectangle(&t.app.doc),
+        Some(((0, 2), (1, 1)))
+    );
+    // Row 2's number.
+    let y = (0..8)
+        .find(|&y| t.row(y).contains('2') && t.row(y).contains('3'))
+        .unwrap();
+    let x = t.row(y).chars().position(|c| c == '2').unwrap() as u16;
+    mouse(
+        &mut t,
+        MouseEventKind::Down(MouseButton::Left),
+        x,
+        y,
+        KeyModifiers::NONE,
+    );
+    assert_eq!(
+        kalem_core::csv::cell_rectangle(&t.app.doc),
+        Some(((1, 1), (0, 2)))
+    );
+}
+
+#[test]
 fn csv_malformed_field_in_the_status_bar() {
     let text = "name,note\napple,6\" long\n";
     let mut t = with_file(text, "d.csv", Config::default(), (100, 8));
