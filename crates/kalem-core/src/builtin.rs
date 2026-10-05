@@ -2921,6 +2921,38 @@ fn markdown_commands() -> Vec<Command> {
             ),
             Scope::only(&["markdown"]),
         ),
+        // Tab and Shift+Tab nest an item under the one before it and take
+        // it out again, as in Org and LaTeX lists.
+        scoped(
+            cmd(
+                "markdown.list.indent",
+                "Nest Item",
+                "Markdown",
+                &["tab"],
+                Some("editorMode == markdown && inMarkdownItem && !inMarkdownTable"),
+                |ctx, _| {
+                    md_table_run(ctx, |md, t, at| {
+                        crate::markdown::indent_item(md, t, at, true)
+                    })
+                },
+            ),
+            Scope::only(&["markdown"]),
+        ),
+        scoped(
+            cmd(
+                "markdown.list.outdent",
+                "Unnest Item",
+                "Markdown",
+                &["shift+tab"],
+                Some("editorMode == markdown && inMarkdownItem && !inMarkdownTable"),
+                |ctx, _| {
+                    md_table_run(ctx, |md, t, at| {
+                        crate::markdown::indent_item(md, t, at, false)
+                    })
+                },
+            ),
+            Scope::only(&["markdown"]),
+        ),
         // Enter in a list item or a quote continues it (T2.7c.5).
         scoped(
             cmd(

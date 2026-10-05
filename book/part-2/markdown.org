@@ -124,8 +124,12 @@ edits it as plain text. Concretely:
 - Links open with /Open Link/ (=markdown.openLink=, Command-click on
   macOS and Control-click elsewhere in the graphical editor, =SPC o l=
   in the Vim profile): a web or mail address in the system's
-  application, a file relative to the document (a =#heading= after it
-  searched for), and a wiki link as Obsidian and Logseq write them,
+  application, a file relative to the document (percent-encoded names
+  such as =My%20Note.md= decoded; a =#heading= after it opens the file
+  at that heading), a =#heading= alone the heading of this document
+  whose GitHub anchor it is (lower case, =-= for spaces, punctuation
+  left out, repeated titles numbered =-1=, =-2=), and a wiki link as
+  Obsidian and Logseq write them,
   =[[Page]]= or =[[Page|title]]=: =Page.md= in the document's folder,
   else the first file of that name, ignoring case, anywhere in the
   project, else a new =Page.md= beside the document. A wiki link shows
@@ -166,7 +170,11 @@ edits it as plain text. Concretely:
   =markdown.list.moveDown=); a numbered list is numbered again from the
   number it started at. /Renumber List/ (=markdown.list.renumber=) puts
   the numbers in order after other edits, as markdown-mode's cleanup of
-  list numbers does.
+  list numbers does. Tab nests an item, with what it holds, under the
+  item before it, its lines indented to that item's text
+  (=markdown.list.indent=); Shift+Tab takes it out again
+  (=markdown.list.outdent=). A list's first item has nothing to nest
+  under and stays.
 - Pictures: dropping picture files on the document (graphical editor),
   pasting a copied picture or the paths of picture files (a terminal
   pastes a dropped file's path), or /Insert Image/

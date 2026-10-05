@@ -34,10 +34,32 @@ pub fn table_at(md: &Md, text: &str, pos: usize) -> Option<Range<usize>> {
     Some(start..end)
 }
 
-/// The cells of a table line: split at the pipes that are not escaped, the
-/// leading and trailing pipe dropped, each cell trimmed.
+/// The length of a table line's container prefix: its indentation and
+/// the markers of the block quotes it is in (`> `, `>> `, `> > `), which
+/// are not cells and stay as they are when the table is aligned.
+fn prefix_len(line: &str) -> usize {
+    let b = line.as_bytes();
+    let mut i = 0;
+    loop {
+        while i < b.len() && (b[i] == b' ' || b[i] == b'\t') {
+            i += 1;
+        }
+        if i < b.len() && b[i] == b'>' {
+            i += 1;
+            if i < b.len() && b[i] == b' ' {
+                i += 1;
+            }
+            continue;
+        }
+        return i;
+    }
+}
+
+/// The cells of a table line: its prefix left out, split at the pipes
+/// that are not escaped (a pipe after a backslash is the cell's, as GFM
+/// splits rows), the leading and trailing pipe dropped, each cell trimmed.
 fn cells(line: &str) -> Vec<String> {
-    let t = line.trim();
+    let t = line[prefix_len(line)..].trim();
     let t = t.strip_prefix('|').unwrap_or(t);
     let mut out = Vec::new();
     let mut cell = String::new();
@@ -48,7 +70,7 @@ fn cells(line: &str) -> Vec<String> {
             cell.clear();
             continue;
         }
-        escaped = c == '\\' && !escaped;
+        escaped = c == '\\';
         cell.push(c);
     }
     // After the trailing pipe nothing is left; without one, the last cell.
@@ -75,12 +97,12 @@ fn delimiter_cell(c: &str) -> Option<Align> {
 
 /// The table's text aligned: the columns padded to their widest cell, the
 /// delimiter row's dashes to the width, short rows given empty cells, the
-/// first line's indentation kept.
+/// first line's indentation and block quote markers kept on every line.
 pub fn align(table: &str) -> String {
     let lines: Vec<&str> = table.split('\n').collect();
     let indent: String = lines
         .first()
-        .map(|l| l.chars().take_while(|c| *c == ' ' || *c == '\t').collect())
+        .map(|l| l[..prefix_len(l)].to_string())
         .unwrap_or_default();
     let rows: Vec<Vec<String>> = lines.iter().map(|l| cells(l)).collect();
     let aligns: Vec<Align> = rows
@@ -139,6 +161,7 @@ fn cell_of(text: &str, range: &Range<usize>, pos: usize) -> (usize, usize) {
     let before = &text[range.start..pos.clamp(range.start, range.end)];
     let row = before.matches('\n').count();
     let line = &before[before.rfind('\n').map_or(0, |i| i + 1)..];
+    let line = &line[prefix_len(line)..];
     // The unescaped pipes before it; a leading pipe opens the first cell.
     let mut pipes = 0usize;
     let mut escaped = false;
@@ -146,7 +169,7 @@ fn cell_of(text: &str, range: &Range<usize>, pos: usize) -> (usize, usize) {
         if c == '|' && !escaped {
             pipes += 1;
         }
-        escaped = c == '\\' && !escaped;
+        escaped = c == '\\';
     }
     let lead = line.trim_start().starts_with('|');
     (row, if lead { pipes.saturating_sub(1) } else { pipes })
@@ -453,6 +476,19 @@ pub fn align_at(md: &Md, text: &str, pos: usize) -> Option<Transaction> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A table in a block quote keeps its markers on every line, and the
+    /// marker is no cell; a pipe after a backslash stays in its cell.
+    #[test]
+    fn quoted_tables_and_escaped_pipes() {
+        let t = "> | a | bb |\n> |---|---|\n> | 1 | 2 |";
+        assert_eq!(
+            align(t),
+            "> | a   | bb  |\n> | --- | --- |\n> | 1   | 2   |"
+        );
+        assert_eq!(cells("| a \\\\| b | c |"), ["a \\\\| b", "c"]);
+        assert_eq!(cells("| a \\| b | c |"), ["a \\| b", "c"]);
+    }
 
     fn apply(text: &str, tx: &Transaction) -> String {
         let mut s = text.to_string();

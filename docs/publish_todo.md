@@ -420,18 +420,29 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   (done: links, pictures (`images::resolve`) and the missing-file check
   decode `%XX` when the name as written is no file; Remove Unused
   Images knows a percent-encoded name.)
-- [ ] **Major, reported.** Tab or Align Table on a table inside a block
+- [x] **Major, reported.** Tab or Align Table on a table inside a block
   quote destroys the quote: `table_at` takes the whole line, `> `
   included (`markdown_table.rs:24-35`); `cells()` also splits at `\|`,
   where comrak does not.
-- [ ] **Major, reported (freeze).** Wiki-link completion and Open Link on
+  (done: a line's container prefix (indentation, `>` markers) is no
+  cell and stays on every aligned line; a pipe after a backslash stays
+  in its cell, as GFM splits rows; test
+  `quoted_tables_and_escaped_pipes`.)
+- [x] **Major, reported (freeze).** Wiki-link completion and Open Link on
   `[[…]]` walk the whole project on the UI thread on every keystroke:
   `WikiCompleter` is not marked slow (`completers.rs:614-660`),
   `project_pages` reads the first 8 KB of every file; with no project
   marker the walk covers the document's whole folder tree
   (`kalem-project/src/list.rs:96-113`).
-- [ ] **Major, gap.** Tab in a list item inserts spaces instead of
+  (done: the pages are listed by name only (no file read), hidden
+  folders, `node_modules` and `target` left out, at most 50,000 entries
+  looked at, the list kept five seconds; the completer runs on another
+  thread (`slow`).)
+- [x] **Major, gap.** Tab in a list item inserts spaces instead of
   nesting the item (Org and LaTeX have `list.indent`).
+  (done: Tab nests an item with what it holds under the one before it,
+  at that item's text (`markdown.list.indent`), Shift+Tab takes it out
+  (`markdown.list.outdent`); test `nesting_list_items`.)
 - [ ] **Minor, reported.** TOML front matter (`+++`) is read by Edit
   Properties only; the view draws it as a paragraph and a `# comment` in
   it becomes an H1 in the outline (`markdown.rs:155-157`).

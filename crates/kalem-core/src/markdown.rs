@@ -2172,6 +2172,76 @@ pub fn in_item(md: &Md, at: usize) -> bool {
     item_at(md, at).is_some()
 }
 
+/// The column where a list item's text starts on its first line: after
+/// its indentation, its marker (`-`, `*`, `+`, `1.`, `1)`) and the spaces
+/// after it (one to four).
+fn item_text_column(line: &str) -> usize {
+    let b = line.as_bytes();
+    let mut i = b.iter().take_while(|c| **c == b' ').count();
+    if i < b.len() && b"-*+".contains(&b[i]) {
+        i += 1;
+    } else {
+        while i < b.len() && b[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i < b.len() && b".)".contains(&b[i]) {
+            i += 1;
+        }
+    }
+    let spaces = b[i..].iter().take_while(|c| **c == b' ').count();
+    i + spaces.clamp(1, 4)
+}
+
+/// Tab on a list item (`deeper`): the item, with all it holds, nested
+/// under the item before it, its lines indented to that item's text;
+/// Shift+Tab: out of the item it is nested in, to that item's indentation.
+/// `None` for a list's first item (nothing to nest under), or a top-level
+/// one going out.
+pub fn indent_item(md: &Md, text: &str, at: usize, deeper: bool) -> Option<org_edit::Transaction> {
+    let i = item_at(md, at)?;
+    let item = &md.nodes[i];
+    let is_item = |n: &MdNode| matches!(n.kind, MdKind::Item | MdKind::TaskItem { .. });
+    let lines = whole_lines(text, &item.range);
+    let first = &text[lines.start..];
+    let current = first.bytes().take_while(|c| *c == b' ').count();
+    let line_of = |r: &Range<usize>| {
+        let s = text[..r.start].rfind('\n').map_or(0, |k| k + 1);
+        let e = text[s..].find('\n').map_or(text.len(), |k| s + k);
+        &text[s..e]
+    };
+    let target = if deeper {
+        let prev =
+            md.nodes.iter().rev().find(|n| {
+                n.parent == item.parent && is_item(n) && n.range.end <= item.range.start
+            })?;
+        item_text_column(line_of(&prev.range))
+    } else {
+        let list = md.nodes.get(item.parent? as usize)?;
+        let parent = md.nodes.get(list.parent? as usize).filter(|n| is_item(n))?;
+        let line = line_of(&parent.range);
+        line.bytes().take_while(|c| *c == b' ').count()
+    };
+    if target == current {
+        return None;
+    }
+    let mut tx = org_edit::Transaction::new(if deeper { "Nest Item" } else { "Unnest Item" });
+    let mut start = lines.start;
+    for line in text[lines.clone()].split_inclusive('\n') {
+        let blank = line.trim().is_empty();
+        if !blank {
+            if target > current {
+                tx.edit(start..start, " ".repeat(target - current));
+            } else {
+                let lead = line.bytes().take_while(|c| *c == b' ').count();
+                tx.edit(start..start + lead.min(current - target), "");
+            }
+        }
+        start += line.len();
+    }
+    let caret = tx.map(at, org_edit::Assoc::After);
+    Some(tx.select(org_edit::Selection::caret(caret)))
+}
+
 /// The whole lines of `r` in `text`: from the start of its first line to
 /// after the line feed of its last.
 fn whole_lines(text: &str, r: &Range<usize>) -> Range<usize> {
@@ -2622,18 +2692,53 @@ pub fn project_pages(doc: Option<&std::path::Path>) -> Vec<std::path::PathBuf> {
         return Vec::new();
     };
     let root = kalem_project::list::detect_root(dir).unwrap_or_else(|| dir.to_path_buf());
-    let cancel = std::sync::atomic::AtomicBool::new(false);
+    // Asked again at each keystroke after `[[`: a walk kept a few seconds.
+    type Pages = Option<(
+        std::path::PathBuf,
+        std::time::Instant,
+        Vec<std::path::PathBuf>,
+    )>;
+    static CACHE: std::sync::Mutex<Pages> = std::sync::Mutex::new(None);
+    if let Ok(c) = CACHE.lock()
+        && let Some((r, at, pages)) = c.as_ref()
+        && *r == root
+        && at.elapsed() < std::time::Duration::from_secs(5)
+    {
+        return pages.clone();
+    }
+    // By name only (no file is read), hidden folders and build trees
+    // left out, and a bound on what is looked at: without a project the
+    // root is the document's folder, which may be a whole home folder.
     let mut out = Vec::new();
-    kalem_project::files::walk(&root, &[], &cancel, |p| {
-        let md = p
-            .extension()
-            .and_then(|e| e.to_str())
-            .is_some_and(|e| matches!(e.to_ascii_lowercase().as_str(), "md" | "markdown"));
-        if md && out.len() < 10_000 {
-            out.push(if p.is_relative() { root.join(p) } else { p });
+    let mut stack = vec![root.clone()];
+    let mut seen = 0usize;
+    'walk: while let Some(d) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&d) else {
+            continue;
+        };
+        for e in rd.flatten() {
+            seen += 1;
+            if seen > 50_000 || out.len() >= 10_000 {
+                break 'walk;
+            }
+            let name = e.file_name();
+            let name = name.to_string_lossy();
+            let Ok(kind) = e.file_type() else {
+                continue;
+            };
+            if kind.is_dir() {
+                if !name.starts_with('.') && !matches!(name.as_ref(), "node_modules" | "target") {
+                    stack.push(e.path());
+                }
+            } else if is_markdown_path(&name) {
+                out.push(e.path());
+            }
         }
-    });
+    }
     out.sort();
+    if let Ok(mut c) = CACHE.lock() {
+        *c = Some((root, std::time::Instant::now(), out.clone()));
+    }
     out
 }
 
@@ -2828,6 +2933,35 @@ pub fn to_tree(md: &Md) -> Tree {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Tab nests an item (and what it holds) under the one before it, at
+    /// that item's text; Shift+Tab takes it out; a first item stays.
+    #[test]
+    fn nesting_list_items() {
+        let run = |text: &str, at: usize, deeper: bool| {
+            let md = Md::parse(text);
+            indent_item(&md, text, at, deeper).map(|tx| tx.apply(text))
+        };
+        let t = "- one\n- two\n  - child\n- three\n";
+        let at = t.find("two").unwrap();
+        assert_eq!(
+            run(t, at, true).as_deref(),
+            Some("- one\n  - two\n    - child\n- three\n")
+        );
+        let nested = "- one\n  - two\n- three\n";
+        let at = nested.find("two").unwrap();
+        assert_eq!(
+            run(nested, at, false).as_deref(),
+            Some("- one\n- two\n- three\n")
+        );
+        assert_eq!(run(t, 2, true), None);
+        let ordered = "1. one\n2. two\n";
+        let at = ordered.find("two").unwrap();
+        assert_eq!(
+            run(ordered, at, true).as_deref(),
+            Some("1. one\n   2. two\n")
+        );
+    }
 
     /// Links to headings: `#anchor` in the document, `OTHER.md#anchor` as
     /// the heading's line in that file; percent-encoded names decoded when

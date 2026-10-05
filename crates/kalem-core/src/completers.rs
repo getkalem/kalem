@@ -637,6 +637,12 @@ impl Completer for WikiCompleter {
         Trigger::Strings(&["[["])
     }
 
+    /// It walks the project's folders: on another thread, so typing never
+    /// waits for it.
+    fn slow(&self) -> bool {
+        true
+    }
+
     fn complete(&self, ctx: &Context, _doc: Option<&DocumentState>, _cancel: &Cancel) -> Vec<Item> {
         let Some(typed) = wiki_prefix(ctx.line_before()) else {
             return Vec::new();
