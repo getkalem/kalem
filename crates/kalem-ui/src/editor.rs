@@ -1837,7 +1837,10 @@ impl Editor {
         cx: &mut Context<'_, Self>,
     ) {
         self.completion = None;
-        self.doc.paste(text, html, plain, Instant::now());
+        // A CSV grid takes it as cells.
+        if self.source || plain || !self.doc.paste_in_grid(text, Instant::now()) {
+            self.doc.paste(text, html, plain, Instant::now());
+        }
         self.goal_x = None;
         self.after_change(cx);
     }

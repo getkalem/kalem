@@ -590,8 +590,12 @@ keeps its dialect and every byte the command does not name.
   tab-separated values (what spreadsheets copy), or of the dialect's
   delimiter when no line has a tab; records past the last are added,
   short records get the fields they lack, and only the cells the block
-  covers change (=csv_tools::paste_block=). An ordinary paste inserts the
-  text at the cursor.
+  covers change (=csv_tools::paste_block=). In the grid an ordinary
+  paste does the same with text of several lines or with tabs, from the
+  cursor's cell (a selection's top left one); a single value goes into
+  the cell, quoted when it needs it (=DocumentState::paste_in_grid=).
+  Paste as Plain Text, and any paste in the source view, inserts the text
+  as it is.
 - A selection from a cell in one row to a cell in another is a
   rectangle of cells, as in a spreadsheet: both editors paint the cells
   between the two corners, not the text between them. Copy (and /Copy

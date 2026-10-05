@@ -1207,6 +1207,81 @@ impl DocumentState {
         true
     }
 
+    /// A paste into a CSV file's grid (not its source view), as a
+    /// spreadsheet pastes: lines or tab-separated values are written over
+    /// the cells from the cursor's (the selection's top left) down and to
+    /// the right, rows added past the end; a single value goes into the
+    /// cell, quoted when it needs it. Whether it was pasted so.
+    pub fn paste_in_grid(&mut self, text: &str, now: Instant) -> bool {
+        if self.meta.mode != DocumentMode::Csv || !self.extra.is_empty() {
+            return false;
+        }
+        let text = text.replace("\r\n", "\n");
+        let text = text.strip_suffix('\n').unwrap_or(&text);
+        if text.is_empty() {
+            return false;
+        }
+        let Some((layout, row, rec, col)) = crate::csv::cell_at(self) else {
+            return false;
+        };
+        // Paste as Block asked for: this is it.
+        self.csv_paste_block = false;
+        let s = self.selection;
+        let (row0, col0) = if s.anchor == s.head {
+            (row, col)
+        } else {
+            let Some((_, r, _, c)) = crate::csv::cell_at_offset(self, s.anchor) else {
+                return false;
+            };
+            (r, c)
+        };
+        let (top, left) = (row0.min(row), col0.min(col));
+        if text.contains(['\n', '\t']) {
+            let block = crate::csv_tools::block_rows(text, &layout.dialect);
+            let Some(tx) = crate::csv_tools::paste_block(
+                self.text.as_str(),
+                &layout.dialect,
+                top,
+                left,
+                &block,
+            ) else {
+                return false;
+            };
+            self.apply(&tx, ChangeKind::Command, now);
+            // The cursor at the block's first cell.
+            let layout = crate::csv::layout(self);
+            let first = layout
+                .index
+                .borrow_mut()
+                .record(self.text.as_str(), top, &layout.dialect)
+                .and_then(|r| r.fields.get(left).map(|f| f.range.start));
+            if let Some(at) = first {
+                self.selection = Selection::caret(at);
+            }
+            return true;
+        }
+        // One value: into the cell, the selection's text in it replaced,
+        // a selection over cells collapsed to its first.
+        if s.anchor != s.head {
+            if (row0, col0) == (row, col) {
+                self.delete_in_grid(false, now);
+            } else if let Some(f) = crate::csv::layout(self)
+                .index
+                .borrow_mut()
+                .record(self.text.as_str(), top, &layout.dialect)
+                .and_then(|r| r.fields.get(left).cloned())
+            {
+                self.selection = Selection::caret(f.range.end);
+            } else {
+                self.selection = Selection::caret(rec.range.end);
+            }
+        }
+        if !self.type_in_grid(text, now) {
+            self.insert_text(text, now);
+        }
+        true
+    }
+
     /// Backspace (`forward` false) or Delete in a CSV file's grid (not
     /// its source view): within a cell's value, never its delimiters or
     /// quotes; a selection over more than one cell clears the cells

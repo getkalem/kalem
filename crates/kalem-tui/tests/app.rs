@@ -3737,6 +3737,17 @@ fn csv_cells_are_clicked_anywhere_in_them() {
 }
 
 #[test]
+fn csv_paste_goes_into_cells() {
+    // Tab-separated lines are written over the cells from the cursor's
+    // (they were inserted as text, splitting the row).
+    let text = "a,b\n1,Ankara\n2,x\n";
+    let mut t = with_file(text, "d.csv", Config::default(), (60, 8));
+    t.at(text.find("Ankara").unwrap());
+    t.app.event(Event::Paste("P1\tP2\nP3\tP4".into()));
+    assert_eq!(t.text(), "a,b\n1,P1,P2\n2,P3,P4\n");
+}
+
+#[test]
 fn csv_malformed_field_in_the_status_bar() {
     let text = "name,note\napple,6\" long\n";
     let mut t = with_file(text, "d.csv", Config::default(), (100, 8));

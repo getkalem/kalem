@@ -2586,7 +2586,10 @@ impl App {
             self.run_command("viewer.grid.pasteText", serde_json::json!({ "text": text }));
             return;
         }
-        self.doc.paste(text, None, plain, Instant::now());
+        // A CSV grid takes it as cells.
+        if self.editor.source || plain || !self.doc.paste_in_grid(text, Instant::now()) {
+            self.doc.paste(text, None, plain, Instant::now());
+        }
         self.editor.viewport.goal_x = None;
         self.after_change(true);
     }

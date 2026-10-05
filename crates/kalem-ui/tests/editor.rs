@@ -4545,3 +4545,35 @@ fn csv_deleting_keeps_the_cells(cx: &mut TestAppContext) {
     cx.simulate_keystrokes("backspace");
     assert_eq!(body(cx), "id,ad,şehir\n1,,\n2,,\n3,,\n");
 }
+
+/// A paste into the CSV grid goes into its cells, as a spreadsheet
+/// pastes: a block of tab-separated (or one-column) lines over the cells
+/// from the cursor's, a single value into the cell, quoted when it needs
+/// it (all were inserted as raw text, splitting rows).
+#[gpui::test]
+fn csv_pasting_into_cells(cx: &mut TestAppContext) {
+    let text = "a,b,c\n1,Ayşe,x\n2,Çağrı,y\n";
+    let (e, cx) = open_named(text, "paste.csv", || None, cx);
+    let body =
+        |cx: &mut VisualTestContext| e.read_with(cx, |e, _| e.doc.text().as_str().to_string());
+    let paste = |s: &str, cx: &mut VisualTestContext| {
+        cx.write_to_clipboard(gpui::ClipboardItem::new_string(s.into()));
+        cx.simulate_keystrokes(&format!("{}-v", primary()));
+    };
+    let undo = |cx: &mut VisualTestContext| cx.simulate_keystrokes(&format!("{}-z", primary()));
+    // A 2×2 block at B2, over Ayşe, x, Çağrı and y.
+    at(&e, text.find("Ayşe").unwrap() + 2, cx);
+    paste("X\tY\nZ\tW\n", cx);
+    assert_eq!(body(cx), "a,b,c\n1,X,Y\n2,Z,W\n");
+    undo(cx);
+    assert_eq!(body(cx), text);
+    // One column copied in Kalem (no tab), down from C2, a row added.
+    at(&e, text.find('x').unwrap(), cx);
+    paste("p\nq\nr\n", cx);
+    assert_eq!(body(cx), "a,b,c\n1,Ayşe,p\n2,Çağrı,q\n,,r\n");
+    undo(cx);
+    // A single value with a quote, in the cell, quoted.
+    at(&e, text.find("Ayşe").unwrap() + "Ayşe".len(), cx);
+    paste("5\" ekran", cx);
+    assert_eq!(body(cx), "a,b,c\n1,\"Ayşe5\"\" ekran\",x\n2,Çağrı,y\n");
+}

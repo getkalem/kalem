@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - The toolbar's `//` (Toggle Comment) shows only in text with a comment syntax, not over a workbook, a PDF or a picture (new when-clause key `hasComments`).
+- CSV grid, both editors: a paste goes into the cells, as a spreadsheet pastes: text of several lines or with tabs is written over the cells from the cursor's down and to the right (rows added past the end), and a single value goes into the cell, quoted when it needs it. It was inserted as raw text, splitting rows; Paste as Plain Text keeps that.
 - CSV grid in the terminal editor: a click anywhere in a cell selects it (on the padding after a bar it selected the cell before), and a short record's missing cells and the empty columns are selected by a click, as in the graphical editor.
 - CSV grid, both editors: text typed right after a quoted field's closing quote (or right before its opening one) goes inside the quotes; it was written after them, and the field was no longer valid CSV (`"Bursa"Q`).
 - CSV grid, both editors: Backspace and Delete delete within a cell's value; at a cell's start or end they deleted the delimiter and merged two cells (or shifted the columns), and right inside a quote they left the field open. A doubled quote goes as one character, and a selection over cells of several rows clears them instead of merging the rows.
