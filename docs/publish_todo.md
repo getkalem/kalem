@@ -476,28 +476,40 @@ documents, `kalem check`'s round trip and diagnostics, a missing
 
 ### 3.3 LaTeX
 
-- [ ] **Major, reported (stub latexmk).** Building an unchanged document
+- [x] **Major, reported (stub latexmk).** Building an unchanged document
   with latexmk reports a failure: latexmk exits 0 without rewriting the
   `.log`, `build_inner` accepts only a log written during this build
   (`latex_build.rs:566-576`, `621-628`), so F5 twice shows "The PDF
   could not be made: latexmk: …".
-- [ ] **Major, reported.** LaTeX errors are lost when the file name has
+  (done: latexmk that exits 0 leaving an older log is up to date: that
+  log's problems and the PDF are the build's.)
+- [x] **Major, reported.** LaTeX errors are lost when the file name has
   a space: `file_line_error` rejects names with a blank
   (`latex_build.rs:238`), `track` cuts at the first blank (`:260-264`).
   `my paper.tex` with an undefined macro builds "without errors".
-- [ ] **Major, reported.** Without latexmk (BasicTeX, MiKTeX without
+  (done: a path (`./`, `../`, `/`) may have blanks in an error line, and
+  the file stack runs a path cut at a blank on to its extension; tested
+  with pdflatex on `my paper.tex`.)
+- [x] **Major, reported.** Without latexmk (BasicTeX, MiKTeX without
   Perl, minimal Linux): with `--outdir` bibtex runs inside the output
   folder and cannot find `refs.bib` (`latex_build.rs:601-609`): exit 0,
   empty bibliography; `\include{chapters/intro}` fails because only the
   top output folder is created (`:542-544`); bibtex/biber output is
   discarded and a missing biber is never reported.
-- [ ] **Major, reported.** Pictures and files are resolved from the
+  (done: bibtex gets the document's folder in `BIBINPUTS` and biber
+  `--input-directory`; the folders of `\include{sub/x}` are made under
+  the output folder; a missing bibtex or biber is a warning; tested with
+  pdflatex and `--outdir build`.)
+- [x] **Major, reported.** Pictures and files are resolved from the
   *edited* file's folder, LaTeX resolves from the root's: the view
   (`latex_view.rs:6318-6328`), Insert Figure
   (`kalem-ui/src/editor.rs:1549`), completion (`latex_complete.rs:953`)
   and the missing-picture check (`latex_check.rs:691`). In the usual
   thesis layout (`main.tex`, `chapters/`, `figures/`) a chapter's figure
   does not show, and Insert Figure writes a path the build cannot find.
+  (done: the view, the missing-picture check, completion and Insert
+  Figure resolve from the root document's folder; tested on a chapter
+  in a subfolder.)
 - [~] **Major, verified.** `kalem check`, `kalem parse` and
   `kalem latex build` read with `read_to_string`
   (`kalem-cli/src/commands/mod.rs:28-30`, `606`): a Latin-1 file stops
@@ -547,12 +559,14 @@ documents, `kalem check`'s round trip and diagnostics, a missing
 - [ ] **Minor, reported.** `\nocite{*}` is flagged "No bibliography has
   the key @*" (`latex_check.rs:591` lacks the `*` filter of `:503`);
   fails `--deny-warnings`. The LaTeX messages use Org's `@key` spelling.
-- [ ] **Minor, reported.** Every "File `x' not found" gets "Install it
+- [x] **Minor, reported.** Every "File `x' not found" gets "Install it
   with: tlmgr install x" (`latex_build.rs:286-291`), pictures and
   `\input` files included ("tlmgr install ../ch/pic").
-- [ ] **Minor, reported.** Wrapped log lines are re-joined by counting
+  (done: only a package's files (`.sty`, `.cls`, `.def`, …) get it.)
+- [x] **Minor, reported.** Wrapped log lines are re-joined by counting
   characters, pdfTeX wraps at 79 bytes (`latex_build.rs:148`): a
   warning about `\ref{şekil:…}` loses its line number.
+  (done: 79 bytes or 79 characters; test `wrapped_lines_by_bytes`.)
 - [ ] **Minor, reported.** A BOM hides `% !TEX program` and `% !TEX root`
   when read from disk (`magic_program`, `latex_build.rs:90-98`,
   `trim_start` does not strip U+FEFF).

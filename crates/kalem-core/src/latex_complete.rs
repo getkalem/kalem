@@ -950,8 +950,8 @@ impl LatexCompleter {
             .collect()
     }
 
-    fn files(&self, ctx: &Context, command: &str, arg: &str) -> Vec<Item> {
-        let Some(base) = ctx.path.as_deref().and_then(Path::parent) else {
+    fn files(&self, ctx: &Context, root: Option<&Path>, command: &str, arg: &str) -> Vec<Item> {
+        let Some(base) = root.or_else(|| ctx.path.as_deref().and_then(Path::parent)) else {
             return Vec::new();
         };
         let (dir, name) = arg.rsplit_once('/').map_or(("", arg), |(d, n)| (d, n));
@@ -1026,7 +1026,11 @@ impl Completer for LatexCompleter {
                 "begin" => self.environments(ctx, doc, arg, true),
                 "end" => self.environments(ctx, doc, arg, false),
                 "input" | "include" | "includegraphics" | "subfile" => {
-                    self.files(ctx, command, arg)
+                    // From the root document's folder, where LaTeX runs.
+                    let root = doc
+                        .and_then(DocumentState::latex)
+                        .and_then(|l| l.root_dir());
+                    self.files(ctx, root.as_deref(), command, arg)
                 }
                 "usepackage" | "RequirePackage" => {
                     let name = arg.rsplit(',').next().unwrap_or("").trim_start();

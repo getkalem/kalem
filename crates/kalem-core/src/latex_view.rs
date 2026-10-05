@@ -6312,9 +6312,11 @@ fn picture_by_tex(doc: &crate::DocumentState, state: &LatexState, source: &str) 
         .map(|p| p.to_string_lossy().into_owned())
 }
 
-/// The file an `\includegraphics` shows, relative to the document: its
-/// name as written, in the document's folder or a `\graphicspath` folder,
-/// with the extensions LaTeX tries when it has none.
+/// The file an `\includegraphics` shows: its name as written, in the
+/// folder LaTeX runs in (the root document's, which a chapter in a
+/// subfolder is not) or a `\graphicspath` folder, with the extensions
+/// LaTeX tries when it has none; relative to the document when that is
+/// the folder, else the whole path.
 fn picture_path(
     doc: &crate::DocumentState,
     model: &latex_model::Model,
@@ -6324,8 +6326,13 @@ fn picture_path(
         .children()
         .find(|c| c.kind() == K::GROUP)
         .map(|g| group_text(&g))?;
-    let base = doc.meta.path.as_deref().and_then(std::path::Path::parent);
-    find_picture(base, &model.graphics_paths, name.trim())
+    let own = doc.meta.path.as_deref().and_then(std::path::Path::parent);
+    let root = doc.latex().and_then(LatexState::root_dir);
+    match root.as_deref() {
+        Some(r) if Some(r) != own => find_picture(Some(r), &model.graphics_paths, name.trim())
+            .map(|p| r.join(p).to_string_lossy().into_owned()),
+        _ => find_picture(own, &model.graphics_paths, name.trim()),
+    }
 }
 
 /// The file of picture `name`, relative to the folder `base`: in it or a

@@ -1529,13 +1529,17 @@ impl Editor {
                 self.ask_argument(&command, &title, args, arg, "string".into(), cx);
             }
             Request::PickFile { command, arg, args } => {
-                let dir = self
-                    .doc
-                    .meta
-                    .path
-                    .as_ref()
-                    .and_then(|p| p.parent())
-                    .map(std::path::Path::to_path_buf);
+                // Relative to where the path is read from: a LaTeX
+                // project's root folder (a figure inserted in a chapter in
+                // a subfolder), else the document's folder.
+                let dir = self.doc.latex().and_then(|l| l.root_dir()).or_else(|| {
+                    self.doc
+                        .meta
+                        .path
+                        .as_ref()
+                        .and_then(|p| p.parent())
+                        .map(std::path::Path::to_path_buf)
+                });
                 let paths = cx.prompt_for_paths(gpui::PathPromptOptions {
                     files: true,
                     directories: false,

@@ -940,6 +940,7 @@ latex-tie = Use ~ before a reference or a citation, so that no line breaks befor
 latex-ellipsis = Use \ldots for an ellipsis
 latex-quotes = Use `` and '' for quotation marks
 latex-install-texlive = Install it with: tlmgr install { $package }
+latex-no-bib-tool = The bibliography needs { $program }, which is not installed: citations stay undefined
 latex-install-miktex = Install it with the MiKTeX Console, or: mpm --install={ $package }
 cmd-latex-build = Build PDF
 cmd-latex-showInPdf = Show in PDF

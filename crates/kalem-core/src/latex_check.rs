@@ -689,10 +689,12 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
                 .trim_end_matches('}')
                 .trim()
                 .to_string();
-            let found = crate::latex_view::find_picture(base, &model.graphics_paths, &name)
-                .or_else(|| {
-                    crate::latex_view::find_picture(Some(&root_dir), &model.graphics_paths, &name)
-                });
+            // From the root document's folder, where LaTeX runs: a picture
+            // found only beside a chapter in a subfolder is not found by
+            // the build.
+            let _ = base;
+            let found =
+                crate::latex_view::find_picture(Some(&root_dir), &model.graphics_paths, &name);
             if found.is_none() {
                 out.push(Diagnostic {
                     range,

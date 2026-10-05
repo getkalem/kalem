@@ -866,6 +866,7 @@ latex-tie = Göndermeden ve atıftan önce ~ kullanın, önünde satır kırılm
 latex-ellipsis = Üç nokta için \ldots kullanın
 latex-quotes = Tırnak için `` ve '' kullanın
 latex-install-texlive = Kurmak için: tlmgr install { $package }
+latex-no-bib-tool = Kaynakça { $program } istiyor, o kurulu değil: atıflar tanımsız kalır
 latex-install-miktex = MiKTeX Console ile ya da şununla kurun: mpm --install={ $package }
 cmd-latex-build = PDF Oluştur
 cmd-latex-showInPdf = PDF'de Göster

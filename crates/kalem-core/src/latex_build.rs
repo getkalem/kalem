@@ -129,9 +129,17 @@ fn distribution(path: &std::ffi::OsStr) -> Option<&'static str> {
     }
 }
 
-/// The install hint for a missing `.sty` or `.cls` file.
+/// The install hint for a missing `.sty` or `.cls` file (or another file
+/// of a package); none for a picture or a document's own file.
 fn install_hint(file: &str, path: &std::ffi::OsStr) -> Option<String> {
-    let package = file.rsplit_once('.').map_or(file, |(s, _)| s);
+    let (package, ext) = file.rsplit_once('.')?;
+    let of_a_package = matches!(
+        ext,
+        "sty" | "cls" | "clo" | "def" | "fd" | "cfg" | "ldf" | "bst" | "bbx" | "cbx" | "lbx"
+    );
+    if !of_a_package || package.contains('/') {
+        return None;
+    }
     Some(match distribution(path)? {
         "texlive" => crate::tr!("latex-install-texlive", package = package),
         _ => crate::tr!("latex-install-miktex", package = package),
@@ -141,11 +149,12 @@ fn install_hint(file: &str, path: &std::ffi::OsStr) -> Option<String> {
 /// The problems of a LaTeX log, with their files.
 pub fn problems(log: &str) -> Vec<Problem> {
     let search = std::env::var_os("PATH").unwrap_or_default();
-    // LaTeX wraps log lines at 79 characters.
+    // LaTeX wraps log lines at 79 characters: pdfTeX counts bytes (a
+    // Turkish letter is two), XeTeX and LuaTeX characters.
     let mut joined = String::new();
     for l in log.lines() {
         joined.push_str(l);
-        if l.chars().count() != 79 {
+        if l.len() != 79 && l.chars().count() != 79 {
             joined.push('\n');
         }
     }
@@ -225,7 +234,8 @@ pub fn problems(log: &str) -> Vec<Problem> {
 }
 
 /// `FILE:LINE: MESSAGE`, as `-file-line-error` writes errors: the file a
-/// name with an extension and no blanks.
+/// name with an extension, without blanks unless it is a path (`./my
+/// paper.tex`, as TeX writes the document's own files).
 fn file_line_error(l: &str) -> Option<(&str, usize, &str)> {
     let mut from = 0;
     while let Some(i) = l[from..].find(':') {
@@ -235,7 +245,8 @@ fn file_line_error(l: &str) -> Option<(&str, usize, &str)> {
         if digits > 0 && rest[digits..].starts_with(": ") {
             let file = &l[..colon];
             let ext = file.rsplit_once('.').map(|(_, e)| e);
-            if !file.contains(' ')
+            let path = file.starts_with("./") || file.starts_with("../") || file.starts_with('/');
+            if (path || !file.contains(' '))
                 && ext.is_some_and(|e| {
                     !e.is_empty() && e.len() <= 4 && e.chars().all(|c| c.is_ascii_alphanumeric())
                 })
@@ -257,9 +268,17 @@ fn track(line: &str, files: &mut Vec<String>) {
         match b[k] {
             b'(' => {
                 let rest = &line[k + 1..];
-                let end = rest
+                let mut end = rest
                     .find(|c: char| c.is_whitespace() || c == ')' || c == '(')
                     .unwrap_or(rest.len());
+                // `(./my paper.tex`: a path cut at a blank before its
+                // extension runs on to the extension.
+                if (rest.starts_with("./") || rest.starts_with('/'))
+                    && !rest[..end].rsplit('/').next().unwrap_or("").contains('.')
+                    && let Some(more) = path_with_blanks(rest)
+                {
+                    end = more;
+                }
                 let name = &rest[..end];
                 let looks = name.starts_with("./") || name.starts_with('/') || name.contains('.');
                 files.push(if looks {
@@ -281,6 +300,31 @@ fn track(line: &str, files: &mut Vec<String>) {
     while files.last().is_some_and(String::is_empty) && files.len() > 64 {
         files.pop();
     }
+}
+
+/// The length of a path with blanks at the start of `s` (`./my paper.tex`):
+/// up to the end of the first `.ext` (one to four letters or digits)
+/// followed by a blank, a parenthesis or the end, with no parenthesis
+/// before it.
+fn path_with_blanks(s: &str) -> Option<usize> {
+    let stop = s.find(['(', ')']).unwrap_or(s.len());
+    let b = s.as_bytes();
+    let mut i = 0;
+    while let Some(dot) = s[i..stop].find('.').map(|d| i + d) {
+        let ext = b[dot + 1..stop]
+            .iter()
+            .take_while(|c| c.is_ascii_alphanumeric())
+            .count();
+        let after = dot + 1 + ext;
+        let ends = after == s.len()
+            || b.get(after)
+                .is_some_and(|c| c.is_ascii_whitespace() || *c == b'(' || *c == b')');
+        if (1..=4).contains(&ext) && ends && dot > 1 {
+            return Some(after);
+        }
+        i = dot + 1;
+    }
+    None
 }
 
 /// `File `foo.sty' not found.`
@@ -563,7 +607,37 @@ fn build_inner(
             cancelled,
         )
     };
+    // `\include{chapters/intro}` writes `chapters/intro.aux` under the
+    // output folder, which TeX does not make.
+    if let Some(d) = out_dir {
+        let text = std::fs::read(root)
+            .map(|b| String::from_utf8_lossy(&b).into_owned())
+            .unwrap_or_default();
+        for part in text.split("\\include{").skip(1) {
+            let Some((name, _)) = part.split_once('}') else {
+                continue;
+            };
+            if let Some(sub) = Path::new(name.trim())
+                .parent()
+                .filter(|p| !p.as_os_str().is_empty())
+            {
+                let _ = std::fs::create_dir_all(dir.join(d).join(sub));
+            }
+        }
+    }
     let ok = run(&tool)?;
+    // latexmk with nothing to do (the PDF up to date) leaves the log of
+    // the build that made it: that build's problems and PDF.
+    if ok && matches!(tool, Tool::Latexmk(_)) && !fresh(&log_path) && log_path.is_file() {
+        let _ = std::fs::remove_file(&printed);
+        let log = std::fs::read(&log_path)
+            .map(|b| String::from_utf8_lossy(&b).into_owned())
+            .unwrap_or_default();
+        return Ok(Built {
+            pdf: pdf_path.is_file().then_some(pdf_path),
+            problems: problems(&log),
+        });
+    }
     // latexmk that could not run (no Perl, as MiKTeX's needs) writes no
     // log: the engine instead.
     if !ok
@@ -574,6 +648,7 @@ fn build_inner(
         tool = Tool::Engine(p);
         run(&tool)?;
     }
+    let mut missing_tool = None;
     if let Tool::Engine(program) = &tool {
         let aux = out.join(&stem).with_extension("aux");
         let bcf = out.join(&stem).with_extension("bcf");
@@ -598,9 +673,18 @@ fn build_inner(
                 .ok()
                 .and_then(|j| pdf::find(b, &j))
             {
+                // Run in the output folder, where the `.aux` is, the
+                // bibliographies found beside the document as well.
+                let mut c = Command::new(p);
+                if b == "biber" {
+                    c.arg("--input-directory").arg(&dir);
+                } else {
+                    let sep = if cfg!(windows) { ";" } else { ":" };
+                    // A trailing separator keeps TeX's own places too.
+                    c.env("BIBINPUTS", format!("{}{sep}", dir.display()));
+                }
                 run_to_end(
-                    Command::new(p)
-                        .arg(&stem)
+                    c.arg(&stem)
                         .current_dir(&out)
                         .stdin(std::process::Stdio::null())
                         .stdout(std::process::Stdio::null())
@@ -608,6 +692,8 @@ fn build_inner(
                     cancelled,
                 )?;
                 again = 2;
+            } else {
+                missing_tool = Some(b);
             }
         }
         for _ in 0..again {
@@ -631,9 +717,20 @@ fn build_inner(
         .map(|b| String::from_utf8_lossy(&b).into_owned())
         .unwrap_or_default();
     let pdf = pdf_path;
+    let mut problems = problems(&log);
+    // The bibliography's tool not installed: said, not left as undefined
+    // citations.
+    if let Some(b) = missing_tool {
+        problems.push(Problem {
+            file: None,
+            line: None,
+            message: crate::tr!("latex-no-bib-tool", program = b),
+            severity: Severity::Warning,
+        });
+    }
     Ok(Built {
         pdf: (pdf.is_file() && fresh(&pdf)).then_some(pdf),
-        problems: problems(&log),
+        problems,
     })
 }
 
@@ -659,6 +756,41 @@ pub fn report(root: &Path, problems: &[Problem]) -> String {
 
 #[cfg(test)]
 mod tests {
+
+    /// A document whose name has a blank: its errors keep their file and
+    /// line, and the file stack names it whole.
+    #[test]
+    fn names_with_blanks() {
+        assert_eq!(
+            file_line_error("./my paper.tex:4: Undefined control sequence."),
+            Some(("./my paper.tex", 4, "Undefined control sequence."))
+        );
+        // Not a path: a blank still ends the name, as in a message.
+        assert_eq!(file_line_error("See the paper.tex:4: x"), None);
+        let mut files = Vec::new();
+        track("(./my paper.tex [1]", &mut files);
+        assert_eq!(files, ["./my paper.tex"]);
+    }
+
+    /// Install hints only for a package's files.
+    #[test]
+    fn install_hints_for_packages_only() {
+        let path = std::ffi::OsString::new();
+        assert_eq!(install_hint("example-image", &path), None);
+        assert_eq!(install_hint("../ch/pic.png", &path), None);
+        assert_eq!(install_hint("two", &path), None);
+    }
+
+    /// pdfTeX wraps a log line at 79 bytes: a warning with Turkish letters
+    /// keeps its line number.
+    #[test]
+    fn wrapped_lines_by_bytes() {
+        let first = "LaTeX Warning: Reference `şekil:ölçüm-sonuçları' on page 1 undefined on i";
+        assert_eq!(first.len(), 79);
+        let log = format!("{first}\nnput line 12.\n");
+        let p = problems(&log);
+        assert!(p.iter().any(|p| p.line == Some(12)), "{p:?}");
+    }
     #[test]
     fn build_outputs_kept_out_of_git() {
         let dir = std::env::temp_dir().join(format!("kalem-ignore-{}", std::process::id()));
