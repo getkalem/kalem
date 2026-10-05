@@ -22,6 +22,12 @@ const PLUGINS: &[&str] = &[
 /// adds it (a PDF page in 39 ms with it, 52 without: D28's record).
 const SIMD: &str = "target.wasm32-unknown-unknown.rustflags=[\"-C\", \"target-feature=+simd128\"]";
 
+/// The functions' names kept (the module's `name` section, half a
+/// megabyte for the workbook plugin): a trap in Kalem's log is then a
+/// backtrace of the plugin's functions rather than of numbers (wasm_todo
+/// W10). The plugins' own profile strips them.
+const NAMES: &str = "profile.release.strip=\"debuginfo\"";
+
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     let out = PathBuf::from(std::env::var_os("OUT_DIR").expect("OUT_DIR"));
@@ -195,6 +201,8 @@ fn build(cargo: &str, ws: &Path, target_dir: &Path) -> Vec<(String, PathBuf)> {
             "--message-format=json-render-diagnostics",
             "--config",
             SIMD,
+            "--config",
+            NAMES,
         ])
         .arg("--manifest-path")
         .arg(ws.join("Cargo.toml"))

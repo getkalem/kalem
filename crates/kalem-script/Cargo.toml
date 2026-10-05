@@ -19,6 +19,8 @@ jiff = { version = "0.2", default-features = false, features = ["std", "tz-syste
 kalem-viewer.workspace = true
 # A document whose instance failed is said once in the log.
 tracing = "0.1"
+# A trap's backtrace with the plugin's Rust functions named (W10).
+rustc-demangle = "0.1"
 
 [dev-dependencies]
 # Test components are written in the component text format.

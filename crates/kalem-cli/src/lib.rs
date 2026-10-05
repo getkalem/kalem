@@ -87,6 +87,14 @@ enum PluginAction {
         /// The plugin's folder.
         dir: Option<std::path::PathBuf>,
     },
+    /// Builds the plugin in DIR (the current folder by default) with its
+    /// functions' names kept, installs it, and builds and installs it
+    /// again whenever its sources change, until stopped: a Kalem running
+    /// opens files with the new build.
+    Dev {
+        /// The plugin's folder.
+        dir: Option<std::path::PathBuf>,
+    },
     /// Removes an installed plugin.
     Remove {
         /// Its ID.
@@ -322,7 +330,8 @@ enum Command {
         top: usize,
     },
     /// Plugins: `kalem plugin browse`, `install NAME|URL|PATH`, `list`,
-    /// `check`, `remove ID`, `enable ID`, `new NAME`, `build [DIR]`.
+    /// `check`, `remove ID`, `enable ID`, `new NAME`, `build [DIR]`,
+    /// `dev [DIR]`.
     Plugin {
         #[command(subcommand)]
         action: PluginAction,
@@ -810,6 +819,7 @@ where
             PluginAction::Check => commands::plugin::check(),
             PluginAction::New { name } => commands::plugin::new(&name),
             PluginAction::Build { dir } => commands::plugin::build(dir.as_deref()),
+            PluginAction::Dev { dir } => commands::plugin::dev(dir.as_deref()),
             PluginAction::Remove { id } => commands::plugin::remove(&id),
             PluginAction::Enable { id } => commands::plugin::enable(&id),
         },

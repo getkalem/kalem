@@ -280,8 +280,10 @@ pub struct ComponentViewer {
     name: String,
     extensions: Vec<&'static str>,
     limits: crate::Limits,
-    plugin: std::sync::OnceLock<Result<crate::Plugin, String>>,
-    detector: std::sync::Mutex<Option<Viewer>>,
+    plugin: std::sync::Mutex<Option<Loaded>>,
+    /// The instance answering `detect`, with the [`Loaded::generation`]
+    /// it was made of.
+    detector: std::sync::Mutex<Option<(u64, Viewer)>>,
     /// The bundled viewer this one takes the place of, used when the
     /// component cannot run (built for another version of the API).
     fallback: Option<std::sync::Arc<dyn kalem_viewer::Viewer>>,
@@ -295,6 +297,15 @@ pub struct ComponentViewer {
 
 /// What [`ComponentViewer::with_on_stop`] calls.
 pub type OnStop = std::sync::Arc<dyn Fn(&kalem_viewer::Stopped) + Send + Sync>;
+
+/// A component as compiled, or why it could not be.
+struct Loaded {
+    /// When its file was last changed (none built into Kalem).
+    changed: Option<std::time::SystemTime>,
+    /// How many times it was read again.
+    generation: u64,
+    plugin: Result<crate::Plugin, String>,
+}
 
 impl std::fmt::Debug for ComponentViewer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -335,7 +346,7 @@ impl ComponentViewer {
                 })
                 .collect(),
             limits,
-            plugin: std::sync::OnceLock::new(),
+            plugin: std::sync::Mutex::new(None),
             detector: std::sync::Mutex::new(None),
             fallback: None,
             notice: None,
@@ -405,22 +416,57 @@ impl ComponentViewer {
         }
     }
 
-    /// The component, compiled or read from the cache on first use.
-    pub fn plugin(&self) -> Result<&crate::Plugin, kalem_viewer::ViewerError> {
-        self.plugin
-            .get_or_init(|| {
-                match self.bytes {
-                    Some(b) => self.host.load(b),
-                    None => self.host.load_file(&self.file),
-                }
-                .map_err(|e| e.to_string())
-            })
+    /// The component, compiled or read from the cache on first use. One
+    /// installed in a file is read again when the file changed (`kalem
+    /// plugin dev` built it again, wasm_todo W10): the documents opened
+    /// from then on run the new build, those open keep theirs.
+    pub fn plugin(&self) -> Result<crate::Plugin, kalem_viewer::ViewerError> {
+        self.loaded().1
+    }
+
+    /// [`ComponentViewer::plugin`] with its [`Loaded::generation`].
+    fn loaded(&self) -> (u64, Result<crate::Plugin, kalem_viewer::ViewerError>) {
+        let mut slot = self.plugin.lock().unwrap_or_else(|e| e.into_inner());
+        let changed = match self.bytes {
+            Some(_) => None,
+            None => std::fs::metadata(&self.file)
+                .and_then(|m| m.modified())
+                .ok(),
+        };
+        if slot
             .as_ref()
-            .map_err(|e| kalem_viewer::ViewerError(format!("{}: {e}", self.name)))
+            .is_none_or(|l| self.bytes.is_none() && l.changed != changed)
+        {
+            let plugin = match self.bytes {
+                Some(b) => self.host.load(b),
+                None => self.host.load_file(&self.file),
+            }
+            .map_err(|e| e.to_string());
+            let generation = slot.as_ref().map_or(0, |l| l.generation + 1);
+            *slot = Some(Loaded {
+                changed,
+                generation,
+                plugin,
+            });
+        }
+        let l = slot.as_ref().expect("loaded");
+        (
+            l.generation,
+            l.plugin
+                .clone()
+                .map_err(|e| kalem_viewer::ViewerError(format!("{}: {e}", self.name))),
+        )
     }
 
     fn instance(&self) -> Result<Viewer, kalem_viewer::ViewerError> {
-        Viewer::new(&self.host, self.plugin()?, self.limits).map_err(err)
+        self.instance_of(self.plugin())
+    }
+
+    fn instance_of(
+        &self,
+        plugin: Result<crate::Plugin, kalem_viewer::ViewerError>,
+    ) -> Result<Viewer, kalem_viewer::ViewerError> {
+        Viewer::new(&self.host, &plugin?, self.limits).map_err(err)
     }
 
     /// Whether the component runs with this Kalem: compiled and bound to
@@ -448,10 +494,12 @@ impl kalem_viewer::Viewer for ComponentViewer {
     }
 
     fn detect(&self, name: &str, head: &[u8]) -> kalem_viewer::Detection {
+        // Asked before the detector's lock: `loaded` takes the plugin's.
+        let (generation, plugin) = self.loaded();
         let mut slot = self.detector.lock().unwrap_or_else(|e| e.into_inner());
-        if slot.is_none() {
-            match self.instance() {
-                Ok(v) => *slot = Some(v),
+        if slot.as_ref().is_none_or(|(g, _)| *g != generation) {
+            match self.instance_of(plugin) {
+                Ok(v) => *slot = Some((generation, v)),
                 Err(e) => {
                     self.warn(&e);
                     return self
@@ -461,7 +509,7 @@ impl kalem_viewer::Viewer for ComponentViewer {
                 }
             }
         }
-        let Some(v) = slot.as_mut() else {
+        let Some((_, v)) = slot.as_mut() else {
             return kalem_viewer::Detection::No;
         };
         match v.detect(name, head) {

@@ -203,7 +203,7 @@ pub(crate) fn new(name: &str) -> Result<ExitCode> {
 pub(crate) fn build(dir: Option<&std::path::Path>) -> Result<ExitCode> {
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
     let dir = dir.map_or(cwd.clone(), |d| cwd.join(d));
-    let b = kalem_core::plugin_build::build(&dir)?;
+    let b = kalem_core::plugin_build::build(&dir, false)?;
     println!("Built {} ({} kB)", b.path.display(), b.size.div_ceil(1024));
     let list = |v: &[String]| {
         if v.is_empty() {
@@ -215,4 +215,64 @@ pub(crate) fn build(dir: Option<&std::path::Path>) -> Result<ExitCode> {
     println!("  imports {}", list(&b.imports));
     println!("  exports {}", list(&b.exports));
     Ok(ExitCode::SUCCESS)
+}
+
+/// `kalem plugin dev [DIR]`: the plugin built with its functions' names
+/// kept and installed, then built and installed again whenever its
+/// sources change, until stopped (wasm_todo W10). A Kalem running reads
+/// the new build for the files it opens from then on; one started after
+/// the first install registers the plugin.
+pub(crate) fn dev(dir: Option<&std::path::Path>) -> Result<ExitCode> {
+    let c = config();
+    let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
+    let dir = dir.map_or(cwd.clone(), |d| cwd.join(d));
+    let source = dir.display().to_string();
+    let mut seen = None;
+    loop {
+        let now = sources_changed(&dir);
+        if seen != Some(now) {
+            seen = Some(now);
+            match kalem_core::plugin_build::build(&dir, true).and_then(|b| {
+                let p = plugin_store::prepare(&source, &plugin_store::index_urls(&c))?;
+                plugin_store::install(&p).map(|at| (b, p, at))
+            }) {
+                Ok((b, p, at)) => println!(
+                    "Built {} ({} kB) and installed {} {} in {}",
+                    b.path.display(),
+                    b.size.div_ceil(1024),
+                    p.name,
+                    p.version,
+                    at.display()
+                ),
+                Err(e) => eprintln!("{e}"),
+            }
+            println!("Watching {} (Ctrl+C stops)", dir.display());
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+}
+
+/// When the plugin's sources in `dir` last changed: its manifest, Cargo
+/// files and build script, and what is under `src` and `wit`.
+fn sources_changed(dir: &std::path::Path) -> std::time::SystemTime {
+    fn newest(path: &std::path::Path, out: &mut std::time::SystemTime) {
+        let Ok(m) = std::fs::metadata(path) else {
+            return;
+        };
+        if let Ok(t) = m.modified() {
+            *out = (*out).max(t);
+        }
+        if m.is_dir()
+            && let Ok(entries) = std::fs::read_dir(path)
+        {
+            for e in entries.flatten() {
+                newest(&e.path(), out);
+            }
+        }
+    }
+    let mut t = std::time::UNIX_EPOCH;
+    for p in ["plugin.json", "Cargo.toml", "build.rs", "src", "wit"] {
+        newest(&dir.join(p), &mut t);
+    }
+    t
 }

@@ -143,6 +143,12 @@ folder. Two commands start and build a component:
   (=cargo install --locked wasm-tools= once; Kalem calls the tool rather
   than carrying its 2.3 MB). It prints what the component imports and
   exports: a plugin imports only what its WIT world names.
+- =kalem plugin dev [DIR]= builds the plugin with its functions' names
+  kept, installs it, and builds and installs it again whenever its
+  sources change, until stopped. A Kalem running opens files with the
+  new build from then on (one started later registers the plugin), and
+  a trap in its log reads as a backtrace of the plugin's functions. The
+  plugin's own unit tests run natively in its crate, with =cargo test=.
 
 =kalem plugin verify= is planned.
 

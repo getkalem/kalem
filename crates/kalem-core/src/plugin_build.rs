@@ -80,8 +80,10 @@ fn target_installed() -> Option<bool> {
 
 /// Builds the plugin in `dir`: Cargo compiles it for [`TARGET`] in release
 /// (its output goes to the terminal as it does), and the module becomes the
-/// component at the manifest's `main`.
-pub fn build(dir: &Path) -> Result<Built, String> {
+/// component at the manifest's `main`. With `names`, the functions' names
+/// are kept whatever the crate's profile strips, so that a trap in
+/// Kalem's log reads as a backtrace of them (`kalem plugin dev`).
+pub fn build(dir: &Path, names: bool) -> Result<Built, String> {
     let m = manifest(dir)?;
     let Some(main) = m.get("main").and_then(|v| v.as_str()) else {
         return Err(
@@ -112,6 +114,12 @@ pub fn build(dir: &Path) -> Result<Built, String> {
         // in 39 ms with it, 52 ms without (D28's record). Added to the
         // crate's own flags, not in their place.
         .args(["--config", SIMD])
+        .args(
+            names
+                .then_some(["--config", "profile.release.strip=\"debuginfo\""])
+                .into_iter()
+                .flatten(),
+        )
         .arg("--manifest-path")
         .arg(dir.join("Cargo.toml"))
         .args(["-p", &name])
@@ -446,6 +454,8 @@ kalem plugin build
 ```
 
 `kalem plugin build` compiles the crate for `wasm32-unknown-unknown` (install it once with `rustup target add wasm32-unknown-unknown`) and writes the component to the path `main` names in `plugin.json`. It imports only what Kalem's API names; a build for `wasm32-wasip2` would import WASI interfaces Kalem does not grant.
+
+While writing it, `kalem plugin dev` builds and installs it again whenever its sources change: a Kalem running opens files with the new build, and a panic in Kalem's log reads as a backtrace of the plugin's functions. The unit tests run natively, with `cargo test`.
 "#,
         title = title(name)
     )
@@ -524,7 +534,7 @@ mod tests {
     fn a_declarative_plugin_is_not_built() {
         let d = temp("declarative");
         std::fs::write(d.join("plugin.json"), r#"{"id": "org.example.lang"}"#).unwrap();
-        assert!(build(&d).unwrap_err().contains("declarative"));
+        assert!(build(&d, false).unwrap_err().contains("declarative"));
         let _ = std::fs::remove_dir_all(d);
     }
 

@@ -243,6 +243,52 @@ fn a_component_that_stops_says_why_and_answers_no_more() {
     }
 }
 
+/// An installed component whose file changes (`kalem plugin dev` built it
+/// again) is read again for the documents opened from then on (wasm_todo
+/// W10); the one built into Kalem never is.
+#[test]
+fn a_component_built_again_is_read_again() {
+    use kalem_viewer::{Detection, FileHandle, Viewer as _};
+    let Some(bytes) = component("adapted") else {
+        return;
+    };
+    let dir = std::env::temp_dir().join(format!("kalem-script-again-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let wasm = dir.join("lines.wasm");
+    // Written with a time of its own: a file system may keep seconds only.
+    let write = |bytes: &[u8], secs: u64| {
+        std::fs::write(&wasm, bytes).unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&wasm)
+            .unwrap()
+            .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs))
+            .unwrap();
+    };
+    write(&bytes, 1_000_000);
+    let f = file("again.lines", b"LINES\none\ntwo");
+    let host = std::sync::Arc::new(Host::new(None).unwrap());
+    let v = kalem_script::viewer::ComponentViewer::new(
+        host,
+        &wasm,
+        "lines",
+        "Lines",
+        &["lines".to_string()],
+        kalem_script::viewer::VIEWER_LIMITS,
+    );
+    let open = v.open(FileHandle::new(&f)).unwrap();
+    assert_eq!(v.detect("x.lines", b""), Detection::Extension);
+    // Built again, broken: refused, the document open keeps working.
+    write(b"not a component", 2_000_000);
+    assert!(v.open(FileHandle::new(&f)).is_err());
+    assert_eq!(v.detect("x.lines", b""), Detection::No);
+    assert_eq!(open.text(1), "two");
+    // Built again, fixed.
+    write(&bytes, 3_000_000);
+    assert_eq!(v.open(FileHandle::new(&f)).unwrap().text(0), "one");
+    assert_eq!(v.detect("x.lines", b""), Detection::Extension);
+}
+
 /// A component's interfaces are bound as it has them (wasm_todo W3): a
 /// document viewer, which exports no `grid`, binds with no grid; a sheet
 /// viewer binds its grid.

@@ -415,7 +415,28 @@ fn classify<T>(e: wasmtime::Error, store: &Store<Data<T>>, limits: Limits) -> Er
     if store.data().limiter.refused {
         return Error::Memory(limits.memory);
     }
-    Error::Trap(format!("{e:#}"))
+    Error::Trap(demangled(&format!("{e:#}")))
+}
+
+/// A trap's backtrace with the Rust functions' names readable
+/// (`<std::time::SystemTime>::now` for `_RNvMs5_NtCs…3now`), when the
+/// component kept them (wasm_todo W10).
+fn demangled(trace: &str) -> String {
+    trace
+        .lines()
+        .map(|line| {
+            let Some(at) = line.find(".wasm!").map(|i| i + ".wasm!".len()) else {
+                return line.to_string();
+            };
+            let rest = &line[at..];
+            let end = rest.find(": ").unwrap_or(rest.len());
+            match rustc_demangle::try_demangle(&rest[..end]) {
+                Ok(d) => format!("{}{d:#}{}", &line[..at], &rest[end..]),
+                Err(_) => line.to_string(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// A plugin instantiated in its own store.
@@ -484,6 +505,22 @@ impl<T: Send + 'static> Instance<T> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_traps_rust_functions_read() {
+        let trace = "error while executing at wasm backtrace:\n    \
+             8: 0x45cd78 - kalem_plugin_xlsx.wasm!_RNvMs5_NtCs4BkbFkxXoBt_3std4timeNtB5_10SystemTime3now\n    \
+             13: 0x25583f - kalem_plugin_xlsx.wasm!kalem:plugin/grid@0.2.0#protect-sheet: wasm trap: unreachable";
+        let read = super::demangled(trace);
+        assert!(
+            read.contains("kalem_plugin_xlsx.wasm!<std::time::SystemTime>::now\n"),
+            "{read}"
+        );
+        assert!(
+            read.ends_with("#protect-sheet: wasm trap: unreachable"),
+            "{read}"
+        );
+    }
+
     #[test]
     fn api_requirements() {
         assert!(super::api_compatible(Some("^0.2")));

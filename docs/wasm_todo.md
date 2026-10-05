@@ -251,8 +251,22 @@ Why the native copies are still there, as found on 2026-10-05:
 
 ## W10. Plugins developed and debugged as components
 
-- [ ] W10 What a plugin author needs without the native copy: `kalem
+- [~] W10 What a plugin author needs without the native copy: `kalem
   plugin build` and `kalem plugin dev DIR` (the component built and loaded
   again when its sources change), a panic's message and backtrace from the
   component in Kalem's log, the plugin's own unit tests run natively in
   its crate as now; the plugin template and the Book's plugin part say so.
+  (2026-10-05: `kalem plugin dev [DIR]` builds with the functions' names
+  kept (`plugin_build::build(dir, true)`), installs, and builds and
+  installs again when `plugin.json`, the Cargo files, `build.rs`, `src`
+  or `wit` change; a `ComponentViewer` of a file reads it again when the
+  file changed, for the documents opened from then on (test
+  `a_component_built_again_is_read_again`). The built-in components keep
+  their names too (+0.5 MB for the workbook plugin), and the host
+  demangles a trap's backtrace: `kalem_plugin_xlsx::workbook::protection::password_attrs`
+  over `<std::time::SystemTime>::now`. The template's README and the
+  Book say so. Open: the panic's message, which needs a host import the
+  panic hook calls before the abort (a new WIT interface, the owner's
+  decision: a plugin built against it would not link with a Kalem
+  without it); `kalem plugin dev` has no test of its own, its loop
+  never ends.)
