@@ -4349,3 +4349,61 @@ fn the_cursor_follows_the_scroll(cx: &mut TestAppContext) {
     assert!(from_end < 400, "{from_end}");
     assert_eq!(from_end, top_line(cx));
 }
+
+/// The column bars of a CSV grid's rows, by their resize handles: the
+/// right edge of each column, in window coordinates.
+fn csv_edges(columns: usize, cx: &mut VisualTestContext) -> Vec<gpui::Pixels> {
+    (0..columns)
+        .map(|j| {
+            let name: &'static str = Box::leak(format!("csv-edge-{j}").into_boxed_str());
+            cx.debug_bounds(name).expect("an edge").center().x
+        })
+        .collect()
+}
+
+/// Clicks every cell of the grid's rows at its left, its middle and its
+/// right: the cells it does not select, as `(line, column, place)`.
+fn csv_unclickable(
+    e: &Entity<Editor>,
+    lines: &[usize],
+    columns: usize,
+    cx: &mut VisualTestContext,
+) -> Vec<(usize, usize, usize)> {
+    let edges = csv_edges(columns, cx);
+    let width = edges[1] - edges[0];
+    let mut bad = Vec::new();
+    for &line in lines {
+        let y = e.read_with(cx, |e, _| e.painted.borrow()[&line].bounds.center().y);
+        let mut left = edges[0] - width.min(gpui::px(60.));
+        for (j, &right) in edges.iter().enumerate() {
+            let places = [
+                left + gpui::px(5.),
+                (left + right) / 2.,
+                right - gpui::px(5.),
+            ];
+            for (k, x) in places.into_iter().enumerate() {
+                cx.simulate_click(gpui::point(x, y), gpui::Modifiers::default());
+                cx.run_until_parked();
+                let got = e.read_with(cx, |e, _| {
+                    kalem_core::csv::cell_at(&e.doc).map(|(_, _, _, c)| c)
+                });
+                if got != Some(j) {
+                    bad.push((line, j, k));
+                }
+            }
+            left = right;
+        }
+    }
+    bad
+}
+
+/// A click anywhere in a cell of the grid selects it, as in a
+/// spreadsheet: on its padding right after the bar it selected the cell
+/// before (asked by the owner, 2026-10-05).
+#[gpui::test]
+fn csv_cells_are_clicked_anywhere_in_them(cx: &mut TestAppContext) {
+    let text = "name,age,city,note\nAda,36,İzmir,first\nBob,,\"Ankara, TR\",\nDan,1234567,Muğla,a longer note than the others\n";
+    let (e, cx) = open_named(text, "clicks.csv", || None, cx);
+    cx.run_until_parked();
+    assert_eq!(csv_unclickable(&e, &[0, 1, 2, 3], 4, cx), vec![]);
+}

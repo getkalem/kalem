@@ -2854,13 +2854,47 @@ impl Editor {
             origin.x += self.hscroll;
         }
         let d = p.layout.index_for_position(pos - origin);
+        let mut at = p.view.source_offset(d);
+        if let Some(cell) = self.csv_cell_at_x(p, pos.x - origin.x, at) {
+            at = cell;
+        }
         Some(Hit {
-            pos: p.view.source_offset(d),
+            pos: at,
             widget: None,
             fold: None,
             copy: None,
             jump: None,
         })
+    }
+
+    /// A click at `x` (from the line's left) on a row of the CSV grid: the
+    /// cell between the bars around it, as a spreadsheet takes it. A click
+    /// on the cell's text keeps its place there (`at`); one on its padding
+    /// or bar goes to the cell's nearer end, not into the next cell over.
+    fn csv_cell_at_x(&self, p: &Painted, x: Pixels, at: usize) -> Option<usize> {
+        if self.doc.meta.mode != DocumentMode::Csv || self.source {
+            return None;
+        }
+        let layout = kalem_core::csv::layout(&self.doc);
+        if !layout.view.sheet {
+            return None;
+        }
+        let (_, rec) = layout.record_at(self.doc.text().as_str(), p.view.range.start)?;
+        // The middles of the bars of the text, from the grid's left edge.
+        let x_at = |o: usize| p.layout.caret(o).origin.x;
+        let mut edges = Vec::new();
+        let mut o = 0;
+        for (i, r) in p.view.runs.iter().enumerate() {
+            if i > 0 && !r.verbatim {
+                for (k, _) in r.text.match_indices('│') {
+                    edges.push((x_at(o + k) + x_at(o + k + '│'.len_utf8())) / 2.);
+                }
+            }
+            o += r.text.len();
+        }
+        let col = edges.iter().rposition(|e| *e <= x)?;
+        let f = rec.fields.get(col)?;
+        Some(at.clamp(f.range.start, f.range.end))
     }
 
     /// Mouse down: place the cursor, toggle a checkbox, fold a heading.
