@@ -135,9 +135,10 @@ jobs:
       - run: cargo test -p kalem-components --features build
       # W5: a Kalem with them built in lists and runs them.
       - run: cargo test -p kalem-editor --no-default-features --features tui,components --test components
-      # W6: the components against their native copies, each measurement
-      # with its ceiling (a debug build, as the owner runs Kalem).
-      - run: cargo test -p kalem-cli --features components --test component_speed -- --nocapture
+      # W6 and W7: the components against their native copies, read, drawn
+      # and edited alike, each measurement with its ceiling (a debug build,
+      # as the owner runs Kalem).
+      - run: cargo test -p kalem-cli --features components --test component_parity --test component_speed -- --nocapture
 
   binary-size:
     name: binary size

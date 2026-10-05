@@ -472,88 +472,36 @@ fn viewer_host() -> Option<std::sync::Arc<kalem_script::Host>> {
     .clone()
 }
 
-/// A manifest's `opens`, as a viewer's extensions.
-#[cfg(feature = "plugins")]
-fn manifest_opens(m: &serde_json::Value) -> Vec<String> {
-    m["opens"]
-        .as_array()
-        .map(|a| {
-            a.iter()
-                .filter_map(|e| e.as_str().map(str::to_string))
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-/// A manifest's `limits` (`memory_mb`, `time_ms`), else a viewer's: a
-/// workbook viewer may ask for more memory than the default (wasm_todo
-/// W6), whether it is installed or built in.
-#[cfg(feature = "plugins")]
-fn manifest_limits(m: &serde_json::Value) -> kalem_script::Limits {
-    use kalem_script::viewer::VIEWER_LIMITS;
-    kalem_script::Limits {
-        memory: m["limits"]["memory_mb"]
-            .as_u64()
-            .map_or(VIEWER_LIMITS.memory, |mb| (mb as usize) << 20),
-        time: m["limits"]["time_ms"]
-            .as_u64()
-            .map_or(VIEWER_LIMITS.time, std::time::Duration::from_millis),
-    }
-}
-
 /// The bundled plugins built into Kalem as components (wasm_todo W5), each
 /// with its manifest: none without the feature `components`.
 #[cfg(feature = "plugins")]
 pub fn embedded_components() -> Vec<(serde_json::Value, &'static [u8])> {
-    #[cfg(feature = "components")]
-    {
-        kalem_components::components()
-            .iter()
-            .filter_map(|c| {
-                serde_json::from_str::<serde_json::Value>(c.manifest)
-                    .ok()
-                    .map(|m| (m, c.bytes))
-            })
-            .collect()
-    }
-    #[cfg(not(feature = "components"))]
-    {
-        Vec::new()
-    }
+    kalem_components::components()
+        .iter()
+        .map(|c| (c.manifest_json(), c.bytes))
+        .collect()
 }
 
 /// The embedded components as viewers, each in the place of the native
 /// viewer of the same name, which opens its files should it not run.
 #[cfg(feature = "plugins")]
 pub(crate) fn embedded_viewers() -> Vec<std::sync::Arc<kalem_script::viewer::ComponentViewer>> {
-    use kalem_script::viewer::ComponentViewer;
-    let mut out = Vec::new();
-    for (m, bytes) in embedded_components() {
-        let Some(host) = viewer_host() else {
-            return out;
-        };
-        let full = m["id"].as_str().unwrap_or_default();
-        let id = full.rsplit('.').next().unwrap_or(full).to_string();
-        let name = m["name"].as_str().unwrap_or(full).to_string();
-        let bundled = kalem_core::viewer::viewers()
-            .into_iter()
-            .find(|v| v.id() == id);
-        out.push(std::sync::Arc::new(
-            ComponentViewer::embedded(
-                host,
-                bytes,
-                id,
-                name,
-                &manifest_opens(&m),
-                manifest_limits(&m),
-            )
-            .with_fallback(
+    let Some(host) = viewer_host() else {
+        return Vec::new();
+    };
+    kalem_components::components()
+        .iter()
+        .map(|c| {
+            let id = c.id.rsplit('.').next().unwrap_or(c.id);
+            let bundled = kalem_core::viewer::viewers()
+                .into_iter()
+                .find(|b| b.id() == id);
+            std::sync::Arc::new(c.viewer(host.clone()).with_fallback(
                 bundled,
                 std::sync::Arc::new(|text| kalem_core::jobs::notice(text, true)),
-            ),
-        ));
-    }
-    out
+            ))
+        })
+        .collect()
 }
 
 /// The component viewers installed (`kalem plugin install` of a built
@@ -636,14 +584,7 @@ pub(crate) fn installed_viewers() -> Vec<(
         let Some(main) = m["main"].as_str() else {
             continue;
         };
-        let opens: Vec<String> = m["opens"]
-            .as_array()
-            .map(|a| {
-                a.iter()
-                    .filter_map(|e| e.as_str().map(str::to_string))
-                    .collect()
-            })
-            .unwrap_or_default();
+        let opens = kalem_components::opens(&m);
         if opens.is_empty() {
             continue;
         }
@@ -662,7 +603,7 @@ pub(crate) fn installed_viewers() -> Vec<(
         let Some(h) = viewer_host() else {
             return out;
         };
-        let limits = manifest_limits(&m);
+        let limits = kalem_components::limits(&m);
         // `org.kalem.pdf-viewer` is the viewer `pdf-viewer`, replacing
         // the bundled one.
         let id = p.id.rsplit('.').next().unwrap_or(&p.id).to_string();
@@ -884,21 +825,6 @@ mod tests {
                 .render_long_help()
                 .to_string()
                 .contains("Usage: kalem parse")
-        );
-    }
-
-    #[cfg(feature = "plugins")]
-    #[test]
-    fn a_manifest_sets_a_viewers_limits() {
-        use kalem_script::viewer::VIEWER_LIMITS;
-        let m = serde_json::json!({ "limits": { "memory_mb": 3072 } });
-        let l = super::manifest_limits(&m);
-        assert_eq!(l.memory, 3072 << 20);
-        assert_eq!(l.time, VIEWER_LIMITS.time);
-        let none = super::manifest_limits(&serde_json::json!({}));
-        assert_eq!(
-            (none.memory, none.time),
-            (VIEWER_LIMITS.memory, VIEWER_LIMITS.time)
         );
     }
 }

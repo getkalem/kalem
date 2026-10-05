@@ -4,7 +4,8 @@
 //! feature compiles in, built for `wasm32-unknown-unknown` against this
 //! checkout's plugin API, wrapped as components, refused when one imports
 //! WASI. Built with the feature `build`; without it [`components`] is
-//! empty.
+//! empty. With the feature `viewers`, [`viewer`] gives one as a viewer
+//! of the plugin host, as Kalem registers it.
 
 /// A bundled plugin as a component.
 #[derive(Debug, Clone, Copy)]
@@ -15,6 +16,9 @@ pub struct Component {
     pub manifest: &'static str,
     /// The component's bytes.
     pub bytes: &'static [u8],
+    /// The plugin's folder in the sources it was built from, for tests
+    /// reading its corpus.
+    pub source: &'static str,
 }
 
 include!(concat!(env!("OUT_DIR"), "/components.rs"));
@@ -24,3 +28,8 @@ include!(concat!(env!("OUT_DIR"), "/components.rs"));
 pub fn components() -> &'static [Component] {
     COMPONENTS
 }
+
+#[cfg(feature = "viewers")]
+mod viewers;
+#[cfg(feature = "viewers")]
+pub use viewers::{limits, opens, viewer};

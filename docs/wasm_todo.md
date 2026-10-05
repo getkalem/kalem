@@ -180,7 +180,7 @@ Why the native copies are still there, as found on 2026-10-05:
 
 ## W7. The editors' tests through components
 
-- [ ] W7 Every editor test that opens a picture, a PDF or a workbook run
+- [~] W7 Every editor test that opens a picture, a PDF or a workbook run
   against the embedded component (the native crate no longer a dependency
   of `kalem-ui` and `kalem-tui`); the fixtures registering the component
   viewer; the parity test of `xlsx_component.rs` run in CI always, not
@@ -192,6 +192,24 @@ Why the native copies are still there, as found on 2026-10-05:
   host's file resource now carries the `FileHandle` itself, test
   `bytes_the_host_holds_reach_the_plugin`. Such paths are what W7's
   editor tests through components will find.)
+  (2026-10-05: the parity test is `crates/kalem-cli/tests/component_parity.rs`,
+  in CI's components job: every built-in component against its native
+  copy on the terminal editor's fixtures, the xlsx plugin's own corpus
+  (`Component::source`) and `KALEM_XLSX_CORPUS`, two PDF files and five
+  kinds of picture made in the test, read, drawn to the pixel, edited and
+  saved alike; all alike. `kalem-components`' feature `viewers` gives a
+  component as the viewer Kalem registers (`kalem_components::viewer`,
+  with its manifest's extensions and limits), used by Kalem and its
+  tests. The editors' tests through it: kalem-tui's and kalem-ui's
+  fixtures register the components and read saved workbooks back through
+  the contract, the native crates gone from their dev-dependencies; all
+  pass but one, `protection`, which found the component trapping where
+  the native copy worked: std's clock panics on wasm32-unknown-unknown,
+  and a password's salt, VBA's `Now` and `Rnd` and a macro's time budget
+  read it. Fixed in getkalem/plugins f42b517 (they read Kalem's clock).
+  Open: Kalem's pins moved to f42b517, then the editors' tests switched
+  (ready, waiting for the pins), and the clippy job given the
+  WebAssembly target.)
 
 ## W8. Errors and a component that fails
 

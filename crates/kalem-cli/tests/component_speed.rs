@@ -12,6 +12,8 @@
 //! `KALEM_SPEED_PDF` names another PDF than the one made here.
 #![allow(clippy::print_stdout)]
 
+mod common;
+
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -38,70 +40,6 @@ fn big_workbook(dir: &Path) -> PathBuf {
         .unwrap();
     let path = dir.join("big.xlsx");
     std::fs::write(&path, wb.save().unwrap()).unwrap();
-    path
-}
-
-/// A picture of 3,000 × 2,000 pixels, in shades.
-fn big_picture(dir: &Path) -> PathBuf {
-    let img = image::RgbImage::from_fn(3000, 2000, |x, y| {
-        image::Rgb([(x % 256) as u8, (y % 256) as u8, ((x + y) % 256) as u8])
-    });
-    let path = dir.join("big.png");
-    img.save(&path).unwrap();
-    path
-}
-
-/// A PDF of sixty pages of text in a standard font.
-fn long_pdf(dir: &Path) -> PathBuf {
-    let pages = 60;
-    let mut objects: Vec<String> = vec![
-        "<< /Type /Catalog /Pages 2 0 R >>".into(),
-        String::new(),
-        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".into(),
-    ];
-    let mut kids = Vec::new();
-    for p in 0..pages {
-        let mut text = String::from("BT /F1 10 Tf 12 TL 56 780 Td\n");
-        for line in 0..60 {
-            text += &format!(
-                "(Page {} line {}: the quick brown fox jumps over the lazy dog, again and again.) '\n",
-                p + 1,
-                line + 1
-            );
-        }
-        text += "ET";
-        let content = objects.len() + 1;
-        objects.push(format!(
-            "<< /Length {} >>\nstream\n{text}\nendstream",
-            text.len()
-        ));
-        kids.push(format!("{} 0 R", objects.len() + 1));
-        objects.push(format!(
-            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] \
-             /Resources << /Font << /F1 3 0 R >> >> /Contents {content} 0 R >>"
-        ));
-    }
-    objects[1] = format!(
-        "<< /Type /Pages /Kids [{}] /Count {pages} >>",
-        kids.join(" ")
-    );
-    let mut pdf = String::from("%PDF-1.4\n");
-    let mut offsets = Vec::new();
-    for (i, o) in objects.iter().enumerate() {
-        offsets.push(pdf.len());
-        pdf += &format!("{} 0 obj\n{o}\nendobj\n", i + 1);
-    }
-    let xref = pdf.len();
-    pdf += &format!("xref\n0 {}\n0000000000 65535 f \n", objects.len() + 1);
-    for o in offsets {
-        pdf += &format!("{o:010} 00000 n \n");
-    }
-    pdf += &format!(
-        "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n",
-        objects.len() + 1
-    );
-    let path = dir.join("long.pdf");
-    std::fs::write(&path, pdf).unwrap();
     path
 }
 
@@ -296,10 +234,7 @@ fn table(native: &[(&str, Duration)], through: &[(&str, Duration)]) {
 /// The smallest memory limit, of a few, under which the component opens
 /// `path` and shows its cells.
 fn least_memory(id: &str, path: &Path) -> Option<usize> {
-    let c = kalem_components::components()
-        .iter()
-        .find(|c| c.id == id)
-        .expect("the component");
+    let c = common::built_in(id);
     let host = Arc::new(kalem_script::Host::new(None).unwrap());
     [64, 128, 256, 384, 512, 768, 1024, 2048, 4096]
         .into_iter()
@@ -320,37 +255,21 @@ fn least_memory(id: &str, path: &Path) -> Option<usize> {
         })
 }
 
-fn component(id: &str, name: &str, ext: &[&str]) -> Arc<dyn Viewer> {
-    let c = kalem_components::components()
-        .iter()
-        .find(|c| c.id == id)
-        .expect("the component");
-    let host = Arc::new(kalem_script::Host::new(None).unwrap());
-    let v = kalem_script::viewer::ComponentViewer::embedded(
-        host,
-        c.bytes,
-        id.rsplit('.').next().unwrap_or(id),
-        name,
-        &ext.iter().map(|e| (*e).to_string()).collect::<Vec<_>>(),
-        kalem_script::viewer::VIEWER_LIMITS,
-    );
+/// The built-in component `id`, compiled, saying how long that took.
+fn component(id: &str) -> Arc<dyn Viewer> {
+    let v = common::viewer(id);
     let t = Instant::now();
     v.plugin().unwrap();
-    println!(
-        "{name}: component compiled in {} ms",
-        t.elapsed().as_millis()
-    );
-    Arc::new(v)
+    println!("{id}: component compiled in {} ms", t.elapsed().as_millis());
+    v
 }
 
 #[test]
 fn components_keep_up_with_native_copies() {
-    let dir = std::env::temp_dir().join(format!("kalem-component-speed-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = common::scratch("component-speed");
     let path = big_workbook(&dir);
     let native = measure(Arc::new(kalem_plugin_xlsx::XlsxViewer), &path);
-    let xlsx = component("org.kalem.xlsx", "Excel workbooks", &["xlsx"]);
+    let xlsx = component("org.kalem.xlsx");
     let through = measure(xlsx.clone(), &path);
     println!(
         "{:<22} {:>12} {:>12} {:>7}",
@@ -366,14 +285,15 @@ fn components_keep_up_with_native_copies() {
     let least = least_memory("org.kalem.xlsx", &million);
     println!("1M: least memory       {least:?} MB");
     assert!(least.is_some_and(|mb| mb <= 512), "{least:?}");
-    let pic = big_picture(&dir);
-    let viewer = component("org.kalem.image-viewer", "Image viewer", &["png"]);
+    let pic = common::big_picture(&dir);
+    let viewer = component("org.kalem.image-viewer");
     table(
         &measure_picture(Arc::new(kalem_plugin_image_viewer::ImageViewer), &pic),
         &measure_picture(viewer, &pic),
     );
-    let pdf = std::env::var_os("KALEM_SPEED_PDF").map_or_else(|| long_pdf(&dir), PathBuf::from);
-    let viewer = component("org.kalem.pdf-viewer", "PDF viewer", &["pdf"]);
+    let pdf = std::env::var_os("KALEM_SPEED_PDF")
+        .map_or_else(|| common::long_pdf(&dir, 60), PathBuf::from);
+    let viewer = component("org.kalem.pdf-viewer");
     table(
         &measure_pdf(Arc::new(kalem_plugin_pdf_viewer::PdfViewer), &pdf),
         &measure_pdf(viewer, &pdf),

@@ -13,11 +13,11 @@ default = ["viewers", "plugins"]
 # The viewers bundled into the binary: pictures, PDF files, workbooks.
 viewers = ["dep:kalem-plugin-image-viewer", "dep:kalem-plugin-xlsx", "dep:kalem-plugin-pdf-viewer"]
 # The plugin host (Wasmtime): installed component plugins run.
-plugins = ["dep:kalem-script"]
+plugins = ["dep:kalem-script", "dep:kalem-components", "kalem-components/viewers"]
 # The bundled plugins as WebAssembly components built into the binary
 # (wasm_todo W5), in place of the native viewers of the same name: built
 # by `kalem-components` (the wasm32-unknown-unknown target installed).
-components = ["plugins", "dep:kalem-components", "kalem-components/build"]
+components = ["plugins", "kalem-components/build"]
 
 [dependencies]
 org-syntax.workspace = true
@@ -54,7 +54,7 @@ workspace = true
 # The viewer contract, for comparing the xlsx component with the bundled plugin.
 kalem-viewer.workspace = true
 # A large picture made for measuring the image viewer's component.
-image = { version = "0.25", default-features = false, features = ["png"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp"] }
 
 # The workbook viewer built as a component and run by the plugin host.
 [[test]]
@@ -65,4 +65,9 @@ required-features = ["viewers", "plugins"]
 # components against their native copies.
 [[test]]
 name = "component_speed"
+required-features = ["viewers", "components"]
+
+# W7: each built-in component against its native copy, on the same files.
+[[test]]
+name = "component_parity"
 required-features = ["viewers", "components"]

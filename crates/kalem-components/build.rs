@@ -74,9 +74,10 @@ fn main() {
             .and_then(|m| m["id"].as_str().map(str::to_string))
             .unwrap_or_else(|| panic!("{}: no id", manifest.display()));
         rs.push_str(&format!(
-            "    Component {{ id: {id:?}, manifest: include_str!({:?}), bytes: include_bytes!({:?}) }},\n",
+            "    Component {{ id: {id:?}, manifest: include_str!({:?}), bytes: include_bytes!({:?}), source: {:?} }},\n",
             manifest.display().to_string(),
-            file.display().to_string()
+            file.display().to_string(),
+            dir.display().to_string()
         ));
     }
     rs.push_str("];\n");

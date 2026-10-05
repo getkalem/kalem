@@ -229,8 +229,10 @@ files; no other plugin has a clock. The Excel plugin's formula engine,
 IronCalc, comes from =getkalem/ironcalc=, a fork whose only change lets
 it read that clock on WebAssembly instead of a browser's JavaScript;
 built so, the plugin opens, edits, recalculates and saves workbooks
-exactly as the bundled one does, which a test checks workbook by
-workbook (=KALEM_XLSX_COMPONENT=, =crates/kalem-cli/tests/xlsx_component.rs=).
+exactly as the bundled one does. A test checks each built-in component
+against its native copy on the same files, workbook by workbook, page by
+page and picture by picture, to the pixel
+(=crates/kalem-cli/tests/component_parity.rs=, in CI).
 
 Built for speed (=opt-level = 3=) and with WebAssembly's SIMD, which
 =kalem plugin build= adds, the PDF viewer renders a page within a fifth
