@@ -89,13 +89,26 @@ Why the native copies are still there, as found on 2026-10-05:
 
 ## W4. Components built by Kalem's build
 
-- [ ] W4 A build step (a `build.rs` of a small crate, or `xtask`) that
+- [~] W4 A build step (a `build.rs` of a small crate, or `xtask`) that
   builds the bundled plugins for `wasm32-unknown-unknown`, wraps them with
   `wasm-tools component new`, refuses one importing WASI, and precompiles
   them with Wasmtime's `Engine::precompile_component` for the binary's own
   engine; the plugins' sources from `getkalem/plugins` at a pinned tag (a
   release, per W2), or the released `.wasm` checked against its signature
   and `SHA256SUMS`. CI caches the result.
+  (done 2026-10-05 but the precompiling: the crate `kalem-components`,
+  feature `build`: its `build.rs` copies the plugins' workspace from the
+  sources Cargo keeps at the pinned revision (only what changed is
+  written), patches Kalem's crates to this checkout, builds each plugin
+  on its own for `wasm32-unknown-unknown` with `+simd128` (built
+  together, Cargo unified their features and the image viewer exported
+  `grid`), wraps them with wit-component, refuses a WASI import, and
+  embeds them with their manifests (`kalem_components::components()`).
+  Test `the_bundled_components_bind`; CI's job "bundled plugins as
+  components". The source is the pinned revision, as the native copies'
+  is, until releases follow W2. Precompiling for the binary's engine
+  goes with W5, where the engine's configuration is known; Wasmtime's
+  cache compiles them once meanwhile.)
 
 ## W5. Embedded components loaded on first use
 

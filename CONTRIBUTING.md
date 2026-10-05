@@ -13,6 +13,7 @@ Thank you for your interest in Kalem. This page says how to set up, what the rul
 1. Install Rust with [rustup](https://rustup.rs); `rust-toolchain.toml` selects the toolchain.
 2. Install the reference tools of the formats you work on: Emacs 29 or newer with Org 9.7 for Org, pandoc and a TeX distribution for LaTeX. CSV, BibTeX, Markdown and plain text need nothing.
 3. Build and test with `cargo test --workspace`.
+4. For the plugins: `rustup target add wasm32-unknown-unknown` and `cargo install wasm-tools`, without which the plugin host's tests pass without checking; `cargo test -p kalem-components --features build` builds the bundled plugins as WebAssembly components from the sources Kalem pins and checks that they bind.
 
 gpui, the graphical editor's toolkit, comes from crates.io as `gpui-unofficial`, a snapshot of each of Zed's release tags, pinned exactly in the workspace `Cargo.toml`; nothing is fetched from Zed's repository, and `tools/check-zed-deps.sh` (run by CI and `tools/pre-push.sh`) fails a change that brings anything from it back.
 

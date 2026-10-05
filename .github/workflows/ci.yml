@@ -119,6 +119,21 @@ jobs:
       - name: No gpui in the dependency tree
         run: "! cargo tree -p kalem-editor --no-default-features --features tui | grep -q gpui"
 
+  components:
+    name: bundled plugins as components
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      # wasm_todo W4: the bundled plugins built as components from the
+      # sources Kalem pins, against this checkout's plugin API, and bound
+      # by its plugin host.
+      - run: cargo test -p kalem-components --features build
+
   binary-size:
     name: binary size
     runs-on: ubuntu-latest

@@ -4394,6 +4394,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "kalem-components"
+version = "0.0.1"
+dependencies = [
+ "kalem-script",
+ "serde_json",
+ "wasmparser 0.247.0",
+ "wit-component 0.247.0",
+]
+
+[[package]]
 name = "kalem-core"
 version = "0.0.1"
 dependencies = [
@@ -9373,6 +9383,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "indexmap",
  "semver",
+ "serde",
 ]
 
 [[package]]

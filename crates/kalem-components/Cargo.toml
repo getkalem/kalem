@@ -1,0 +1,30 @@
+[package]
+name = "kalem-components"
+description = "Kalem's bundled plugins built as WebAssembly components from their pinned sources (wasm_todo W4)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish = false
+
+[features]
+# Builds the components: Cargo compiles the bundled plugins of
+# getkalem/plugins, at the revision Kalem pins, for wasm32-unknown-unknown
+# (the target must be installed), and wit-component wraps them. Without
+# it the crate holds none, and nothing needs the WebAssembly target.
+build = []
+
+[build-dependencies]
+serde_json = "1"
+wasmparser = "0.247"
+wit-component = "0.247"
+
+[dev-dependencies]
+kalem-script.workspace = true
+serde_json = "1"
+
+[lints]
+workspace = true
