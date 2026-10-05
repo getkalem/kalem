@@ -1032,7 +1032,7 @@ Wrong or stale text a first reader meets. Each is a text change.
     planned item for CI went; heading links work now (3.2); the view's
     sentences say a `$$` block over several lines and TOML front matter
     stay text, until 3.2's two minors are fixed.)
-  - `book/part-2/csv.org`: 255 says a lone CR ends a record (the scanner
+  - [x] `book/part-2/csv.org`: 255 says a lone CR ends a record (the scanner
     treats it as data, `csv.rs:74-80`); 257 says the header is "not
     settable yet" (`csv.toggleHeader` exists, and line 187 says so);
     349-354 says Enter inserts a line break (Enter is `csv.cellBelow`);
@@ -1041,6 +1041,13 @@ Wrong or stale text a first reader meets. Each is a text change.
     fields); 607 and 741 say a source-view paste inserts text as is (a
     normal paste still converts tabs to the delimiter, `document.rs:938`);
     823 understates the per-cursor-move rescans (3.5).
+    (done 2026-10-06: a lone CR is part of the field; the header is set
+    by hand too; the delimiter's first criterion is the fewest malformed
+    fields; a header's numbers are `csv::number`'s; a source-view paste
+    still converts spreadsheet rows; the lazy index says what a cursor
+    step reads since 3.5's fix and the test that times it. Enter was
+    right: in the source view it breaks the line, in the grid it is
+    Cell Below, as the chapter says.)
   - `book/part-2/bibtex.org`: 129-131 and 365 say `@string` and `#` are
     not expanded (they are, `cells_with` → `expand`; the `tug # { 1}`
     example is stale); 366 says one error rejects the whole file (only

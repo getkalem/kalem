@@ -137,16 +137,18 @@ numbers above one (the larger number on a tie), and /s/ the number of
 records with /m/ fields. A candidate for which no record has more than
 one field is out. The others are compared, in this order, by
 
-1. /s/, more is better; the first record takes no part of its own, so
+1. how many fields of those records read as malformed (below), fewer
+   is better;
+2. /s/, more is better; the first record takes no part of its own, so
    a title or metadata first line of one field does not decide the
    delimiter;
-2. how many fields of the first twenty records read as numbers (with
+3. how many fields of the first twenty records read as numbers (with
    =.= or =,= as the decimal separator), more is better;
-3. how many of those fields are not numbers and hold another
+4. how many of those fields are not numbers and hold another
    candidate delimiter, fewer is better;
-4. /m/, more is better;
+5. /m/, more is better;
 
-and a tie on all four goes to the one tried first. When every candidate
+and a tie on all five goes to the one tried first. When every candidate
 is out the delimiter is the comma.
 
 So =ürün;fiyat= followed by =elma;1,5= is read with =;=: under =,= the
@@ -170,10 +172,10 @@ The first record is taken for a header (=looks_like_header=) as
 follows:
 
 1. When the sample holds a single record, there is no header.
-2. A value /looks like a number/ when, after trimming and removing
-   spaces and no-break spaces, it is not empty and parses as a
-   floating-point number either as written or with every comma turned
-   into a full stop.
+2. A value /looks like a number/ when it reads as one as the column
+   statistics read numbers (=csv::number=, below): =1,234.5=,
+   =1.234,5= and =1 234,5= do; dates, version numbers, phone numbers
+   and integers with leading zeros do not.
 3. When any value of the first record looks like a number, there is no
    header.
 4. Otherwise, when any value of the next twenty records looks like a
@@ -248,22 +250,31 @@ all of it (the column operations, sorting, statistics, the filter and
 the conversions). The unit test =large_files_open_lazily= and the
 integration test =large_files_lay_out_lazily= check this.
 
+With a filter or a sort on, the records the view shows, their order and
+what the filter keeps are worked out once for each version of the
+file, so moving the cursor reads nothing again; the status bar's
+numbers read the cursor's column of each record, not every field. The
+integration test =a_large_file_at_each_keystroke_and_step= times
+twenty steps of the cursor and a keystroke in a 100,000-row file with a
+filter and a sort on, against ceilings: the twenty steps take some 40
+ms in a release build.
+
 * RFC 4180: conformance and deviations
 
-| RFC 4180 rule                                        | Kalem                                                               |
-|------------------------------------------------------+---------------------------------------------------------------------|
-| Records end with CR LF                               | CR LF, LF and a lone CR all end a record; what the file has is kept |
-| The last record may lack a line break                | Kept as it is                                                       |
-| An optional header line                              | Detected heuristically (above); not settable yet                    |
-| Every record has the same number of fields           | Not required; short and long records are read and kept              |
-| Spaces are part of a field                           | Yes; nothing is trimmed on reading                                  |
-| Fields with line breaks, quotes or commas are quoted | Read; written quoted by =encode= (below)                            |
-| A quote inside a quoted field is doubled             | Read and written                                                    |
-| Only =,= separates fields                            | Also =;=, tab and vertical bar, detected                            |
-| Text after a closing quote is invalid                | Accepted and kept as part of the value                              |
-| An unterminated quoted field is invalid              | Accepted; it runs to the end of the file                            |
-| A quote inside an unquoted field is invalid          | Accepted as a literal character                                     |
-| MIME parameters =charset= and =header=               | Not applicable: the encoding and header are detected                |
+| RFC 4180 rule                                        | Kalem                                                                                                         |
+|------------------------------------------------------+---------------------------------------------------------------------------------------------------------------|
+| Records end with CR LF                               | CR LF and LF end a record, and what the file has is kept; a lone CR is part of the field (the scanner, above) |
+| The last record may lack a line break                | Kept as it is                                                                                                 |
+| An optional header line                              | Detected heuristically (above), or set by hand (First Row Is a Header)                                        |
+| Every record has the same number of fields           | Not required; short and long records are read and kept                                                        |
+| Spaces are part of a field                           | Yes; nothing is trimmed on reading                                                                            |
+| Fields with line breaks, quotes or commas are quoted | Read; written quoted by =encode= (below)                                                                      |
+| A quote inside a quoted field is doubled             | Read and written                                                                                              |
+| Only =,= separates fields                            | Also =;=, tab and vertical bar, detected                                                                      |
+| Text after a closing quote is invalid                | Accepted and kept as part of the value                                                                        |
+| An unterminated quoted field is invalid              | Accepted; it runs to the end of the file                                                                      |
+| A quote inside an unquoted field is invalid          | Accepted as a literal character                                                                               |
+| MIME parameters =charset= and =header=               | Not applicable: the encoding and header are detected                                                          |
 
 Constructs of CSV dialects outside the RFC that Kalem does not
 recognize, and therefore shows and keeps as ordinary data: comment lines, backslash escapes, a quote character
@@ -618,8 +629,9 @@ keeps its dialect and every byte the command does not name.
   paste does the same with text of several lines or with tabs, from the
   cursor's cell (a selection's top left one); a single value goes into
   the cell, quoted when it needs it (=DocumentState::paste_in_grid=).
-  Paste as Plain Text, and any paste in the source view, inserts the text
-  as it is.
+  Paste as Plain Text inserts the text as it is; in the source view an
+  ordinary paste goes in at the cursor, rows copied from a spreadsheet
+  still converted to the file's delimiter (/The clipboard/, below).
 - A click on a column's letter selects the whole column (/Select
   Column/, =csv.selectColumn=), one on a row's number the row (/Select
   Row/, =csv.selectRow=), as in a spreadsheet. The edge between two
