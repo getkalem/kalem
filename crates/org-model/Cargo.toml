@@ -10,6 +10,8 @@ authors.workspace = true
 keywords = ["org-mode", "emacs", "outline", "agenda"]
 categories = ["text-processing"]
 readme = "README.md"
+# Not on crates.io: it depends on org-syntax (decision D18).
+publish = false
 
 [dependencies]
 org-syntax.workspace = true

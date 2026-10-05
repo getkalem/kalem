@@ -1138,14 +1138,20 @@ Wrong or stale text a first reader meets. Each is a text change.
 
 ## 5. Release machinery
 
-- [ ] **Blocker, verified (config).** No `[profile.dist]` in
+- [x] **Blocker, verified (config).** No `[profile.dist]` in
   `Cargo.toml` and none mentioned in `release.yml`. cargo-dist 0.28
   builds with `--profile dist`; only `dist init` adds the profile and
   `docs/releasing.md:7-10` says to run `dist generate`. Add
   `[profile.dist] inherits = "release"`, point the `binary size` job at
   it, and run `dist plan` and `dist build` locally once (cargo-dist is
   not installed on this machine).
-- [ ] **Blocker, verified.** The Unreleased section of `CHANGELOG.md` is
+  (done 2026-10-06: `[profile.dist] inherits = "release"`; the binary
+  size job and the terminal archives build with it; cargo-dist 0.28.0
+  installed here, `dist generate --check` passes and `dist plan` lists
+  the five archives and the two installers; `dist build
+  --artifacts=local` made `kalem-editor-aarch64-apple-darwin.tar.xz`
+  (19 MB, the binary 59 MB) and its `.sha256`, and the binary runs.)
+- [x] **Blocker, verified.** The Unreleased section of `CHANGELOG.md` is
   136,534 characters and repeats every heading (Removed 9/444, Added
   12/76, Changed 17/448, Fixed 29/464). cargo-dist takes the release
   body from it: over GitHub's 125,000-character body limit, and over the
@@ -1155,23 +1161,35 @@ Wrong or stale text a first reader meets. Each is a text change.
   304-305, 357, 446, 453, 456, 529-530 still describe) and move the
   history to `docs/history/`. Line 163 says "Part V"; 461 cites
   `docs/performance.md`, which does not exist.
+  (done 2026-10-06: the Unreleased section is the first release's net
+  state, 3.7 KB, the Kalem format not in it; the 154 KB of history,
+  those two lines included, are `docs/history/changelog-before-0.1.md`
+  as they were written; `docs/releasing.md` says to keep a version's
+  section short.)
 - [ ] **Blocker.** The Release workflow has never run (`gh run list -w
   Release` is empty): `dist plan` is unvalidated and
   `aarch64-unknown-linux-gnu` and `x86_64-apple-darwin` have never been
   built in any CI. Push a prerelease tag (`v0.1.0-rc.1`) first.
-- [ ] **Major.** The terminal-only archives are never attached:
+- [x] **Major.** The terminal-only archives are never attached:
   `release-terminal.yml` triggers on `release: published`, but
   `release.yml` creates the release with `GITHUB_TOKEN`, whose events do
   not start workflows. Wire it as a dist `post-announce-jobs` entry with
   `workflow_call`, or document the manual dispatch. Its Windows build
   also lacks `+crt-static` (dist's default), it publishes no checksums,
   and it uses `.tar.gz` where dist uses `.tar.xz`.
-- [ ] **Major.** `installers = ["shell", "powershell", "homebrew"]` has
+  (done 2026-10-06: `post-announce-jobs = ["./release-terminal"]`, the
+  workflow a `workflow_call` taking dist's plan (its tag from
+  `announcement_tag`), still dispatchable by hand with a tag; Windows
+  with `+crt-static`, a `.sha256` beside each archive, `.tar.xz`, the
+  `dist` profile.)
+- [x] **Major.** `installers = ["shell", "powershell", "homebrew"]` has
   no `tap` and no `publish-jobs`; `getkalem/homebrew-tap` does not exist,
   so the generated release notes will say `brew install kalem-editor`,
   which fails. Drop `homebrew` for 0.1 or create the tap and the
   `HOMEBREW_TAP_TOKEN` secret.
-- [ ] **Major.** `docs/releasing.md:19` says the workflow "makes a draft
+  (done 2026-10-06: dropped until a tap exists; `dist plan` no longer
+  lists `kalem-editor.rb`.)
+- [x] **Major.** `docs/releasing.md:19` says the workflow "makes a draft
   GitHub release"; `release.yml` runs `gh release create` without
   `--draft`. Step 1 omits `Cargo.lock` (the builds use `--locked`) and
   the 22 workspace-dependency `version` fields; the workspace is still
@@ -1180,26 +1198,49 @@ Wrong or stale text a first reader meets. Each is a text change.
   Missing steps: `dist plan`, green CI on `main`, updating the README
   ("once 0.1 is out") and `installing.org` ("no releases yet"), the
   terminal build, releasing the plugins (section 1).
-- [ ] **Major.** Dependabot bumps the actions in the generated
+  (done 2026-10-06: the release is published, not drafted; step 1
+  names `Cargo.lock` through `cargo check`, the workspace
+  dependencies' versions, `kalem --version` and the README's and
+  `installing.org`'s sentences; a step 0 for green CI and the plugins'
+  releases; `dist plan` and a prerelease tag; `git push origin v0.1.0`;
+  the terminal archives through the release workflow.)
+- [x] **Major.** Dependabot bumps the actions in the generated
   `release.yml` (its `@v4` actions already log Node 20 warnings), and
   dist refuses a hand- or bot-edited workflow without
   `allow-dirty = ["ci"]`. Exclude it or set `allow-dirty`.
-- [ ] **Minor.** `packaging/macos/Info.plist`: bundle id
+  (done 2026-10-06: `allow-dirty = ["ci"]`, and `docs/releasing.md`
+  says to run `dist generate` without it after a configuration change.)
+- [~] **Minor.** `packaging/macos/Info.plist`: bundle id
   `io.github.kalem-editor.Kalem` does not match the `getkalem` org (the
   id is sticky), no icon, and it declares only Org, text, Markdown and
   CSV (not `.tex`, `.pdf`, `.xlsx`, pictures). No workflow builds or
   attaches the app.
-- [ ] **Minor.** `publish = false` on every crate that cannot be
+  (done 2026-10-06 but the workflow: `io.github.getkalem.Kalem`, the
+  icon (`packaging/macos/Kalem.icns`, made by `tools/macos-icon.sh`
+  from the logo), and LaTeX, BibTeX, TSV, PDF, pictures and workbooks
+  among the document types. Open: building and attaching the app in
+  the release, which wants signing first.)
+- [x] **Minor.** `publish = false` on every crate that cannot be
   published (kalem-core depends on the comrak fork and includes
   `docs/keymaps/emacs.json` and `assets/kalem.svg` from outside the
   crate; kalem-cli on the git plugins; org-edit declares a `README.md`
   that does not exist; org-syntax waits on D18). Today only
   gpui-rich-text, latex-syntax and latex-model have it.
-- [ ] **Minor.** `.github/ISSUE_TEMPLATE/config.yml` has no
+  (done 2026-10-06: kalem-core, kalem-cli, kalem-editor, kalem-ui,
+  kalem-tui, org-syntax, org-model, org-edit and org-export, each with
+  why; org-edit's missing README is no longer named; kalem-editor keeps
+  `dist = true`, so cargo-dist still builds it.)
+- [~] **Minor.** `.github/ISSUE_TEMPLATE/config.yml` has no
   `contact_links`, Discussions are off, the repository description is
   empty; no `SECURITY.md` although `kalem plugin install` fetches and
   runs code from URLs (R5.11 puts it after 0.1; a one-paragraph file
   before is cheap).
+  (done 2026-10-06 in the repository: `SECURITY.md` (what counts, a
+  private report through GitHub's *Report a vulnerability*, the latest
+  release supported) and contact links to the Book and to it. Open, the
+  owner's: turning on private vulnerability reporting, which is off
+  (`gh api repos/getkalem/kalem/private-vulnerability-reporting`), the
+  repository's description, Discussions.)
 
 ## 6. Licensing
 

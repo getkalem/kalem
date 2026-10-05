@@ -1,1 +1,8 @@
 blank_issues_enabled: true
+contact_links:
+  - name: The Kalem Book
+    url: https://getkalem.github.io/kalem/
+    about: The manual, and what Kalem does with each format; "When something goes wrong" says what a bug report needs.
+  - name: A security problem
+    url: https://github.com/getkalem/kalem/blob/main/SECURITY.md
+    about: Please do not open a public issue; SECURITY.md says how to report it.

@@ -225,12 +225,24 @@ inherits = "release"
 debug = true
 strip = "none"
 
+# The profile cargo-dist builds the release archives with: the release
+# profile, as the binary size job measures it.
+[profile.dist]
+inherits = "release"
+
 # Release automation (§17): `dist generate` writes the release workflow from
 # this; see docs/releasing.md.
 [workspace.metadata.dist]
 cargo-dist-version = "0.28.0"
 ci = "github"
-installers = ["shell", "powershell", "homebrew"]
+# No Homebrew formula until a tap exists (getkalem/homebrew-tap).
+installers = ["shell", "powershell"]
+# The terminal-only archives, built by a workflow of their own and
+# attached to the release once it is announced.
+post-announce-jobs = ["./release-terminal"]
+# Dependabot updates the actions of the generated workflow too; run
+# `dist generate` without this line after changing the configuration.
+allow-dirty = ["ci"]
 targets = [
     "aarch64-apple-darwin",
     "x86_64-apple-darwin",

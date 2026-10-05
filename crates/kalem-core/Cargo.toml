@@ -7,6 +7,10 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
+# Not on crates.io yet: comrak comes from the fork getkalem/comrak, and
+# the crate includes files from outside its folder (the Emacs keymap, the
+# logo).
+publish = false
 
 [dependencies]
 dunce.workspace = true

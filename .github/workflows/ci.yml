@@ -152,10 +152,10 @@ jobs:
             libx11-xcb-dev libxcb1-dev libfontconfig-dev libfreetype-dev libvulkan-dev
       # The release binaries, as cargo-dist and the terminal-only release
       # build them, against their ceilings (roadmap R2.1).
-      - run: cargo build --release --locked -p kalem-editor --no-default-features --features tui
-      - run: sh tools/check-binary-size.sh target/release/kalem terminal
-      - run: cargo build --release --locked -p kalem-editor
-      - run: sh tools/check-binary-size.sh target/release/kalem full
+      - run: cargo build --profile dist --locked -p kalem-editor --no-default-features --features tui
+      - run: sh tools/check-binary-size.sh target/dist/kalem terminal
+      - run: cargo build --profile dist --locked -p kalem-editor
+      - run: sh tools/check-binary-size.sh target/dist/kalem full
 
   fuzz:
     name: fuzz (short run)

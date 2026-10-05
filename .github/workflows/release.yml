@@ -289,3 +289,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+
+  custom-release-terminal:
+    needs:
+      - plan
+      - announce
+    uses: ./.github/workflows/release-terminal.yml
+    with:
+      plan: ${{ needs.plan.outputs.val }}
+    secrets: inherit

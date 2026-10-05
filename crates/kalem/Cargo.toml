@@ -11,6 +11,9 @@ authors.workspace = true
 keywords = ["org-mode", "editor", "wysiwyg", "latex", "tui"]
 categories = ["text-editors", "command-line-utilities"]
 readme = "../../README.md"
+# Not on crates.io yet: it depends on kalem-core, which cannot be
+# published; the binaries are the distribution (docs/releasing.md).
+publish = false
 
 [[bin]]
 name = "kalem"

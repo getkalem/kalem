@@ -27,6 +27,7 @@ app="$out/Kalem.app"
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$out/kalem" "$app/Contents/MacOS/kalem"
+cp packaging/macos/Kalem.icns "$app/Contents/Resources/Kalem.icns"
 sed "s/@VERSION@/$version/g" packaging/macos/Info.plist > "$app/Contents/Info.plist"
 printf 'APPL????' > "$app/Contents/PkgInfo"
 plutil -lint "$app/Contents/Info.plist" >/dev/null

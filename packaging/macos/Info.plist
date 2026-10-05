@@ -7,7 +7,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>Kalem</string>
 	<key>CFBundleIdentifier</key>
-	<string>io.github.kalem-editor.Kalem</string>
+	<string>io.github.getkalem.Kalem</string>
 	<key>CFBundleExecutable</key>
 	<string>kalem</string>
 	<key>CFBundlePackageType</key>
@@ -22,6 +22,8 @@
 	<string>11.0</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
+	<key>CFBundleIconFile</key>
+	<string>Kalem</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
@@ -37,7 +39,7 @@
 			<string>Owner</string>
 			<key>LSItemContentTypes</key>
 			<array>
-				<string>io.github.kalem-editor.org</string>
+				<string>io.github.getkalem.org</string>
 			</array>
 		</dict>
 		<dict>
@@ -52,6 +54,54 @@
 				<string>public.plain-text</string>
 				<string>net.daringfireball.markdown</string>
 				<string>public.comma-separated-values-text</string>
+				<string>public.tab-separated-values-text</string>
+				<string>org.tug.tex</string>
+				<string>org.tug.bib</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>PDF document</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.adobe.pdf</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Picture</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.png</string>
+				<string>public.jpeg</string>
+				<string>com.compuserve.gif</string>
+				<string>org.webmproject.webp</string>
+				<string>com.microsoft.bmp</string>
+				<string>public.tiff</string>
+				<string>com.microsoft.ico</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Workbook</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>org.openxmlformats.spreadsheetml.sheet</string>
+				<string>org.openxmlformats.spreadsheetml.sheet.macroenabled</string>
+				<string>com.microsoft.excel.xls</string>
+				<string>org.oasis-open.opendocument.spreadsheet</string>
 			</array>
 		</dict>
 	</array>
@@ -59,7 +109,7 @@
 	<array>
 		<dict>
 			<key>UTTypeIdentifier</key>
-			<string>io.github.kalem-editor.org</string>
+			<string>io.github.getkalem.org</string>
 			<key>UTTypeDescription</key>
 			<string>Org document</string>
 			<key>UTTypeConformsTo</key>
@@ -72,6 +122,45 @@
 				<array>
 					<string>org</string>
 					<string>org_archive</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.tug.tex</string>
+			<key>UTTypeDescription</key>
+			<string>LaTeX document</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.plain-text</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>tex</string>
+					<string>latex</string>
+					<string>ltx</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.tug.bib</string>
+			<key>UTTypeDescription</key>
+			<string>BibTeX bibliography</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.plain-text</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>bib</string>
 				</array>
 			</dict>
 		</dict>

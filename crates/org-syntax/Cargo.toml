@@ -12,6 +12,8 @@ categories = ["parser-implementations", "text-processing"]
 readme = "README.md"
 # Tests, benchmarks and examples use the repository's corpus.
 exclude = ["tests/", "benches/", "examples/"]
+# Not on crates.io until decision D18 (the entity table's provenance).
+publish = false
 
 [dependencies]
 rowan = "0.17"
