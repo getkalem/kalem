@@ -115,7 +115,7 @@ pub(crate) fn list() -> Result<ExitCode> {
     config();
     // The plugins built into this Kalem as components (wasm_todo W5).
     #[cfg(feature = "plugins")]
-    for (m, _) in crate::embedded_components() {
+    for m in crate::embedded_components() {
         let (id, version) = (
             m["id"].as_str().unwrap_or_default(),
             m["version"].as_str().unwrap_or_default(),

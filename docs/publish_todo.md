@@ -79,13 +79,18 @@ plumbing and can go in parallel with the code fixes.
   dictionaries, chart templates, plugins) are left as they are.)
 - [x] clippy (`--workspace --all-targets`) and `cargo fmt --check` are
   clean on this checkout (2026-10-05).
-- [ ] **Blocker, verified.** The index's `xlsx` component (0.0.4, tagged
+- [x] **Blocker, verified.** The index's `xlsx` component (0.0.4, tagged
   2026-10-05 00:44) cannot bind to this build: `grid.wit` changed four
   times after the tag (d062851, 1c38ecc, 35b4557, 5fddb20). The log says
   "does not have export `set-series-kind`; the bundled viewer opens its
   files". Release xlsx 0.0.5 against the final contract right before the
   tag, and do not move `grid.wit` again before 0.1 (or finally version
   the WIT package, `kalem:plugin@0.1.0` has never changed).
+  (done 2026-10-06: the WIT package is versioned, 0.2.x frozen in
+  `wit-frozen/` (wasm_todo W2), and xlsx 0.0.5 is released against
+  0.2.1, with pdf-viewer and image-viewer 0.0.2; the three are what
+  Kalem has built in (W9), and `tools/check-released-plugins.sh` says
+  each runs.)
 - [x] **Major.** The manifest's `"api": "^0.1"` is checked nowhere, and
   CI never runs the component tests against the index's artifacts
   (`xlsx_component.rs`). Add a CI job that installs each released
@@ -805,7 +810,7 @@ documents, `kalem check`'s round trip and diagnostics, a missing
 
 ### 3.8 PDF
 
-- [~] **Major, reported.** A PDF with a user password cannot be opened:
+- [x] **Major, reported.** A PDF with a user password cannot be opened:
   the plugin answers `PASSWORD_REQUIRED` and offers
   `open_with_password` (`pdf-viewer/src/lib.rs:41-43`, `79-93`), nothing
   in the host calls it and the WIT `open` has no password. The user sees
@@ -817,15 +822,17 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   for the password (`file.openWithPassword`, hidden as typed, again after
   a wrong one), kept for the session (`viewer::remember_password`). Tests:
   the host's `a_component_opens_a_file_with_its_password`, the editors'
-  `password.rs`. Open: the PDF plugin answering `needs_password`, in its
-  next release.)
-- [~] **Major, reported (memory).** Six cached renders of up to 160 MB
+  `password.rs`. The PDF plugin answers `needs_password` from
+  pdf-viewer 0.0.2, built in since 2026-10-06; a PDF Ghostscript locked
+  says so through it.)
+- [x] **Major, reported (memory).** Six cached renders of up to 160 MB
   each (`pdf-viewer/src/lib.rs:35-39`) approach the 1 GB component limit
   past about 450 % zoom on a Retina display; with the "dead after one
   trap" bug of section 2 that kills the document.
   (done in getkalem/plugins 6ab2e6f, for pdf-viewer 0.0.2: the renders
   kept fit in 256 MB, one larger is not kept; a stopped document now
-  closes saying why (wasm_todo W8). Open: the release.)
+  closes saying why (wasm_todo W8). Released as pdf-viewer 0.0.2, built
+  in since 2026-10-06.)
 - [ ] **Minor, reported.** Any link target with `://` opens with the
   system without confirmation (`kalem-ui/src/viewer.rs:429-433`), so a
   `file:///…/x.app` or `smb://` link in a PDF launches on one click;
@@ -842,15 +849,15 @@ documents, `kalem check`'s round trip and diagnostics, a missing
 
 ### 3.9 Pictures
 
-- [~] **Major, reported (memory).** An animated GIF, APNG or WebP is
+- [x] **Major, reported (memory).** An animated GIF, APNG or WebP is
   decoded whole at full size before the 40 MP budget applies
   (`image-viewer/src/lib.rs:303-338`; `GifDecoder::new` has no limits):
   a 600-frame 720p screen recording needs about 2.2 GB of RGBA.
   (done in getkalem/plugins f072980, for image-viewer 0.0.2: the frames
   are counted first and each scaled to the budget as it is decoded, so
   at most one stands at full size; sizes round down so the budget holds.
-  Test: `an_animation_over_the_budget_keeps_every_frame_smaller`. Open:
-  the release.)
+  Test: `an_animation_over_the_budget_keeps_every_frame_smaller`.
+  Released as image-viewer 0.0.2, built in since 2026-10-06.)
 - [x] **Major, verified (code).** The README lists SVG as a viewer
   format; `viewer::for_file` (`viewer.rs:156-161`) returns `None` for
   anything that is text, so an SVG opens as XML source. Either add a
@@ -881,8 +888,9 @@ documents, `kalem check`'s round trip and diagnostics, a missing
 
 ### 3.10 Plugin host and `kalem plugin`
 
-- [ ] **Major.** The three items of sections 1 and 2 (unbindable xlsx
+- [x] **Major.** The three items of sections 1 and 2 (unbindable xlsx
   0.0.4, dead instance after a trap, bundled viewers replaced).
+  (done: each is checked off above.)
 - [ ] **Minor, reported.** The plugins README says releases are signed;
   Kalem checks only the index's SHA-256, which comes from the same
   mutable `main`-branch `index.json` that names the download. Say

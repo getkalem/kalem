@@ -40,13 +40,13 @@ impl Component {
     }
 
     /// The viewer it is to Kalem on `host`: named by the last part of its
-    /// ID (`org.kalem.xlsx` is `xlsx`, the bundled viewer it replaces),
+    /// ID (`org.kalem.xlsx` is `xlsx`, the viewers' registry's name),
     /// with its manifest's name, extensions and limits.
-    pub fn viewer(&self, host: Arc<Host>) -> ComponentViewer {
+    pub fn viewer(&'static self, host: Arc<Host>) -> ComponentViewer {
         let m = self.manifest_json();
         ComponentViewer::embedded(
             host,
-            self.bytes,
+            move || self.wasm(),
             self.id.rsplit('.').next().unwrap_or(self.id),
             m["name"].as_str().unwrap_or(self.id),
             &opens(&m),

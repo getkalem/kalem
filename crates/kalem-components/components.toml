@@ -1,0 +1,33 @@
+# The plugins Kalem has built in (wasm_todo W9): components released by
+# getkalem/plugins, each pinned by its release's tag and the SHA-256 of
+# its component and of its manifest. With the feature `embed`, the build
+# downloads them from the release (or reads them from the folder named
+# by KALEM_COMPONENTS_DIR: the component as `file`, the manifest as
+# `FILE-STEM.plugin.json`), checks them, and keeps them compressed in the
+# binary. A plugin release reaches Kalem by changing its entry here.
+
+repository = "getkalem/plugins"
+
+[[component]]
+id = "org.kalem.image-viewer"
+tag = "image-viewer-v0.0.2"
+file = "image-viewer.wasm"
+sha256 = "e1f98b84cd8d84ddb62ff750450fb9bbfb7ebb4fd5e7444b6e6a931281109c8c"
+manifest = "plugins/image-viewer/plugin.json"
+manifest_sha256 = "64d8f42bf0323008f277e981da0415aaa7417c860f29f7a6bda69e3e97772cdc"
+
+[[component]]
+id = "org.kalem.pdf-viewer"
+tag = "pdf-viewer-v0.0.2"
+file = "pdf-viewer.wasm"
+sha256 = "c29dbee56cf1bd28620840fd1b8bca5a590d04eb8ea8a2acdd6a72ad89b6cd1f"
+manifest = "plugins/pdf-viewer/plugin.json"
+manifest_sha256 = "97fa98b24b3a09b5be7968de3884e06a1ce4bae0ede726e5f6a40c3372a03dd3"
+
+[[component]]
+id = "org.kalem.xlsx"
+tag = "xlsx-v0.0.5"
+file = "xlsx.wasm"
+sha256 = "1ac29e9ba451ae7a0950c1d7d683758cf200ed1c2de587f4848e4d41c5f3b4cd"
+manifest = "plugins/xlsx/plugin.json"
+manifest_sha256 = "9a99d2f3752fb3ff0d8d6183053b2d6df4ae6883090e9376c007fa9f0cf94813"

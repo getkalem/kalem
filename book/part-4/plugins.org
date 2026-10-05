@@ -180,15 +180,20 @@ turns it on again. A viewer's limits are 1 GB and 10 s a call, more
 than §11.6's defaults, since a viewer holds a whole file; a manifest
 may set others, =limits.memory_mb= and =limits.time_ms=.
 
-A build with the feature =components= (=cargo install --path
-crates/kalem --features components=, with the =wasm32-unknown-unknown=
-target installed) has the three bundled viewers built in as components
-too, made from the same sources, and uses them in the place of the
-native copies; =kalem plugin list= marks them /built in/. An installed
-copy of one is used only when it is newer. Their manifests set their
-limits as an installed one's do. Through a component a viewer takes one
-to two times its native copy's time (a test measures each against it);
-a workbook needs about 256 MB inside the component for a million cells.
+Kalem's own viewers, of pictures, PDF files and workbooks, are such
+components: the ones =getkalem/plugins= released, which
+=crates/kalem-components/components.toml= pins by their release and
+SHA-256. The build downloads them (or reads them from the folder
+=KALEM_COMPONENTS_DIR= names, to build offline), checks them and keeps
+them compressed in the binary, inflated when first used; Kalem compiles
+none of their source, and a change to one reaches Kalem as its release
+and a new line in that file. =kalem plugin list= marks them /built in/;
+an installed copy of one is used only when it is newer. Their manifests
+set their limits as an installed one's do. Through a component a viewer
+took one to two times the time of the same code built into Kalem
+natively, as it was until 2026-10-05; a test measures each against a
+ceiling; a workbook needs about 256 MB inside the component for a
+million cells.
 
 * Versions of the plugin API
 
@@ -254,10 +259,9 @@ files; no other plugin has a clock. The Excel plugin's formula engine,
 IronCalc, comes from =getkalem/ironcalc=, a fork whose only change lets
 it read that clock on WebAssembly instead of a browser's JavaScript;
 built so, the plugin opens, edits, recalculates and saves workbooks
-exactly as the bundled one does. A test checks each built-in component
-against its native copy on the same files, workbook by workbook, page by
-page and picture by picture, to the pixel
-(=crates/kalem-cli/tests/component_parity.rs=, in CI).
+exactly as its native build does, which a test compared workbook by
+workbook, page by page and picture by picture, to the pixel, while Kalem
+still had native copies.
 
 Built for speed (=opt-level = 3=) and with WebAssembly's SIMD, which
 =kalem plugin build= adds, the PDF viewer renders a page within a fifth

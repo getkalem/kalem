@@ -1,6 +1,6 @@
 [package]
 name = "kalem-components"
-description = "Kalem's bundled plugins built as WebAssembly components from their pinned sources (wasm_todo W4)"
+description = "Kalem's bundled plugins: components released by getkalem/plugins, pinned in components.toml (wasm_todo W9)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,24 +11,29 @@ authors.workspace = true
 publish = false
 
 [features]
-# Builds the components: Cargo compiles the bundled plugins of
-# getkalem/plugins, at the revision Kalem pins, for wasm32-unknown-unknown
-# (the target must be installed), and wit-component wraps them. Without
-# it the crate holds none, and nothing needs the WebAssembly target.
-build = []
+# Builds the released components in: downloaded from their GitHub
+# releases (or read from KALEM_COMPONENTS_DIR), checked against the
+# SHA-256s components.toml pins, kept compressed. Without it the crate
+# holds none.
+embed = []
 # The components as viewers of Kalem's plugin host, with what their
 # manifests ask for: what Kalem registers, and what the editors' tests
 # open pictures, PDF files and workbooks with (wasm_todo W7).
 viewers = ["dep:kalem-script", "dep:serde_json"]
 
 [dependencies]
+# The components kept compressed until first use.
+flate2 = "1"
 kalem-script = { workspace = true, optional = true }
 serde_json = { version = "1", optional = true }
 
 [build-dependencies]
+flate2 = "1"
 serde_json = "1"
+sha2 = "0.10"
+toml_edit = { version = "0.25", default-features = false, features = ["parse"] }
+ureq = "3"
 wasmparser = "0.247"
-wit-component = "0.247"
 
 [dev-dependencies]
 kalem-script.workspace = true

@@ -24,8 +24,6 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
-      - name: The bundled plugins at one revision
-        run: sh tools/check-plugin-pins.sh
       - name: Nothing from Zed's repository
         run: sh tools/check-zed-deps.sh
       - uses: dtolnay/rust-toolchain@stable
@@ -39,11 +37,9 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
-      # The editors' tests build the bundled plugins as components.
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-          targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - name: Linux libraries for the graphical editor (gpui)
         if: runner.os == 'Linux'
@@ -128,19 +124,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      # wasm_todo W4: the bundled plugins built as components from the
-      # sources Kalem pins, against this checkout's plugin API, and bound
-      # by its plugin host.
-      - run: cargo test -p kalem-components --features build
-      # W5: a Kalem with them built in lists and runs them.
+      # wasm_todo W9: the released components components.toml pins,
+      # downloaded and checked, bound by this checkout's plugin host.
+      - run: cargo test -p kalem-components --features embed,viewers
+      # W5: a terminal-only Kalem with them built in lists and runs them.
       - run: cargo test -p kalem-editor --no-default-features --features tui,components --test components
-      # W6 and W7: the components against their native copies, read, drawn
-      # and edited alike, each measurement with its ceiling (a debug build,
-      # as the owner runs Kalem).
-      - run: cargo test -p kalem-cli --features components --test component_parity --test component_speed -- --nocapture
+      # W6: each measurement with its ceiling (a debug build, as the owner
+      # runs Kalem).
+      - run: cargo test -p kalem-cli --test component_speed -- --nocapture
 
   binary-size:
     name: binary size

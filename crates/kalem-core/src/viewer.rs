@@ -627,8 +627,8 @@ impl std::fmt::Debug for ViewerState {
     }
 }
 
-/// `f`'s result, or its panic as an error: the bundled viewers are
-/// native code, and a file they cannot read must not end the editor.
+/// `f`'s result, or its panic as an error: a viewer of native code (a
+/// test's) that cannot read a file must not end the editor.
 fn guarded<T>(f: impl FnOnce() -> T) -> Result<T, String> {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).map_err(|p| {
         let what = p

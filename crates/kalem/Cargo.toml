@@ -17,19 +17,19 @@ name = "kalem"
 path = "src/main.rs"
 
 [features]
-default = ["gui", "tui", "viewers", "plugins"]
+default = ["gui", "tui", "plugins", "components"]
 # The graphical editor (gpui). Without it: the terminal-only build, for
 # servers and minimal systems (`--no-default-features --features tui`),
-# which leaves out the viewers and the plugin host too unless named.
+# which leaves out the bundled viewers and the plugin host too unless
+# named.
 gui = ["dep:kalem-ui"]
 # The terminal editor.
 tui = ["dep:kalem-tui"]
-# The bundled viewers of pictures, PDF files and workbooks.
-viewers = ["kalem-cli/viewers"]
 # The plugin host (Wasmtime) for installed component plugins.
 plugins = ["kalem-cli/plugins"]
-# The bundled plugins as WebAssembly components in the binary, in place of
-# the native viewers (wasm_todo W5; needs the wasm32-unknown-unknown target).
+# The bundled viewers of pictures, PDF files and workbooks: the components
+# getkalem/plugins released, pinned in crates/kalem-components/
+# components.toml and built into the binary (wasm_todo W9).
 components = ["kalem-cli/components"]
 
 [dependencies]

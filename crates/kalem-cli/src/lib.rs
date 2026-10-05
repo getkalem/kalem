@@ -456,17 +456,12 @@ enum ViewFormat {
     Png,
 }
 
-/// Installs the plugins bundled into the binary (D28): the viewers of
-/// getkalem/plugins for pictures, workbooks and PDF files; then the
-/// component viewers the user installed, which take the place of a
-/// bundled viewer of the same name, and the extension plugins installed.
+/// Installs the plugins built into the binary: the components
+/// getkalem/plugins released for pictures, workbooks and PDF files
+/// (wasm_todo W9); then the component viewers the user installed, used in
+/// place of a built-in one when newer, and the extension plugins
+/// installed.
 pub fn bundled_plugins() {
-    #[cfg(feature = "viewers")]
-    {
-        kalem_core::viewer::register(std::sync::Arc::new(kalem_plugin_image_viewer::ImageViewer));
-        kalem_core::viewer::register(std::sync::Arc::new(kalem_plugin_xlsx::XlsxViewer));
-        kalem_core::viewer::register(std::sync::Arc::new(kalem_plugin_pdf_viewer::PdfViewer));
-    }
     #[cfg(feature = "plugins")]
     {
         component_viewers();
@@ -486,13 +481,13 @@ fn viewer_host() -> Option<std::sync::Arc<kalem_script::Host>> {
     .clone()
 }
 
-/// The bundled plugins built into Kalem as components (wasm_todo W5), each
-/// with its manifest: none without the feature `components`.
+/// The manifests of the plugins built into Kalem as components (wasm_todo
+/// W9): none without the feature `components`.
 #[cfg(feature = "plugins")]
-pub fn embedded_components() -> Vec<(serde_json::Value, &'static [u8])> {
+pub fn embedded_components() -> Vec<serde_json::Value> {
     kalem_components::components()
         .iter()
-        .map(|c| (c.manifest_json(), c.bytes))
+        .map(kalem_components::Component::manifest_json)
         .collect()
 }
 
@@ -608,8 +603,8 @@ fn component_viewers() {
                 kalem_core::viewer::register(v.clone());
                 loaded.push(v);
             }
-            // Built for another API: not tried, the bundled viewer of the
-            // same name opens its files, and the user is told.
+            // Built for another API: not tried, the built-in component of
+            // the same name opens its files, and the user is told.
             Err(why) => kalem_core::jobs::notice(why, true),
         }
     }
@@ -628,9 +623,9 @@ fn component_viewers() {
 /// installed copy is not used.
 #[cfg(feature = "plugins")]
 pub(crate) fn embedded_is_newer(p: &kalem_core::plugin_store::Installed) -> Option<String> {
-    let (m, _) = embedded_components()
+    let m = embedded_components()
         .into_iter()
-        .find(|(m, _)| m["id"].as_str() == Some(p.id.as_str()))?;
+        .find(|m| m["id"].as_str() == Some(p.id.as_str()))?;
     let built_in = m["version"].as_str().unwrap_or_default().to_string();
     (!kalem_core::plugin_store::newer(&p.version, &built_in)).then(|| {
         kalem_core::tr!(
@@ -643,8 +638,8 @@ pub(crate) fn embedded_is_newer(p: &kalem_core::plugin_store::Installed) -> Opti
 }
 
 /// The installed plugins that are component viewers, each with its
-/// viewer (not compiled yet), which falls back to the bundled viewer of
-/// the same name when it cannot run; or why it is not tried (its manifest
+/// viewer (not compiled yet), which falls back to the built-in component
+/// of the same name when it cannot run; or why it is not tried (its manifest
 /// names another version of the plugin API).
 #[cfg(feature = "plugins")]
 pub(crate) fn installed_viewers() -> Vec<(

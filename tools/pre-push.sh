@@ -1,7 +1,6 @@
 #!/bin/sh
-# What to run before pushing to main (roadmap R1.4): formatting, the
-# plugin pins, and clippy and the tests of every crate the change
-# touches. `tools/pre-push.sh` compares with origin/main; pass another
+# What to run before pushing to main (roadmap R1.4): formatting, Zed's
+# absence, and clippy and the tests of every crate the change touches. `tools/pre-push.sh` compares with origin/main; pass another
 # base as the first argument. Install as a hook with
 #   ln -s ../../tools/pre-push.sh .git/hooks/pre-push
 set -e
@@ -9,7 +8,6 @@ base=${1:-origin/main}
 case "$base" in origin/*) git fetch -q origin "${base#origin/}" || true ;; esac
 
 cargo fmt --all --check
-sh tools/check-plugin-pins.sh
 sh tools/check-zed-deps.sh
 
 # The crates whose files changed since the base, committed or not.

@@ -12,9 +12,8 @@ Thank you for your interest in Kalem. This page says how to set up, what the rul
 
 1. Install Rust with [rustup](https://rustup.rs); `rust-toolchain.toml` selects the toolchain.
 2. Install the reference tools of the formats you work on: Emacs 29 or newer with Org 9.7 for Org, pandoc and a TeX distribution for LaTeX. CSV, BibTeX, Markdown and plain text need nothing.
-3. Install the WebAssembly target, `rustup target add wasm32-unknown-unknown`: the editors' tests open pictures, PDF files and workbooks with the bundled plugins built as components from the sources Kalem pins.
-4. Build and test with `cargo test --workspace`.
-5. For the plugin host: `cargo install wasm-tools`, without which its tests of the WIT API pass without checking.
+3. Build and test with `cargo test --workspace`. The first build downloads the bundled plugins, the components `getkalem/plugins` released (`crates/kalem-components/components.toml` pins each by its SHA-256); to build offline, put them in a folder named by `KALEM_COMPONENTS_DIR`.
+4. For the plugin host: `rustup target add wasm32-unknown-unknown` and `cargo install wasm-tools`, without which its tests of the WIT API pass without checking.
 
 gpui, the graphical editor's toolkit, comes from crates.io as `gpui-unofficial`, a snapshot of each of Zed's release tags, pinned exactly in the workspace `Cargo.toml`; nothing is fetched from Zed's repository, and `tools/check-zed-deps.sh` (run by CI and `tools/pre-push.sh`) fails a change that brings anything from it back.
 
@@ -60,10 +59,10 @@ Markdown is parsed by [comrak](https://github.com/kivikakk/comrak) through Kalem
 Several people (and agents) push to `main` the same day. CI lets every run on `main` finish, so a red run there is someone's to fix at once, and pushing on top of a red `main` hides whose it is. Before each push:
 
 - Rebase on `origin/main` (`git fetch origin main && git rebase origin/main`), never merge it into a local branch of `main`.
-- Run [`tools/pre-push.sh`](tools/pre-push.sh): formatting, the plugin pins, and clippy and the tests of every crate the change touches (all of them when `Cargo.toml` or `Cargo.lock` changed). Linking it as `.git/hooks/pre-push` runs it on every push.
+- Run [`tools/pre-push.sh`](tools/pre-push.sh): formatting, and clippy and the tests of every crate the change touches (all of them when `Cargo.toml` or `Cargo.lock` changed). Linking it as `.git/hooks/pre-push` runs it on every push.
 - Push related commits together rather than one at a time; at most about once an hour while the last run on `main` is still going, so runs do not queue behind each other.
 - When `main` is red from your push, fix it before anything else; when it is red from someone else's, say so to them rather than push on top.
-- A change to the viewer contract (`crates/kalem-viewer`) and the bundled plugins' bump go in one push: the three plugins are pinned at one revision of `getkalem/plugins` ([`tools/check-plugin-pins.sh`](tools/check-plugin-pins.sh)).
+- The bundled plugins are released components of `getkalem/plugins`, pinned in `crates/kalem-components/components.toml`: a change to a plugin reaches Kalem as a release of it and a new line there. A change to the plugin API needs the plugins released against it before Kalem pins them.
 - The plugin API's released WIT interfaces never change (`crates/kalem-plugin/tests/frozen.rs`): a new function goes into a new interface in a file of its own, exported by the worlds in `worlds.wit` (the Book, Part III, "Versions of the plugin API").
 
 ## License

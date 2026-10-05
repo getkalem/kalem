@@ -35,10 +35,9 @@ objc2-foundation = { version = "0.3", default-features = false, features = ["std
 [dev-dependencies]
 # The terminal editor, for the tests comparing the two editors.
 kalem-tui.workspace = true
-# Pictures, PDF files and workbooks open with the bundled viewers built as
-# components, as Kalem will have them only (wasm_todo W7): the
-# wasm32-unknown-unknown target must be installed.
-kalem-components = { workspace = true, features = ["build", "viewers"] }
+# Pictures, PDF files and workbooks open with the bundled plugins, the
+# components Kalem builds in (wasm_todo W7, W9).
+kalem-components = { workspace = true, features = ["embed", "viewers"] }
 ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
 unicode-width = "0.2"
 gpui = { workspace = true, features = ["test-support"] }

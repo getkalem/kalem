@@ -713,7 +713,7 @@ pub(crate) fn view(file: &Path, unit: usize, png: bool, output: Option<&Path>) -
     };
     let opened = kalem_core::viewer::ViewerState::open(viewer, file);
     // What the editors show in the status bar, such as an installed
-    // plugin that cannot run and the bundled viewer used instead.
+    // plugin that cannot run and the built-in one used instead.
     for (text, _) in kalem_core::jobs::take_notices() {
         let _ = writeln!(std::io::stderr(), "kalem: {text}");
     }

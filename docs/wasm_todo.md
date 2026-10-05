@@ -67,6 +67,10 @@ Why the native copies are still there, as found on 2026-10-05:
   the template says `^0.2`. Open, the owner's: publishing `kalem-plugin`
   and `kalem-viewer` on crates.io, and releasing the three viewer
   plugins built against 0.2.0.)
+  (2026-10-05, the owner's go: the API is 0.2.1 (W10's `diagnostics`),
+  `wit-frozen/0.2.1/`; xlsx 0.0.5, pdf-viewer 0.0.2 and image-viewer
+  0.0.2 released against it, their manifests asking for `^0.2.1`, which
+  `api_compatible` now honors to the patch. Open: crates.io.)
 
 ## W3. The host binding older components
 
@@ -109,6 +113,9 @@ Why the native copies are still there, as found on 2026-10-05:
   is, until releases follow W2. Precompiling for the binary's engine
   goes with W5, where the engine's configuration is known; Wasmtime's
   cache compiles them once meanwhile.)
+  (Replaced by W9 on 2026-10-05, the owner deciding that Kalem takes the
+  released components rather than compiling the plugins: `build.rs`
+  downloads what `components.toml` pins and checks its SHA-256.)
 
 ## W5. Embedded components loaded on first use
 
@@ -127,6 +134,8 @@ Why the native copies are still there, as found on 2026-10-05:
   in)" and an installed copy not used, `kalem plugin check` runs them
   too. Test `crates/kalem/tests/components.rs`. Not default yet: W7 and
   W6 decide. Open: precompiling at build time for the binary's engine.)
+  (Default since W9; kept compressed in the binary and inflated on first
+  use. Open still: precompiling.)
 
 ## W6. Speed and limits measured on components
 
@@ -242,11 +251,30 @@ Why the native copies are still there, as found on 2026-10-05:
 
 ## W9. The native copies removed
 
-- [ ] W9 `kalem-cli`'s feature `viewers` and its three `register` calls
+- [x] W9 `kalem-cli`'s feature `viewers` and its three `register` calls
   removed, and with them the git pins of `getkalem/plugins` in Kalem's
   `Cargo.toml`, `tools/check-plugin-pins.sh` and the three-push order; the
   terminal-only build's size measured again (components embedded or left
   out by a feature); a contract change then needs a plugin release only.
+  (2026-10-05, the owner deciding Kalem uses the released components
+  rather than compiling them: `crates/kalem-components/components.toml`
+  pins each by its release tag and the SHA-256 of its component and its
+  manifest; `build.rs` (feature `embed`) downloads them, or reads them
+  from `KALEM_COMPONENTS_DIR` to build offline, keeps them by hash under
+  the target folder, refuses a mismatch or a WASI import, and deflates
+  them into the binary (13.7 MiB of components, 4.4 compressed);
+  `Component::wasm` inflates one on first use. The feature `viewers`,
+  the native crates, their pins and `[patch]`, their profile entries,
+  `tools/check-plugin-pins.sh` and the CI step are gone; `components` is
+  a default feature of `kalem-cli` and `kalem-editor`, left out of the
+  terminal-only build. The parity test went with the native copies (its
+  last run, all alike, is W7's record); `component_speed.rs` measures
+  the components against fixed ceilings. A plugin reaches Kalem as a
+  release and a line of `components.toml`; a contract change needs the
+  plugins released against it first. The releases it pins, of
+  2026-10-06, built against API 0.2.1: image-viewer 0.0.2, pdf-viewer
+  0.0.2 and xlsx 0.0.5; `tools/check-released-plugins.sh` runs all three
+  with this build.)
 
 ## W10. Plugins developed and debugged as components
 

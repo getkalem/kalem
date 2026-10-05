@@ -33,10 +33,9 @@ rustix = { version = "1", features = ["event", "stdio", "std"] }
 [dev-dependencies]
 insta = "1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
-# Pictures, PDF files and workbooks open with the bundled viewers built as
-# components, as Kalem will have them only (wasm_todo W7): the
-# wasm32-unknown-unknown target must be installed.
-kalem-components = { workspace = true, features = ["build", "viewers"] }
+# Pictures, PDF files and workbooks open with the bundled plugins, the
+# components Kalem builds in (wasm_todo W7, W9).
+kalem-components = { workspace = true, features = ["embed", "viewers"] }
 
 [lints]
 workspace = true

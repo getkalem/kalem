@@ -47,23 +47,6 @@ kalem-viewer = { path = "crates/kalem-viewer", version = "0.0.1" }
 kalem-script = { path = "crates/kalem-script", version = "0.0.1" }
 kalem-plugin = { path = "crates/kalem-plugin", version = "0.0.1" }
 kalem-components = { path = "crates/kalem-components", version = "0.0.1" }
-# The bundled plugins of getkalem/plugins move together, at one revision
-# (tools/check-plugin-pins.sh, in CI): bump the three lines at once.
-# The image viewer, a plugin of getkalem/plugins bundled into the binary
-# (D28) until components load (T3.1.12).
-kalem-plugin-image-viewer = { git = "https://github.com/getkalem/plugins", rev = "f42b51701104cbec5ec46174c993daa1e339c575" }
-# Excel workbooks (T3.7.4), bundled the same way.
-kalem-plugin-xlsx = { git = "https://github.com/getkalem/plugins", rev = "f42b51701104cbec5ec46174c993daa1e339c575" }
-# PDF files (T3.7.3), bundled the same way.
-kalem-plugin-pdf-viewer = { git = "https://github.com/getkalem/plugins", rev = "f42b51701104cbec5ec46174c993daa1e339c575" }
-
-# The plugins build against this checkout's contract, not its copy on
-# GitHub.
-[patch."https://github.com/getkalem/kalem"]
-kalem-viewer = { path = "crates/kalem-viewer" }
-# The plugins' component bindings (on wasm32 only), the same: the
-# `grid` feature with the contract it adapts.
-kalem-plugin = { path = "crates/kalem-plugin" }
 
 [workspace.lints.rust]
 unsafe_code = "deny"
@@ -115,8 +98,6 @@ opt-level = "s"
 opt-level = "s"
 [profile.release.package.wasmprinter]
 opt-level = "s"
-[profile.release.package.ironcalc_base]
-opt-level = "s"
 [profile.release.package.citationberg]
 opt-level = "s"
 [profile.release.package.hayagriva]
@@ -125,9 +106,7 @@ opt-level = "s"
 opt-level = "s"
 # On Linux and Windows: the shader translator, which runs as the window
 # opens; the accessibility bus (AT-SPI over D-Bus), which answers screen
-# readers; and the reader of `.xls`, `.xlsb` and `.ods` files, which runs
-# once as one opens (publish_todo 1.1: the full build had passed its
-# ceiling).
+# readers (publish_todo 1.1: the full build had passed its ceiling).
 [profile.release.package.naga]
 opt-level = "s"
 [profile.release.package.zbus]
@@ -142,14 +121,10 @@ opt-level = "s"
 opt-level = "s"
 [profile.release.package.accesskit_unix]
 opt-level = "s"
-[profile.release.package.calamine]
-opt-level = "s"
 
 # Debug builds draw PDF pages and decode pictures 40 times faster with the
-# rasterizer, the decoders and the PDF viewer built optimized; Kalem's own
-# code stays a debug build.
-[profile.dev.package.hayro]
-opt-level = 3
+# rasterizer and the decoders built optimized; Kalem's own code stays a
+# debug build.
 [profile.dev.package."hayro-interpret"]
 opt-level = 3
 [profile.dev.package."hayro-syntax"]
@@ -164,15 +139,9 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package."hayro-postscript"]
 opt-level = 3
-[profile.dev.package.vello_cpu]
-opt-level = 3
-[profile.dev.package.vello_common]
-opt-level = 3
 [profile.dev.package.fearless_simd]
 opt-level = 3
 [profile.dev.package.kurbo]
-opt-level = 3
-[profile.dev.package.peniko]
 opt-level = 3
 [profile.dev.package.skrifa]
 opt-level = 3
@@ -202,25 +171,15 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.moxcms]
 opt-level = 3
-[profile.dev.package."pic-scale"]
-opt-level = 3
-[profile.dev.package."kalem-plugin-pdf-viewer"]
-opt-level = 3
 [profile.dev.package."kalem-viewer"]
 opt-level = 3
 # A workbook's grid is drawn anew at every step of the cursor: gpui and its
 # layout engine built optimized keep a held arrow key from piling up (a
 # step in a 36,000-cell sheet took 100 ms in a debug build, 10 in a release
-# one), and the workbook plugin keeps edits and recalculation quick.
+# one).
 [profile.dev.package.gpui-unofficial]
 opt-level = 3
 [profile.dev.package.taffy]
-opt-level = 3
-[profile.dev.package."kalem-plugin-xlsx"]
-opt-level = 3
-# Its formula engine: a cell typed in a million-cell workbook took 3 s to
-# recalculate in a debug build, half a second optimized (wasm_todo W6).
-[profile.dev.package.ironcalc_base]
 opt-level = 3
 # The plugins' engine (kalem-script): a debug build compiles the PDF
 # viewer's component in 7 s, an optimized engine in half a second.

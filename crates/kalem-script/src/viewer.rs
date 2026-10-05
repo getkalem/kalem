@@ -320,8 +320,9 @@ pub struct ComponentViewer {
     host: std::sync::Arc<crate::Host>,
     file: PathBuf,
     /// The component's bytes when it is built into Kalem (wasm_todo W5)
-    /// rather than installed in a file.
-    bytes: Option<&'static [u8]>,
+    /// rather than installed in a file: asked for on first use, Kalem
+    /// keeping them compressed until then.
+    bytes: Option<Embedded>,
     id: String,
     name: String,
     extensions: Vec<&'static str>,
@@ -340,6 +341,9 @@ pub struct ComponentViewer {
     /// counts the failures and turns a plugin that keeps failing off.
     on_stop: Option<OnStop>,
 }
+
+/// The bytes of a component built into Kalem, given on first need.
+pub type Embedded = std::sync::Arc<dyn Fn() -> &'static [u8] + Send + Sync>;
 
 /// What [`ComponentViewer::with_on_stop`] calls.
 pub type OnStop = std::sync::Arc<dyn Fn(&kalem_viewer::Stopped) + Send + Sync>;
@@ -401,19 +405,20 @@ impl ComponentViewer {
         }
     }
 
-    /// The component built into Kalem (`bytes`), known as `id` and `name`,
-    /// opening files with `extensions`: compiled, or read from the
-    /// host's cache, the first time it is needed.
+    /// The component built into Kalem (its bytes as `bytes` gives them,
+    /// on first need), known as `id` and `name`, opening files with
+    /// `extensions`: compiled, or read from the host's cache, the first
+    /// time it is needed.
     pub fn embedded(
         host: std::sync::Arc<crate::Host>,
-        bytes: &'static [u8],
+        bytes: impl Fn() -> &'static [u8] + Send + Sync + 'static,
         id: impl Into<String>,
         name: impl Into<String>,
         extensions: &[String],
         limits: crate::Limits,
     ) -> ComponentViewer {
         ComponentViewer {
-            bytes: Some(bytes),
+            bytes: Some(std::sync::Arc::new(bytes)),
             ..ComponentViewer::new(host, PathBuf::new(), id, name, extensions, limits)
         }
     }
@@ -428,7 +433,7 @@ impl ComponentViewer {
         &self.name
     }
 
-    /// With `fallback`, the bundled viewer it replaces, opening the files
+    /// With `fallback`, the viewer it replaces (the built-in one), opening the files
     /// when the component cannot run, and `notice` telling the user once
     /// why.
     pub fn with_fallback(
@@ -456,7 +461,10 @@ impl ComponentViewer {
         }
         if let Some(n) = &self.notice {
             n(match &self.fallback {
-                Some(_) => format!("{}: {}; the bundled viewer opens its files", self.name, e.0),
+                Some(_) => format!(
+                    "{}: {}; the one built into Kalem opens its files",
+                    self.name, e.0
+                ),
                 None => format!("{}: {}", self.name, e.0),
             });
         }
@@ -473,7 +481,7 @@ impl ComponentViewer {
     /// [`ComponentViewer::plugin`] with its [`Loaded::generation`].
     fn loaded(&self) -> (u64, Result<crate::Plugin, kalem_viewer::ViewerError>) {
         let mut slot = self.plugin.lock().unwrap_or_else(|e| e.into_inner());
-        let changed = match self.bytes {
+        let changed = match &self.bytes {
             Some(_) => None,
             None => std::fs::metadata(&self.file)
                 .and_then(|m| m.modified())
@@ -483,8 +491,8 @@ impl ComponentViewer {
             .as_ref()
             .is_none_or(|l| self.bytes.is_none() && l.changed != changed)
         {
-            let plugin = match self.bytes {
-                Some(b) => self.host.load(b),
+            let plugin = match &self.bytes {
+                Some(b) => self.host.load(b()),
                 None => self.host.load_file(&self.file),
             }
             .map_err(|e| e.to_string());

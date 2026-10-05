@@ -1,12 +1,15 @@
-//! wasm_todo W6: the measurements of the bundled viewers' native copies
-//! repeated through the components built into Kalem, side by side, each
-//! with its ceiling: a workbook of 36,000 cells (opened, scrolled, a held
-//! arrow key, typing, a 100,000-cell paste, sorting), one of a million
-//! (opened, seen, typed in, and the memory it needs), a 6-megapixel
-//! picture and a long PDF. With the numbers:
+//! wasm_todo W6: the bundled plugins, components released by
+//! getkalem/plugins, measured in Kalem, each measurement with its ceiling:
+//! a workbook of 36,000 cells (opened, scrolled, a held arrow key, typing,
+//! a 100,000-cell paste, sorting), one of a million (opened, seen, typed
+//! in, and the memory it needs), a 6-megapixel picture and a long PDF.
+//! The ceilings are about ten times a debug build's times on an M1 Max,
+//! for slower machines; the measurements against the native copies,
+//! which Kalem no longer has, are in `docs/wasm_todo.md` (W6). With the
+//! numbers:
 //!
 //! ```sh
-//! cargo test -p kalem-cli --features components --test component_speed -- --nocapture
+//! cargo test -p kalem-cli --test component_speed -- --nocapture
 //! ```
 //!
 //! `KALEM_SPEED_PDF` names another PDF than the one made here.
@@ -19,12 +22,23 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use kalem_core::viewer::ViewerState;
-use kalem_viewer::Viewer;
+use kalem_viewer::{FileHandle, Viewer};
+
+/// The terminal editor's budget with `rows` from row 10, saved as `name`
+/// in `dir`, made through the workbook component.
+fn workbook(dir: &Path, name: &str, rows: &[Vec<String>]) -> PathBuf {
+    let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("../kalem-tui/tests/data/budget.xlsx");
+    let mut wb = common::viewer("org.kalem.xlsx")
+        .open(FileHandle::new(&src))
+        .unwrap();
+    wb.set_cells(0, 9, 0, rows).unwrap();
+    let path = dir.join(name);
+    std::fs::write(&path, wb.save().unwrap().bytes).unwrap();
+    path
+}
 
 /// A workbook of 3,000 rows of twelve columns, a SUM in the last.
 fn big_workbook(dir: &Path) -> PathBuf {
-    let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("../kalem-tui/tests/data/budget.xlsx");
-    let mut wb = kalem_plugin_xlsx::Workbook::open(std::fs::read(src).unwrap()).unwrap();
     let rows: Vec<Vec<String>> = (0..3000)
         .map(|r| {
             (0..12)
@@ -36,11 +50,7 @@ fn big_workbook(dir: &Path) -> PathBuf {
                 .collect()
         })
         .collect();
-    wb.set_cells(0, kalem_plugin_xlsx::CellRef::new(9, 0), &rows)
-        .unwrap();
-    let path = dir.join("big.xlsx");
-    std::fs::write(&path, wb.save().unwrap()).unwrap();
-    path
+    workbook(dir, "big.xlsx", &rows)
 }
 
 /// What the window asks of the grid for a frame of `rows` × `cols` from
@@ -125,8 +135,6 @@ fn measure(viewer: Arc<dyn Viewer>, path: &Path) -> Vec<(&'static str, Duration)
 
 /// A workbook of a million cells: 100,000 rows of ten numbers.
 fn million_cells(dir: &Path) -> PathBuf {
-    let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("../kalem-tui/tests/data/budget.xlsx");
-    let mut wb = kalem_plugin_xlsx::Workbook::open(std::fs::read(src).unwrap()).unwrap();
     let rows: Vec<Vec<String>> = (0..100_000)
         .map(|r| {
             (0..10)
@@ -134,11 +142,7 @@ fn million_cells(dir: &Path) -> PathBuf {
                 .collect()
         })
         .collect();
-    wb.set_cells(0, kalem_plugin_xlsx::CellRef::new(9, 0), &rows)
-        .unwrap();
-    let path = dir.join("million.xlsx");
-    std::fs::write(&path, wb.save().unwrap()).unwrap();
-    path
+    workbook(dir, "million.xlsx", &rows)
 }
 
 /// The million-cell workbook through `viewer`: opened, seen, a cell typed.
@@ -212,21 +216,18 @@ fn measure_picture(viewer: Arc<dyn Viewer>, path: &Path) -> Vec<(&'static str, D
     out
 }
 
-/// The two columns side by side. The ceiling: a component more than four
-/// times slower than the native copy fails, unless it is still done
-/// within a frame (16 ms); a ratio, as the times are the machine's.
-fn table(native: &[(&str, Duration)], through: &[(&str, Duration)]) {
-    for ((label, a), (_, b)) in native.iter().zip(through) {
-        let ratio = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+/// The measurements against their ceilings, in milliseconds.
+fn check(measured: &[(&str, Duration)], ceilings: &[u128]) {
+    assert_eq!(measured.len(), ceilings.len());
+    for ((label, t), ceiling) in measured.iter().zip(ceilings) {
         println!(
-            "{label:<22} {:>9.1} ms {:>9.1} ms {:>6.1}x",
-            a.as_secs_f64() * 1000.0,
-            b.as_secs_f64() * 1000.0,
-            ratio
+            "{label:<22} {:>9.1} ms  (ceiling {ceiling} ms)",
+            t.as_secs_f64() * 1000.0
         );
         assert!(
-            ratio < 4.0 || b.as_millis() < 16,
-            "{label}: the component takes {ratio:.1} times the native copy's time"
+            t.as_millis() <= *ceiling,
+            "{label}: {} ms, past its ceiling of {ceiling} ms",
+            t.as_millis()
         );
     }
 }
@@ -241,7 +242,7 @@ fn least_memory(id: &str, path: &Path) -> Option<usize> {
         .find(|mb| {
             let v = kalem_script::viewer::ComponentViewer::embedded(
                 host.clone(),
-                c.bytes,
+                move || c.wasm(),
                 "xlsx",
                 "Excel workbooks",
                 &["xlsx".to_string()],
@@ -265,38 +266,36 @@ fn component(id: &str) -> Arc<dyn Viewer> {
 }
 
 #[test]
-fn components_keep_up_with_native_copies() {
+fn components_measured_against_their_ceilings() {
     let dir = common::scratch("component-speed");
     let path = big_workbook(&dir);
-    let native = measure(Arc::new(kalem_plugin_xlsx::XlsxViewer), &path);
     let xlsx = component("org.kalem.xlsx");
-    let through = measure(xlsx.clone(), &path);
-    println!(
-        "{:<22} {:>12} {:>12} {:>7}",
-        "", "native", "component", "ratio"
+    // open, layout ×100, cells fresh, cells again, 60 frames, 200 steps,
+    // a cell typed, a paste, a sort.
+    check(
+        &measure(xlsx.clone(), &path),
+        &[500, 100, 300, 100, 1500, 4000, 1000, 5000, 5000],
     );
-    table(&native, &through);
     let million = million_cells(&dir);
-    table(
-        &measure_million(Arc::new(kalem_plugin_xlsx::XlsxViewer), &million),
+    // open, cells, 60 frames, a cell typed.
+    check(
         &measure_million(xlsx, &million),
+        &[10_000, 2000, 4000, 8000],
     );
     // A million cells fit in half of a viewer's default memory.
     let least = least_memory("org.kalem.xlsx", &million);
     println!("1M: least memory       {least:?} MB");
     assert!(least.is_some_and(|mb| mb <= 512), "{least:?}");
     let pic = common::big_picture(&dir);
-    let viewer = component("org.kalem.image-viewer");
-    table(
-        &measure_picture(Arc::new(kalem_plugin_image_viewer::ImageViewer), &pic),
-        &measure_picture(viewer, &pic),
+    check(
+        &measure_picture(component("org.kalem.image-viewer"), &pic),
+        &[2000, 100],
     );
     let pdf = std::env::var_os("KALEM_SPEED_PDF")
         .map_or_else(|| common::long_pdf(&dir, 60), PathBuf::from);
-    let viewer = component("org.kalem.pdf-viewer");
-    table(
-        &measure_pdf(Arc::new(kalem_plugin_pdf_viewer::PdfViewer), &pdf),
-        &measure_pdf(viewer, &pdf),
+    check(
+        &measure_pdf(component("org.kalem.pdf-viewer"), &pdf),
+        &[500, 20_000],
     );
     let _ = std::fs::remove_dir_all(&dir);
 }

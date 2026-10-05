@@ -1,32 +1,55 @@
-//! The bundled plugins of `getkalem/plugins` built as WebAssembly
-//! components (wasm_todo W4), from the sources Kalem pins in its
-//! `Cargo.toml`: the same code as the native copies the `viewers`
-//! feature compiles in, built for `wasm32-unknown-unknown` against this
-//! checkout's plugin API, wrapped as components, refused when one imports
-//! WASI. Built with the feature `build`; without it [`components`] is
-//! empty. With the feature `viewers`, [`viewer`] gives one as a viewer
-//! of the plugin host, as Kalem registers it.
+//! The bundled plugins of `getkalem/plugins` as the WebAssembly components
+//! they released (wasm_todo W9): `components.toml` pins each by its
+//! release's tag and SHA-256, and with the feature `embed` the build
+//! downloads them, checks them and keeps them compressed in the binary;
+//! without it [`components`] is empty. Kalem compiles none of their
+//! source. With the feature `viewers`, [`viewer`] gives one as a viewer of
+//! the plugin host, as Kalem registers it.
+
+use std::io::Read;
+use std::sync::OnceLock;
 
 /// A bundled plugin as a component.
-#[derive(Debug, Clone, Copy)]
 pub struct Component {
     /// The plugin's ID (`org.kalem.xlsx`).
     pub id: &'static str,
-    /// Its manifest, `plugin.json`, as the plugin's sources have it.
+    /// Its manifest, `plugin.json`, as its release has it.
     pub manifest: &'static str,
-    /// The component's bytes.
-    pub bytes: &'static [u8],
-    /// The plugin's folder in the sources it was built from, for tests
-    /// reading its corpus.
-    pub source: &'static str,
+    /// The component, compressed (deflate).
+    deflated: &'static [u8],
+    /// The component, once asked for.
+    wasm: OnceLock<Vec<u8>>,
+}
+
+impl std::fmt::Debug for Component {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Component")
+            .field("id", &self.id)
+            .field("deflated", &self.deflated.len())
+            .finish_non_exhaustive()
+    }
+}
+
+impl Component {
+    /// The component's bytes, inflated on the first call (a few
+    /// megabytes, kept from then on).
+    pub fn wasm(&self) -> &[u8] {
+        self.wasm.get_or_init(|| {
+            let mut out = Vec::new();
+            flate2::read::DeflateDecoder::new(self.deflated)
+                .read_to_end(&mut out)
+                .expect("a component the build compressed");
+            out
+        })
+    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/components.rs"));
 
 /// The bundled plugins as components: none unless built with the feature
-/// `build`.
+/// `embed`.
 pub fn components() -> &'static [Component] {
-    COMPONENTS
+    &COMPONENTS
 }
 
 #[cfg(feature = "viewers")]
