@@ -4612,3 +4612,42 @@ fn csv_copy_and_cut_cells_of_one_row(cx: &mut TestAppContext) {
     assert_eq!(clip(cx).as_deref().map(str::trim_end), Some("Ayşe\tİzmir"));
     assert_eq!(body(cx), "a,b,c,d\n1,,,9\n");
 }
+
+/// With cells of several rows and columns selected, Delete Row and Delete
+/// Column delete them all (only the cursor's went), and typing goes into
+/// the cursor's cell (it replaced the text between, merging rows).
+#[gpui::test]
+fn csv_selection_rows_columns_and_typing(cx: &mut TestAppContext) {
+    let text = "a,b,c\n1,2,3\n4,5,6\n7,8,9\n";
+    let (e, cx) = open_named(text, "sel.csv", || None, cx);
+    let body =
+        |cx: &mut VisualTestContext| e.read_with(cx, |e, _| e.doc.text().as_str().to_string());
+    let select = |from: &str, to: &str, cx: &mut VisualTestContext| {
+        e.update(cx, |e, _| {
+            let t = e.doc.text().as_str().to_string();
+            e.doc.move_cursor(t.find(from).unwrap(), false);
+            e.doc.move_cursor(t.find(to).unwrap(), true);
+        });
+    };
+    let undo = |cx: &mut VisualTestContext| cx.simulate_keystrokes(&format!("{}-z", primary()));
+    // B2 to C3: rows 2 and 3.
+    select("2", "6", cx);
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("csv.deleteRow"));
+    assert_eq!(body(cx), "a,b,c\n7,8,9\n");
+    undo(cx);
+    assert_eq!(body(cx), text);
+    // The last two rows.
+    select("5", "9", cx);
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("csv.deleteRow"));
+    assert_eq!(body(cx), "a,b,c\n1,2,3\n");
+    undo(cx);
+    // Columns B and C.
+    select("2", "6", cx);
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("csv.deleteColumn"));
+    assert_eq!(body(cx), "a\n1\n4\n7\n");
+    undo(cx);
+    // Typing over B2:C3: into C3, the cursor's cell.
+    select("2", "6", cx);
+    cx.simulate_input("x");
+    assert_eq!(body(cx), "a,b,c\n1,2,3\n4,5,x6\n7,8,9\n");
+}

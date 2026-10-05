@@ -783,6 +783,25 @@ pub fn delete_row(text: &str, rec: &Record) -> Transaction {
     tx.select(Selection::caret(r.start.min(text.len() - r.len())))
 }
 
+/// Deletes the records from `a` to `b` (`a` first, or the same), their
+/// line endings with them, as [`delete_row`] deletes one.
+pub fn delete_rows(text: &str, a: &Record, b: &Record) -> Transaction {
+    let mut tx = Transaction::new("Delete Rows");
+    let r = if b.next > b.range.end || a.range.start == 0 {
+        a.range.start..b.next
+    } else {
+        // Down to the last record: the line ending before them goes.
+        let before = if text[..a.range.start].ends_with("\r\n") {
+            2
+        } else {
+            1
+        };
+        a.range.start.saturating_sub(before)..b.range.end
+    };
+    tx.edit(r.clone(), "");
+    tx.select(Selection::caret(r.start.min(text.len() - r.len())))
+}
+
 /// Swaps two records, `a` before `b`, keeping each one's bytes.
 pub fn swap_rows(text: &str, a: &Record, b: &Record) -> Transaction {
     let mut tx = Transaction::new("Move Row");
@@ -840,6 +859,35 @@ pub fn delete_column(text: &str, d: &Dialect, col: usize) -> Transaction {
             r.fields[col - 1].range.end..f.range.end
         } else {
             f.range.clone()
+        };
+        let _ = tx.replace(range, "");
+    }
+    tx
+}
+
+/// Deletes columns `first` to `last` (both inclusive) from every record,
+/// as [`delete_column`] deletes one.
+pub fn delete_columns(text: &str, d: &Dialect, first: usize, last: usize) -> Transaction {
+    let mut tx = Transaction::new("Delete Columns");
+    let mut idx = Index::new(text);
+    let n = idx.count(text, d);
+    for i in 0..n {
+        let Some(r) = idx.record(text, i, d) else {
+            continue;
+        };
+        let len = r.fields.len();
+        if first >= len {
+            continue;
+        }
+        let end = last.min(len - 1);
+        // The fields with the delimiter after them (before them, for the
+        // last ones).
+        let range = if end + 1 < len {
+            r.fields[first].range.start..r.fields[end + 1].range.start
+        } else if first > 0 {
+            r.fields[first - 1].range.end..r.fields[end].range.end
+        } else {
+            r.fields[first].range.start..r.fields[end].range.end
         };
         let _ = tx.replace(range, "");
     }

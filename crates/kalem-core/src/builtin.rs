@@ -2877,8 +2877,17 @@ fn csv_commands() -> Vec<Command> {
             "Delete Row",
             &["alt+shift+up"],
             |ctx, _| {
-                csv_edit(ctx, |text, _, row, rec, col| {
-                    Ok((Some(crate::csv::delete_row(text, rec)), Some((row, col))))
+                // The rows the selection covers, else the cursor's.
+                let ((r0, r1), _) = rectangle_or_cell(ctx.doc()?)?;
+                csv_edit(ctx, |text, l, _, _, col| {
+                    let mut idx = l.index.borrow_mut();
+                    let (Some(a), Some(b)) = (
+                        idx.record(text, r0, &l.dialect),
+                        idx.record(text, r1, &l.dialect),
+                    ) else {
+                        return Err(CommandError::new(crate::tr!("msg-csv-no-row")));
+                    };
+                    Ok((Some(crate::csv::delete_rows(text, &a, &b)), Some((r0, col))))
                 })
             },
         ),
@@ -2933,13 +2942,13 @@ fn csv_commands() -> Vec<Command> {
             "Delete Column",
             &["alt+shift+left"],
             |ctx, _| {
-                csv_edit(ctx, |text, l, row, _, col| {
+                // The columns the selection covers, else the cursor's.
+                let (_, (c0, c1)) = rectangle_or_cell(ctx.doc()?)?;
+                csv_edit(ctx, |text, l, row, _, _| {
+                    let left = l.widths.len().saturating_sub(c1 - c0 + 1);
                     Ok((
-                        Some(crate::csv::delete_column(text, &l.dialect, col)),
-                        Some((
-                            row,
-                            col.saturating_sub(usize::from(col + 1 >= l.widths.len())),
-                        )),
+                        Some(crate::csv::delete_columns(text, &l.dialect, c0, c1)),
+                        Some((row, c0.min(left.saturating_sub(1)))),
                     ))
                 })
             },

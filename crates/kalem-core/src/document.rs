@@ -1184,11 +1184,22 @@ impl DocumentState {
     /// quote or a line break goes into the field's value, which is quoted
     /// for it. Whether the text was typed so; else `type_text` types it.
     pub fn type_in_grid(&mut self, text: &str, now: Instant) -> bool {
-        if self.meta.mode != DocumentMode::Csv
-            || self.selection.anchor != self.selection.head
-            || !self.extra.is_empty()
-        {
+        if self.meta.mode != DocumentMode::Csv || !self.extra.is_empty() {
             return false;
+        }
+        // Over a selection: within one cell its text goes; over several
+        // cells the text goes into the cursor's cell, as a spreadsheet
+        // types into the active cell (it replaced the text between them,
+        // merging cells and rows).
+        let s = self.selection;
+        if s.anchor != s.head {
+            let one = crate::csv::cell_at_offset(self, s.anchor).map(|(_, r, _, c)| (r, c))
+                == crate::csv::cell_at(self).map(|(_, r, _, c)| (r, c));
+            if one {
+                self.delete_in_grid(false, now);
+            } else {
+                self.selection = Selection::caret(s.head);
+            }
         }
         let Some((layout, _, rec, col)) = crate::csv::cell_at(self) else {
             return false;

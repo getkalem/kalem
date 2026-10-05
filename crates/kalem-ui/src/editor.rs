@@ -3578,9 +3578,16 @@ impl Editor {
                 self.doc.insert_text(text, now);
             }
         } else {
-            self.doc.move_cursor(range.start, false);
-            self.doc.move_cursor(range.end, true);
-            self.doc.insert_text(text, now);
+            let sel = self.doc.selection;
+            let over_selection = range == (sel.anchor.min(sel.head)..sel.anchor.max(sel.head));
+            if !over_selection {
+                self.doc.move_cursor(range.start, false);
+                self.doc.move_cursor(range.end, true);
+            }
+            // Over the selection in a CSV grid: into the cells.
+            if !over_selection || self.source || !self.doc.type_in_grid(text, now) {
+                self.doc.insert_text(text, now);
+            }
         }
         self.goal_x = None;
         self.after_change(cx);
