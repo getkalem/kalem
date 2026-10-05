@@ -38,6 +38,13 @@ plumbing and can go in parallel with the code fixes.
     test file's own `primary()` helper, line 15). Use `primary()`.
     (done: that test and `csv_edits_as_excel_does`, which came later
     with the same keys, use `primary()`; both pass on macOS.)
+  - Found on the run after the audit: Windows failed
+    `sources_relative_to_their_index` (31215bf), whose test expected a
+    Unix separator for an index on disk (done: joined as the code does).
+  - The size (2026-10-05): the shader translator (naga), the
+    accessibility bus (zbus, zvariant, atspi, accesskit_unix) and the
+    reader of `.xls`/`.xlsb`/`.ods` (calamine), all cold, now built for
+    size; CI's next run gives the number.
 - [x] **Major, verified.** `cargo test --workspace` is red on a developer
   machine for reasons that have nothing to do with the code, which hides
   real failures:

@@ -122,6 +122,27 @@ opt-level = "s"
 opt-level = "s"
 [profile.release.package.serde_path_to_error]
 opt-level = "s"
+# On Linux and Windows: the shader translator, which runs as the window
+# opens; the accessibility bus (AT-SPI over D-Bus), which answers screen
+# readers; and the reader of `.xls`, `.xlsb` and `.ods` files, which runs
+# once as one opens (publish_todo 1.1: the full build had passed its
+# ceiling).
+[profile.release.package.naga]
+opt-level = "s"
+[profile.release.package.zbus]
+opt-level = "s"
+[profile.release.package.zvariant]
+opt-level = "s"
+[profile.release.package.atspi-common]
+opt-level = "s"
+[profile.release.package.atspi-proxies]
+opt-level = "s"
+[profile.release.package.accesskit_atspi_common]
+opt-level = "s"
+[profile.release.package.accesskit_unix]
+opt-level = "s"
+[profile.release.package.calamine]
+opt-level = "s"
 
 # Debug builds draw PDF pages and decode pictures 40 times faster with the
 # rasterizer, the decoders and the PDF viewer built optimized; Kalem's own
