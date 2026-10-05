@@ -166,4 +166,14 @@ impl GuestDocument for Doc {
     }
 }
 
+/// No file of its is protected by a password: opened as `open` does.
+impl kalem_plugin::viewer::exports::kalem::plugin::password::Guest for Pages {
+    fn open_with_password(
+        file: kalem_plugin::viewer::kalem::plugin::files::File,
+        _password: String,
+    ) -> Result<kalem_plugin::viewer::exports::kalem::plugin::viewer::Document, String> {
+        <Pages as Guest>::open(file)
+    }
+}
+
 kalem_plugin::viewer::export_viewer!(Pages);

@@ -640,12 +640,53 @@ fn guarded<T>(f: impl FnOnce() -> T) -> Result<T, String> {
     })
 }
 
+/// The passwords given this session for files protected by one, by path:
+/// a file opens again (a reload, a second pane) without asking. Kept in
+/// memory only.
+static PASSWORDS: std::sync::Mutex<Option<std::collections::HashMap<PathBuf, String>>> =
+    std::sync::Mutex::new(None);
+
+/// Remembers `password` for the file at `path`, for its next opening
+/// (`file.openWithPassword`).
+pub fn remember_password(path: &Path, password: &str) {
+    if let Ok(mut p) = PASSWORDS.lock() {
+        p.get_or_insert_with(Default::default)
+            .insert(path.to_path_buf(), password.to_string());
+    }
+}
+
+fn password_for(path: &Path) -> Option<String> {
+    PASSWORDS.lock().ok()?.as_ref()?.get(path).cloned()
+}
+
+fn forget_password(path: &Path) {
+    if let Ok(mut p) = PASSWORDS.lock()
+        && let Some(p) = p.as_mut()
+    {
+        p.remove(path);
+    }
+}
+
 impl ViewerState {
-    /// Opens `path` with `viewer`.
+    /// Opens `path` with `viewer`; a file protected by a password with the
+    /// one given for it this session ([`remember_password`]), else the
+    /// error [`kalem_viewer::NEEDS_PASSWORD`] (a wrong one forgotten).
     pub fn open(viewer: Arc<dyn Viewer>, path: &Path) -> Result<ViewerState, String> {
         // A bundled viewer is native code: a file that makes it panic is
         // an error to show, not the end of the editor.
-        let mut doc = guarded(|| viewer.open(FileHandle::new(path)))?.map_err(|e| e.to_string())?;
+        let mut doc = match guarded(|| viewer.open(FileHandle::new(path)))? {
+            Err(e) if e.is_needs_password() => match password_for(path) {
+                Some(p) => guarded(|| viewer.open_with_password(FileHandle::new(path), &p))?
+                    .inspect_err(|e| {
+                        if e.is_needs_password() {
+                            forget_password(path);
+                        }
+                    })
+                    .map_err(|e| e.to_string())?,
+                None => return Err(e.to_string()),
+            },
+            r => r.map_err(|e| e.to_string())?,
+        };
         // An OpenDocument spreadsheet the workbook viewer only shows is
         // edited as a workbook made of it, and saved back as `.ods`.
         let ods = path

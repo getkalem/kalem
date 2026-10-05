@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.1;
+package kalem:plugin@0.2.2;
 
 /// The time and chance an engine inside a viewer needs: a workbook's
 /// `NOW()`, `TODAY()` and `RAND()` (design §11.6). Granted to viewers

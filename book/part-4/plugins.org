@@ -193,7 +193,7 @@ a workbook needs about 256 MB inside the component for a million cells.
 * Versions of the plugin API
 
 The plugin API is the WIT package =kalem:plugin= (=crates/kalem-plugin/wit=),
-version 0.2.1; a component's manifest names the version it was built
+version 0.2.2; a component's manifest names the version it was built
 against (="api": "^0.2.1"=), and Kalem tries it when its own API is of
 the same 0.MINOR and no earlier. The rules, so that a plugin built once
 keeps working:
@@ -214,6 +214,13 @@ keeps working:
   =kalem-plugin='s adapters install says it first, and Kalem's log and
   the stop's error carry the panic's message and where it happened,
   above the backtrace of the plugin's functions.
+- 0.2.2 added the export =password=: a viewer whose =open= answers
+  "This file is protected by a password" (=ViewerError::needs_password=)
+  opens the file with the one the user types (=open-with-password=,
+  =Viewer::open_with_password=); both editors ask for it, hidden, and
+  keep it for the session. =kalem-plugin='s adapter exports it from the
+  contract; a viewer written against the WIT world itself implements it
+  (opening as =open= does when it has no such files).
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 

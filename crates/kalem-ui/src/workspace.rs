@@ -322,6 +322,22 @@ impl Workspace {
                         }
                         e
                     }
+                    // A PDF with a password: asked for, then opened again.
+                    Err(err) if err == tr!("msg-needs-password") => {
+                        let title = tr!("cmd-file-openWithPassword");
+                        let args = serde_json::json!({ "path": target.display().to_string() });
+                        self.editor.update(cx, |e, cx| {
+                            e.ask_argument(
+                                "file.openWithPassword",
+                                &title,
+                                args,
+                                "password".into(),
+                                "string".into(),
+                                cx,
+                            );
+                        });
+                        return;
+                    }
                     Err(err) => {
                         let msg = tr!(
                             "msg-cannot-open-file",
@@ -2326,7 +2342,25 @@ pub fn open_window(path: Option<PathBuf>, shared: Rc<Shared>, cx: &mut App) {
                 )]
                 let e = crate::editor::open(None, shared.clone(), theme, cx)
                     .expect("an empty document");
-                e.update(cx, |e, _| e.status = Some((err, true)));
+                // A file with a password (a PDF): asked for in the palette.
+                if err == tr!("msg-needs-password")
+                    && let Some(p) = path.as_deref()
+                {
+                    let title = tr!("cmd-file-openWithPassword");
+                    let args = serde_json::json!({ "path": p.display().to_string() });
+                    e.update(cx, |e, cx| {
+                        e.ask_argument(
+                            "file.openWithPassword",
+                            &title,
+                            args,
+                            "password".into(),
+                            "string".into(),
+                            cx,
+                        );
+                    });
+                } else {
+                    e.update(cx, |e, _| e.status = Some((err, true)));
+                }
                 e
             }
         };

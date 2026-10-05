@@ -805,15 +805,27 @@ documents, `kalem check`'s round trip and diagnostics, a missing
 
 ### 3.8 PDF
 
-- [ ] **Major, reported.** A PDF with a user password cannot be opened:
+- [~] **Major, reported.** A PDF with a user password cannot be opened:
   the plugin answers `PASSWORD_REQUIRED` and offers
   `open_with_password` (`pdf-viewer/src/lib.rs:41-43`, `79-93`), nothing
   in the host calls it and the WIT `open` has no password. The user sees
   "protected by a password" and no prompt (T3.7.3).
-- [ ] **Major, reported (memory).** Six cached renders of up to 160 MB
+  (done 2026-10-05 in Kalem: the contract's `ViewerError::needs_password`
+  and `Viewer::open_with_password`; the WIT's `password` interface (API
+  0.2.2), exported by kalem-plugin's adapter and bound by the host when a
+  component has it; `OpenError::NeedsPassword`, on which both editors ask
+  for the password (`file.openWithPassword`, hidden as typed, again after
+  a wrong one), kept for the session (`viewer::remember_password`). Tests:
+  the host's `a_component_opens_a_file_with_its_password`, the editors'
+  `password.rs`. Open: the PDF plugin answering `needs_password`, in its
+  next release.)
+- [~] **Major, reported (memory).** Six cached renders of up to 160 MB
   each (`pdf-viewer/src/lib.rs:35-39`) approach the 1 GB component limit
   past about 450 % zoom on a Retina display; with the "dead after one
   trap" bug of section 2 that kills the document.
+  (done in getkalem/plugins 6ab2e6f, for pdf-viewer 0.0.2: the renders
+  kept fit in 256 MB, one larger is not kept; a stopped document now
+  closes saying why (wasm_todo W8). Open: the release.)
 - [ ] **Minor, reported.** Any link target with `://` opens with the
   system without confirmation (`kalem-ui/src/viewer.rs:429-433`), so a
   `file:///…/x.app` or `smb://` link in a PDF launches on one click;

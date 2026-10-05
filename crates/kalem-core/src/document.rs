@@ -536,7 +536,13 @@ impl DocumentState {
         let path = dunce::canonicalize(path)
             .or_else(|_| std::path::absolute(path))
             .unwrap_or_else(|_| path.to_path_buf());
-        let state = crate::viewer::ViewerState::open(viewer, &path).map_err(OpenError::Viewer)?;
+        let state = crate::viewer::ViewerState::open(viewer, &path).map_err(|e| {
+            if e == kalem_viewer::NEEDS_PASSWORD {
+                OpenError::NeedsPassword
+            } else {
+                OpenError::Viewer(e)
+            }
+        })?;
         let meta = Metadata {
             path: Some(path.clone()),
             mode: DocumentMode::Viewer,

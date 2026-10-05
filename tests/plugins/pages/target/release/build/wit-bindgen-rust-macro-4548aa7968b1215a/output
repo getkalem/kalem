@@ -1,0 +1,2 @@
+cargo:rerun-if-changed=build.rs
+cargo:rustc-env=DEBUG_OUTPUT_DIR=/Users/m/workspace/mhmt/org-gpui/tests/plugins/pages/target/release/build/wit-bindgen-rust-macro-4548aa7968b1215a/out

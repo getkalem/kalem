@@ -248,6 +248,37 @@ fn a_component_that_stops_says_why_and_answers_no_more() {
     }
 }
 
+/// A file protected by a password through a component (API 0.2.2's
+/// `password` interface): refused without it or with a wrong one, as the
+/// contract's `needs_password`; opened with it.
+#[test]
+fn a_component_opens_a_file_with_its_password() {
+    use kalem_viewer::{FileHandle, Viewer as _};
+    let Some(bytes) = component("adapted") else {
+        return;
+    };
+    let dir = std::env::temp_dir().join(format!("kalem-script-password-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let wasm = dir.join("lines.wasm");
+    std::fs::write(&wasm, &bytes).unwrap();
+    let v = kalem_script::viewer::ComponentViewer::new(
+        std::sync::Arc::new(Host::new(None).unwrap()),
+        &wasm,
+        "lines",
+        "Lines",
+        &["lines".to_string()],
+        kalem_script::viewer::VIEWER_LIMITS,
+    );
+    let f = file("locked.lines", b"LINES\npassword: gizli\none\ntwo");
+    let refused = |r: kalem_viewer::Result<Box<dyn kalem_viewer::ViewerDocument>>| {
+        r.err().is_some_and(|e| e.is_needs_password())
+    };
+    assert!(refused(v.open(FileHandle::new(&f))));
+    assert!(refused(v.open_with_password(FileHandle::new(&f), "yanlis")));
+    let doc = v.open_with_password(FileHandle::new(&f), "gizli").unwrap();
+    assert_eq!(doc.text(1), "two");
+}
+
 /// An installed component whose file changes (`kalem plugin dev` built it
 /// again) is read again for the documents opened from then on (wasm_todo
 /// W10); the one built into Kalem never is.

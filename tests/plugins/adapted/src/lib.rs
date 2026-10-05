@@ -39,6 +39,12 @@ impl Viewer for Lines {
     }
 
     fn open(&self, file: FileHandle) -> Result<Box<dyn ViewerDocument>> {
+        self.open_with_password(file, "")
+    }
+
+    /// A file whose first line is `password: WORD` opens only with WORD
+    /// (for the host's tests of the `password` interface).
+    fn open_with_password(&self, file: FileHandle, password: &str) -> Result<Box<dyn ViewerDocument>> {
         // Read a byte at a time, the handle's slowest use.
         let mut bytes = Vec::new();
         for i in 0..file.len()? {
@@ -47,6 +53,16 @@ impl Viewer for Lines {
         let text = String::from_utf8(bytes).map_err(|e| ViewerError(e.to_string()))?;
         let Some(rest) = text.strip_prefix("LINES\n") else {
             return Err(ViewerError("not a lines file".into()));
+        };
+        let rest = match rest.strip_prefix("password: ") {
+            Some(locked) => {
+                let (word, body) = locked.split_once('\n').unwrap_or((locked, ""));
+                if word != password {
+                    return Err(ViewerError::needs_password());
+                }
+                body
+            }
+            None => rest,
         };
         Ok(Box::new(Doc {
             lines: rest.lines().map(str::to_string).collect(),

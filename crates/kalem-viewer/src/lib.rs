@@ -38,6 +38,24 @@ impl fmt::Display for ViewerError {
 
 impl std::error::Error for ViewerError {}
 
+/// What [`ViewerError::needs_password`] says: the host asks the user for
+/// the password when a viewer answers it, then opens the file with
+/// [`Viewer::open_with_password`].
+pub const NEEDS_PASSWORD: &str = "This file is protected by a password";
+
+impl ViewerError {
+    /// The error of a file that opens only with a password (or with
+    /// another one than given).
+    pub fn needs_password() -> ViewerError {
+        ViewerError(NEEDS_PASSWORD.to_string())
+    }
+
+    /// Whether this is [`ViewerError::needs_password`].
+    pub fn is_needs_password(&self) -> bool {
+        self.0 == NEEDS_PASSWORD
+    }
+}
+
 impl From<std::io::Error> for ViewerError {
     fn from(e: std::io::Error) -> ViewerError {
         ViewerError(e.to_string())
@@ -1865,6 +1883,18 @@ pub trait Viewer: Send + Sync {
 
     /// Opens a file.
     fn open(&self, file: FileHandle) -> Result<Box<dyn ViewerDocument>>;
+
+    /// Opens a file protected by a password with `password`, after
+    /// [`Viewer::open`] answered [`ViewerError::needs_password`]: the same
+    /// error again for a wrong one. A viewer of no such files opens it as
+    /// [`Viewer::open`] does.
+    fn open_with_password(
+        &self,
+        file: FileHandle,
+        _password: &str,
+    ) -> Result<Box<dyn ViewerDocument>> {
+        self.open(file)
+    }
 }
 
 /// A file a [`Viewer`] opened.

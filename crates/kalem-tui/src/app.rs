@@ -457,7 +457,12 @@ impl App {
         entries: &[keymap::Entry],
         mut issues: Vec<KeymapIssue>,
     ) -> Result<App, OpenError> {
-        let doc = new_document(path, &config)?;
+        // A file with a password (a PDF): an empty document, and the
+        // password asked for once the editor stands.
+        let (doc, needs_password) = match new_document(path, &config) {
+            Err(OpenError::NeedsPassword) => (new_document(None, &config)?, path),
+            r => (r?, None),
+        };
         // What plugins read (`kalem.settings`).
         kalem_core::extensions::set_config(&config);
         let registry = CommandRegistry::with_builtins();
@@ -591,6 +596,13 @@ impl App {
         }
         app.workspaces.showing(app.doc_id.0);
         app.bus.emit(&Event::AppReady);
+        if let Some(p) = needs_password {
+            app.request(Request::Ask {
+                command: "file.openWithPassword".into(),
+                args: serde_json::json!({ "path": p.display().to_string() }),
+                arg: "password".into(),
+            });
+        }
         Ok(app)
     }
 
@@ -825,6 +837,15 @@ impl App {
             None => {
                 let doc = match new_document(Some(&target), &self.config) {
                     Ok(d) => d,
+                    // A PDF with a password: asked for, then opened again.
+                    Err(OpenError::NeedsPassword) => {
+                        self.request(Request::Ask {
+                            command: "file.openWithPassword".into(),
+                            args: serde_json::json!({ "path": target.display().to_string() }),
+                            arg: "password".into(),
+                        });
+                        return;
+                    }
                     Err(e) => {
                         let msg = tr!(
                             "msg-cannot-open-file",

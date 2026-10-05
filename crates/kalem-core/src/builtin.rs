@@ -151,6 +151,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         ("file.scratch", object(&[("project", "boolean", false)])),
         ("plugin.install", object(&[("source", "string", false)])),
+        (
+            "file.openWithPassword",
+            object(&[("path", "string", true), ("password", "string", false)]),
+        ),
         ("plugin.installGitHub", object(&[("link", "string", false)])),
         ("code.rename", object(&[("name", "string", false)])),
         ("code.applyEdit", object(&[("id", "integer", true)])),
@@ -4701,6 +4705,39 @@ fn plugin_commands() -> Vec<Command> {
                         arg: "source".into(),
                     },
                 ),
+            },
+        ),
+        // A file protected by a password (a PDF): asked for when it would
+        // not open, kept for the session, the file opened again.
+        cmd(
+            "file.openWithPassword",
+            "Open with Password…",
+            "File",
+            &[],
+            None,
+            |ctx, args| {
+                let Some(path) = args["path"].as_str().map(str::to_owned) else {
+                    return Err(CommandError::new(crate::tr!("msg-no-document")));
+                };
+                let Some(password) = args["password"].as_str() else {
+                    return request(
+                        ctx,
+                        Request::Ask {
+                            command: "file.openWithPassword".into(),
+                            args: json!({ "path": path }),
+                            arg: "password".into(),
+                        },
+                    );
+                };
+                let path = std::path::PathBuf::from(&path);
+                let path = dunce::canonicalize(&path).unwrap_or(path);
+                crate::viewer::remember_password(&path, password);
+                request(
+                    ctx,
+                    Request::Open {
+                        path: Some(path.display().to_string()),
+                    },
+                )
             },
         ),
         // A plugin of one's own (or anyone's) from its GitHub repository:

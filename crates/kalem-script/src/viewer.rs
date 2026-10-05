@@ -18,6 +18,7 @@ wasmtime::component::bindgen!({
     },
 });
 
+pub use exports::kalem::plugin::password;
 pub use exports::kalem::plugin::viewer as api;
 
 /// The `spreadsheet-viewer` world's bindings: the `grid` interface of a
@@ -127,9 +128,11 @@ impl kalem::plugin::files::HostFile for Files {
 /// budget and limits.
 pub struct Viewer {
     instance: crate::Instance<Files>,
-    api: DocumentViewer,
+    api: api::Guest,
     /// The `grid` exports, for a viewer of sheets of cells.
     grid: Option<grid::Guest>,
+    /// The `password` exports (API 0.2.2), for files protected by one.
+    password: Option<password::Guest>,
 }
 
 impl std::fmt::Debug for Viewer {
@@ -174,8 +177,13 @@ impl Viewer {
                 "built for another version of Kalem's plugin API, update the plugin ({e})"
             ))
         };
+        // `viewer` alone, not the whole world: a component of an earlier
+        // 0.2.x lacks the interfaces added to it since.
         let api = instance
-            .bindings(|store, i| DocumentViewer::new(store, i))
+            .bindings(|store, i| {
+                let pre = i.instance_pre(&*store);
+                api::GuestIndices::new(&pre)?.load(&mut *store, i)
+            })
             .map_err(stale)?;
         // The interfaces beside `viewer` bound one by one, as the
         // component has them (wasm_todo W3): one it does not export is left
@@ -195,22 +203,35 @@ impl Viewer {
                     .map(Some)
             })
             .map_err(stale)?;
+        let password = instance
+            .bindings(|store, i| {
+                let pre = i.instance_pre(&*store);
+                let name = format!("kalem:plugin/password@{}", crate::API_VERSION);
+                if pre.component().get_export_index(None, &name).is_none() {
+                    return Ok(None);
+                }
+                password::GuestIndices::new(&pre)?
+                    .load(&mut *store, i)
+                    .map(Some)
+            })
+            .map_err(stale)?;
         Ok(Viewer {
             instance,
             api,
             grid,
+            password,
         })
     }
 
     /// The plugin's description of itself.
     pub fn describe(&mut self) -> crate::Result<api::Description> {
-        let v = self.api.kalem_plugin_viewer();
+        let v = &self.api;
         self.instance.run(|s| v.call_describe(s))
     }
 
     /// Whether it opens the file `name` starting with `head`.
     pub fn detect(&mut self, name: &str, head: &[u8]) -> crate::Result<api::Detection> {
-        let v = self.api.kalem_plugin_viewer();
+        let v = &self.api;
         self.instance.run(|s| v.call_detect(s, name, head))
     }
 
@@ -230,8 +251,28 @@ impl Viewer {
             .data_mut()
             .open(file)
             .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
-        let v = self.api.kalem_plugin_viewer();
+        let v = &self.api;
         self.instance.run(|s| v.call_open(s, file))
+    }
+
+    /// Opens `file` with `password` (the `password` interface); `None`
+    /// when the plugin has no such interface.
+    pub fn open_file_with_password(
+        &mut self,
+        file: kalem_viewer::FileHandle,
+        password: &str,
+    ) -> crate::Result<Option<Result<Document, String>>> {
+        let Some(p) = &self.password else {
+            return Ok(None);
+        };
+        let file = self
+            .instance
+            .data_mut()
+            .open(file)
+            .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        self.instance
+            .run(|s| p.call_open_with_password(s, file, password))
+            .map(Some)
     }
 
     /// Calls `f` with the plugin's `document` resource functions.
@@ -242,7 +283,7 @@ impl Viewer {
             &mut wasmtime::Store<crate::Data<Files>>,
         ) -> wasmtime::Result<R>,
     ) -> crate::Result<R> {
-        let v = self.api.kalem_plugin_viewer();
+        let v = &self.api;
         self.instance.run(|s| f(v.document(), s))
     }
 
@@ -533,19 +574,48 @@ impl kalem_viewer::Viewer for ComponentViewer {
         &self,
         file: kalem_viewer::FileHandle,
     ) -> kalem_viewer::Result<Box<dyn kalem_viewer::ViewerDocument>> {
+        self.open_document(file, None)
+    }
+
+    fn open_with_password(
+        &self,
+        file: kalem_viewer::FileHandle,
+        password: &str,
+    ) -> kalem_viewer::Result<Box<dyn kalem_viewer::ViewerDocument>> {
+        self.open_document(file, Some(password))
+    }
+}
+
+impl ComponentViewer {
+    /// Opens `file` in an instance of its own, with `password` when given
+    /// (as `open` when the plugin has no `password` interface).
+    fn open_document(
+        &self,
+        file: kalem_viewer::FileHandle,
+        password: Option<&str>,
+    ) -> kalem_viewer::Result<Box<dyn kalem_viewer::ViewerDocument>> {
         let mut v = match self.instance() {
             Ok(v) => v,
             Err(e) => {
                 self.warn(&e);
-                return match &self.fallback {
-                    Some(f) => f.open(file),
-                    None => Err(e),
+                return match (&self.fallback, password) {
+                    (Some(f), Some(p)) => f.open_with_password(file, p),
+                    (Some(f), None) => f.open(file),
+                    (None, _) => Err(e),
                 };
             }
         };
         // The handle itself: bytes the host holds reach the plugin too (a
         // workbook converted from `.ods` has no file on disk).
-        let doc = match v.open_file(file) {
+        let opened = match password {
+            Some(p) => match v.open_file_with_password(file.clone(), p) {
+                Ok(Some(r)) => Ok(r),
+                Ok(None) => v.open_file(file),
+                Err(e) => Err(e),
+            },
+            None => v.open_file(file),
+        };
+        let doc = match opened {
             Ok(opened) => opened.map_err(kalem_viewer::ViewerError)?,
             // It failed opening the file: counted as a stop.
             Err(e) => {

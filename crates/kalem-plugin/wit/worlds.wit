@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.1;
+package kalem:plugin@0.2.2;
 
 // The worlds of the viewer plugins. They are kept apart from the
 // interfaces: a released interface never changes (the Book, Part III,
@@ -11,6 +11,7 @@ world document-viewer {
     import clock;
     import diagnostics;
     export viewer;
+    export password;
 }
 
 /// A plugin opening files of sheets of cells: workbooks, databases.
@@ -20,4 +21,5 @@ world spreadsheet-viewer {
     import diagnostics;
     export viewer;
     export grid;
+    export password;
 }

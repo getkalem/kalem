@@ -64,13 +64,32 @@ pub fn detect(v: &dyn Viewer, name: &str, head: &[u8]) -> w::Detection {
 /// handle, piece by piece as it asks.
 pub fn open(v: &dyn Viewer, file: File) -> Result<w::Document, String> {
     report_panics();
+    let doc = v.open(handle_of(file)).map_err(|e| e.0)?;
+    Ok(w::Document::new(Doc(RefCell::new(doc))))
+}
+
+/// Opens the host's `file` with `v` and `password` (the `password`
+/// interface, API 0.2.2).
+pub fn open_with_password(
+    v: &dyn Viewer,
+    file: File,
+    password: &str,
+) -> Result<w::Document, String> {
+    report_panics();
+    let doc = v
+        .open_with_password(handle_of(file), password)
+        .map_err(|e| e.0)?;
+    Ok(w::Document::new(Doc(RefCell::new(doc))))
+}
+
+/// The host's `file` as the contract's handle: read piece by piece as the
+/// plugin asks.
+fn handle_of(file: File) -> FileHandle {
     let name = file.name();
     let len = file.len();
-    let handle = FileHandle::from_reader(name, len, move |offset, len| {
+    FileHandle::from_reader(name, len, move |offset, len| {
         file.read(offset, len.min(u32::MAX as usize) as u32)
-    });
-    let doc = v.open(handle).map_err(|e| e.0)?;
-    Ok(w::Document::new(Doc(RefCell::new(doc))))
+    })
 }
 
 fn span(s: w::Span) -> std::ops::Range<usize> {
@@ -256,6 +275,18 @@ macro_rules! export_viewer_of {
                 ::std::string::String,
             > {
                 $crate::adapter::open(&$viewer, file)
+            }
+        }
+
+        impl $crate::viewer::exports::kalem::plugin::password::Guest for __KalemViewer {
+            fn open_with_password(
+                file: $crate::viewer::kalem::plugin::files::File,
+                password: ::std::string::String,
+            ) -> ::std::result::Result<
+                $crate::viewer::exports::kalem::plugin::viewer::Document,
+                ::std::string::String,
+            > {
+                $crate::adapter::open_with_password(&$viewer, file, &password)
             }
         }
 

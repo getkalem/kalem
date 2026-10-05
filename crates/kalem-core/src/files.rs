@@ -39,6 +39,9 @@ pub enum OpenError {
     UnsupportedEncoding(String),
     /// The viewer that opens the file failed (`crate::viewer`).
     Viewer(String),
+    /// The file opens only with a password (a PDF with a user password):
+    /// the editors ask for it (`file.openWithPassword`).
+    NeedsPassword,
 }
 
 impl fmt::Display for OpenError {
@@ -56,6 +59,7 @@ impl fmt::Display for OpenError {
             OpenError::Viewer(e) => {
                 f.write_str(&crate::tr!("msg-viewer-cannot-open", error = e.as_str()))
             }
+            OpenError::NeedsPassword => f.write_str(&crate::tr!("msg-needs-password")),
         }
     }
 }
