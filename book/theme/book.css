@@ -52,6 +52,12 @@ header button {
   border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 15px;
 }
 header .menu { display: none; }
+header .repo { color: var(--muted); text-decoration: none; font-size: 14px; }
+header .repo:hover { color: var(--accent); }
+.edition {
+  max-width: 46em; margin: 0 auto 12px; color: var(--muted);
+  font-family: system-ui, sans-serif; font-size: 13px;
+}
 input.search {
   width: min(260px, 40vw); padding: 5px 10px; border-radius: 6px;
   border: 1px solid var(--rule); background: var(--side-bg); color: var(--fg); font-size: 14px;

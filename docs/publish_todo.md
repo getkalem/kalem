@@ -1084,10 +1084,14 @@ Wrong or stale text a first reader meets. Each is a text change.
     (done 2026-10-06: both say to take the character out, or to save
     the whole file as UTF-8 knowing it; the lossy case is section 2's
     refusal.)
-  - `book/part-5/performance.org:30,35` gives 83.3 and 40.8 MiB; CI
+  - [x] `book/part-5/performance.org:30,35` gives 83.3 and 40.8 MiB; CI
     measures 85.4 and 42.3. The Book is published from `main` only
     (`index.org:21-23`), with no version banner and no link back to the
     repository or the releases: after 0.1 it describes unreleased code.
+    (done 2026-10-06: CI's 81.0 and 42.5 MiB after W9, the full
+    ceiling lowered to 82; every page says it describes `main`, which
+    may be ahead of the latest release, linked, and the header links
+    the repository. The terminal build is at its ceiling of 42.5.)
   - [x] The three plugin READMEs are stale (xlsx "not yet bundled", pdf
     "search reads every page once", image "text needs fonts").
     (done 2026-10-06, getkalem/plugins bdbce25: built in as released

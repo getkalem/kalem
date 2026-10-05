@@ -1,8 +1,9 @@
 # name     ceiling-MiB  target-MiB   (tools/check-binary-size.sh; roadmap R2.1)
-# Measured on Linux x86-64 on 2026-10-04: terminal
-# (`--no-default-features --features tui`) 40.8 MiB, full (the default
-# features) 83.3 MiB on CI's runner. Full raised from 85 to 85.5 on
-# 2026-10-05 (85.0 MiB): the plugin API's stops, dev reload and GitHub
-# installs, until wasm_todo W9 takes the native viewers out.
+# Measured on Linux x86-64 by CI's binary size job (the release profile,
+# which `dist` inherits) on 2026-10-06: terminal (`--no-default-features
+# --features tui`) 42.5 MiB, full (the default features) 81.0 MiB.
+# Full raised from 85 to 85.5 on 2026-10-05 for the plugin API's stops,
+# then lowered to 82 when wasm_todo W9 took the native viewers out (85.0
+# to 81.0 MiB).
 terminal   42.5         15
-full       85.5         40
+full       82           40

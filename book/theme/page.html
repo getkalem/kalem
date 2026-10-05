@@ -15,11 +15,13 @@ try { var t = localStorage.getItem("kalem-book-theme"); if (t) document.document
   <a class="book-title" href="{{root}}index.html">{{book_title}}</a>
   <input class="search" type="search" placeholder="Search" aria-label="Search the Book">
   <button class="theme" aria-label="Light or dark theme" title="Light or dark theme">☾ ☀</button>
+  <a class="repo" href="https://github.com/getkalem/kalem" title="Kalem's repository and releases">GitHub</a>
 </header>
 <div class="layout">
   <aside class="sidebar">{{toc}}</aside>
   <main>
     <div class="results" hidden></div>
+    <p class="edition">This Book describes Kalem's <code>main</code> branch, which may be ahead of the <a href="https://github.com/getkalem/kalem/releases">latest release</a>.</p>
     <article>
       <h1 class="page-title">{{title}}</h1>
       {{content}}
