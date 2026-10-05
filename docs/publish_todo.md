@@ -728,8 +728,9 @@ documents, `kalem check`'s round trip and diagnostics, a missing
 
 ### 3.7 Workbooks (xlsx, xlsm, xls, xlsb, ods)
 
-- [ ] **Blocker.** The silent "unmodified after undo" and the `.ods`
+- [x] **Blocker.** The silent "unmodified after undo" and the `.ods`
   rewrite (section 2).
+  (done there: both are checked off in section 2.)
 - [ ] **Major, verified (code).** Formulas typed in Kalem are written
   without Excel's `_xlfn.` prefix (nothing adds it; `calc.rs:61` only
   strips it), so `=XLOOKUP`, `=CONCAT`, `=TEXTJOIN`, `=IFS`, `=STDEV.S`,
@@ -1300,6 +1301,17 @@ Wrong or stale text a first reader meets. Each is a text change.
   Foam, the formulas and the arXiv sources, and says none of it ships.)
 
 ## 7. Known limitations to state in the README for 0.1 (not to fix)
+
+(2026-10-06: the README's *Known limitations* states those that still
+hold: a workbook with a password; `.ods`, `.xls` and `.xlsb` converted;
+Markdown's export, printing and `fmt`, TOML front matter, multi-line
+`$$`, whole reparses with footnotes; LaTeX needing an installed TeX; the
+terminal build without viewers, plugins or SVG text; line endings and
+the BOM. No longer limits: the viewers are sandboxed components (W9), a
+PDF's password is asked for, SVG text is drawn in the graphical editor,
+heading links jump, figures and bibliographies resolve from the root,
+BibTeX files are checked, and a case-insensitive search and the CSV
+status bar no longer work on the whole file at each keystroke.)
 
 Decide which of these ship as written limitations rather than fixes;
 each needs one sentence in the README's table or a "Known issues" list,

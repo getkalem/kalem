@@ -60,6 +60,14 @@ kalem export notes.org --to html    # the command-line tools: check, fmt, query,
 
 Settings live in `~/.config/kalem` on Linux and macOS (`$XDG_CONFIG_HOME/kalem` if it is set) and in `%APPDATA%\kalem` on Windows; the log and crash reports in `~/.local/state/kalem` (`$XDG_STATE_HOME/kalem`), or `%LOCALAPPDATA%\kalem`. `KALEM_CONFIG_DIR` and `KALEM_STATE_DIR` move them, and `KALEM_LOG=debug` makes the log say more.
 
+## Known limitations
+
+- A workbook protected by a password cannot be opened yet; an `.ods`, `.xls` or `.xlsb` is converted to be edited (the table above).
+- Markdown: export, printing and `kalem fmt` are for Org and LaTeX; TOML front matter (`+++`) and `$$` blocks over several lines show as text. In a large file with footnotes or link reference definitions, each keystroke parses the whole file again.
+- LaTeX: building a PDF needs TeX Live, MiKTeX or Tectonic installed; Kalem does not download one.
+- The terminal-only build has no viewers and no plugin host, and draws an SVG picture without its text.
+- Line endings and a byte order mark stay as the file has them; there is no command to change them yet.
+
 ## More
 
 - [The Kalem Book](https://getkalem.github.io/kalem): the manual, and what Kalem does with each format. [Kalem and Emacs](book/part-5/kalem-and-emacs.org): what is taken from Emacs, and what is left out on purpose.
