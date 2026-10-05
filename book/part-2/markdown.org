@@ -22,28 +22,29 @@ named by the design is the CommonMark and GFM specification test suites,
 every example of each specification a test, with =cmark-gfm= as the
 reference implementation where the suites are silent, plus a byte-exact
 round trip of untouched text on a corpus of real READMEs and note
-vaults. The suites run as Kalem's own test (=markdown::spec=, T2.7c.11)
-when the specification file is on disk (=KALEM_GFM_SPEC=, or the
-spike's download, =spikes/md-parser/README.md=; it is CC BY-SA and not
-in the repository): every example's HTML, as comrak renders it with
-Kalem's extensions, is compared with the specification's, and the
-counts only go up (632 of 648 CommonMark examples and 23 of 24
-extension examples today); every example's nodes lie inside the text
-and their parents, every line is drawn with the cursor on it and away,
-and an edit in the middle reparses as a full parse does. The sixteen
-CommonMark examples that differ are known:
+vaults. The suites run as Kalem's own test (=markdown::spec=, T2.7c.11):
+CI downloads CommonMark 0.31.2's and GFM 0.29's specifications, which
+are CC BY-SA and not in the repository (=KALEM_COMMONMARK_SPEC= and
+=KALEM_GFM_SPEC= name copies on disk; without them the test passes
+without checking). Every example's HTML, as comrak renders it, is
+compared with the specification's: all 652 CommonMark examples agree
+with CommonMark's options, and all 24 extension examples with GFM's.
+Every example's nodes lie inside the text and their parents, every line
+is drawn with the cursor on it and away, an edit in the middle reparses
+as a full parse does, and the view shows the text the specification's
+HTML shows, in all 676 examples.
 
-- nine of /Emphasis and strong emphasis/ (runs of =**= and =__=): the
-  0.29 suite against CommonMark 0.31's rule, which comrak follows;
-- one of /Setext headings/: a document starting with =---= is front
-  matter in Kalem, as in GitHub, Jekyll and Obsidian;
-- one of /Links/ and one of /Images/: =[[…]]= is a wiki link;
+With every extension Kalem reads a file with, as the editor does, 639
+of the 652 CommonMark examples agree. The thirteen others are the
+extensions' own cases, and the count only goes up:
+
 - four of /Autolinks/: bare addresses and mail addresses are links, as
-  GitHub's extension makes them (the CommonMark examples are run with it
-  on, as Kalem reads every file);
-
-and one extension example, /Disallowed Raw HTML/: comrak's tag filter
-is gone upstream, and it matters only for HTML output.
+  GitHub's extension makes them;
+- six of /HTML blocks/: =<script>=, =<style>= and =<textarea>= are
+  escaped, as GitHub's tag filter does;
+- one of /Links/ and one of /Images/: =[[…]]= is a wiki link;
+- one of /Setext headings/: a document starting with =---= is front
+  matter in Kalem, as in GitHub, Jekyll and Obsidian.
 
 The Markdown Kalem /writes/ has a different oracle, Org's exporter:
 the =md= back-end is compared byte for byte with Emacs's =ox-md= (see
@@ -82,7 +83,8 @@ edits it as plain text. Concretely:
   emphasis in italics, strong emphasis bold, code in the code style,
   links as links, footnote references as such; an image is drawn in
   place of =![alt](src)= and a formula in place of =$…$= or =$$…$$=
-  away from the cursor; a task list item's =[ ]= or =[x]= is a checkbox
+  on one line away from the cursor (a =$$= block over several lines
+  stays source); a task list item's =[ ]= or =[x]= is a checkbox
   while the cursor is off its line. Block quote markers and thematic
   breaks are dimmed; code blocks, HTML blocks, tables and front matter
   are monospace, fences and front matter dimmed. A code block is drawn
@@ -95,7 +97,7 @@ edits it as plain text. Concretely:
   changing the text; a row wider than the window wraps. With
   the cursor in the table it shows its source, and Tab aligns the
   source itself. Away from the cursor
-  the front matter folds to its first line, as a property drawer does
+  YAML front matter (=---=) folds to its first line, as a property drawer does
   in Org, and opens when the cursor goes into it. The setting
   =editor.show_source_markers= (=cursor=, =always=, =never=) applies as
   in Org, and /Toggle Source View/ shows the text as it is. After an
@@ -193,7 +195,8 @@ edits it as plain text. Concretely:
   matter's fields as Obsidian's properties panel does; choosing one
   offers its value to change, and the list has /Add a property…/ and a
   delete for each. YAML (=---=, =key: value=, lists as =[a, b]= or as
-  =- item= lines) and TOML (=+++=) are read; only the changed field's
+  =- item= lines) and TOML (=+++=, which the view draws as text, not
+  yet as front matter) are read; only the changed field's
   line is rewritten, quoted when YAML needs it, a list kept a list (its
   items separated by commas), and a document without front matter gets
   one.
@@ -461,10 +464,8 @@ The mode is in use. What is left of group 6 of =docs/todo.md= (the former
   10 ms at the median and 23 ms at the 99th percentile; most of it is
   moving the positions of the nodes after the edit. A representation
   with relative positions would take that off.
-- *The specification in CI* (T2.7c.11): the specification file run in
-  CI, by a download step or committed with its licence.
 - *A known-differences chapter* of its own, following the skeleton the
-  other formats use (T2.10.8); today the sixteen differences are listed
+  other formats use (T2.10.8); today the thirteen differences are listed
   under /The oracle/ above.
 
 The rule of the standard modes holds: Kalem writes nothing into a

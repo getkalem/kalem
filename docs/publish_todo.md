@@ -1020,12 +1020,18 @@ Wrong or stale text a first reader meets. Each is a text change.
     (the command line done 2026-10-06: every command users run, the
     development tools named as such, no "Kalem" files. Open: the
     viewers' and Markdown's Part I chapters.)
-  - `book/part-2/markdown.org:30-46`: the oracle section says 632 of 648
+  - [x] `book/part-2/markdown.org:30-46`: the oracle section says 632 of 648
     CommonMark examples and "sixteen" differences; the test runs
     CommonMark 0.31.2 (652 examples, all must pass with core options,
     639 with extensions) and "The specification in CI" is done
     (`ci.yml:80-90`). The `#heading` promise, the display-math and the
     TOML front matter sentences overstate the code (3.2).
+    (done 2026-10-06: the oracle gives 652 of 652, 24 of 24, 639 of 652
+    with Kalem's extensions and the thirteen by section, as the test
+    prints them with the specifications on disk, and CI's download; the
+    planned item for CI went; heading links work now (3.2); the view's
+    sentences say a `$$` block over several lines and TOML front matter
+    stay text, until 3.2's two minors are fixed.)
   - `book/part-2/csv.org`: 255 says a lone CR ends a record (the scanner
     treats it as data, `csv.rs:74-80`); 257 says the header is "not
     settable yet" (`csv.toggleHeader` exists, and line 187 says so);
