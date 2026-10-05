@@ -117,6 +117,9 @@ pub enum CellMode {
 /// An open document.
 #[derive(Debug)]
 pub struct DocumentState {
+    /// The user agreed to save a converted file in its own format
+    /// ([`SaveError::Converted`]): asked once a document.
+    pub conversion_accepted: bool,
     /// A number no other document of this run has: services that keep
     /// something per document (a language server's copy) follow it when
     /// its path changes.
@@ -211,13 +214,35 @@ pub enum SaveError {
         /// The encoding's name.
         encoding: &'static str,
     },
+    /// The file was read with replacement characters (some bytes are not
+    /// in its encoding): saving over it would write � in their place.
+    /// Save with Encoding and Save As write it as it shows.
+    Lossy {
+        /// The encoding's name.
+        encoding: &'static str,
+    },
+    /// The file was converted as it opened (an `.ods` file edited as a
+    /// workbook): saving it in its own format writes a new file of what
+    /// the conversion keeps, so the user is asked first; saving again
+    /// after [`DocumentState::conversion_accepted`] is set writes it.
+    Converted {
+        /// The file's format (`ods`).
+        format: String,
+    },
 }
 
 impl std::fmt::Display for SaveError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SaveError::NoPath => f.write_str("The document has no file name"),
+            SaveError::Converted { format } => write!(
+                f,
+                "Saving writes a new .{format} file without what the conversion did not keep"
+            ),
             SaveError::ChangedOnDisk => f.write_str("The file was changed by another program"),
+            SaveError::Lossy { encoding } => {
+                f.write_str(&crate::tr!("msg-save-lossy", encoding = *encoding))
+            }
             SaveError::Io(e) => write!(f, "{e}"),
             SaveError::Unencodable { ch, encoding } => f.write_str(&crate::tr!(
                 "msg-unencodable",
@@ -287,6 +312,7 @@ impl DocumentState {
         static SERIAL: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         DocumentState {
             serial: SERIAL.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            conversion_accepted: false,
             read_only: false,
             text,
             version: 0,
@@ -536,15 +562,20 @@ impl DocumentState {
         if !v.modified() && self.disk.is_some() {
             return Ok(());
         }
+        let ext = path
+            .extension()
+            .map_or(String::new(), |e| e.to_string_lossy().to_ascii_lowercase());
+        // Written back in the format it was converted from: only once the
+        // user has agreed to what that keeps.
+        if !self.conversion_accepted && v.converted_from.as_deref() == Some(ext.as_str()) {
+            return Err(SaveError::Converted { format: ext });
+        }
         if !force && let Some(known) = self.disk {
             match files::check(path, &known).map_err(SaveError::Io)? {
                 DiskChange::Modified => return Err(SaveError::ChangedOnDisk),
                 DiskChange::Unchanged | DiskChange::Touched(_) | DiskChange::Deleted => {}
             }
         }
-        let ext = path
-            .extension()
-            .map_or(String::new(), |e| e.to_string_lossy().to_ascii_lowercase());
         // A workbook the viewer only showed, written as a new `.xlsx`:
         // opened again from it, to edit.
         let converted = v.is_workbook()
@@ -626,6 +657,13 @@ impl DocumentState {
         if self.viewer.is_some() {
             return self.save_viewed(&path, options, force);
         }
+        // Read with replacement characters: written over the file it came
+        // from, its undecodable bytes would become �.
+        if self.meta.lossy && self.disk.is_some() {
+            return Err(SaveError::Lossy {
+                encoding: self.meta.encoding.name(),
+            });
+        }
         if !force && let Some(known) = self.disk {
             match files::check(&path, &known).map_err(SaveError::Io)? {
                 DiskChange::Modified => return Err(SaveError::ChangedOnDisk),
@@ -648,7 +686,10 @@ impl DocumentState {
     pub fn save_as(&mut self, path: &Path, options: SaveOptions) -> Result<(), SaveError> {
         self.meta.path = Some(path.to_path_buf());
         self.disk = None;
-        self.save(options, true)
+        self.save(options, true)?;
+        // The new file holds the text as it shows.
+        self.meta.lossy = false;
+        Ok(())
     }
 
     /// Checks the file after a `workspace:file-changed` event: reloads the
@@ -726,7 +767,12 @@ impl DocumentState {
         let mut tx = Transaction::new("Reload from disk");
         tx.edit(pre..a.len() - suf, &text[pre..b.len() - suf]);
         self.break_undo_group();
+        // Read-only keeps the user from editing, not the file from
+        // changing: the text follows it (it stayed old, and was taken for
+        // the file's).
+        let read_only = std::mem::replace(&mut self.read_only, false);
         self.apply(&tx, ChangeKind::Command, now);
+        self.read_only = read_only;
         self.meta.line_ending = meta.line_ending;
         self.meta.bom = meta.bom;
         self.meta.encoding = meta.encoding;
@@ -2339,6 +2385,61 @@ mod tests {
         d.save(SaveOptions::default(), true).unwrap();
         assert_eq!(std::fs::read_to_string(&p).unwrap(), "* TODO A\r\nbody\r\n");
         assert_eq!(d.external_change(now).unwrap(), ExternalChange::None);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A document made read-only still follows its file: the reload
+    /// takes the new text (it reported the reload and kept the old text).
+    #[test]
+    fn a_read_only_document_reloads() {
+        let dir = std::env::temp_dir().join(format!("kalem-ro-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("app.log");
+        std::fs::write(&p, "one\n").unwrap();
+        let now = Instant::now();
+        let mut d =
+            DocumentState::open(&p, Arc::new(Settings::default()), &ParseContext::default())
+                .unwrap();
+        d.read_only = true;
+        std::fs::write(&p, "one\ntwo\n").unwrap();
+        assert_eq!(d.external_change(now).unwrap(), ExternalChange::Reloaded);
+        assert_eq!(d.text().as_str(), "one\ntwo\n");
+        assert!(d.read_only && !d.is_modified());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A file read with replacement characters is not saved over: its
+    /// bytes would become U+FFFD. Save As writes the text as it shows.
+    #[test]
+    fn a_lossy_read_is_not_saved_over() {
+        let dir = std::env::temp_dir().join(format!("kalem-lossy-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("latin1.txt");
+        // "café" in Latin-1: 0xE9 is not UTF-8.
+        let bytes = b"caf\xe9\n".to_vec();
+        std::fs::write(&p, &bytes).unwrap();
+        let now = Instant::now();
+        let mut d =
+            DocumentState::open(&p, Arc::new(Settings::default()), &ParseContext::default())
+                .unwrap();
+        d.reopen_with(encoding_rs::UTF_8, now).unwrap();
+        assert!(d.meta.lossy);
+        assert!(matches!(
+            d.save(SaveOptions::default(), false),
+            Err(SaveError::Lossy { .. })
+        ));
+        assert!(matches!(
+            d.save(SaveOptions::default(), true),
+            Err(SaveError::Lossy { .. })
+        ));
+        assert_eq!(std::fs::read(&p).unwrap(), bytes);
+        let copy = dir.join("copy.txt");
+        d.save_as(&copy, SaveOptions::default()).unwrap();
+        assert_eq!(std::fs::read(&copy).unwrap(), "caf\u{fffd}\n".as_bytes());
+        assert!(!d.meta.lossy);
+        assert_eq!(std::fs::read(&p).unwrap(), bytes);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

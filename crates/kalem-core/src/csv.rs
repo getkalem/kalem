@@ -468,15 +468,15 @@ pub fn clear_cells(
     Some(tx.select(Selection::caret(caret)))
 }
 
-/// Finds the dialect of `text` from its first records: the delimiter that
-/// gives the most records with the same number of fields (more than one),
-/// a header when the first record's values are all text where later ones
-/// have numbers, or all different and not empty.
 /// Excel's first line naming the delimiter, `sep=;`: the delimiter and
-/// the line's length with its line ending.
+/// the line's length with its line ending. A delimiter is one ASCII
+/// character; `sep=` with any other is not such a line.
 pub fn sep_line(text: &str) -> Option<(u8, usize)> {
     let rest = text.strip_prefix("sep=")?;
     let d = *rest.as_bytes().first()?;
+    if !d.is_ascii() {
+        return None;
+    }
     let after = &rest[1..];
     let ending = if after.starts_with("\r\n") {
         2
@@ -497,6 +497,10 @@ fn numeric(s: &str) -> bool {
     !s.is_empty() && (s.parse::<f64>().is_ok() || s.replace(',', ".").parse::<f64>().is_ok())
 }
 
+/// Finds the dialect of `text` from its first records: the delimiter that
+/// gives the most records with the same number of fields (more than one),
+/// a header when the first record's values are all text where later ones
+/// have numbers, or all different and not empty.
 pub fn detect(text: &str) -> Dialect {
     if let Some((delimiter, skip)) = sep_line(text) {
         let mut d = Dialect {
@@ -1586,7 +1590,9 @@ fn memchr_count(text: &str) -> usize {
 }
 
 /// What a memo is for: the text's version and a length or column.
-type Key = (u64, usize, Dialect);
+/// A memo's key: the document (its serial: two documents both start at
+/// version 0), its version, a length or column, and the dialect.
+type Key = (u64, u64, usize, Dialect);
 
 /// The layout last computed, with what it was computed for.
 type LayoutMemo = ((Key, View, Columns), std::rc::Rc<Layout>);
@@ -1609,7 +1615,7 @@ pub fn layout(doc: &crate::DocumentState) -> std::rc::Rc<Layout> {
         }
     };
     let key = (
-        (doc.version(), doc.text().len(), dialect),
+        (doc.serial(), doc.version(), doc.text().len(), dialect),
         doc.csv_view,
         doc.csv_columns.clone(),
     );
@@ -2156,7 +2162,7 @@ pub fn filter_rows(
 
 /// What a filter's memo is for: the text's version, the filter, the
 /// cursor's line.
-type FilterKey = (u64, String, usize);
+type FilterKey = (u64, u64, String, usize);
 
 /// What a CSV document's filter keeps.
 #[derive(Debug)]
@@ -2184,7 +2190,7 @@ pub fn filtered(doc: &crate::DocumentState) -> Option<std::rc::Rc<Filtered>> {
     let text = doc.text().as_str();
     // The record at the cursor stays, so the key is its line.
     let line = doc.text().line_of(doc.selection.head.min(text.len()));
-    let key = (doc.version(), needle.to_string(), line);
+    let key = (doc.serial(), doc.version(), needle.to_string(), line);
     FILTERED.with(|m| {
         if let Some((k, v)) = &*m.borrow()
             && *k == key
@@ -2204,9 +2210,9 @@ pub fn filtered(doc: &crate::DocumentState) -> Option<std::rc::Rc<Filtered>> {
     })
 }
 
-/// What a shown-lines memo is for: the version, the filter, the sort, the
-/// cursor's line.
-type ShownKey = (u64, Option<String>, Option<(usize, bool)>, usize);
+/// What a shown-lines memo is for: the document, the version, the
+/// filter, the sort, the cursor's line.
+type ShownKey = (u64, u64, Option<String>, Option<(usize, bool)>, usize);
 
 thread_local! {
     static SHOWN: std::cell::RefCell<Option<(ShownKey, std::rc::Rc<Vec<usize>>)>> =
@@ -2228,7 +2234,13 @@ pub fn shown_lines(doc: &crate::DocumentState) -> Option<std::rc::Rc<Vec<usize>>
     let t = doc.text();
     let text = t.as_str();
     let line = t.line_of(doc.selection.head.min(text.len()));
-    let key = (doc.version(), doc.csv_filter.clone(), doc.csv_sort, line);
+    let key = (
+        doc.serial(),
+        doc.version(),
+        doc.csv_filter.clone(),
+        doc.csv_sort,
+        line,
+    );
     if let Some(v) = SHOWN.with(|m| {
         m.borrow()
             .as_ref()
@@ -2321,7 +2333,7 @@ fn status_rest(doc: &crate::DocumentState) -> Option<String> {
 
 fn column_status(doc: &crate::DocumentState) -> Option<String> {
     let (layout, _, _, col) = cell_at(doc)?;
-    let key = (doc.version(), col, layout.dialect);
+    let key = (doc.serial(), doc.version(), col, layout.dialect);
     STATS.with(|s| {
         if let Some((k, v)) = &*s.borrow()
             && *k == key
@@ -2378,7 +2390,42 @@ pub fn pasted(text: &str, d: &Dialect) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    /// `sep=` with a letter outside ASCII is no delimiter line, and does
+    /// not cut a character in two.
+    #[test]
+    fn sep_line_with_a_letter_outside_ascii() {
+        assert_eq!(super::sep_line("sep=;\na;b\n"), Some((b';', 6)));
+        assert_eq!(super::sep_line("sep=ş\naşb\n"), None);
+        let _ = super::detect("sep=ş\naşb\n1ş2\n");
+    }
+
     use super::*;
+
+    /// Two documents of the same length, both at version 0, keep their
+    /// own layout and filter: the memos were keyed by the version alone.
+    #[test]
+    fn two_documents_do_not_share_memos() {
+        let meta = || crate::Metadata {
+            path: None,
+            mode: crate::DocumentMode::Csv,
+            line_ending: crate::LineEnding::Lf,
+            bom: false,
+            encoding: encoding_rs::UTF_8,
+            lossy: false,
+        };
+        let settings = std::sync::Arc::new(org_model::Settings::default());
+        // The same length and dialect, both at version 0.
+        let mut a = crate::DocumentState::new("n,v\nx,1\ny,2\n", meta(), settings.clone());
+        let mut b = crate::DocumentState::new("n,v\nx,5\ny,7\n", meta(), settings);
+        assert_eq!((a.text().len(), a.version()), (b.text().len(), b.version()));
+        // The cursor in column B: each document's own sum.
+        a.selection = org_edit::Selection::caret(6);
+        b.selection = org_edit::Selection::caret(6);
+        let sa = status(&a).unwrap_or_default();
+        let sb = status(&b).unwrap_or_default();
+        assert!(sa.contains('3') && !sa.contains("12"), "{sa}");
+        assert!(sb.contains("12"), "{sb}");
+    }
 
     #[test]
     fn turkish_filter_and_sort() {

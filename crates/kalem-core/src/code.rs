@@ -105,7 +105,7 @@ pub fn matching(text: &str, pos: usize) -> Option<(usize, usize)> {
 }
 
 /// The last pair found: for the text version, cursor and length.
-type PairMemo = Option<((u64, usize, usize), Option<(usize, usize)>)>;
+type PairMemo = Option<((u64, u64, usize, usize), Option<(usize, usize)>)>;
 
 thread_local! {
     static PAIR: RefCell<PairMemo> = const { RefCell::new(None) };
@@ -117,7 +117,12 @@ pub fn pair_at_cursor(doc: &crate::DocumentState) -> Option<(usize, usize)> {
     if doc.dired.is_some() {
         return None;
     }
-    let key = (doc.version(), doc.selection.head, doc.text().len());
+    let key = (
+        doc.serial(),
+        doc.version(),
+        doc.selection.head,
+        doc.text().len(),
+    );
     PAIR.with(|p| {
         if let Some((k, v)) = *p.borrow()
             && k == key

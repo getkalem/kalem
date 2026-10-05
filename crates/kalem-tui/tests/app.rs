@@ -292,6 +292,53 @@ fn saving() {
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "* A!\n");
 }
 
+/// Save As takes a name beside the document, and asks before it
+/// replaces another file (it wrote over it).
+#[test]
+fn save_as_asks_before_replacing() {
+    let mut t = open("* A\n");
+    let dir = t
+        .app
+        .doc
+        .meta
+        .path
+        .clone()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    std::fs::write(dir.join("other.org"), "keep me\n").unwrap();
+    // The prompt starts with the document's path: erased, then the name.
+    let save_as = |t: &mut T, name: &str| {
+        let current = t.app.doc.meta.path.clone().unwrap();
+        t.app.run_command("app.saveAs", serde_json::json!({}));
+        for _ in 0..current.display().to_string().chars().count() {
+            t.key(KeyCode::Backspace, KeyModifiers::NONE);
+        }
+        t.typ(name);
+        t.key(KeyCode::Enter, KeyModifiers::NONE);
+    };
+    // Asked (a long path may not fit the line): No leaves the file.
+    save_as(&mut t, "other.org");
+    t.key(KeyCode::Char('n'), KeyModifiers::NONE);
+    assert_eq!(
+        std::fs::read_to_string(dir.join("other.org")).unwrap(),
+        "keep me\n"
+    );
+    save_as(&mut t, "other.org");
+    t.key(KeyCode::Char('y'), KeyModifiers::NONE);
+    assert_eq!(
+        std::fs::read_to_string(dir.join("other.org")).unwrap(),
+        "* A\n"
+    );
+    // A new name, relative: beside the document, without a question.
+    save_as(&mut t, "copy.org");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("copy.org")).unwrap(),
+        "* A\n"
+    );
+}
+
 #[test]
 fn vim_profile() {
     let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);

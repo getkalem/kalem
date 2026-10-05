@@ -3747,8 +3747,26 @@ fn other_formats() {
         .unwrap()
         .set_cell(1, 1, "1300")
         .unwrap();
+    // Saving writes a new file of what the conversion kept: asked first,
+    // once a document. No leaves the file as it was.
+    let before = std::fs::read(t.dir.join("lo.ods")).unwrap();
     t.app.run_command("app.save", json!({}));
+    assert!(t.screen().contains("writes a new file"), "{}", t.screen());
+    t.key(KeyCode::Char('n'));
+    assert!(t.app.doc.is_modified());
+    assert_eq!(std::fs::read(t.dir.join("lo.ods")).unwrap(), before);
+    t.app.run_command("app.save", json!({}));
+    t.key(KeyCode::Char('y'));
     assert!(!t.app.doc.is_modified());
+    t.app
+        .doc
+        .viewer
+        .as_deref_mut()
+        .unwrap()
+        .set_cell(1, 1, "1400")
+        .unwrap();
+    t.app.run_command("app.save", json!({}));
+    assert!(!t.app.doc.is_modified(), "asked once a document");
     let bytes = std::fs::read(t.dir.join("lo.ods")).unwrap();
     assert!(
         bytes
@@ -3756,7 +3774,7 @@ fn other_formats() {
             .any(|w| w == b"application/vnd.oasis.opendocument.spreadsheet")
     );
     t.app.open_path(&t.dir.join("lo.ods"), None);
-    assert_eq!(input(&mut t, 1, 1), "1300");
+    assert_eq!(input(&mut t, 1, 1), "1400");
     assert!(input(&mut t, 1, 3).starts_with('='));
     // A text file read in: semicolons, Windows-1254, column types.
     let text = "Kod;Ürün;Tarih;Not\n007;Çay;31.12.2025;x\n010;Şeker;01.02.2026;y\n";

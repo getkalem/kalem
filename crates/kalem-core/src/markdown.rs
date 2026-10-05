@@ -827,7 +827,9 @@ impl Md {
 
 /// The last parse, with the text version and length it is for, and the
 /// text, for the next edit's reparse.
-type Memo = ((u64, usize), Rc<Md>, Rc<str>);
+/// The last parse: the document (serial), its version and length; the
+/// parse; the text it parsed.
+type Memo = ((u64, u64, usize), Rc<Md>, Rc<str>);
 
 /// Whether `text` has what reaches across a Markdown document: a link
 /// reference definition (`[label]: …` starting a line) or a footnote.
@@ -901,7 +903,7 @@ thread_local! {
 
 /// The parse of `doc`, for its text version.
 pub fn parsed(doc: &crate::DocumentState) -> Rc<Md> {
-    let key = (doc.version(), doc.text().len());
+    let key = (doc.serial(), doc.version(), doc.text().len());
     PARSED.with(|p| {
         if let Some((k, md, _)) = &*p.borrow()
             && *k == key
@@ -968,7 +970,7 @@ pub fn ready(doc: &crate::DocumentState) -> Option<Rc<Md>> {
     if text.len() <= LIVE_LIMIT {
         return Some(parsed(doc));
     }
-    let key = (doc.version(), text.len());
+    let key = (doc.serial(), doc.version(), text.len());
     let near = PARSED.with(|p| {
         p.borrow().as_ref().map(|(k, md, old)| {
             (*k == key)
@@ -987,7 +989,9 @@ pub fn ready(doc: &crate::DocumentState) -> Option<Rc<Md>> {
     match bg.take() {
         // Done: reparsed to the text as it is now.
         Some((then, Some(md))) if small_edit(&then, text) => {
-            PARSED.with(|p| *p.borrow_mut() = Some(((u64::MAX, 0), Rc::new(md), Rc::from(&*then))));
+            PARSED.with(|p| {
+                *p.borrow_mut() = Some(((u64::MAX, u64::MAX, 0), Rc::new(md), Rc::from(&*then)));
+            });
             drop(bg);
             Some(parsed(doc))
         }

@@ -440,6 +440,9 @@ impl kalem_viewer::Viewer for ComponentViewer {
         Ok(Box::new(ComponentDocument {
             v: std::sync::Mutex::new(v),
             doc,
+            modified: std::sync::atomic::AtomicBool::new(false),
+            structure: std::sync::Mutex::new(None),
+            failed: std::sync::atomic::AtomicBool::new(false),
         }))
     }
 }
@@ -451,6 +454,15 @@ use kalem_viewer as kv;
 struct ComponentDocument {
     v: std::sync::Mutex<Viewer>,
     doc: Document,
+    /// What `modified` last answered: an instance spent by a trap or its
+    /// time can answer no more, and its unsaved edits must not then look
+    /// saved (closing would not ask).
+    modified: std::sync::atomic::AtomicBool,
+    /// What `structure` last answered, for the same reason: an empty one
+    /// has no unit the host shows.
+    structure: std::sync::Mutex<Option<kalem_viewer::Structure>>,
+    /// The instance failed once (said once in the log).
+    failed: std::sync::atomic::AtomicBool,
 }
 
 impl ComponentDocument {
@@ -466,7 +478,13 @@ impl ComponentDocument {
     ) -> kalem_viewer::Result<R> {
         let doc = self.doc;
         let mut v = self.v.lock().unwrap_or_else(|e| e.into_inner());
-        v.document(|d, s| f(d, s, doc)).map_err(err)
+        let out = v.document(|d, s| f(d, s, doc)).map_err(err);
+        if let Err(e) = &out
+            && !self.failed.swap(true, std::sync::atomic::Ordering::Relaxed)
+        {
+            tracing::error!(error = %e.0, "a plugin's document failed; it answers no more");
+        }
+        out
     }
 }
 
@@ -484,9 +502,10 @@ fn rect(r: api::Rect) -> [f32; 4] {
 impl kalem_viewer::ViewerDocument for ComponentDocument {
     fn structure(&self) -> kalem_viewer::Structure {
         let Ok(s) = self.call(|d, st, doc| d.call_structure(st, doc)) else {
-            return kalem_viewer::Structure::default();
+            let last = self.structure.lock().unwrap_or_else(|e| e.into_inner());
+            return last.clone().unwrap_or_default();
         };
-        kalem_viewer::Structure {
+        let s = kalem_viewer::Structure {
             units: s
                 .units
                 .into_iter()
@@ -512,7 +531,9 @@ impl kalem_viewer::ViewerDocument for ComponentDocument {
                     level: e.level,
                 })
                 .collect(),
-        }
+        };
+        *self.structure.lock().unwrap_or_else(|e| e.into_inner()) = Some(s.clone());
+        s
     }
 
     fn render(
@@ -616,8 +637,14 @@ impl kalem_viewer::ViewerDocument for ComponentDocument {
     }
 
     fn modified(&self) -> bool {
-        self.call(|d, st, doc| d.call_modified(st, doc))
-            .unwrap_or(false)
+        use std::sync::atomic::Ordering::Relaxed;
+        match self.call(|d, st, doc| d.call_modified(st, doc)) {
+            Ok(m) => {
+                self.modified.store(m, Relaxed);
+                m
+            }
+            Err(_) => self.modified.load(Relaxed),
+        }
     }
 
     fn save(&mut self) -> kalem_viewer::Result<kalem_viewer::SaveOutput> {

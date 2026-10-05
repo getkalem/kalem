@@ -1942,6 +1942,28 @@ impl Editor {
                 })
                 .detach();
             }
+            Err(kalem_core::document::SaveError::Converted { format }) => {
+                let (save, cancel) = (
+                    tr!("dialog-converted-save", format = format.clone()),
+                    tr!("dialog-cancel"),
+                );
+                let answer = window.prompt(
+                    gpui::PromptLevel::Warning,
+                    &tr!("dialog-converted", format = format.clone()),
+                    Some(&tr!("dialog-converted-detail", format = format)),
+                    &[save.as_str(), cancel.as_str()],
+                    cx,
+                );
+                cx.spawn_in(window, async move |this, cx| {
+                    if answer.await == Ok(0) {
+                        let _ = this.update_in(cx, |e, window, cx| {
+                            e.doc.conversion_accepted = true;
+                            e.save(window, cx);
+                        });
+                    }
+                })
+                .detach();
+            }
             Err(e) => self.message(tr!("msg-not-saved", reason = e.to_string()), true),
         }
         cx.notify();

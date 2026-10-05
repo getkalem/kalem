@@ -108,7 +108,7 @@ dialect and detects it from the current text.
 
 ** Excel's =sep= line
 
-A file whose first line is exactly =sep== followed by one character
+A file whose first line is exactly =sep== followed by one ASCII character
 (Excel writes ~sep=;~) takes that character as its delimiter without
 further detection; the line is not a record, so it is neither shown in
 the grid nor taken for a header, and it is kept in the file as it is.

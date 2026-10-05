@@ -535,6 +535,17 @@ pub fn write(path: &Path, bytes: &[u8], options: SaveOptions) -> io::Result<Disk
     // Follow links, so that a link stays a link.
     let target = dunce::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
     let existing = std::fs::metadata(&target).ok();
+    // A write-protected file is not replaced: renaming over it needs only
+    // its folder's permission, and would have saved it all the same.
+    if existing
+        .as_ref()
+        .is_some_and(|m| m.permissions().readonly())
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            crate::l10n::tr("msg-file-read-only"),
+        ));
+    }
     if options.backup && existing.is_some() {
         std::fs::copy(&target, backup_path(&target))?;
         tracing::debug!(path = %target.display(), "backup written");
@@ -591,6 +602,13 @@ pub fn write(path: &Path, bytes: &[u8], options: SaveOptions) -> io::Result<Disk
         Ok(false) => {
             tracing::debug!(path = %target.display(), "file of another owner saved in place");
             let _ = std::fs::remove_file(&tmp);
+            write_in_place(&target, bytes)?;
+        }
+        // A folder Kalem may not write in, holding a file it may: the
+        // file written in place, as a hard-linked one is.
+        Err(e) if e.kind() == io::ErrorKind::PermissionDenied && existing.is_some() => {
+            let _ = std::fs::remove_file(&tmp);
+            tracing::debug!(path = %target.display(), "file in a read-only folder saved in place");
             write_in_place(&target, bytes)?;
         }
         Err(e) => {
@@ -799,6 +817,34 @@ impl FileWatcher {
 
 #[cfg(test)]
 mod tests {
+    /// A write-protected file is refused, not replaced; a writable file
+    /// in a folder Kalem may not write in is written in place.
+    #[cfg(unix)]
+    #[test]
+    fn permissions_on_save() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("kalem-perm-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("locked.txt");
+        std::fs::write(&p, "old\n").unwrap();
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o444)).unwrap();
+        let e = super::write(&p, b"new\n", super::SaveOptions::default()).unwrap_err();
+        assert_eq!(e.kind(), std::io::ErrorKind::PermissionDenied);
+        assert_eq!(std::fs::read_to_string(&p).unwrap(), "old\n");
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o644)).unwrap();
+        // The folder read-only, the file writable (a root shell's tests
+        // write anywhere: nothing to check then).
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o555)).unwrap();
+        let tmp_allowed = std::fs::File::create(dir.join("probe")).is_ok();
+        if !tmp_allowed {
+            super::write(&p, b"new\n", super::SaveOptions::default()).unwrap();
+            assert_eq!(std::fs::read_to_string(&p).unwrap(), "new\n");
+        }
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     use super::*;
 
     fn temp_dir(tag: &str) -> PathBuf {

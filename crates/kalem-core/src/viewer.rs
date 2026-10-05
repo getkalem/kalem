@@ -142,11 +142,13 @@ fn render(
         scale: f32::from_bits(scale),
         ..RenderRequest::default()
     };
-    let Rendered::Bitmap(b) = doc
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .render(unit, request)
-        .map_err(|e| e.to_string())?;
+    // A panic of the viewer (native code) is this render's error.
+    let Rendered::Bitmap(b) = guarded(|| {
+        doc.lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .render(unit, request)
+    })?
+    .map_err(|e| e.to_string())?;
     Ok(b.rotated(rotation))
 }
 
@@ -272,6 +274,10 @@ type UnitVersion = (usize, u64);
 pub struct ViewerState {
     /// The viewer.
     pub viewer: Arc<dyn Viewer>,
+    /// The format the file was converted from as it opened (`ods`: an
+    /// OpenDocument spreadsheet edited as a workbook made of it). Saving
+    /// in that format writes a new file of what the conversion keeps.
+    pub converted_from: Option<String>,
     /// The document, shared with the thread that renders it.
     doc: Arc<Mutex<Box<dyn ViewerDocument>>>,
     structure: Structure,
@@ -304,6 +310,9 @@ pub struct ViewerState {
     generation: u64,
     /// The last render: unit, rotation, generation, scale.
     cache: Option<(RenderKey, Bitmap)>,
+    /// A render that failed, and why: not started again for the same key
+    /// (a page that makes the viewer panic did so on every frame).
+    failed: Option<(RenderKey, String)>,
     /// The neighbors of the unit shown, rendered ahead (at most two).
     ahead: Vec<(RenderKey, Bitmap)>,
     /// The find bar's search of the units' text.
@@ -611,19 +620,34 @@ impl std::fmt::Debug for ViewerState {
     }
 }
 
+/// `f`'s result, or its panic as an error: the bundled viewers are
+/// native code, and a file they cannot read must not end the editor.
+fn guarded<T>(f: impl FnOnce() -> T) -> Result<T, String> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).map_err(|p| {
+        let what = p
+            .downcast_ref::<&str>()
+            .map(|s| (*s).to_string())
+            .or_else(|| p.downcast_ref::<String>().cloned())
+            .unwrap_or_default();
+        crate::tr!("msg-viewer-failed", reason = what)
+    })
+}
+
 impl ViewerState {
     /// Opens `path` with `viewer`.
     pub fn open(viewer: Arc<dyn Viewer>, path: &Path) -> Result<ViewerState, String> {
-        let mut doc = viewer
-            .open(FileHandle::new(path))
-            .map_err(|e| e.to_string())?;
+        // A bundled viewer is native code: a file that makes it panic is
+        // an error to show, not the end of the editor.
+        let mut doc = guarded(|| viewer.open(FileHandle::new(path)))?.map_err(|e| e.to_string())?;
         // An OpenDocument spreadsheet the workbook viewer only shows is
         // edited as a workbook made of it, and saved back as `.ods`.
         let ods = path
             .extension()
             .is_some_and(|e| e.eq_ignore_ascii_case("ods"));
+        let mut converted_from = None;
         if ods && viewer.extensions().contains(&"xlsx") && doc.grid(0).is_some_and(|l| !l.editable)
         {
+            converted_from = Some("ods".to_string());
             let bytes = crate::workbook_io::to_xlsx(viewer.as_ref(), doc.as_mut())?;
             doc = crate::workbook_io::open_bytes(
                 viewer.as_ref(),
@@ -649,6 +673,7 @@ impl ViewerState {
         };
         Ok(ViewerState {
             viewer,
+            converted_from,
             doc: Arc::new(Mutex::new(doc)),
             structure,
             sizes,
@@ -673,6 +698,7 @@ impl ViewerState {
             redo: Vec::new(),
             generation: next_generation(),
             cache: None,
+            failed: None,
             grids,
             grid_pos: std::collections::HashMap::new(),
             grid_cache: None,
@@ -736,6 +762,11 @@ impl ViewerState {
         if let Some(b) = self.take_ahead(key) {
             return Ok(b);
         }
+        if let Some((k, e)) = &self.failed
+            && *k == key
+        {
+            return Err(e.clone());
+        }
         // A thread renders it already: wait for it.
         if let Some((k, rx)) = self.pending.take()
             && let Ok(done) = rx.recv()
@@ -746,7 +777,7 @@ impl ViewerState {
                 return Ok(b);
             }
         }
-        let b = render(&self.doc, key)?;
+        let b = render(&self.doc, key).inspect_err(|e| self.failed = Some((key, e.clone())))?;
         self.cache = Some((key, b.clone()));
         Ok(b)
     }
@@ -770,7 +801,13 @@ impl ViewerState {
                     let k = *k;
                     self.pending = None;
                     if k == key {
-                        self.cache = Some((k, done?));
+                        match done {
+                            Ok(b) => self.cache = Some((k, b)),
+                            Err(e) => {
+                                self.failed = Some((k, e.clone()));
+                                return Err(e);
+                            }
+                        }
                     } else if let Ok(b) = done {
                         // A neighbor rendered ahead.
                         self.ahead.push((k, b));
@@ -793,6 +830,11 @@ impl ViewerState {
                 self.spawn_render(next);
             }
             return Ok(Some((b, f32::from_bits(key.3))));
+        }
+        if let Some((k, e)) = &self.failed
+            && *k == key
+        {
+            return Err(e.clone());
         }
         // One render at a time; the latest wish starts when it ends.
         if self.pending.is_none() {
@@ -17226,6 +17268,67 @@ mod tests {
             let i = ((x / 10.0).max(0.0) as usize).min(n - 1);
             Some((i..i + 1, [i as f32 * 10.0, 30.0, 10.0, 10.0]))
         }
+    }
+
+    /// A viewer that panics: on opening one file, on drawing another.
+    #[derive(Debug)]
+    struct Panics;
+
+    struct PanicsDoc;
+
+    impl Viewer for Panics {
+        fn id(&self) -> &str {
+            "panics"
+        }
+        fn name(&self) -> &str {
+            "Panics"
+        }
+        fn extensions(&self) -> &[&str] {
+            &["panics"]
+        }
+        fn detect(&self, _: &str, _: &[u8]) -> Detection {
+            Detection::No
+        }
+        #[allow(clippy::panic)]
+        fn open(&self, file: FileHandle) -> VResult<Box<dyn ViewerDocument>> {
+            if file.name().starts_with("bad") {
+                panic!("a malformed file");
+            }
+            Ok(Box::new(PanicsDoc))
+        }
+    }
+
+    impl ViewerDocument for PanicsDoc {
+        fn structure(&self) -> Structure {
+            Structure {
+                units: vec![Unit {
+                    kind: UnitKind::Image,
+                    label: "1".into(),
+                    duration_ms: None,
+                }],
+                outline: Vec::new(),
+            }
+        }
+        #[allow(clippy::panic)]
+        fn render(&mut self, _: usize, _: RenderRequest) -> VResult<Rendered> {
+            panic!("a malformed picture");
+        }
+        fn text(&self, _: usize) -> String {
+            String::new()
+        }
+    }
+
+    /// A bundled viewer's panic is an error the editor shows, once: the
+    /// editor goes on, and a failed render is not tried again each frame.
+    #[test]
+    fn a_viewer_panic_is_an_error() {
+        let dir = std::env::temp_dir();
+        let e = ViewerState::open(Arc::new(Panics), &dir.join("bad.panics")).unwrap_err();
+        assert!(e.contains("a malformed file"), "{e}");
+        let mut v = ViewerState::open(Arc::new(Panics), &dir.join("good.panics")).unwrap();
+        let e = v.bitmap().unwrap_err();
+        assert!(e.contains("a malformed picture"), "{e}");
+        assert_eq!(v.bitmap().unwrap_err(), e);
     }
 
     fn state(n: usize) -> ViewerState {

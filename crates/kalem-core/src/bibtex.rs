@@ -504,15 +504,20 @@ pub struct Grid {
     pub widths: [usize; 5],
 }
 
+/// The last grid: the document (its serial: two documents both start at
+/// version 0) and its version, and the grid.
+type GridMemo = ((u64, u64), std::rc::Rc<Grid>);
+
 thread_local! {
-    static GRID: std::cell::RefCell<Option<(u64, std::rc::Rc<Grid>)>> =
+    static GRID: std::cell::RefCell<Option<GridMemo>> =
         const { std::cell::RefCell::new(None) };
 }
 
 /// The grid of the BibTeX document `doc`, for its text version.
 pub fn grid(doc: &crate::DocumentState) -> std::rc::Rc<Grid> {
     use unicode_width::UnicodeWidthStr;
-    let key = doc.version();
+    // The document and its version: two documents both start at 0.
+    let key = (doc.serial(), doc.version());
     GRID.with(|g| {
         if let Some((k, v)) = &*g.borrow()
             && *k == key

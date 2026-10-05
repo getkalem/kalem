@@ -96,6 +96,8 @@ enum PromptKind {
     },
     /// A file name to save to.
     SaveAs,
+    /// Save As would replace this other file: replace it?
+    ReplaceFile(PathBuf),
     /// Unsaved changes when quitting: yes, no, cancel.
     Quit,
     /// Quitting without saving the unsaved changes: yes, no.
@@ -106,6 +108,9 @@ enum PromptKind {
     Reload,
     /// The file changed on disk since it was read: overwrite?
     Overwrite,
+    /// The file was converted as it opened: save it in its own format,
+    /// keeping what the conversion keeps?
+    SaveConverted,
     /// A question of a file operation (`App::task`).
     FileTask,
 }
@@ -2200,6 +2205,13 @@ impl App {
                     String::new(),
                 );
             }
+            Err(kalem_core::document::SaveError::Converted { format }) => {
+                self.ask(
+                    PromptKind::SaveConverted,
+                    &tr!("prompt-save-converted", format = format),
+                    String::new(),
+                );
+            }
             Err(e) => self.message(tr!("msg-not-saved", reason = e.to_string()), true),
         }
     }
@@ -4066,6 +4078,8 @@ impl App {
                 | PromptKind::Close
                 | PromptKind::Reload
                 | PromptKind::Overwrite
+                | PromptKind::SaveConverted
+                | PromptKind::ReplaceFile(_)
         );
         // A cell's entry: Alt+Enter a line break, Ctrl+Enter into every
         // selected cell, AutoComplete's offer taken with Enter or turned
@@ -4164,6 +4178,14 @@ impl App {
                         self.after_change(true);
                     }
                     (PromptKind::Overwrite, true, _) => self.save(true),
+                    (PromptKind::ReplaceFile(path), true, _) => {
+                        let path = path.clone();
+                        self.save_as_to(path);
+                    }
+                    (PromptKind::SaveConverted, true, _) => {
+                        self.doc.conversion_accepted = true;
+                        self.save(false);
+                    }
                     (_, _, true) => self.message(tr!("msg-cancelled"), false),
                     _ => self.prompt = Some(p),
                 }
@@ -4200,25 +4222,42 @@ impl App {
                 self.run_command(&command, args);
             }
             PromptKind::SaveAs => {
-                let path = PathBuf::from(p.input.trim());
                 if p.input.trim().is_empty() {
                     self.message(tr!("msg-no-file-name"), true);
                     return;
                 }
-                match self.doc.save_as(&path, self.config.save_options()) {
-                    Ok(()) => {
-                        if let Some(w) = &mut self.watcher {
-                            let _ = w.watch(&path);
-                        }
-                        self.message(
-                            tr!("msg-saved-as", path = path.display().to_string()),
-                            false,
-                        );
-                    }
-                    Err(e) => self.message(tr!("msg-not-saved", reason = e.to_string()), true),
+                // `~` for the home folder; a relative name beside the
+                // document, as Open takes it.
+                let path = PathBuf::from(settings::expand_home(p.input.trim()));
+                let path = match kalem_core::command::folder_of(&self.doc) {
+                    Some(d) if !path.is_absolute() => d.join(&path),
+                    _ => path,
+                };
+                // Another file there is replaced only when asked.
+                if path.exists() && self.doc.meta.path.as_deref() != Some(path.as_path()) {
+                    let label = tr!("prompt-replace-file", path = path.display().to_string());
+                    self.ask(PromptKind::ReplaceFile(path), &label, String::new());
+                    return;
                 }
+                self.save_as_to(path);
             }
             _ => {}
+        }
+    }
+
+    /// Saves the document as `path` (Save As, once its name is settled).
+    fn save_as_to(&mut self, path: PathBuf) {
+        match self.doc.save_as(&path, self.config.save_options()) {
+            Ok(()) => {
+                if let Some(w) = &mut self.watcher {
+                    let _ = w.watch(&path);
+                }
+                self.message(
+                    tr!("msg-saved-as", path = path.display().to_string()),
+                    false,
+                );
+            }
+            Err(e) => self.message(tr!("msg-not-saved", reason = e.to_string()), true),
         }
     }
 

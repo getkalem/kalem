@@ -25,7 +25,7 @@ plumbing and can go in parallel with the code fixes.
 
 ## 1. Release gates (green before anything else)
 
-- [ ] **Blocker, verified.** `main` CI is red on the last three completed
+- [x] **Blocker, verified.** `main` CI is red on the last three completed
   runs (37274730669, 37276728208, 37277305942). Two causes:
   - The `binary size` job: the full release build is 85.4 MiB against the
     85 MiB ceiling in `tools/binary-size.txt` (terminal-only 42.3 of 42.5
@@ -44,7 +44,10 @@ plumbing and can go in parallel with the code fixes.
   - The size (2026-10-05): the shader translator (naga), the
     accessibility bus (zbus, zvariant, atspi, accesskit_unix) and the
     reader of `.xls`/`.xlsb`/`.ods` (calamine), all cold, now built for
-    size; CI's next run gives the number.
+    size: 84.5 MiB on CI (from 85.4), the terminal build unchanged at
+    42.3. `main` all green at d559c81 (run 37307808182), Windows and
+    macOS included. The margins are thin (0.5 and 0.2 MiB): the next
+    workbook feature passes the ceiling again.
 - [x] **Major, verified.** `cargo test --workspace` is red on a developer
   machine for reasons that have nothing to do with the code, which hides
   real failures:
@@ -105,14 +108,19 @@ plumbing and can go in parallel with the code fixes.
 These break the one promise of the README ("never touches what you did
 not edit") or kill the process. Fix all of them before 0.1.
 
-- [ ] **Blocker, verified (code).** A workbook edit can be silently not
+- [x] **Blocker, verified (code).** A workbook edit can be silently not
   saved. "Modified" is `history_len() != saved_at` (plugins
   `xlsx/src/viewer.rs:2382`), a count, not a content check. Type in A1,
   Ctrl+S, Undo, type in B1: the document is "unmodified", Ctrl+S returns
   without writing (`kalem-core/src/document.rs:504`), closing does not
   ask, the B1 edit is lost and the file keeps the A1 edit the user undid.
   Compare content (or a saved-generation marker that Undo cannot reach).
-- [ ] **Blocker, verified.** An `.ods` file is converted to xlsx on open
+  (done 2026-10-05, plugins 42168f3: every edit gives the workbook's
+  content a new number (`Workbook::state`), undo and redo bring back the
+  number of the state they return to, and the document compares it with
+  the one saved; the plugin's `edits_undo_and_save` test covers the
+  sequence.)
+- [x] **Blocker, verified.** An `.ods` file is converted to xlsx on open
   (`kalem-core/src/viewer.rs:622-633`) and written back as a *new* ODS
   (`workbook_io::to_ods`) with only `content.xml`, `styles.xml`,
   `meta.xml` and the manifest. `kalem view --unit 2 …/libreoffice-budget.ods`
@@ -124,7 +132,18 @@ not edit") or kill the process. Fix all of them before 0.1.
   For 0.1: either open `.ods` read-only (view, Save As `.xlsx` with a
   warning that lists what is lost), or keep the original package and
   patch only `content.xml`. Say so in the README table.
-- [ ] **Blocker, verified.** A lossy decode is saved back as U+FFFD.
+  (done 2026-10-05, the part that loses data silently: editing `.ods`
+  stays (the owner's E-list asked for it), but saving a file that was
+  converted as it opened (`ViewerState::converted_from`) back in its own
+  format is refused with `SaveError::Converted` until the user agrees,
+  once a document; both editors ask with what the new file keeps and
+  what it does not, and Save As `.xlsx` leaves the original alone
+  (tests in both editors). ODS dates, date-times and times are read as
+  numbers (plugins 42168f3), so they no longer turn into text. Still
+  open: number formats (25.6 % shows `0.256`) are lost for `.ods` and
+  `.xls` alike because calamine does not give them; the writer keeps
+  what the prompt lists; the README caveat is section 4's.)
+- [x] **Blocker, verified.** A lossy decode is saved back as U+FFFD.
   `DocumentState::save` (`document.rs:603-610`) checks `unencodable` but
   never `meta.lossy`; the GUI's Save writes even with no edits
   (`kalem-ui/src/editor.rs:1880`). Reopen with Encoding UTF-8 on a Latin-1
@@ -132,13 +151,21 @@ not edit") or kill the process. Fix all of them before 0.1.
   `msg-unencodable` ("Save with Encoding UTF-8 keeps it") and
   `book/part-2/plain-text.org:525` give the same destructive advice.
   Refuse a plain Save while `lossy` is set, and ask on Save with Encoding.
-- [ ] **Major, verified.** A CSV whose `sep=` line names a multi-byte
+  (done 2026-10-05: `SaveError::Lossy` refuses saving over the file it
+  was read from while `lossy` is set, `force` or not; the message says
+  Reopen with Encoding reads it right and Save with Encoding or Save As
+  write it as it shows (both explicit, Save As clears `lossy`);
+  `msg-opened-lossy` and the Book no longer say Save writes �. Test
+  `a_lossy_read_is_not_saved_over`.)
+- [x] **Major, verified.** A CSV whose `sep=` line names a multi-byte
   delimiter aborts the process: `sep_line` slices `&rest[1..]` after one
   byte (`kalem-core/src/csv.rs:437`). `printf 'sep=ş\n…' > x.csv; kalem check x.csv`
   → "byte index 1 is not a char boundary … fatal runtime error". It runs
   from `detect`, the status bar and the index, outside any `catch_unwind`,
   and no unsaved buffer is rescued when the editor dies.
-- [ ] **Major, verified (code).** Memo caches without a document identity
+  (done: a delimiter outside ASCII makes no `sep=` line; `detect`'s doc
+  comment, which sat on `sep_line`, moved back; tested.)
+- [x] **Major, verified (code).** Memo caches without a document identity
   mix two open files of the same version and length:
   - CSV: `STATS` `(version, col, dialect)` (`csv.rs:2265`), `LAYOUT`
     `((version, len, dialect), view, columns)` (`csv.rs:1568`),
@@ -153,24 +180,38 @@ not edit") or kill the process. Fix all of them before 0.1.
   - Also `bibtex::grid` (version only, `bibtex.rs:514`) and
     `code::pair_at_cursor` (`code.rs:119`).
   Add `doc.serial()` to every key.
-- [ ] **Major, reported.** A document toggled read-only "reloads" without
+  (done: the document's serial in the keys of CSV's layout, statistics,
+  filter and shown lines, Markdown's parse, the BibTeX grid and the
+  bracket pair; test `two_documents_do_not_share_memos` (the same
+  length and dialect, both at version 0: each its own sum). Markdown's
+  column widths already keyed on the text's address.)
+- [x] **Major, reported.** A document toggled read-only "reloads" without
   reloading: `replace_from_disk` (`document.rs:670-704`) goes through
   `apply()`, which returns early when `read_only` is set, then records the
   new disk state and `mark_saved()`. Toggle read-only off and Save: the
   stale text overwrites the newer file with no conflict prompt. Reopen
   with Encoding has the same hole.
-- [ ] **Major, verified (code).** The terminal editor's Save As writes
+  (done: the reload lifts read-only for its own edit; Reopen with
+  Encoding goes the same way; test `a_read_only_document_reloads`.)
+- [x] **Major, verified (code).** The terminal editor's Save As writes
   over an existing file without asking (`kalem-tui/src/app.rs:4173-4191`
   → `save_as`, which forces the save, `document.rs:616-620`); no `~`
   expansion, relative paths against the process's folder. The GUI is
   covered by the system dialog.
-- [ ] **Major, verified (code).** Saving a write-protected file succeeds:
+  (done: `~` expanded, a relative name beside the document as Open
+  takes it, and another existing file replaced only after
+  `prompt-replace-file`; test `save_as_asks_before_replacing`.)
+- [x] **Major, verified (code).** Saving a write-protected file succeeds:
   `files::write` (`files.rs:557-580`) creates a temp file and renames it
   over the target, which needs only the folder's permission. `chmod 444`,
   edit, Ctrl+S → "Saved" (and the file is still 0444). The opposite case,
   a writable file in a read-only folder, cannot be saved at all (no
   in-place fallback).
-- [ ] **Major, reported.** A component viewer is dead after one trap or
+  (done: a file whose permissions say read-only is refused with
+  `msg-file-read-only`; a temporary file the folder refuses means the
+  file is written in place, as a hard-linked one is; test
+  `permissions_on_save`.)
+- [x] **Major, reported.** A component viewer is dead after one trap or
   timeout and then hides unsaved edits: `Instance::call` says the
   instance is spent (`kalem-script/src/lib.rs:409-411`), `ComponentDocument`
   never re-instantiates (`kalem-script/src/viewer.rs:450-464`); afterwards
@@ -178,12 +219,22 @@ not edit") or kill the process. Fix all of them before 0.1.
   which can index `structure.units[self.unit]` out of range
   (`kalem-core/src/viewer.rs:1568`, `1750`, `2345`). Re-instantiate, or
   mark the document failed and keep "modified" true.
-- [ ] **Major, reported.** The bundled viewers are native code with no
+  (done: a new instance would not have the document's edits, which live
+  in the spent one; `ComponentDocument` now answers `modified` and
+  `structure` with what they last were, so unsaved edits still make
+  closing ask and the host keeps its units, and the failure is logged
+  once. No test: no fixture traps on demand yet.)
+- [x] **Major, reported.** The bundled viewers are native code with no
   `catch_unwind`: a panic in hayro, `image`, calamine or IronCalc on a bad
   file ends the editor (open runs on the UI thread,
   `kalem-ui/src/editor.rs:4015`); a panicking render thread is respawned
   on every frame, writing a crash report each time
   (`kalem-core/src/viewer.rs:779`, `798`).
+  (done: opening and rendering go through `guarded` (`catch_unwind`):
+  a panic is `msg-viewer-failed`, and a render that failed is
+  remembered by its key and not started again; test
+  `a_viewer_panic_is_an_error`. Other calls into a viewer on the UI
+  thread (text, grid cells) are not guarded yet.)
 - [ ] **Major, reported.** Both editors close an unmodified document
   whose file was deleted on disk without a prompt, losing the only copy
   (`external_change`); the terminal editor also drops change events

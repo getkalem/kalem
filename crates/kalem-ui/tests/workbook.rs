@@ -1752,3 +1752,52 @@ fn pivot_slicer_clicked(cx: &mut TestAppContext) {
     assert_eq!(on, 1);
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Saving an OpenDocument spreadsheet, which opened converted to a
+/// workbook, writes a new file of what the conversion kept: the editor
+/// asks first (Cancel leaves the file as it was), once a document.
+#[gpui::test]
+fn a_converted_file_asks_before_it_is_saved(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open(cx);
+    let data =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../kalem-tui/tests/data/budget.ods");
+    let ods = dir.join("lo.ods");
+    std::fs::copy(data, &ods).unwrap();
+    ws.update_in(cx, |ws, window, cx| ws.open(&ods, None, window, cx));
+    cx.run_until_parked();
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    let set = |value: &str, cx: &mut VisualTestContext| {
+        e.update(cx, |e, _| {
+            e.doc
+                .viewer
+                .as_deref_mut()
+                .unwrap()
+                .set_cell(1, 1, value)
+                .unwrap();
+        });
+    };
+    let save = |cx: &mut VisualTestContext| {
+        e.update_in(cx, |e, window, cx| {
+            e.run_command("app.save", serde_json::Value::Null, window, cx);
+        });
+        cx.run_until_parked();
+    };
+    let modified = |cx: &mut VisualTestContext| e.read_with(cx, |e, _| e.doc.is_modified());
+    set("1300", cx);
+    let before = std::fs::read(&ods).unwrap();
+    save(cx);
+    assert!(cx.has_pending_prompt());
+    cx.simulate_prompt_answer("Cancel");
+    cx.run_until_parked();
+    assert!(modified(cx));
+    assert_eq!(std::fs::read(&ods).unwrap(), before);
+    save(cx);
+    cx.simulate_prompt_answer("Save as .ods");
+    cx.run_until_parked();
+    assert!(!modified(cx));
+    assert_ne!(std::fs::read(&ods).unwrap(), before);
+    set("1400", cx);
+    save(cx);
+    assert!(!cx.has_pending_prompt());
+    assert!(!modified(cx));
+}
