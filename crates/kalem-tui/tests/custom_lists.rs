@@ -1,8 +1,6 @@
 //! The user's own lists a fill goes round, made from cells or typed,
 //! kept in the settings (a settings folder of the test's own).
 
-use std::sync::Arc;
-
 use kalem_core::settings::Config;
 use kalem_tui::app::App;
 use kalem_tui::caps::Caps;
@@ -13,7 +11,7 @@ fn custom_lists_fill() {
     let dir = std::env::temp_dir().join(format!("kalem-custom-lists-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("config")).unwrap();
-    kalem_core::viewer::register(Arc::new(kalem_plugin_xlsx::XlsxViewer));
+    kalem_core::viewer::register(kalem_components::viewer("org.kalem.xlsx").unwrap());
     let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/budget.xlsx");
     std::fs::copy(src, dir.join("budget.xlsx")).unwrap();
     let mut app = App::with_keymap(

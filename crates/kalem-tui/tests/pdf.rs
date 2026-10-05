@@ -3,7 +3,6 @@
 //! the page's text, the outline panel, the find bar.
 
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use kalem_core::DocumentMode;
@@ -23,7 +22,7 @@ fn status(app: &mut App) -> String {
 
 #[test]
 fn a_pdf_opens_page_by_page() {
-    kalem_core::viewer::register(Arc::new(kalem_plugin_pdf_viewer::PdfViewer));
+    kalem_core::viewer::register(kalem_components::viewer("org.kalem.pdf-viewer").unwrap());
     let dir = std::env::temp_dir().join(format!("kalem-tui-pdf-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();

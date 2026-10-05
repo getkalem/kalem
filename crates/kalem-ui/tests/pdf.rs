@@ -3,7 +3,6 @@
 //! the next page, the page's text, a link clicked, the outline, the find bar.
 
 use std::rc::Rc;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use gpui::{Entity, TestAppContext, VisualTestContext};
@@ -22,7 +21,7 @@ fn test_settings(dir: &std::path::Path) -> Option<std::path::PathBuf> {
 }
 
 fn open(cx: &mut TestAppContext) -> (Entity<Workspace>, &mut VisualTestContext) {
-    kalem_core::viewer::register(Arc::new(kalem_plugin_pdf_viewer::PdfViewer));
+    kalem_core::viewer::register(kalem_components::viewer("org.kalem.pdf-viewer").unwrap());
     static N: AtomicUsize = AtomicUsize::new(0);
     let n = N.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!("kalem-ui-pdf-{}-{n}", std::process::id()));

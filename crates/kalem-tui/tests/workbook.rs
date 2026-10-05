@@ -2,17 +2,39 @@
 //! (T3.7.4): the sheet as a grid, the cursor's keys, a cell edited, a row
 //! inserted, undo, the next sheet, and the file saved as itself.
 
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::path::{Path, PathBuf};
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use kalem_core::DocumentMode;
 use kalem_core::settings::Config;
 use kalem_tui::app::App;
 use kalem_tui::caps::Caps;
+use kalem_viewer::{Viewer, ViewerDocument};
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use serde_json::json;
+
+/// The workbook saved at `path` read again, by the workbook component.
+fn reread(path: &Path) -> Box<dyn ViewerDocument> {
+    kalem_components::viewer("org.kalem.xlsx")
+        .unwrap()
+        .open(kalem_viewer::FileHandle::new(path))
+        .unwrap()
+}
+
+/// A cell of a document read again.
+fn cell_of(
+    d: &mut Box<dyn ViewerDocument>,
+    unit: usize,
+    row: u32,
+    col: u32,
+) -> kalem_viewer::GridCell {
+    d.grid_cells(unit, row..row + 1, col..col + 1)
+        .into_iter()
+        .next()
+        .map(|c| c.2)
+        .unwrap_or_default()
+}
 
 struct T {
     app: App,
@@ -28,7 +50,7 @@ impl Drop for T {
 
 impl T {
     fn open(name: &str) -> T {
-        kalem_core::viewer::register(Arc::new(kalem_plugin_xlsx::XlsxViewer));
+        kalem_core::viewer::register(kalem_components::viewer("org.kalem.xlsx").unwrap());
         let dir =
             std::env::temp_dir().join(format!("kalem-tui-xlsx-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -191,13 +213,8 @@ fn cells_rows_undo_and_save() {
     t.app.run_command("edit.redo", json!({}));
     assert_eq!(input(&mut t, 1, 1), "1300");
     t.app.run_command("app.save", json!({}));
-    let saved = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
-    let mut wb = kalem_plugin_xlsx::Workbook::open(saved).unwrap();
-    assert_eq!(
-        wb.display(0, kalem_plugin_xlsx::CellRef::new(1, 1))
-            .unwrap(),
-        "1,300.00"
-    );
+    let mut wb = reread(&t.dir.join("budget.xlsx"));
+    assert_eq!(cell_of(&mut wb, 0, 1, 1).text, "1,300.00");
     // B2:C3 selected with Shift and the arrows, merged and centered after
     // the question (its other cells hold values), stepped over, unmerged.
     {
@@ -580,9 +597,8 @@ fn conditional_formatting() {
     assert!(t.screen().contains('▲'));
     // Saved: Excel's markup in the sheet.
     t.app.run_command("app.save", json!({}));
-    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
-    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
-    assert_eq!(wb.conditional_formats(0).unwrap().len(), 3);
+    let mut wb = reread(&t.dir.join("budget.xlsx"));
+    assert_eq!(wb.conditional_ranges(0).len(), 3);
 }
 
 #[test]
@@ -670,9 +686,16 @@ fn data_validation() {
     assert!(check.is_some());
     // Saved: the list (without A3), A3's warning list and the numbers.
     t.app.run_command("app.save", json!({}));
-    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
-    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
-    assert_eq!(wb.validations(0).unwrap().len(), 3);
+    {
+        use kalem_viewer::{ErrorStyle, ValidationKind};
+        let mut wb = reread(&t.dir.join("budget.xlsx"));
+        let list = wb.validation(0, 1, 0).unwrap();
+        assert_eq!(list.kind, ValidationKind::List);
+        assert!(list.error.is_none_or(|e| e.0 == ErrorStyle::Stop));
+        let warning = wb.validation(0, 2, 0).unwrap();
+        assert!(warning.error.is_some_and(|e| e.0 == ErrorStyle::Warning));
+        assert_eq!(wb.validation(0, 3, 1).unwrap().kind, ValidationKind::Whole);
+    }
     t.app.run_command("viewer.grid.clearValidation", json!({}));
     assert!(
         t.app
@@ -1529,10 +1552,8 @@ fn font_formatting() {
     assert_eq!((c.font_size, c.face.as_deref()), (Some(140), Some("Arial")));
     // Saved as Excel reads it; undone step by step.
     t.app.run_command("app.save", json!({}));
-    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
-    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
-    let s = wb.sheet(0).unwrap().cells[&kalem_plugin_xlsx::CellRef::new(1, 0)].style;
-    assert!(wb.style(s).italic && wb.style(s).font.as_deref() == Some("Arial"));
+    let c = cell_of(&mut reread(&t.dir.join("budget.xlsx")), 0, 1, 0);
+    assert!(c.italic && c.face.as_deref() == Some("Arial"), "{c:?}");
     for _ in 0..5 {
         t.app.run_command("edit.undo", json!({}));
     }
@@ -1583,10 +1604,8 @@ fn alignment() {
     assert_eq!(c.valign, kalem_viewer::VAlign::Middle);
     // Saved as Excel reads it; undone a step at a time.
     t.app.run_command("app.save", json!({}));
-    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
-    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
-    let s = wb.sheet(0).unwrap().cells[&kalem_plugin_xlsx::CellRef::new(1, 0)].style;
-    assert_eq!(wb.style(s).valign.as_deref(), Some("center"));
+    let c = cell_of(&mut reread(&t.dir.join("budget.xlsx")), 0, 1, 0);
+    assert_eq!(c.valign, kalem_viewer::VAlign::Middle);
     for _ in 0..5 {
         t.app.run_command("edit.undo", json!({}));
     }
@@ -1711,10 +1730,8 @@ fn number_formats() {
         .run_command("viewer.grid.numberFormat", json!({ "code": "0.000" }));
     assert!(t.screen().contains("431.500"), "{}", t.screen());
     t.app.run_command("app.save", json!({}));
-    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
-    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
-    let s = wb.sheet(0).unwrap().cells[&kalem_plugin_xlsx::CellRef::new(2, 1)].style;
-    assert_eq!(wb.style(s).num_fmt, "0.000");
+    let mut wb = reread(&t.dir.join("budget.xlsx"));
+    assert_eq!(wb.cell_format(0, 2, 1).as_deref(), Some("0.000"));
     for _ in 0..6 {
         t.app.run_command("edit.undo", json!({}));
     }
@@ -2168,9 +2185,14 @@ fn notes() {
     assert!(!t.screen().contains("Kira"), "{}", t.screen());
     // Saved as Excel reads it, then undone.
     t.app.run_command("app.save", json!({}));
-    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
-    let wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
-    assert!(wb.comments(0).unwrap().is_empty());
+    let mut wb = reread(&t.dir.join("budget.xlsx"));
+    let l = wb.grid(0).unwrap();
+    let notes = wb
+        .grid_cells(0, 0..l.rows, 0..l.cols)
+        .iter()
+        .filter(|c| c.2.note)
+        .count();
+    assert_eq!(notes, 0);
     for _ in 0..4 {
         t.app.run_command("edit.undo", json!({}));
     }
@@ -2940,13 +2962,8 @@ fn page_setup_and_pdf() {
     assert_eq!(s.footer, "&CSayfa &P / &N");
     // Saved with the workbook as Excel reads it.
     t.app.run_command("app.save", json!({}));
-    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
-    let wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
-    assert!(
-        wb.defined_names()
-            .iter()
-            .any(|n| n.name == "_xlnm.Print_Titles")
-    );
+    let read = reread(&t.dir.join("budget.xlsx")).page_setup(0).unwrap();
+    assert_eq!(read.title_rows, Some((0, 0)));
     // Scaled, gridlines and headings, a column repeated and a column
     // break, a picture in the header.
     let page = |t: &mut T, what: &str, value: &str| {
@@ -3435,9 +3452,7 @@ fn pictures_and_shapes() {
     assert!(v.drawing_bitmap(1).is_some());
     // Saved with the workbook; the picture deleted.
     t.app.run_command("app.save", json!({}));
-    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
-    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
-    assert_eq!(wb.drawings(0).len(), 2);
+    assert_eq!(reread(&t.dir.join("budget.xlsx")).drawings(0).len(), 2);
     t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 4);
     o(&mut t, 'd');
     assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().drawings().len(), 1);
@@ -3474,9 +3489,12 @@ fn sparklines() {
     assert!(s.contains("▇▁█▄"), "{s}");
     // Saved with the workbook.
     t.app.run_command("app.save", json!({}));
-    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
-    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
-    assert_eq!(wb.sparklines(0).len(), 2);
+    let lines = reread(&t.dir.join("budget.xlsx"))
+        .grid_cells(0, 6..8, 4..5)
+        .iter()
+        .filter(|c| c.2.sparkline.is_some())
+        .count();
+    assert_eq!(lines, 2);
     // Cleared from the selected cells.
     let v = t.app.doc.viewer.as_deref_mut().unwrap();
     v.grid_move_to(6, 4);
@@ -3610,11 +3628,10 @@ fn comments_and_sheet_tabs() {
     assert_eq!(t.app.doc.viewer.as_deref().unwrap().unit, 1);
     // Saved: the thread and the tab's color in the file.
     t.app.run_command("app.save", json!({}));
-    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
-    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
+    let mut wb = reread(&t.dir.join("budget.xlsx"));
     let threads = wb.threads(0);
     assert_eq!((threads.len(), threads[0].done), (1, true));
-    assert_eq!(wb.tab_color(0), Some(0xFF0000));
+    assert_eq!(wb.tab_color(0), Some([0xFF, 0, 0]));
 }
 
 #[test]
@@ -3691,11 +3708,9 @@ fn sheet_views() {
     // Kept in the file; the document is changed, to save.
     assert!(t.app.doc.is_modified());
     t.app.run_command("app.save", json!({}));
-    let bytes = std::fs::read(t.dir.join("budget.xlsx")).unwrap();
-    let mut wb = kalem_plugin_xlsx::Workbook::open(bytes).unwrap();
-    let raw = wb.view_raw(0);
-    assert_eq!((raw.zoom, raw.preview), (150, true));
-    assert!(raw.split.is_some_and(|s| s.top_left.row == 1));
+    let view = reread(&t.dir.join("budget.xlsx")).sheet_view(0);
+    assert_eq!((view.zoom, view.page_break_preview), (150, true));
+    assert!(view.split.is_some_and(|s| s[2] == 1), "{view:?}");
     // Split again: gone.
     z(&mut t, 'S');
     assert!(!t.app.doc.viewer.as_deref_mut().unwrap().panes().split);
@@ -3727,14 +3742,9 @@ fn other_formats() {
         (input(&mut t, 1, 1), input(&mut t, 1, 3)),
         (rent.clone(), total.clone())
     );
-    let mut wb =
-        kalem_plugin_xlsx::Workbook::open(std::fs::read(t.dir.join("new.xlsx")).unwrap()).unwrap();
-    assert_eq!(
-        wb.edit_text(0, kalem_plugin_xlsx::CellRef::new(1, 1))
-            .unwrap(),
-        rent
-    );
-    assert_eq!(wb.sheets().len(), 3);
+    let mut wb = reread(&t.dir.join("new.xlsx"));
+    assert_eq!(wb.cell_input(0, 1, 1), rent);
+    assert_eq!(wb.structure().units.len(), 3);
     // An OpenDocument spreadsheet opens to edit, and saves as itself.
     std::fs::copy(data.join("budget.ods"), t.dir.join("lo.ods")).unwrap();
     t.app.open_path(&t.dir.join("lo.ods"), None);
@@ -3964,17 +3974,13 @@ fn new_workbooks_and_copied_sheets() {
         json!({ "what": "moveOut", "workbook": yeni.display().to_string() }),
     );
     assert_eq!(labels(&mut t).len(), n - 1);
-    let mut wb = kalem_plugin_xlsx::Workbook::open(std::fs::read(&yeni).unwrap()).unwrap();
-    let names: Vec<String> = wb.sheets().iter().map(|s| s.name.clone()).collect();
+    let mut wb = reread(&yeni);
+    let names: Vec<String> = wb.structure().units.into_iter().map(|u| u.label).collect();
     assert_eq!(
         names,
         vec!["Sheet1".to_string(), first.clone(), format!("{first} (2)")]
     );
-    assert_eq!(
-        wb.edit_text(1, kalem_plugin_xlsx::CellRef::new(1, 0))
-            .unwrap(),
-        "Rent"
-    );
+    assert_eq!(wb.cell_input(1, 1, 0), "Rent");
     // New from Template: a workbook made of a template.
     let parts = kalem_core::workbook_io::unzip(&std::fs::read(&budget).unwrap()).unwrap();
     let parts: Vec<(String, Vec<u8>)> = parts
@@ -4064,9 +4070,7 @@ fn calculation() {
     );
     assert!(t.screen().contains("Manual calculation"), "{}", t.screen());
     t.app.run_command("app.save", json!({}));
-    let wb = kalem_plugin_xlsx::Workbook::open(std::fs::read(t.dir.join("budget.xlsx")).unwrap())
-        .unwrap();
-    let o = wb.calc_options();
+    let o = reread(&t.dir.join("budget.xlsx")).calc_options();
     assert!(o.iterate && o.max_iterations == 200);
     assert_eq!(o.mode, kalem_viewer::CalcMode::Manual);
 }
@@ -4608,7 +4612,7 @@ fn colors_of_an_open_document_spreadsheet() {
     // as a workbook made of it, the column and row colored whole.
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/colors.ods");
     let mut v = kalem_core::viewer::ViewerState::open(
-        std::sync::Arc::new(kalem_plugin_xlsx::XlsxViewer),
+        kalem_components::viewer("org.kalem.xlsx").unwrap(),
         &path,
     )
     .unwrap();

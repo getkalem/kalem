@@ -4,7 +4,6 @@
 //! picture copied and a link inserted into the document used last.
 
 use std::rc::Rc;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use gpui::{Entity, TestAppContext, VisualTestContext};
@@ -39,7 +38,7 @@ fn open(
     std::path::PathBuf,
     &mut VisualTestContext,
 ) {
-    kalem_core::viewer::register(Arc::new(kalem_plugin_image_viewer::ImageViewer));
+    kalem_core::viewer::register(kalem_components::viewer("org.kalem.image-viewer").unwrap());
     static N: AtomicUsize = AtomicUsize::new(0);
     let n = N.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!("kalem-ui-viewer-{}-{n}", std::process::id()));

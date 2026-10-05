@@ -3,7 +3,6 @@
 #![allow(clippy::print_stdout)]
 
 use std::rc::Rc;
-use std::sync::Arc;
 use std::time::Instant;
 
 use gpui::TestAppContext;
@@ -23,13 +22,18 @@ fn test_settings(dir: &std::path::Path) -> Option<std::path::PathBuf> {
 #[gpui::test]
 #[ignore = "a measurement: cargo test --release -p kalem-ui --test grid_speed -- --ignored --nocapture"]
 fn holding_down(cx: &mut TestAppContext) {
-    kalem_core::viewer::register(Arc::new(kalem_plugin_xlsx::XlsxViewer));
+    kalem_core::viewer::register(kalem_components::viewer("org.kalem.xlsx").unwrap());
     let dir = std::env::temp_dir().join(format!("kalem-ui-grid-speed-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../kalem-tui/tests/data/budget.xlsx");
-    let mut wb = kalem_plugin_xlsx::Workbook::open(std::fs::read(src).unwrap()).unwrap();
+    // Made through the workbook component, as the editor opens it.
+    let mut wb = kalem_viewer::Viewer::open(
+        &*kalem_components::viewer("org.kalem.xlsx").unwrap(),
+        kalem_viewer::FileHandle::new(&src),
+    )
+    .unwrap();
     let rows: Vec<Vec<String>> = (0..3000)
         .map(|r| {
             (0..12)
@@ -41,10 +45,9 @@ fn holding_down(cx: &mut TestAppContext) {
                 .collect()
         })
         .collect();
-    wb.set_cells(0, kalem_plugin_xlsx::CellRef::new(9, 0), &rows)
-        .unwrap();
+    wb.set_cells(0, 9, 0, &rows).unwrap();
     let path = dir.join("big.xlsx");
-    std::fs::write(&path, wb.save().unwrap()).unwrap();
+    std::fs::write(&path, wb.save().unwrap().bytes).unwrap();
     std::fs::write(dir.join("notes.org"), "* Notes\n").unwrap();
     let shared = Rc::new(kalem_ui::shared_in(Config::default(), test_settings(&dir)));
     let notes = dir.join("notes.org");

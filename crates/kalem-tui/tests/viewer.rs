@@ -5,7 +5,6 @@
 //! and a lossless turn saved.
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use kalem_core::DocumentMode;
@@ -74,7 +73,7 @@ impl T {
 }
 
 fn folder(name: &str) -> PathBuf {
-    kalem_core::viewer::register(Arc::new(kalem_plugin_image_viewer::ImageViewer));
+    kalem_core::viewer::register(kalem_components::viewer("org.kalem.image-viewer").unwrap());
     let dir = std::env::temp_dir().join(format!("kalem-tui-viewer-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
@@ -171,6 +170,29 @@ fn insert_link_at_point() {
     );
 }
 
+/// The JPEG `jpeg` (an encoder's: SOI, then JFIF's APP0) with an EXIF
+/// segment after its SOI whose one tag is the orientation `o`.
+fn with_orientation(jpeg: &[u8], o: u16) -> Vec<u8> {
+    // "Exif\0\0", a big-endian TIFF header, IFD0 of one entry
+    // (0x0112, SHORT, 1, o) and no next IFD.
+    let mut exif = b"Exif\0\0MM\0\x2a\0\0\0\x08\0\x01\x01\x12\0\x03\0\0\0\x01".to_vec();
+    exif.extend_from_slice(&o.to_be_bytes());
+    exif.extend_from_slice(&[0, 0, 0, 0, 0, 0]);
+    let mut out = jpeg[..2].to_vec();
+    out.extend_from_slice(&[0xFF, 0xE1]);
+    out.extend_from_slice(&((exif.len() + 2) as u16).to_be_bytes());
+    out.extend_from_slice(&exif);
+    out.extend_from_slice(&jpeg[2..]);
+    out
+}
+
+/// The orientation tag [`with_orientation`] put in, where it put it.
+fn orientation(jpeg: &[u8]) -> Option<u16> {
+    let at = jpeg.windows(6).position(|w| w == b"Exif\0\0")?;
+    let tag = &jpeg[at + 6 + 8 + 2..];
+    (tag[..2] == [0x01, 0x12]).then(|| u16::from_be_bytes([tag[8], tag[9]]))
+}
+
 #[test]
 fn a_jpeg_turned_and_saved_changes_its_tag_only() {
     let dir = folder("jpeg");
@@ -178,7 +200,7 @@ fn a_jpeg_turned_and_saved_changes_its_tag_only() {
     image::codecs::jpeg::JpegEncoder::new(&mut jpeg)
         .encode_image(&image::RgbImage::from_pixel(8, 4, image::Rgb([0, 128, 0])))
         .unwrap();
-    let jpeg = kalem_plugin_image_viewer::jpeg::set_orientation(&jpeg, 1).unwrap();
+    let jpeg = with_orientation(&jpeg, 1);
     let path = dir.join("photo.jpg");
     std::fs::write(&path, &jpeg).unwrap();
     let mut t = open(&dir, "photo.jpg");
@@ -196,10 +218,7 @@ fn a_jpeg_turned_and_saved_changes_its_tag_only() {
     let saved = std::fs::read(&path).unwrap();
     assert_eq!(saved.len(), jpeg.len());
     assert_eq!((0..jpeg.len()).filter(|&i| jpeg[i] != saved[i]).count(), 1);
-    assert_eq!(
-        kalem_plugin_image_viewer::jpeg::orientation(&saved),
-        Some(6)
-    );
+    assert_eq!(orientation(&saved), Some(6));
 }
 
 #[test]

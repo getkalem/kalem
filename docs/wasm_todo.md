@@ -180,7 +180,7 @@ Why the native copies are still there, as found on 2026-10-05:
 
 ## W7. The editors' tests through components
 
-- [~] W7 Every editor test that opens a picture, a PDF or a workbook run
+- [x] W7 Every editor test that opens a picture, a PDF or a workbook run
   against the embedded component (the native crate no longer a dependency
   of `kalem-ui` and `kalem-tui`); the fixtures registering the component
   viewer; the parity test of `xlsx_component.rs` run in CI always, not
@@ -207,9 +207,8 @@ Why the native copies are still there, as found on 2026-10-05:
   the native copy worked: std's clock panics on wasm32-unknown-unknown,
   and a password's salt, VBA's `Now` and `Rnd` and a macro's time budget
   read it. Fixed in getkalem/plugins f42b517 (they read Kalem's clock).
-  Open: Kalem's pins moved to f42b517, then the editors' tests switched
-  (ready, waiting for the pins), and the clippy job given the
-  WebAssembly target.)
+  Then Kalem's pins moved to it, the editors' tests switched, and the
+  clippy job given the WebAssembly target.)
 
 ## W8. Errors and a component that fails
 

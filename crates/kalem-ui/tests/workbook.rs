@@ -3,7 +3,6 @@
 //! the cell's text for editing, a cell set, copy, the next sheet.
 
 use std::rc::Rc;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use gpui::{Entity, TestAppContext, VisualTestContext};
@@ -28,7 +27,7 @@ fn open(
     std::path::PathBuf,
     &mut VisualTestContext,
 ) {
-    kalem_core::viewer::register(Arc::new(kalem_plugin_xlsx::XlsxViewer));
+    kalem_core::viewer::register(kalem_components::viewer("org.kalem.xlsx").unwrap());
     static N: AtomicUsize = AtomicUsize::new(0);
     let n = N.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!("kalem-ui-xlsx-{}-{n}", std::process::id()));

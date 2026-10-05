@@ -1,7 +1,6 @@
 //! How long a cursor step takes in a large workbook, drawn.
 #![allow(clippy::print_stdout)]
 
-use std::sync::Arc;
 use std::time::Instant;
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
@@ -14,12 +13,17 @@ use ratatui::backend::TestBackend;
 #[test]
 #[ignore = "a measurement: cargo test --release -p kalem-tui --test grid_speed -- --ignored --nocapture"]
 fn holding_down() {
-    kalem_core::viewer::register(Arc::new(kalem_plugin_xlsx::XlsxViewer));
+    kalem_core::viewer::register(kalem_components::viewer("org.kalem.xlsx").unwrap());
     let dir = std::env::temp_dir().join(format!("kalem-grid-speed-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/budget.xlsx");
-    let mut wb = kalem_plugin_xlsx::Workbook::open(std::fs::read(src).unwrap()).unwrap();
+    // Made through the workbook component, as the editor opens it.
+    let mut wb = kalem_viewer::Viewer::open(
+        &*kalem_components::viewer("org.kalem.xlsx").unwrap(),
+        kalem_viewer::FileHandle::new(&src),
+    )
+    .unwrap();
     let rows: Vec<Vec<String>> = (0..3000)
         .map(|r| {
             (0..12)
@@ -31,8 +35,7 @@ fn holding_down() {
                 .collect()
         })
         .collect();
-    wb.set_cells(0, kalem_plugin_xlsx::CellRef::new(9, 0), &rows)
-        .unwrap();
+    wb.set_cells(0, 9, 0, &rows).unwrap();
     // Conditional formats whose formulas the engine computes (banded rows,
     // values over the first one), with KALEM_SPEED_CF.
     if std::env::var("KALEM_SPEED_CF").is_ok() {
@@ -41,18 +44,18 @@ fn holding_down() {
             ..kalem_viewer::CondStyle::default()
         };
         let band = kalem_viewer::CondRule::Formula("=MOD(ROW(),2)=0".into());
-        let range = kalem_plugin_xlsx::Range::parse("A10:L3009").unwrap();
-        wb.add_conditional_format(0, range, &band, &style).unwrap();
+        wb.add_conditional_format(0, [9, 0, 3008, 11], band, style)
+            .unwrap();
         let over = kalem_viewer::CondRule::Compare {
             op: kalem_viewer::CompareOp::Greater,
             value: "=$B$10".into(),
             value2: None,
         };
-        let range = kalem_plugin_xlsx::Range::parse("B10:K3009").unwrap();
-        wb.add_conditional_format(0, range, &over, &style).unwrap();
+        wb.add_conditional_format(0, [9, 1, 3008, 10], over, style)
+            .unwrap();
     }
     let path = dir.join("big.xlsx");
-    std::fs::write(&path, wb.save().unwrap()).unwrap();
+    std::fs::write(&path, wb.save().unwrap().bytes).unwrap();
     let mut app = App::with_keymap(
         Some(&path),
         Config::default(),
