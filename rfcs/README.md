@@ -15,7 +15,7 @@ Large or hard-to-reverse changes to Kalem go through a short written proposal, a
 1. Copy the template below to `rfcs/NNNN-short-title.md`, using the next free number.
 2. Open a pull request. Discussion happens on the pull request.
 3. When there is rough consensus, a maintainer merges it as accepted, or closes it as declined with a short explanation.
-4. Accepted RFCs are reflected in `docs/design_document.md` and `docs/todo.md`.
+4. Accepted RFCs are reflected in `docs/design_document.md` and `docs/roadmap.md`.
 
 ## Index
 

@@ -1,8 +1,8 @@
 # Excel: what is still missing
 
-The first two lists are done: `docs/excel_todo.md` (E1–E20: formatting,
+The first two lists are done: `docs/history/excel_todo.md` (E1–E20: formatting,
 moving and selecting, Find and Replace, sheets, notes, AutoSum, Paste
-Special, names, CSV) and `docs/excel_todo2.md` (E21–E36: typing and
+Special, names, CSV) and `docs/history/excel_todo2.md` (E21–E36: typing and
 editing formulas, sorting and filtering, tables, page setup, grouping,
 protection, auditing, Go To Special, pictures and shapes, sparklines,
 What-If analysis, threaded comments and sheet tabs, views, other

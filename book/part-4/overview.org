@@ -4,7 +4,8 @@ that way is available today. The second is code: plugins, which add
 modes, completers, block types, link types, views and export formats;
 that way is designed and decided (D25, D28, D29), and its runtime runs
 viewers and extension plugins today. Every planned item below is named
-by its task in =docs/todo.md=.
+by its task in the former work breakdown, =docs/todo.md=; the plan is
+=docs/roadmap.md=.
 
 | What                                         | Status    | Where                               |
 |----------------------------------------------+-----------+-------------------------------------|

@@ -1973,10 +1973,6 @@ pub fn code_on_line(doc: &crate::DocumentState, line: Range<usize>) -> Vec<(Rang
     code_lines(&md, line)
 }
 
-/// The fenced code block of a known language holding line `line`: the
-/// bytes of its code (the lines between the fences), the line's place
-/// among them, and the language, so that the line is coloured with the
-/// state of the lines before it (T2.7c.3).
 /// Whether the line at `line` of a Markdown document is in a code block,
 /// its fences included: the editors paint the block's background behind
 /// the whole line.
@@ -1991,6 +1987,10 @@ pub fn in_code_block(doc: &crate::DocumentState, line: Range<usize>) -> bool {
         .any(|n| matches!(n.kind, MdKind::CodeBlock { .. }))
 }
 
+/// The fenced code block of a known language holding line `line`: the
+/// bytes of its code (the lines between the fences), the line's place
+/// among them, and the language, so that the line is coloured with the
+/// state of the lines before it (T2.7c.3).
 pub fn code_block_on_line(
     doc: &crate::DocumentState,
     line: Range<usize>,
@@ -2459,8 +2459,6 @@ fn close_fence(md: &Md, text: &str, at: usize) -> Option<org_edit::Transaction> 
     Some(tx.select(org_edit::Selection::caret(at + 1 + indent.len())))
 }
 
-/// Toggles the box of the task list item whose line holds `at`: `[ ]`
-/// becomes `[x]`, `[x]` or `[X]` becomes `[ ]`; one character changes.
 /// The selection wrapped in `open` and `close` (`**` for bold), or the
 /// markers taken away when they are already around it; without a
 /// selection the markers with the cursor between them.
@@ -2518,6 +2516,8 @@ pub fn insert_link(text: &str, sel: org_edit::Selection, bare: bool) -> org_edit
     tx.select(org_edit::Selection::caret(caret))
 }
 
+/// Toggles the box of the task list item whose line holds `at`: `[ ]`
+/// becomes `[x]`, `[x]` or `[X]` becomes `[ ]`; one character changes.
 pub fn toggle_checkbox(md: &Md, text: &str, at: usize) -> Option<org_edit::Transaction> {
     let line = md.line_of(at);
     let boxed = md.nodes.iter().rev().find_map(|n| match &n.kind {
@@ -2785,7 +2785,6 @@ pub fn to_html(text: &str) -> String {
     out.trim().to_string()
 }
 
-/// The headings of a Markdown document for the outline sidebar.
 /// The blocks of a Markdown document for the views' folding (T2.7c.3):
 /// the front matter as a drawer, folded to its first line while the
 /// cursor is away from it as Org folds a property drawer, and the rest
@@ -2845,6 +2844,7 @@ fn front_matter_end(text: &str) -> Option<usize> {
     None
 }
 
+/// The headings of a Markdown document for the outline sidebar.
 pub fn outline_items(doc: &crate::DocumentState) -> Vec<crate::view::OutlineItem> {
     let Some(md) = ready(doc) else {
         return Vec::new();

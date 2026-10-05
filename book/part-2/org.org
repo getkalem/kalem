@@ -956,7 +956,7 @@ The targets are 2 ms for a typical edit and 10 MB/s for a full parse.
 
 * What is not implemented
 
-Stated plainly, from the work breakdown (=docs/todo.md=, phases 3 and 4):
+Stated plainly, from the former work breakdown (=docs/todo.md=, phases 3 and 4; =docs/roadmap.md= plans what comes next):
 
 - *Babel execution.* Source blocks are never run; there is no
   =org-babel-execute-src-block=, no =#+RESULTS:= insertion, no

@@ -11,6 +11,13 @@ Run it on macOS, on Linux (one X11 and one Wayland session) and on
 Windows. Note the platform, the version and anything that fails in the
 release issue.
 
+## Installing
+
+- [ ] On a clean machine of each platform (no Rust, no Kalem settings): the shell or PowerShell installer puts `kalem` in `~/.cargo/bin` and it runs; `kalem --version` says the release's version.
+- [ ] The terminal archive (`kalem-terminal-TARGET`) unpacks and runs on a server without a display or the windowing libraries (Linux); it refuses a PDF, a picture or a workbook as not text.
+- [ ] A first run with no configuration folder starts, writes nothing it does not need, and Settings creates `settings.toml`.
+- [ ] The Turkish interface (`ui.language = "tr"`): menus, the palette, messages and the settings panel are in Turkish, nothing cut off.
+
 ## Start and files
 
 - [ ] `kalem FILE` opens the graphical editor; without a display, the terminal editor.
@@ -51,6 +58,18 @@ release issue.
 - [ ] Find and replace: matches marked, regular expressions (Alt+R) with `$1`, Replace All undone in one step.
 - [ ] Insert Date: the calendar by keys and by mouse, typed dates such as `+3d` and `fri 10:00`.
 - [ ] Split view: both views follow edits; each scrolls on its own.
+
+## Markdown and CSV
+
+- [ ] A README with a table, task list, code fences and front matter: the grid, the checkboxes and the fences drawn away from the cursor, the source with it there; a `#heading` link jumps.
+- [ ] A CSV and a TSV of a few thousand rows exported from Excel and LibreOffice: the delimiter, the header and the numbers' format read right; sort, filter, and the statistics in the status bar; a cell edited and the file saved differ by that cell only.
+
+## Viewers and plugins
+
+- [ ] A PDF (a book), a PNG, an animated GIF, a JPEG with EXIF orientation and a large photograph open in the graphical and the terminal editor; search in the PDF; a password-protected PDF asks for its password.
+- [ ] An `.xlsx` with formulas, styles and a chart: a cell edited and saved, then opened in Microsoft Excel without a repair prompt, the chart and the other sheets as they were; an `.ods` opened, and Kalem asks before saving it back.
+- [ ] `kalem plugin browse` and `kalem plugin install elixir` from the index; `kalem plugin list` marks the built-in viewers; Install Plugin from GitHub… with a repository's link.
+- [ ] A language server (Expert for Elixir): diagnostics, completion, hover and rename in a project.
 
 ## LaTeX
 

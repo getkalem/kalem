@@ -66,7 +66,7 @@ the Windows job passes; no plugin pin can break `main`.
   `excel_todo2.md` under `docs/history/`; move `spikes/` out of the tree
   or into a `spikes` branch; the gpui git revision in one place in
   `[workspace.dependencies]` (it is in six). S
-  (done 2026-10-04: `todo_old.md` under `docs/history/`, its links updated; gpui and `gpui_platform` at one revision in `[workspace.dependencies]`, the lock file unchanged. Kept where they are, on purpose: `spikes/`, the evaluation code cited by the decision records D2, D3, D4, D14 and D28 and holding the Markdown specifications the conformance test reads; `excel_todo*.md`, the spreadsheet viewer's working lists, updated every few minutes by the session working on it — `docs/README.md` now lists them.)
+  (done 2026-10-04: `todo_old.md` under `docs/history/`, its links updated; gpui and `gpui_platform` at one revision in `[workspace.dependencies]`, the lock file unchanged. Kept where they are, on purpose: `spikes/`, the evaluation code cited by the decision records D2, D3, D4, D14 and D28 and holding the Markdown specifications the conformance test reads; `excel_todo*.md`, the spreadsheet viewer's working lists, updated every few minutes by the session working on it — `docs/README.md` now lists them. On 2026-10-06 the two finished ones, `excel_todo.md` and `excel_todo2.md`, moved under `docs/history/`.)
 
 ## M2 Release 0.1 (installable)
 

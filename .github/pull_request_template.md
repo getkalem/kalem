@@ -2,7 +2,7 @@
 
 ## Related issue or task
 
-Closes # / docs/todo.md task ID:
+Closes # / docs/roadmap.md item:
 
 ## Checklist
 

@@ -10,10 +10,17 @@ Thank you for your interest in Kalem. This page says how to set up, what the rul
 
 ## Setup
 
-1. Install Rust with [rustup](https://rustup.rs); `rust-toolchain.toml` selects the toolchain.
+1. Install Rust with [rustup](https://rustup.rs); `rust-toolchain.toml` selects the toolchain (1.96 at least). On Linux the graphical editor needs the development files of xkbcommon, Wayland, X11 (xcb), fontconfig, freetype and Vulkan; on Debian and Ubuntu, `sudo apt-get install libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libx11-xcb-dev libxcb1-dev libfontconfig-dev libfreetype-dev libvulkan-dev`.
 2. Install the reference tools of the formats you work on: Emacs 29 or newer with Org 9.7 for Org, pandoc and a TeX distribution for LaTeX. CSV, BibTeX, Markdown and plain text need nothing.
 3. Build and test with `cargo test --workspace`. The first build downloads the bundled plugins, the components `getkalem/plugins` released (`crates/kalem-components/components.toml` pins each by its SHA-256); to build offline, put them in a folder named by `KALEM_COMPONENTS_DIR`.
-4. For the plugin host: `rustup target add wasm32-unknown-unknown` and `cargo install wasm-tools`, without which its tests of the WIT API pass without checking.
+4. For the plugin host: `rustup target add wasm32-unknown-unknown` and `cargo install --locked wasm-tools`, without which its tests of the WIT API pass without checking.
+5. For Markdown: the CommonMark and GFM specifications, which are CC BY-SA and not in the repository, without which the conformance test passes without checking. CI downloads them so:
+
+   ```sh
+   mkdir -p spikes/md-parser/data
+   curl -sSfL -o spikes/md-parser/data/commonmark-spec.txt https://raw.githubusercontent.com/commonmark/commonmark-spec/0.31.2/spec.txt
+   curl -sSfL -o spikes/md-parser/data/gfm-spec.txt https://raw.githubusercontent.com/github/cmark-gfm/0.29.0.gfm.13/test/spec.txt
+   ```
 
 gpui, the graphical editor's toolkit, comes from crates.io as `gpui-unofficial`, a snapshot of each of Zed's release tags, pinned exactly in the workspace `Cargo.toml`; nothing is fetched from Zed's repository, and `tools/check-zed-deps.sh` (run by CI and `tools/pre-push.sh`) fails a change that brings anything from it back.
 
@@ -43,7 +50,7 @@ gpui, the graphical editor's toolkit, comes from crates.io as `gpui-unofficial`,
 | `crates/latex-*` | The LaTeX parser and model |
 | `crates/kalem-core` | The editor's model, shared by both frontends: documents and modes, commands, keymaps, settings, the file manager, projects |
 | `crates/kalem-ui`, `crates/kalem-tui` | The graphical and the terminal editor, with `gpui-rich-text` and `tui-rich-text` |
-| `crates/kalem-cli`, `crates/kalem` | The command-line tools and the `kalem` binary (published as `kalem-editor`) |
+| `crates/kalem-cli`, `crates/kalem` | The command-line tools and the `kalem` binary (the package `kalem-editor`, not published yet) |
 | `tests/`, `fuzz/`, `tools/` | Corpora, conformance suites, the Emacs comparison scripts, fuzz targets, measurement scripts |
 | `book/`, `docs/`, `rfcs/` | The Book; the design documents, task lists and release notes; the RFCs |
 

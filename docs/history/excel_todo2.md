@@ -1,6 +1,6 @@
 # Excel: the next basics still missing
 
-The first list (`docs/excel_todo.md`, E1–E20) is done: formatting, moving
+The first list (`docs/history/excel_todo.md`, E1–E20) is done: formatting, moving
 and selecting, Find and Replace, sheets, hidden rows and columns, frozen
 panes, notes, AutoSum, Paste Special, inserting and deleting cells,
 Format Painter, Remove Duplicates, Text to Columns, hyperlinks, names,

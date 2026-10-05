@@ -8,8 +8,9 @@ the process).
 | 0002 | Standard modes and the Book                                  | Accepted (owner, 2026-09-30); its sections on Kalem's own format withdrawn (2026-10-04) | [[https://github.com/getkalem/kalem/blob/main/docs/design_doc2.md][docs/design_doc2.md]] |
 | 0003 | The Kalem format (=.klm=), specification                     | Withdrawn (owner, 2026-10-04): the Kalem format was removed | none |
 
-The work breakdown that follows from them, with the state of every task,
-is [[https://github.com/getkalem/kalem/blob/main/docs/todo.md][docs/todo.md]].
+The plan that follows from them is [[https://github.com/getkalem/kalem/blob/main/docs/roadmap.md][docs/roadmap.md]], from the evaluation
+of 2026-10-04; the work breakdown before it, whose task numbers (T2.4.2)
+this Book cites, is kept as the record in [[https://github.com/getkalem/kalem/blob/main/docs/todo.md][docs/todo.md]].
 
 * The principles in short
 

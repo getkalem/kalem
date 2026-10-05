@@ -1094,7 +1094,20 @@ Wrong or stale text a first reader meets. Each is a text change.
     PDF search sentence is true now (texts kept, fonts parsed once a
     call), and a component has no fonts for SVG text, as the image
     README says.)
-- [ ] **docs/**
+- [x] **docs/**
+  (done 2026-10-06: the two finished Excel lists under `docs/history/`,
+  `docs/README.md` naming the third; the RFC process, the pull request
+  template and the Book point at the roadmap, `docs/todo.md` named as
+  the record whose task numbers the Book cites; the announcement draft
+  says Markdown, export and table formulas are there; the release
+  checklist has installing on clean machines, the terminal archive, a
+  first run, the Turkish interface, Markdown and CSV, the viewers, a
+  workbook opened in Excel, plugins and a language server;
+  CONTRIBUTING says the package is not published and gives the Linux
+  libraries, `wasm-tools --locked` and the specifications' download;
+  the bug template asks for the log, the crash report, `kalem plugin
+  list` and `kalem tui --detect`; the three doc comments of
+  `markdown.rs` are on their functions.)
   - `docs/README.md:9` lists `excel_todo.md` and `excel_todo2.md` but
     not `excel_todo3.md`; R1.6 is ticked although only `todo_old.md`
     moved to `docs/history/`. Move the finished lists.
