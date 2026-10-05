@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: The bundled plugins at one revision
         run: sh tools/check-plugin-pins.sh
-      - name: Nothing more from Zed's repository
+      - name: Nothing from Zed's repository
         run: sh tools/check-zed-deps.sh
       - uses: dtolnay/rust-toolchain@stable
         with:

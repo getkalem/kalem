@@ -10,7 +10,8 @@ authors.workspace = true
 keywords = ["gpui", "editor", "rich-text", "layout", "text"]
 categories = ["gui", "text-editors"]
 readme = "README.md"
-# gpui comes from Zed's main branch until a release has the APIs used.
+# Its gpui is `gpui-unofficial` (a snapshot of Zed's release tags, renamed
+# `gpui` in the workspace); published once the name is settled.
 publish = false
 
 [dependencies]

@@ -27,4 +27,4 @@ dist generate
 ## Crates
 
 - `org-syntax` can be published once decision D18 (entity table provenance) is made.
-- `kalem-editor`, `kalem-ui` and `gpui-rich-text` cannot go to crates.io while gpui is a git dependency (Zed's main branch, for AccessKit); `gpui-rich-text` is marked `publish = false` for that reason. The binaries are the distribution meanwhile.
+- gpui comes from crates.io (`gpui-unofficial`), so it no longer keeps `kalem-ui` and `gpui-rich-text` off crates.io. Git dependencies still do: `kalem-core` uses the comrak fork (`getkalem/comrak`), and `kalem-cli` the bundled plugins of `getkalem/plugins` (and through them the IronCalc fork), so `kalem-editor`, `kalem-ui` and `kalem-cli` cannot be published yet; `gpui-rich-text` stays `publish = false` until its name and API are settled. The binaries are the distribution meanwhile.

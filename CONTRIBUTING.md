@@ -14,7 +14,7 @@ Thank you for your interest in Kalem. This page says how to set up, what the rul
 2. Install the reference tools of the formats you work on: Emacs 29 or newer with Org 9.7 for Org, pandoc and a TeX distribution for LaTeX. CSV, BibTeX, Markdown and plain text need nothing.
 3. Build and test with `cargo test --workspace`.
 
-The first build fetches gpui from Zed's repository: about 400 MB of git history and a 100 MB checkout in Cargo's cache, once. Only gpui and gpui_platform come from there, declared once in the workspace `Cargo.toml`; `tools/check-zed-deps.sh` (run by CI and `tools/pre-push.sh`) fails on any other. Building without that repository is roadmap item R2.7.
+gpui, the graphical editor's toolkit, comes from crates.io as `gpui-unofficial`, a snapshot of each of Zed's release tags, pinned exactly in the workspace `Cargo.toml`; nothing is fetched from Zed's repository, and `tools/check-zed-deps.sh` (run by CI and `tools/pre-push.sh`) fails a change that brings anything from it back.
 
 ## The rules
 

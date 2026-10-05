@@ -1,14 +1,15 @@
 #!/bin/sh
-# Zed's repository costs every first build of Kalem a 400 MB fetch (roadmap
-# R2.7, T2.8.6): only gpui and gpui_platform come from it, both declared
-# once in the workspace's Cargo.toml. A pull request that adds another
-# crate from it, or declares one in a crate's manifest, fails here.
-found=$(grep -rn --include=Cargo.toml 'zed-industries/' . --exclude-dir=target --exclude-dir=.git \
-  | grep -v '^\./Cargo\.toml:[0-9]*:gpui = ' \
-  | grep -v '^\./Cargo\.toml:[0-9]*:gpui_platform = ')
-if [ -n "$found" ]; then
-  echo "A new dependency on Zed's repository (only gpui and gpui_platform, in the workspace Cargo.toml, may come from it):" >&2
-  printf '%s\n' "$found" >&2
+# Nothing comes from Zed's repository (roadmap R2.7): gpui and its platform
+# layer come from crates.io (`gpui-unofficial`, a snapshot of Zed's release
+# tags), so a first build clones no 400 MB of Zed's history. A change that
+# names Zed's repository in a manifest, or brings a crate from it into the
+# lock file through a dependency, fails here.
+found=$(grep -rn --include=Cargo.toml 'zed-industries/' . --exclude-dir=target --exclude-dir=.git --exclude-dir=spikes)
+locked=$(grep -n 'source = "git+https://github.com/zed-industries/' Cargo.lock)
+if [ -n "$found$locked" ]; then
+  echo "A dependency on Zed's repository (gpui comes from crates.io as gpui-unofficial):" >&2
+  [ -n "$found" ] && printf '%s\n' "$found" >&2
+  [ -n "$locked" ] && printf 'Cargo.lock:%s\n' "$locked" >&2
   exit 1
 fi
-echo "Zed's repository: gpui and gpui_platform only"
+echo "Zed's repository: nothing from it"

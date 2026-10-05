@@ -13,10 +13,12 @@ homepage = "https://getkalem.github.io/kalem"
 authors = ["The Kalem Contributors"]
 
 [workspace.dependencies]
-# gpui and its platform layer from one revision of Zed's repository
-# (T2.8.6 is about not needing that repository at all).
-gpui = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b", version = "0.2.2" }
-gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "1a28cff4b409169bac058bca40dfbfeb7621d19b" }
+# gpui and its platform layer from crates.io: `gpui-unofficial` publishes
+# gpui from each of Zed's release tags, AccessKit included, so building
+# needs no clone of Zed's repository (roadmap R2.7). Pinned exactly; move
+# it on purpose (R6.4).
+gpui = { package = "gpui-unofficial", version = "=1.22.0" }
+gpui_platform = { package = "gpui-platform-gpui-unofficial", version = "=1.22.0" }
 # Canonical paths without Windows's `\\?\` prefix where it is not needed.
 dunce = "1"
 org-syntax = { path = "crates/org-syntax", version = "0.0.1" }
@@ -182,7 +184,7 @@ opt-level = 3
 # layout engine built optimized keep a held arrow key from piling up (a
 # step in a 36,000-cell sheet took 100 ms in a debug build, 10 in a release
 # one), and the workbook plugin keeps edits and recalculation quick.
-[profile.dev.package.gpui]
+[profile.dev.package.gpui-unofficial]
 opt-level = 3
 [profile.dev.package.taffy]
 opt-level = 3

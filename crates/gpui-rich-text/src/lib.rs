@@ -17,7 +17,8 @@
 //! byte offsets into the concatenated display text of the pieces.
 //!
 //! Zed's editor does the same for its inline fold placeholders; this crate
-//! makes it reusable. It needs gpui from Zed's main branch.
+//! makes it reusable. It needs a gpui newer than 0.2.2, such as the
+//! `gpui-unofficial` snapshot of Zed's release tags.
 
 use gpui::{
     App, Bounds, Pixels, Point, ShapedLine, SharedString, Size, TextRun, Window, point, px, quad,

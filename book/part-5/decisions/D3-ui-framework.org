@@ -58,11 +58,25 @@ Two measurement lessons, recorded because earlier numbers were wrong:
 * Risks and mitigations
 | Risk                                                                                             | Mitigation                                                                                                                                                                                                                                                       |
 |--------------------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| gpui's last crates.io release is 0.2.2 (2025-10-22); development continues in the Zed repository | Pin a git revision of gpui for Kalem releases once features from main are needed (accessibility). Publishing =kalem-ui= to crates.io is then blocked; binaries and =cargo install --git= are unaffected. If needed, publish a renamed fork (gpui is Apache-2.0). |
+| gpui's last crates.io release is 0.2.2 (2025-10-22); development continues in the Zed repository | Follow =gpui-unofficial=, a snapshot of each Zed release tag on crates.io (see below). If needed, publish a renamed fork (gpui is Apache-2.0). |
 | API churn between revisions                                                                      | Keep gpui-specific code inside =kalem-ui=; the view model (=view.rs=) is already independent of gpui.                                                                                                                                                            |
 | No accessibility in the released version                                                         | Target a gpui revision with AccessKit before 1.0 (§7.4); the custom text element must expose its text and caret through AccessKit nodes itself.                                                                                                                  |
 | No right-to-left or bidirectional text in gpui (open issue zed-industries/zed#31102)             | Not a goal for the first releases (§7.4). Because Kalem owns its inline layout, it can add Unicode bidi reordering of shaped runs itself; this needs its own spike before RTL is promised.                                                                       |
 | IME not verified by hand                                                                         | Manual checklist before Phase 1 ends: macOS Japanese (Kotoeri) and Pinyin composition with candidate window placement; Turkish and US-international dead keys; Windows Microsoft IME; Linux IBus and Fcitx on X11 and Wayland.                                   |
+
+* Which gpui Kalem follows
+From T1.5.2b (2026-09-27) Kalem pinned a revision of Zed's main branch
+for AccessKit, which gpui 0.2.2 lacks. That made every first build clone
+Zed's repository (400 MB of history). Since 2026-10-05 (roadmap R2.7)
+gpui and its platform layer come from crates.io as =gpui-unofficial= and
+=gpui-platform-gpui-unofficial=, published from each of Zed's release
+tags by a Zed team member, renamed =gpui= and =gpui_platform= in the
+workspace so the code keeps its paths. The version is pinned exactly
+(1.22.0, Zed's =v1.22.0=) and moved on purpose, both crates together,
+with the editors' tests and the latency checks as the gate. Should the
+line stop, the crates are vendored from a tag instead (T2.8.6b); nothing
+is fetched from Zed's repository, which =tools/check-zed-deps.sh= checks
+in CI.
 
 * Why not the fallback
 Tauri + ProseMirror would have been chosen only if goals 1 to 3 failed. Goals 1 and 3 are met with a wide margin and goal 2 is implemented on the same platform layer Zed ships to CJK users. The web stack would add a WebView, a JavaScript editor model to keep in sync with the Rust tree, and a larger memory baseline (G3).

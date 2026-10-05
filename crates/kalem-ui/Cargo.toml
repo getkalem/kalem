@@ -18,7 +18,8 @@ image = { version = "0.25", default-features = false }
 org-syntax.workspace = true
 org-edit.workspace = true
 org-model.workspace = true
-# A pinned revision of Zed's main branch: gpui with AccessKit (T1.5.2b).
+# gpui with AccessKit (T1.5.2b), from crates.io: `gpui-unofficial`, a
+# snapshot of a Zed release tag (the workspace Cargo.toml, R2.7).
 gpui.workspace = true
 gpui_platform = { workspace = true, features = ["font-kit", "runtime_shaders", "wayland", "x11"] }
 serde_json = "1"

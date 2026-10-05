@@ -4,6 +4,13 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # gpui and its platform layer are one snapshot of a Zed release tag:
+    # they move together (roadmap R2.7).
+    groups:
+      gpui:
+        patterns:
+          - "gpui-unofficial"
+          - "gpui-platform-gpui-unofficial"
   - package-ecosystem: github-actions
     directory: /
     schedule:

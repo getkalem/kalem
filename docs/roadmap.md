@@ -141,13 +141,20 @@ each platform with the results in the release issue.
 - [ ] R2.6 TeX on a clean machine (owner, D5): either tectonic downloaded
   on demand with a prompt, or a clear "install TeX Live or MiKTeX"
   message with the link, in both editors. S after the decision
-- [~] R2.7 Building without Zed's repository (T2.8.6): pin to a
+- [x] R2.7 Building without Zed's repository (T2.8.6): pin to a
   `gpui-unofficial` snapshot or vendor the two crates; CONTRIBUTING says
   how large the clone is until then; a CI guard fails a pull request that
   adds a `zed-industries` git dependency. M
-  Done: `tools/check-zed-deps.sh` in CI and `tools/pre-push.sh`;
-  CONTRIBUTING gives the fetch (400 MB of history, a 100 MB checkout).
-  Open: the snapshot or the vendored crates.
+  (done 2026-10-05: gpui and `gpui_platform` are `gpui-unofficial` and
+  `gpui-platform-gpui-unofficial` 1.22.0 from crates.io, renamed `gpui`
+  and `gpui_platform` in the workspace so no code changed, pinned with
+  `=`; the snapshot is of Zed's `v1.22.0` tag, AccessKit included, four
+  days older than the revision it replaces and with the same API. The
+  lock file lost its 22 crates from Zed's repository and Zed's forks of
+  font-kit, xim, scap, wasm_thread and proptest (they come from crates.io
+  too). `tools/check-zed-deps.sh` now also fails on a Zed git source in
+  `Cargo.lock`; dependabot moves the two crates together. Vendoring
+  (T2.8.6b) stays the fallback should the snapshot line stop.)
 - [ ] R2.8 Signing: macOS notarization and a Homebrew cask; Windows
   code signing and an MSI; Linux AppImage. Each needs the owner's
   certificates and accounts. L, owner (T2.8.1, T2.8.2, T2.8.3)
