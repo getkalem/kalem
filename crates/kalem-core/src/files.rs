@@ -1089,8 +1089,15 @@ mod tests {
         std::fs::remove_dir_all(&d).unwrap();
     }
 
+    /// The watcher tests one at a time: two file system watchers started
+    /// together in one process now and then miss an event (FSEvents).
+    static WATCHERS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn watching() {
+        let _one = WATCHERS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         use crate::events::{EventBus, Reply};
         use std::cell::RefCell;
         use std::rc::Rc;
@@ -1140,6 +1147,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn watching_a_link() {
+        let _one = WATCHERS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         use crate::events::{EventBus, Reply};
         use std::cell::RefCell;
         use std::rc::Rc;
