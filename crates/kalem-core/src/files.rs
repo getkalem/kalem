@@ -207,6 +207,7 @@ pub fn decode_with(
             {
                 Some(enc) => {
                     let (t, lossy) = enc.decode_without_bom_handling(&bytes);
+                    let lossy = lossy || !writes_back(enc, &t, &bytes);
                     (t.into_owned(), enc, false, lossy)
                 }
                 None => match String::from_utf8(bytes) {
@@ -215,7 +216,10 @@ pub fn decode_with(
                         let bytes = e.into_bytes();
                         let enc = guess(&bytes);
                         match enc.decode_without_bom_handling(&bytes) {
-                            (t, false) => (t.into_owned(), enc, false, false),
+                            (t, false) => {
+                                let lossy = !writes_back(enc, &t, &bytes);
+                                (t.into_owned(), enc, false, lossy)
+                            }
                             // Bytes the guess cannot read: Windows-1252
                             // reads every byte, and writes each back.
                             _ => {
@@ -240,6 +244,19 @@ pub fn decode_with(
     Ok((mac_to_lf(text, meta.line_ending), meta))
 }
 
+/// Whether `text`, read from `bytes` in `enc`, is written back as the
+/// same bytes. Some legacy encodings read two byte sequences as one
+/// character (Shift_JIS's NEC and IBM rows, Big5's duplicates), so saving
+/// such a file unedited would change it; it is then read as lossy.
+fn writes_back(enc: &'static encoding_rs::Encoding, text: &str, bytes: &[u8]) -> bool {
+    use encoding_rs::{UTF_8, UTF_16BE, UTF_16LE};
+    if enc == UTF_8 || enc == UTF_16LE || enc == UTF_16BE {
+        return true;
+    }
+    let (out, _, unmappable) = enc.encode(text);
+    !unmappable && *out == *bytes
+}
+
 /// The text of a CR file with its carriage returns as line feeds.
 fn mac_to_lf(text: String, ending: LineEnding) -> String {
     if ending == LineEnding::Cr {
@@ -262,6 +279,7 @@ pub fn decode_as(
         _ => (false, bytes),
     };
     let (text, lossy) = encoding.decode_without_bom_handling(rest);
+    let lossy = lossy || !writes_back(encoding, &text, rest);
     let text = text.into_owned();
     let meta = Metadata {
         path: path.map(Path::to_path_buf),
@@ -582,6 +600,11 @@ pub fn write(path: &Path, bytes: &[u8], options: SaveOptions) -> io::Result<Disk
                 if f.metadata()?.uid() != m.uid() {
                     return Ok(false);
                 }
+                // Its group kept where we may (a group we belong to);
+                // before the permissions, which a change of group resets.
+                if f.metadata()?.gid() != m.gid() {
+                    let _ = std::os::unix::fs::chown(&tmp, None, Some(m.gid()));
+                }
             }
             std::fs::set_permissions(&tmp, m.permissions())?;
         }
@@ -640,6 +663,18 @@ impl fmt::Debug for FileWatcher {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FileWatcher").finish_non_exhaustive()
     }
+}
+
+/// The file a symbolic link at `path` leads to, when `path` is one and
+/// its target lies elsewhere.
+fn link_target(path: &Path) -> Option<PathBuf> {
+    let link = std::fs::symlink_metadata(path)
+        .ok()?
+        .file_type()
+        .is_symlink();
+    let real = dunce::canonicalize(path).ok()?;
+    let same = split(path).ok()? == split(&real).ok()?;
+    (link && !same).then_some(real)
 }
 
 fn split(path: &Path) -> io::Result<(PathBuf, std::ffi::OsString)> {
@@ -746,10 +781,20 @@ impl FileWatcher {
         Ok(())
     }
 
-    /// Starts watching `path`.
+    /// Starts watching `path`; a symbolic link in its target's folder
+    /// too, where the file changes (the link's folder sees nothing then).
     pub fn watch(&mut self, path: &Path) -> notify::Result<()> {
+        self.watch_one(path, path)?;
+        if let Some(real) = link_target(path) {
+            self.watch_one(&real, path)?;
+        }
+        Ok(())
+    }
+
+    /// Watches `at` and reports its changes as `path`'s.
+    fn watch_one(&mut self, at: &Path, path: &Path) -> notify::Result<()> {
         use notify::Watcher;
-        let (dir, name) = split(path)?;
+        let (dir, name) = split(at)?;
         // The watch list is not held while notify starts watching: its
         // thread may be waiting for it to report an event.
         let new_dir = !self
@@ -779,8 +824,15 @@ impl FileWatcher {
         Ok(())
     }
 
-    /// Stops watching `path`.
+    /// Stops watching `path` (and a link's target).
     pub fn unwatch(&mut self, path: &Path) -> notify::Result<()> {
+        if let Some(real) = link_target(path) {
+            self.unwatch_one(&real)?;
+        }
+        self.unwatch_one(path)
+    }
+
+    fn unwatch_one(&mut self, path: &Path) -> notify::Result<()> {
         use notify::Watcher;
         let (dir, name) = split(path)?;
         let now_empty = {
@@ -1068,6 +1120,56 @@ mod tests {
         assert!(!seen.borrow().is_empty(), "no event");
         assert!(seen.borrow().iter().all(|x| x == &p), "{:?}", seen.borrow());
         w.unwatch(&p).unwrap();
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// Shift_JIS bytes that decode to a character whose own bytes are
+    /// others (an NEC-selected IBM extension) are read as lossy, so an
+    /// unedited save cannot change them; plain Shift_JIS is not.
+    #[test]
+    fn legacy_bytes_that_do_not_write_back() {
+        let sjis = encoding_rs::SHIFT_JIS;
+        let (_, plain) = super::decode_with(None, b"\x82\xa0\n".to_vec(), Some(sjis)).unwrap();
+        assert!(!plain.lossy);
+        let (_, nec) = super::decode_with(None, b"\xed\x40\n".to_vec(), Some(sjis)).unwrap();
+        assert!(nec.lossy);
+    }
+
+    /// A symbolic link to a file in another folder: a change of the
+    /// file is reported as the link's (its folder saw nothing).
+    #[cfg(unix)]
+    #[test]
+    fn watching_a_link() {
+        use crate::events::{EventBus, Reply};
+        use std::cell::RefCell;
+        use std::rc::Rc;
+        let d = temp_dir("watch-link");
+        std::fs::create_dir_all(d.join("real")).unwrap();
+        std::fs::create_dir_all(d.join("links")).unwrap();
+        let real = d.join("real/notes.org");
+        std::fs::write(&real, "a\n").unwrap();
+        let link = d.join("links/notes.org");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        let mut bus = EventBus::new();
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let s = seen.clone();
+        bus.subscribe(None, move |e| {
+            if let Event::WorkspaceFileChanged { path } = e {
+                s.borrow_mut().push(path.clone());
+            }
+            Reply::Continue
+        });
+        let mut w = FileWatcher::new(bus.sender()).unwrap();
+        w.watch(&link).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        std::fs::write(&real, "b\n").unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while seen.borrow().is_empty() && std::time::Instant::now() < deadline {
+            bus.dispatch_queued();
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert!(seen.borrow().contains(&link), "{:?}", seen.borrow());
+        w.unwatch(&link).unwrap();
         std::fs::remove_dir_all(&d).unwrap();
     }
 }

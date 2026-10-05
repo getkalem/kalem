@@ -763,12 +763,10 @@ impl App {
             v.mode = kalem_core::vim::Mode::Normal;
         }
         self.refresh_vim();
-        // Changes on disk while it was in the background.
-        if let Ok(kalem_core::document::ExternalChange::Reloaded) =
-            self.doc.external_change(Instant::now())
-        {
-            self.message(tr!("msg-reloaded"), false);
-        }
+        // Changes on disk while it was in the background: reloaded, a
+        // conflict to decide, or the file gone.
+        let change = self.doc.external_change(Instant::now());
+        self.disk_outcome(change);
         self.enter_project();
         self.workspaces.showing(self.doc_id.0);
         self.dirty = true;
@@ -4245,6 +4243,28 @@ impl App {
         }
     }
 
+    /// Shows what a look at the active document's file found: a reload,
+    /// a conflict to decide, the file deleted.
+    fn disk_outcome(
+        &mut self,
+        change: Result<kalem_core::document::ExternalChange, kalem_core::files::OpenError>,
+    ) {
+        use kalem_core::document::ExternalChange;
+        match change {
+            Ok(ExternalChange::Reloaded) => {
+                self.after_change(false);
+                self.message(tr!("msg-reloaded"), false);
+            }
+            Ok(ExternalChange::Conflict) => {
+                self.ask(PromptKind::Reload, &tr!("prompt-reload"), String::new());
+            }
+            Ok(ExternalChange::Deleted) => self.message(tr!("msg-deleted-on-disk"), true),
+            Ok(ExternalChange::None) => {}
+            Ok(ExternalChange::Listing) => self.after_change(false),
+            Err(e) => self.message(tr!("msg-cannot-read", error = e.to_string()), true),
+        }
+    }
+
     /// Saves the document as `path` (Save As, once its name is settled).
     fn save_as_to(&mut self, path: PathBuf) {
         match self.doc.save_as(&path, self.config.save_options()) {
@@ -4546,21 +4566,13 @@ impl App {
                 let _ = b.doc.external_change(now);
             }
         }
-        if watches(&self.doc, &changed) && self.prompt.is_none() {
-            match self.doc.external_change(now) {
-                Ok(kalem_core::document::ExternalChange::Reloaded) => {
-                    self.after_change(false);
-                    self.message(tr!("msg-reloaded"), false);
-                }
-                Ok(kalem_core::document::ExternalChange::Conflict) => {
-                    self.ask(PromptKind::Reload, &tr!("prompt-reload"), String::new());
-                }
-                Ok(kalem_core::document::ExternalChange::Deleted) => {
-                    self.message(tr!("msg-deleted-on-disk"), true);
-                }
-                Ok(kalem_core::document::ExternalChange::None) => {}
-                Ok(kalem_core::document::ExternalChange::Listing) => self.after_change(false),
-                Err(e) => self.message(tr!("msg-cannot-read", error = e.to_string()), true),
+        if watches(&self.doc, &changed) {
+            if self.prompt.is_some() {
+                // Looked at once the question is answered, not dropped.
+                self.changed_files.borrow_mut().extend(changed);
+            } else {
+                let change = self.doc.external_change(now);
+                self.disk_outcome(change);
             }
         }
         for e in self.debouncer.due(now) {

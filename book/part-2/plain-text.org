@@ -561,9 +561,14 @@ trailing spaces are a hard line break.
 Saving is atomic: the bytes go to a temporary file beside the target
 (=.NAME.kalem-PID-N.tmp=), which is synced and renamed over it, and the
 folder is synced. The file's permissions are kept; a symbolic link is
-followed, so the link stays a link and its target is written. A file
-with several hard links, or owned by another user, is written in place
-instead, since a rename would detach the links or change the owner.
+followed, so the link stays a link and its target is written, and
+changes to the target are watched as the link's. The group is kept
+when the user belongs to it. A file with several hard links, owned by
+another user, or in a folder Kalem may not write in, is written in
+place instead, since a rename would detach the links or change the
+owner, or cannot be made. A write-protected file is not saved over.
+The rename does not keep extended attributes (macOS Finder tags), ACLs
+or the creation date; a file written in place keeps them.
 With =files.backup=, the previous file is first copied to =NAME.bak=.
 
 Before saving, Kalem compares the file with what it last read or wrote

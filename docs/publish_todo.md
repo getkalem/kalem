@@ -235,20 +235,36 @@ not edit") or kill the process. Fix all of them before 0.1.
   remembered by its key and not started again; test
   `a_viewer_panic_is_an_error`. Other calls into a viewer on the UI
   thread (text, grid cells) are not guarded yet.)
-- [ ] **Major, reported.** Both editors close an unmodified document
+- [x] **Major, reported.** Both editors close an unmodified document
   whose file was deleted on disk without a prompt, losing the only copy
   (`external_change`); the terminal editor also drops change events
   while a prompt is open (`app.rs:4475-4482`) and handles only
   `Reloaded`, not `Conflict`, on activation (`app.rs:755`). Symlinked
   files never auto-reload in the terminal (the watcher watches the
   link's folder, `files.rs:627-636`).
-- [ ] **Minor, reported.** `kalem fmt` and the editors re-encode legacy
+  (done: the editors did not close it, but closing did not ask: a clean
+  text document whose file is deleted now counts as unsaved (its saved
+  version kept aside and restored if the file comes back as it was), so
+  closing asks and Save writes it again; test
+  `a_deleted_file_leaves_an_unsaved_document`. The terminal editor puts
+  back changes that arrive while a question is open, and handles every
+  outcome on activation (`disk_outcome`). The watcher watches a link's
+  target folder too; test `watching_a_link`.)
+- [x] **Minor, reported.** `kalem fmt` and the editors re-encode legacy
   CJK files without checking `encode(decode(b)) == b` (Shift_JIS NEC
   rows, Big5 duplicates; `files.rs:504`): Ctrl+S on an unedited file
   changes bytes. Mark such files lossy at open.
-- [ ] **Minor, reported.** The atomic rename drops extended attributes,
+  (done: `writes_back` encodes a legacy decode again at open and marks
+  it lossy when the bytes differ; test
+  `legacy_bytes_that_do_not_write_back` (Shift_JIS `ED 40`). The lossy
+  messages say "do not read back as they are" for both cases.)
+- [x] **Minor, reported.** The atomic rename drops extended attributes,
   ACLs, the creation date and a non-default group (`files.rs:557-600`
   copies the mode bits only). Say so in the Book or copy them.
+  (done: the group is kept where the user belongs to it; extended
+  attributes, ACLs and the creation date are named in the Book as not
+  kept by the rename; files.org also corrected on renames by other
+  programs (section 3.6's Doc item).)
 
 ## 3. Per format: bugs and important gaps
 
@@ -573,7 +589,7 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   after each edit up to 4 MB with no per-line length cap
   (`kalem-highlight/src/lib.rs:313-403`): a 1 MB minified line is parsed
   whole. Measure with one such file.
-- [ ] **Doc.** `book/part-1/files.org:15-17` says documents follow
+- [x] **Doc.** `book/part-1/files.org:15-17` says documents follow
   renames "from Kalem or from the file manager"; an external rename
   (`mv`, Finder, `git mv`) shows "deleted on disk" and Save recreates the
   old path (`workspace.rs:843-875`).

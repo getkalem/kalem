@@ -117,6 +117,10 @@ pub enum CellMode {
 /// An open document.
 #[derive(Debug)]
 pub struct DocumentState {
+    /// The saved version from before the file was deleted on disk: the
+    /// document counts as unsaved meanwhile (its text is the only copy),
+    /// and is saved again if the file comes back as it was.
+    deleted_saved: Option<u64>,
     /// The user agreed to save a converted file in its own format
     /// ([`SaveError::Converted`]): asked once a document.
     pub conversion_accepted: bool,
@@ -313,6 +317,7 @@ impl DocumentState {
         DocumentState {
             serial: SERIAL.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             conversion_accepted: false,
+            deleted_saved: None,
             read_only: false,
             text,
             version: 0,
@@ -702,13 +707,28 @@ impl DocumentState {
         let (Some(path), Some(known)) = (self.meta.path.clone(), self.disk) else {
             return Ok(ExternalChange::None);
         };
-        match files::check(&path, &known)? {
+        let change = files::check(&path, &known)?;
+        // Back as it was after a deletion: saved again.
+        if matches!(change, DiskChange::Unchanged | DiskChange::Touched(_))
+            && let Some(v) = self.deleted_saved.take()
+        {
+            self.saved_version = v;
+        }
+        match change {
             DiskChange::Unchanged => Ok(ExternalChange::None),
             DiskChange::Touched(state) => {
                 self.disk = Some(state);
                 Ok(ExternalChange::None)
             }
-            DiskChange::Deleted => Ok(ExternalChange::Deleted),
+            DiskChange::Deleted => {
+                // The text is now the only copy: unsaved, so closing asks
+                // and Save writes the file again.
+                if self.viewer.is_none() && self.deleted_saved.is_none() {
+                    self.deleted_saved = Some(self.saved_version);
+                    self.saved_version = u64::MAX;
+                }
+                Ok(ExternalChange::Deleted)
+            }
             DiskChange::Modified if self.is_modified() => {
                 tracing::info!(path = %path.display(), "file changed on disk with unsaved changes");
                 Ok(ExternalChange::Conflict)
@@ -966,6 +986,7 @@ impl DocumentState {
     /// Records that the current text was saved.
     pub fn mark_saved(&mut self) {
         self.saved_version = self.version;
+        self.deleted_saved = None;
     }
 
     /// Applies `tx` as a user change: recorded for undo, grouped with
@@ -2385,6 +2406,37 @@ mod tests {
         d.save(SaveOptions::default(), true).unwrap();
         assert_eq!(std::fs::read_to_string(&p).unwrap(), "* TODO A\r\nbody\r\n");
         assert_eq!(d.external_change(now).unwrap(), ExternalChange::None);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A clean document whose file is deleted on disk counts as unsaved,
+    /// its text being the only copy: closing asks, Save writes it again;
+    /// the file back as it was makes it saved again.
+    #[test]
+    fn a_deleted_file_leaves_an_unsaved_document() {
+        let dir = std::env::temp_dir().join(format!("kalem-del-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("note.txt");
+        std::fs::write(&p, "keep\n").unwrap();
+        let now = Instant::now();
+        let mut d =
+            DocumentState::open(&p, Arc::new(Settings::default()), &ParseContext::default())
+                .unwrap();
+        assert!(!d.is_modified());
+        std::fs::remove_file(&p).unwrap();
+        assert_eq!(d.external_change(now).unwrap(), ExternalChange::Deleted);
+        assert!(d.is_modified());
+        // Restored by another program (a checkout): saved again.
+        std::fs::write(&p, "keep\n").unwrap();
+        assert_eq!(d.external_change(now).unwrap(), ExternalChange::None);
+        assert!(!d.is_modified());
+        // Deleted again, then saved: the file is back.
+        std::fs::remove_file(&p).unwrap();
+        d.external_change(now).unwrap();
+        d.save(SaveOptions::default(), false).unwrap();
+        assert!(!d.is_modified());
+        assert_eq!(std::fs::read_to_string(&p).unwrap(), "keep\n");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
