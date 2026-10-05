@@ -87,7 +87,8 @@ enum Entry {
     Number(f64),
     Text(String),
     Bool(bool),
-    /// A serial date or time and its built-in format (14, 22, 21).
+    /// A number shown with a built-in format: a serial date or time (14,
+    /// 22, 21), thousands (3, 4) or a percentage (9, 10).
     Date(f64, u32),
     Formula(String),
 }
@@ -114,10 +115,103 @@ fn entry(input: &str) -> Option<Entry> {
     {
         return Some(Entry::Number(n));
     }
+    // `1,234.5` and `12.5%`, as a sheet reads them typed.
+    if let Some(p) = t.strip_suffix('%')
+        && let Some(n) = grouped_number(p.trim())
+    {
+        return Some(Entry::Date(n / 100.0, if p.contains('.') { 10 } else { 9 }));
+    }
+    if t.contains(',')
+        && let Some(n) = grouped_number(t)
+    {
+        return Some(Entry::Date(n, if t.contains('.') { 4 } else { 3 }));
+    }
     if let Some((kind, v)) = date_value(t) {
         return serial(kind, &v).map(|(n, f)| Entry::Date(n, f));
     }
     Some(Entry::Text(input.to_owned()))
+}
+
+/// A number written with a point for decimals and commas between groups
+/// of three digits (`-1,234.5`).
+fn grouped_number(t: &str) -> Option<f64> {
+    let body = t.strip_prefix('-').unwrap_or(t);
+    let (int, frac) = body.split_once('.').unwrap_or((body, ""));
+    let groups: Vec<&str> = int.split(',').collect();
+    let digits = |g: &str| !g.is_empty() && g.bytes().all(|b| b.is_ascii_digit());
+    let ok = digits(groups[0])
+        && (groups.len() == 1 || groups[0].len() <= 3)
+        && groups[1..].iter().all(|g| g.len() == 3 && digits(g))
+        && (frac.is_empty() || digits(frac));
+    if !ok {
+        return None;
+    }
+    let n: f64 = format!(
+        "{}.{}",
+        groups.concat(),
+        if frac.is_empty() { "0" } else { frac }
+    )
+    .parse()
+    .ok()?;
+    Some(if t.starts_with('-') { -n } else { n })
+}
+
+/// `v` as a number written with a comma for decimals (`1.234,56`,
+/// `12,5%`, `-0,5`, `12`) rewritten with a point (`1,234.56`, `12.5%`), as
+/// the sheet reads an entry; `None` for anything else.
+pub fn decimal_comma_to_point(v: &str) -> Option<String> {
+    let t = v.trim();
+    let (t, percent) = match t.strip_suffix('%') {
+        Some(p) => (p.trim_end(), "%"),
+        None => (t, ""),
+    };
+    let (sign, body) = match t.strip_prefix('-') {
+        Some(b) => ("-", b),
+        None => ("", t),
+    };
+    let (int, frac) = body.split_once(',').unwrap_or((body, ""));
+    let groups: Vec<&str> = int.split('.').collect();
+    let digits = |g: &str| !g.is_empty() && g.bytes().all(|b| b.is_ascii_digit());
+    let ok = digits(groups[0])
+        && (groups.len() == 1 || groups[0].len() <= 3)
+        && groups[1..].iter().all(|g| g.len() == 3 && digits(g))
+        && (frac.is_empty() || digits(frac));
+    if !ok {
+        return None;
+    }
+    let int = groups.join(",");
+    Some(if frac.is_empty() {
+        format!("{sign}{int}{percent}")
+    } else {
+        format!("{sign}{int}.{frac}{percent}")
+    })
+}
+
+/// Whether the numbers of `rows` are written with a comma for decimals
+/// (`1.234,56`): what most of the values that can be read only one way
+/// say; with none, whether the fields are apart by `;`, as in the
+/// countries that write so.
+pub fn guess_decimal_comma(rows: &[Vec<String>], delimiter: u8) -> bool {
+    let (mut comma, mut point) = (0usize, 0usize);
+    for v in rows.iter().flatten() {
+        let t = v.trim().trim_end_matches('%');
+        let last_comma = t.rfind(',');
+        let last_point = t.rfind('.');
+        let tail = |i: usize| t.len() - i - 1;
+        match (last_comma, last_point) {
+            // `1.234,5`: the comma after the point is the decimal one.
+            (Some(c), Some(p)) if c > p && decimal_comma_to_point(t).is_some() => comma += 1,
+            (Some(c), Some(p)) if p > c && grouped_number(t).is_some() => point += 1,
+            // `1,5` or `12,25`: not groups of three.
+            (Some(c), None) if tail(c) != 3 && decimal_comma_to_point(t).is_some() => comma += 1,
+            (None, Some(p)) if tail(p) != 3 && t.parse::<f64>().is_ok() => point += 1,
+            _ => {}
+        }
+    }
+    if comma == point {
+        return delimiter == b';';
+    }
+    comma > point
 }
 
 /// An OpenDocument date or time value as a serial number and the format
@@ -197,7 +291,11 @@ fn build_xlsx(sheets: &[SheetEntries]) -> Vec<u8> {
                     let s = match f {
                         14 => 1,
                         22 => 2,
-                        _ => 3,
+                        21 => 3,
+                        3 => 4,
+                        4 => 5,
+                        9 => 6,
+                        _ => 7,
                     };
                     format!(r#"<c r="{at}" s="{s}"><v>{n}</v></c>"#)
                 }
@@ -226,9 +324,10 @@ fn build_xlsx(sheets: &[SheetEntries]) -> Vec<u8> {
     let workbook = format!(
         r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="{main}" xmlns:r="{rel}"><bookViews><workbookView/></bookViews><sheets>{list}</sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>"#
     );
-    // The formats dates and times show with: Excel's built-in 14, 22, 21.
+    // The formats dates and times show with (Excel's built-in 14, 22, 21),
+    // thousands (3, 4) and percentages (9, 10).
     let styles = format!(
-        r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="{main}"><fonts count="1"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="14" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="22" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="21" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>"#
+        r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="{main}"><fonts count="1"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="14" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="22" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="21" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="9" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="10" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>"#
     );
     let root = format!(
         r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="{rel}/officeDocument" Target="xl/workbook.xml"/></Relationships>"#
@@ -1198,8 +1297,13 @@ fn iso_date(s: &str, order: [u8; 3]) -> Option<String> {
 }
 
 /// A text file's rows read in by column types: entries as typed into a
-/// sheet.
-pub fn import_rows(rows: &[Vec<String>], types: &BTreeMap<usize, ColumnType>) -> Vec<Vec<String>> {
+/// sheet; with `decimal_comma`, numbers written `1.234,56` read as
+/// numbers too.
+pub fn import_rows(
+    rows: &[Vec<String>],
+    types: &BTreeMap<usize, ColumnType>,
+    decimal_comma: bool,
+) -> Vec<Vec<String>> {
     rows.iter()
         .map(|row| {
             row.iter()
@@ -1214,6 +1318,9 @@ pub fn import_rows(rows: &[Vec<String>], types: &BTreeMap<usize, ColumnType>) ->
                         }
                         // A formula in a text file is text.
                         _ if v.starts_with('=') => format!("'{v}"),
+                        _ if decimal_comma => {
+                            decimal_comma_to_point(v).unwrap_or_else(|| point_as_text(v))
+                        }
                         _ => v.clone(),
                     },
                 )
@@ -1222,9 +1329,50 @@ pub fn import_rows(rows: &[Vec<String>], types: &BTreeMap<usize, ColumnType>) ->
         .collect()
 }
 
+/// A value of a file that writes decimals with a comma: one that would
+/// read as a number written with a point (`1.5`, a date's `1.12`) is
+/// text there.
+fn point_as_text(v: &str) -> String {
+    match entry(v) {
+        Some(Entry::Number(_)) | Some(Entry::Date(_, 3 | 4 | 9 | 10)) => format!("'{v}"),
+        _ => v.to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn decimal_commas_read_as_numbers() {
+        // publish_todo 3.7: `1,5`, `1.234,56`, `50%` and `12,5%` were text.
+        assert_eq!(decimal_comma_to_point("1,5").as_deref(), Some("1.5"));
+        assert_eq!(
+            decimal_comma_to_point("1.234,56").as_deref(),
+            Some("1,234.56")
+        );
+        assert_eq!(decimal_comma_to_point("-12,5 %").as_deref(), Some("-12.5%"));
+        assert_eq!(decimal_comma_to_point("1.234").as_deref(), Some("1,234"));
+        assert_eq!(decimal_comma_to_point("12").as_deref(), Some("12"));
+        assert_eq!(decimal_comma_to_point("1,2,3"), None);
+        assert_eq!(decimal_comma_to_point("abc"), None);
+        let rows = |v: &[&str]| vec![v.iter().map(|s| (*s).to_string()).collect::<Vec<_>>()];
+        assert!(guess_decimal_comma(&rows(&["1,5", "2.000,25", "x"]), b','));
+        assert!(!guess_decimal_comma(&rows(&["1.5", "2,000.25"]), b';'));
+        assert!(guess_decimal_comma(&rows(&["1.234"]), b';'));
+        let types = BTreeMap::new();
+        let read = import_rows(
+            &rows(&["1.234,5", "50%", "12,5%", "1.5", "x"]),
+            &types,
+            true,
+        );
+        assert_eq!(read[0], ["1,234.5", "50%", "12.5%", "'1.5", "x"]);
+        // As a sheet reads them: numbers with their formats.
+        assert_eq!(entry("1,234.5"), Some(Entry::Date(1234.5, 4)));
+        assert_eq!(entry("12.5%"), Some(Entry::Date(0.125, 10)));
+        assert_eq!(entry("50%"), Some(Entry::Date(0.5, 9)));
+        assert_eq!(entry("1,23"), Some(Entry::Text("1,23".into())));
+    }
 
     #[test]
     fn formulas_in_open_formula() {
@@ -1252,7 +1400,7 @@ mod tests {
             "=1+1".into(),
         ]];
         assert_eq!(
-            import_rows(&rows, &types),
+            import_rows(&rows, &types, false),
             vec![vec![
                 "'007".to_string(),
                 "1.5".into(),

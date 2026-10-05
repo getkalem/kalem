@@ -743,7 +743,7 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   container) fails with "malformed package: no end of central directory
   record" (`xlsx/src/workbook.rs:365`, `package.rs:192`); detect
   `EncryptionInfo` and say "protected by a password".
-- [ ] **Major, reported.** Installing any component from the index
+- [x] **Major, reported.** Installing any component from the index
   replaces the newer bundled viewer (`kalem-cli/src/lib.rs:510-522` maps
   `org.kalem.xlsx` to the bundled `xlsx`): a working xlsx 0.0.4 is OOXML
   only, so `.xls`, `.xlsb` and `.ods` would stop opening; pdf-viewer
@@ -751,6 +751,9 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   summary does not say so, and `updates()` never notices components
   (`plugin_store.rs:858`). For 0.1: prefer the bundled viewer when it is
   newer, or keep the index's viewers in step with the binary.
+  (done by wasm_todo W5 and W9: an installed copy is used only when newer
+  than the one built in (`embedded_is_newer`), which `kalem plugin list`
+  says; the built-in ones are the index's own releases.)
 - [ ] **Major, reported.** Memory: every edit pushes a `Snapshot` that
   clones every loaded sheet's XML and cell model with no limit on the
   undo stack (`xlsx/src/workbook.rs:1360-1375`; roughly 150–200 MB per
@@ -767,13 +770,21 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   5M cells is refused ("too large to convert", `workbook_io.rs:293`),
   and one fully colored row makes the extent 1024 columns wide
   (`ods_style.rs:280-298`), so data past about row 4,900 cannot be viewed.
-- [ ] **Major, reported (Turkish and EU users).** Open as Workbook turns
+- [~] **Major, reported (Turkish and EU users).** Open as Workbook turns
   decimal-comma numbers (`1,5`, `1.234,56`), `50%` and `$12` into text
   (`workbook_io.rs:112-120`, `1202-1223`): the wizard offers Turkish
   encodings and `;` but no decimal separator; it reads the file from disk
   and ignores unsaved edits (`builtin.rs:4633`); a target named
   `out.csv` gets xlsx bytes (`:4610`). In the cell editor a Turkish user
   typing `1.500` gets 1.5 (`workbook.rs:151-181`).
+  (done 2026-10-05 but the cell editor, which is the workbook plugin's:
+  the wizard asks how decimals are written, the file's way found first
+  (`guess_decimal_comma`: the values that read one way only, else `;`
+  as the delimiter); with a comma, `1.234,56` and `12,5%` read as numbers
+  (`decimal_comma_to_point`) and `1.5` as text; `1,234.5` and `50%`
+  read as numbers with Excel's formats (3, 4, 9, 10) either way. Unsaved
+  edits are what is read in; the target is always `.xlsx`. Tests
+  `decimal_commas_read_as_numbers` and the terminal's `other_formats`.)
 - [ ] **Minor, reported.** 1904-date-system workbooks get no
   recalculation (`workbook.rs:694-696`): a typed formula shows blank.
   Dynamic and CSE array results are never recalculated; the anchor of a

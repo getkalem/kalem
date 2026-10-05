@@ -3787,7 +3787,8 @@ fn other_formats() {
     assert_eq!(input(&mut t, 1, 1), "1400");
     assert!(input(&mut t, 1, 3).starts_with('='));
     // A text file read in: semicolons, Windows-1254, column types.
-    let text = "Kod;Ürün;Tarih;Not\n007;Çay;31.12.2025;x\n010;Şeker;01.02.2026;y\n";
+    let text =
+        "Kod;Ürün;Tarih;Not;Fiyat\n007;Çay;31.12.2025;x;1.234,5\n010;Şeker;01.02.2026;y;12,5%\n";
     // Windows-1254 by hand: the Turkish letters at their code points.
     let bytes: Vec<u8> = text
         .chars()
@@ -3804,9 +3805,20 @@ fn other_formats() {
     t.app.run_command("csv.openAsWorkbook", json!({}));
     assert!(t.screen().contains("Semicolon (found)"), "{}", t.screen());
     t.key(KeyCode::Esc);
+    // Numbers written with a decimal comma: found so.
     t.app.run_command(
         "csv.openAsWorkbook",
-        json!({ "delimiter": ";", "encoding": "windows-1254", "column types": "A=text, C=date dmy, D=skip", "path": "stok.xlsx" }),
+        json!({ "delimiter": ";", "encoding": "windows-1254" }),
+    );
+    assert!(
+        t.screen().contains("Comma: 1.234,56 (found)"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "csv.openAsWorkbook",
+        json!({ "delimiter": ";", "encoding": "windows-1254", "decimal": ",", "column types": "A=text, C=date dmy, D=skip", "path": "stok.xlsx" }),
     );
     assert!(
         t.app
@@ -3820,7 +3832,9 @@ fn other_formats() {
     assert_eq!(input(&mut t, 1, 0), "'007");
     assert_eq!(input(&mut t, 2, 1), "Şeker");
     assert_eq!(input(&mut t, 1, 2), "2025-12-31");
-    assert_eq!(input(&mut t, 1, 3), "");
+    // The decimal comma's numbers as numbers (column E, D skipped).
+    assert_eq!(input(&mut t, 1, 3), "1234.5");
+    assert_eq!(input(&mut t, 2, 3), "12.5%");
     if let Ok(dir) = std::env::var("KALEM_CHART_OUT") {
         for f in ["lo.ods", "new.xlsx", "stok.xlsx"] {
             std::fs::copy(t.dir.join(f), PathBuf::from(&dir).join(f)).unwrap();

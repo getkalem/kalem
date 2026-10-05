@@ -288,6 +288,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
             object(&[
                 ("delimiter", "string", false),
                 ("encoding", "string", false),
+                ("decimal", "string", false),
                 ("column types", "string", false),
                 ("path", "string", false),
                 ("replace", "boolean", false),
@@ -5083,6 +5084,60 @@ fn open_as_workbook(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult 
         .collect();
         return request(ctx, Request::Choose(items));
     };
+    let enc = encoding_rs::Encoding::for_label(encoding.as_bytes())
+        .ok_or_else(|| CommandError::new(format!("{encoding} is not an encoding")))?;
+    let delimiter_byte = if delimiter == "tab" {
+        b'\t'
+    } else {
+        delimiter.as_bytes().first().copied().unwrap_or(b',')
+    };
+    let dialect = crate::csv::Dialect {
+        delimiter: delimiter_byte,
+        quote: b'"',
+        header: false,
+        crlf: false,
+    };
+    // The text as the editor holds it when it has unsaved edits; else the
+    // file's bytes read again in the encoding chosen (a new file's text
+    // as it is).
+    let text = {
+        let d = ctx.doc()?;
+        match path
+            .as_ref()
+            .filter(|_| !d.is_modified())
+            .map(std::fs::read)
+        {
+            Some(Ok(bytes)) => enc.decode(&bytes).0.into_owned(),
+            _ => d.text().as_str().to_owned(),
+        }
+    };
+    let rows = crate::csv::rows(&text, &dialect);
+    // How numbers are written: `1,234.56` or `1.234,56` (publish_todo
+    // 3.7: the second was read as text).
+    let Some(decimal) = args
+        .get("decimal")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+    else {
+        let comma = crate::workbook_io::guess_decimal_comma(&rows, delimiter_byte);
+        let mut choices = [(".", "Point: 1,234.56"), (",", "Comma: 1.234,56")];
+        if comma {
+            choices.swap(0, 1);
+        }
+        let items = choices
+            .iter()
+            .enumerate()
+            .map(|(k, (v, t))| {
+                let t = if k == 0 {
+                    format!("{t} (found)")
+                } else {
+                    (*t).to_string()
+                };
+                item(with("decimal", v), &t, "Open as Workbook: decimals")
+            })
+            .collect();
+        return request(ctx, Request::Choose(items));
+    };
     let Some(types) = args
         .get("column types")
         .and_then(Value::as_str)
@@ -5119,7 +5174,11 @@ fn open_as_workbook(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult 
     {
         target = dir.join(target);
     }
-    if target.extension().is_none() {
+    // A workbook: `out.csv` would get a workbook's bytes otherwise.
+    if !target
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("xlsx"))
+    {
         target.set_extension("xlsx");
     }
     if target.exists() && !arg_bool(args, "replace") {
@@ -5138,25 +5197,7 @@ fn open_as_workbook(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult 
             )]),
         );
     }
-    let enc = encoding_rs::Encoding::for_label(encoding.as_bytes())
-        .ok_or_else(|| CommandError::new(format!("{encoding} is not an encoding")))?;
-    // The file's bytes read again in the encoding chosen; a new file's text
-    // as it is.
-    let text = match path.as_ref().map(std::fs::read) {
-        Some(Ok(bytes)) => enc.decode(&bytes).0.into_owned(),
-        _ => ctx.doc()?.text().as_str().to_owned(),
-    };
-    let dialect = crate::csv::Dialect {
-        delimiter: if delimiter == "tab" {
-            b'\t'
-        } else {
-            delimiter.as_bytes().first().copied().unwrap_or(b',')
-        },
-        quote: b'"',
-        header: false,
-        crlf: false,
-    };
-    let rows = crate::workbook_io::import_rows(&crate::csv::rows(&text, &dialect), &types);
+    let rows = crate::workbook_io::import_rows(&rows, &types, decimal == ",");
     let sheet: String = target
         .file_stem()
         .map_or("Sheet1".into(), |s| s.to_string_lossy().into_owned())
