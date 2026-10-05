@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - The toolbar's `//` (Toggle Comment) shows only in text with a comment syntax, not over a workbook, a PDF or a picture (new when-clause key `hasComments`).
+- CSV grid in the terminal editor: rows wider than the terminal scroll sideways instead of wrapping; wrapped, their bars and the column letters no longer lined up and Down went through the pieces of a row.
 - CSV grid, both editors: with cells of several rows or columns selected, Delete Row and Delete Column delete them all (only the cursor's went), and typing goes into the cursor's cell, as a spreadsheet types into the active cell (it replaced the text between, merging cells and rows).
 - CSV grid, both editors: Copy and Cut take cells over one row too, as tab-separated values (Cut deleted the delimiters and shifted the columns), and without a selection the cursor's cell. Ctrl+C with no selection did nothing: Edit Field's `C-c `` key made it a prefix; Edit Field now has no key outside Vim (`SPC m b e`).
 - CSV grid, both editors: a paste goes into the cells, as a spreadsheet pastes: text of several lines or with tabs is written over the cells from the cursor's down and to the right (rows added past the end), and a single value goes into the cell, quoted when it needs it. It was inserted as raw text, splitting rows; Paste as Plain Text keeps that.

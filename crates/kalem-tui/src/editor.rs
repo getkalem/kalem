@@ -1888,9 +1888,9 @@ impl EditorView {
         } else {
             area
         };
-        self.unwrapped = doc.meta.mode == kalem_core::DocumentMode::Csv
-            && !self.source
-            && doc.csv_columns.frozen;
+        // A CSV grid's rows never wrap (their bars and the letters would
+        // no longer line up): they scroll sideways.
+        self.unwrapped = doc.meta.mode == kalem_core::DocumentMode::Csv && !self.source;
         let blocks = self.blocks(doc);
         if self.follow {
             self.reveal(doc, &blocks);

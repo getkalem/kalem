@@ -3748,6 +3748,26 @@ fn csv_paste_goes_into_cells() {
 }
 
 #[test]
+fn csv_rows_do_not_wrap() {
+    // A row wider than the terminal scrolls sideways rather than wrap:
+    // wrapped, its bars and the letters no longer lined up, and Down went
+    // through its pieces.
+    let text = "name,note\nAda,a note much longer than this narrow terminal is wide\nBob,x\n";
+    let mut t = with_file(text, "d.csv", Config::default(), (40, 8));
+    t.at(0);
+    let rows: Vec<String> = (0..8).map(|y| t.row(y)).collect();
+    let ada = rows
+        .iter()
+        .position(|r| r.contains("Ada"))
+        .expect("Ada's row");
+    assert!(rows[ada + 1].contains("Bob"), "{rows:#?}");
+    t.key(KeyCode::Down, KeyModifiers::NONE);
+    t.key(KeyCode::Down, KeyModifiers::NONE);
+    let row = kalem_core::csv::cell_at(&t.app.doc).map(|(_, r, _, _)| r);
+    assert_eq!(row, Some(2));
+}
+
+#[test]
 fn csv_malformed_field_in_the_status_bar() {
     let text = "name,note\napple,6\" long\n";
     let mut t = with_file(text, "d.csv", Config::default(), (100, 8));
