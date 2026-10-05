@@ -75,6 +75,7 @@ pub fn menus() -> Vec<MenuSpec> {
                 MenuEntry::Separator,
                 item("plugin.browse"),
                 item("plugin.install"),
+                item("plugin.installGitHub"),
                 item("plugin.list"),
                 item("plugin.sources"),
                 MenuEntry::Separator,

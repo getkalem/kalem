@@ -151,6 +151,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         ("file.scratch", object(&[("project", "boolean", false)])),
         ("plugin.install", object(&[("source", "string", false)])),
+        ("plugin.installGitHub", object(&[("link", "string", false)])),
         ("code.rename", object(&[("name", "string", false)])),
         ("code.applyEdit", object(&[("id", "integer", true)])),
         ("code.dropEdit", object(&[("id", "integer", true)])),
@@ -4635,6 +4636,16 @@ fn plugin_commands() -> Vec<Command> {
                                 })
                                 .collect();
                             let n = items.len();
+                            // A plugin of one's own, from its repository.
+                            let mut items = items;
+                            items.insert(
+                                0,
+                                item(
+                                    invocation("plugin.installGitHub", &json!({})),
+                                    crate::tr!("plugin-github-item"),
+                                    crate::tr!("plugin-github-item-detail"),
+                                ),
+                            );
                             crate::jobs::offer(items);
                             crate::jobs::Finished {
                                 message: crate::tr!("plugin-index-count", count = n),
@@ -4670,6 +4681,37 @@ fn plugin_commands() -> Vec<Command> {
                         command: "plugin.install".into(),
                         args: json!({}),
                         arg: "source".into(),
+                    },
+                ),
+            },
+        ),
+        // A plugin of one's own (or anyone's) from its GitHub repository:
+        // a declarative one as its folder is, a component one with its
+        // build from the repository's releases.
+        cmd(
+            "plugin.installGitHub",
+            "Install Plugin from GitHub…",
+            "Plugins",
+            &[],
+            None,
+            |ctx, args| match args["link"]
+                .as_str()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                Some(link) => match crate::plugin_store::github_link(link) {
+                    Some(source) => start_install(ctx, source),
+                    None => Err(CommandError::new(crate::tr!(
+                        "plugin-not-github",
+                        link = link
+                    ))),
+                },
+                None => request(
+                    ctx,
+                    Request::Ask {
+                        command: "plugin.installGitHub".into(),
+                        args: json!({}),
+                        arg: "link".into(),
                     },
                 ),
             },

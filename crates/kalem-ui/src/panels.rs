@@ -372,7 +372,10 @@ impl Editor {
         p.arg = Some(ArgPrompt {
             command: command.to_string(),
             args,
-            label: format!("{title}: {name}"),
+            label: format!(
+                "{title}: {}",
+                kalem_core::command::argument_label(command, &name)
+            ),
             name,
             ty,
         });

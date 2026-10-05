@@ -18,10 +18,26 @@ runtime and works today. The first is [[file:elixir.org][Elixir]].
 * Installing a plugin
 
 From the editor: the *Kalem* menu (and the command palette) has
-*Browse Plugins*, *Install Plugin…* and *Installed Plugins*.
+*Browse Plugins*, *Install Plugin…*, *Install Plugin from GitHub…* and
+*Installed Plugins*.
 
 - *Browse Plugins* reads the index of =getkalem/plugins= and lists its
-  plugins with what is installed; choosing one installs it.
+  plugins with what is installed; choosing one installs it. Its first
+  line, *Install from a GitHub link…*, is the command below.
+- *Install Plugin from GitHub…* asks for the link of a plugin of your
+  own, or of anyone's not in the index: a repository whose root is the
+  plugin (=https://github.com/OWNER/REPO=, =OWNER/REPO=, or the
+  =git@github.com:OWNER/REPO.git= of GitHub's Clone button), a folder in
+  one (=…/tree/BRANCH/FOLDER=, or the link of its =plugin.json=), or a
+  release's page (=…/releases/tag/TAG=: the repository at that tag). A
+  language plugin installs as its folder is. A plugin with a component
+  has its source in the repository but not its build (=dist/= is not
+  committed): Kalem takes the component from the repository's GitHub
+  releases, the asset named as the file =main= names (=zig.wasm=), from
+  the release of the link's tag, else one tagged with the plugin's
+  version (=v1.2.0=, =1.2.0= or =FOLDER-v1.2.0=), else the newest. To
+  publish one: =kalem plugin build=, then attach the =.wasm= to a
+  release on GitHub.
 - *Install Plugin…* asks for a plugin: a name from the index
   (=elixir=), a link, or a folder or archive on disk. Links Kalem
   understands: a folder of a GitHub repository,
@@ -52,11 +68,12 @@ install NAME|LINK|PATH= (=--yes= not to be asked), =kalem plugin list=,
 =plugins.sources= (yours, first) and =plugins.index= (the index of
 =getkalem/plugins= by default); a =file://= link reads a copy on disk.
 
-Only language plugins install today. A plugin with a WebAssembly
-component needs the plugin runtime (group 3.1) and is refused with
-that reason. A plugin is not signed yet: the index's SHA-256 is checked
-when a plugin is published as an archive, and a plugin from a link is
-installed as it is, which is why Kalem shows where it comes from.
+Plugins with a WebAssembly component install as language plugins do;
+their component runs in Kalem's sandbox (see Plugins). A plugin is not
+signed yet: the index's SHA-256 is checked when a plugin is published
+through the index, and a plugin from a link is installed as it is (a
+component is checked to be one), which is why Kalem shows where it
+comes from before installing.
 
 * Plugin sources: forks and your own plugins
 

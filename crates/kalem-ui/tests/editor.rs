@@ -649,6 +649,37 @@ fn outline_sidebar(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn install_from_github_asks_for_a_link(cx: &mut TestAppContext) {
+    // Install Plugin from GitHub: the palette says what it asks for, and
+    // a link that is not GitHub's is refused with why.
+    let (e, cx) = open("* A\n", cx);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("plugin.installGitHub", serde_json::json!({}), window, cx)
+    });
+    cx.run_until_parked();
+    let label = e.read_with(cx, |e, _| {
+        e.palette
+            .as_ref()
+            .and_then(|p| p.arg.as_ref().map(|a| a.label.clone()))
+    });
+    assert_eq!(
+        label.as_deref(),
+        Some(
+            "Install Plugin from GitHub…: GitHub link (github.com/you/your-plugin, a folder or a release of it)"
+        )
+    );
+    cx.simulate_input("elixir");
+    cx.simulate_keystrokes("enter");
+    let status = e.read_with(cx, |e, _| e.status.clone().map(|s| s.0));
+    assert!(
+        status
+            .as_deref()
+            .is_some_and(|s| s.starts_with("Not a GitHub link: elixir")),
+        "{status:?}"
+    );
+}
+
+#[gpui::test]
 fn command_palette(cx: &mut TestAppContext) {
     let (e, cx) = open("* A\n", cx);
     at(&e, 2, cx);

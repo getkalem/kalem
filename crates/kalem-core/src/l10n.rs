@@ -183,6 +183,16 @@ pub fn tr_args(id: &str, args: &[(&str, Arg)]) -> String {
         .unwrap_or_else(|| id.to_string())
 }
 
+/// Message `id` in the interface language, or English; `None` when
+/// neither has it.
+pub fn try_tr(id: &str) -> Option<String> {
+    let s = CURRENT.read().unwrap_or_else(|e| e.into_inner());
+    s.bundle
+        .as_ref()
+        .and_then(|b| format(b, id, &[]))
+        .or_else(|| format(&ENGLISH, id, &[]))
+}
+
 /// Message `id` in the interface language.
 pub fn tr(id: &str) -> String {
     tr_args(id, &[])

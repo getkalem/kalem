@@ -1194,6 +1194,7 @@ cmd-code-dropEdit = Drop Language Server Edit
 cmd-code-runAction = Run Code Action
 cmd-plugin-browse = Browse Plugins
 cmd-plugin-install = Install Plugin…
+cmd-plugin-installGitHub = Install Plugin from GitHub…
 cmd-plugin-confirmInstall = Confirm Plugin Installation
 cmd-plugin-cancelInstall = Cancel Plugin Installation
 cmd-plugin-list = Installed Plugins
@@ -1651,6 +1652,12 @@ plugin-runs = Runs programs on this computer: { $list } (when installed; Kalem n
 plugin-permissions = Permissions: { $list }
 plugin-from = From { $source }
 plugin-no-folder = { $repo } has no folder { $path } at { $reference }
+plugin-github-item = Install from a GitHub link…
+plugin-github-item-detail = your own plugin, or one not in the index
+plugin-not-github = Not a GitHub link: { $link } (a repository's address, owner/repo, a folder or a release of it)
+plugin-no-release-asset = { $name }'s component { $file } is not in { $repo }'s folder nor in its releases: publish the built { $file } as an asset of a GitHub release (kalem plugin build makes it)
+arg-plugin-installGitHub-link = GitHub link (github.com/you/your-plugin, a folder or a release of it)
+arg-plugin-install-source = name, GitHub link, archive link or folder
 plugin-no-such = { $count ->
     [one] No plugin named { $name } in the index ({ $count } plugin listed)
    *[other] No plugin named { $name } in the index ({ $count } plugins listed)

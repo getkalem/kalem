@@ -742,6 +742,13 @@ pub fn missing_argument(cmd: &Command, args: &Value) -> Option<(String, String)>
     Some((name.to_string(), ty.to_string()))
 }
 
+/// What the prompt for argument `name` of command `id` asks for: its
+/// message `arg-ID-NAME` (the dots of the ID as hyphens), else its name.
+pub fn argument_label(id: &str, name: &str) -> String {
+    crate::l10n::try_tr(&format!("arg-{}-{name}", id.replace('.', "-")))
+        .unwrap_or_else(|| name.to_string())
+}
+
 /// What the prompt for argument `name` of command `id`, given `args`
 /// already, starts with: a property's value when Set Property knows the
 /// key, the caption or name of the element at the cursor, the color used last for Text Color and Highlight, else as

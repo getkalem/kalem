@@ -1719,6 +1719,7 @@ impl App {
                     &mut self.doc,
                     &self.config,
                 );
+                let label = kalem_core::command::argument_label(&command, &arg);
                 self.ask(
                     PromptKind::Arg {
                         command,
@@ -1726,7 +1727,7 @@ impl App {
                         name: arg.clone(),
                         ty: "string".into(),
                     },
-                    &format!("{title}: {arg}: "),
+                    &format!("{title}: {label}: "),
                     default,
                 );
             }

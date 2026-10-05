@@ -391,14 +391,32 @@ pub fn parse_source(s: &str) -> Source {
     let url = s
         .strip_prefix("https://")
         .or_else(|| s.strip_prefix("http://"))
+        .or_else(|| {
+            s.strip_prefix("git@github.com:")
+                .map(|_| &s["git@".len()..])
+        })
         .unwrap_or(s);
+    // `git@github.com:owner/repo.git`, as GitHub's Clone button gives it.
+    let url = url.replacen("github.com:", "github.com/", 1);
+    // `owner/repo`: an index's names have no slash.
+    let short = format!("github.com/{url}");
+    let url = if is_owner_repo(&url) { &short } else { &url };
     if let Some(rest) = url.strip_prefix("github.com/") {
         let parts: Vec<&str> = rest.trim_end_matches('/').split('/').collect();
         if parts.len() >= 2 && !(s.ends_with(".tar.gz") || s.ends_with(".tgz")) {
             let repo = parts[1].trim_end_matches(".git").to_string();
             let (reference, path) = match parts.get(2) {
                 Some(&"tree") | Some(&"blob") if parts.len() >= 4 => {
-                    (parts[3].to_string(), parts[4..].join("/"))
+                    // A link to its manifest names its folder.
+                    let path = parts[4..].join("/");
+                    let path = path
+                        .strip_suffix("plugin.json")
+                        .map_or(path.clone(), |p| p.trim_end_matches('/').to_string());
+                    (parts[3].to_string(), path)
+                }
+                // A release's page: the repository at its tag.
+                Some(&"releases") if parts.get(3) == Some(&"tag") && parts.len() >= 5 => {
+                    (parts[4].to_string(), String::new())
                 }
                 _ => ("HEAD".to_string(), String::new()),
             };
@@ -590,7 +608,8 @@ fn fill(source: &str, index_urls: &[String], staging: &Path) -> Result<(), Strin
                     reference = reference.as_str()
                 ));
             }
-            Ok(())
+            // A component plugin's source: its build from a release.
+            released_asset(&owner, &repo, &reference, &path, staging)
         }
         Source::Index(name) => {
             let index = fetch_indexes(index_urls)?;
@@ -977,6 +996,146 @@ fn record(p: &Prepared) -> Result<(), String> {
     save_record(&doc)
 }
 
+/// Whether `s` is `owner/repo`, GitHub's short name of a repository (an
+/// owner's name has letters, digits and hyphens only).
+fn is_owner_repo(s: &str) -> bool {
+    let owner = |p: &str| !p.is_empty() && p.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
+    let repo = |p: &str| {
+        !p.is_empty()
+            && !p.starts_with('.')
+            && p.chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+    };
+    matches!(s.split_once('/'), Some((o, r)) if owner(o) && repo(r.trim_end_matches(".git")))
+}
+
+/// The GitHub link `s` as Kalem installs from it
+/// (`https://github.com/OWNER/REPO[/tree/REF/PATH]`), when it is one: a
+/// repository's page or address, `owner/repo`, a folder or a manifest in
+/// it, or a release's page. `None` for anything else.
+pub fn github_link(s: &str) -> Option<String> {
+    let s = s.trim();
+    if s.contains(char::is_whitespace) {
+        return None;
+    }
+    match parse_source(s) {
+        Source::GitHub {
+            owner,
+            repo,
+            reference,
+            path,
+        } => Some(if reference == "HEAD" && path.is_empty() {
+            format!("https://github.com/{owner}/{repo}")
+        } else {
+            format!("https://github.com/{owner}/{repo}/tree/{reference}/{path}")
+                .trim_end_matches('/')
+                .to_string()
+        }),
+        _ => None,
+    }
+}
+
+/// The component of a plugin whose GitHub folder has its manifest but
+/// not the built component (`dist/` is not committed): the asset named
+/// as `main`'s file in one of the repository's releases, written at
+/// `main` in `staging`. The release tagged `reference` first, then one
+/// tagged with the manifest's version (`v1.2.0`, `1.2.0` or
+/// `FOLDER-v1.2.0`), then the newest.
+fn released_asset(
+    owner: &str,
+    repo: &str,
+    reference: &str,
+    path: &str,
+    staging: &Path,
+) -> Result<(), String> {
+    let Ok(text) = std::fs::read_to_string(staging.join("plugin.json")) else {
+        return Ok(());
+    };
+    let Ok(m) = serde_json::from_str::<Value>(&text) else {
+        return Ok(());
+    };
+    let Some(main) = m["main"].as_str() else {
+        return Ok(());
+    };
+    if staging.join(main).is_file() || main.contains("..") || Path::new(main).has_root() {
+        return Ok(());
+    }
+    let file = main.rsplit('/').next().unwrap_or(main);
+    let name = m["name"].as_str().unwrap_or(file);
+    let url = format!("https://api.github.com/repos/{owner}/{repo}/releases?per_page=50");
+    let releases: Value = serde_json::from_slice(&fetch(&url)?)
+        .map_err(|e| format!("{owner}/{repo}'s releases: {e}"))?;
+    let folder = path.rsplit('/').next().unwrap_or(path);
+    let version = m["version"].as_str().unwrap_or_default();
+    let Some(asset) = pick_release_asset(&releases, file, reference, version, folder) else {
+        return Err(crate::tr!(
+            "plugin-no-release-asset",
+            name = name,
+            file = file,
+            repo = format!("{owner}/{repo}")
+        ));
+    };
+    let bytes = fetch(&asset)?;
+    let at = staging.join(main);
+    if let Some(d) = at.parent() {
+        std::fs::create_dir_all(d).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&at, bytes).map_err(|e| format!("{}: {e}", at.display()))
+}
+
+/// The download link of asset `file` in the releases GitHub listed (its
+/// API's JSON), as [`released_asset`] prefers them.
+fn pick_release_asset(
+    releases: &Value,
+    file: &str,
+    reference: &str,
+    version: &str,
+    folder: &str,
+) -> Option<String> {
+    let with_asset: Vec<(&str, bool, &str)> = releases
+        .as_array()?
+        .iter()
+        .filter(|r| r["draft"] != true)
+        .filter_map(|r| {
+            let url = r["assets"]
+                .as_array()?
+                .iter()
+                .find(|a| a["name"].as_str() == Some(file))?["browser_download_url"]
+                .as_str()?;
+            Some((
+                r["tag_name"].as_str().unwrap_or_default(),
+                r["prerelease"] == true,
+                url,
+            ))
+        })
+        .collect();
+    let tagged = |tags: &[String]| {
+        with_asset
+            .iter()
+            .find(|(t, _, _)| tags.iter().any(|x| x == t))
+            .map(|r| r.2.to_string())
+    };
+    tagged(&[reference.to_string()])
+        .or_else(|| {
+            (!version.is_empty())
+                .then(|| {
+                    tagged(&[
+                        format!("v{version}"),
+                        version.to_string(),
+                        format!("{folder}-v{version}"),
+                    ])
+                })
+                .flatten()
+        })
+        .or_else(|| {
+            with_asset
+                .iter()
+                .find(|r| !r.1)
+                .or(with_asset.first())
+                .map(|r| r.2.to_string())
+        })
+}
+
 /// The plugins in `CONFIG/plugins`, with what `plugins.toml` says of
 /// those Kalem installed.
 pub fn installed() -> Vec<Installed> {
@@ -1276,6 +1435,88 @@ mod tests {
             Source::Archive("https://example.org/zig-v1.tar.gz".into())
         );
         assert_eq!(parse_source("elixir"), Source::Index("elixir".into()));
+        let gh = |owner: &str, repo: &str, reference: &str, path: &str| Source::GitHub {
+            owner: owner.into(),
+            repo: repo.into(),
+            reference: reference.into(),
+            path: path.into(),
+        };
+        // GitHub's other ways of naming a repository.
+        assert_eq!(
+            parse_source("someone/kalem-zig"),
+            gh("someone", "kalem-zig", "HEAD", "")
+        );
+        assert_eq!(
+            parse_source("git@github.com:someone/kalem-zig.git"),
+            gh("someone", "kalem-zig", "HEAD", "")
+        );
+        assert_eq!(
+            parse_source("https://github.com/someone/kalem-zig/releases/tag/v1.2.0"),
+            gh("someone", "kalem-zig", "v1.2.0", "")
+        );
+        assert_eq!(
+            parse_source("https://github.com/someone/plugins/blob/main/plugins/zig/plugin.json"),
+            gh("someone", "plugins", "main", "plugins/zig")
+        );
+    }
+
+    #[test]
+    fn github_links() {
+        use super::github_link;
+        assert_eq!(
+            github_link(" github.com/someone/kalem-zig/ ").as_deref(),
+            Some("https://github.com/someone/kalem-zig")
+        );
+        assert_eq!(
+            github_link("someone/kalem-zig").as_deref(),
+            Some("https://github.com/someone/kalem-zig")
+        );
+        assert_eq!(
+            github_link("https://github.com/someone/plugins/tree/main/plugins/zig").as_deref(),
+            Some("https://github.com/someone/plugins/tree/main/plugins/zig")
+        );
+        assert_eq!(
+            github_link("https://github.com/someone/kalem-zig/releases/tag/v1.2.0").as_deref(),
+            Some("https://github.com/someone/kalem-zig/tree/v1.2.0")
+        );
+        for not in [
+            "elixir",
+            "https://example.org/zig.tar.gz",
+            "some one/zig",
+            "",
+            "github.com/someone",
+        ] {
+            assert_eq!(github_link(not), None, "{not}");
+        }
+    }
+
+    #[test]
+    fn a_release_asset_chosen() {
+        use super::pick_release_asset;
+        let releases = serde_json::json!([
+            {"tag_name": "zig-v0.3.0", "draft": true, "prerelease": false,
+             "assets": [{"name": "zig.wasm", "browser_download_url": "https://x/draft"}]},
+            {"tag_name": "v0.2.1", "draft": false, "prerelease": true,
+             "assets": [{"name": "zig.wasm", "browser_download_url": "https://x/pre"}]},
+            {"tag_name": "zig-v0.2.0", "draft": false, "prerelease": false,
+             "assets": [{"name": "zig.wasm", "browser_download_url": "https://x/0.2.0"}]},
+            {"tag_name": "v0.1.0", "draft": false, "prerelease": false,
+             "assets": [{"name": "zig.wasm", "browser_download_url": "https://x/0.1.0"},
+                        {"name": "other.wasm", "browser_download_url": "https://x/other"}]}
+        ]);
+        let pick = |reference: &str, version: &str| {
+            pick_release_asset(&releases, "zig.wasm", reference, version, "zig")
+        };
+        // The tag the link named; else the manifest's version; else the
+        // newest release that is not a prerelease (never a draft).
+        assert_eq!(pick("v0.1.0", "0.2.0").as_deref(), Some("https://x/0.1.0"));
+        assert_eq!(pick("HEAD", "0.2.0").as_deref(), Some("https://x/0.2.0"));
+        assert_eq!(pick("HEAD", "0.2.1").as_deref(), Some("https://x/pre"));
+        assert_eq!(pick("main", "9.9.9").as_deref(), Some("https://x/0.2.0"));
+        assert_eq!(
+            pick_release_asset(&releases, "none.wasm", "HEAD", "", "zig"),
+            None
+        );
     }
 
     #[test]
