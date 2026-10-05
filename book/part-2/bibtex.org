@@ -98,7 +98,8 @@ The grid shows values as a reader would see them (=bibtex::plain=):
 3. An accent command followed by a letter becomes the accented letter.
    The letter may follow directly, after a brace, or (for the letter
    accents =\c=, =\u=, =\v=, =\H=) after spaces: ={\"o}=, =\"{o}=,
-   =\c c= and =\c{c}= all give the letter with the mark. The pairs
+   =\c c= and =\c{c}= all give the letter with the mark, and an accent
+   on the dotless =\i= puts it on the i (=\'{\i}= gives í). The pairs
    known are:
 
    | Command | Letters                                            | Result                                |
@@ -126,9 +127,10 @@ The grid shows values as a reader would see them (=bibtex::plain=):
    as =&=, =\%= as =%=).
 6. Runs of whitespace become one space.
 
-Macros are not expanded and =#= is not evaluated in the grid: a
-journal written =tug # { 1}= shows as =tug # 1=. The citation reader
-(below) does expand them.
+Before these steps a value's =@string= abbreviations, month names and
+=#= concatenations are written out (=bibtex::expand=, under /The grid/):
+with =@string{tug = "TUGboat"}=, a journal written =tug # { 1}= shows as
+=TUGboat 1=. The citation reader (below) expands them too.
 
 * The grid
 
@@ -362,13 +364,8 @@ one file could be read). Keys are compared exactly.
 
 * Known differences and limits
 
-- The grid does not expand =@string= macros or evaluate =#=.
-- Org's reader rejects a whole file for one syntax error, where BibTeX
-  and biber report the entry and go on.
 - =@comment(…)= is skipped by the grid's scanner but not by Org's
   reader.
-- An accent command applied to a command (=\'{\i}=) is not combined
-  and shows as =\i=.
 - =\bibliography{refs}= names =refs.bib=; =\addbibresource= names its
   file with its extension, so =\addbibresource{refs.json}= is
   =refs.json= (a name without a full stop still gets =.bib=).

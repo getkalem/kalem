@@ -1048,11 +1048,14 @@ Wrong or stale text a first reader meets. Each is a text change.
     step reads since 3.5's fix and the test that times it. Enter was
     right: in the source view it breaks the line, in the grid it is
     Cell Below, as the chapter says.)
-  - `book/part-2/bibtex.org`: 129-131 and 365 say `@string` and `#` are
+  - [x] `book/part-2/bibtex.org`: 129-131 and 365 say `@string` and `#` are
     not expanded (they are, `cells_with` → `expand`; the `tug # { 1}`
     example is stale); 366 says one error rejects the whole file (only
     the entry is skipped, `org-cite/src/bib.rs:90`); 370 says `\'{\i}`
     is not combined (it is).
+    (done 2026-10-06: the three limits went, the expansion is said
+    before the display steps with a true example, and the accent step
+    names the dotless i.)
   - `book/part-2/latex.org`: 1508 says bibliographies resolve from the
     edited file's folder (the root's, `latex_view.rs:338`); the
     diagnostics table at 1192 omits `latex-label-clash`,
