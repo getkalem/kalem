@@ -1654,6 +1654,20 @@ fn folder_tree(cx: &mut TestAppContext) {
     assert_eq!(active_title(&ws, cx), "b.org");
     let path = ws.read_with(cx, |ws, cx| ws.editor.read(cx).doc.meta.path.clone());
     assert_eq!(path.as_deref(), Some(dir.join("proj/sub/b.org").as_path()));
+    // Beside the file manager, which lists the files itself, no tree
+    // (asked by the owner, 2026-10-05); back at a file, the tree again.
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("dired.jump"));
+    cx.run_until_parked();
+    assert!(ws.read_with(cx, |ws, cx| ws.editor.read(cx).doc.dired.is_some()));
+    assert!(
+        cx.debug_bounds("tree-0").is_none(),
+        "no tree beside the listing"
+    );
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("dired.close"));
+    cx.run_until_parked();
+    ws.update(cx, |_, cx| cx.notify());
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("tree-0").is_some(), "the tree back");
 }
 
 #[gpui::test]

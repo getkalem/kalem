@@ -4754,7 +4754,10 @@ impl App {
             let entries = projects::entries(&files, &self.projects.list);
             self.tree_rows = match self.project() {
                 Some(root)
-                    if self.config.bool("ui.folder_tree") && self.files_at == FilesAt::Left =>
+                    // Not beside the file manager, which lists the files.
+                    if self.config.bool("ui.folder_tree")
+                        && self.files_at == FilesAt::Left
+                        && self.doc.dired.is_none() =>
                 {
                     self.projects.tree_rows(&root)
                 }

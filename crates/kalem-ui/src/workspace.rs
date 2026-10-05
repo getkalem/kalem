@@ -1641,8 +1641,10 @@ impl Workspace {
                 }
             }
         }
-        // The current project's folders and files.
-        if !top && self.shared.config.bool("ui.folder_tree") {
+        // The current project's folders and files; not beside the file
+        // manager (or the projects), which lists them itself.
+        let lists_files = self.editor.read(cx).doc.dired.is_some();
+        if !top && !lists_files && self.shared.config.bool("ui.folder_tree") {
             list = self.folder_tree(list, theme, cx);
         }
         // The file manager and the projects, at the end of the list.

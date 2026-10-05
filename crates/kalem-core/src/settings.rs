@@ -348,7 +348,7 @@ pub const SPECS: &[Spec] = &[
     Spec {
         key: "files.show_hidden",
         kind: Kind::Bool,
-        default: "false",
+        default: "true",
         description: "Dot files in the file manager (the . key toggles them)",
     },
     Spec {
