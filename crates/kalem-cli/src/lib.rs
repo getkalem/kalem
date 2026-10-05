@@ -70,6 +70,10 @@ enum PluginAction {
     },
     /// The installed plugins.
     List,
+    /// Starts every installed component viewer once, as opening a file
+    /// would; exits 1 when one cannot run with this Kalem (built for
+    /// another version of the plugin API).
+    Check,
     /// Starts a plugin: in a checkout of getkalem/plugins its template as
     /// `plugins/NAME`, elsewhere a crate of its own in `NAME/`.
     New {
@@ -311,7 +315,7 @@ enum Command {
         top: usize,
     },
     /// Plugins: `kalem plugin browse`, `install NAME|URL|PATH`, `list`,
-    /// `remove ID`, `new NAME`, `build [DIR]`.
+    /// `check`, `remove ID`, `new NAME`, `build [DIR]`.
     Plugin {
         #[command(subcommand)]
         action: PluginAction,
@@ -462,9 +466,32 @@ pub fn bundled_plugins() {
 /// the first file they open does not wait; without any, no engine starts.
 #[cfg(feature = "plugins")]
 fn component_viewers() {
+    let loaded: Vec<_> = installed_viewers().into_iter().map(|(_, v)| v).collect();
+    for v in &loaded {
+        kalem_core::viewer::register(v.clone());
+    }
+    if !loaded.is_empty() {
+        let _ = std::thread::Builder::new()
+            .name("kalem-plugins-load".into())
+            .spawn(move || {
+                for v in loaded {
+                    let _ = v.plugin();
+                }
+            });
+    }
+}
+
+/// The installed plugins that are component viewers, each with its
+/// viewer (not compiled yet), which falls back to the bundled viewer of
+/// the same name when it cannot run.
+#[cfg(feature = "plugins")]
+pub(crate) fn installed_viewers() -> Vec<(
+    kalem_core::plugin_store::Installed,
+    std::sync::Arc<kalem_script::viewer::ComponentViewer>,
+)> {
     use kalem_script::viewer::{ComponentViewer, VIEWER_LIMITS};
     let mut host: Option<std::sync::Arc<kalem_script::Host>> = None;
-    let mut loaded = Vec::new();
+    let mut out = Vec::new();
     for p in kalem_core::plugin_store::installed() {
         let Ok(text) = std::fs::read_to_string(p.dir.join("plugin.json")) else {
             continue;
@@ -490,11 +517,11 @@ fn component_viewers() {
             let cache = kalem_core::logging::state_dir().map(|d| d.join("plugin-cache"));
             match kalem_script::Host::new(cache) {
                 Ok(h) => host = Some(std::sync::Arc::new(h)),
-                Err(_) => return,
+                Err(_) => return out,
             }
         }
         let Some(h) = host.clone() else {
-            return;
+            return out;
         };
         // A manifest may ask for other limits than a viewer's.
         let limits = kalem_script::Limits {
@@ -519,18 +546,9 @@ fn component_viewers() {
                 std::sync::Arc::new(|text| kalem_core::jobs::notice(text, true)),
             ),
         );
-        kalem_core::viewer::register(v.clone());
-        loaded.push(v);
+        out.push((p, v));
     }
-    if !loaded.is_empty() {
-        let _ = std::thread::Builder::new()
-            .name("kalem-plugins-load".into())
-            .spawn(move || {
-                for v in loaded {
-                    let _ = v.plugin();
-                }
-            });
-    }
+    out
 }
 
 pub fn run<I, T>(args: I) -> ExitCode
@@ -644,6 +662,7 @@ where
             PluginAction::Browse => commands::plugin::browse(),
             PluginAction::Install { source, yes } => commands::plugin::install(&source, yes),
             PluginAction::List => commands::plugin::list(),
+            PluginAction::Check => commands::plugin::check(),
             PluginAction::New { name } => commands::plugin::new(&name),
             PluginAction::Build { dir } => commands::plugin::build(dir.as_deref()),
             PluginAction::Remove { id } => commands::plugin::remove(&id),

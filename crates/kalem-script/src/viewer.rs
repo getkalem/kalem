@@ -365,6 +365,12 @@ impl ComponentViewer {
     fn instance(&self) -> Result<Viewer, kalem_viewer::ViewerError> {
         Viewer::new(&self.host, self.plugin()?, self.limits).map_err(err)
     }
+
+    /// Whether the component runs with this Kalem: compiled and bound to
+    /// the plugin API, as opening a file would (`kalem plugin check`).
+    pub fn check(&self) -> Result<(), kalem_viewer::ViewerError> {
+        self.instance().map(|_| ())
+    }
 }
 
 fn err(e: crate::Error) -> kalem_viewer::ViewerError {

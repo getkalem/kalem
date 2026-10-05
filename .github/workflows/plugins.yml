@@ -1,0 +1,30 @@
+# The component plugins released in getkalem/plugins' index run with
+# this Kalem (publish_todo 1.4): `tools/check-released-plugins.sh`
+# installs each into a configuration folder of its own and starts it.
+# A change to the plugin API (`crates/kalem-plugin/wit`) that a released
+# plugin was not built against fails here until the plugin is released
+# again; this workflow is apart from CI so that it does not hold up
+# `main` meanwhile. Run it before tagging a release (docs/releasing.md).
+name: Released plugins
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths: ["crates/kalem-plugin/wit/**", "tools/check-released-plugins.sh"]
+
+jobs:
+  check:
+    name: released plugins run
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # The terminal editor with the plugin host: no windowing libraries.
+      - run: cargo build --locked -p kalem-editor --no-default-features --features tui,plugins
+      - run: sh tools/check-released-plugins.sh target/debug/kalem

@@ -15,7 +15,7 @@ dist generate
 
 1. Update `version` in `[workspace.package]` of `Cargo.toml` and the workspace dependencies' `version` fields.
 2. Rename `## [Unreleased]` in `CHANGELOG.md` to `## [0.1.0] - DATE` and start a new empty `## [Unreleased]` above it: cargo-dist takes the release notes from the section of the tagged version.
-3. Run the checks: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets`, `cargo test --workspace`, and the manual checklist in `docs/release-checklist.md`.
+3. Run the checks: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets`, `cargo test --workspace`, and the manual checklist in `docs/release-checklist.md`. Run the *Released plugins* workflow from the Actions tab (or `tools/check-released-plugins.sh target/release/kalem`): every component plugin in the index must run with the release, or be released again first.
 4. Tag and push: `git tag v0.1.0 && git push --tags`. The release workflow builds the archives, installers and the Homebrew formula for the targets in the configuration and makes a draft GitHub release.
 
 ## What cargo-dist does not build

@@ -62,6 +62,40 @@ pub(crate) fn install(source: &str, yes: bool) -> Result<ExitCode> {
     Ok(ExitCode::SUCCESS)
 }
 
+/// `kalem plugin check`: each installed component viewer compiled and
+/// bound to the plugin API, as opening a file would; 1 when one cannot
+/// run with this Kalem.
+pub(crate) fn check() -> Result<ExitCode> {
+    config();
+    #[cfg(feature = "plugins")]
+    {
+        let viewers = crate::installed_viewers();
+        if viewers.is_empty() {
+            println!("No component viewers installed.");
+        }
+        let mut failed = false;
+        for (p, v) in viewers {
+            match v.check() {
+                Ok(()) => println!("{} {}: runs", p.id, p.version),
+                Err(e) => {
+                    failed = true;
+                    println!("{} {}: cannot run: {}", p.id, p.version, e.0);
+                }
+            }
+        }
+        Ok(if failed {
+            ExitCode::from(1)
+        } else {
+            ExitCode::SUCCESS
+        })
+    }
+    #[cfg(not(feature = "plugins"))]
+    {
+        println!("This build of Kalem has no plugin host (the `plugins` feature).");
+        Ok(ExitCode::SUCCESS)
+    }
+}
+
 /// `kalem plugin list`.
 pub(crate) fn list() -> Result<ExitCode> {
     config();

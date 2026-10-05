@@ -76,10 +76,22 @@ plumbing and can go in parallel with the code fixes.
   files". Release xlsx 0.0.5 against the final contract right before the
   tag, and do not move `grid.wit` again before 0.1 (or finally version
   the WIT package, `kalem:plugin@0.1.0` has never changed).
-- [ ] **Major.** The manifest's `"api": "^0.1"` is checked nowhere, and
+- [x] **Major.** The manifest's `"api": "^0.1"` is checked nowhere, and
   CI never runs the component tests against the index's artifacts
   (`xlsx_component.rs`). Add a CI job that installs each released
   component into a temporary config dir and opens a file with it.
+  (done 2026-10-05: `kalem plugin check` binds every installed component
+  viewer as opening a file would (`ComponentViewer::check`) and exits 1
+  when one cannot run; `tools/check-released-plugins.sh` installs the
+  index's component plugins into a folder of their own and runs it, from
+  the *Released plugins* workflow (daily, on WIT changes, on tags, by
+  hand) and before a release (`docs/releasing.md`). It is a workflow of
+  its own so that a contract change does not hold up `main` until the
+  plugin is released. `kalem view` now prints the fallback notice on
+  standard error. Today it reports xlsx 0.0.4 as unable to run; the
+  image and PDF viewers 0.0.1 run. The `api` field itself stays
+  unchecked: the binding test is the stronger check, and the WIT package
+  is still `@0.1.0`.)
 
 ## 2. Data loss and crashes (any format)
 

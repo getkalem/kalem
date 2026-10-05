@@ -668,8 +668,13 @@ pub(crate) fn view(file: &Path, unit: usize, png: bool, output: Option<&Path>) -
         kalem_core::viewer::find(&name, &head)
             .ok_or_else(|| format!("{}: no viewer opens this file", file.display()))?
     };
-    let mut v = kalem_core::viewer::ViewerState::open(viewer, file)
-        .map_err(|e| format!("{}: {e}", file.display()))?;
+    let opened = kalem_core::viewer::ViewerState::open(viewer, file);
+    // What the editors show in the status bar, such as an installed
+    // plugin that cannot run and the bundled viewer used instead.
+    for (text, _) in kalem_core::jobs::take_notices() {
+        let _ = writeln!(std::io::stderr(), "kalem: {text}");
+    }
+    let mut v = opened.map_err(|e| format!("{}: {e}", file.display()))?;
     let n = v.structure().units.len();
     if unit == 0 || unit > n {
         return Err(format!("{}: no unit {unit} (it has {n})", file.display()));
