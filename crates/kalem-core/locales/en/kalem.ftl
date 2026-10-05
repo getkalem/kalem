@@ -939,6 +939,7 @@ latex-missing-picture = No picture { $file }
 latex-item-outside-list = \item outside a list: LaTeX stops with "Lonely \item"
 latex-too-deep = Lists nested more than four deep: LaTeX stops with "Too deeply nested"
 latex-deprecated-font = \{ $command } is deprecated in LaTeX 2ε; use the \text… command or the declaration (\bfseries, \itshape)
+latex-deprecated-font-math = \{ $command } is deprecated in LaTeX 2ε; in math, use { $math }{"{"}…{"}"} around what it applies to
 latex-double-dollar = $$…$$ is plain TeX; use \[…\]
 latex-tie = Use ~ before a reference or a citation, so that no line breaks before it
 latex-ellipsis = Use \ldots for an ellipsis

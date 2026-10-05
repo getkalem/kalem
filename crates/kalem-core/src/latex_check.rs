@@ -146,7 +146,10 @@ fn style_diagnostics(root_node: &latex_syntax::SyntaxNode) -> Vec<Diagnostic> {
             K::CONTROL_WORD => {
                 let name = &t.text()[1..];
                 if matches!(name, "bf" | "it" | "rm" | "sc" | "sf" | "tt" | "sl" | "cal") {
-                    // The LaTeX 2ε declaration that does the same.
+                    // The LaTeX 2ε declaration that does the same; in math
+                    // the `\math…` command, which takes its argument in
+                    // braces, so nothing replaces it word for word there
+                    // (`$\bfseries x$` does not compile).
                     let modern = match name {
                         "bf" => Some("\\bfseries"),
                         "it" => Some("\\itshape"),
@@ -157,12 +160,32 @@ fn style_diagnostics(root_node: &latex_syntax::SyntaxNode) -> Vec<Diagnostic> {
                         "sl" => Some("\\slshape"),
                         _ => None,
                     };
+                    let math = match name {
+                        "bf" => Some("\\mathbf"),
+                        "it" => Some("\\mathit"),
+                        "rm" => Some("\\mathrm"),
+                        "sf" => Some("\\mathsf"),
+                        "tt" => Some("\\mathtt"),
+                        "cal" => Some("\\mathcal"),
+                        _ => None,
+                    };
+                    let (message, fix) = match (in_math, math) {
+                        (true, Some(m)) => (
+                            crate::tr!("latex-deprecated-font-math", command = name, math = m),
+                            None,
+                        ),
+                        (true, None) => (crate::tr!("latex-deprecated-font", command = name), None),
+                        (false, _) => (
+                            crate::tr!("latex-deprecated-font", command = name),
+                            modern.map(|m| (range.clone(), m.to_string())),
+                        ),
+                    };
                     out.push(Diagnostic {
                         range: range.clone(),
                         severity: Severity::Info,
                         code: "latex-deprecated",
-                        message: crate::tr!("latex-deprecated-font", command = name),
-                        fix: modern.map(|m| (range.clone(), m.to_string())),
+                        message,
+                        fix,
                     });
                 }
                 if matches!(
@@ -1250,6 +1273,32 @@ mod tests {
                 "cite-unused-entry",
             ]
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_old_font_command_in_math_has_no_text_fix() {
+        // `$\bf x$` → `$\bfseries x$` does not compile (publish_todo 3.3):
+        // in math the message names `\mathbf{…}`, and nothing is replaced.
+        let dir = std::env::temp_dir().join(format!("kalem-bf-math-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let text = "\\documentclass{article}\n\\begin{document}\n{\\bf a} $\\bf x$ \\[ {\\cal C} \\]\n\\end{document}\n";
+        let path = dir.join("m.tex");
+        std::fs::write(&path, text).unwrap();
+        let found: Vec<_> = check(&path, text)
+            .into_iter()
+            .filter(|d| d.code == "latex-deprecated")
+            .collect();
+        assert_eq!(found.len(), 3, "{found:?}");
+        assert_eq!(
+            found[0].fix.as_ref().map(|f| f.1.as_str()),
+            Some("\\bfseries")
+        );
+        assert!(
+            found[1].fix.is_none() && found[1].message.contains("\\mathbf"),
+            "{found:?}"
+        );
+        assert!(found[2].fix.is_none() && found[2].message.contains("\\mathcal"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

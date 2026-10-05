@@ -563,9 +563,13 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   with build-on-save goes the same way instead of being skipped; Cancel
   Build forgets the queued one. Test
   `a_build_asked_for_during_one_waits_for_it`.)
-- [ ] **Major, verified (code).** Quick Fix for `\bf`, `\rm`, `\it` is
+- [x] **Major, verified (code).** Quick Fix for `\bf`, `\rm`, `\it` is
   offered inside math (`latex_check.rs:146-165`, no `in_math` check):
   `$\bf x$` → `$\bfseries x$`, which pdflatex rejects.
+  (done 2026-10-05: in math the note names the `\math…` command to put
+  around what it applies to (`latex-deprecated-font-math`) and offers no
+  Quick Fix, as nothing replaces it word for word; outside math as
+  before. Test `an_old_font_command_in_math_has_no_text_fix`.)
 - [ ] **Major (R2.6, owner's D5).** On a machine without TeX both
   editors say only "No LaTeX found: install TeX Live, MacTeX, MiKTeX or
   tectonic" (`msg-no-latex`, `latex_build.rs:540`): no link, no install

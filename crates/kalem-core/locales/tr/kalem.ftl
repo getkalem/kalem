@@ -865,6 +865,7 @@ latex-missing-picture = { $file } resmi yok
 latex-item-outside-list = Liste dışında \item: LaTeX "Lonely \item" hatasıyla durur
 latex-too-deep = Listeler dörtten derin iç içe: LaTeX "Too deeply nested" hatasıyla durur
 latex-deprecated-font = \{ $command } LaTeX 2ε'de eskidi; \text… komutunu ya da bildirimini (\bfseries, \itshape) kullanın
+latex-deprecated-font-math = \{ $command } LaTeX 2ε'de eskidi; matematikte uygulandığı şeyi { $math }{"{"}…{"}"} içine alın
 latex-double-dollar = $$…$$ düz TeX'tir; \[…\] kullanın
 latex-tie = Göndermeden ve atıftan önce ~ kullanın, önünde satır kırılmasın
 latex-ellipsis = Üç nokta için \ldots kullanın
