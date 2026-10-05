@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - The toolbar's `//` (Toggle Comment) shows only in text with a comment syntax, not over a workbook, a PDF or a picture (new when-clause key `hasComments`).
+- CSV grid in the graphical editor: a click on a column's letter selects the column and one on a row's number the row, as in a spreadsheet (Select Column, Select Row); Copy, Cut and Delete then take their cells. The cursor's cell is framed in its column with hidden columns too, and on every line of a record of several lines.
 - CSV Fill Down and Fill Series over a selection of several columns fill each of them from its own first value (they filled only the cursor's column).
 - Graphical editor: Ctrl+Home and Ctrl+End (Command on macOS) go to the start and end of the document, as in the terminal editor; they went to the line's.
 - CSV grid, both editors: a record with a quoted line break shows as a row of the grid two (or more) lines high, each line its fields' parts in their columns; it showed as plain text out of the grid, and clicks on it landed in the wrong cells.

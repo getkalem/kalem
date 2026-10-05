@@ -606,6 +606,10 @@ keeps its dialect and every byte the command does not name.
   the cell, quoted when it needs it (=DocumentState::paste_in_grid=).
   Paste as Plain Text, and any paste in the source view, inserts the text
   as it is.
+- A click on a column's letter selects the whole column (/Select
+  Column/, =csv.selectColumn=), one on a row's number the row (/Select
+  Row/, =csv.selectRow=), as in a spreadsheet. The edge between two
+  letters still drags the column's width.
 - A selection from a cell in one row to a cell in another is a
   rectangle of cells, as in a spreadsheet: both editors paint the cells
   between the two corners, not the text between them. Copy (and /Copy

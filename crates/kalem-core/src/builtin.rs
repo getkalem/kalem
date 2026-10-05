@@ -352,6 +352,8 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         ("csv.sortFileBy", object(&[("columns", "string", true)])),
         ("csv.goToCell", object(&[("cell", "string", true)])),
+        ("csv.selectColumn", object(&[("column", "integer", false)])),
+        ("csv.selectRow", object(&[("row", "integer", false)])),
         (
             "csv.setColumnWidth",
             object(&[("width", "string", true), ("column", "integer", false)]),
@@ -3608,6 +3610,53 @@ fn csv_commands() -> Vec<Command> {
                 ),
                 None => crate::tr!("msg-csv-cell", cell = cell.as_str(), org = org.as_str()),
             });
+            Ok(())
+        }),
+        // A click on a column's letter or a row's number, as in a
+        // spreadsheet: the whole column or row selected, a rectangle of
+        // cells that Copy, Cut and Delete take.
+        c("csv.selectColumn", "Select Column", &[], |ctx, args| {
+            let d = ctx.doc()?;
+            let (layout, _, _, here) = crate::csv::cell_at(d)
+                .ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))?;
+            let col = arg_column(args).unwrap_or(here);
+            let text = d.text().as_str();
+            let mut idx = layout.index.borrow_mut();
+            let n = idx.count(text, &layout.dialect);
+            // From the first record with the column to the last one.
+            let ends: Vec<usize> = (0..n)
+                .filter_map(|r| idx.record(text, r, &layout.dialect))
+                .filter_map(|r| r.fields.get(col).map(|f| f.range.start))
+                .collect();
+            let (Some(&first), Some(&last)) = (ends.first(), ends.last()) else {
+                return Err(CommandError::new(crate::tr!("msg-csv-no-column")));
+            };
+            drop(idx);
+            d.selection = org_edit::Selection {
+                anchor: first,
+                head: last,
+            };
+            Ok(())
+        }),
+        c("csv.selectRow", "Select Row", &[], |ctx, args| {
+            let d = ctx.doc()?;
+            let (layout, here, _, _) = crate::csv::cell_at(d)
+                .ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))?;
+            let row = args
+                .get("row")
+                .and_then(Value::as_u64)
+                .and_then(|r| usize::try_from(r).ok())
+                .unwrap_or(here);
+            let text = d.text().as_str();
+            let rec = layout
+                .index
+                .borrow_mut()
+                .record(text, row, &layout.dialect)
+                .ok_or_else(|| CommandError::new(crate::tr!("msg-csv-no-row")))?;
+            d.selection = org_edit::Selection {
+                anchor: rec.range.start,
+                head: rec.range.end,
+            };
             Ok(())
         }),
         c("csv.goToCell", "Go to Cell", &[], |ctx, args| {

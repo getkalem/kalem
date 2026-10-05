@@ -4228,7 +4228,9 @@ fn csv_click_cells(e: &Entity<Editor>, rows: usize, cx: &mut VisualTestContext) 
                 let p = painted.get(&line)?;
                 let x = p
                     .layout
-                    .caret(p.view.display_offset(at + fields[col].len() / 2))
+                    // Inside the value (a one-character value's start is
+                    // also the row number's place, left of the grid).
+                    .caret(p.view.display_offset(at + fields[col].len().div_ceil(2)))
                     .origin
                     .x
                     + gpui::px(2.);
@@ -4697,4 +4699,26 @@ fn ctrl_home_and_end_go_to_the_ends(cx: &mut TestAppContext) {
     assert_eq!(e.read_with(cx, |e, _| e.doc.selection.head), text.len());
     cx.simulate_keystrokes("ctrl-home");
     assert_eq!(e.read_with(cx, |e, _| e.doc.selection.head), 0);
+}
+
+/// A click on a column's letter selects the column, one on a row's
+/// number the row, as in a spreadsheet; Copy then takes their cells.
+#[gpui::test]
+fn csv_letters_and_row_numbers_select(cx: &mut TestAppContext) {
+    let text = "a,b,c\n1,2,3\n4,5,6\n";
+    let (e, cx) = open_named(text, "heads.csv", || None, cx);
+    cx.run_until_parked();
+    let clip = |cx: &mut VisualTestContext| cx.read_from_clipboard().and_then(|c| c.text());
+    let b = cx.debug_bounds("csv-letter-1").expect("B's letter");
+    cx.simulate_click(b.center(), gpui::Modifiers::default());
+    cx.simulate_keystrokes(&format!("{}-c", primary()));
+    assert_eq!(clip(cx).as_deref().map(str::trim_end), Some("b\n2\n5"));
+    // Row 2's number, left of the grid's first bar.
+    let edges = csv_edges(1, cx);
+    let y = e.read_with(cx, |e, _| e.painted.borrow()[&1].bounds.center().y);
+    let x = e.read_with(cx, |e, _| e.painted.borrow()[&1].bounds.left()) + gpui::px(4.);
+    assert!(x < edges[0]);
+    cx.simulate_click(gpui::point(x, y), gpui::Modifiers::default());
+    cx.simulate_keystrokes(&format!("{}-c", primary()));
+    assert_eq!(clip(cx).as_deref().map(str::trim_end), Some("1\t2\t3"));
 }

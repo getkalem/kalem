@@ -273,6 +273,8 @@ pub struct Hit {
     /// A CSV grid's cell past the end of its record there (a short
     /// record's missing cell, an empty column): its column.
     pub cell: Option<usize>,
+    /// A CSV grid's row number there: the row is selected.
+    pub row_header: bool,
 }
 
 /// A line as last painted: for hit testing, the caret and IME.
@@ -2819,6 +2821,7 @@ impl Editor {
                     copy: None,
                     jump: None,
                     cell: None,
+                    row_header: false,
                 });
             }
             if let Some((_, start)) = p.buttons.iter().find(|(b, _)| b.contains(&pos)) {
@@ -2829,6 +2832,7 @@ impl Editor {
                     copy: Some(*start),
                     jump: None,
                     cell: None,
+                    row_header: false,
                 });
             }
             if let Some((_, start)) = p.jumps.iter().find(|(b, _)| b.contains(&pos)) {
@@ -2839,6 +2843,7 @@ impl Editor {
                     copy: None,
                     jump: Some(*start),
                     cell: None,
+                    row_header: false,
                 });
             }
         }
@@ -2870,6 +2875,7 @@ impl Editor {
                     copy: None,
                     jump: None,
                     cell: None,
+                    row_header: false,
                 });
             }
         }
@@ -2882,9 +2888,15 @@ impl Editor {
         let d = p.layout.index_for_position(pos - origin);
         let mut at = p.view.source_offset(d);
         let mut cell = None;
-        if let Some((to, past)) = self.csv_cell_at_x(p, pos.x - origin.x, at) {
-            at = to;
-            cell = past;
+        let mut row_header = false;
+        match self.csv_cell_at_x(p, pos.x - origin.x, at) {
+            Some(Some((to, past))) => {
+                at = to;
+                cell = past;
+            }
+            // Left of the grid: the row's number.
+            Some(None) => row_header = true,
+            None => {}
         }
         Some(Hit {
             pos: at,
@@ -2893,6 +2905,7 @@ impl Editor {
             copy: None,
             jump: None,
             cell,
+            row_header,
         })
     }
 
@@ -2903,7 +2916,14 @@ impl Editor {
     /// A cell past the end of its record (a short record's missing cell,
     /// an empty column right of the data) goes to the record's end, with
     /// its column.
-    fn csv_cell_at_x(&self, p: &Painted, x: Pixels, at: usize) -> Option<(usize, Option<usize>)> {
+    /// `Some(None)` on the row's number, left of the grid (with the
+    /// spreadsheet look).
+    fn csv_cell_at_x(
+        &self,
+        p: &Painted,
+        x: Pixels,
+        at: usize,
+    ) -> Option<Option<(usize, Option<usize>)>> {
         if self.doc.meta.mode != DocumentMode::Csv || self.source {
             return None;
         }
@@ -2920,7 +2940,13 @@ impl Editor {
             o += r.text.len();
         }
         let step = f32::from(x_at(1) - x_at(0)) * (kalem_core::csv::SHEET_MIN_WIDTH + 3) as f32;
+        if kalem_core::csv::layout(&self.doc).view.sheet
+            && bars.first().is_some_and(|b| f32::from(x) < *b)
+        {
+            return Some(None);
+        }
         kalem_core::csv::cell_at_bars(&self.doc, p.view.range.start, &bars, step, f32::from(x), at)
+            .map(Some)
     }
 
     /// Mouse down: place the cursor, toggle a checkbox, fold a heading.
@@ -2945,12 +2971,18 @@ impl Editor {
             copy,
             jump,
             cell,
+            row_header,
         }) = self.hit(ev.position)
         else {
             return;
         };
         if let Some(start) = jump {
             self.jump_to(start, window, cx);
+            return;
+        }
+        if row_header && !ev.modifiers.shift && ev.click_count == 1 {
+            self.doc.move_cursor(pos, false);
+            self.run_command("csv.selectRow", Value::Null, window, cx);
             return;
         }
         if let Some(start) = copy {
@@ -4403,39 +4435,41 @@ impl gpui::Render for Editor {
                 let corner = char_w * (*gutter as f32 + 2.5);
                 let extra = kalem_core::csv::SHEET_MIN_WIDTH;
                 let next = widths.last().map_or(0, |(j, _)| j + 1);
-                let letter_cell = |j: usize, w: usize| {
-                    let on = *current == Some(j);
-                    // The column's right edge: dragged, its width; double
-                    // clicked, its width fitted to its values.
+                // A column's right edge: dragged, its width; double clicked,
+                // its width fitted to its values. Drawn over the letters (a
+                // letter's own click selects its column).
+                let handle = |j: usize, w: usize| {
                     let drag = entity.clone();
-                    let handle = div()
+                    div()
                         .debug_selector(move || format!("csv-edge-{j}"))
                         .absolute()
                         .top(px(0.))
-                        .right(px(-3.))
+                        .bottom(px(0.))
                         .w(px(6.))
-                        .h_full()
                         .cursor(gpui::CursorStyle::ResizeLeftRight)
-                        .on_mouse_down(
-                            MouseButton::Left,
-                            move |ev: &MouseDownEvent, window, cx| {
-                                cx.stop_propagation();
-                                drag.update(cx, |e, cx| {
-                                    if ev.click_count >= 2 {
-                                        e.column_drag = None;
-                                        e.run_command(
-                                            "csv.autosizeColumn",
-                                            serde_json::json!({ "column": j }),
-                                            window,
-                                            cx,
-                                        );
-                                    } else {
-                                        e.column_drag = Some((j, ev.position.x, w, char_w));
-                                    }
-                                });
-                            },
-                        );
+                        .on_mouse_down(MouseButton::Left, move |ev: &MouseDownEvent, window, cx| {
+                            cx.stop_propagation();
+                            drag.update(cx, |e, cx| {
+                                if ev.click_count >= 2 {
+                                    e.column_drag = None;
+                                    e.run_command(
+                                        "csv.autosizeColumn",
+                                        serde_json::json!({ "column": j }),
+                                        window,
+                                        cx,
+                                    );
+                                } else {
+                                    e.column_drag = Some((j, ev.position.x, w, char_w));
+                                }
+                            });
+                        })
+                };
+                let letter_cell = |j: usize, w: usize, with_edge: bool| {
+                    let on = *current == Some(j);
+                    // A click on the letter selects the column.
+                    let select = entity.clone();
                     let mut d = div()
+                        .debug_selector(move || format!("csv-letter-{j}"))
                         .flex_none()
                         .relative()
                         .w(char_w * (w as f32 + 3.))
@@ -4446,7 +4480,18 @@ impl gpui::Render for Editor {
                         .border_l_1()
                         .border_color(line)
                         .child(SharedString::from(kalem_core::csv_tools::column_letters(j)))
-                        .child(handle);
+                        .children(with_edge.then(|| handle(j, w).right(px(-3.))))
+                        .on_mouse_down(MouseButton::Left, move |_: &MouseDownEvent, window, cx| {
+                            cx.stop_propagation();
+                            select.update(cx, |e, cx| {
+                                e.run_command(
+                                    "csv.selectColumn",
+                                    serde_json::json!({ "column": j }),
+                                    window,
+                                    cx,
+                                );
+                            });
+                        });
                     if on {
                         // Marked by its color and a green line under it;
                         // the letter stays as readable as the rest.
@@ -4473,13 +4518,23 @@ impl gpui::Render for Editor {
                             .flex_row()
                             .bg(gray)
                             .child(div().flex_none().w(corner).h_full())
-                            .child(letter_cell(j, w))
+                            .child(letter_cell(j, w, true))
                     });
-                let columns = widths
-                    .iter()
-                    .copied()
-                    .chain((next..next + 60).map(|j| (j, extra)))
-                    .map(|(j, w)| letter_cell(j, w));
+                let all = || {
+                    widths
+                        .iter()
+                        .copied()
+                        .chain((next..next + 60).map(|j| (j, extra)))
+                };
+                let columns = all().map(|(j, w)| letter_cell(j, w, false));
+                // The edges, over the letters, at the right of each.
+                let mut x = corner;
+                let edges: Vec<_> = all()
+                    .map(|(j, w)| {
+                        x += char_w * (w as f32 + 3.);
+                        handle(j, w).left(x - px(3.))
+                    })
+                    .collect();
                 text = text.child(
                     div()
                         .debug_selector(|| "csv-letters".into())
@@ -4502,7 +4557,8 @@ impl gpui::Render for Editor {
                                 .flex()
                                 .flex_row()
                                 .child(div().flex_none().w(corner).h_full())
-                                .children(columns),
+                                .children(columns)
+                                .children(edges),
                         )
                         .children(frozen_letters),
                 );

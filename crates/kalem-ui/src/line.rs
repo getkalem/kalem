@@ -1530,9 +1530,15 @@ impl gpui::Element for LineElement {
             .then(|| kalem_core::csv::layout(&editor.doc))
             .filter(|l| l.view.sheet)
             .map(|l| {
+                // The cursor's cell on this row, as the bars count it: the
+                // columns that show (hidden ones have none).
                 let active = kalem_core::csv::cell_at(&editor.doc)
-                    .filter(|(_, _, rec, _)| rec.range.start == view.range.start)
-                    .map(|(_, _, _, c)| c);
+                    .filter(|(_, _, rec, _)| {
+                        rec.range.start <= view.range.start && view.range.start <= rec.range.end
+                    })
+                    .map(|(_, _, _, c)| c)
+                    .filter(|c| !l.columns.hidden.contains(c))
+                    .map(|c| (0..c).filter(|j| !l.columns.hidden.contains(j)).count());
                 SheetRow {
                     active,
                     extra: kalem_core::csv::SHEET_MIN_WIDTH + 3,
