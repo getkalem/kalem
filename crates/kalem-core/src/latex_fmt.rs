@@ -126,7 +126,7 @@ fn lead(line: &str) -> &str {
 /// The document's indentation step: what a line in an environment adds to
 /// its `\begin` line, the most common one; `None` when environments are
 /// not indented.
-fn step(text: &str, root: &SyntaxNode) -> Option<String> {
+fn step(text: &str, root: &SyntaxNode, keep: &[Range<usize>]) -> Option<String> {
     let mut votes: HashMap<String, usize> = HashMap::new();
     let kept = lines_kept(text);
     for env in root.descendants().filter(|n| n.kind() == K::ENVIRONMENT) {
@@ -139,6 +139,11 @@ fn step(text: &str, root: &SyntaxNode) -> Option<String> {
         }
         let begin = usize::from(env.text_range().start());
         let bl = text[..begin].rfind('\n').map_or(0, |i| i + 1);
+        // A `\begin` line kept as it is (where verbatim text ends) has
+        // the indentation of that text, not the formatter's.
+        if keep.iter().any(|r| r.start < bl && bl <= r.end) {
+            continue;
+        }
         let begin_lead = lead(&text[bl..]);
         // The first line after `\begin`'s.
         let Some(nl) = text[begin..].find('\n') else {
@@ -168,7 +173,7 @@ pub fn format(text: &str, align: bool) -> String {
     let parse = latex_syntax::parse(text);
     let root = parse.syntax();
     let keep = protected(&root);
-    let unit = step(text, &root);
+    let unit = step(text, &root, &keep);
     // A line starting where verbatim text ends is the `\end` line: kept
     // as it is too, its indentation being the text's last line.
     let inside = |p: usize| keep.iter().any(|r| r.start < p && p <= r.end);
@@ -470,6 +475,16 @@ mod tests {
             Just("}".to_string()),
             "[a-z ]{1,6}",
         ]
+    }
+
+    #[test]
+    fn a_begin_line_kept_as_it_is_does_not_set_the_step() {
+        // Found by the property below: the second `\begin` line ends an
+        // unclosed verbatim group, so it is kept, and voted 4 spaces.
+        let text =
+            "\\begin{itemize}\n{\\begin{verbatim}\n}\\begin{tabular}{ll}\n  \\begin{verbatim}\n";
+        let once = format(text, false);
+        assert_eq!(format(&once, false), once);
     }
 
     proptest! {
