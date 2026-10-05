@@ -2556,6 +2556,10 @@ impl Editor {
                 }
                 self.vertical(rows)
             }
+            // Ctrl (Command) with Home and End: the document's ends, as
+            // in the terminal editor (they went to the line's).
+            "home" if word || line_motion => 0,
+            "end" if word || line_motion => text.len(),
             "home" => text.line_range(line).start,
             "end" => text.line_range(line).end,
             _ => return None,

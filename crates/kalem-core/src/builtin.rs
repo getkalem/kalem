@@ -1329,6 +1329,13 @@ fn csv_fill(ctx: &mut EditorContext<'_>, series: bool) -> CommandResult {
                 .get(col)
                 .map(|f| crate::csv::value(text, f, dl).into_owned())
         };
+        // The columns the selection covers, else the cursor's.
+        let cols = if sel.anchor != sel.head {
+            crate::csv::cell_at_offset(d, sel.anchor)
+                .map_or((col, col), |(_, _, _, c)| (c.min(col), c.max(col)))
+        } else {
+            (col, col)
+        };
         let (first, last) = if sel.anchor != sel.head {
             let mut idx = layout.index.borrow_mut();
             (
@@ -1349,7 +1356,7 @@ fn csv_fill(ctx: &mut EditorContext<'_>, series: bool) -> CommandResult {
             let above = cell(first).unwrap_or_default();
             crate::csv_tools::series_step(above2.as_deref(), &above, dl.delimiter == b';')
         });
-        crate::csv_tools::fill(text, dl, col, first, last, step)
+        crate::csv_tools::fill(text, dl, cols, first, last, step)
             .ok_or_else(|| CommandError::new(crate::tr!("msg-csv-no-series")))?
     };
     d.apply(&tx, org_edit::ChangeKind::Command, now);

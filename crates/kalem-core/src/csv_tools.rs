@@ -27,23 +27,6 @@ fn blank(r: &Record) -> bool {
     r.range.is_empty()
 }
 
-/// Sets field `col` of `rec` to `v` in `tx`, padding a short record.
-fn set(tx: &mut Transaction, rec: &Record, col: usize, v: &str, d: &Dialect) {
-    let enc = encode(v, d);
-    match rec.fields.get(col) {
-        Some(f) => {
-            let _ = tx.replace(f.range.clone(), enc);
-        }
-        None => {
-            let pad = d
-                .delimiter_char()
-                .to_string()
-                .repeat(col + 1 - rec.fields.len());
-            let _ = tx.replace(rec.range.end..rec.range.end, format!("{pad}{enc}"));
-        }
-    }
-}
-
 /// The value after `v` in a series stepping by `step`: a number (decimals
 /// kept as the first value writes them), or text ending in a number
 /// (`Item 9` → `Item 10`).
@@ -79,35 +62,67 @@ pub fn next_in_series(v: &str, step: f64, comma_decimal: bool) -> Option<String>
     Some(format!("{head}{m:0digits$}"))
 }
 
-/// Fills column `col` of the records `first + 1 ..= last` from record
-/// `first`: its value copied (fill down), or a series continuing it by
-/// `step` (fill series). `None` when a series cannot continue the value.
+/// Fills columns `cols` (first and last, inclusive) of the records
+/// `first + 1 ..= last` from record `first`: each column's value copied
+/// (fill down), or a series continuing it by `step` (fill series). `None`
+/// when a series cannot continue a value, or record `first` has none of
+/// the columns.
 pub fn fill(
     text: &str,
     d: &Dialect,
-    col: usize,
+    cols: (usize, usize),
     first: usize,
     last: usize,
     series: Option<f64>,
 ) -> Option<Transaction> {
     let recs = records(text, d);
     let top = recs.get(first)?;
-    let start = top
-        .fields
-        .get(col)
-        .map(|f| value(text, f, d).into_owned())?;
+    // Each column's first value; a column the top record lacks stays.
+    let starts: Vec<Option<String>> = (cols.0..=cols.1)
+        .map(|c| top.fields.get(c).map(|f| value(text, f, d).into_owned()))
+        .collect();
+    if starts.iter().all(Option::is_none) {
+        return None;
+    }
     let comma = d.delimiter == b';';
     let mut tx = Transaction::new(if series.is_some() {
         "Fill Series"
     } else {
         "Fill Down"
     });
-    let mut v = start;
+    let mut values = starts;
     for rec in recs.iter().take(last + 1).skip(first + 1) {
         if let Some(step) = series {
-            v = next_in_series(&v, step, comma)?;
+            for v in values.iter_mut().flatten() {
+                *v = next_in_series(v, step, comma)?;
+            }
         }
-        set(&mut tx, rec, col, &v, d);
+        // The fields the record has, then the ones it lacks in one insert
+        // (two inserts at its end would overlap).
+        let mut tail = String::new();
+        let mut added = 0;
+        let delim = d.delimiter_char();
+        for (k, v) in values.iter().enumerate() {
+            let col = cols.0 + k;
+            match (rec.fields.get(col), v) {
+                (Some(f), Some(v)) => {
+                    let _ = tx.replace(f.range.clone(), encode(v, d));
+                }
+                (None, v) => {
+                    for _ in added..col + 1 - rec.fields.len() {
+                        tail.push(delim);
+                    }
+                    added = col + 1 - rec.fields.len();
+                    if let Some(v) = v {
+                        tail.push_str(&encode(v, d));
+                    }
+                }
+                (Some(_), None) => {}
+            }
+        }
+        if !tail.is_empty() {
+            let _ = tx.replace(rec.range.end..rec.range.end, tail);
+        }
     }
     Some(tx)
 }
@@ -522,11 +537,20 @@ mod tests {
     fn fill_down_and_series() {
         let t = "name,n\na,1\nb,\nc,\n";
         let d = detect(t);
-        let tx = fill(t, &d, 1, 1, 3, None).unwrap();
+        let tx = fill(t, &d, (1, 1), 1, 3, None).unwrap();
         assert_eq!(run(t, &tx), "name,n\na,1\nb,1\nc,1\n");
-        let tx = fill(t, &d, 1, 1, 3, Some(1.0)).unwrap();
+        let tx = fill(t, &d, (1, 1), 1, 3, Some(1.0)).unwrap();
         assert_eq!(run(t, &tx), "name,n\na,1\nb,2\nc,3\n");
         assert_eq!(only_cells(&tx), ["2", "3"]);
+        // Several columns: each from its own first value, short records
+        // padded (it filled only the cursor's column).
+        let t = "a,b,c\nx,\"1,5\",z\n,,\n\n";
+        let d = detect(t);
+        let tx = fill(t, &d, (0, 2), 1, 3, None).unwrap();
+        assert_eq!(
+            run(t, &tx),
+            "a,b,c\nx,\"1,5\",z\nx,\"1,5\",z\nx,\"1,5\",z\n"
+        );
         // Text ending in a number, decimals, leading zeros.
         assert_eq!(next_in_series("Item 9", 1.0, false).unwrap(), "Item 10");
         assert_eq!(next_in_series("1.50", 0.25, false).unwrap(), "1.75");

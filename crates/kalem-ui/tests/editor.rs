@@ -4684,3 +4684,17 @@ fn csv_record_of_two_lines_is_a_grid_row(cx: &mut TestAppContext) {
     // Every cell, from either line.
     assert_eq!(csv_unclickable(&e, &[0, 1, 2, 3], 4, cx), vec![]);
 }
+
+/// Ctrl+Home and Ctrl+End go to the document's ends, as in the terminal
+/// editor and in a spreadsheet's A1 and last cell (they went to the
+/// line's ends).
+#[gpui::test]
+fn ctrl_home_and_end_go_to_the_ends(cx: &mut TestAppContext) {
+    let text = "a,b\n1,2\n3,4\n";
+    let (e, cx) = open_named(text, "ends.csv", || None, cx);
+    at(&e, 5, cx);
+    cx.simulate_keystrokes("ctrl-end");
+    assert_eq!(e.read_with(cx, |e, _| e.doc.selection.head), text.len());
+    cx.simulate_keystrokes("ctrl-home");
+    assert_eq!(e.read_with(cx, |e, _| e.doc.selection.head), 0);
+}
