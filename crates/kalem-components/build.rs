@@ -84,14 +84,27 @@ fn main() {
 }
 
 /// Each bundled plugin's folder in the sources Cargo keeps, by package.
+/// Offline first; Cargo downloads what the workspace's metadata needs and
+/// this build did not (a fresh machine building only this crate, as CI's
+/// components job).
 fn plugin_sources(cargo: &str, kalem: &Path) -> std::collections::BTreeMap<String, PathBuf> {
-    let out = Command::new(cargo)
-        .args(["metadata", "--format-version", "1", "--locked", "--offline"])
-        .arg("--manifest-path")
-        .arg(kalem.join("Cargo.toml"))
-        .stderr(Stdio::inherit())
-        .output()
-        .expect("cargo metadata");
+    let metadata = |offline: bool| {
+        let mut c = Command::new(cargo);
+        c.args(["metadata", "--format-version", "1", "--locked"]);
+        if offline {
+            c.arg("--offline").stderr(Stdio::null());
+        } else {
+            c.stderr(Stdio::inherit());
+        }
+        c.arg("--manifest-path")
+            .arg(kalem.join("Cargo.toml"))
+            .output()
+            .expect("cargo metadata")
+    };
+    let mut out = metadata(true);
+    if !out.status.success() {
+        out = metadata(false);
+    }
     assert!(out.status.success(), "cargo metadata failed");
     let meta: serde_json::Value = serde_json::from_slice(&out.stdout).expect("metadata JSON");
     let mut found = std::collections::BTreeMap::new();
