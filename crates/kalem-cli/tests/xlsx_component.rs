@@ -16,7 +16,13 @@ fn workbooks() -> Option<(PathBuf, Vec<PathBuf>)> {
     let mut books: Vec<PathBuf> = std::fs::read_dir(&corpus)
         .ok()?
         .filter_map(|e| e.ok().map(|e| e.path()))
-        .filter(|p| p.extension().is_some_and(|e| e == "xlsx" || e == "xlsm"))
+        .filter(|p| {
+            p.extension().is_some_and(|e| {
+                ["xlsx", "xlsm", "xls", "xlsb", "ods"]
+                    .iter()
+                    .any(|x| e == *x)
+            })
+        })
         .collect();
     books.sort();
     Some((component, books))
@@ -72,7 +78,13 @@ fn the_component_reads_and_edits_as_the_bundled_plugin() {
         &component,
         "xlsx",
         "Excel workbooks",
-        &["xlsx".into(), "xlsm".into()],
+        &[
+            "xlsx".into(),
+            "xlsm".into(),
+            "xls".into(),
+            "xlsb".into(),
+            "ods".into(),
+        ],
         kalem_script::viewer::VIEWER_LIMITS,
     );
     let native = kalem_plugin_xlsx::XlsxViewer;
@@ -89,8 +101,9 @@ fn the_component_reads_and_edits_as_the_bundled_plugin() {
             first_difference(&pa, &pb)
         );
         // An edit of the first sheet: a value and a formula over it, the
-        // formulas recalculated by IronCalc on both sides.
-        if a.grid(0).is_some() {
+        // formulas recalculated by IronCalc on both sides (a workbook
+        // only shown, `.xls`, `.xlsb` or `.ods`, is read alike only).
+        if a.grid(0).is_some_and(|g| g.editable) {
             for d in [&mut a, &mut b] {
                 d.set_cell(0, 20, 0, "21").unwrap();
                 d.set_cell(0, 20, 1, "=A21*2+SUM(A21:A21)").unwrap();

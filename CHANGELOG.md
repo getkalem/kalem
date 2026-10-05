@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A test that panics on purpose checks the crash report: `crash-DATE.txt` beside the log, with the report's header, the panic and where the log is.
 
 ### Changed
+- The workbook plugin built as a component opens `.xls`, `.xlsb` and `.ods` files too, as the bundled one does (calamine builds for WebAssembly); it was OOXML only.
 - Markdown: a code block is drawn on the code background from fence to fence, and away from the cursor its fences show only the language (```` ```bash ```` as `bash`).
 - Documents take the whole window by default: `editor.line_width` is 0 (it was 80, which left half of a wide window empty); set it to 80 for a page-wide column.
 - Markdown: a table away from the cursor is drawn as a grid, its columns lined up as its delimiter row says; the file is not changed. With the cursor in it, the table shows its source.
