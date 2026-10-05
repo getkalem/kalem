@@ -25,8 +25,19 @@ pub(crate) use table::recalc;
 
 pub(crate) type Result<T> = std::result::Result<T, String>;
 
+/// A file's text as the editors read it (`kalem_core::files::read`):
+/// UTF-8, UTF-16, or a legacy encoding its bytes or `coding:` name,
+/// without a byte order mark; and how it was read. (It was read as
+/// UTF-8 only: a Latin-1 file stopped a whole `kalem check`.)
+pub(crate) fn read_doc(path: &Path) -> Result<(String, kalem_core::Metadata)> {
+    kalem_core::files::read(path)
+        .map(|(text, meta, _)| (text, meta))
+        .map_err(|e| format!("{}: {e}", path.display()))
+}
+
+/// [`read_doc`]'s text.
 pub(crate) fn read(path: &Path) -> Result<String> {
-    std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))
+    read_doc(path).map(|(text, _)| text)
 }
 
 /// `kalem commands [--type TYPE]`: every command, or those whose scope
@@ -311,7 +322,15 @@ pub(crate) fn check(
     let files = expand_files(files)?;
     for f in &files {
         let f = f.as_path();
-        let text = read(f)?;
+        // A file that cannot be read is reported, and the others checked.
+        let text = match read(f) {
+            Ok(t) => t,
+            Err(e) => {
+                let _ = writeln!(std::io::stderr(), "{e}");
+                failed = true;
+                continue;
+            }
+        };
         // As the editors decide: `.tex`, `.latex`, `.ltx`, or a mode line.
         let latex = kalem_core::DocumentMode::detect(Some(f), text.as_bytes())
             == kalem_core::DocumentMode::Latex;
@@ -603,7 +622,7 @@ pub(crate) fn latex_build(
     let disk = latex_model::project::Disk;
     let root = kalem_core::latex_view::find_root(&file, &text);
     let project = latex_model::project::ProjectCache::default().load(&root, &disk);
-    let root_text = std::fs::read_to_string(&root).map_err(|e| e.to_string())?;
+    let root_text = read(&root)?;
     // `--engine` wins over `% !TEX program`, which wins over the packages.
     let engine = match engine.filter(|e| *e != "auto") {
         Some(e) => kalem_core::pdf::Engine::from_keyword(Some(e)),

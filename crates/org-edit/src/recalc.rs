@@ -103,15 +103,20 @@ fn tblfm_line_at(text: &str, rows_end: usize, point: usize) -> Option<&str> {
         .rfind('\n')
         .map_or(0, |i| i + 1);
     let eol = text[bol..].find('\n').map_or(text.len(), |i| bol + i);
-    let body = text[bol..eol].trim_start_matches([' ', '\t']);
+    let line = &text[bol..eol];
+    let body = line
+        .strip_suffix('\r')
+        .unwrap_or(line)
+        .trim_start_matches([' ', '\t']);
     let key = body.get(..8)?;
     key.eq_ignore_ascii_case("#+tblfm:")
         .then(|| body[8..].trim_start_matches(' '))
 }
 
-/// The table's lines with new fields, indented like its first line; the
-/// alignment that follows gives rules and widths.
-fn table_text(t: &Table, indent: &str) -> String {
+/// The table's lines with new fields, indented like its first line and
+/// ended as the file's lines are; the alignment that follows gives rules
+/// and widths.
+fn table_text(t: &Table, indent: &str, eol: &str) -> String {
     let mut s = String::new();
     for r in &t.rows {
         s.push_str(indent);
@@ -126,7 +131,7 @@ fn table_text(t: &Table, indent: &str) -> String {
                 }
             }
         }
-        s.push('\n');
+        s.push_str(eol);
     }
     s
 }
@@ -177,17 +182,29 @@ pub fn recalculate(doc: &Document, point: usize, iterate: bool) -> Result<Recalc
     let indent_len = first_line.len() - first_line.trim_start_matches([' ', '\t']).len();
     let indent = &first_line[..indent_len];
     let mut replaced = text.clone();
-    replaced.replace_range(rows.clone(), &table_text(&new, indent));
+    let eol = if text[rows.clone()].contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    };
+    replaced.replace_range(rows.clone(), &table_text(&new, indent, eol));
     // Aligned as a document of its own, then put in place.
     let new_doc = Document::new(org_syntax::parse_with(&replaced, doc.parse().context()));
     let at = rows.start + indent_len;
     let aligned = crate::table::align_table(&new_doc, at)?.apply(&replaced);
-    // The rows after alignment: everything else is unchanged.
-    let new_end = aligned.len() - (text.len() - rows.end);
-    let new_rows = &aligned[rows.start..new_end];
+    // The rows after alignment: everything else is unchanged. The
+    // alignment ends lines with LF; a CR LF file's rows keep their CR.
+    let aligned_end = aligned.len() - (text.len() - rows.end);
+    let new_rows = &aligned[rows.start..aligned_end];
+    let new_rows = if eol == "\r\n" {
+        new_rows.replace("\r\n", "\n").replace('\n', "\r\n")
+    } else {
+        new_rows.to_string()
+    };
+    let new_end = rows.start + new_rows.len();
     let mut tx = Transaction::new("Recalculate table");
-    if new_rows != &text[rows.clone()] {
-        tx.edit(rows.clone(), new_rows);
+    if new_rows != text[rows.clone()] {
+        tx.edit(rows.clone(), &new_rows);
     }
     let caret = if point < rows.end {
         point.min(new_end)
@@ -522,6 +539,20 @@ pub fn set_formula(
 
 #[cfg(test)]
 mod tests {
+    /// A CR LF file: the formulas read without the CR, the rows written
+    /// with it, and a table already right left as it is.
+    #[test]
+    fn crlf_tables() {
+        let recalc = |text: &str| {
+            let doc = Document::new(org_syntax::parse(text));
+            recalculate(&doc, 0, false).unwrap().transaction.apply(text)
+        };
+        let right = "| 2 | 4 |\r\n#+TBLFM: $2=$1*2\r\n";
+        assert_eq!(recalc(right), right);
+        let out = recalc("| 2 | 0 |\r\n| 3 | 0 |\r\n#+TBLFM: $2=$1*2\r\n");
+        assert_eq!(out, "| 2 | 4 |\r\n| 3 | 6 |\r\n#+TBLFM: $2=$1*2\r\n");
+    }
+
     use super::*;
 
     fn run(t: &str, point: usize) -> String {

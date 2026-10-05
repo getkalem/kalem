@@ -4,7 +4,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use super::{Result, read};
+use super::Result;
 
 /// An export back-end the command line offers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -102,31 +102,49 @@ pub(crate) fn export(
     }
     let mut failed = false;
     for file in files {
-        let text = read(file)?;
-        let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
-        // The input is read as Org whatever it is: said when the editors
-        // would open it as something else.
+        let (text, meta) = super::read_doc(file)?;
+        let text = text.as_str();
         let mode = kalem_core::DocumentMode::detect(Some(file), text.as_bytes());
-        // Markdown to Org: written from comrak's tree (T2.7c.7).
-        let markdown_to_org = mode == kalem_core::DocumentMode::Markdown && to == Target::Org;
-        if !markdown_to_org
-            && matches!(
-                mode,
-                kalem_core::DocumentMode::Markdown
-                    | kalem_core::DocumentMode::Csv
-                    | kalem_core::DocumentMode::Latex
-            )
-        {
+        // Markdown to Org: written from comrak's tree (T2.7c.7); to HTML:
+        // comrak's rendering, as Copy as HTML gives it.
+        let markdown = mode == kalem_core::DocumentMode::Markdown;
+        let markdown_to_org = markdown && to == Target::Org;
+        let markdown_to_html = markdown && to == Target::Html;
+        // Anything else is exported from Org: another format read as Org
+        // gave broken output (and exit 0), so it is refused.
+        let other_format = matches!(
+            mode,
+            kalem_core::DocumentMode::Markdown
+                | kalem_core::DocumentMode::Csv
+                | kalem_core::DocumentMode::Latex
+                | kalem_core::DocumentMode::Text { language: Some(_) }
+        );
+        if other_format && !markdown_to_org && !markdown_to_html {
             eprintln!(
-                "{}: warning: read as Org, not as {} (`kalem export` reads Org files{})",
+                "{}: not exported: `kalem export` exports Org files{}",
                 file.display(),
-                mode.title(),
-                if mode == kalem_core::DocumentMode::Markdown {
-                    "; `--to org` converts Markdown to Org"
+                if markdown {
+                    ", and Markdown to HTML (`--to html`) or Org (`--to org`)"
                 } else {
                     ""
                 }
             );
+            failed = true;
+            continue;
+        }
+        // Converting Markdown to Org beside it does not replace an Org file
+        // already there, which may be the user's own.
+        if markdown_to_org && output.is_none() {
+            let target = file.with_extension("org");
+            if target.exists() {
+                eprintln!(
+                    "{}: not converted: {} exists (give --output)",
+                    file.display(),
+                    target.display()
+                );
+                failed = true;
+                continue;
+            }
         }
         let at = match subtree {
             Some(name) => match find_headline(text, name) {
@@ -155,6 +173,23 @@ pub(crate) fn export(
         }
         let out = if markdown_to_org {
             Ok(kalem_core::markdown_org::to_org(text))
+        } else if markdown_to_html {
+            let body = kalem_core::markdown::to_html(text);
+            Ok(if body_only {
+                body
+            } else {
+                let title = file
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                format!(
+                    "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>{}</title>\n</head>\n<body>\n{body}</body>\n</html>\n",
+                    title
+                        .replace('&', "&amp;")
+                        .replace('<', "&lt;")
+                        .replace('>', "&gt;")
+                )
+            })
         } else if to == Target::Org {
             let (out, counts) = kalem_core::kinds::strip_markup(text);
             eprintln!(
@@ -162,7 +197,13 @@ pub(crate) fn export(
                 file.display(),
                 kalem_core::kinds::dropped_summary(counts)
             );
-            Ok(out)
+            // The file's byte order mark kept: the Org it writes is the
+            // same file without Kalem's additions.
+            Ok(if meta.bom {
+                format!("\u{feff}{out}")
+            } else {
+                out
+            })
         } else {
             org_export::export(text, to.backend(), &settings)
         };

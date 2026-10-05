@@ -162,7 +162,9 @@ pub fn active_line(text: &str) -> Option<(usize, &str)> {
     let mut at = 0;
     loop {
         let end = text[at..].find('\n').map_or(text.len(), |i| at + i);
+        // A CR LF file's line without its CR, which is no formula's.
         let line = &text[at..end];
+        let line = line.strip_suffix('\r').unwrap_or(line);
         let body = line.trim_start_matches([' ', '\t']);
         if body.is_empty() && end < text.len() {
             at = end + 1;
@@ -173,7 +175,7 @@ pub fn active_line(text: &str) -> Option<(usize, &str)> {
             return None;
         }
         let value = body[8..].trim_start_matches(' ');
-        return Some((end - value.len(), value));
+        return Some((at + line.len() - value.len(), value));
     }
 }
 

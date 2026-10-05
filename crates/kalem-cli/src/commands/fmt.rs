@@ -37,13 +37,25 @@ pub(crate) fn fmt(files: &[PathBuf], check: bool, align: bool) -> Result<ExitCod
             continue;
         }
         // As the editors decide: `.tex`, `.latex`, `.ltx`, or a mode line.
-        let latex = mode == kalem_core::DocumentMode::Latex;
         let formatted = if let Some(kalem_core::packs::Formatted::Text(t)) = pack {
             t
-        } else if latex {
+        } else if mode == kalem_core::DocumentMode::Latex {
             kalem_core::latex_fmt::format(&text, align)
+        } else if mode == kalem_core::DocumentMode::Org {
+            // The setup files' keywords too, as the editors read them.
+            org_edit::format::format(&org_model::Document::new(org_syntax::parse_file(
+                &text, path,
+            )))
         } else {
-            org_edit::format::format(&org_model::Document::new(org_syntax::parse(&text)))
+            // Markdown, CSV, BibTeX, code without a formatter: Kalem has
+            // none for them, and Org's would rewrite them (a GFM table's
+            // `|---|` as `|---+---|`).
+            let _ = writeln!(
+                std::io::stderr(),
+                "{}: not formatted: Kalem formats Org and LaTeX files, and code whose language has a formatter",
+                path.display()
+            );
+            continue;
         };
         if formatted == text {
             continue;
@@ -77,8 +89,9 @@ pub(crate) fn query(args: &[String], json: bool) -> Result<ExitCode> {
     for f in files {
         let path = Path::new(f);
         let text = super::read(path)?;
+        // `#+SETUPFILE`'s keywords and tags too, as export reads them.
         let doc = org_model::Document::with_settings(
-            org_syntax::parse(&text),
+            org_syntax::parse_file(&text, path),
             Arc::new(org_model::Settings::default()),
             Some(f.clone()),
         );

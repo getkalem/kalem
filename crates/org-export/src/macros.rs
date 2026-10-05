@@ -187,9 +187,50 @@ fn parse_macro_at(text: &str, at: usize) -> Option<Found> {
     })
 }
 
-fn next_macro(text: &str, from: usize, parsed: &[&str]) -> Option<Found> {
-    let parse = org_syntax::parse(text);
-    let root = parse.syntax();
+/// The parse macros are found in, kept across replacements: `delta` is
+/// how far the text after the last replacement has moved since `parse`
+/// was made (the document is parsed once, not once a macro).
+struct Parsed {
+    parse: org_syntax::Parse,
+    root: SyntaxNode,
+    delta: isize,
+}
+
+impl Parsed {
+    fn new(text: &str) -> Parsed {
+        let parse = org_syntax::parse(text);
+        let root = parse.syntax();
+        Parsed {
+            parse,
+            root,
+            delta: 0,
+        }
+    }
+
+    /// The parse's offset of `at` in the text as it is now.
+    fn old(&self, at: usize) -> usize {
+        (at as isize - self.delta) as usize
+    }
+
+    /// The text's offset of the parse's `at`.
+    fn new_offset(&self, at: usize) -> usize {
+        (at as isize + self.delta) as usize
+    }
+
+    /// `start..end` replaced by `value` in `text` (already done): the
+    /// parse kept when the value cannot change the structure after it,
+    /// made again when it holds a macro or a line break.
+    fn replaced(&mut self, text: &str, start: usize, end: usize, value: &str) {
+        if value.contains("{{{") || value.contains('\n') {
+            *self = Parsed::new(text);
+        } else {
+            self.delta += value.len() as isize - (end - start) as isize;
+        }
+    }
+}
+
+fn next_macro(text: &str, from: usize, parsed: &[&str], tree: &Parsed) -> Option<Found> {
+    let root = &tree.root;
     let mut pos = from;
     while let Some(i) = text[pos..].find("{{{") {
         let at = pos + i;
@@ -202,7 +243,7 @@ fn next_macro(text: &str, from: usize, parsed: &[&str]) -> Option<Found> {
             continue;
         }
         let Some(tok) = root
-            .token_at_offset(TextSize::from(at as u32))
+            .token_at_offset(TextSize::from(tree.old(at) as u32))
             .right_biased()
         else {
             continue;
@@ -212,13 +253,13 @@ fn next_macro(text: &str, from: usize, parsed: &[&str]) -> Option<Found> {
             continue;
         }
         if let Some(m) = tok.parent_ancestors().find(|a| a.kind() == MACRO)
-            && usize::from(m.text_range().start()) == at
+            && tree.new_offset(usize::from(m.text_range().start())) == at
         {
             let mac: ast::Macro = ast::AstNode::cast(m.clone())?;
             let blank = ast::post_blank(&m);
             return Some(Found {
                 start: at,
-                end: usize::from(m.text_range().end()) - blank,
+                end: tree.new_offset(usize::from(m.text_range().end())) - blank,
                 key: mac.key(),
                 args: mac.args(),
             });
@@ -250,7 +291,9 @@ fn next_macro(text: &str, from: usize, parsed: &[&str]) -> Option<Found> {
 }
 
 /// The property `name` of the entry around `at` (no inheritance), or of
-/// the file before the first headline.
+/// the file before the first headline (the expansion uses the parse it
+/// keeps, [`property_in`]).
+#[cfg(test)]
 fn property_at(
     text: &str,
     at: usize,
@@ -532,7 +575,8 @@ pub fn expand_tracking(
     let mut record: HashSet<(usize, String, Vec<String>)> = HashSet::new();
     let mut text = text.to_string();
     let mut pos = 0;
-    while let Some(m) = next_macro(&text, pos, parsed) {
+    let mut tree = Parsed::new(&text);
+    while let Some(m) = next_macro(&text, pos, parsed, &tree) {
         let value = value_of(
             &templates,
             &keywords,
@@ -540,7 +584,16 @@ pub fn expand_tracking(
             &m.key,
             &m.args,
             now,
-            |name, location| property_at(&text, m.start, name, location, file),
+            |name, location| {
+                property_in(
+                    &tree.root,
+                    &tree.parse.keywords(),
+                    tree.old(m.start),
+                    name,
+                    location,
+                    file,
+                )
+            },
         );
         match value {
             Some(v) => {
@@ -556,6 +609,7 @@ pub fn expand_tracking(
                     }
                 }
                 text.replace_range(m.start..m.end, &v);
+                tree.replaced(&text, m.start, m.end, &v);
                 pos = m.start;
             }
             None if m.key == "results" => pos = m.end,
@@ -574,13 +628,15 @@ pub(crate) fn expand_results(text: &str, parsed: &[&str]) -> String {
     }
     let mut text = text.to_string();
     let mut pos = 0;
-    while let Some(m) = next_macro(&text, pos, parsed) {
+    let mut tree = Parsed::new(&text);
+    while let Some(m) = next_macro(&text, pos, parsed, &tree) {
         if m.key != "results" {
             pos = m.end;
             continue;
         }
         let v = fill("$1", &m.args);
         text.replace_range(m.start..m.end, &v);
+        tree.replaced(&text, m.start, m.end, &v);
         pos = m.start + v.len();
     }
     text

@@ -277,7 +277,7 @@ the HTML, Markdown, text and LaTeX exports byte-identical on mixed
 documents, `kalem check`'s round trip and diagnostics, a missing
 `#+INCLUDE` failing as Emacs does, 10,000 nesting levels in release.
 
-- [ ] **Blocker, verified.** `kalem fmt` formats every file that is not
+- [x] **Blocker, verified.** `kalem fmt` formats every file that is not
   LaTeX (and has no language pack) with the Org formatter
   (`kalem-cli/src/commands/fmt.rs:41-47`), code included:
   `kalem fmt --check crates/org-edit/src/format.rs tools/gen-edit-cases.py`
@@ -287,7 +287,11 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   Document is gated by `editorMode == org || latex || hasFormatter`
   (`builtin.rs:5075`); the CLI must be gated the same way. (Same root
   cause as 3.2's first item.)
-- [ ] **Major, verified.** Table formulas break in CRLF files:
+  (done 2026-10-05: `kalem fmt` formats Org (with its setup files, as
+  `parse_file` reads them), LaTeX and code whose language has a
+  formatter; any other file is left as it is with a note on standard
+  error and does not count as changed; the help says so.)
+- [x] **Major, verified.** Table formulas break in CRLF files:
   `tblfm::active_line` keeps the trailing `\r` on the last formula
   (`org-table/src/tblfm.rs:161-177`) and Calc's tokenizer does not skip
   it (`calc/parse.rs:141`); recalculation then rewrites rows with bare
@@ -295,13 +299,17 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   `kalem table recalc --check` lists `| 2 | 4 |\n#+TBLFM: $2=$1*2\r\n`
   as changed and not its LF twin; F9 and automatic recalculation in both
   editors run the same code.
-- [ ] **Major, verified.** Tag commands do not see the tags of a CRLF
+  (done: the `#+TBLFM` readers drop the CR, and recalculated rows keep
+  the file's CR LF, alignment included; test `crlf_tables`.)
+- [x] **Major, verified.** Tag commands do not see the tags of a CRLF
   headline: `tags_start`/`heading_end` trim spaces and tabs only
   (`org-edit/src/tags.rs:32-47`, `org-model/src/properties.rs:110-121`).
   `kalem fmt --check` on `* H :a:\r\n` reports nothing while the LF
   version is aligned; from the code, Set Tags on such a line inserts the
   new tags after the `\r` and keeps the old (`* H :a:\r      :b:`).
-- [ ] **Major, verified (timed by the audit).** Export of a document
+  (done: the tag helpers' line end stops before a CR, and
+  `heading_end` trims it; test `tags_of_a_crlf_heading`.)
+- [x] **Major, verified (timed by the audit).** Export of a document
   with many macros is very slow and freezes the editors: `next_macro`
   re-parses the whole document for every `{{{…}}}` and `property_at`
   again (`org-export/src/macros.rs:190`, `261`, loop at `535`). Release
@@ -310,19 +318,29 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   Export runs synchronously inside the command (`builtin.rs:781-826`), so
   the window hangs for the whole time. Parse once, and run exports as a
   job.
-- [ ] **Major, verified.** `#+INCLUDE` reads the included file with a
+  (done: the document is parsed once and offsets shifted across
+  replacements, parsed again only when a value holds a macro or a line
+  break, so the structure stays right; `property` macros read the same
+  parse. org-guide's HTML export in a debug build: 17 s to 1 s, the
+  same bytes; the whole Org manual: 11 s in a debug build. Export still
+  runs inside the command in the editors.)
+- [x] **Major, verified.** `#+INCLUDE` reads the included file with a
   plain `read_to_string` (`org-export/src/include.rs:486`) while setup
   files are normalized (`org-syntax/src/prepass.rs:270`): a BOM is
   inserted literally (the included file's first headline becomes
   paragraph text), `\r` leaks into the output, and a non-UTF-8 include
   fails with "Cannot include file" although it exists. Emacs decodes all
   three.
-- [ ] **Major, verified.** `kalem query` and `kalem fmt` build the model
+  (done: an included file's byte order mark is dropped, CR LF read as
+  LF, bytes that are not UTF-8 read as Latin-1, as Emacs inserts them;
+  setup files read the same; test `includes_files_as_emacs_reads_them`.)
+- [x] **Major, verified.** `kalem query` and `kalem fmt` build the model
   with `org_syntax::parse`, not `parse_file` (`commands/fmt.rs:80-84`,
   `46`), so `#+SETUPFILE` is ignored: TODO keywords, FILETAGS and tag
   groups from a setup file are lost (`kalem query q.org '/REVIEW'` prints
   nothing where `kalem export` recognizes REVIEW; the Book's
   `org.org:465` says the model reads it).
+  (done: both parse with `parse_file`; `kalem query` finds REVIEW.)
 - [ ] **Minor, verified.** An undefined footnote reference exports as an
   empty footnote with exit 0 (`See [fn:9].` → `[1]` with no text);
   Emacs stops with "Definition not found for footnote 9". `kalem check`
@@ -332,16 +350,22 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   `#+INCLUDE`, a missing `#+SETUPFILE` or links to missing local files
   (exit 0; the export then fails); org-lint does, and Markdown files get
   `markdown-missing-file`.
-- [ ] **Minor, verified.** The CLI refuses non-UTF-8 Org files that the
+- [x] **Minor, verified.** The CLI refuses non-UTF-8 Org files that the
   editors, `fmt` and `table recalc` open (`read_to_string` at
   `commands/mod.rs:28-30`, exit 2; see 3.3 for the same in LaTeX).
   `kalem check` on a BOM file reports column 2 on line 1 (`line_col`,
   `commands/mod.rs:204-237`). `kalem export --to org` drops the BOM
   (`export.rs:106`, `158-165`) while saying "no Kalem formatting".
-- [ ] **Minor, reported.** CLI unevenness: `fmt`, `export` and `query`
+  (done: the CLI reads files as the editors do (`read_doc`, through
+  `kalem_core::files::read`): legacy encodings decoded and the BOM
+  dropped, so the columns are right; `--to org` writes the BOM back.)
+- [~] **Minor, reported.** CLI unevenness: `fmt`, `export` and `query`
   reject folders ("Is a directory"), `check` accepts them; `check` and
   `export` stop at the first unreadable file; `kalem query FILE 'TODO="'`
   (malformed) prints nothing and exits 0.
+  (partly: `kalem check` reports a file it cannot read and checks the
+  others. Open: folders for `fmt`, `export` and `query`; a malformed
+  match string.)
 - [ ] **Minor, measured by the audit.** HTML export is quadratic in the
   links of one paragraph (4,000 links 1.7 s, 8,000 7 s; md and latex
   0.1 s). A list nested 2,000 levels overflows the stack in a debug build
@@ -358,7 +382,7 @@ documents, `kalem check`'s round trip and diagnostics, a missing
 
 ### 3.2 Markdown
 
-- [ ] **Blocker, verified.** `kalem fmt` formats Markdown, CSV and `.bib`
+- [x] **Blocker, verified.** `kalem fmt` formats Markdown, CSV and `.bib`
   files with Org's formatter (`kalem-cli/src/commands/fmt.rs:39-46`:
   everything that is not LaTeX or a language pack). On a GFM table it
   rewrites `|---|---|` as `|---+---|` (GitHub stops reading it as a
@@ -368,11 +392,15 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   ripgrep.md, tokio.md and exits 1; without `--check` it rewrites them.
   Refuse every file type `fmt` has no formatter for (the help already
   says "Org, LaTeX or code files").
-- [ ] **Major, verified.** `kalem export notes.md --to html|latex|pdf|docx`
+  (done with 3.1's: other files are left as they are.)
+- [x] **Major, verified.** `kalem export notes.md --to html|latex|pdf|docx`
   parses the Markdown as Org, prints a warning and exits 0 with broken
   output (serde.md → an HTML with no `<h*>` and no `<pre>`). Either
   route Markdown through `markdown::to_html` or fail with exit 1. In the
   editors Export and Print are Org-only by `when`; say so in the Book.
+  (done: Markdown to HTML through comrak (`markdown::to_html`, raw HTML
+  left out, a page around it unless `--body-only`); Markdown to any
+  other format, CSV, LaTeX and code are refused with exit 1.)
 - [ ] **Major, reported.** Links to headings do nothing: `[x](#install)`
   returns `LinkAction::Missing` (`markdown.rs:2488-2490`), and
   `[x](GUIDE.md#section)` opens the file at the top because both editors
@@ -419,11 +447,14 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   code block) makes every keystroke a full parse (`has_globals`,
   `markdown.rs:834`): about 1.4 s per keystroke at 10 MB. The Book's
   "10 ms at 10 MB" does not hold for such files.
-- [ ] **Minor, reported.** `kalem export FILE.md --to org` overwrites an
+- [~] **Minor, reported.** `kalem export FILE.md --to org` overwrites an
   existing `FILE.org` without asking (`export.rs:192`); Convert to Org
   and `kalem import` refuse. Table Sort is not Turkish-aware (CSV's is).
   Front-matter list values with commas are split when edited
   (`front_matter.rs:46-55`).
+  (partly: `kalem export FILE.md --to org` no longer replaces an
+  existing `FILE.org` without `--output`; table sort and front matter
+  open.)
 
 ### 3.3 LaTeX
 
@@ -449,7 +480,7 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   and the missing-picture check (`latex_check.rs:691`). In the usual
   thesis layout (`main.tex`, `chapters/`, `figures/`) a chapter's figure
   does not show, and Insert Figure writes a path the build cannot find.
-- [ ] **Major, verified.** `kalem check`, `kalem parse` and
+- [~] **Major, verified.** `kalem check`, `kalem parse` and
   `kalem latex build` read with `read_to_string`
   (`kalem-cli/src/commands/mod.rs:28-30`, `606`): a Latin-1 file stops
   the whole run with "stream did not contain valid UTF-8", exit 2, and
@@ -459,6 +490,9 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   unknown keys are not reported and citation completion is empty. The
   editors decode these files correctly; the CLI should use the same
   decoder.
+  (done for the CLI: `read_doc` decodes as the editors do; a file it
+  cannot read is reported and the others checked. The `.bib` part
+  (`bibliography-unreadable` for Latin-1) is open.)
 - [ ] **Major, verified.** `kalem fmt --align` is not idempotent: a table
   row whose first cell is empty starts with alignment padding, which
   `step()` (`latex_fmt.rs:69-97`) reads as the indentation step, so the
@@ -471,9 +505,10 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   verbatim-like environments not on the fixed list (`protected`,
   `:16-44`: fancyvrb's `\DefineVerbatimEnvironment`, `pycode`,
   `luacode`) get their bodies re-indented.
-- [ ] **Major, verified (code).** `kalem fmt` runs the Org formatter on
+- [x] **Major, verified (code).** `kalem fmt` runs the Org formatter on
   `.bib`, `.sty` and `.cls` (same cause as the Markdown blocker): a
   `.bib` abstract with `| x |` lines is "aligned".
+  (done: such files are left as they are.)
 - [ ] **Major, reported.** F5 while a build runs starts a second build on
   the same `.aux`/`.pdf` (`builtin.rs:1369-1408` has no running-job
   check); `CURRENT` keeps only the newest (`latex_build.rs:519`), so
@@ -526,7 +561,8 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   and no diagnostics; there are no BibTeX diagnostics in the editor
   either. Either add a check (balanced braces, duplicate keys, missing
   required fields) or drop the claim.
-- [ ] **Major.** `kalem fmt` on `.bib` (see 3.3).
+- [x] **Major.** `kalem fmt` on `.bib` (see 3.3).
+  (done.)
 - [ ] **Minor, reported.** Two `.bib` files open show the first one's
   grid (`bibtex::grid` memo keyed by version only, see section 2).
 
@@ -558,9 +594,11 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   with a line break shifts the rows and keeps literal quotes; a pasted
   line with no tab is split with the file's delimiter (`Smith, John`
   becomes two cells).
-- [ ] **Minor, verified.** `kalem check` on CSV hard-codes
+- [~] **Minor, verified.** `kalem check` on CSV hard-codes
   `roundtrip = true` (`commands/mod.rs:336-353`), keeps the BOM as part
   of the first field, and does not recognise `sep=` after a BOM.
+  (partly: the BOM is dropped before checking, so the first field and
+  a `sep=` line after it are right; the round trip is still assumed.)
 - [ ] **Minor, reported.** A regex `$` never matches before `\r\n` in a
   CRLF file (`find.rs:41-44`, no `.crlf(true)`).
 - [ ] **Minor, gap.** No command to change line endings or to add or

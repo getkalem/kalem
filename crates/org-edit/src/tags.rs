@@ -9,8 +9,15 @@ use crate::buffer::{Buf, EditError};
 use crate::headline::{align_tags, org_back_to_heading, stars_at};
 use crate::transaction::Transaction;
 
+/// The end of the heading line at `pos`: before its line feed, and before
+/// a CR LF file's carriage return (no tag ends with one).
 fn line_end(text: &str, pos: usize) -> usize {
-    text[pos..].find('\n').map_or(text.len(), |i| pos + i)
+    let end = text[pos..].find('\n').map_or(text.len(), |i| pos + i);
+    if end > pos && text.as_bytes()[end - 1] == b'\r' {
+        end - 1
+    } else {
+        end
+    }
 }
 
 /// The local tags of the heading line at `h`.
@@ -241,6 +248,21 @@ pub fn select_tag(current: &[String], tag: &str, table: &TagTable) -> Vec<String
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A CR LF file's heading: its tags found before the CR, replaced and
+    /// aligned with the CR kept at the end of the line.
+    #[test]
+    fn tags_of_a_crlf_heading() {
+        let text = "* Heading :a:\r\nbody\r\n";
+        let doc = Document::new(org_syntax::parse(text));
+        let tx = set_tags(&doc, 0, &["b".to_string()]).unwrap();
+        let out = tx.apply(text);
+        assert!(
+            out.starts_with("* Heading") && out.contains(":b:\r\nbody\r\n"),
+            "{out:?}"
+        );
+        assert!(!out.contains(":a:"), "{out:?}");
+    }
 
     #[test]
     fn selection_with_exclusive_groups() {

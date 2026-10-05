@@ -426,6 +426,20 @@ fn rename_footnotes(
 
 /// `text` with its `#+INCLUDE:` lines expanded; `file` is where `text`
 /// comes from. `included` guards against loops.
+/// An included file's text as Emacs inserts it: a UTF-8 byte order mark
+/// dropped, CR LF line endings read as LF, and bytes that are not UTF-8
+/// read as Latin-1 (it read the mark as text, kept the CRs, and refused
+/// such a file).
+fn read_included(path: &str) -> Option<String> {
+    let bytes = std::fs::read(path).ok()?;
+    let text = match String::from_utf8(bytes) {
+        Ok(t) => t,
+        Err(e) => e.into_bytes().into_iter().map(char::from).collect(),
+    };
+    let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+    Some(text.replace("\r\n", "\n"))
+}
+
 pub fn expand(text: &str, file: Option<&Path>) -> Result<String, String> {
     let mut footnotes = Vec::new();
     let mut out = expand_in(text, file, &[], &mut footnotes)?;
@@ -483,7 +497,7 @@ fn expand_in(
         if is_url(&target) {
             return Err(format!("Cannot include file {target}"));
         }
-        let Ok(contents) = std::fs::read_to_string(&target) else {
+        let Some(contents) = read_included(&target) else {
             return Err(format!("Cannot include file {target}"));
         };
         let key = (target.clone(), inc.lines.clone());
@@ -678,6 +692,23 @@ mod tests {
             std::fs::write(p, t).unwrap();
         }
         d
+    }
+
+    /// A file written on Windows, with a byte order mark and CR LF, and
+    /// one in Latin-1: included as Emacs reads them.
+    #[test]
+    fn includes_files_as_emacs_reads_them() {
+        // A folder of its own: `dir` is shared with the other test.
+        let d = std::env::temp_dir().join(format!("kalem-include-enc-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("win.org"), "\u{feff}* Included\r\nSome *bold*\r\n").unwrap();
+        std::fs::write(d.join("latin1.org"), b"* Caf\xe9\n").unwrap();
+        let main = d.join("main.org");
+        let out = expand("#+INCLUDE: \"win.org\"\n", Some(&main)).unwrap();
+        assert_eq!(out, "* Included\nSome *bold*\n");
+        let out = expand("#+INCLUDE: \"latin1.org\"\n", Some(&main)).unwrap();
+        assert_eq!(out, "* Café\n");
     }
 
     #[test]

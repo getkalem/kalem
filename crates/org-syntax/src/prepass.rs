@@ -50,7 +50,12 @@ impl SetupFileLoader for FsSetupFiles {
         } else {
             dir.join(name)
         };
-        let text = std::fs::read_to_string(&expanded).ok()?;
+        // Bytes that are not UTF-8 read as Latin-1, as `#+INCLUDE` reads
+        // them; the mark and CR LF are normalized by the caller.
+        let text = match String::from_utf8(std::fs::read(&expanded).ok()?) {
+            Ok(t) => t,
+            Err(e) => e.into_bytes().into_iter().map(char::from).collect(),
+        };
         Some((expanded.to_string_lossy().into_owned(), text))
     }
 }

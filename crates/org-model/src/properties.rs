@@ -108,7 +108,8 @@ fn is_tag_char(c: char) -> bool {
 /// Whether `s` is `[ \t]+:[[:alnum:]_@#%:]+:[ \t]*` (optionally) followed
 /// by nothing but spaces and tabs: the end of `org-complex-heading-regexp`.
 fn heading_end(s: &str) -> bool {
-    let t = s.trim_end_matches([' ', '\t']);
+    // A CR LF file's CR ends the line too.
+    let t = s.trim_end_matches([' ', '\t', '\r']);
     if t.is_empty() {
         return true;
     }

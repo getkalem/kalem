@@ -236,7 +236,8 @@ enum Command {
     },
     /// Align tables and tags, and blank lines as each file has them.
     Fmt {
-        /// Org, LaTeX or code files to format in place.
+        /// Org and LaTeX files, and code whose language has a formatter, to
+        /// format in place; other files are left as they are, with a note.
         #[arg(required = true)]
         files: Vec<PathBuf>,
         /// Change nothing; list the files that would change and fail if
