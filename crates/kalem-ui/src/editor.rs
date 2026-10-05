@@ -328,8 +328,6 @@ pub struct Editor {
     /// A wheel scroll happened: the cursor follows in the next frame (see
     /// `follow_scroll_now`).
     follow_scroll: bool,
-    /// The cursor's row of the view before the scroll, kept by it.
-    scroll_row: Option<usize>,
     /// A message for the status bar, and whether it is an error.
     pub status: Option<(String, bool)>,
     pub(crate) goal_x: Option<Pixels>,
@@ -509,7 +507,6 @@ impl Editor {
             painted: Rc::default(),
             reveal_again: None,
             follow_scroll: false,
-            scroll_row: None,
             status: None,
             goal_x: None,
             last_command: None,
@@ -583,8 +580,8 @@ impl Editor {
         e.visible = e.compute_visible();
         e.line_count = e.doc.text().line_count();
         e.list.reset_with_uniform_height(e.visible.len(), LINE_HINT);
-        // Scrolling with the wheel or the trackpad brings the cursor along
-        // when it would go out of sight, as Emacs does.
+        // Scrolling with the wheel or the trackpad brings the cursor to the
+        // top of the window.
         let weak = cx.entity().downgrade();
         e.list.set_scroll_handler(move |_ev, _window, cx| {
             // The list is borrowed while it calls this (and the range it
@@ -617,21 +614,11 @@ impl Editor {
         Some((first, last.clamp(first, self.visible.len() - 1)))
     }
 
-    /// The row of the view the cursor is on (its line among the lines
-    /// wholly in view), for a scroll to keep (`follow_scroll_now`).
-    fn cursor_row(&self) -> Option<usize> {
-        let (first, last) = self.items_in_view()?;
-        let line = self.doc.text().line_of(self.doc.selection.head);
-        let i = self.item_of(line)?;
-        (first <= i && i <= last).then(|| i - first)
-    }
-
-    /// After a wheel scroll: the cursor keeps its row of the view, as
-    /// Doom Emacs does (`scroll-preserve-screen-position`): at the top it
-    /// stays at the top whichever way the text scrolls; a cursor that was
-    /// out of view goes to the first line in view. Its column is kept, so
-    /// typing does not jump back. A selection stays where it is, and a
-    /// split view is left alone (each pane scrolls its own list).
+    /// After a wheel scroll: the cursor goes to the first line wholly in
+    /// view, whichever way the text scrolled (asked by the owner: when
+    /// scrolling up it stayed at the bottom of the window). Its column is
+    /// kept, so typing does not jump back. A selection stays where it is,
+    /// and a split view is left alone (each pane scrolls its own list).
     fn follow_scroll_now(&mut self, cx: &mut Context<'_, Self>) {
         if self.other.is_some() {
             return;
@@ -640,10 +627,10 @@ impl Editor {
         if sel.anchor != sel.head {
             return;
         }
-        let Some((first, last)) = self.items_in_view() else {
+        let Some((first, _)) = self.items_in_view() else {
             return;
         };
-        let target = (first + self.scroll_row.unwrap_or(0)).min(last);
+        let target = first;
         let text = self.doc.text();
         let line = text.line_of(sel.head);
         if self.item_of(line) == Some(target) {
@@ -4170,9 +4157,6 @@ impl gpui::Render for Editor {
         self.apply_resume();
         if std::mem::take(&mut self.follow_scroll) {
             self.follow_scroll_now(cx);
-        } else {
-            // Where the cursor shows, for the next scroll to keep.
-            self.scroll_row = self.cursor_row();
         }
         // The cursor revealed once more, the lines around it measured by
         // the last frame's layout.

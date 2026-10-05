@@ -28,7 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - The toolbar's `//` (Toggle Comment) shows only in text with a comment syntax, not over a workbook, a PDF or a picture (new when-clause key `hasComments`).
-- Scrolling with the wheel or the trackpad keeps the cursor on its row of the window, as Doom Emacs does: a cursor at the top stays at the top while scrolling down and back up, and typing does not jump back.
+- Scrolling with the wheel or the trackpad brings the cursor to the top line of the window, whichever way it scrolls (scrolling up it stayed at the bottom), and typing does not jump back.
 - Workbooks in the graphical editor: a cell's entry (Enter, F2) takes the characters typed; it took none, a file a viewer shows having no text to take them. A character typed on a cell starts its entry with it, as in Excel, in both editors; what is typed shows in the cell as it is typed (and in the formula bar), running on to the right, the cursor in it.
 - CSV grid: Up, Down, Page Up and Page Down (Fn with the arrows on a Mac) keep the column and keep the cursor's row in view, below the pinned header row, without lagging rows behind; a click on a cell goes to that cell when the first column is frozen over cells scrolled sideways, and a click on the pinned header row goes to the header rather than the row scrolled under it.
 - Scrolling a PDF, and Page Down held, no longer freeze while a page renders: what the window asks on every frame and key (whether the document is modified, the edits its keys may run, the link under the pointer) no longer waits for the render, which matters most with the PDF viewer installed as a component.

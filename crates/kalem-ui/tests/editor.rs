@@ -4285,10 +4285,9 @@ fn csv_clicks_reach_every_cell(cx: &mut TestAppContext) {
     assert_eq!(csv_click_cells(&e, 4, cx), vec![]);
 }
 
-/// Scrolling with the wheel keeps the cursor on its row of the view, as
-/// Doom Emacs does (asked by the owner, 2026-10-04): a cursor at the top
-/// stays at the top while scrolling down and back up, instead of staying
-/// at the bottom of the document or of the window.
+/// Scrolling with the wheel brings the cursor to the top line of the
+/// window, whichever way it scrolls (asked by the owner, 2026-10-05):
+/// scrolling up after going to the end, the cursor stayed at the bottom.
 #[gpui::test]
 fn the_cursor_follows_the_scroll(cx: &mut TestAppContext) {
     let text: String = (0..400).map(|i| format!("line {i}\n")).collect();
@@ -4341,4 +4340,12 @@ fn the_cursor_follows_the_scroll(cx: &mut TestAppContext) {
     let up = line(cx);
     assert!(up < further, "{up} {further}");
     assert_eq!(up, top_line(cx));
+    // The cursor at the end by the keyboard, at the bottom of the window:
+    // scrolling up brings it to the top.
+    at(&e, text.len(), cx);
+    cx.run_until_parked();
+    wheel(400., cx);
+    let from_end = line(cx);
+    assert!(from_end < 400, "{from_end}");
+    assert_eq!(from_end, top_line(cx));
 }
