@@ -4496,3 +4496,90 @@ fn charts_the_rest() {
     let c = t.app.doc.viewer.as_deref_mut().unwrap().charts()[m].clone();
     assert_eq!(c.kind, kalem_viewer::ChartKind::Column);
 }
+
+#[test]
+fn pivot_tables_the_rest() {
+    let mut t = T::open("pivot-rest");
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.insert_pivot(kalem_viewer::PivotSpec {
+        range: [0, 0, 4, 2],
+        rows: vec![0],
+        values: vec![kalem_viewer::PivotSpec::value(
+            1,
+            kalem_viewer::Aggregate::Sum,
+        )],
+        ..kalem_viewer::PivotSpec::default()
+    })
+    .unwrap();
+    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    // The options offered.
+    t.app.run_command("viewer.grid.pivotOptions", json!({}));
+    assert!(t.screen().contains("Show Values As"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    let opt = |t: &mut T, args: serde_json::Value| {
+        t.app.run_command("viewer.grid.pivotOptions", args);
+    };
+    let spec = |t: &mut T| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(3, 0);
+        v.pivot_at_cursor().unwrap().1.spec
+    };
+    opt(&mut t, json!({ "what": "form", "form": "Tabular" }));
+    assert_eq!(spec(&mut t).form, kalem_viewer::ReportForm::Tabular);
+    opt(
+        &mut t,
+        json!({ "what": "showAs", "valueField": 0, "how": "total" }),
+    );
+    assert_eq!(
+        spec(&mut t).values[0].show_as,
+        kalem_viewer::ShowAs::PercentOfTotal
+    );
+    assert!(t.screen().contains('%'), "{}", t.screen());
+    opt(
+        &mut t,
+        json!({ "what": "sort", "field": 0, "how": "valueDesc", "by": 0 }),
+    );
+    assert!(spec(&mut t).sorts[0].descending);
+    opt(
+        &mut t,
+        json!({ "what": "calcField", "value": "Twice = Q1 * 2" }),
+    );
+    assert_eq!(spec(&mut t).calculated.len(), 1);
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    v.grid_move_to(2, 2);
+    assert_eq!(v.cell_input(), "Sum of Twice");
+    // The filter's items listed, one taken away.
+    opt(&mut t, json!({ "what": "filter", "field": 0 }));
+    assert!(t.screen().contains("☑ Food"), "{}", t.screen());
+    t.key(KeyCode::Esc);
+    opt(
+        &mut t,
+        json!({ "what": "filter", "field": 0, "how": "toggle", "item": "Food" }),
+    );
+    assert_eq!(spec(&mut t).filters[0].hidden, ["Food"]);
+    // A slicer of the items beside it; one item chosen.
+    t.app
+        .run_command("viewer.grid.insertSlicer", json!({ "field": "Item" }));
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let s = v.slicers();
+    assert_eq!(s.len(), 1);
+    let a = s[0].anchor;
+    v.grid_move_to(a[0] + 1, a[1]);
+    assert!(t.screen().contains("Item"), "{}", t.screen());
+    t.app.run_command(
+        "viewer.grid.slicer",
+        json!({ "item": "Rent", "only": true }),
+    );
+    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let on: Vec<String> = v.slicers()[0]
+        .items
+        .iter()
+        .filter(|i| i.1)
+        .map(|i| i.0.clone())
+        .collect();
+    assert_eq!(on, ["Rent"]);
+    // A PivotChart.
+    v.grid_move_to(3, 0);
+    opt(&mut t, json!({ "what": "chart", "kind": "column" }));
+    assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().charts().len(), 1);
+}

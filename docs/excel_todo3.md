@@ -114,12 +114,15 @@ new release of the xlsx plugin follows when the contract moves.
 
 ## E47. PivotTables, the rest
 
-- [ ] E47 Grouping dates by months, quarters and years and numbers by
+- [x] E47 Grouping dates by months, quarters and years and numbers by
   steps; calculated fields and items; Show Values As (percent of the
   total, of the row or column, running total, difference from);
   sorting and filtering fields (top 10, labels, values); report
   layouts (compact, outline, tabular) and subtotals; PivotCharts;
   slicers for PivotTables and tables.
+  (One grouping a field, not years and months together; calculated
+  items of the outermost row field or the column field; slicers are not
+  printed; still one column field.)
 
 ## E48. Dynamic arrays
 

@@ -872,7 +872,8 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
     // Charts, pictures and shapes over the cells they cover.
     let charts = v.charts();
     let drawings = v.drawings();
-    if charts.is_empty() && drawings.is_empty() {
+    let slicers = v.slicers();
+    if charts.is_empty() && drawings.is_empty() && slicers.is_empty() {
         return;
     }
     let x0 = area.x + gutter;
@@ -920,6 +921,47 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
         {
             draw_drawing(d, caps, rect, buf);
         }
+    }
+    for s in &slicers {
+        if let Some(rect) = rect_of(s.anchor)
+            && rect.width >= 4
+            && rect.height >= 3
+        {
+            draw_slicer(s, caps, rect, buf);
+        }
+    }
+}
+
+/// A slicer in a terminal: a box with its caption, an item a line, the
+/// selected marked.
+fn draw_slicer(s: &kalem_viewer::Slicer, caps: &Caps, rect: Rect, buf: &mut Buffer) {
+    use ratatui::widgets::{Block, Borders, Clear, Widget};
+    Clear.render(rect, buf);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(s.caption.clone());
+    let inner = block.inner(rect);
+    block.render(rect, buf);
+    let (on, off) = if caps.ascii {
+        ("[x] ", "[ ] ")
+    } else {
+        ("■ ", "□ ")
+    };
+    for (k, (label, selected)) in s.items.iter().enumerate().take(inner.height as usize) {
+        let mut style = Style::default();
+        if *selected {
+            style = style.add_modifier(ratatui::style::Modifier::BOLD);
+        } else {
+            style = style.add_modifier(ratatui::style::Modifier::DIM);
+        }
+        let text = format!("{}{label}", if *selected { on } else { off });
+        buf.set_stringn(
+            inner.x,
+            inner.y + k as u16,
+            text,
+            inner.width as usize,
+            style,
+        );
     }
 }
 

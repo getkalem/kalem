@@ -975,6 +975,87 @@ impl Editor {
                 })
             })
             .collect();
+        // Slicers: a caption over a button an item, the selected filled.
+        let slicer_views: Vec<_> = v
+            .slicers()
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, sl)| {
+                let a = sl.anchor;
+                let xs: Vec<(f32, f32)> = (a[1]..=a[3])
+                    .filter_map(|c| col_x.get(&c).copied())
+                    .collect();
+                let ys: Vec<(f32, f32)> = (a[0]..=a[2])
+                    .filter_map(|r| row_y.get(&r).copied())
+                    .collect();
+                let (x0, y0) = (xs.first()?.0, ys.first()?.0);
+                let w: f32 = xs.iter().map(|v| v.1).sum();
+                let h: f32 = ys.iter().map(|v| v.1).sum();
+                let buttons = sl.items.iter().enumerate().map(|(k, (label, on))| {
+                    let item = label.clone();
+                    let mut b = div()
+                        .debug_selector(move || format!("viewer-grid-slicer-{i}-{k}"))
+                        .id(SharedString::from(format!("slicer-{i}-{k}")))
+                        .mx(px(4.))
+                        .mb(px(3.))
+                        .px(px(4.))
+                        .border_1()
+                        .border_color(theme.border)
+                        .whitespace_nowrap()
+                        .overflow_hidden()
+                        .text_ellipsis()
+                        .cursor_pointer()
+                        .child(SharedString::from(label.clone()))
+                        .on_mouse_down(
+                            MouseButton::Left,
+                            cx.listener(move |this, ev: &MouseDownEvent, window, cx| {
+                                cx.stop_propagation();
+                                // A click chooses the item alone; with
+                                // Ctrl (Command on a Mac) it is added or
+                                // taken away.
+                                let add = ev.modifiers.control || ev.modifiers.platform;
+                                this.run_command(
+                                    "viewer.grid.slicer",
+                                    serde_json::json!({ "index": i, "item": item, "only": !add }),
+                                    window,
+                                    cx,
+                                );
+                                cx.notify();
+                            }),
+                        );
+                    if *on {
+                        b = b.bg(theme.selection).text_color(theme.foreground);
+                    } else {
+                        b = b.text_color(theme.muted);
+                    }
+                    b
+                });
+                Some(
+                    div()
+                        .debug_selector(move || format!("viewer-grid-slicer-{i}"))
+                        .absolute()
+                        .left(px(x0))
+                        .top(px(y0))
+                        .w(px(w))
+                        .h(px(h))
+                        .overflow_hidden()
+                        .bg(theme.background)
+                        .border_1()
+                        .border_color(theme.border)
+                        .flex()
+                        .flex_col()
+                        .child(
+                            div()
+                                .px(px(4.))
+                                .py(px(2.))
+                                .font_weight(gpui::FontWeight::BOLD)
+                                .whitespace_nowrap()
+                                .child(SharedString::from(sl.caption.clone())),
+                        )
+                        .children(buttons),
+                )
+            })
+            .collect();
         let charts: Vec<_> = v
             .charts()
             .iter()
@@ -2163,6 +2244,7 @@ impl Editor {
                     .children(merges)
                     .children(charts)
                     .children(drawing_views)
+                    .children(slicer_views)
                     .children(cut_mark)
                     .children(entry_mark)
                     .children(fill_frame)

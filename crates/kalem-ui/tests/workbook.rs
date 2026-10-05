@@ -1704,3 +1704,43 @@ fn charts_the_rest(cx: &mut TestAppContext) {
     }
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// E47: a pivot table's slicer drawn, a click on an item choosing it alone.
+#[gpui::test]
+fn pivot_slicer_clicked(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open(cx);
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    e.update(cx, |e, cx| {
+        let v = e.doc.viewer.as_deref_mut().unwrap();
+        v.insert_pivot(kalem_viewer::PivotSpec {
+            range: [0, 0, 4, 2],
+            rows: vec![0],
+            values: vec![kalem_viewer::PivotSpec::value(
+                1,
+                kalem_viewer::Aggregate::Sum,
+            )],
+            ..kalem_viewer::PivotSpec::default()
+        })
+        .unwrap();
+        v.grid_move_to(3, 0);
+        v.insert_slicer("Item").unwrap();
+        v.grid_move_to(0, 0);
+        cx.notify();
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("viewer-grid-slicer-0").is_some());
+    let second = cx
+        .debug_bounds("viewer-grid-slicer-0-1")
+        .expect("its second item");
+    cx.simulate_click(second.center(), gpui::Modifiers::default());
+    cx.run_until_parked();
+    let on = e.update(cx, |e, _| {
+        e.doc.viewer.as_deref_mut().unwrap().slicers()[0]
+            .items
+            .iter()
+            .filter(|i| i.1)
+            .count()
+    });
+    assert_eq!(on, 1);
+    let _ = std::fs::remove_dir_all(dir);
+}

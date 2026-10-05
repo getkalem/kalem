@@ -368,6 +368,8 @@ pub struct ViewerState {
     pub areas: Vec<[u32; 4]>,
     /// The sheet shown's pictures and shapes, by unit and generation.
     drawings_cache: Option<(UnitAt, Vec<kalem_viewer::Drawing>)>,
+    /// The slicers of the sheet shown, by generation.
+    slicers_cache: Option<(UnitAt, Vec<kalem_viewer::Slicer>)>,
     /// The sheet shown's comment threads, by unit and generation.
     threads_cache: Option<(UnitAt, Vec<kalem_viewer::CommentThread>)>,
     /// The sheets' tabs (unit, name, color), by generation.
@@ -693,6 +695,7 @@ impl ViewerState {
             watches: Vec::new(),
             areas: Vec::new(),
             drawings_cache: None,
+            slicers_cache: None,
             threads_cache: None,
             tabs_cache: None,
             views: std::collections::HashMap::new(),
@@ -3415,6 +3418,123 @@ impl ViewerState {
 
     /// Inserts a pivot table on a new sheet and shows it, the cursor on
     /// its first cell.
+    /// The pivot tables of the sheet shown.
+    pub fn pivots(&mut self) -> Vec<kalem_viewer::PivotInfo> {
+        if !self.is_grid() {
+            return Vec::new();
+        }
+        self.doc().pivots(self.unit)
+    }
+
+    /// The pivot table the cursor is in: its place and what it is.
+    pub fn pivot_at_cursor(&mut self) -> Option<(usize, kalem_viewer::PivotInfo)> {
+        let p = self.grid_pos();
+        self.pivots().into_iter().enumerate().find(|(_, t)| {
+            let l = t.location;
+            (l[0]..=l[2]).contains(&p.row) && (l[1]..=l[3]).contains(&p.col)
+        })
+    }
+
+    /// Pivot table `index` made as `spec` says.
+    pub fn set_pivot(&mut self, index: usize, spec: kalem_viewer::PivotSpec) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc()
+            .set_pivot(self.unit, index, spec)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// A PivotChart of pivot table `index`.
+    pub fn insert_pivot_chart(
+        &mut self,
+        index: usize,
+        kind: kalem_viewer::ChartKind,
+    ) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc()
+            .insert_pivot_chart(self.unit, index, kind)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// The slicers of the sheet shown.
+    pub fn slicers(&mut self) -> Vec<kalem_viewer::Slicer> {
+        if !self.is_grid() {
+            return Vec::new();
+        }
+        let key = (self.unit, self.generation);
+        if let Some((k, s)) = &self.slicers_cache
+            && *k == key
+        {
+            return s.clone();
+        }
+        let s = self.doc().slicers(self.unit);
+        self.slicers_cache = Some((key, s.clone()));
+        s
+    }
+
+    /// The slicer the cursor is on.
+    pub fn slicer_at_cursor(&mut self) -> Option<(usize, kalem_viewer::Slicer)> {
+        let p = self.grid_pos();
+        self.slicers().into_iter().enumerate().find(|(_, s)| {
+            let a = s.anchor;
+            (a[0]..=a[2]).contains(&p.row) && (a[1]..=a[3]).contains(&p.col)
+        })
+    }
+
+    /// A slicer of `field` for the pivot table or the table at the cursor,
+    /// at the right of it.
+    pub fn insert_slicer(&mut self, field: &str) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (pivot, table, area) = if let Some((i, p)) = self.pivot_at_cursor() {
+            (Some(i), None, p.location)
+        } else if let Some(t) = self.table_at_cursor() {
+            (None, Some(t.name.clone()), t.range)
+        } else {
+            return Err("Put the cursor in a pivot table or a table to add a slicer".into());
+        };
+        let others = self.slicers().len() as u32;
+        let left = area[3] + 2 + others * 3;
+        let anchor = [area[0], left, area[0] + 9, left + 2];
+        self.doc()
+            .insert_slicer(self.unit, pivot, table.as_deref(), field, anchor)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Slicer `index` with only `selected` selected (all when empty).
+    pub fn select_slicer(&mut self, index: usize, selected: &[String]) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc()
+            .select_slicer(self.unit, index, selected)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Removes slicer `index`.
+    pub fn delete_slicer(&mut self, index: usize) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc()
+            .delete_slicer(self.unit, index)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     pub fn insert_pivot(&mut self, spec: kalem_viewer::PivotSpec) -> Result<(), String> {
         if !self.grid_editable() {
             return Err("This file is shown, not edited".into());
@@ -8158,6 +8278,713 @@ fn apply_chart_template(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -
     let bytes = std::fs::read(dir.join(format!("{name}.crtx")))
         .map_err(|e| crate::command::CommandError::new(e.to_string()))?;
     with(ctx, |v| v.apply_chart_template(&bytes))
+}
+
+/// PivotTable Options: the pivot table at the cursor's layout, subtotals
+/// and grand totals; a field's grouping, sort and filter; a value field's
+/// summary and Show Values As; calculated fields and items; a PivotChart
+/// or a slicer.
+fn pivot_options(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    use kalem_viewer::{
+        Aggregate, CalculatedField, CalculatedItem, GroupBy, PivotFilter, PivotFilterKind,
+        PivotGroup, PivotSort, PivotValue, ReportForm, ShowAs,
+    };
+    const ID: &str = "viewer.grid.pivotOptions";
+    const T: &str = "PivotTable Options";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some((index, info)) = v.pivot_at_cursor() else {
+        ctx.messages
+            .push("Put the cursor in a pivot table to change it".into());
+        return Ok(());
+    };
+    let mut spec = info.spec.clone();
+    let name = |f: u32| info.fields.get(f as usize).cloned().unwrap_or_default();
+    let what = args.get("what").and_then(|w| w.as_str()).unwrap_or("");
+    let arg = |extra: serde_json::Value| -> serde_json::Value {
+        let mut a = args.clone();
+        if !a.is_object() {
+            a = serde_json::json!({});
+        }
+        if let Some(o) = extra.as_object() {
+            for (k, x) in o {
+                a[k] = x.clone();
+            }
+        }
+        a
+    };
+    let field_arg = args
+        .get("field")
+        .and_then(serde_json::Value::as_u64)
+        .map(|f| f as u32);
+    let value_arg = args
+        .get("valueField")
+        .and_then(serde_json::Value::as_u64)
+        .map(|f| f as usize);
+    let text = args
+        .get("value")
+        .and_then(|x| x.as_str())
+        .map(str::to_owned);
+    let choose =
+        |ctx: &mut EditorContext<'_>, items: Vec<(serde_json::Value, String)>, title: &str| {
+            let list = items
+                .into_iter()
+                .map(|(a, t)| menu_item(ID, a, &t, title))
+                .collect();
+            ctx.requests.push(Request::Choose(list));
+        };
+    // A row or column field chosen, or `None` with the menu asked.
+    let axis: Vec<u32> = spec.rows.iter().chain(&spec.cols).copied().collect();
+    let pick_field = |ctx: &mut EditorContext<'_>, title: &str| -> Option<u32> {
+        if let Some(f) = field_arg {
+            return Some(f);
+        }
+        if axis.len() == 1 {
+            return Some(axis[0]);
+        }
+        let items = axis
+            .iter()
+            .map(|f| (arg(serde_json::json!({ "field": f })), name(*f)))
+            .collect();
+        choose(ctx, items, title);
+        None
+    };
+    let pick_value = |ctx: &mut EditorContext<'_>, title: &str| -> Option<usize> {
+        if let Some(k) = value_arg {
+            return Some(k);
+        }
+        if spec.values.len() == 1 {
+            return Some(0);
+        }
+        let items = spec
+            .values
+            .iter()
+            .enumerate()
+            .map(|(k, x)| (arg(serde_json::json!({ "valueField": k })), name(x.field)))
+            .collect();
+        choose(ctx, items, title);
+        None
+    };
+    let on = |b: bool| if b { "on" } else { "off" };
+    // Each row and column field's items, for its filter's list.
+    let labels_of: std::collections::HashMap<u32, Vec<String>> = if what == "filter" {
+        axis.iter()
+            .map(|f| (*f, pivot_items(v, &info, *f)))
+            .collect()
+    } else {
+        Default::default()
+    };
+    match what {
+        "" => {
+            let item = |w: &str, t: &str| (serde_json::json!({ "what": w }), t.to_owned());
+            let items = vec![
+                item("form", &format!("Report Layout: {:?}", spec.form)),
+                item("subtotals", &format!("Subtotals: {}", on(spec.subtotals))),
+                item(
+                    "grandTotals",
+                    &format!("Grand Totals: {}", on(spec.grand_totals)),
+                ),
+                item("group", "Group Field…"),
+                item("sort", "Sort Field…"),
+                item("filter", "Filter Field…"),
+                item("summarize", "Summarize Values By…"),
+                item("showAs", "Show Values As…"),
+                item("calcField", "Calculated Field…"),
+                item("calcItem", "Calculated Item…"),
+                item("chart", "PivotChart…"),
+                item("slicer", "Insert Slicer…"),
+            ];
+            choose(ctx, items, T);
+            return Ok(());
+        }
+        "form" => {
+            let Some(f) = args.get("form").and_then(|x| x.as_str()) else {
+                let items = ["Compact", "Outline", "Tabular"]
+                    .iter()
+                    .map(|k| {
+                        (
+                            serde_json::json!({ "what": "form", "form": k }),
+                            format!("Show in {k} Form"),
+                        )
+                    })
+                    .collect();
+                choose(ctx, items, "Report Layout");
+                return Ok(());
+            };
+            spec.form = match f {
+                "Outline" => ReportForm::Outline,
+                "Tabular" => ReportForm::Tabular,
+                _ => ReportForm::Compact,
+            };
+        }
+        "subtotals" => spec.subtotals = !spec.subtotals,
+        "grandTotals" => spec.grand_totals = !spec.grand_totals,
+        "group" => {
+            let Some(f) = pick_field(ctx, "Group Field") else {
+                return Ok(());
+            };
+            let Some(by) = args.get("by").and_then(|x| x.as_str()) else {
+                let items = [
+                    ("Months", "Months"),
+                    ("Quarters", "Quarters"),
+                    ("Years", "Years"),
+                    ("Days", "Days"),
+                    ("Step", "Numbers in Steps…"),
+                    ("none", "Ungroup"),
+                ]
+                .iter()
+                .map(|(k, t)| {
+                    (
+                        arg(serde_json::json!({ "field": f, "by": k })),
+                        (*t).to_owned(),
+                    )
+                })
+                .collect();
+                choose(ctx, items, &format!("Group {}", name(f)));
+                return Ok(());
+            };
+            spec.groups.retain(|g| g.field != f);
+            let g = match by {
+                "Months" => Some(GroupBy::Months),
+                "Quarters" => Some(GroupBy::Quarters),
+                "Years" => Some(GroupBy::Years),
+                "Days" => Some(GroupBy::Days),
+                "Step" => Some(GroupBy::Step),
+                _ => None,
+            };
+            if let Some(g) = g {
+                let mut group = PivotGroup {
+                    field: f,
+                    by: g,
+                    ..PivotGroup::default()
+                };
+                if g == GroupBy::Step {
+                    let Some(t) = &text else {
+                        return ask_more(
+                            ctx,
+                            ID,
+                            &arg(serde_json::json!({ "field": f, "value_default": "step 10" })),
+                            "value",
+                        );
+                    };
+                    // `10`, `0 100 10` (start, end, step).
+                    let nums: Vec<f64> = t
+                        .split(|c: char| c.is_whitespace() || c == ',' || c == ';')
+                        .filter_map(|x| x.parse().ok())
+                        .collect();
+                    match nums[..] {
+                        [step] => group.step = step,
+                        [a, b, step] => {
+                            group.start = Some(a);
+                            group.end = Some(b);
+                            group.step = step;
+                        }
+                        _ => {
+                            ctx.messages
+                                .push("A step, or a start, an end and a step".into());
+                            return Ok(());
+                        }
+                    }
+                }
+                spec.groups.push(group);
+            }
+        }
+        "sort" => {
+            let Some(f) = pick_field(ctx, "Sort Field") else {
+                return Ok(());
+            };
+            let Some(how) = args.get("how").and_then(|x| x.as_str()) else {
+                let mut items = vec![
+                    (
+                        arg(serde_json::json!({ "field": f, "how": "asc" })),
+                        "A to Z".to_owned(),
+                    ),
+                    (
+                        arg(serde_json::json!({ "field": f, "how": "desc" })),
+                        "Z to A".to_owned(),
+                    ),
+                ];
+                for (k, x) in spec.values.iter().enumerate() {
+                    items.push((
+                        arg(serde_json::json!({ "field": f, "how": "valueAsc", "by": k })),
+                        format!("By {}, Smallest First", name(x.field)),
+                    ));
+                    items.push((
+                        arg(serde_json::json!({ "field": f, "how": "valueDesc", "by": k })),
+                        format!("By {}, Largest First", name(x.field)),
+                    ));
+                }
+                items.push((
+                    arg(serde_json::json!({ "field": f, "how": "none" })),
+                    "Data Source Order".into(),
+                ));
+                choose(ctx, items, &format!("Sort {}", name(f)));
+                return Ok(());
+            };
+            spec.sorts.retain(|x| x.field != f);
+            let by = args
+                .get("by")
+                .and_then(serde_json::Value::as_u64)
+                .map(|x| x as u32);
+            match how {
+                "asc" | "desc" => spec.sorts.push(PivotSort {
+                    field: f,
+                    descending: how == "desc",
+                    by_value: None,
+                }),
+                "valueAsc" | "valueDesc" => spec.sorts.push(PivotSort {
+                    field: f,
+                    descending: how == "valueDesc",
+                    by_value: by,
+                }),
+                _ => {}
+            }
+        }
+        "filter" => {
+            let Some(f) = pick_field(ctx, "Filter Field") else {
+                return Ok(());
+            };
+            let Some(how) = args.get("how").and_then(|x| x.as_str()) else {
+                // The field's items, each ticked or not, then the rules.
+                let hidden: Vec<String> = spec
+                    .filters
+                    .iter()
+                    .filter(|x| x.field == f && x.kind == PivotFilterKind::Items)
+                    .flat_map(|x| x.hidden.clone())
+                    .collect();
+                let labels = labels_of.get(&f).cloned().unwrap_or_default();
+                let mut items: Vec<(serde_json::Value, String)> = labels
+                    .iter()
+                    .map(|l| {
+                        let off = hidden.iter().any(|h| h.eq_ignore_ascii_case(l));
+                        (
+                            arg(serde_json::json!({ "field": f, "how": "toggle", "item": l })),
+                            format!("{} {l}", if off { "☐" } else { "☑" }),
+                        )
+                    })
+                    .collect();
+                for (k, t) in [
+                    ("top", "Top 10…"),
+                    ("bottom", "Bottom 10…"),
+                    ("topPercent", "Top Percent…"),
+                    ("labelContains", "Label Contains…"),
+                    ("labelBegins", "Label Begins With…"),
+                    ("labelEquals", "Label Equals…"),
+                    ("valueGreater", "Value Greater Than…"),
+                    ("valueLess", "Value Less Than…"),
+                    ("clear", "Clear Filter"),
+                ] {
+                    items.push((
+                        arg(serde_json::json!({ "field": f, "how": k })),
+                        t.to_owned(),
+                    ));
+                }
+                choose(ctx, items, &format!("Filter {}", name(f)));
+                return Ok(());
+            };
+            match how {
+                "toggle" => {
+                    let item = args
+                        .get("item")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_owned();
+                    let mut hidden: Vec<String> = spec
+                        .filters
+                        .iter()
+                        .filter(|x| x.field == f && x.kind == PivotFilterKind::Items)
+                        .flat_map(|x| x.hidden.clone())
+                        .collect();
+                    if let Some(i) = hidden.iter().position(|h| h.eq_ignore_ascii_case(&item)) {
+                        hidden.remove(i);
+                    } else {
+                        hidden.push(item);
+                    }
+                    spec.filters
+                        .retain(|x| !(x.field == f && x.kind == PivotFilterKind::Items));
+                    if !hidden.is_empty() {
+                        spec.filters.push(PivotFilter {
+                            field: f,
+                            kind: PivotFilterKind::Items,
+                            hidden,
+                            ..PivotFilter::default()
+                        });
+                    }
+                }
+                "clear" => spec.filters.retain(|x| x.field != f),
+                rule => {
+                    let kind = match rule {
+                        "top" => PivotFilterKind::Top,
+                        "bottom" => PivotFilterKind::Bottom,
+                        "topPercent" => PivotFilterKind::TopPercent,
+                        "labelContains" => PivotFilterKind::LabelContains,
+                        "labelBegins" => PivotFilterKind::LabelBegins,
+                        "labelEquals" => PivotFilterKind::LabelEquals,
+                        "valueGreater" => PivotFilterKind::ValueGreater,
+                        _ => PivotFilterKind::ValueLess,
+                    };
+                    let label = matches!(
+                        kind,
+                        PivotFilterKind::LabelContains
+                            | PivotFilterKind::LabelBegins
+                            | PivotFilterKind::LabelEquals
+                    );
+                    let Some(t) = &text else {
+                        let default = if label { "" } else { "10" };
+                        return ask_more(
+                            ctx,
+                            ID,
+                            &arg(
+                                serde_json::json!({ "field": f, "how": rule, "value_default": default }),
+                            ),
+                            "value",
+                        );
+                    };
+                    let number = t.trim().trim_end_matches('%').parse::<f64>().unwrap_or(0.0);
+                    spec.filters
+                        .retain(|x| !(x.field == f && x.kind != PivotFilterKind::Items));
+                    spec.filters.push(PivotFilter {
+                        field: f,
+                        kind,
+                        value: 0,
+                        number: if label { 0.0 } else { number },
+                        text: if label { t.clone() } else { String::new() },
+                        hidden: Vec::new(),
+                    });
+                }
+            }
+        }
+        "summarize" => {
+            let Some(k) = pick_value(ctx, "Summarize Values By") else {
+                return Ok(());
+            };
+            let Some(agg) = args.get("agg").and_then(|x| x.as_str()) else {
+                let items = ["Sum", "Count", "Average", "Max", "Min"]
+                    .iter()
+                    .map(|a| {
+                        (
+                            arg(serde_json::json!({ "valueField": k, "agg": a })),
+                            (*a).to_owned(),
+                        )
+                    })
+                    .collect();
+                choose(ctx, items, "Summarize Values By");
+                return Ok(());
+            };
+            if let Some(x) = spec.values.get_mut(k) {
+                x.aggregate = match agg {
+                    "Count" => Aggregate::Count,
+                    "Average" => Aggregate::Average,
+                    "Max" => Aggregate::Max,
+                    "Min" => Aggregate::Min,
+                    _ => Aggregate::Sum,
+                };
+            }
+        }
+        "showAs" => {
+            let Some(k) = pick_value(ctx, "Show Values As") else {
+                return Ok(());
+            };
+            let Some(how) = args.get("how").and_then(|x| x.as_str()) else {
+                let mut items = vec![
+                    (
+                        arg(serde_json::json!({ "valueField": k, "how": "normal" })),
+                        "No Calculation".to_owned(),
+                    ),
+                    (
+                        arg(serde_json::json!({ "valueField": k, "how": "total" })),
+                        "% of Grand Total".into(),
+                    ),
+                    (
+                        arg(serde_json::json!({ "valueField": k, "how": "row" })),
+                        "% of Row Total".into(),
+                    ),
+                    (
+                        arg(serde_json::json!({ "valueField": k, "how": "col" })),
+                        "% of Column Total".into(),
+                    ),
+                ];
+                for f in &axis {
+                    items.push((
+                        arg(serde_json::json!({ "valueField": k, "how": "run", "field": f })),
+                        format!("Running Total In {}", name(*f)),
+                    ));
+                    items.push((
+                        arg(serde_json::json!({ "valueField": k, "how": "diff", "field": f })),
+                        format!("Difference From the Previous {}", name(*f)),
+                    ));
+                    items.push((
+                        arg(serde_json::json!({ "valueField": k, "how": "pctDiff", "field": f })),
+                        format!("% Difference From the Previous {}", name(*f)),
+                    ));
+                }
+                choose(ctx, items, "Show Values As");
+                return Ok(());
+            };
+            if let Some(x) = spec.values.get_mut(k) {
+                x.show_as = match how {
+                    "total" => ShowAs::PercentOfTotal,
+                    "row" => ShowAs::PercentOfRow,
+                    "col" => ShowAs::PercentOfColumn,
+                    "run" => ShowAs::RunningTotal,
+                    "diff" => ShowAs::Difference,
+                    "pctDiff" => ShowAs::PercentDifference,
+                    _ => ShowAs::Normal,
+                };
+                x.base_field = field_arg.unwrap_or(0);
+                x.base_item.clear();
+            }
+        }
+        "calcField" => {
+            let Some(t) = &text else {
+                return ask_more(
+                    ctx,
+                    ID,
+                    &serde_json::json!({ "what": "calcField", "value_default": "Field1 = " }),
+                    "value",
+                );
+            };
+            let Some((n, formula)) = t.split_once('=') else {
+                ctx.messages
+                    .push("A name, =, and a formula of the fields".into());
+                return Ok(());
+            };
+            let n = n.trim().to_owned();
+            let field = info.fields.len() as u32;
+            spec.calculated.push(CalculatedField {
+                name: n,
+                formula: formula.trim().to_owned(),
+            });
+            spec.values.push(PivotValue {
+                field,
+                ..PivotValue::default()
+            });
+        }
+        "calcItem" => {
+            let Some(f) = pick_field(ctx, "Calculated Item of") else {
+                return Ok(());
+            };
+            let Some(t) = &text else {
+                return ask_more(
+                    ctx,
+                    ID,
+                    &arg(serde_json::json!({ "field": f, "value_default": "Item1 = " })),
+                    "value",
+                );
+            };
+            let Some((n, formula)) = t.split_once('=') else {
+                ctx.messages
+                    .push("A name, =, and a formula of the items".into());
+                return Ok(());
+            };
+            spec.calculated_items.push(CalculatedItem {
+                field: f,
+                name: n.trim().to_owned(),
+                formula: formula.trim().to_owned(),
+            });
+        }
+        "chart" => {
+            use kalem_viewer::ChartKind as K;
+            let Some(kind) = args.get("kind").and_then(|x| x.as_str()) else {
+                let items = [
+                    ("column", "Column"),
+                    ("bar", "Bar"),
+                    ("line", "Line"),
+                    ("pie", "Pie"),
+                ]
+                .iter()
+                .map(|(k, t)| {
+                    (
+                        serde_json::json!({ "what": "chart", "kind": k }),
+                        (*t).to_owned(),
+                    )
+                })
+                .collect();
+                choose(ctx, items, "PivotChart");
+                return Ok(());
+            };
+            let kind = match kind {
+                "bar" => K::Bar,
+                "line" => K::Line,
+                "pie" => K::Pie,
+                _ => K::Column,
+            };
+            return with(ctx, |v| v.insert_pivot_chart(index, kind));
+        }
+        "slicer" => return insert_slicer(ctx, &serde_json::json!({})),
+        _ => return Ok(()),
+    }
+    with(ctx, |v| v.set_pivot(index, spec))
+}
+
+/// A pivot table's field's items' labels, as its cells show them.
+fn pivot_items(v: &mut ViewerState, info: &kalem_viewer::PivotInfo, f: u32) -> Vec<String> {
+    // The labels in the field's column (or header row) of the table.
+    let l = info.location;
+    let col_field = info.spec.cols.first() == Some(&f);
+    let mut out: Vec<String> = Vec::new();
+    let hidden: Vec<String> = info
+        .spec
+        .filters
+        .iter()
+        .filter(|x| x.field == f && x.kind == kalem_viewer::PivotFilterKind::Items)
+        .flat_map(|x| x.hidden.clone())
+        .collect();
+    let unit = v.unit;
+    let cells = if col_field {
+        v.doc().grid_cells(unit, l[0]..l[0] + 2, l[1]..l[3] + 1)
+    } else {
+        let depth = info.spec.rows.iter().position(|r| *r == f).unwrap_or(0) as u32;
+        let col = if info.spec.form == kalem_viewer::ReportForm::Compact {
+            l[1]
+        } else {
+            l[1] + depth
+        };
+        v.doc().grid_cells(unit, l[0]..l[2] + 1, col..col + 1)
+    };
+    for (_, _, c) in cells {
+        let t = c.text.trim().to_owned();
+        if t.is_empty()
+            || t == "Grand Total"
+            || t == "Row Labels"
+            || t == "Column Labels"
+            || t.ends_with(" Total")
+            || info.fields.iter().any(|n| n == &t)
+            || t.starts_with("Sum of ")
+            || t.starts_with("Count of ")
+            || out.contains(&t)
+        {
+            continue;
+        }
+        out.push(t);
+    }
+    for h in hidden {
+        if !out.contains(&h) {
+            out.push(h);
+        }
+    }
+    out
+}
+
+/// Insert Slicer: a field of the pivot table or the table at the cursor,
+/// chosen, as a slicer beside it.
+fn insert_slicer(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.insertSlicer";
+    if let Some(f) = text_arg(args, "field") {
+        return with(ctx, |v| v.insert_slicer(&f));
+    }
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let fields: Vec<String> = if let Some((_, p)) = v.pivot_at_cursor() {
+        p.fields[..p.fields.len() - p.spec.calculated.len()].to_vec()
+    } else if let Some(t) = v.table_at_cursor() {
+        let r = t.range;
+        let unit = v.unit;
+        v.doc()
+            .grid_cells(unit, r[0]..r[0] + 1, r[1]..r[3] + 1)
+            .into_iter()
+            .map(|c| c.2.text)
+            .collect()
+    } else {
+        ctx.messages
+            .push("Put the cursor in a pivot table or a table to add a slicer".into());
+        return Ok(());
+    };
+    let items = fields
+        .iter()
+        .map(|f| menu_item(ID, serde_json::json!({ "field": f }), f, "Insert Slicer"))
+        .collect();
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
+}
+
+/// Slicer: the slicer at the cursor's items, each ticked or not (only the
+/// one chosen with `only`), every one again, or the slicer removed.
+fn slicer(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.slicer";
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let found = match args.get("index").and_then(serde_json::Value::as_u64) {
+        Some(i) => v
+            .slicers()
+            .get(i as usize)
+            .cloned()
+            .map(|s| (i as usize, s)),
+        None => v.slicer_at_cursor(),
+    };
+    let Some((index, s)) = found else {
+        ctx.messages.push("Put the cursor on a slicer".into());
+        return Ok(());
+    };
+    if args.get("delete").and_then(serde_json::Value::as_bool) == Some(true) {
+        return with(ctx, |v| v.delete_slicer(index));
+    }
+    if args.get("all").and_then(serde_json::Value::as_bool) == Some(true) {
+        return with(ctx, |v| v.select_slicer(index, &[]));
+    }
+    if let Some(item) = args.get("item").and_then(|x| x.as_str()) {
+        let only = args.get("only").and_then(serde_json::Value::as_bool) == Some(true);
+        let mut selected: Vec<String> = if only {
+            Vec::new()
+        } else {
+            s.items
+                .iter()
+                .filter(|i| i.1)
+                .map(|i| i.0.clone())
+                .collect()
+        };
+        if let Some(i) = selected.iter().position(|x| x == item) {
+            selected.remove(i);
+            if selected.is_empty() {
+                // The last one taken away: every item again.
+                return with(ctx, |v| v.select_slicer(index, &[]));
+            }
+        } else {
+            selected.push(item.to_owned());
+        }
+        return with(ctx, |v| v.select_slicer(index, &selected));
+    }
+    let mut items: Vec<_> = s
+        .items
+        .iter()
+        .map(|(l, on)| {
+            menu_item(
+                ID,
+                serde_json::json!({ "index": index, "item": l }),
+                &format!("{} {l}", if *on { "☑" } else { "☐" }),
+                &s.caption,
+            )
+        })
+        .collect();
+    items.push(menu_item(
+        ID,
+        serde_json::json!({ "index": index, "all": true }),
+        "Clear Filter",
+        &s.caption,
+    ));
+    items.push(menu_item(
+        ID,
+        serde_json::json!({ "index": index, "delete": true }),
+        "Delete Slicer",
+        &s.caption,
+    ));
+    ctx.requests.push(Request::Choose(items));
+    Ok(())
 }
 
 /// Series Color: the series chosen (when there are several), then a
@@ -13275,7 +14102,11 @@ fn insert_pivot(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
             range,
             rows,
             cols,
-            values,
+            values: values
+                .iter()
+                .map(|(f, a)| PivotSpec::value(*f, *a))
+                .collect(),
+            ..PivotSpec::default()
         };
         return with(ctx, |v| v.insert_pivot(spec));
     } else {
@@ -15862,6 +16693,21 @@ fn grid_commands() -> Vec<Command> {
             IN_GRID,
             |ctx, _| with(ctx, |v| v.delete_chart()),
         ),
+        cmd(
+            "viewer.grid.pivotOptions",
+            "PivotTable Options",
+            &["s v"],
+            IN_GRID,
+            pivot_options,
+        ),
+        cmd(
+            "viewer.grid.insertSlicer",
+            "Insert Slicer",
+            &["s l"],
+            IN_GRID,
+            insert_slicer,
+        ),
+        cmd("viewer.grid.slicer", "Slicer", &["s s"], IN_GRID, slicer),
         cmd(
             "viewer.grid.insertPivot",
             "Insert PivotTable",
