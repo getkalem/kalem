@@ -9,7 +9,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-kalem-core.workspace = true
+kalem-core = { workspace = true, features = ["svg-text"] }
 kalem-viewer.workspace = true
 kalem-highlight.workspace = true
 gpui-rich-text.workspace = true

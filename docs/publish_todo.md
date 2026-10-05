@@ -870,13 +870,15 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   `kalem-core/Cargo.toml:30`), which drops `text` and `raster-images`:
   SVG text labels and embedded rasters are never drawn (inline pictures
   in Org and Markdown too).
-  (done 2026-10-06 in Kalem: kalem-core's resvg has both, the system's
-  fonts read once when an SVG first has text, each generic family named
-  to a font that is there; test
-  `svg_text_and_embedded_pictures_are_drawn`. It costs 1.05 MiB: the
-  shaper and the second gif and zune-jpeg resvg 0.45 asks for. The
-  picture plugin keeps them off: a component has no fonts, as its README
-  says, and an SVG file opens as text in Kalem.)
+  (done 2026-10-06 in Kalem: kalem-core's feature `svg-text`, which the
+  graphical editor turns on, gives resvg both, the system's fonts read
+  once when an SVG first has text, each generic family named to a font
+  that is there; test `svg_text_and_embedded_pictures_are_drawn`. It
+  costs 1.05 MiB, the shaper and the second gif and zune-jpeg resvg 0.45
+  asks for, which took the terminal-only build past its ceiling (43.6
+  MiB on CI), so that build leaves it out. The picture plugin keeps them
+  off: a component has no fonts, as its README says, and an SVG file
+  opens as text in Kalem.)
 - [~] **Minor, gaps.** HEIC and AVIF (phone photos) are not supported;
   multi-page TIFF shows page 1 only; ICC profiles are reported but not
   applied; `kalem view --to png book.xlsx` writes a 1×1 PNG and exits 0.

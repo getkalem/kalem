@@ -43,7 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - `kalem view --to png` on a sheet of a workbook says it is cells, not a picture, and fails (exit status 2, as other errors); it wrote a 1 × 1 PNG.
-- An SVG picture shown in a document draws its text, in the system's fonts, and the pictures in it (PNG, JPEG, GIF, WebP), which a LaTeX figure from a PDF has as data; both were left blank. The binary is about 1 MiB larger for it.
+- An SVG picture shown in a document in the graphical editor draws its text, in the system's fonts, and the pictures in it (PNG, JPEG, GIF, WebP), which a LaTeX figure from a PDF has as data; both were left blank. It costs about 1 MiB, so the terminal-only build, which stays within its size ceiling, leaves it out (kalem-core's feature `svg-text`).
 - Opening a formatted `.ods`, or a `.xls` saved as `.xlsx`, no longer runs out of memory: the looks are copied in one batch (the workbook plugin kept a copy of the workbook for undo after each styled run), and like runs down a column go in one change; 3,000 rows formatted by column convert in a third of a second.
 - Open as Workbook reads numbers as Turkish and European files write them: it asks how decimals are written (the file's way offered first), and `1.234,56` and `12,5%` become numbers instead of text; `1,234.5` and `50%` keep Excel's thousands and percent formats. It reads unsaved edits rather than the file on disk, and always writes a `.xlsx` (a target named `out.csv` got a workbook's bytes).
 - Find without regard to case no longer copies the whole text at each keystroke of the query (some 800 MB for a 50 MB file): it folds the text's characters as it reads them.

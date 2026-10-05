@@ -27,7 +27,7 @@ org-export.workspace = true
 org-math.workspace = true
 jiff = { version = "0.2", default-features = false, features = ["std"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
-resvg = { version = "0.45", default-features = false, features = ["text", "raster-images"] }
+resvg = { version = "0.45", default-features = false }
 notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
 serde_json = "1"
 # Plugins installed from inside Kalem (`plugin_store`): the index and the
@@ -60,6 +60,11 @@ kalem-viewer.workspace = true
 proptest = "1"
 # The reference RFC 4180 reader and writer of the CSV conformance test.
 csv = "1"
+
+[features]
+# SVG pictures drawn with their text, in the system's fonts, and the
+# pictures in them: 1 MiB, for the graphical editor, which turns it on.
+svg-text = ["resvg/text", "resvg/raster-images"]
 
 [lints]
 workspace = true

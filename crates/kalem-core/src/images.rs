@@ -409,10 +409,11 @@ pub fn pdf_svg(data: Vec<u8>) -> Result<String, String> {
     ))
 }
 
-/// The system's fonts, for the text of SVG pictures: read once, when a
-/// picture first has text. Each generic family (`serif`, `sans-serif`,
+/// The system's fonts, for the text of SVG pictures (the feature
+/// `svg-text`): read once, when a picture first has text. Each generic family (`serif`, `sans-serif`,
 /// `monospace`) names a font that is there, the serif one also standing
 /// for any family missing.
+#[cfg(feature = "svg-text")]
 fn system_fonts() -> std::sync::Arc<resvg::usvg::fontdb::Database> {
     static FONTS: std::sync::OnceLock<std::sync::Arc<resvg::usvg::fontdb::Database>> =
         std::sync::OnceLock::new();
@@ -532,10 +533,12 @@ pub fn decode(file: &Path, max: u32) -> Result<image::RgbaImage, String> {
         if ext("pdf") || postscript {
             data = pdf_svg(data)?.into_bytes();
         }
+        #[cfg_attr(not(feature = "svg-text"), allow(unused_mut))]
         let mut opts = resvg::usvg::Options {
             resources_dir: file.parent().map(Path::to_path_buf),
             ..Default::default()
         };
+        #[cfg(feature = "svg-text")]
         if data.windows(5).any(|w| w == b"<text") {
             opts.fontdb = system_fonts();
         }
@@ -760,6 +763,7 @@ mod tests {
         assert!(decode(&dir.join("missing.png"), 100).is_err());
     }
 
+    #[cfg(feature = "svg-text")]
     #[test]
     fn svg_text_and_embedded_pictures_are_drawn() {
         let dir = std::env::temp_dir().join(format!("kalem-svg-{}", std::process::id()));
