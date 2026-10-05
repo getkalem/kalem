@@ -10,8 +10,45 @@ use std::ops::Range;
 
 use latex_syntax::{SyntaxKind as K, SyntaxNode};
 
+/// Environments of packages whose bodies are typeset or run line by
+/// line, though the parser reads them as LaTeX: `alltt`, fancyvrb's,
+/// PythonTeX's, LuaLaTeX's, SageTeX's and tcolorbox's listings.
+const LINES_KEPT: &[&str] = &[
+    "alltt",
+    "LVerbatim",
+    "LVerbatim*",
+    "BVerbatim*",
+    "VerbatimOut",
+    "SaveVerbatim",
+    "pycode",
+    "pyblock",
+    "pyconsole",
+    "pyverbatim",
+    "pysub",
+    "luacode",
+    "luacode*",
+    "sagesilent",
+    "sageblock",
+    "sagecommandline",
+    "sageexample",
+    "tcblisting",
+];
+
+/// The commands declaring a verbatim environment, the name in their first
+/// braces: listings', fancyvrb's and tcolorbox's.
+const DECLARING: &[&str] = &[
+    "\\lstnewenvironment",
+    "\\DefineVerbatimEnvironment",
+    "\\RecustomVerbatimEnvironment",
+    "\\CustomVerbatimEnvironment",
+    "\\newtcblisting",
+    "\\NewTCBListing",
+    "\\DeclareTCBListing",
+];
+
 /// Verbatim text: environments' bodies and verbatim arguments, and the
-/// bodies of `alltt` and of the listings `\lstnewenvironment` declares,
+/// bodies of the environments of [`LINES_KEPT`], of those a command of
+/// [`DECLARING`] declares and of minted's `\newminted{LANG}` (`LANGcode`),
 /// which the parser reads as LaTeX but LaTeX typesets line by line.
 fn protected(root: &SyntaxNode) -> Vec<Range<usize>> {
     let mut keep: Vec<Range<usize>> = root
@@ -20,18 +57,7 @@ fn protected(root: &SyntaxNode) -> Vec<Range<usize>> {
         .filter(|t| t.kind() == K::VERBATIM)
         .map(|t| usize::from(t.text_range().start())..usize::from(t.text_range().end()))
         .collect();
-    let text = root.text().to_string();
-    let mut lines_kept = vec!["alltt".to_string()];
-    let mut rest = text.as_str();
-    while let Some(i) = rest.find("\\lstnewenvironment") {
-        rest = &rest[i + "\\lstnewenvironment".len()..];
-        let r = rest.trim_start();
-        if let Some(inner) = r.strip_prefix('{')
-            && let Some(close) = inner.find('}')
-        {
-            lines_kept.push(inner[..close].trim().to_string());
-        }
-    }
+    let lines_kept = lines_kept(&root.text().to_string());
     for env in root.descendants().filter(|n| n.kind() == K::ENVIRONMENT) {
         let name = latex_syntax::name(&env).unwrap_or_default();
         if lines_kept.contains(&name)
@@ -41,6 +67,40 @@ fn protected(root: &SyntaxNode) -> Vec<Range<usize>> {
         }
     }
     keep
+}
+
+/// The environments of `text` whose bodies the parser reads as LaTeX but
+/// LaTeX typesets line by line ([`protected`]).
+fn lines_kept(text: &str) -> Vec<String> {
+    let mut lines_kept: Vec<String> = LINES_KEPT.iter().map(|s| (*s).to_string()).collect();
+    let first_braces = |rest: &str| -> Option<String> {
+        let inner = rest.trim_start().strip_prefix('{')?;
+        Some(inner[..inner.find('}')?].trim().to_string())
+    };
+    for command in DECLARING {
+        let mut rest = text;
+        while let Some(i) = rest.find(command) {
+            rest = &rest[i + command.len()..];
+            // `\newtcblisting[options]{name}`.
+            let after = rest.trim_start();
+            let after = match after.strip_prefix('[') {
+                Some(o) => o.find(']').map_or(after, |c| &o[c + 1..]),
+                None => after,
+            };
+            lines_kept.extend(first_braces(after));
+        }
+    }
+    let mut rest = text;
+    while let Some(i) = rest.find("\\newminted") {
+        rest = &rest[i + "\\newminted".len()..];
+        // `\newminted[name]{lang}{options}`, else `LANGcode`.
+        let after = rest.trim_start();
+        match after.strip_prefix('[') {
+            Some(o) => lines_kept.extend(o.find(']').map(|c| o[..c].trim().to_string())),
+            None => lines_kept.extend(first_braces(after).map(|l| format!("{l}code"))),
+        }
+    }
+    lines_kept
 }
 
 /// How many environments (not `document`) hold the line starting its
@@ -68,9 +128,13 @@ fn lead(line: &str) -> &str {
 /// not indented.
 fn step(text: &str, root: &SyntaxNode) -> Option<String> {
     let mut votes: HashMap<String, usize> = HashMap::new();
+    let kept = lines_kept(text);
     for env in root.descendants().filter(|n| n.kind() == K::ENVIRONMENT) {
         let name = latex_syntax::name(&env).unwrap_or_default();
-        if name == "document" || latex_syntax::signatures::is_verbatim(&name) {
+        if name == "document"
+            || latex_syntax::signatures::is_verbatim(&name)
+            || kept.contains(&name)
+        {
             continue;
         }
         let begin = usize::from(env.text_range().start());
@@ -105,7 +169,9 @@ pub fn format(text: &str, align: bool) -> String {
     let root = parse.syntax();
     let keep = protected(&root);
     let unit = step(text, &root);
-    let inside = |p: usize| keep.iter().any(|r| r.start < p && p < r.end);
+    // A line starting where verbatim text ends is the `\end` line: kept
+    // as it is too, its indentation being the text's last line.
+    let inside = |p: usize| keep.iter().any(|r| r.start < p && p <= r.end);
     let mut out = String::with_capacity(text.len());
     let mut blank = 0;
     let mut pos = 0;
@@ -327,6 +393,25 @@ mod tests {
         // Not indented: left as it is (apart from blanks).
         let flat = "\\begin{itemize}\n\\item a\n\\end{itemize}\n";
         assert_eq!(format(flat, false), flat);
+    }
+
+    #[test]
+    fn verbatim_end_lines_and_verbatim_like_environments_kept() {
+        // An indented `\end{verbatim}` adds a blank line to the listing
+        // (publish_todo 3.3); the bodies of environments of packages and
+        // of declared ones are typeset line by line.
+        let text = "\\DefineVerbatimEnvironment{Code}{Verbatim}{}\n\\newminted{python}{}\n\\begin{document}\n\\begin{itemize}\n  \\item a\n\\begin{verbatim}\nx\n\\end{verbatim}\n\\begin{Code}\n y\n\\end{Code}\n\\begin{pythoncode}\n    z\n\\end{pythoncode}\n\\begin{pycode}\n w\n\\end{pycode}\n\\end{itemize}\n\\end{document}\n";
+        let out = format(text, false);
+        for kept in [
+            "\nx\n\\end{verbatim}\n",
+            "\n y\n\\end{Code}\n",
+            "\n    z\n\\end{pythoncode}\n",
+            "\n w\n\\end{pycode}\n",
+        ] {
+            assert!(out.contains(kept), "{kept:?} in\n{out}");
+        }
+        assert!(out.contains("\n  \\begin{verbatim}\n"), "{out}");
+        assert_eq!(format(&out, false), out);
     }
 
     #[test]

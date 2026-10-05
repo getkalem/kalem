@@ -533,13 +533,20 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   row has a first cell the `&` starts the line with no space before it.
   All 181 files of the corpus settle at the first run, with and without
   `--align`, which `latex_corpus.rs`'s `arxiv_papers` now checks.)
-- [ ] **Major, reported (confirmed with pdflatex by the audit).**
+- [x] **Major, reported (confirmed with pdflatex by the audit).**
   `kalem fmt` changes verbatim output: the `\end{verbatim}` line counts
   as outside the environment and is indented (`latex_fmt.rs:105`,
   strict `<`), which adds a blank last line to the typeset listing;
   verbatim-like environments not on the fixed list (`protected`,
   `:16-44`: fancyvrb's `\DefineVerbatimEnvironment`, `pycode`,
   `luacode`) get their bodies re-indented.
+  (done 2026-10-05: the line where verbatim text ends, its `\end` line,
+  is kept as it is; the bodies kept are also those of fancyvrb's,
+  PythonTeX's, LuaLaTeX's, SageTeX's and tcolorbox's listing
+  environments and of those `\DefineVerbatimEnvironment` (and its
+  kin), `\newtcblisting` and minted's `\newminted` declare, which no
+  longer vote for the indentation step either. Test
+  `verbatim_end_lines_and_verbatim_like_environments_kept`.)
 - [x] **Major, verified (code).** `kalem fmt` runs the Org formatter on
   `.bib`, `.sty` and `.cls` (same cause as the Markdown blocker): a
   `.bib` abstract with `| x |` lines is "aligned".
