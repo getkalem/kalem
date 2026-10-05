@@ -92,9 +92,12 @@ jobs:
     name: minimum supported Rust version
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    # rust-toolchain.toml would choose stable over the version installed.
+    env:
+      RUSTUP_TOOLCHAIN: "1.96"
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.88
+      - uses: dtolnay/rust-toolchain@1.96
       - uses: Swatinem/rust-cache@v2
       - name: Linux libraries for the graphical editor (gpui)
         if: runner.os == 'Linux'

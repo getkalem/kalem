@@ -1,7 +1,7 @@
 //! `kalem fmt` and `kalem query`.
 
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
 
@@ -82,12 +82,11 @@ pub(crate) fn fmt(files: &[PathBuf], check: bool, align: bool) -> Result<ExitCod
 
 /// `kalem query FILE... MATCH`: the headlines matching an Org match string
 /// (`org-map-entries`), as `FILE:LINE: HEADLINE` lines or JSON.
-pub(crate) fn query(args: &[String], json: bool) -> Result<ExitCode> {
-    let (m, files) = args.split_last().ok_or("A match string is needed")?;
+pub(crate) fn query(files: &[std::path::PathBuf], m: &str, json: bool) -> Result<ExitCode> {
     let now = jiff::Zoned::now().datetime();
     let mut found = Vec::new();
-    for f in files {
-        let path = Path::new(f);
+    for path in files {
+        let f = path.to_string_lossy().into_owned();
         let text = super::read(path)?;
         // `#+SETUPFILE`'s keywords and tags too, as export reads them.
         let doc = org_model::Document::with_settings(

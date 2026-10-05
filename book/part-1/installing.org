@@ -1,9 +1,10 @@
-Kalem has no releases yet. Build it from source with Rust 1.88 or later:
+Kalem has no releases yet. Build it from source with Rust 1.96 or later:
 
 #+begin_src sh
-cargo install --path crates/kalem
+git clone https://github.com/getkalem/kalem && cd kalem
+cargo install --locked --path crates/kalem
 # Terminal editor and command-line tools only:
-cargo install --path crates/kalem --no-default-features --features tui
+cargo install --locked --path crates/kalem --no-default-features --features tui
 #+end_src
 
 Both put one program, =kalem=, in Cargo's =bin= folder, which is on
@@ -26,10 +27,12 @@ and minimal systems.
 
 The terminal-only build leaves out the graphical editor, and with it the
 viewers of PDF files, pictures and workbooks and the plugin host, which
-are a third of the binary: such files are refused as not text, and
-installed plugins do not run. Name them to keep them:
+weigh some 15 MB: such files are refused as not text, and
+installed plugins do not run. Name them to keep them (=plugins= for the
+plugin host alone, =components= for it and the viewers built in, which
+the build downloads from the releases of getkalem/plugins):
 
 #+begin_src sh
-cargo install --path crates/kalem --no-default-features --features tui
-cargo install --path crates/kalem --no-default-features --features tui,viewers,plugins
+cargo install --locked --path crates/kalem --no-default-features --features tui
+cargo install --locked --path crates/kalem --no-default-features --features tui,components
 #+end_src

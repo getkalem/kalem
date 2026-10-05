@@ -28,7 +28,11 @@ mod extensions;
        kalem gui [FILE]           the graphical editor
        kalem tui [FILE]           the terminal editor (also kalem -t [FILE])
        kalem tui --detect         what the terminal can do
-       kalem <COMMAND>            a command-line tool"
+       kalem <COMMAND>            a command-line tool",
+    after_help = "Environment:
+  KALEM_CONFIG_DIR  the settings, keys and plugins (~/.config/kalem; %APPDATA%\\kalem on Windows)
+  KALEM_STATE_DIR   the log, crash reports and caches (~/.local/state/kalem; %LOCALAPPDATA%\\kalem)
+  KALEM_LOG         what the log keeps: `debug`, or per module (`kalem_core=debug,info`)"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -161,8 +165,8 @@ enum LatexAction {
         /// Output format.
         #[arg(long, value_enum, default_value_t = Format::Text)]
         format: Format,
-        /// The engine (`pdflatex`, `xelatex`, `lualatex`), instead of the
-        /// one the document asks for.
+        /// The engine (`pdflatex`, `xelatex`, `lualatex`, `tectonic`),
+        /// instead of the one the document asks for.
         #[arg(long)]
         engine: Option<String>,
         /// Where the output goes, relative to the root document.
@@ -198,8 +202,8 @@ enum BookAction {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Show a file that is not text through the viewer that opens it
-    /// (design §11.13): a unit as PNG, or its text and information.
+    /// Show a file that is not text through the viewer that opens it: a
+    /// unit as PNG, or its text and information.
     View {
         /// The file.
         file: PathBuf,
@@ -215,11 +219,11 @@ enum Command {
     },
     /// Print the syntax tree of a file.
     Parse {
-        /// The Org, Markdown, LaTeX or Kalem file to parse.
+        /// The Org, Markdown or LaTeX file to parse.
         file: PathBuf,
     },
     /// Check files: syntax diagnostics and round-trip verification (Org,
-    /// Markdown, LaTeX, Kalem, CSV and BibTeX files).
+    /// Markdown, LaTeX, CSV and BibTeX files).
     Check {
         /// Files to check; a folder stands for those under it.
         #[arg(required = true)]
@@ -304,6 +308,7 @@ enum Command {
     /// Compares the structure Kalem reads in LaTeX files with pandoc's
     /// LaTeX reader: headings, formulas, citations, footnotes, figures,
     /// tables, code blocks and list items (development).
+    #[command(hide = true)]
     DiffPandoc {
         /// LaTeX files to compare.
         #[arg(required = true)]
@@ -317,7 +322,9 @@ enum Command {
     },
     /// How much of a corpus of LaTeX sources the rendered view covers:
     /// by field (the folders under DIR), the share of the body shown as
-    /// source, and the most frequent commands and environments.
+    /// source, and the most frequent commands and environments
+    /// (development).
+    #[command(hide = true)]
     LatexCoverage {
         /// Folders of sources: DIR/FIELD/PAPER/*.tex.
         #[arg(required = true)]
@@ -336,7 +343,8 @@ enum Command {
         #[command(subcommand)]
         action: PluginAction,
     },
-    /// Language servers: `kalem lsp status`, `kalem lsp check FILE`.
+    /// Language servers: `kalem lsp status`, `kalem lsp check FILE`,
+    /// `kalem lsp ask REQUEST FILE [LINE:COLUMN]`.
     Lsp {
         #[command(subcommand)]
         action: LspAction,
@@ -359,14 +367,19 @@ enum Command {
     /// Print the headlines matching an Org match string, such as
     /// `kalem query notes.org 'TODO="NEXT"+work'`.
     Query {
-        /// Org files, then the match string.
-        #[arg(required = true, num_args = 2.., value_name = "FILE... MATCH")]
-        args: Vec<String>,
+        /// Org files.
+        #[arg(required = true, value_name = "FILE")]
+        files: Vec<PathBuf>,
+        /// The match string, as Emacs's tags and property matches write it.
+        #[arg(value_name = "MATCH")]
+        matcher: String,
         /// Output format.
         #[arg(long, value_enum, default_value_t = Format::Text)]
         format: Format,
     },
-    /// Dump the parse tree in a machine-readable format.
+    /// Dump the parse tree in the JSON of `tests/emacs/dump.el`
+    /// (development).
+    #[command(hide = true)]
     Dump {
         /// The Org file to dump.
         file: PathBuf,
@@ -374,7 +387,8 @@ enum Command {
         #[arg(long, value_enum, default_value_t = DumpFormat::EmacsJson)]
         format: DumpFormat,
     },
-    /// Compare the parse with Emacs's org-element (development tool).
+    /// Compare the parse with Emacs's org-element (development).
+    #[command(hide = true)]
     DiffEmacs {
         /// Org files to compare.
         #[arg(required = true)]
@@ -798,7 +812,11 @@ where
                     check,
                 },
         } => commands::recalc(&files, iterate, check),
-        Command::Query { args, format } => commands::query(&args, matches!(format, Format::Json)),
+        Command::Query {
+            files,
+            matcher,
+            format,
+        } => commands::query(&files, &matcher, matches!(format, Format::Json)),
         Command::DiffPandoc {
             files,
             summary,

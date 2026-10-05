@@ -914,7 +914,16 @@ documents, `kalem check`'s round trip and diagnostics, a missing
 
 Wrong or stale text a first reader meets. Each is a text change.
 
-- [ ] **README.md**
+- [~] **README.md**
+  (done 2026-10-06 but the contact address, the owner's (R2.10): Rust
+  1.96 in both texts and the workspace, the CI job run with
+  `RUSTUP_TOOLCHAIN=1.96`; the table's extensions, the workbook rows
+  and the caveat under "The file stays yours"; the viewers are the
+  released components since W9, so line 30 is true and names them; the
+  terminal archives, the Linux libraries, glibc 2.35, the unsigned
+  `Kalem.app`, where settings, logs and crash reports live and the
+  variables that move them, the Word-like default keys, `git clone`
+  and `--locked`.)
   - Line 46 and `book/part-1/installing.org:1`: "Rust 1.88 or later" is
     false. `cargo metadata` gives `rust_version` 1.96.0 for wasmtime
     49.0.2 and cranelift-codegen 0.136.2, 1.92 for hayro 0.7.1; the
@@ -953,7 +962,7 @@ Wrong or stale text a first reader meets. Each is a text change.
   - The from-source instructions lack `git clone … && cd kalem` and
     `--locked`. (The 400 MB Zed fetch is gone: gpui comes from crates.io
     since 54c9427, R2.7.)
-- [ ] **CLI help** (`crates/kalem-cli/src/lib.rs`): `parse` (line 200)
+- [x] **CLI help** (`crates/kalem-cli/src/lib.rs`): `parse` (line 200)
   and `check` (204) and the errors at `commands/mod.rs:155`, `193` still
   name a "Kalem" file type, removed on 2026-10-04; `cmd-edit-repairDocument`
   is an orphan in both `.ftl` files. `fmt` says "Org, LaTeX or code
@@ -967,6 +976,14 @@ Wrong or stale text a first reader meets. Each is a text change.
   `editor.restore_session` defaults to false. `--engine` help omits
   `tectonic`, which the code takes (`pdf.rs:24-31`). No ENVIRONMENT
   section for `KALEM_CONFIG_DIR`, `KALEM_STATE_DIR`, `KALEM_LOG`.
+  (done 2026-10-06: no "Kalem" file type in `parse`, `check` or their
+  errors; `cmd-edit-repairDocument` gone; `fmt` and `check` were right
+  already (3.1, 3.4); `diff-pandoc`, `latex-coverage`, `dump` and
+  `diff-emacs` hidden from the help, still there for the tools and
+  workflows that run them; `view` without the design reference; `lsp`
+  names `ask`; `query` reads `<FILE>... <MATCH>`; `kalem gui --help`
+  names `editor.restore_session`; `--engine` names `tectonic`; the help
+  ends with the three variables.)
 - [ ] **The Book**
   - `book/part-4/overview.org:3-7, 19-20`, `book/part-4/plugins.org:1-12`
     and `book/appendices/glossary.org:15` say the plugin runtime "is not

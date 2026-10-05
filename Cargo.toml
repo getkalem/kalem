@@ -6,7 +6,7 @@ default-members = ["crates/*"]
 [workspace.package]
 version = "0.0.1"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.96"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/getkalem/kalem"
 homepage = "https://getkalem.github.io/kalem"

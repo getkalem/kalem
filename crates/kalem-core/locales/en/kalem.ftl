@@ -32,7 +32,6 @@ cmd-file-open = Open File
 cmd-file-new = New Document
 cmd-file-close = Close Document
 cmd-file-next = Next Document
-cmd-edit-repairDocument = Repair Document
 cmd-edit-trimTrailingBlankLines = Delete Trailing Blank Lines
 cmd-edit-formatDocument = Format Document
 cmd-settings-set = Set a Setting

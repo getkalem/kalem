@@ -170,7 +170,7 @@ fn markdown_tree(text: &str) -> String {
 }
 
 /// The files `paths` name: a folder stands for the Org, Markdown, LaTeX,
-/// Kalem, CSV and BibTeX files under it (hidden files and folders,
+/// CSV and BibTeX files under it (hidden files and folders,
 /// `target` and `node_modules` left out), in order.
 fn expand_files(paths: &[std::path::PathBuf]) -> Result<Vec<std::path::PathBuf>> {
     use kalem_core::DocumentMode;
@@ -207,7 +207,7 @@ fn expand_files(paths: &[std::path::PathBuf]) -> Result<Vec<std::path::PathBuf>>
         }
         if found.is_empty() {
             return Err(format!(
-                "{}: no Org, Markdown, LaTeX, Kalem, CSV or BibTeX files in it",
+                "{}: no Org, Markdown, LaTeX, CSV or BibTeX files in it",
                 p.display()
             ));
         }

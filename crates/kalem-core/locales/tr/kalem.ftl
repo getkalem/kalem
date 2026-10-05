@@ -31,7 +31,6 @@ cmd-file-open = Dosya Aç
 cmd-file-new = Yeni Belge
 cmd-file-close = Belgeyi Kapat
 cmd-file-next = Sonraki Belge
-cmd-edit-repairDocument = Belgeyi Onar
 cmd-edit-trimTrailingBlankLines = Sondaki Boş Satırları Sil
 cmd-edit-formatDocument = Belgeyi Biçimlendir
 cmd-settings-set = Ayar Değiştir

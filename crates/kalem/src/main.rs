@@ -92,7 +92,9 @@ fn wants_help(args: &[OsString]) -> bool {
 #[cfg(feature = "gui")]
 fn gui(args: &[OsString]) -> ExitCode {
     if wants_help(args) {
-        println!("Usage: kalem gui [FILE]   the graphical editor on FILE (or the last session)");
+        println!(
+            "Usage: kalem gui [FILE]   the graphical editor on FILE (or the last session, when editor.restore_session is on)"
+        );
         return ExitCode::SUCCESS;
     }
     match one_path(args) {
