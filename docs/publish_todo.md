@@ -731,13 +731,20 @@ documents, `kalem check`'s round trip and diagnostics, a missing
 - [x] **Blocker.** The silent "unmodified after undo" and the `.ods`
   rewrite (section 2).
   (done there: both are checked off in section 2.)
-- [ ] **Major, verified (code).** Formulas typed in Kalem are written
+- [~] **Major, verified (code).** Formulas typed in Kalem are written
   without Excel's `_xlfn.` prefix (nothing adds it; `calc.rs:61` only
   strips it), so `=XLOOKUP`, `=CONCAT`, `=TEXTJOIN`, `=IFS`, `=STDEV.S`,
   `=FILTER`, `=UNIQUE` show `#NAME?` in Excel after a save; dynamic-array
   formulas are written without `t="array"`/`cm` and become `@`-formulas.
   Kalem shows the right values (IronCalc accepts the names), so the user
   finds out in Excel.
+  (done in getkalem/plugins f070764, for xlsx 0.0.6: a cell's formula is
+  written with `_xlfn.` before each of the functions Excel added after
+  2007 (`_xlfn._xlws.` for FILTER and SORT), outside strings and sheet
+  names, and the formula bar shows it without, as Excel does; tests
+  `newer_functions_get_their_prefix_for_excel`, `cell_xml_forms`. Open:
+  the release; dynamic-array formulas still written without `cm` and
+  `t="array"`, which wants the spill range IronCalc does not give.)
 - [x] **Major, reported.** Save As to another workbook extension keeps
   the old content types (`save_as_format("xlsx")` returns the same
   package, `kalem-core/src/viewer.rs:1723`): `.xlsm` → `.xlsx` keeps
@@ -751,10 +758,17 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   relationship and content types; the bytes stay as they are when
   nothing changes. `save_as_format` uses it for edited and converted
   workbooks alike. Test `a_workbook_saved_as_another_kind_says_so`.)
-- [ ] **Major, reported.** A password-protected `.xlsx` (an OLE
+- [~] **Major, reported.** A password-protected `.xlsx` (an OLE
   container) fails with "malformed package: no end of central directory
   record" (`xlsx/src/workbook.rs:365`, `package.rs:192`); detect
   `EncryptionInfo` and say "protected by a password".
+  (done in getkalem/plugins f070764, for xlsx 0.0.6: an OLE file with an
+  `EncryptionInfo` stream is refused as "protected by a password to
+  open, which Kalem cannot open yet"; test
+  `a_workbook_with_a_password_says_so`. Open: the release; opening it
+  with the password (MS-OFFCRYPTO's agile encryption, AES and SHA-512,
+  through the plugin API's `password` interface) and saving it
+  encrypted again.)
 - [x] **Major, reported.** Installing any component from the index
   replaces the newer bundled viewer (`kalem-cli/src/lib.rs:510-522` maps
   `org.kalem.xlsx` to the bundled `xlsx`): a working xlsx 0.0.4 is OOXML
