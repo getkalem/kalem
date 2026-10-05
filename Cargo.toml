@@ -251,6 +251,9 @@ targets = [
     "x86_64-pc-windows-msvc",
 ]
 install-path = "CARGO_HOME"
+# Beside the README and the licences in every archive
+# (tools/third-party-licenses.sh writes it).
+include = ["THIRD-PARTY-LICENSES.md"]
 # The graphical editor links against the windowing libraries.
 [workspace.metadata.dist.dependencies.apt]
 libxkbcommon-dev = "*"

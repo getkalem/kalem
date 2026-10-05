@@ -67,7 +67,7 @@ jobs:
         run: |
           name="kalem-terminal-${{ matrix.target }}"
           mkdir "$name"
-          cp README.md CHANGELOG.md LICENSE-MIT LICENSE-APACHE "$name/"
+          cp README.md CHANGELOG.md LICENSE-MIT LICENSE-APACHE THIRD-PARTY-LICENSES.md "$name/"
           if [ -f target/dist/kalem.exe ]; then
             cp target/dist/kalem.exe "$name/"
             7z a "$name.zip" "$name" > /dev/null

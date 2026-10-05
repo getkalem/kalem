@@ -1248,7 +1248,7 @@ Wrong or stale text a first reader meets. Each is a text change.
 
 ## 6. Licensing
 
-- [ ] **Major.** No third-party notices ship with the binaries: the
+- [x] **Major.** No third-party notices ship with the binaries: the
   archives carry README, CHANGELOG and the two LICENSE files only
   (`release-terminal.yml`'s `cp`, dist's defaults), while the binary
   embeds a few hundred MIT/Apache/BSD crates, the KaTeX fonts (OFL-1.1,
@@ -1256,6 +1256,16 @@ Wrong or stale text a first reader meets. Each is a text change.
   (their own licences), the CSL styles (CC BY-SA 3.0), the bat and
   Sublime syntaxes. Add `cargo about` (or `cargo deny`) and a
   `THIRD-PARTY-LICENSES` file to both archives.
+  (done 2026-10-06: `tools/third-party-licenses.sh` writes
+  `THIRD-PARTY-LICENSES.md` (790 KB): cargo-about over kalem-editor and
+  over each plugin built in, cloned at the tag `components.toml` pins,
+  merged by licence text; the syntaxes' and themes' licences as
+  `two-face` lists them (`kalem-highlight`'s example
+  `acknowledgements`); KaTeX's fonts with the OFL, PDFium's fonts, the
+  colour profiles, Adobe's CMaps, the CSL styles, Vim's digraphs with
+  Vim's licence, and Org's entity table as GPL-3.0-or-later (D18).
+  cargo-dist's `include` and `release-terminal.yml` put it in every
+  archive; `docs/releasing.md` runs it before a tag.)
 - [ ] **Major, owner (D18).** `crates/org-syntax/src/tables/entities.rs`
   is generated from GPL-3.0-or-later `org-entities.el` and ships in the
   MIT/Apache binaries. `releasing.md:29` and the D18 page treat it as a
@@ -1272,10 +1282,14 @@ Wrong or stale text a first reader meets. Each is a text change.
   LPPL or publisher terms, not the papers' CC BY; CC BY attribution
   wants the authors' names, the register gives only arXiv ids. The
   non-redistributable sample stays the draft release `arxiv-sample-2024`.
-- [ ] **Minor.** `book/appendices/licenses.org` omits the Foxit fonts,
+- [x] **Minor.** `book/appendices/licenses.org` omits the Foxit fonts,
   ICC profiles and CMaps, the comrak and ironcalc forks, gpui, wasmtime,
   the Vim digraph table (`vim/digraphs.txt`, no stated provenance), the
   Markdown READMEs, the Foam docs, the math corpus and the arXiv papers.
+  (done 2026-10-06: the appendix points at `THIRD-PARTY-LICENSES.md`
+  and names gpui, Wasmtime, the forks, hayro, the fonts, profiles,
+  CMaps and Vim's digraphs; the corpus paragraph names the READMEs,
+  Foam, the formulas and the arXiv sources, and says none of it ships.)
 
 ## 7. Known limitations to state in the README for 0.1 (not to fix)
 

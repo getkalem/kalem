@@ -14,14 +14,32 @@ licenses as the code.
 The files of =tests/corpus= come from other projects under their own
 licenses: the Org manual (GNU FDL 1.3 or later), Org's example files
 and ORG-NEWS (GPL 3 or later), Worg's Org Syntax (GNU FDL 1.3 or later),
-and files written for Kalem (MIT or Apache-2.0). =tests/corpus/LICENSES.md= records each source,
-its revision and its license.
+the READMEs of eleven projects (MIT, Apache-2.0 or the Unlicense, as
+each project is), Foam's documentation (MIT), formulas of the Open
+Logic Project (CC BY 4.0) and the HoTT book (CC BY-SA 3.0), arXiv
+papers' LaTeX sources (CC BY 4.0), and files written for Kalem (MIT or
+Apache-2.0). =tests/corpus/LICENSES.md= records each source, its
+revision and its license. The corpus is for the tests; none of it is in
+Kalem's binaries.
 
 * Components
 
-Kalem embeds the KaTeX fonts for formulas (SIL Open Font License 1.1),
-and uses the Rust crates
-listed in =Cargo.lock=, each under its own license.
+=THIRD-PARTY-LICENSES.md=, beside the program in every release archive
+and made by =tools/third-party-licenses.sh=, gives the license of
+everything the binaries are built from or embed, with its text: the
+Rust crates of =Cargo.lock= and of the plugins built in, among them
+gpui (Zed's, Apache-2.0), Wasmtime (Apache-2.0 with the LLVM
+exception), IronCalc (MIT or Apache-2.0) and comrak (BSD-2-Clause),
+through Kalem's forks =getkalem/ironcalc= and =getkalem/comrak=, and
+hayro (MIT or Apache-2.0); and the works that are not code. Of these:
+
+- the KaTeX fonts for formulas (SIL Open Font License 1.1);
+- PDFium's Foxit fonts for PDF's standard fonts (PDFium's BSD-style
+  license), two colour profiles (one CC0 1.0, one generated with Little
+  CMS) and Adobe's character maps (Adobe's BSD-style license), embedded
+  by hayro for PDF files and LaTeX's PDF figures;
+- Vim's table of digraphs, as =:digraphs= lists it, for the Vim keys
+  (Vim's license).
 
 The highlighter embeds Sublime Text syntax definitions through the
 =two-face= crate (MIT or Apache-2.0): the default set that the =syntect=
