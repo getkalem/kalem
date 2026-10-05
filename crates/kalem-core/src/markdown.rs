@@ -179,7 +179,13 @@ pub fn missing_files(text: &str, path: &std::path::Path) -> Vec<(Range<usize>, S
             if target.is_empty() || target.contains("://") || target.starts_with("mailto:") {
                 return None;
             }
-            let target = target.replace("%20", " ");
+            // Percent-encoded as editors write it (`My%20Note.md`, `%C3%A7`),
+            // when the name as written is no file.
+            let written = std::path::Path::new(target);
+            let target = match crate::dired::percent_decode(target) {
+                Some(d) if !written.exists() && !dir.join(written).exists() => d,
+                _ => target.to_string(),
+            };
             let file = if std::path::Path::new(&target).is_absolute() {
                 std::path::PathBuf::from(&target)
             } else {
@@ -2466,6 +2472,7 @@ pub fn toggle_checkbox(md: &Md, text: &str, at: usize) -> Option<org_edit::Trans
 /// found in the project ([`resolve_wiki`]).
 pub fn link_at(
     md: &Md,
+    text: &str,
     at: usize,
     doc: Option<&std::path::Path>,
 ) -> Option<crate::input::LinkAction> {
@@ -2489,9 +2496,42 @@ pub fn link_at(
         Some((p, h)) => (p.to_string(), Some(h.to_string())),
         None => (url, None),
     };
+    // `#heading`: the heading of this document whose anchor it is.
     if path.is_empty() {
-        return Some(LinkAction::Missing(search.unwrap_or_default()));
+        let anchor = search.unwrap_or_default();
+        return Some(match heading_for_anchor(md, text, &anchor) {
+            Some(at) => LinkAction::Jump(at),
+            None => LinkAction::Missing(anchor),
+        });
     }
+    // Percent-encoded as editors write it, when only that names a file.
+    let path = if wiki {
+        path
+    } else {
+        let dir = doc.and_then(std::path::Path::parent);
+        let exists = |p: &str| dir.map_or(std::path::Path::new(p).exists(), |d| d.join(p).exists());
+        match crate::dired::percent_decode(&path) {
+            Some(d) if !exists(&path) && exists(&d) => d,
+            _ => path,
+        }
+    };
+    // `OTHER.md#heading`: the heading's line in that file, which the
+    // editors take as the place to open it at.
+    let search = match search {
+        Some(anchor) if !wiki && is_markdown_path(&path) => {
+            let dir = doc.and_then(std::path::Path::parent);
+            let file = dir.map_or_else(|| std::path::PathBuf::from(&path), |d| d.join(&path));
+            std::fs::read_to_string(&file)
+                .ok()
+                .and_then(|t| {
+                    let other = Md::parse(&t);
+                    let at = heading_for_anchor(&other, &t, &anchor)?;
+                    Some((t[..at].matches('\n').count() + 1).to_string())
+                })
+                .or(Some(anchor))
+        }
+        s => s,
+    };
     let path = if wiki {
         let found = resolve_wiki(doc, &path);
         // Relative to the document's folder, written with `/`; the folder
@@ -2523,6 +2563,56 @@ pub fn link_at(
         path
     };
     Some(LinkAction::File { path, search })
+}
+
+/// GitHub's anchor of a heading's text (`#install-from-source`): lower
+/// case, spaces as `-`, all but letters, digits, `-` and `_` left out (so
+/// `` `kalem fmt` `` is `kalem-fmt`).
+pub fn anchor_of(title: &str) -> String {
+    title
+        .trim()
+        .chars()
+        .filter_map(|c| match c {
+            ' ' => Some('-'),
+            c if c.is_alphanumeric() || c == '-' || c == '_' => Some(c),
+            _ => None,
+        })
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
+/// The start of the heading of `md` that `#anchor` names, repeated titles
+/// numbered as GitHub numbers them (`intro`, `intro-1`, …).
+pub fn heading_for_anchor(md: &Md, text: &str, anchor: &str) -> Option<usize> {
+    let anchor = crate::dired::percent_decode(anchor).unwrap_or_else(|| anchor.to_string());
+    let want = anchor.to_lowercase();
+    let mut seen: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for (_, n) in md.headings() {
+        let base = anchor_of(&text[n.content.clone()]);
+        let k = seen.entry(base.clone()).or_insert(0);
+        let a = if *k == 0 {
+            base.clone()
+        } else {
+            format!("{base}-{k}")
+        };
+        *k += 1;
+        if a == want {
+            return Some(n.range.start);
+        }
+    }
+    None
+}
+
+fn is_markdown_path(path: &str) -> bool {
+    std::path::Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| {
+            matches!(
+                e.to_ascii_lowercase().as_str(),
+                "md" | "markdown" | "mdown" | "mkd" | "mkdn"
+            )
+        })
 }
 
 /// The Markdown files of the project of the document at `doc` (its
@@ -2738,6 +2828,51 @@ pub fn to_tree(md: &Md) -> Tree {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Links to headings: `#anchor` in the document, `OTHER.md#anchor` as
+    /// the heading's line in that file; percent-encoded names decoded when
+    /// only they name a file.
+    #[test]
+    fn links_to_headings_and_encoded_names() {
+        use crate::input::LinkAction;
+        assert_eq!(anchor_of("Install from Source"), "install-from-source");
+        assert_eq!(anchor_of("`kalem fmt`"), "kalem-fmt");
+        assert_eq!(anchor_of("Kurulum ve Ayarlar"), "kurulum-ve-ayarlar");
+        let text = "# Intro\n\n## Install\n\nSee [x](#install-1).\n\n## Install\n\n[z](#nothing)\n";
+        let md = Md::parse(text);
+        let at = text.find("[x]").unwrap() + 1;
+        let second = text.rfind("## Install").unwrap();
+        assert_eq!(link_at(&md, text, at, None), Some(LinkAction::Jump(second)));
+        let at = text.find("[z]").unwrap() + 1;
+        assert_eq!(
+            link_at(&md, text, at, None),
+            Some(LinkAction::Missing("nothing".into()))
+        );
+        let dir = std::env::temp_dir().join(format!("kalem-md-anchors-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("GUIDE.md"), "# Guide\n\n## Configuration\n").unwrap();
+        std::fs::write(dir.join("My Note.md"), "# Note\n").unwrap();
+        let doc = dir.join("README.md");
+        let text = "[c](GUIDE.md#configuration) [n](My%20Note.md)\n";
+        let md = Md::parse(text);
+        assert_eq!(
+            link_at(&md, text, 1, Some(&doc)),
+            Some(LinkAction::File {
+                path: "GUIDE.md".into(),
+                search: Some("3".into())
+            })
+        );
+        let at = text.find("[n]").unwrap() + 1;
+        assert_eq!(
+            link_at(&md, text, at, Some(&doc)),
+            Some(LinkAction::File {
+                path: "My Note.md".into(),
+                search: None
+            })
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn items_moved_and_lists_renumbered() {
@@ -2965,31 +3100,31 @@ mod tests {
         let md = Md::parse(t);
         let at = |w: &str| t.find(w).unwrap() + 1;
         assert_eq!(
-            link_at(&md, at("the other"), Some(&doc)),
+            link_at(&md, t, at("the other"), Some(&doc)),
             Some(LinkAction::File {
                 path: "deep/Other Page.md".into(),
                 search: None
             })
         );
         assert_eq!(
-            link_at(&md, at("New"), Some(&doc)),
+            link_at(&md, t, at("New"), Some(&doc)),
             Some(LinkAction::File {
                 path: "New.md".into(),
                 search: None
             })
         );
         assert_eq!(
-            link_at(&md, at("web"), Some(&doc)),
+            link_at(&md, t, at("web"), Some(&doc)),
             Some(LinkAction::Url("https://x.org".into()))
         );
         assert_eq!(
-            link_at(&md, at("file"), Some(&doc)),
+            link_at(&md, t, at("file"), Some(&doc)),
             Some(LinkAction::File {
                 path: "a.md".into(),
                 search: Some("Part".into())
             })
         );
-        assert!(link_at(&md, 0, Some(&doc)).is_none());
+        assert!(link_at(&md, t, 0, Some(&doc)).is_none());
         // A wiki link shows its title, its target hidden away from it.
         let v = view_line(&md, t, 0..t.len() - 1, None);
         assert!(

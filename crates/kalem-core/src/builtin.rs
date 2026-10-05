@@ -2756,9 +2756,13 @@ fn markdown_commands() -> Vec<Command> {
                 |ctx, _| {
                     let d = ctx.doc()?;
                     let md = crate::markdown::parsed(d);
-                    let action =
-                        crate::markdown::link_at(&md, d.selection.head, d.meta.path.as_deref())
-                            .ok_or_else(|| CommandError::new(crate::tr!("msg-no-link")))?;
+                    let action = crate::markdown::link_at(
+                        &md,
+                        d.text().as_str(),
+                        d.selection.head,
+                        d.meta.path.as_deref(),
+                    )
+                    .ok_or_else(|| CommandError::new(crate::tr!("msg-no-link")))?;
                     request(ctx, Request::OpenLink(action))
                 },
             ),

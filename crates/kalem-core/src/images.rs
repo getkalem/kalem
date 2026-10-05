@@ -20,6 +20,36 @@ pub fn is_image(path: &Path) -> bool {
 /// The file an image link names: `~/` is the home folder, a relative path
 /// starts at `base` (the document's folder).
 pub fn resolve(path: &str, base: Option<&Path>) -> PathBuf {
+    let raw = resolve_raw(path, base);
+    // A Markdown link percent-encodes (`my%20pic.png`, as VS Code and
+    // Obsidian write it): decoded when only that names a file.
+    if !raw.exists()
+        && path.contains('%')
+        && let Some(decoded) = crate::dired::percent_decode(path)
+    {
+        let p = resolve_raw(&decoded, base);
+        if p.exists() {
+            return p;
+        }
+    }
+    raw
+}
+
+/// `s` with every byte but ASCII letters, digits and `-._~/` as `%XX`, as
+/// editors write a link to a file with spaces or letters outside ASCII.
+pub(crate) fn percent_encode(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        if b.is_ascii_alphanumeric() || b"-._~/".contains(&b) {
+            out.push(char::from(b));
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+
+fn resolve_raw(path: &str, base: Option<&Path>) -> PathBuf {
     let path = path.strip_prefix("file:").unwrap_or(path);
     if let Some(rest) = path.strip_prefix("~/")
         && let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))
@@ -147,7 +177,13 @@ pub fn unused(document: &Path, text: &str, style: LinkStyle) -> Vec<PathBuf> {
             Some((p, name))
         })
         .collect();
-    let used = |t: &str, name: &str| t.contains(name) || t.contains(&name.replace(' ', "%20"));
+    // A name as written, with `%20` for its spaces, or percent-encoded
+    // whole (`%C3%A7` for `ç`).
+    let used = |t: &str, name: &str| {
+        t.contains(name)
+            || t.contains(&name.replace(' ', "%20"))
+            || t.contains(&percent_encode(name))
+    };
     pictures.retain(|(_, n)| !used(text, n));
     let root = document.parent().unwrap_or(Path::new(""));
     let mut stack = vec![(root.to_path_buf(), 0)];

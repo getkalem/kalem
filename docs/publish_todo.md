@@ -401,18 +401,25 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   (done: Markdown to HTML through comrak (`markdown::to_html`, raw HTML
   left out, a page around it unless `--body-only`); Markdown to any
   other format, CSV, LaTeX and code are refused with exit 1.)
-- [ ] **Major, reported.** Links to headings do nothing: `[x](#install)`
+- [x] **Major, reported.** Links to headings do nothing: `[x](#install)`
   returns `LinkAction::Missing` (`markdown.rs:2488-2490`), and
   `[x](GUIDE.md#section)` opens the file at the top because both editors
   use the `search` only when it is a line number
   (`kalem-ui/src/editor.rs:1809`, `kalem-tui/src/app.rs:2049`). The Book
   promises "a `#heading` after it searched for".
-- [ ] **Major, reported.** Percent-encoded destinations are never decoded
+  (done: `#anchor` jumps to the heading whose GitHub anchor it is
+  (`anchor_of`: lower case, `-` for spaces, punctuation dropped,
+  repeats numbered `-1`, `-2`); `OTHER.md#anchor` opens the file at that
+  heading's line; test `links_to_headings_and_encoded_names`.)
+- [x] **Major, reported.** Percent-encoded destinations are never decoded
   (`markdown.rs:2484-2520`, `images.rs:22-35`): `docs/My%20Note.md` and
   `img/my%20pic.png` (as VS Code and Obsidian write them) open the
   literal path; `missing_files` decodes only `%20` (`markdown.rs:182`),
   so Turkish names give false "No such file" warnings, and Remove Unused
   Images can trash a picture linked that way.
+  (done: links, pictures (`images::resolve`) and the missing-file check
+  decode `%XX` when the name as written is no file; Remove Unused
+  Images knows a percent-encoded name.)
 - [ ] **Major, reported.** Tab or Align Table on a table inside a block
   quote destroys the quote: `table_at` takes the whole line, `> `
   included (`markdown_table.rs:24-35`); `cells()` also splits at `\|`,
