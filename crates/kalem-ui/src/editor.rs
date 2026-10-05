@@ -2457,10 +2457,17 @@ impl Editor {
             key @ ("left" | "right" | "up" | "down" | "pageup" | "pagedown" | "home" | "end") => {
                 let vertical = matches!(key, "up" | "down" | "pageup" | "pagedown") && !line_motion;
                 if self.doc.extra.is_empty() {
+                    // A CSV grid keeps its column into short records.
+                    let column = (vertical && !shift && !self.source)
+                        .then(|| self.doc.csv_column())
+                        .flatten();
                     let Some(t) = self.motion_target(key, shift, word, line_motion) else {
                         return false;
                     };
                     self.doc.move_cursor(t, shift);
+                    if let Some(c) = column {
+                        self.doc.keep_csv_column(c);
+                    }
                 } else {
                     // Every cursor moves.
                     let (all, primary) = self.doc.cursors();

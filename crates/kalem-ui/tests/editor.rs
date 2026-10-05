@@ -4497,6 +4497,17 @@ fn csv_enter_moves_between_cells(cx: &mut TestAppContext) {
         e2.read_with(cx2, |e, _| e.doc.text().as_str().to_string()),
         "a,b,c\n1,x\n"
     );
+    // Down from C1 into the short record: its C cell, not its last field.
+    let cell2 = |cx: &mut VisualTestContext| {
+        e2.read_with(cx, |e, _| {
+            kalem_core::csv::cell_at(&e.doc).map(|(_, r, _, c)| (r, c))
+        })
+    };
+    e2.update(cx2, |e, _| e.doc.move_cursor(4, false));
+    cx2.simulate_keystrokes("down");
+    assert_eq!(cell2(cx2), Some((1, 2)));
+    cx2.simulate_keystrokes("up");
+    assert_eq!(cell2(cx2), Some((0, 2)));
 }
 
 /// Backspace and Delete in the CSV grid delete within a cell's value:

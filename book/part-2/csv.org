@@ -449,7 +449,8 @@ document is closed; it is not written to the file.
   doubled quote goes as one character. A selection over more than one
   cell clears the cells, keeping the rows and the delimiters.
 - A short record's missing cells and the empty columns right of the data
-  can be selected (by a click, Tab, Enter or Go to Cell) without a change
+  can be selected (by a click, Tab, Enter, Up and Down, or Go to Cell)
+  without a change
   to the file; typing there adds the empty fields up to the cell, then
   the value.
 

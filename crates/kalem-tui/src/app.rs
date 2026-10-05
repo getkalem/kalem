@@ -3900,10 +3900,17 @@ impl App {
                     KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown
                 );
                 if self.doc.extra.is_empty() {
+                    // A CSV grid keeps its column into short records.
+                    let column = (vertical && !shift && !self.editor.source)
+                        .then(|| self.doc.csv_column())
+                        .flatten();
                     let Some(t) = self.motion_target(code, shift, word) else {
                         return;
                     };
                     self.doc.move_cursor(t, shift);
+                    if let Some(c) = column {
+                        self.doc.keep_csv_column(c);
+                    }
                 } else {
                     // Every cursor moves.
                     let (all, primary) = self.doc.cursors();

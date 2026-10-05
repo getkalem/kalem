@@ -766,6 +766,28 @@ impl DocumentState {
         self.csv_virtual = Some((rec.range.end, self.version, col));
     }
 
+    /// The column of the CSV cell at the cursor, to keep across a move
+    /// up or down (`keep_csv_column`).
+    pub fn csv_column(&self) -> Option<usize> {
+        crate::csv::cell_at(self).map(|(_, _, _, c)| c)
+    }
+
+    /// After a move up or down in a CSV grid from column `col`: on a
+    /// record too short to have it, its missing cell in that column rather
+    /// than its last field, as a spreadsheet keeps the column.
+    pub fn keep_csv_column(&mut self, col: usize) {
+        let s = self.selection;
+        if s.anchor != s.head {
+            return;
+        }
+        let Some((layout, _, rec, c)) = crate::csv::cell_at(self) else {
+            return;
+        };
+        if c != col && col >= rec.fields.len() && col < layout.widths.len() {
+            self.select_csv_virtual(col);
+        }
+    }
+
     /// The version of the text, incremented by every change.
     pub fn version(&self) -> u64 {
         self.version
