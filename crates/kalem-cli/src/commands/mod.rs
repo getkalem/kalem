@@ -723,6 +723,12 @@ pub(crate) fn view(file: &Path, unit: usize, png: bool, output: Option<&Path>) -
         return Err(format!("{}: no unit {unit} (it has {n})", file.display()));
     }
     v.go_to(unit - 1);
+    if png && v.is_grid() {
+        return Err(format!(
+            "{}: unit {unit} is a sheet of cells, not a picture; `--to txt` writes its cells",
+            file.display()
+        ));
+    }
     if png {
         // A picture at its pixels; a page at 144 dpi.
         v.zoom = kalem_core::viewer::Zoom::Scale(1.0);

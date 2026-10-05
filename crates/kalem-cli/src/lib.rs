@@ -447,7 +447,6 @@ enum DumpFormat {
     EmacsJson,
 }
 
-/// Runs the command line with the given arguments.
 /// What `kalem view` writes.
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum ViewFormat {
@@ -705,6 +704,7 @@ pub(crate) fn installed_viewers() -> Vec<(
     out
 }
 
+/// Runs the command line with the given arguments.
 pub fn run<I, T>(args: I) -> ExitCode
 where
     I: IntoIterator<Item = T>,

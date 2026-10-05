@@ -870,9 +870,14 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   shaper and the second gif and zune-jpeg resvg 0.45 asks for. The
   picture plugin keeps them off: a component has no fonts, as its README
   says, and an SVG file opens as text in Kalem.)
-- [ ] **Minor, gaps.** HEIC and AVIF (phone photos) are not supported;
+- [~] **Minor, gaps.** HEIC and AVIF (phone photos) are not supported;
   multi-page TIFF shows page 1 only; ICC profiles are reported but not
   applied; `kalem view --to png book.xlsx` writes a 1×1 PNG and exits 0.
+  (done 2026-10-06: `kalem view --to png` on a sheet says it is cells,
+  not a picture, and that `--to txt` writes them, and fails; test
+  `kalem-cli/tests/view.rs`. Open, in the picture plugin: HEIC and AVIF
+  (decoders in C, or a WebAssembly build of dav1d), TIFF's pages as
+  units, ICC profiles applied.)
 
 ### 3.10 Plugin host and `kalem plugin`
 
