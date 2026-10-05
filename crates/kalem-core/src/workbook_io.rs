@@ -453,7 +453,51 @@ pub fn to_xlsx(viewer: &dyn Viewer, src: &mut dyn ViewerDocument) -> Result<Vec<
         build_xlsx(&built),
     )?;
     fill(&data, dst.as_mut())?;
+    whole_colors(src, &data, dst.as_mut())?;
     Ok(dst.save().map_err(|e| e.to_string())?.bytes)
+}
+
+/// Columns and rows colored whole in `src` (an OpenDocument column's or
+/// row's cell style) colored whole in `dst`: what a cell past the used
+/// range shows in each column, and past the last column in each row.
+fn whole_colors(
+    src: &mut dyn ViewerDocument,
+    data: &[(usize, SheetData)],
+    dst: &mut dyn ViewerDocument,
+) -> Result<(), String> {
+    let e = |e: kalem_viewer::ViewerError| e.to_string();
+    for (k, (u, s)) in data.iter().enumerate() {
+        let (rows, cols) = (s.layout.rows, s.layout.cols);
+        let (max_r, max_c) = (s.layout.max_rows, s.layout.max_cols);
+        if rows + 1 >= max_r || cols + 1 >= max_c {
+            continue;
+        }
+        let fill_at = |src: &mut dyn ViewerDocument, r: u32, c: u32| {
+            src.grid_cells(*u, r..r + 1, c..c + 1)
+                .first()
+                .and_then(|x| x.2.fill)
+        };
+        for c in 0..cols {
+            if let Some(f) = fill_at(src, rows + 1, c) {
+                let change = StyleChange {
+                    fill: Some(Some(f)),
+                    ..StyleChange::default()
+                };
+                dst.change_style(k, [0, c, 1_048_575, c], change)
+                    .map_err(e)?;
+            }
+        }
+        for r in 0..rows {
+            if let Some(f) = fill_at(src, r, cols + 1) {
+                let change = StyleChange {
+                    fill: Some(Some(f)),
+                    ..StyleChange::default()
+                };
+                dst.change_style(k, [r, 0, r, 16_383], change).map_err(e)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Sheet `unit` of `src` copied into workbook `dst` as its last sheet,

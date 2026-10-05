@@ -4583,3 +4583,26 @@ fn pivot_tables_the_rest() {
     opt(&mut t, json!({ "what": "chart", "kind": "column" }));
     assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().charts().len(), 1);
 }
+
+#[test]
+fn colors_of_an_open_document_spreadsheet() {
+    // LibreOffice's file: a red cell, column B yellow, row 5 blue; opened
+    // as a workbook made of it, the column and row colored whole.
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/colors.ods");
+    let mut v = kalem_core::viewer::ViewerState::open(
+        std::sync::Arc::new(kalem_plugin_xlsx::XlsxViewer),
+        &path,
+    )
+    .unwrap();
+    let mut at = |r: u32, c: u32| {
+        v.grid_cells(r..r + 1, c..c + 1)
+            .first()
+            .and_then(|x| x.2.fill)
+    };
+    assert_eq!(at(1, 3), Some([255, 0, 0]));
+    assert_eq!(at(0, 1), Some([255, 255, 0]));
+    assert_eq!(at(900, 1), Some([255, 255, 0]));
+    assert_eq!(at(4, 2), Some([0, 176, 240]));
+    assert_eq!(at(4, 60), Some([0, 176, 240]));
+    assert_eq!(at(2, 2), None);
+}

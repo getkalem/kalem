@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The README is one page; the Book's Parts I and IV say the same things in fewer words; the design documents and the task lists moved to `docs/` (`docs/design_document.md`, `docs/design_doc2.md`, `docs/todo.md`, `docs/todo_old.md`).
 
 ### Fixed
+- Spreadsheets: a column or row colored whole (Excel's `<col style>`, `<row s customFormat>`) shows its color in its empty cells, and a whole column or row selected takes a color, a font or a format as its own (it asked for fewer cells); a cell typed into such a column takes its color. An OpenDocument spreadsheet (`.ods`) shows its cells', columns' and rows' background colors, font colors, bold, italic and underline, which were lost, and keeps them when opened as a workbook.
 - The toolbar's `//` (Toggle Comment) shows only in text with a comment syntax, not over a workbook, a PDF or a picture (new when-clause key `hasComments`).
 - CSV grid in the graphical editor: a click on a column's letter selects the column and one on a row's number the row, as in a spreadsheet (Select Column, Select Row); Copy, Cut and Delete then take their cells. The cursor's cell is framed in its column with hidden columns too, and on every line of a record of several lines.
 - CSV Fill Down and Fill Series over a selection of several columns fill each of them from its own first value (they filled only the cursor's column).
