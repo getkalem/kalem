@@ -4515,6 +4515,7 @@ impl gpui::Render for Editor {
                     d
                 };
                 // The frozen column's letters, over the scrolled bar.
+                let column_frozen = self.doc.csv_columns.frozen;
                 let frozen_letters = (self.frozen.get() > px(0.) && hscroll > px(0.))
                     .then(|| widths.first().copied())
                     .flatten()
@@ -4528,7 +4529,9 @@ impl gpui::Render for Editor {
                             .flex_row()
                             .bg(gray)
                             .child(div().flex_none().w(corner).h_full())
-                            .child(letter_cell(j, w, true))
+                            // Without a frozen column, the corner over the
+                            // row numbers alone.
+                            .children(column_frozen.then(|| letter_cell(j, w, true)))
                     });
                 let all = || {
                     widths

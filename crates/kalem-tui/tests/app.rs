@@ -3787,6 +3787,30 @@ fn csv_rows_do_not_wrap() {
 }
 
 #[test]
+fn csv_row_numbers_stay_when_scrolled_sideways() {
+    // As a spreadsheet's: scrolled to the far columns, the rows still
+    // start with their numbers (they scrolled away).
+    let mut text = String::from("a");
+    for j in 0..12 {
+        text.push_str(&format!(",column{j}"));
+    }
+    text.push_str("\nx");
+    for j in 0..12 {
+        text.push_str(&format!(",value{j:02}"));
+    }
+    text.push('\n');
+    let mut t = with_file(&text, "wide.csv", Config::default(), (40, 8));
+    t.at(text.find("value11").unwrap());
+    let rows: Vec<String> = (0..8).map(|y| t.row(y)).collect();
+    let row = rows
+        .iter()
+        .find(|r| r.contains("value11"))
+        .expect("the row");
+    assert!(row.trim_start().starts_with('2'), "{rows:#?}");
+    assert!(!row.contains("value00"), "scrolled: {rows:#?}");
+}
+
+#[test]
 fn csv_malformed_field_in_the_status_bar() {
     let text = "name,note\napple,6\" long\n";
     let mut t = with_file(text, "d.csv", Config::default(), (100, 8));

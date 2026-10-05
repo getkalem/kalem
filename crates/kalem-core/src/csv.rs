@@ -1922,12 +1922,15 @@ pub fn natural_widths(text: &str, d: &Dialect) -> Vec<usize> {
     widths
 }
 
-/// The width in characters of the frozen first column with what comes
-/// before it (the row numbers) and the bar after it, when the view
-/// freezes it.
+/// The width in characters of what stays at the left when the rows scroll
+/// sideways: the frozen first column with what comes before it (the row
+/// numbers) and the bar after it, when the view freezes it; else, with
+/// the spreadsheet look, the row numbers.
 pub fn frozen_width(layout: &Layout) -> Option<usize> {
     if !layout.columns.frozen {
-        return None;
+        // The row numbers stay when the rows scroll sideways, as a
+        // spreadsheet's do (they scrolled away).
+        return layout.view.sheet.then_some(layout.gutter + 4);
     }
     let first = (0..layout.widths.len().max(1)).find(|j| !layout.columns.hidden.contains(j))?;
     let w = if layout.view.sheet {

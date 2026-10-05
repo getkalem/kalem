@@ -4017,9 +4017,12 @@ fn csv_frozen_column(cx: &mut TestAppContext) {
     }
     text.push('\n');
     let (e, cx) = open_named(&text, "w.csv", || None, cx);
+    // The row numbers alone stay put, as a spreadsheet's do.
+    let numbers = e.read_with(cx, |e, _| e.frozen.get());
+    assert!(numbers > gpui::px(0.));
     cx.dispatch_action(kalem_ui::editor::RunCommand::new("csv.toggleFrozen"));
     cx.run_until_parked();
-    assert!(e.read_with(cx, |e, _| e.frozen.get()) > gpui::px(0.));
+    assert!(e.read_with(cx, |e, _| e.frozen.get()) > numbers);
     at(&e, text.find("value29").unwrap(), cx);
     cx.run_until_parked();
     let scrolled = e.read_with(cx, |e, _| e.hscroll);
@@ -4043,7 +4046,7 @@ fn csv_frozen_column(cx: &mut TestAppContext) {
     );
     cx.dispatch_action(kalem_ui::editor::RunCommand::new("csv.toggleFrozen"));
     cx.run_until_parked();
-    assert_eq!(e.read_with(cx, |e, _| e.frozen.get()), gpui::px(0.));
+    assert_eq!(e.read_with(cx, |e, _| e.frozen.get()), numbers);
 }
 
 /// A selection across rows of a CSV grid copies its rectangle of cells as
