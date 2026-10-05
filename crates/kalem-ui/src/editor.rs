@@ -3080,6 +3080,16 @@ impl Editor {
         }
         self.doc.clear_extra();
         match ev.click_count {
+            // A CSV grid's cell: edited where it was clicked, as in Excel.
+            2 if self.doc.meta.mode == DocumentMode::Csv && !self.source => {
+                self.doc.move_cursor(pos, false);
+                self.run_command(
+                    "csv.editCell",
+                    serde_json::json!({ "here": true }),
+                    window,
+                    cx,
+                );
+            }
             2 => self.select_word(pos),
             3 => {
                 let text = self.doc.text();

@@ -2756,7 +2756,14 @@ impl App {
                     return;
                 }
                 self.doc.clear_extra();
-                if double {
+                if double
+                    && self.doc.meta.mode == kalem_core::DocumentMode::Csv
+                    && !self.editor.source
+                {
+                    // A CSV grid's cell: edited where it was clicked.
+                    self.doc.move_cursor(pos, false);
+                    self.run_command("csv.editCell", serde_json::json!({ "here": true }));
+                } else if double {
                     self.select_word(pos);
                 } else {
                     self.doc.move_cursor(pos, shift);

@@ -2149,7 +2149,11 @@ impl EditorView {
                 }
             }
         }
-        let cursor = drawn.cursor;
+        // A CSV grid in Excel's Ready mode: the cell is marked, no cursor.
+        let ready = !self.source
+            && doc.csv_mode() == Some(kalem_core::CellMode::Ready)
+            && doc.selection.anchor == doc.selection.head;
+        let cursor = drawn.cursor.filter(|_| !ready);
         self.drawn = Some(drawn);
         cursor
     }

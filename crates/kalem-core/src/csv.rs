@@ -288,6 +288,35 @@ pub fn typed(
     Some(tx.select(Selection::caret(caret)))
 }
 
+/// The bytes of a field's value: inside its quotes when quoted.
+pub fn value_range(f: &Field) -> Range<usize> {
+    if f.quoted && f.range.len() >= 2 {
+        f.range.start + 1..f.range.end - 1
+    } else {
+        f.range.clone()
+    }
+}
+
+/// The places a cursor stops at in a field's value: between its
+/// characters (graphemes), a doubled quote being one.
+pub fn value_stops(text: &str, f: &Field, d: &Dialect) -> Vec<usize> {
+    use unicode_segmentation::UnicodeSegmentation;
+    let r = value_range(f);
+    let q = d.quote as char;
+    let body = &text[r.clone()];
+    let mut stops = vec![r.start];
+    let mut graphemes = body.grapheme_indices(true).peekable();
+    while let Some((i, g)) = graphemes.next() {
+        let mut end = r.start + i + g.len();
+        if f.quoted && g.starts_with(q) && body[i..].starts_with(&format!("{q}{q}")) {
+            graphemes.next();
+            end = r.start + i + 2 * q.len_utf8();
+        }
+        stops.push(end);
+    }
+    stops
+}
+
 /// Backspace (`forward` false) or Delete at `pos` in a field of record
 /// `rec`, as the grid deletes: within the field's value only, so that a
 /// delimiter or a quote is never deleted (two cells merged, a field left
@@ -2238,6 +2267,19 @@ pub fn shown_lines(doc: &crate::DocumentState) -> Option<std::rc::Rc<Vec<usize>>
 /// document: count, sum, average, smallest and largest; after a filter,
 /// how many rows it keeps.
 pub fn status(doc: &crate::DocumentState) -> Option<String> {
+    // The mode first, as Excel's status bar shows it.
+    let mode = match doc.csv_mode()? {
+        crate::CellMode::Ready => crate::tr!("status-csv-ready"),
+        crate::CellMode::Enter => crate::tr!("status-csv-enter"),
+        crate::CellMode::Edit => crate::tr!("status-csv-edit"),
+    };
+    Some(match status_rest(doc) {
+        Some(rest) => format!("{mode}   {rest}"),
+        None => mode,
+    })
+}
+
+fn status_rest(doc: &crate::DocumentState) -> Option<String> {
     // A malformed field in the cursor's record comes first.
     if let Some((layout, _, rec, _)) = cell_at(doc)
         && let Some(p) = record_problems(doc.text().as_str(), &rec, &layout.dialect).first()

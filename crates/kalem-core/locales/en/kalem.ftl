@@ -307,6 +307,9 @@ status-problems = { $count ->
     [one] One problem
    *[other] { $count } problems
 }
+status-csv-ready = Ready
+status-csv-enter = Enter
+status-csv-edit = Edit
 status-csv-filter = Filtered: { $matched } of { $total } rows (“{ $filter }”)
 status-bib = { $count } entries
 status-bib-sorted = { $count } entries, sorted by { $column } ({ $order })
@@ -830,6 +833,24 @@ cmd-csv-clearFilter = Show All Rows
 cmd-csv-nextField = Next Field
 cmd-csv-cellBelow = Cell Below
 cmd-csv-cellAbove = Cell Above
+cmd-csv-cellLeft = Cell Left
+cmd-csv-cellRight = Cell Right
+cmd-csv-extendLeft = Extend Selection Left
+cmd-csv-extendRight = Extend Selection Right
+cmd-csv-extendUp = Extend Selection Up
+cmd-csv-extendDown = Extend Selection Down
+cmd-csv-edgeLeft = Data Edge Left
+cmd-csv-edgeRight = Data Edge Right
+cmd-csv-edgeUp = Data Edge Up
+cmd-csv-edgeDown = Data Edge Down
+cmd-csv-rowStart = Row Start
+cmd-csv-rowEnd = Row End
+cmd-csv-firstCell = First Cell
+cmd-csv-lastCell = Last Cell
+cmd-csv-editCell = Edit Cell
+cmd-csv-cancelEdit = Cancel Entry
+cmd-csv-clearCells = Clear Contents
+cmd-csv-backspaceCell = Clear and Type
 cmd-csv-previousField = Previous Field
 cmd-csv-insertRow = Insert Row
 cmd-csv-deleteRow = Delete Row

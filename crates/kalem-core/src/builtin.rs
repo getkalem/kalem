@@ -1156,6 +1156,167 @@ fn csv_caret(f: &crate::csv::Field) -> usize {
 /// Runs a CSV edit on the cell at the cursor: `f` gets the text, the
 /// layout, the row, its record and the column, and gives the change and
 /// the cell (row, column) the cursor goes to after it.
+/// The CSV cell at the cursor, or the not-CSV error.
+fn csv_cell(
+    d: &crate::DocumentState,
+) -> Result<
+    (
+        std::rc::Rc<crate::csv::Layout>,
+        usize,
+        crate::csv::Record,
+        usize,
+    ),
+    CommandError,
+> {
+    crate::csv::cell_at(d).ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))
+}
+
+/// In Edit mode, the cursor moved within the cell's value to the stop
+/// `to` picks (given the value's stops and the cursor); whether it was.
+fn csv_in_cell(
+    d: &mut crate::DocumentState,
+    to: impl FnOnce(&[usize], usize) -> Option<usize>,
+) -> bool {
+    if !d.csv_editing().is_some_and(|e| e.edit) {
+        return false;
+    }
+    let Some((layout, _, rec, col)) = crate::csv::cell_at(d) else {
+        return false;
+    };
+    let Some(f) = rec.fields.get(col) else {
+        return true;
+    };
+    let stops = crate::csv::value_stops(d.text().as_str(), f, &layout.dialect);
+    let at = d.selection.head;
+    if let Some(p) = to(&stops, at) {
+        d.selection = org_edit::Selection::caret(p);
+    }
+    true
+}
+
+/// An arrow in the grid: in Edit mode Left and Right within the cell;
+/// else the cell `rows` down and `cols` right (the entry, in Enter mode,
+/// ended), or with `extend` the selection's corner moved there.
+fn csv_step(ctx: &mut EditorContext<'_>, rows: isize, cols: isize, extend: bool) -> CommandResult {
+    let d = ctx.doc()?;
+    if !extend
+        && rows == 0
+        && csv_in_cell(d, |stops, at| {
+            let i = stops.iter().position(|s| *s >= at).unwrap_or(stops.len());
+            if cols < 0 {
+                i.checked_sub(1).and_then(|i| stops.get(i)).copied()
+            } else {
+                stops.iter().copied().find(|s| *s > at)
+            }
+        })
+    {
+        return Ok(());
+    }
+    let (layout, row, _, col) = csv_cell(d)?;
+    let n = layout
+        .index
+        .borrow_mut()
+        .count(d.text().as_str(), &layout.dialect);
+    let to_row = (row as isize + rows).clamp(0, n.saturating_sub(1) as isize) as usize;
+    let to_col = (col as isize + cols).max(0) as usize;
+    d.csv_edit = None;
+    if extend {
+        // The selection's corner on the target cell (one the record has).
+        let anchor = d.selection.anchor;
+        let rec = layout
+            .index
+            .borrow_mut()
+            .record(d.text().as_str(), to_row, &layout.dialect);
+        if let Some(f) = rec
+            .as_ref()
+            .and_then(|r| r.fields.get(to_col).or(r.fields.last()))
+        {
+            let at = crate::csv::value_range(f).start;
+            d.selection = org_edit::Selection { anchor, head: at };
+        }
+        return Ok(());
+    }
+    d.go_to_csv_cell(to_row, to_col);
+    Ok(())
+}
+
+/// Ctrl with an arrow: to the edge of the data, as Excel goes: from a
+/// filled cell with a filled one next, to the last filled one before a
+/// blank; else to the next filled one; else to the sheet's edge.
+fn csv_edge(ctx: &mut EditorContext<'_>, rows: isize, cols: isize) -> CommandResult {
+    let d = ctx.doc()?;
+    if csv_in_cell(d, |stops, _| {
+        if cols < 0 || rows < 0 {
+            stops.first().copied()
+        } else {
+            stops.last().copied()
+        }
+    }) {
+        return Ok(());
+    }
+    let (layout, row, _, col) = csv_cell(d)?;
+    let text = d.text().as_str();
+    let dl = &layout.dialect;
+    let n = layout.index.borrow_mut().count(text, dl);
+    let last_col = layout.widths.len().saturating_sub(1).max(col);
+    let filled = |r: usize, c: usize| -> bool {
+        layout
+            .index
+            .borrow_mut()
+            .record(text, r, dl)
+            .and_then(|rec| {
+                rec.fields
+                    .get(c)
+                    .map(|f| !crate::csv::value(text, f, dl).is_empty())
+            })
+            .unwrap_or(false)
+    };
+    let next = |(r, c): (usize, usize)| -> Option<(usize, usize)> {
+        let r2 = r as isize + rows;
+        let c2 = c as isize + cols;
+        (r2 >= 0 && c2 >= 0 && (r2 as usize) < n && (c2 as usize) <= last_col)
+            .then_some((r2 as usize, c2 as usize))
+    };
+    let mut at = (row, col);
+    match next(at) {
+        None => {}
+        Some(first) if filled(at.0, at.1) && filled(first.0, first.1) => {
+            at = first;
+            while let Some(p) = next(at).filter(|p| filled(p.0, p.1)) {
+                at = p;
+            }
+        }
+        Some(first) => {
+            at = first;
+            while !filled(at.0, at.1) {
+                match next(at) {
+                    Some(p) => at = p,
+                    None => break,
+                }
+            }
+        }
+    }
+    d.csv_edit = None;
+    d.go_to_csv_cell(at.0, at.1);
+    Ok(())
+}
+
+/// Empties the selected cells, or the cursor's (Delete in Ready mode).
+fn csv_clear_selection(d: &mut crate::DocumentState, now: std::time::Instant) -> CommandResult {
+    let s = d.selection;
+    if s.anchor != s.head {
+        d.delete_in_grid(true, now);
+        return Ok(());
+    }
+    let (layout, row, rec, col) = csv_cell(d)?;
+    if rec.fields.get(col).is_some_and(|f| !f.range.is_empty()) {
+        let tx = crate::csv::set_cell(d.text().as_str(), &rec, col, "", &layout.dialect);
+        d.apply(&tx, org_edit::ChangeKind::Command, now);
+    }
+    d.go_to_csv_cell(row, col);
+    Ok(())
+}
+
 fn csv_edit(
     ctx: &mut EditorContext<'_>,
     f: impl FnOnce(
@@ -1185,6 +1346,7 @@ fn csv_edit(
             if col >= r.fields.len() && col < columns {
                 d.selection = org_edit::Selection::caret(r.range.end);
                 d.select_csv_virtual(col);
+                d.settle_csv_edit();
                 return Ok(());
             }
             let at = r
@@ -1193,6 +1355,7 @@ fn csv_edit(
                 .or(r.fields.last())
                 .map_or(r.range.start, csv_caret);
             d.selection = org_edit::Selection::caret(at);
+            d.settle_csv_edit();
         }
     }
     Ok(())
@@ -2828,6 +2991,152 @@ fn csv_commands() -> Vec<Command> {
                     Some((row + 1, 0)),
                 ))
             })
+        }),
+        // Excel's keys in the grid (bound with `!sourceView` in the
+        // keymap): in Ready mode the arrows go from cell to cell, Ctrl
+        // with them to the data's edge and Shift extends the selection; in
+        // Edit mode (F2) Left, Right, Home and End move in the cell; in
+        // Enter mode (typing into a cell) the arrows end it and move.
+        c("csv.cellLeft", "Cell Left", &[], |ctx, _| {
+            csv_step(ctx, 0, -1, false)
+        }),
+        c("csv.cellRight", "Cell Right", &[], |ctx, _| {
+            csv_step(ctx, 0, 1, false)
+        }),
+        c("csv.extendLeft", "Extend Selection Left", &[], |ctx, _| {
+            csv_step(ctx, 0, -1, true)
+        }),
+        c(
+            "csv.extendRight",
+            "Extend Selection Right",
+            &[],
+            |ctx, _| csv_step(ctx, 0, 1, true),
+        ),
+        c("csv.extendUp", "Extend Selection Up", &[], |ctx, _| {
+            csv_step(ctx, -1, 0, true)
+        }),
+        c("csv.extendDown", "Extend Selection Down", &[], |ctx, _| {
+            csv_step(ctx, 1, 0, true)
+        }),
+        c("csv.edgeLeft", "Data Edge Left", &[], |ctx, _| {
+            csv_edge(ctx, 0, -1)
+        }),
+        c("csv.edgeRight", "Data Edge Right", &[], |ctx, _| {
+            csv_edge(ctx, 0, 1)
+        }),
+        c("csv.edgeUp", "Data Edge Up", &[], |ctx, _| {
+            csv_edge(ctx, -1, 0)
+        }),
+        c("csv.edgeDown", "Data Edge Down", &[], |ctx, _| {
+            csv_edge(ctx, 1, 0)
+        }),
+        c("csv.rowStart", "Row Start", &[], |ctx, _| {
+            let d = ctx.doc()?;
+            if csv_in_cell(d, |stops, _| stops.first().copied()) {
+                return Ok(());
+            }
+            let (_, row, _, _) = csv_cell(d)?;
+            d.csv_edit = None;
+            d.go_to_csv_cell(row, 0);
+            Ok(())
+        }),
+        c("csv.rowEnd", "Row End", &[], |ctx, _| {
+            let d = ctx.doc()?;
+            if csv_in_cell(d, |stops, _| stops.last().copied()) {
+                return Ok(());
+            }
+            let (_, row, rec, _) = csv_cell(d)?;
+            d.csv_edit = None;
+            d.go_to_csv_cell(row, rec.fields.len().saturating_sub(1));
+            Ok(())
+        }),
+        c("csv.firstCell", "First Cell", &[], |ctx, _| {
+            let d = ctx.doc()?;
+            d.csv_edit = None;
+            d.go_to_csv_cell(0, 0);
+            Ok(())
+        }),
+        c("csv.lastCell", "Last Cell", &[], |ctx, _| {
+            // The last row's cell in the last column, as Excel's Ctrl+End.
+            let d = ctx.doc()?;
+            let (layout, _, _, _) = csv_cell(d)?;
+            let text = d.text().as_str();
+            let n = layout.index.borrow_mut().count(text, &layout.dialect);
+            let col = layout.widths.len().saturating_sub(1);
+            d.csv_edit = None;
+            d.go_to_csv_cell(n.saturating_sub(1), col);
+            Ok(())
+        }),
+        c("csv.editCell", "Edit Cell", &[], |ctx, args| {
+            // F2: Edit mode, the cursor at the value's end (where it is,
+            // from a double click, with `here`); in Enter mode, Edit mode.
+            let d = ctx.doc()?;
+            let here = args.get("here").and_then(Value::as_bool).unwrap_or(false);
+            let (layout, _, rec, col) = csv_cell(d)?;
+            if d.csv_editing().is_some() {
+                if let Some(e) = d.csv_edit.as_mut() {
+                    e.edit = true;
+                }
+                return Ok(());
+            }
+            if let Some(f) = rec.fields.get(col) {
+                let stops = crate::csv::value_stops(d.text().as_str(), f, &layout.dialect);
+                let at = d.selection.head;
+                let to = if here && stops.contains(&at) {
+                    at
+                } else if here {
+                    stops
+                        .iter()
+                        .copied()
+                        .min_by_key(|s| s.abs_diff(at))
+                        .unwrap_or(at)
+                } else {
+                    stops.last().copied().unwrap_or(at)
+                };
+                d.selection = org_edit::Selection::caret(to);
+            }
+            d.begin_csv_edit(true);
+            Ok(())
+        }),
+        c("csv.cancelEdit", "Cancel Entry", &[], |ctx, _| {
+            // Escape: the cell as it was; else the selection collapsed.
+            let now = ctx.now;
+            let d = ctx.doc()?;
+            if !d.cancel_csv_edit(now) {
+                let head = d.selection.head;
+                d.selection = org_edit::Selection::caret(head);
+                d.clear_extra();
+            }
+            Ok(())
+        }),
+        c("csv.clearCells", "Clear Contents", &[], |ctx, _| {
+            // Delete: in Ready mode the selected cells emptied; typing
+            // into a cell, the character after the cursor.
+            let now = ctx.now;
+            let d = ctx.doc()?;
+            if d.csv_editing().is_some() {
+                d.delete_in_grid(true, now);
+                return Ok(());
+            }
+            csv_clear_selection(d, now)
+        }),
+        c("csv.backspaceCell", "Clear and Type", &[], |ctx, _| {
+            // Backspace: in Ready mode the cell emptied and typed into, as
+            // in Excel; typing into a cell, the character before.
+            let now = ctx.now;
+            let d = ctx.doc()?;
+            if d.csv_editing().is_some() {
+                d.delete_in_grid(false, now);
+                return Ok(());
+            }
+            let (_, _, rec, _) = csv_cell(d)?;
+            let record = d.text().as_str()[rec.range.clone()].to_string();
+            csv_clear_selection(d, now)?;
+            d.begin_csv_edit(false);
+            if let Some(e) = d.csv_edit.as_mut() {
+                e.record = record;
+            }
+            Ok(())
         }),
         // Enter and Shift+Enter: the cell below or above, as in a
         // spreadsheet (Enter broke the record in two). Past the last row

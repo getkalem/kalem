@@ -3294,6 +3294,8 @@ fn csv_typing_quotes_the_field(cx: &mut TestAppContext) {
     let text = "name,note\napple,red\n";
     let (e, cx) = open_named(text, "d.csv", || None, cx);
     at(&e, text.find("red").unwrap() + 3, cx);
+    // Editing the cell (F2): typed after its text.
+    cx.simulate_keystrokes("f2");
     cx.simulate_input(", ripe");
     assert_eq!(text_of(&e, cx), "name,note\napple,\"red, ripe\"\n");
 }
@@ -4526,9 +4528,9 @@ fn csv_enter_moves_between_cells(cx: &mut TestAppContext) {
     assert_eq!(cell2(cx2), Some((0, 2)));
 }
 
-/// Backspace and Delete in the CSV grid delete within a cell's value:
-/// never a delimiter (two cells merged) or a quote (a field left open);
-/// a selection over cells of several rows clears them (it merged rows).
+/// Backspace and Delete editing a CSV cell delete within its value: never
+/// a delimiter (two cells merged) or a quote (a field left open); a
+/// selection over cells of several rows clears them (it merged rows).
 #[gpui::test]
 fn csv_deleting_keeps_the_cells(cx: &mut TestAppContext) {
     let text = "id,ad,şehir\n1,Ayşe,İzmir\n2,\"a, \"\"b\"\"\",\n3,,x\n";
@@ -4538,28 +4540,36 @@ fn csv_deleting_keeps_the_cells(cx: &mut TestAppContext) {
     let at = |off: usize, cx: &mut VisualTestContext| {
         e.update(cx, |e, _| e.doc.move_cursor(off, false));
     };
+    // Editing the cell (Excel's Edit mode, after F2) there.
+    let edit = |off: usize, cx: &mut VisualTestContext| {
+        e.update(cx, |e, _| e.doc.move_cursor(off, false));
+        cx.dispatch_action(kalem_ui::editor::RunCommand::with(
+            "csv.editCell",
+            serde_json::json!({ "here": true }),
+        ));
+    };
     // At the start of İzmir: Backspace leaves the delimiter.
-    at(text.find("İzmir").unwrap(), cx);
+    edit(text.find("İzmir").unwrap(), cx);
     cx.simulate_keystrokes("backspace");
     assert_eq!(body(cx), text);
     // At the end of Ayşe: Delete leaves it; Backspace deletes the ş's e.
-    at(text.find("Ayşe").unwrap() + "Ayşe".len(), cx);
+    edit(text.find("Ayşe").unwrap() + "Ayşe".len(), cx);
     cx.simulate_keystrokes("delete");
     assert_eq!(body(cx), text);
     cx.simulate_keystrokes("backspace");
     assert_eq!(body(cx), text.replace("Ayşe", "Ayş"));
     let text = body(cx);
     // Right inside the opening quote: the quote stays.
-    at(text.find("\"a,").unwrap() + 1, cx);
+    edit(text.find("\"a,").unwrap() + 1, cx);
     cx.simulate_keystrokes("backspace");
     assert_eq!(body(cx), text);
     // After a doubled quote: both go, as one character.
-    at(text.find("b\"\"").unwrap() + 3, cx);
+    edit(text.find("b\"\"").unwrap() + 3, cx);
     cx.simulate_keystrokes("backspace");
     assert_eq!(body(cx), text.replacen("b\"\"", "b", 1));
     let text = body(cx);
     // An empty cell: Delete moves no column.
-    at(text.find("3,").unwrap() + 2, cx);
+    edit(text.find("3,").unwrap() + 2, cx);
     cx.simulate_keystrokes("delete");
     assert_eq!(body(cx), text);
     // From B2 to C4: the cells cleared, the rows and delimiters kept.
@@ -4599,10 +4609,10 @@ fn csv_pasting_into_cells(cx: &mut TestAppContext) {
     paste("p\nq\nr\n", cx);
     assert_eq!(body(cx), "a,b,c\n1,Ayşe,p\n2,Çağrı,q\n,,r\n");
     undo(cx);
-    // A single value with a quote, in the cell, quoted.
+    // A single value with a quote: the cell's, quoted, as Excel pastes.
     at(&e, text.find("Ayşe").unwrap() + "Ayşe".len(), cx);
     paste("5\" ekran", cx);
-    assert_eq!(body(cx), "a,b,c\n1,\"Ayşe5\"\" ekran\",x\n2,Çağrı,y\n");
+    assert_eq!(body(cx), "a,b,c\n1,\"5\"\" ekran\",x\n2,Çağrı,y\n");
 }
 
 /// Copy and Cut in the CSV grid take cells over one row too (Cut ate the
@@ -4662,10 +4672,10 @@ fn csv_selection_rows_columns_and_typing(cx: &mut TestAppContext) {
     cx.dispatch_action(kalem_ui::editor::RunCommand::new("csv.deleteColumn"));
     assert_eq!(body(cx), "a\n1\n4\n7\n");
     undo(cx);
-    // Typing over B2:C3: into C3, the cursor's cell.
+    // Typing over B2:C3: C3's, the cursor's cell, as Excel types.
     select("2", "6", cx);
     cx.simulate_input("x");
-    assert_eq!(body(cx), "a,b,c\n1,2,3\n4,5,x6\n7,8,9\n");
+    assert_eq!(body(cx), "a,b,c\n1,2,3\n4,5,x\n7,8,9\n");
 }
 
 /// A record with a quoted line break shows as a row of the grid two lines
@@ -4707,7 +4717,7 @@ fn csv_record_of_two_lines_is_a_grid_row(cx: &mut TestAppContext) {
 #[gpui::test]
 fn ctrl_home_and_end_go_to_the_ends(cx: &mut TestAppContext) {
     let text = "a,b\n1,2\n3,4\n";
-    let (e, cx) = open_named(text, "ends.csv", || None, cx);
+    let (e, cx) = open_named(text, "ends.txt", || None, cx);
     at(&e, 5, cx);
     cx.simulate_keystrokes("ctrl-end");
     assert_eq!(e.read_with(cx, |e, _| e.doc.selection.head), text.len());
@@ -4735,4 +4745,105 @@ fn csv_letters_and_row_numbers_select(cx: &mut TestAppContext) {
     cx.simulate_click(gpui::point(x, y), gpui::Modifiers::default());
     cx.simulate_keystrokes(&format!("{}-c", primary()));
     assert_eq!(clip(cx).as_deref().map(str::trim_end), Some("1\t2\t3"));
+}
+
+/// The CSV grid edits as Excel does (asked by the owner, 2026-10-05): in
+/// Ready mode the arrows go from cell to cell and typing replaces the
+/// cell (Enter mode, which an arrow ends); F2 edits in the cell, its
+/// arrows moving in it; Escape puts the cell back; Delete clears, and
+/// Backspace clears and types; Ctrl with an arrow goes to the data's edge.
+#[gpui::test]
+fn csv_edits_as_excel_does(cx: &mut TestAppContext) {
+    let text = "name,qty,city\nAda,36,İzmir\nBob,,Bursa\n";
+    let (e, cx) = open_named(text, "excel.csv", || None, cx);
+    let cell = |cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| {
+            kalem_core::csv::cell_at(&e.doc).map(|(_, r, _, c)| (r, c))
+        })
+    };
+    let mode = |cx: &mut VisualTestContext| e.read_with(cx, |e, _| e.doc.csv_mode());
+    let body =
+        |cx: &mut VisualTestContext| e.read_with(cx, |e, _| e.doc.text().as_str().to_string());
+    use kalem_core::CellMode::{Edit, Enter, Ready};
+    at(&e, 0, cx);
+    assert_eq!(mode(cx), Some(Ready));
+    let status = e.read_with(cx, |e, _| kalem_core::csv::status(&e.doc));
+    assert!(status.is_some_and(|s| s.starts_with("Ready")));
+    // The arrows from cell to cell.
+    cx.simulate_keystrokes("right right");
+    assert_eq!(cell(cx), Some((0, 2)));
+    cx.simulate_keystrokes("left down");
+    assert_eq!(cell(cx), Some((1, 1)));
+    // Typing replaces 36; Right enters it and moves on.
+    cx.simulate_input("40");
+    assert_eq!(mode(cx), Some(Enter));
+    assert_eq!(body(cx), "name,qty,city\nAda,40,İzmir\nBob,,Bursa\n");
+    cx.simulate_keystrokes("right");
+    assert_eq!((cell(cx), mode(cx)), (Some((1, 2)), Some(Ready)));
+    // Escape puts the cell back.
+    cx.simulate_input("X");
+    assert!(body(cx).contains("Ada,40,X\n"));
+    cx.simulate_keystrokes("escape");
+    assert_eq!(body(cx), "name,qty,city\nAda,40,İzmir\nBob,,Bursa\n");
+    assert_eq!((cell(cx), mode(cx)), (Some((1, 2)), Some(Ready)));
+    // F2 on A2: in the cell, the arrows move in it; Enter enters it.
+    cx.simulate_keystrokes("home f2");
+    assert_eq!((cell(cx), mode(cx)), (Some((1, 0)), Some(Edit)));
+    cx.simulate_input("x");
+    cx.simulate_keystrokes("left");
+    cx.simulate_input("y");
+    assert!(body(cx).contains("\nAdayx,40,"), "{}", body(cx));
+    cx.simulate_keystrokes("enter");
+    assert_eq!((cell(cx), mode(cx)), (Some((2, 0)), Some(Ready)));
+    // Delete clears Bob; Backspace on C3 clears it and types.
+    cx.simulate_keystrokes("delete");
+    assert!(body(cx).ends_with("\n,,Bursa\n"), "{}", body(cx));
+    cx.simulate_keystrokes("right right backspace");
+    assert_eq!(mode(cx), Some(Enter));
+    cx.simulate_input("Z");
+    assert!(body(cx).ends_with("\n,,Z\n"), "{}", body(cx));
+    cx.simulate_keystrokes("escape");
+    assert!(body(cx).ends_with("\n,,Bursa\n"), "{}", body(cx));
+    // Ctrl with the arrows: to the data's edge.
+    cx.simulate_keystrokes("ctrl-home");
+    assert_eq!(cell(cx), Some((0, 0)));
+    cx.simulate_keystrokes("ctrl-right");
+    assert_eq!(cell(cx), Some((0, 2)));
+    cx.simulate_keystrokes("left ctrl-down");
+    assert_eq!(cell(cx), Some((1, 1)));
+    cx.simulate_keystrokes("ctrl-end");
+    assert_eq!(cell(cx), Some((2, 2)));
+    // Shift with the arrows: a rectangle, copied as cells.
+    cx.simulate_keystrokes("ctrl-home shift-right shift-down");
+    cx.simulate_keystrokes(&format!("{}-c", primary()));
+    let clip = cx.read_from_clipboard().and_then(|c| c.text());
+    assert_eq!(
+        clip.as_deref().map(str::trim_end),
+        Some("name\tqty\nAdayx\t40")
+    );
+}
+
+/// Right from A1 on a row of one value goes to B1 (the row's missing
+/// cell), as in Excel (it went down to the next line), and typing there
+/// fills it.
+#[gpui::test]
+fn csv_right_reaches_b1_of_a_short_row(cx: &mut TestAppContext) {
+    let text = "1\n2,3\n";
+    let (e, cx) = open_named(text, "short2.csv", || None, cx);
+    at(&e, 0, cx);
+    let cell = |cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| {
+            kalem_core::csv::cell_at(&e.doc).map(|(_, r, _, c)| (r, c))
+        })
+    };
+    cx.simulate_keystrokes("right");
+    assert_eq!(cell(cx), Some((0, 1)));
+    cx.simulate_keystrokes("right");
+    assert_eq!(cell(cx), Some((0, 2)));
+    cx.simulate_keystrokes("left");
+    cx.simulate_input("7");
+    assert_eq!(
+        e.read_with(cx, |e, _| e.doc.text().as_str().to_string()),
+        "1,7\n2,3\n"
+    );
 }

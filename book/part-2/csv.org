@@ -442,6 +442,20 @@ document is closed; it is not written to the file.
 - /Previous Field/ goes to the previous field; from the first field, to
   the last field of the previous record; in the first field of the first
   record it does nothing.
+- The grid edits as Excel does, in three modes the status bar names.
+  In /Ready/ mode a cell is selected, framed and without a caret:
+  typing replaces it (and enters /Enter/ mode), Delete clears the
+  selected cells, Backspace clears the cell and types into it, the
+  arrows go from cell to cell (into a short record's missing cells and
+  the empty columns too), Ctrl with them to the edge of the data, Shift
+  with them extends the selection, Home goes to column A and Ctrl+Home
+  and Ctrl+End to the first and the last cell. In /Enter/ mode typing
+  goes on after the text, and an arrow, Enter or Tab enters it and
+  moves. F2 or a double click is /Edit/ mode: Left, Right, Home and End
+  move within the cell, Backspace and Delete delete within its value
+  (never a delimiter or a quote), and Enter or Tab enters it. Escape, in
+  Enter or Edit mode, puts the cell back as it was. Vim keeps its own
+  keys, and the source view edits the text as text.
 - /Cell Below/ (Enter) and /Cell Above/ (Shift+Enter; Alt+Enter in a
   terminal) go to the same column of the next and previous record, as in
   a spreadsheet; Enter on the last record adds an empty one. In the

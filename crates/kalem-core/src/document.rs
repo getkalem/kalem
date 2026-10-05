@@ -87,6 +87,33 @@ struct OrgState {
     last_level: Option<ReparseLevel>,
 }
 
+/// A cell of a CSV grid being typed into or edited (`csv_edit`): its row
+/// and column, and its record as it was, for Escape to put back.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CellEdit {
+    /// The cell's row.
+    pub row: usize,
+    /// The cell's column.
+    pub col: usize,
+    /// The record's text before.
+    pub record: String,
+    /// Edit mode (F2): the arrows move in the cell; else Enter mode,
+    /// where they go to another cell.
+    pub edit: bool,
+}
+
+/// The mode of a CSV grid, as Excel's status bar names it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CellMode {
+    /// A cell is selected: typing replaces it, the arrows move between
+    /// cells.
+    Ready,
+    /// Typing into a cell: the arrows end it and move.
+    Enter,
+    /// Editing a cell's text (F2): the arrows move in it.
+    Edit,
+}
+
 /// An open document.
 #[derive(Debug)]
 pub struct DocumentState {
@@ -157,6 +184,10 @@ pub struct DocumentState {
     /// column. It holds while neither moves (`csv_virtual_col`); typing
     /// there adds the fields up to it.
     pub csv_virtual: Option<(usize, u64, usize)>,
+    /// The CSV grid's cell being typed into or edited, as Excel's Enter
+    /// and Edit modes; none in its Ready mode, where the cursor is a cell
+    /// (`csv_mode`).
+    pub csv_edit: Option<CellEdit>,
     /// A BibTeX grid's sort: the column (`bibtex::COLUMNS`) and whether
     /// descending; the file keeps its order.
     pub bib_sort: Option<(usize, bool)>,
@@ -281,6 +312,7 @@ impl DocumentState {
             csv_columns: crate::csv::Columns::default(),
             csv_paste_block: false,
             csv_virtual: None,
+            csv_edit: None,
             bib_sort: None,
         }
     }
@@ -766,6 +798,93 @@ impl DocumentState {
         self.csv_virtual = Some((rec.range.end, self.version, col));
     }
 
+    /// The CSV grid's cell being typed into or edited, while the cursor
+    /// is in it.
+    pub fn csv_editing(&self) -> Option<&CellEdit> {
+        let e = self.csv_edit.as_ref()?;
+        let (_, row, _, col) = crate::csv::cell_at(self)?;
+        ((row, col) == (e.row, e.col)).then_some(e)
+    }
+
+    /// The CSV grid's mode: Ready, Enter or Edit; `None` outside CSV.
+    pub fn csv_mode(&self) -> Option<CellMode> {
+        if self.meta.mode != DocumentMode::Csv {
+            return None;
+        }
+        Some(match self.csv_editing() {
+            None => CellMode::Ready,
+            Some(e) if e.edit => CellMode::Edit,
+            Some(_) => CellMode::Enter,
+        })
+    }
+
+    /// Ends the cell's entry when the cursor has left it (the entry stays
+    /// in the file, as Excel enters it).
+    pub fn settle_csv_edit(&mut self) {
+        if self.csv_edit.is_some() && self.csv_editing().is_none() {
+            self.csv_edit = None;
+        }
+    }
+
+    /// Starts typing into (`edit` false) or editing the CSV cell at the
+    /// cursor, its record kept for Escape.
+    pub fn begin_csv_edit(&mut self, edit: bool) {
+        let Some((_, row, rec, col)) = crate::csv::cell_at(self) else {
+            return;
+        };
+        let record = self.text.as_str()[rec.range.clone()].to_string();
+        self.csv_edit = Some(CellEdit {
+            row,
+            col,
+            record,
+            edit,
+        });
+    }
+
+    /// Escape in a cell being typed into or edited: its record as it was,
+    /// the cursor on the cell. Whether there was one.
+    pub fn cancel_csv_edit(&mut self, now: Instant) -> bool {
+        let Some(e) = self.csv_editing().cloned() else {
+            return false;
+        };
+        self.csv_edit = None;
+        let Some((_, _, rec, _)) = crate::csv::cell_at(self) else {
+            return true;
+        };
+        if self.text.as_str()[rec.range.clone()] != e.record {
+            let mut tx = Transaction::new("Cancel Entry");
+            tx.edit(rec.range.clone(), e.record.clone());
+            let start = rec.range.start;
+            self.apply(&tx, ChangeKind::Command, now);
+            self.selection = Selection::caret(start);
+        }
+        self.go_to_csv_cell(e.row, e.col);
+        true
+    }
+
+    /// Puts the cursor on the CSV cell at `row` and `col`: at its value's
+    /// start, or past its record's end (selected without a change) when the
+    /// record is too short to have it.
+    pub fn go_to_csv_cell(&mut self, row: usize, col: usize) {
+        let layout = crate::csv::layout(self);
+        let rec = layout
+            .index
+            .borrow_mut()
+            .record(self.text.as_str(), row, &layout.dialect);
+        let Some(rec) = rec else { return };
+        match rec.fields.get(col) {
+            Some(f) => {
+                let at = crate::csv::value_range(f).start;
+                self.selection = Selection::caret(at);
+            }
+            None => {
+                self.selection = Selection::caret(rec.range.end);
+                self.select_csv_virtual(col);
+            }
+        }
+        self.settle_csv_edit();
+    }
+
     /// The column of the CSV cell at the cursor, to keep across a move
     /// up or down (`keep_csv_column`).
     pub fn csv_column(&self) -> Option<usize> {
@@ -842,6 +961,7 @@ impl DocumentState {
                 .collect();
             self.set_extra(mapped);
         }
+        self.settle_csv_edit();
     }
 
     /// The edits applied since the last call (commands, typing, undo,
@@ -875,6 +995,7 @@ impl DocumentState {
             Selection::caret(p)
         };
         self.break_undo_group();
+        self.settle_csv_edit();
     }
 
     /// Moves the subtree at `from` before the heading at `to` (or to the
@@ -1204,11 +1325,22 @@ impl DocumentState {
         let Some((layout, _, rec, col)) = crate::csv::cell_at(self) else {
             return false;
         };
-        // A cell past the record's end: the fields up to it, then the text.
-        if col >= rec.fields.len() {
+        // Ready mode: the text replaces the cell (past the record's end,
+        // the fields up to it first), and typing into it goes on, as in
+        // Excel.
+        if self.csv_editing().is_none() {
+            let record = self.text.as_str()[rec.range.clone()].to_string();
             let tx = crate::csv::set_cell(self.text.as_str(), &rec, col, text, &layout.dialect);
             self.csv_virtual = None;
             self.apply(&tx, ChangeKind::Typing, now);
+            if let Some((_, row, _, col)) = crate::csv::cell_at(self) {
+                self.csv_edit = Some(CellEdit {
+                    row,
+                    col,
+                    record,
+                    edit: false,
+                });
+            }
             return true;
         }
         // Right before or after a quoted field's quotes: inside them, so
@@ -1592,6 +1724,7 @@ impl DocumentState {
             return None;
         }
         let replay = self.history.undo()?;
+        self.csv_edit = None;
         for t in &replay.transactions {
             self.apply_raw(t);
         }
@@ -1609,6 +1742,7 @@ impl DocumentState {
             return None;
         }
         let replay = self.history.redo()?;
+        self.csv_edit = None;
         for t in &replay.transactions {
             self.apply_raw(t);
         }

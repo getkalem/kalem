@@ -1526,6 +1526,10 @@ impl gpui::Element for LineElement {
         let rectangle = !editor.source && kalem_core::csv::cell_rectangle(&editor.doc).is_some();
         let marked = editor.marked.clone();
         let view = p.view.clone();
+        // A CSV grid in Excel's Ready mode: the cell is framed, no caret.
+        let ready = !editor.source
+            && editor.doc.csv_mode() == Some(kalem_core::CellMode::Ready)
+            && editor.doc.selection.anchor == editor.doc.selection.head;
         let sheet = (editor.doc.meta.mode == kalem_core::DocumentMode::Csv && !editor.source)
             .then(|| kalem_core::csv::layout(&editor.doc))
             .filter(|l| l.view.sheet)
@@ -1912,7 +1916,7 @@ impl gpui::Element for LineElement {
                     cx,
                 );
             }
-            if focus.is_focused(window) {
+            if focus.is_focused(window) && !ready {
                 let mut caret = layout.caret(view.display_offset(cursor));
                 let mut color = if self.other { theme.muted } else { theme.caret };
                 if let Some((_, next)) = block {

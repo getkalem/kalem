@@ -2062,6 +2062,11 @@ fn line_commands() {
         )]);
         let mut t = with_file(text, name, config, (60, 8));
         t.at(0);
+        if name.ends_with(".tsv") {
+            // Editing the cell (F2), not replacing it.
+            t.app
+                .run_command("csv.editCell", serde_json::json!({ "here": true }));
+        }
         t.typ("x");
         t.app.run_command("app.save", serde_json::Value::Null);
         let path = t.app.doc.meta.path.clone().unwrap();
@@ -2946,6 +2951,8 @@ fn csv_typing_quotes_the_field() {
     let mut t = with_file(text, "d.csv", Config::default(), (60, 8));
     // A comma typed in a field is part of its value: the field is quoted.
     t.at(text.find("red").unwrap() + 3);
+    t.app
+        .run_command("csv.editCell", serde_json::json!({ "here": true }));
     t.typ(", ripe");
     assert_eq!(t.text(), "name,note\napple,\"red, ripe\"\n");
     // A quote inside the quotes is doubled.
@@ -3661,18 +3668,28 @@ fn enter_in_csv_keeps_no_indentation() {
 
 #[test]
 fn csv_backspace_and_delete_keep_the_delimiters() {
-    // In the grid they delete within a cell's value: at its start
-    // Backspace, at its end Delete, merged two cells.
+    // Editing a cell (F2) they delete within its value: at its start
+    // Backspace, at its end Delete, merged two cells. In Ready mode, as in
+    // Excel, Backspace clears the cell and types into it.
     let text = "a,b\n1,22\n";
     let mut t = with_file(text, "d.csv", Config::default(), (60, 8));
-    t.at(text.find("22").unwrap());
+    let edit = |t: &mut T, at: usize| {
+        t.at(at);
+        t.app
+            .run_command("csv.editCell", serde_json::json!({ "here": true }));
+    };
+    edit(&mut t, text.find("22").unwrap());
     t.key(KeyCode::Backspace, KeyModifiers::NONE);
     assert_eq!(t.text(), text);
-    t.at(text.find("1,").unwrap() + 1);
+    edit(&mut t, text.find("1,").unwrap() + 1);
     t.key(KeyCode::Delete, KeyModifiers::NONE);
     assert_eq!(t.text(), text);
     t.key(KeyCode::Backspace, KeyModifiers::NONE);
     assert_eq!(t.text(), "a,b\n,22\n");
+    t.at(t.text().find("22").unwrap());
+    t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    t.typ("7");
+    assert_eq!(t.text(), "a,b\n,7\n");
 }
 
 #[test]
@@ -3730,8 +3747,10 @@ fn csv_cells_are_clicked_anywhere_in_them() {
     );
     t.typ("Q");
     assert!(t.text().contains("Çağla,7,,Q\n"), "{}", t.text());
-    // After Bursa's closing quote (End of the cell): typed inside it.
+    // Editing past Bursa's closing quote: typed inside it.
     t.at(t.text().find("\"Bursa\"").unwrap() + 7);
+    t.app
+        .run_command("csv.editCell", serde_json::json!({ "here": true }));
     t.typ("!");
     assert!(t.text().contains("\"Bursa!\""), "{}", t.text());
 }

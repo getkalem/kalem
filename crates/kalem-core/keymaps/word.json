@@ -30,6 +30,28 @@
   // above (in its source view they break the line).
   { "keys": "enter", "command": "csv.cellBelow", "when": "editorMode == csv && !sourceView" },
   { "keys": "shift+enter", "command": "csv.cellAbove", "when": "editorMode == csv && !sourceView", "terminalKeys": "alt+enter" },
+  // Excel's keys in a CSV grid: the arrows from cell to cell (in Edit
+  // mode, after F2, Left and Right in the cell), Ctrl with them to the
+  // data's edge, Shift to extend; Escape cancels an entry, Delete clears
+  // and Backspace clears and types.
+  { "keys": "left", "command": "csv.cellLeft", "when": "editorMode == csv && !sourceView && !vimActive" },
+  { "keys": "right", "command": "csv.cellRight", "when": "editorMode == csv && !sourceView && !vimActive" },
+  { "keys": "shift+left", "command": "csv.extendLeft", "when": "editorMode == csv && !sourceView && !vimActive" },
+  { "keys": "shift+right", "command": "csv.extendRight", "when": "editorMode == csv && !sourceView && !vimActive" },
+  { "keys": "shift+up", "command": "csv.extendUp", "when": "editorMode == csv && !sourceView && !vimActive" },
+  { "keys": "shift+down", "command": "csv.extendDown", "when": "editorMode == csv && !sourceView && !vimActive" },
+  { "keys": "ctrl+left", "command": "csv.edgeLeft", "when": "editorMode == csv && !sourceView && !vimActive" },
+  { "keys": "ctrl+right", "command": "csv.edgeRight", "when": "editorMode == csv && !sourceView && !vimActive" },
+  { "keys": "ctrl+up", "command": "csv.edgeUp", "when": "editorMode == csv && !sourceView && !vimActive" },
+  { "keys": "ctrl+down", "command": "csv.edgeDown", "when": "editorMode == csv && !sourceView && !vimActive" },
+  { "keys": "home", "command": "csv.rowStart", "when": "editorMode == csv && !sourceView && !vimActive" },
+  { "keys": "end", "command": "csv.rowEnd", "when": "editorMode == csv && !sourceView && !vimActive" },
+  { "keys": "ctrl+home", "command": "csv.firstCell", "when": "editorMode == csv && !sourceView && !vimActive" },
+  { "keys": "ctrl+end", "command": "csv.lastCell", "when": "editorMode == csv && !sourceView && !vimActive" },
+  { "keys": "f2", "command": "csv.editCell", "when": "editorMode == csv && !sourceView && !vimActive" },
+  { "keys": "escape", "command": "csv.cancelEdit", "when": "editorMode == csv && !sourceView && !vimActive" },
+  { "keys": "delete", "command": "csv.clearCells", "when": "editorMode == csv && !sourceView && !vimActive" },
+  { "keys": "backspace", "command": "csv.backspaceCell", "when": "editorMode == csv && !sourceView && !vimActive" },
   { "keys": "tab", "command": "viewer.grid.right", "when": "editorMode == viewer && viewerGrid" },
   { "keys": "shift+tab", "command": "viewer.grid.left", "when": "editorMode == viewer && viewerGrid" },
   { "keys": "ctrl+1", "command": "latex.section.setLevel", "args": { "level": 1 }, "when": "editorMode == latex" },
