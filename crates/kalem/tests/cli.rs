@@ -623,3 +623,56 @@ fn latex_coverage_by_field() {
     assert_eq!(names, ["\\foo"]);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn a_plugin_turned_off_is_listed_and_enabled_again() {
+    // Kalem turned org.example.stops off after three stops (wasm_todo W8):
+    // `kalem plugin list` says so of the installed plugin, and `kalem
+    // plugin enable` forgets the stops.
+    let dir = std::env::temp_dir().join(format!("kalem-cli-turned-off-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let plugin = dir.join("config/plugins/stops");
+    std::fs::create_dir_all(&plugin).unwrap();
+    std::fs::write(
+        plugin.join("plugin.json"),
+        r#"{"id": "org.example.stops", "name": "Stops", "version": "1.0.0"}"#,
+    )
+    .unwrap();
+    // In English, whatever the system's language.
+    std::fs::write(
+        dir.join("config/settings.toml"),
+        "[ui]\nlanguage = \"en\"\n",
+    )
+    .unwrap();
+    std::fs::create_dir_all(dir.join("state")).unwrap();
+    std::fs::write(
+        dir.join("state/plugin-failures.json"),
+        r#"{"org.example.stops": {"version": "1.0.0", "count": 3, "last": "trap"}}"#,
+    )
+    .unwrap();
+    let run = |args: &[&str]| {
+        let out = Command::new(env!("CARGO_BIN_EXE_kalem"))
+            .args(args)
+            .env("KALEM_CONFIG_DIR", dir.join("config"))
+            .env("KALEM_STATE_DIR", dir.join("state"))
+            .env("LANG", "en_US.UTF-8")
+            .output()
+            .expect("run kalem");
+        assert!(out.status.success(), "{args:?}");
+        String::from_utf8(out.stdout).unwrap()
+    };
+    let list = run(&["plugin", "list"]);
+    assert!(
+        list.contains("turned off: stopped 3 times (kalem plugin enable org.example.stops)"),
+        "{list}"
+    );
+    assert!(
+        run(&["plugin", "enable", "org.example.stops"]).contains("org.example.stops is on again")
+    );
+    assert!(!run(&["plugin", "list"]).contains("turned off"));
+    assert!(
+        run(&["plugin", "enable", "org.example.stops"])
+            .contains("org.example.stops was not turned off")
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}

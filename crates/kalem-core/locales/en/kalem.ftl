@@ -363,6 +363,10 @@ msg-unencodable = “{ $ch }” cannot be written in { $encoding }: Save with En
 msg-opened-as = Not UTF-8: opened as { $encoding } (Reopen with Encoding chooses another)
 msg-opened-lossy = Some bytes do not read back as they are in { $encoding }: shown as � or as another form of their character (Reopen with Encoding chooses another; Save keeps the file as it is until then)
 msg-viewer-failed = The viewer failed on this file ({ $reason }); a crash report was written
+msg-plugin-stopped = { $plugin } stopped ({ $why }), and { $file } was closed{ $lost ->
+    [yes] ; its unsaved changes are lost
+   *[no] {""}
+}
 msg-file-read-only = The file is write-protected: change its permissions to save it, or Save As another file
 msg-save-lossy = Not saved over the file: some of its bytes do not read back as they are in { $encoding }, and saving would change them. Reopen with Encoding reads it right; Save with Encoding or Save As writes it as it shows
 msg-bad-line = Not a line number
@@ -1623,6 +1627,13 @@ plugin-none-installed = No plugins installed: Browse Plugins lists them
 plugin-not-installed = { $id } is not installed
 plugin-update = Update { $name }
 plugin-built-in-newer = not used: { $name } { $version } is no newer than the one built in ({ $built_in })
+plugin-why-failed = it failed
+plugin-why-time = it ran past its { $seconds } s
+plugin-why-memory = it ran out of its { $mb } MB
+plugin-turned-off = { $plugin } { $version } stopped { $count } times and is turned off until it is updated; kalem plugin enable { $id } turns it on again
+plugin-turned-off-short = turned off: stopped { $count } times (kalem plugin enable { $id })
+plugin-enabled = { $id } is on again
+plugin-not-turned-off = { $id } was not turned off
 plugin-api-mismatch = { $name } { $version } was built for plugin API { $api }, and this Kalem's is { $ours }: update the plugin (the bundled viewer opens its files meanwhile)
 plugin-from-short = from { $source }
 plugin-remove = Remove { $name }

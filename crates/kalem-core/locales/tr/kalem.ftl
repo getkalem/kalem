@@ -349,6 +349,10 @@ msg-unencodable = “{ $ch }” { $encoding } ile yazılamıyor: Kodlamayla Kayd
 msg-opened-as = UTF-8 değil: { $encoding } olarak açıldı (Kodlamayla Yeniden Aç başka birini seçer)
 msg-opened-lossy = Bazı baytlar { $encoding } ile olduğu gibi geri okunmuyor: � ya da karakterlerinin başka bir biçimi olarak görünür (Kodlamayla Yeniden Aç başka birini seçer; o zamana dek Kaydet dosyayı olduğu gibi bırakır)
 msg-viewer-failed = Görüntüleyici bu dosyada başarısız oldu ({ $reason }); bir çökme raporu yazıldı
+msg-plugin-stopped = { $plugin } durdu ({ $why }) ve { $file } kapatıldı{ $lost ->
+    [yes] ; kaydedilmemiş değişiklikler kayboldu
+   *[no] {""}
+}
 msg-file-read-only = Dosya yazmaya karşı korumalı: kaydetmek için izinlerini değiştirin ya da Farklı Kaydet ile başka bir dosyaya yazın
 msg-save-lossy = Dosyanın üstüne kaydedilmedi: bazı baytları { $encoding } ile olduğu gibi geri okunmuyor ve kaydetmek onları değiştirirdi. Kodlamayla Yeniden Aç doğru okur; Kodlamayla Kaydet ya da Farklı Kaydet göründüğü gibi yazar
 msg-bad-line = Satır numarası değil
@@ -1535,6 +1539,13 @@ plugin-available-from = { $version } mevcut · { $from }
 plugin-none-installed = Kurulu eklenti yok: Eklentilere Göz At onları listeler
 plugin-not-installed = { $id } kurulu değil
 plugin-built-in-newer = kullanılmıyor: { $name } { $version }, yerleşik olandan ({ $built_in }) yeni değil
+plugin-why-failed = hata verdi
+plugin-why-time = { $seconds } sn süresini aştı
+plugin-why-memory = { $mb } MB belleğini aştı
+plugin-turned-off = { $plugin } { $version } { $count } kez durdu ve güncellenene dek kapatıldı; kalem plugin enable { $id } yeniden açar
+plugin-turned-off-short = kapalı: { $count } kez durdu (kalem plugin enable { $id })
+plugin-enabled = { $id } yeniden açık
+plugin-not-turned-off = { $id } kapatılmamıştı
 plugin-api-mismatch = { $name } { $version } eklenti API'si { $api } için derlenmiş, bu Kalem'inki { $ours }: eklentiyi güncelleyin (o zamana dek dosyalarını yerleşik görüntüleyici açar)
 plugin-update = { $name } eklentisini güncelle
 plugin-from-short = kaynak: { $source }

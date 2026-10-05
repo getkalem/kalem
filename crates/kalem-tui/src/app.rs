@@ -1036,6 +1036,30 @@ impl App {
         self.activate(self.docs.len() - 1);
     }
 
+    /// A plugin's document that stopped (a trap, its time or memory
+    /// spent) answers no more: closed, saying why (wasm_todo W8).
+    fn close_stopped_viewer(&mut self) {
+        let file = self
+            .doc
+            .meta
+            .path
+            .as_ref()
+            .and_then(|p| p.file_name())
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let modified = self.doc.is_modified();
+        let Some(text) = self
+            .doc
+            .viewer
+            .as_deref()
+            .and_then(|v| v.stopped_message(&file, modified))
+        else {
+            return;
+        };
+        self.close_document();
+        self.message(text, true);
+    }
+
     /// Closes the active document (its changes were dealt with); the last
     /// one leaves an empty document (quitting is Quit's).
     fn close_document(&mut self) {
@@ -4437,6 +4461,7 @@ impl App {
     }
 
     pub fn tick(&mut self, now: Instant) {
+        self.close_stopped_viewer();
         // The plugins' commands and keys changed: built again; the
         // commands their event handlers asked for, run.
         let plugins = kalem_core::extensions::generation();

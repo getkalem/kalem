@@ -18,6 +18,18 @@ use std::sync::Arc;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ViewerError(pub String);
 
+/// Why a document's viewer stopped answering
+/// ([`ViewerDocument::stopped`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Stopped {
+    /// It failed (a panic, a fault): what the log keeps of it.
+    Failed(String),
+    /// A call ran past its time.
+    Timeout(std::time::Duration),
+    /// It asked for more memory than its limit, in bytes.
+    Memory(usize),
+}
+
 impl fmt::Display for ViewerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.0)
@@ -1859,6 +1871,14 @@ pub trait Viewer: Send + Sync {
 pub trait ViewerDocument: Send {
     /// The units and the outline.
     fn structure(&self) -> Structure;
+
+    /// Why the document answers no more, once its viewer stopped (a
+    /// plugin component that failed or ran past its limits): the host
+    /// then closes it and says so. `None` while it works, and always for
+    /// a viewer of native code.
+    fn stopped(&self) -> Option<Stopped> {
+        None
+    }
 
     /// A unit rendered.
     fn render(&mut self, unit: usize, request: RenderRequest) -> Result<Rendered>;

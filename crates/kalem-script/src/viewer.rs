@@ -288,7 +288,13 @@ pub struct ComponentViewer {
     /// Tells the user, once, that the fallback is used.
     notice: Option<std::sync::Arc<dyn Fn(String) + Send + Sync>>,
     warned: std::sync::atomic::AtomicBool,
+    /// Told when a document of this viewer stops (wasm_todo W8): Kalem
+    /// counts the failures and turns a plugin that keeps failing off.
+    on_stop: Option<OnStop>,
 }
+
+/// What [`ComponentViewer::with_on_stop`] calls.
+pub type OnStop = std::sync::Arc<dyn Fn(&kalem_viewer::Stopped) + Send + Sync>;
 
 impl std::fmt::Debug for ComponentViewer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -334,6 +340,7 @@ impl ComponentViewer {
             fallback: None,
             notice: None,
             warned: std::sync::atomic::AtomicBool::new(false),
+            on_stop: None,
         }
     }
 
@@ -374,6 +381,13 @@ impl ComponentViewer {
     ) -> ComponentViewer {
         self.fallback = fallback;
         self.notice = Some(notice);
+        self
+    }
+
+    /// The same viewer, calling `f` once for each of its documents that
+    /// stops: a trap, the time budget or the memory limit spent.
+    pub fn with_on_stop(mut self, f: OnStop) -> ComponentViewer {
+        self.on_stop = Some(f);
         self
     }
 
@@ -478,16 +492,26 @@ impl kalem_viewer::Viewer for ComponentViewer {
         };
         // The handle itself: bytes the host holds reach the plugin too (a
         // workbook converted from `.ods` has no file on disk).
-        let doc = v
-            .open_file(file)
-            .map_err(err)?
-            .map_err(kalem_viewer::ViewerError)?;
+        let doc = match v.open_file(file) {
+            Ok(opened) => opened.map_err(kalem_viewer::ViewerError)?,
+            // It failed opening the file: counted as a stop.
+            Err(e) => {
+                let why = stopped_of(&e);
+                tracing::error!(viewer = %self.name, error = %e, "a plugin failed opening a file");
+                if let Some(hook) = &self.on_stop {
+                    hook(&why);
+                }
+                return Err(stopped_error(&self.name, &why));
+            }
+        };
         Ok(Box::new(ComponentDocument {
             v: std::sync::Mutex::new(v),
             doc,
             modified: std::sync::atomic::AtomicBool::new(false),
             structure: std::sync::Mutex::new(None),
-            failed: std::sync::atomic::AtomicBool::new(false),
+            stopped: std::sync::Mutex::new(None),
+            name: self.name.clone(),
+            on_stop: self.on_stop.clone(),
         }))
     }
 }
@@ -506,8 +530,11 @@ struct ComponentDocument {
     /// What `structure` last answered, for the same reason: an empty one
     /// has no unit the host shows.
     structure: std::sync::Mutex<Option<kalem_viewer::Structure>>,
-    /// The instance failed once (said once in the log).
-    failed: std::sync::atomic::AtomicBool,
+    /// Why the instance stopped: it is called no more (wasm_todo W8).
+    stopped: std::sync::Mutex<Option<kalem_viewer::Stopped>>,
+    /// The viewer's name, for the errors after it stopped.
+    name: String,
+    on_stop: Option<OnStop>,
 }
 
 impl ComponentDocument {
@@ -522,15 +549,61 @@ impl ComponentDocument {
         ) -> wasmtime::Result<R>,
     ) -> kalem_viewer::Result<R> {
         let doc = self.doc;
-        let mut v = self.v.lock().unwrap_or_else(|e| e.into_inner());
-        let out = v.document(|d, s| f(d, s, doc)).map_err(err);
-        if let Err(e) = &out
-            && !self.failed.swap(true, std::sync::atomic::Ordering::Relaxed)
-        {
-            tracing::error!(error = %e.0, "a plugin's document failed; it answers no more");
-        }
-        out
+        self.run(|v| Some(v.document(|d, s| f(d, s, doc))))
+            .unwrap_or_else(|| Err(kv::ViewerError("Not a grid".into())))
     }
+
+    /// `f` on the instance, unless it stopped; its first failure (a trap,
+    /// the time or the memory spent) stops it, said once in the log and
+    /// to the viewer's hook.
+    fn run<R>(
+        &self,
+        f: impl FnOnce(&mut Viewer) -> Option<crate::Result<R>>,
+    ) -> Option<kalem_viewer::Result<R>> {
+        // Not held while the plugin runs: `stopped` is asked at every tick.
+        if let Some(why) = kalem_viewer::ViewerDocument::stopped(self) {
+            return Some(Err(stopped_error(&self.name, &why)));
+        }
+        let mut v = self.v.lock().unwrap_or_else(|e| e.into_inner());
+        match f(&mut v)? {
+            Ok(r) => Some(Ok(r)),
+            Err(e) => {
+                let why = stopped_of(&e);
+                let mut stopped = self.stopped.lock().unwrap_or_else(|e| e.into_inner());
+                if stopped.is_none() {
+                    tracing::error!(viewer = %self.name, error = %e, "a plugin's document stopped; it answers no more");
+                    if let Some(hook) = &self.on_stop {
+                        hook(&why);
+                    }
+                    *stopped = Some(why.clone());
+                }
+                Some(Err(stopped_error(&self.name, &why)))
+            }
+        }
+    }
+}
+
+/// Why an instance stopped, from the host's error.
+fn stopped_of(e: &crate::Error) -> kalem_viewer::Stopped {
+    match e {
+        crate::Error::Timeout(t) => kalem_viewer::Stopped::Timeout(*t),
+        crate::Error::Memory(m) => kalem_viewer::Stopped::Memory(*m),
+        other => kalem_viewer::Stopped::Failed(other.to_string()),
+    }
+}
+
+/// The error of a call to viewer `name`'s document that stopped: short,
+/// the detail being the log's.
+fn stopped_error(name: &str, why: &kalem_viewer::Stopped) -> kalem_viewer::ViewerError {
+    kalem_viewer::ViewerError(match why {
+        kalem_viewer::Stopped::Failed(_) => format!("{name} stopped: it failed"),
+        kalem_viewer::Stopped::Timeout(t) => {
+            format!("{name} stopped: it ran past its {} s", t.as_secs())
+        }
+        kalem_viewer::Stopped::Memory(m) => {
+            format!("{name} stopped: it ran out of its {} MB", m >> 20)
+        }
+    })
 }
 
 fn span(r: std::ops::Range<usize>) -> api::Span {
@@ -545,6 +618,13 @@ fn rect(r: api::Rect) -> [f32; 4] {
 }
 
 impl kalem_viewer::ViewerDocument for ComponentDocument {
+    fn stopped(&self) -> Option<kalem_viewer::Stopped> {
+        self.stopped
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+    }
+
     fn structure(&self) -> kalem_viewer::Structure {
         let Ok(s) = self.call(|d, st, doc| d.call_structure(st, doc)) else {
             let last = self.structure.lock().unwrap_or_else(|e| e.into_inner());
@@ -1977,11 +2057,8 @@ impl ComponentDocument {
         ) -> wasmtime::Result<R>,
     ) -> kv::Result<R> {
         let doc = self.doc;
-        let mut v = self.v.lock().unwrap_or_else(|e| e.into_inner());
-        match v.grid(|g, s| f(g, s, doc)) {
-            None => Err(kv::ViewerError("Not a grid".into())),
-            Some(r) => r.map_err(err),
-        }
+        self.run(|v| v.grid(|g, s| f(g, s, doc)))
+            .unwrap_or_else(|| Err(kv::ViewerError("Not a grid".into())))
     }
 
     /// [`ComponentDocument::g`] for a change: the units to draw again.

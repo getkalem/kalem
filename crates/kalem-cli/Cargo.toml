@@ -13,7 +13,7 @@ default = ["viewers", "plugins"]
 # The viewers bundled into the binary: pictures, PDF files, workbooks.
 viewers = ["dep:kalem-plugin-image-viewer", "dep:kalem-plugin-xlsx", "dep:kalem-plugin-pdf-viewer"]
 # The plugin host (Wasmtime): installed component plugins run.
-plugins = ["dep:kalem-script", "dep:kalem-components", "kalem-components/viewers"]
+plugins = ["dep:kalem-script", "dep:kalem-components", "kalem-components/viewers", "dep:kalem-viewer"]
 # The bundled plugins as WebAssembly components built into the binary
 # (wasm_todo W5), in place of the native viewers of the same name: built
 # by `kalem-components` (the wasm32-unknown-unknown target installed).
@@ -36,6 +36,8 @@ kalem-plugin-pdf-viewer = { workspace = true, optional = true }
 # Component viewers installed by the user (D28, T3.1.12).
 kalem-script = { workspace = true, optional = true }
 kalem-components = { workspace = true, optional = true }
+# The viewer contract, for the viewers a component viewer stands in for.
+kalem-viewer = { workspace = true, optional = true }
 latex-syntax.workspace = true
 latex-model.workspace = true
 jiff = "0.2"
@@ -46,6 +48,8 @@ serde_json = { version = "1", features = ["unbounded_depth"] }
 stacker = "0.1"
 serde = "1"
 serde_stacker = "0.1"
+# A plugin's stops logged with its version (wasm_todo W8).
+tracing = "0.1"
 
 [lints]
 workspace = true

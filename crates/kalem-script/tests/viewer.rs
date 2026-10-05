@@ -172,6 +172,77 @@ fn a_component_is_offered_as_the_rust_contract() {
     }
 }
 
+/// A document whose component fails, runs past its time or out of its
+/// memory stops (wasm_todo W8): it says why, answers no more without
+/// calling the plugin again, and the viewer's hook hears it once.
+#[test]
+fn a_component_that_stops_says_why_and_answers_no_more() {
+    use kalem_viewer::{FileHandle, Stopped, Viewer as _};
+    let Some(bytes) = component("adapted") else {
+        return;
+    };
+    let dir = std::env::temp_dir().join(format!("kalem-script-stops-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let wasm = dir.join("lines.wasm");
+    std::fs::write(&wasm, &bytes).unwrap();
+    let f = file("stops.lines", b"LINES\nfirst line\nsecond");
+    let host = std::sync::Arc::new(Host::new(None).unwrap());
+    let base = kalem_script::viewer::VIEWER_LIMITS;
+    for (query, limits) in [
+        ("!panic", base),
+        (
+            "!loop",
+            kalem_script::Limits {
+                time: std::time::Duration::from_millis(300),
+                ..base
+            },
+        ),
+        (
+            "!grow",
+            kalem_script::Limits {
+                memory: 64 << 20,
+                ..base
+            },
+        ),
+    ] {
+        let heard = std::sync::Arc::new(std::sync::Mutex::new(Vec::<Stopped>::new()));
+        let h = heard.clone();
+        let v = kalem_script::viewer::ComponentViewer::new(
+            host.clone(),
+            &wasm,
+            "lines",
+            "Lines",
+            &["lines".to_string()],
+            limits,
+        )
+        .with_on_stop(std::sync::Arc::new(move |s| {
+            h.lock().unwrap().push(s.clone())
+        }));
+        let mut doc = v.open(FileHandle::new(&f)).unwrap();
+        assert_eq!(doc.search("second"), [(1, 0..6)]);
+        assert_eq!(doc.stopped(), None);
+        assert!(doc.search(query).is_empty(), "{query}");
+        let why = doc.stopped();
+        match (query, &why) {
+            ("!panic", Some(Stopped::Failed(_))) => {}
+            ("!loop", Some(Stopped::Timeout(t))) => assert_eq!(t.as_millis(), 300),
+            ("!grow", Some(Stopped::Memory(m))) => assert_eq!(*m, 64 << 20),
+            _ => panic!("{query}: {why:?}"),
+        }
+        // No more answers, and the plugin is not called again.
+        assert_eq!(doc.text(1), "");
+        let e = doc
+            .render(0, kalem_viewer::RenderRequest::default())
+            .expect_err("an error");
+        assert!(e.0.starts_with("Lines stopped: "), "{}", e.0);
+        assert_eq!(heard.lock().unwrap().len(), 1, "{query}");
+        // Another document of the viewer works.
+        let other = v.open(FileHandle::new(&f)).unwrap();
+        assert_eq!(other.text(1), "second");
+        assert_eq!(other.stopped(), None);
+    }
+}
+
 /// A component's interfaces are bound as it has them (wasm_todo W3): a
 /// document viewer, which exports no `grid`, binds with no grid; a sheet
 /// viewer binds its grid.

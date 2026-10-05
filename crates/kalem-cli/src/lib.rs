@@ -92,6 +92,12 @@ enum PluginAction {
         /// Its ID.
         id: String,
     },
+    /// Turns on again a plugin Kalem turned off after it stopped three
+    /// times (a trap, its time or its memory spent).
+    Enable {
+        /// Its ID.
+        id: String,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -316,7 +322,7 @@ enum Command {
         top: usize,
     },
     /// Plugins: `kalem plugin browse`, `install NAME|URL|PATH`, `list`,
-    /// `check`, `remove ID`, `new NAME`, `build [DIR]`.
+    /// `check`, `remove ID`, `enable ID`, `new NAME`, `build [DIR]`.
     Plugin {
         #[command(subcommand)]
         action: PluginAction,
@@ -496,12 +502,62 @@ pub(crate) fn embedded_viewers() -> Vec<std::sync::Arc<kalem_script::viewer::Com
             let bundled = kalem_core::viewer::viewers()
                 .into_iter()
                 .find(|b| b.id() == id);
-            std::sync::Arc::new(c.viewer(host.clone()).with_fallback(
-                bundled,
-                std::sync::Arc::new(|text| kalem_core::jobs::notice(text, true)),
-            ))
+            let m = c.manifest_json();
+            let hook = on_stop(
+                c.id,
+                m["name"].as_str().unwrap_or(c.id),
+                m["version"].as_str().unwrap_or_default(),
+                bundled.clone(),
+            );
+            std::sync::Arc::new(
+                c.viewer(host.clone())
+                    .with_fallback(
+                        bundled,
+                        std::sync::Arc::new(|text| kalem_core::jobs::notice(text, true)),
+                    )
+                    .with_on_stop(hook),
+            )
         })
         .collect()
+}
+
+/// What a component viewer of plugin `id` (`name` at `version`) calls
+/// when one of its documents stops (wasm_todo W8): the stop counted and
+/// logged with the plugin's version; at the third, the plugin turned off
+/// until it is updated, `bundled` (or nothing) opening its files from
+/// then on, and the user told.
+#[cfg(feature = "plugins")]
+fn on_stop(
+    id: &str,
+    name: &str,
+    version: &str,
+    bundled: Option<std::sync::Arc<dyn kalem_viewer::Viewer>>,
+) -> kalem_script::viewer::OnStop {
+    let (id, name, version) = (id.to_string(), name.to_string(), version.to_string());
+    std::sync::Arc::new(move |why| {
+        let n = kalem_core::plugin_store::record_stop(&id, &version, &format!("{why:?}"));
+        tracing::error!(plugin = %id, version = %version, stops = n, why = ?why, "a plugin stopped");
+        if n == kalem_core::plugin_store::STOPS_TO_TURN_OFF {
+            let short = id.rsplit('.').next().unwrap_or(&id);
+            match &bundled {
+                Some(b) => kalem_core::viewer::register(b.clone()),
+                None => kalem_core::viewer::unregister(short),
+            }
+            kalem_core::jobs::notice(turned_off(&id, &name, &version, n), true);
+        }
+    })
+}
+
+/// What the user is told of plugin `id` turned off after `n` stops.
+#[cfg(feature = "plugins")]
+pub(crate) fn turned_off(id: &str, name: &str, version: &str, n: u32) -> String {
+    kalem_core::tr!(
+        "plugin-turned-off",
+        plugin = name,
+        version = version,
+        count = n,
+        id = id
+    )
 }
 
 /// The component viewers installed (`kalem plugin install` of a built
@@ -515,13 +571,28 @@ fn component_viewers() {
     // The bundled components first, then the installed ones, which take
     // their place only when newer.
     let embedded = embedded_viewers();
-    for v in &embedded {
+    for (v, c) in embedded.iter().zip(kalem_components::components()) {
+        // Turned off after it stopped three times: the native copy, if
+        // any, opens its files (wasm_todo W8).
+        let m = c.manifest_json();
+        let version = m["version"].as_str().unwrap_or_default();
+        if kalem_core::plugin_store::turned_off(c.id, version) {
+            let name = m["name"].as_str().unwrap_or(c.id);
+            let n = kalem_core::plugin_store::stops(c.id, version);
+            kalem_core::jobs::notice(turned_off(c.id, name, version, n), true);
+            continue;
+        }
         kalem_core::viewer::register(v.clone());
         loaded.push(v.clone());
     }
     for (p, v) in installed_viewers() {
         // `kalem plugin list` says why it is not used.
         if embedded_is_newer(&p).is_some() {
+            continue;
+        }
+        if kalem_core::plugin_store::turned_off(&p.id, &p.version) {
+            let n = kalem_core::plugin_store::stops(&p.id, &p.version);
+            kalem_core::jobs::notice(turned_off(&p.id, &p.name, &p.version, n), true);
             continue;
         }
         match v {
@@ -613,10 +684,12 @@ pub(crate) fn installed_viewers() -> Vec<(
             .into_iter()
             .find(|v| v.id() == id);
         let v = std::sync::Arc::new(
-            ComponentViewer::new(h, p.dir.join(main), id, &p.name, &opens, limits).with_fallback(
-                bundled,
-                std::sync::Arc::new(|text| kalem_core::jobs::notice(text, true)),
-            ),
+            ComponentViewer::new(h, p.dir.join(main), id, &p.name, &opens, limits)
+                .with_fallback(
+                    bundled.clone(),
+                    std::sync::Arc::new(|text| kalem_core::jobs::notice(text, true)),
+                )
+                .with_on_stop(on_stop(&p.id, &p.name, &p.version, bundled)),
         );
         out.push((p, Ok(v)));
     }
@@ -738,6 +811,7 @@ where
             PluginAction::New { name } => commands::plugin::new(&name),
             PluginAction::Build { dir } => commands::plugin::build(dir.as_deref()),
             PluginAction::Remove { id } => commands::plugin::remove(&id),
+            PluginAction::Enable { id } => commands::plugin::enable(&id),
         },
         Command::Lsp { action } => match action {
             LspAction::Status { file } => commands::lsp::status(file.as_deref()),

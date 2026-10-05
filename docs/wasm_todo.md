@@ -213,11 +213,33 @@ Why the native copies are still there, as found on 2026-10-05:
 
 ## W8. Errors and a component that fails
 
-- [ ] W8 A component that traps, runs out of time or memory, or cannot be
+- [x] W8 A component that traps, runs out of time or memory, or cannot be
   linked: its document closed with a message naming the plugin and what
   went wrong, the file offered as text or not at all, never the editor
   stopped; repeated failures disabling the plugin until it is updated
   (T3.1.13); the log keeping the plugin's version and the trap.
+  (2026-10-05: the contract's `ViewerDocument::stopped` says why a
+  document answers no more (`Stopped::Failed`, `Timeout`, `Memory`); a
+  component's document stops at its first failure, is not called again,
+  answers with a short error, and tells its viewer's hook once. Both
+  editors close such a document at their next tick and say which plugin
+  stopped and why, and that unsaved changes are lost
+  (`ViewerState::stopped_message`); the files viewers open are binary,
+  so none is offered as text. Kalem counts the stops by plugin and
+  version in `STATE/plugin-failures.json` and turns a plugin off at the
+  third (`plugin_store::STOPS_TO_TURN_OFF`) until its version changes:
+  the bundled viewer of the same name takes its place at once and at
+  later starts, `kalem plugin list` says so, `kalem plugin enable ID`
+  turns it on. One that cannot be linked was handled already (the
+  bundled viewer, and a notice). The log: kalem-script's error with the
+  trap, kalem-cli's with the plugin's ID and version. Tests: the host's
+  `a_component_that_stops_says_why_and_answers_no_more` (the test
+  plugin `adapted` panics, loops and grows on demand), the editors'
+  `stopped.rs`, the command line's
+  `a_plugin_turned_off_is_listed_and_enabled_again`. Open, for W10: the
+  components are built with their symbols stripped and `panic = "abort"`,
+  so the log's trap is a backtrace of numbered functions without the
+  panic's message.)
 
 ## W9. The native copies removed
 

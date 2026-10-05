@@ -162,13 +162,17 @@ At start Kalem registers the installed component viewers in place of a
 bundled viewer of the same name (=org.kalem.pdf-viewer= replaces
 =pdf-viewer=), and a thread compiles them, or reads them from the cache
 in the state directory, so the first file they open does not wait.
-Each document a component opens gets an instance of its own; one that
-traps or runs past its time answers no more, and its document keeps
-what it last said (its units, and whether it has unsaved edits, so
-closing still asks) while the failure goes to the log. A
-viewer's limits are 1 GB and 10 s a call, more than §11.6's defaults,
-since a viewer holds a whole file; a manifest may set others,
-=limits.memory_mb= and =limits.time_ms=.
+Each document a component opens gets an instance of its own. One that
+fails, runs past its time or out of its memory stops: the editor closes
+its document at once and says which plugin stopped and why, and that
+its unsaved changes, which nothing can save any more, are lost; the
+editor itself goes on, and the log keeps the plugin's version and what
+went wrong. A plugin that stops three times is turned off until it is
+updated (the bundled viewer of the same name, if any, opens its files
+meanwhile); =kalem plugin list= says so, and =kalem plugin enable ID=
+turns it on again. A viewer's limits are 1 GB and 10 s a call, more
+than §11.6's defaults, since a viewer holds a whole file; a manifest
+may set others, =limits.memory_mb= and =limits.time_ms=.
 
 A build with the feature =components= (=cargo install --path
 crates/kalem --features components=, with the =wasm32-unknown-unknown=

@@ -41,6 +41,13 @@ pub fn register(viewer: Arc<dyn Viewer>) {
     }
 }
 
+/// Takes viewer `id` away: a plugin turned off (wasm_todo W8).
+pub fn unregister(id: &str) {
+    if let Ok(mut all) = VIEWERS.write() {
+        all.retain(|v| v.id() != id);
+    }
+}
+
 /// The viewers installed.
 pub fn viewers() -> Vec<Arc<dyn Viewer>> {
     VIEWERS.read().map(|v| v.clone()).unwrap_or_default()
@@ -737,6 +744,35 @@ impl ViewerState {
     /// The document's units and outline.
     pub fn structure(&self) -> &Structure {
         &self.structure
+    }
+
+    /// What the user is told when the document's viewer stopped (a plugin
+    /// component that failed or ran past its limits, wasm_todo W8), the
+    /// document `file` closing, its unsaved changes lost when `modified`:
+    /// `None` while it works. Asked at every tick, it never waits for a
+    /// page being rendered.
+    pub fn stopped_message(&self, file: &str, modified: bool) -> Option<String> {
+        let doc = match self.doc.try_lock() {
+            Ok(d) => d,
+            Err(std::sync::TryLockError::Poisoned(p)) => p.into_inner(),
+            Err(std::sync::TryLockError::WouldBlock) => return None,
+        };
+        let why = match doc.stopped()? {
+            kalem_viewer::Stopped::Failed(_) => crate::tr!("plugin-why-failed"),
+            kalem_viewer::Stopped::Timeout(t) => {
+                crate::tr!("plugin-why-time", seconds = t.as_secs().to_string())
+            }
+            kalem_viewer::Stopped::Memory(m) => {
+                crate::tr!("plugin-why-memory", mb = (m >> 20).to_string())
+            }
+        };
+        Some(crate::tr!(
+            "msg-plugin-stopped",
+            plugin = self.viewer.name(),
+            why = why,
+            file = file,
+            lost = if modified { "yes" } else { "no" }
+        ))
     }
 
     /// Changes whenever the pixels shown change: frontends key their

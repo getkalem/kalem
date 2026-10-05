@@ -116,12 +116,17 @@ pub(crate) fn list() -> Result<ExitCode> {
     // The plugins built into this Kalem as components (wasm_todo W5).
     #[cfg(feature = "plugins")]
     for (m, _) in crate::embedded_components() {
-        println!(
-            "{} {} — {} (built in)",
+        let (id, version) = (
             m["id"].as_str().unwrap_or_default(),
             m["version"].as_str().unwrap_or_default(),
+        );
+        println!(
+            "{id} {version} — {} (built in)",
             m["name"].as_str().unwrap_or_default()
         );
+        if let Some(note) = turned_off_note(id, version) {
+            println!("  {note}");
+        }
     }
     let all = plugin_store::installed();
     if all.is_empty() {
@@ -146,8 +151,35 @@ pub(crate) fn list() -> Result<ExitCode> {
         if let Some(why) = unused {
             println!("  {why}");
         }
+        if let Some(note) = turned_off_note(&p.id, &p.version) {
+            println!("  {note}");
+        }
     }
     Ok(ExitCode::SUCCESS)
+}
+
+/// `kalem plugin enable ID`: a plugin Kalem turned off after it stopped
+/// three times, turned on again (its stops forgotten).
+pub(crate) fn enable(id: &str) -> Result<ExitCode> {
+    config();
+    if plugin_store::clear_stops(id) {
+        println!("{}", kalem_core::tr!("plugin-enabled", id = id));
+    } else {
+        println!("{}", kalem_core::tr!("plugin-not-turned-off", id = id));
+    }
+    Ok(ExitCode::SUCCESS)
+}
+
+/// The note `kalem plugin list` gives plugin `id` at `version` when Kalem
+/// turned it off.
+fn turned_off_note(id: &str, version: &str) -> Option<String> {
+    plugin_store::turned_off(id, version).then(|| {
+        kalem_core::tr!(
+            "plugin-turned-off-short",
+            count = plugin_store::stops(id, version),
+            id = id
+        )
+    })
 }
 
 /// `kalem plugin remove ID`.

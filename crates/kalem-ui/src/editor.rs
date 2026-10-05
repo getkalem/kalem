@@ -322,6 +322,8 @@ pub struct Editor {
     pub pending_at: Option<Instant>,
     /// Whether the which-key panel was asked for since `pending_at`.
     pub hints_drawn: bool,
+    /// The document's viewer stopped and it is closing (wasm_todo W8).
+    stopped: bool,
     /// IME composition in progress.
     pub marked: Option<Range<usize>>,
     /// Lines as last painted, by source line.
@@ -504,6 +506,7 @@ impl Editor {
             theme,
             pending: Vec::new(),
             pending_at: None,
+            stopped: false,
             resume_input: None,
             mark_picker: false,
             prefix: None,
@@ -3458,6 +3461,20 @@ impl Editor {
 
     /// Background work: a finished background parse restyles the lines.
     pub fn tick(&mut self, cx: &mut Context<'_, Self>) {
+        // A plugin's document that stopped (a trap, its time or memory
+        // spent) answers no more: closed, saying why (wasm_todo W8).
+        if !self.stopped
+            && let Some(text) = self
+                .doc
+                .viewer
+                .as_deref()
+                .and_then(|v| v.stopped_message(&self.title(), self.doc.is_modified()))
+        {
+            self.stopped = true;
+            cx.emit(DocEvent::Close);
+            cx.emit(DocEvent::Notice(text, true));
+            return;
+        }
         self.tick_palette(cx);
         // Language servers: the document in step, their answers shown.
         kalem_core::lsp::sync(&self.doc);

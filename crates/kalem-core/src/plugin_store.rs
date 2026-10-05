@@ -870,6 +870,80 @@ pub fn discard(staging: &Path) {
     }
 }
 
+/// How many times a plugin of one version may stop (a trap, its time or
+/// its memory spent) before Kalem turns it off until it is updated
+/// (wasm_todo W8, T3.1.13).
+pub const STOPS_TO_TURN_OFF: u32 = 3;
+
+/// Where the plugins' stops are counted: `STATE/plugin-failures.json`.
+fn failures_path() -> Option<PathBuf> {
+    crate::logging::state_dir().map(|d| d.join("plugin-failures.json"))
+}
+
+fn load_failures(path: &Path) -> serde_json::Map<String, Value> {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+        .and_then(|v| v.as_object().cloned())
+        .unwrap_or_default()
+}
+
+fn stops_in(path: &Path, id: &str, version: &str) -> u32 {
+    let all = load_failures(path);
+    let Some(e) = all.get(id) else { return 0 };
+    if e["version"].as_str() != Some(version) {
+        return 0;
+    }
+    e["count"].as_u64().map_or(0, |n| n as u32)
+}
+
+fn record_stop_in(path: &Path, id: &str, version: &str, why: &str) -> u32 {
+    let mut all = load_failures(path);
+    let count = stops_in(path, id, version) + 1;
+    all.insert(
+        id.to_string(),
+        serde_json::json!({ "version": version, "count": count, "last": why }),
+    );
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let _ = std::fs::write(path, Value::Object(all).to_string());
+    count
+}
+
+fn clear_stops_in(path: &Path, id: &str) -> bool {
+    let mut all = load_failures(path);
+    let had = all.remove(id).is_some();
+    if had {
+        let _ = std::fs::write(path, Value::Object(all).to_string());
+    }
+    had
+}
+
+/// How many times plugin `id` at `version` stopped (another version's
+/// stops do not count).
+pub fn stops(id: &str, version: &str) -> u32 {
+    failures_path().map_or(0, |p| stops_in(&p, id, version))
+}
+
+/// Counts a stop of plugin `id` at `version`, `why` kept for the user:
+/// how many it has now.
+pub fn record_stop(id: &str, version: &str, why: &str) -> u32 {
+    failures_path().map_or(0, |p| record_stop_in(&p, id, version, why))
+}
+
+/// Whether Kalem turned plugin `id` at `version` off: it stopped
+/// [`STOPS_TO_TURN_OFF`] times. An update turns it on again.
+pub fn turned_off(id: &str, version: &str) -> bool {
+    stops(id, version) >= STOPS_TO_TURN_OFF
+}
+
+/// Forgets plugin `id`'s stops, turning it on again (`kalem plugin
+/// enable`): whether there were any.
+pub fn clear_stops(id: &str) -> bool {
+    failures_path().is_some_and(|p| clear_stops_in(&p, id))
+}
+
 fn load_record() -> toml_edit::DocumentMut {
     record_path()
         .and_then(|p| std::fs::read_to_string(p).ok())
@@ -1072,6 +1146,26 @@ pub fn check_updates(config: &crate::Config) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn stops_counted_by_version_and_forgotten() {
+        let dir = std::env::temp_dir().join(format!("kalem-stops-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("plugin-failures.json");
+        assert_eq!(super::stops_in(&path, "org.x", "1.0.0"), 0);
+        assert_eq!(super::record_stop_in(&path, "org.x", "1.0.0", "trap"), 1);
+        assert_eq!(super::record_stop_in(&path, "org.x", "1.0.0", "trap"), 2);
+        assert_eq!(super::record_stop_in(&path, "org.y", "0.1.0", "time"), 1);
+        assert_eq!(super::stops_in(&path, "org.x", "1.0.0"), 2);
+        // An update starts again.
+        assert_eq!(super::stops_in(&path, "org.x", "1.0.1"), 0);
+        assert_eq!(super::record_stop_in(&path, "org.x", "1.0.1", "trap"), 1);
+        assert!(super::clear_stops_in(&path, "org.x"));
+        assert!(!super::clear_stops_in(&path, "org.x"));
+        assert_eq!(super::stops_in(&path, "org.x", "1.0.1"), 0);
+        assert_eq!(super::stops_in(&path, "org.y", "0.1.0"), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     use super::*;
 
     #[test]

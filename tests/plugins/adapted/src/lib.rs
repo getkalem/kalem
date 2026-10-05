@@ -87,6 +87,34 @@ impl ViewerDocument for Doc {
         self.lines.get(unit).cloned().unwrap_or_default()
     }
 
+    /// The lines' matches; three queries fail on purpose, for the host's
+    /// tests of a plugin that stops: `!panic` panics, `!loop` runs past
+    /// any time, `!grow` asks for memory until refused.
+    fn search(&self, query: &str) -> Vec<(usize, std::ops::Range<usize>)> {
+        match query {
+            "!panic" => panic!("asked to"),
+            "!loop" => loop {
+                std::hint::black_box(());
+            },
+            "!grow" => {
+                let mut held = Vec::new();
+                loop {
+                    held.push(vec![1u8; 1 << 24]);
+                    std::hint::black_box(&held);
+                }
+            }
+            _ => self
+                .lines
+                .iter()
+                .enumerate()
+                .flat_map(|(i, l)| {
+                    l.match_indices(query)
+                        .map(move |(at, m)| (i, at..at + m.len()))
+                })
+                .collect(),
+        }
+    }
+
     fn info(&self) -> Vec<InfoField> {
         vec![
             InfoField::new("Name", self.name.clone()),
