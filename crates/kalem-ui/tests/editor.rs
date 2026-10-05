@@ -11,6 +11,15 @@ use kalem_ui::editor::Editor;
 use kalem_ui::theme::Theme;
 use kalem_ui::workspace::Workspace;
 
+/// A settings file of the test's own in `dir`, in English: saving or
+/// reloading the settings neither touches the user's files nor switches
+/// the shared interface language to the system's.
+fn test_settings(dir: &std::path::Path) -> Option<std::path::PathBuf> {
+    let path = dir.join("settings.toml");
+    std::fs::write(&path, "[ui]\nlanguage = \"en\"\n").unwrap();
+    Some(path)
+}
+
 /// The primary modifier of the Word-like profile on this platform.
 fn primary() -> &'static str {
     if cfg!(target_os = "macos") {
@@ -46,9 +55,8 @@ fn open_named<'a>(
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join(name);
     std::fs::write(&path, text).unwrap();
-    let mut shared = kalem_ui::shared(Config::default());
+    let mut shared = kalem_ui::shared_in(Config::default(), test_settings(&dir));
     shared.html_clipboard = html;
-    shared.settings_path = Some(dir.join("settings.toml"));
     shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
         dir.join("projects.toml"),
     )));
@@ -1048,13 +1056,15 @@ fn open_vim<'a>(
 ) -> (Entity<Editor>, &'a mut VisualTestContext) {
     let (e, cx) = open(text, cx);
     e.update(cx, |e, _| {
-        let mut shared = kalem_ui::shared(Config::from_layers(&[(
-            kalem_core::settings::Layer::User,
-            None,
-            "editor.keymap_profile = \"vim\"\n",
-        )]));
+        let mut shared = kalem_ui::shared_in(
+            Config::from_layers(&[(
+                kalem_core::settings::Layer::User,
+                None,
+                "editor.keymap_profile = \"vim\"\n",
+            )]),
+            e.shared.settings_path.clone(),
+        );
         shared.html_clipboard = || None;
-        shared.settings_path = e.shared.settings_path.clone();
         shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(
             e.shared.projects.borrow().list.file.clone(),
         ));
@@ -1162,13 +1172,11 @@ fn open_code<'a>(
         } else {
             ""
         };
-        let mut shared = kalem_ui::shared(Config::from_layers(&[(
-            kalem_core::settings::Layer::User,
-            None,
-            profile,
-        )]));
+        let mut shared = kalem_ui::shared_in(
+            Config::from_layers(&[(kalem_core::settings::Layer::User, None, profile)]),
+            e.shared.settings_path.clone(),
+        );
         shared.html_clipboard = || None;
-        shared.settings_path = e.shared.settings_path.clone();
         shared.completers.register(std::sync::Arc::new(Symbols));
         e.shared = Rc::new(shared);
         e.refresh_vim();
@@ -1366,9 +1374,8 @@ fn legacy_encodings(cx: &mut TestAppContext) {
         "* Ağaçların gölgesinde çalışan işçiler\ngüneşin doğuşunu şarkılarla karşıladı.\n";
     let (bytes, _, _) = kalem_core::encoding_rs::WINDOWS_1254.encode(turkish);
     std::fs::write(&path, &bytes).unwrap();
-    let mut shared = kalem_ui::shared(Config::default());
+    let mut shared = kalem_ui::shared_in(Config::default(), test_settings(&dir));
     shared.html_clipboard = || None;
-    shared.settings_path = Some(dir.join("settings.toml"));
     shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
         dir.join("projects.toml"),
     )));
@@ -1415,9 +1422,8 @@ fn plain_text_view(cx: &mut TestAppContext) {
     let long = "x".repeat(400);
     let text = format!("fn main() {{\n    let a = 1;\n}}\n{long}\n");
     std::fs::write(&path, &text).unwrap();
-    let mut shared = kalem_ui::shared(Config::default());
+    let mut shared = kalem_ui::shared_in(Config::default(), test_settings(&dir));
     shared.html_clipboard = || None;
-    shared.settings_path = Some(dir.join("settings.toml"));
     shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
         dir.join("projects.toml"),
     )));
@@ -1586,13 +1592,11 @@ fn open_project(
     } else {
         ""
     };
-    let mut shared = kalem_ui::shared(Config::from_layers(&[(
-        kalem_core::settings::Layer::User,
-        None,
-        config,
-    )]));
+    let mut shared = kalem_ui::shared_in(
+        Config::from_layers(&[(kalem_core::settings::Layer::User, None, config)]),
+        test_settings(&dir),
+    );
     shared.html_clipboard = || None;
-    shared.settings_path = Some(dir.join("settings.toml"));
     shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
         dir.join("projects.toml"),
     )));
@@ -4722,9 +4726,11 @@ fn ctrl_home_and_end_go_to_the_ends(cx: &mut TestAppContext) {
     let text = "a,b\n1,2\n3,4\n";
     let (e, cx) = open_named(text, "ends.txt", || None, cx);
     at(&e, 5, cx);
-    cx.simulate_keystrokes("ctrl-end");
+    // Command on macOS, where Command and Control trade places.
+    let p = primary();
+    cx.simulate_keystrokes(&format!("{p}-end"));
     assert_eq!(e.read_with(cx, |e, _| e.doc.selection.head), text.len());
-    cx.simulate_keystrokes("ctrl-home");
+    cx.simulate_keystrokes(&format!("{p}-home"));
     assert_eq!(e.read_with(cx, |e, _| e.doc.selection.head), 0);
 }
 
@@ -4807,17 +4813,18 @@ fn csv_edits_as_excel_does(cx: &mut TestAppContext) {
     assert!(body(cx).ends_with("\n,,Z\n"), "{}", body(cx));
     cx.simulate_keystrokes("escape");
     assert!(body(cx).ends_with("\n,,Bursa\n"), "{}", body(cx));
-    // Ctrl with the arrows: to the data's edge.
-    cx.simulate_keystrokes("ctrl-home");
+    // Ctrl (Command on macOS) with the arrows: to the data's edge.
+    let p = primary();
+    cx.simulate_keystrokes(&format!("{p}-home"));
     assert_eq!(cell(cx), Some((0, 0)));
-    cx.simulate_keystrokes("ctrl-right");
+    cx.simulate_keystrokes(&format!("{p}-right"));
     assert_eq!(cell(cx), Some((0, 2)));
-    cx.simulate_keystrokes("left ctrl-down");
+    cx.simulate_keystrokes(&format!("left {p}-down"));
     assert_eq!(cell(cx), Some((1, 1)));
-    cx.simulate_keystrokes("ctrl-end");
+    cx.simulate_keystrokes(&format!("{p}-end"));
     assert_eq!(cell(cx), Some((2, 2)));
     // Shift with the arrows: a rectangle, copied as cells.
-    cx.simulate_keystrokes("ctrl-home shift-right shift-down");
+    cx.simulate_keystrokes(&format!("{p}-home shift-right shift-down"));
     cx.simulate_keystrokes(&format!("{}-c", primary()));
     let clip = cx.read_from_clipboard().and_then(|c| c.text());
     assert_eq!(

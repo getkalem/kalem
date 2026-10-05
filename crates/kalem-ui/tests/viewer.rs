@@ -13,6 +13,15 @@ use kalem_core::settings::Config;
 use kalem_ui::theme::Theme;
 use kalem_ui::workspace::Workspace;
 
+/// A settings file of the test's own in `dir`, in English: saving or
+/// reloading the settings neither touches the user's files nor switches
+/// the shared interface language to the system's.
+fn test_settings(dir: &std::path::Path) -> Option<std::path::PathBuf> {
+    let path = dir.join("settings.toml");
+    std::fs::write(&path, "[ui]\nlanguage = \"en\"\n").unwrap();
+    Some(path)
+}
+
 /// The primary modifier of the Word-like profile on this platform.
 fn primary() -> &'static str {
     if cfg!(target_os = "macos") {
@@ -43,9 +52,8 @@ fn open(
         .save(dir.join("b.png"))
         .unwrap();
     std::fs::write(dir.join("notes.org"), "* Notes\n").unwrap();
-    let mut shared = kalem_ui::shared(Config::default());
+    let mut shared = kalem_ui::shared_in(Config::default(), test_settings(&dir));
     shared.html_clipboard = || None;
-    shared.settings_path = Some(dir.join("settings.toml"));
     shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
         dir.join("projects.toml"),
     )));

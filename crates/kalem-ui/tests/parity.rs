@@ -92,7 +92,7 @@ fn gui_lines(
     cursor: usize,
     cx: &mut TestAppContext,
 ) -> (Vec<usize>, std::collections::BTreeMap<usize, Vec<String>>) {
-    let shared = Rc::new(kalem_ui::shared(Config::default()));
+    let shared = Rc::new(kalem_ui::shared_in(Config::default(), None));
     let mut editor = None;
     let (_ws, vcx): (Entity<Workspace>, &mut VisualTestContext) =
         cx.add_window_view(|window, cx| {

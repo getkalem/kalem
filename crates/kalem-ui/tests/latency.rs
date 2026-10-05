@@ -34,7 +34,7 @@ fn main() {
         env!("CARGO_MANIFEST_DIR"),
         "/../../tests/corpus/org-mode/org-manual.org"
     ));
-    let mut shared = kalem_ui::shared(Config::default());
+    let mut shared = kalem_ui::shared_in(Config::default(), None);
     shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
         std::env::temp_dir().join(format!(
             "kalem-latency-projects-{}.toml",

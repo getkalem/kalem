@@ -42,15 +42,15 @@ impl SettingsPanel {
 }
 
 /// Settings, commands and keys for `config`, keeping what `old` was
-/// given from outside (tests replace the clipboard reader).
+/// given from outside (tests replace the clipboard reader and the
+/// settings file; the keymap is read beside the latter).
 pub fn rebuild(old: &Shared, config: Config) -> Shared {
     Shared {
         html_clipboard: old.html_clipboard,
-        settings_path: old.settings_path.clone(),
         jobs: old.jobs.clone(),
         bus: old.bus.clone(),
         last: old.last.clone(),
-        ..crate::shared(config)
+        ..crate::shared_in(config, old.settings_path.clone())
     }
 }
 

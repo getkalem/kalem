@@ -2,7 +2,8 @@
 //! with each engine installed, twice with `SOURCE_DATE_EPOCH`, gives the
 //! same PDF byte for byte, and a SyncTeX file beside it. pdfLaTeX and
 //! Tectonic; an engine that is not installed is skipped (Tectonic in CI's
-//! pdflatex job, where it can fetch its bundle).
+//! pdflatex job, where it can fetch its bundle), and so is pdfLaTeX
+//! without the mwe package the template's picture comes from.
 
 #![allow(clippy::print_stderr)]
 
@@ -13,6 +14,16 @@ use kalem_core::pdf::Engine;
 fn on_path(exe: &str) -> bool {
     let search = std::env::var_os("PATH").unwrap_or_default();
     std::env::split_paths(&search).any(|d| d.join(exe).is_file())
+}
+
+/// Whether the TeX installation has `file`: the template draws
+/// `example-image` from the mwe package, which small installations
+/// (BasicTeX, a minimal MiKTeX) leave out.
+fn tex_has(file: &str) -> bool {
+    std::process::Command::new("kpsewhich")
+        .arg(file)
+        .output()
+        .is_ok_and(|o| o.status.success() && !o.stdout.is_empty())
 }
 
 fn template(dir: &Path) -> PathBuf {
@@ -60,6 +71,10 @@ fn builds_are_reproducible() {
     ] {
         if !on_path(exe) {
             eprintln!("{exe} not installed: skipped");
+            continue;
+        }
+        if exe == "pdflatex" && !tex_has("example-image.pdf") {
+            eprintln!("{exe}: the mwe package (example-image) is not installed: skipped");
             continue;
         }
         let dir = std::env::temp_dir().join(format!("kalem-compile-{exe}-{}", std::process::id()));

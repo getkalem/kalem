@@ -34,13 +34,27 @@ use kalem_core::CommandRegistry;
 use kalem_core::keymap::{self, Keymap};
 use kalem_core::settings::{self, Config};
 
-/// The shared state: settings, commands and keys.
+/// The shared state: settings, commands and keys, with the user's
+/// `settings.toml` and `keymap.json` in Kalem's configuration folder.
 pub fn shared(config: Config) -> editor::Shared {
+    shared_in(
+        config,
+        settings::config_dir().map(|d| d.join("settings.toml")),
+    )
+}
+
+/// The shared state with the user's settings file at `settings_path` and
+/// the keymap beside it: tests give a folder of their own (or none), so
+/// they never read or write the user's files.
+pub fn shared_in(config: Config, settings_path: Option<PathBuf>) -> editor::Shared {
     // What plugins read (`kalem.settings`); those watching a key that
     // changed are told.
     kalem_core::extensions::set_config(&config);
     let registry = CommandRegistry::with_builtins();
-    let user = settings::config_dir().map(|d| d.join("keymap.json"));
+    let user = settings_path
+        .as_deref()
+        .and_then(std::path::Path::parent)
+        .map(|d| d.join("keymap.json"));
     let (entries, mut issues) = match user.as_deref().map(std::fs::read_to_string) {
         Some(Ok(text)) => {
             keymap::parse_keymap_with(&text, keymap::Origin::User, &config.vim_leader())
@@ -54,7 +68,7 @@ pub fn shared(config: Config) -> editor::Shared {
         // Both profiles have the Word-like keys, with Command on macOS.
         swap_primary: cfg!(target_os = "macos"),
         html_clipboard: clipboard::html,
-        settings_path: settings::config_dir().map(|d| d.join("settings.toml")),
+        settings_path,
         math: math::Formulas::default(),
         pictures: Default::default(),
         projects: RefCell::new(kalem_core::projects::ProjectState::load(

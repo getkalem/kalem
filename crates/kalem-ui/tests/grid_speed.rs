@@ -11,6 +11,15 @@ use kalem_core::settings::Config;
 use kalem_ui::theme::Theme;
 use kalem_ui::workspace::Workspace;
 
+/// A settings file of the test's own in `dir`, in English: saving or
+/// reloading the settings neither touches the user's files nor switches
+/// the shared interface language to the system's.
+fn test_settings(dir: &std::path::Path) -> Option<std::path::PathBuf> {
+    let path = dir.join("settings.toml");
+    std::fs::write(&path, "[ui]\nlanguage = \"en\"\n").unwrap();
+    Some(path)
+}
+
 #[gpui::test]
 #[ignore = "a measurement: cargo test --release -p kalem-ui --test grid_speed -- --ignored --nocapture"]
 fn holding_down(cx: &mut TestAppContext) {
@@ -37,9 +46,7 @@ fn holding_down(cx: &mut TestAppContext) {
     let path = dir.join("big.xlsx");
     std::fs::write(&path, wb.save().unwrap()).unwrap();
     std::fs::write(dir.join("notes.org"), "* Notes\n").unwrap();
-    let mut shared = kalem_ui::shared(Config::default());
-    shared.settings_path = Some(dir.join("settings.toml"));
-    let shared = Rc::new(shared);
+    let shared = Rc::new(kalem_ui::shared_in(Config::default(), test_settings(&dir)));
     let notes = dir.join("notes.org");
     let (ws, cx) = cx.add_window_view(|window, cx| {
         let e = kalem_ui::editor::open(Some(&notes), shared, Theme::light(), cx).unwrap();

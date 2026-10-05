@@ -14,9 +14,8 @@ fn switching_to_turkish(cx: &mut TestAppContext) {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("t.org");
     std::fs::write(&path, "* A\none two\n").unwrap();
-    let mut shared = kalem_ui::shared(Config::default());
+    let mut shared = kalem_ui::shared_in(Config::default(), Some(dir.join("settings.toml")));
     shared.html_clipboard = || None;
-    shared.settings_path = Some(dir.join("settings.toml"));
     shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
         dir.join("projects.toml"),
     )));

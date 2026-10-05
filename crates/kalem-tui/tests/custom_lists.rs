@@ -1,6 +1,5 @@
 //! The user's own lists a fill goes round, made from cells or typed,
-//! kept in the settings (a settings folder of the test's own: this test
-//! runs in a process of its own).
+//! kept in the settings (a settings folder of the test's own).
 
 use std::sync::Arc;
 
@@ -14,12 +13,6 @@ fn custom_lists_fill() {
     let dir = std::env::temp_dir().join(format!("kalem-custom-lists-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("config")).unwrap();
-    // SAFETY: the test's process has this one test, and sets the variable
-    // before any thread reads it.
-    #[allow(unsafe_code)]
-    unsafe {
-        std::env::set_var("KALEM_CONFIG_DIR", dir.join("config"));
-    }
     kalem_core::viewer::register(Arc::new(kalem_plugin_xlsx::XlsxViewer));
     let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/budget.xlsx");
     std::fs::copy(src, dir.join("budget.xlsx")).unwrap();
@@ -31,6 +24,7 @@ fn custom_lists_fill() {
         Vec::new(),
     )
     .unwrap();
+    app.config_dir = Some(dir.join("config"));
     let set = |app: &mut App, row: u32, col: u32, value: &str| {
         app.run_command(
             "viewer.grid.setCell",

@@ -36,7 +36,9 @@ plumbing and can go in parallel with the code fixes.
     (`crates/kalem-ui/tests/editor.rs:4712`) simulates `ctrl-end` and
     `ctrl-home`, but on macOS the document-end modifier is Command (the
     test file's own `primary()` helper, line 15). Use `primary()`.
-- [ ] **Major, verified.** `cargo test --workspace` is red on a developer
+    (done: that test and `csv_edits_as_excel_does`, which came later
+    with the same keys, use `primary()`; both pass on macOS.)
+- [x] **Major, verified.** `cargo test --workspace` is red on a developer
   machine for reasons that have nothing to do with the code, which hides
   real failures:
   - `builds_are_reproducible` (`crates/kalem-core/tests/latex_compile.rs:36`)
@@ -50,6 +52,21 @@ plumbing and can go in parallel with the code fixes.
     `sys_locale` (`l10n.rs:66`). Both pass under `LANG=en_US.UTF-8`. Pin
     the language to `en` in the test harnesses.
   - Nine `#[ignore]`d tests are all benchmarks; none hides breakage.
+  (done 2026-10-05: the reproducibility test skips pdfLaTeX when
+  `kpsewhich example-image.pdf` finds nothing. The language flip came
+  from tests that save or reload the settings: the terminal editor read
+  and wrote the user's own `~/.config/kalem` there (so a test could
+  change the developer's settings), and both editors' tests then
+  applied `ui.language = auto`, the system's language, to the whole
+  test process. The terminal `App` now has a `config_dir` (none for
+  `App::with_keymap`, the user's folder for `App::new`), the graphical
+  editor `kalem_ui::shared_in(config, settings_path)` with the keymap
+  read beside the settings file, and the tests of both editors give a
+  folder of their own whose settings say `language = "en"`;
+  `custom_lists` no longer sets `KALEM_CONFIG_DIR` in `unsafe`. Both
+  editors' 395 tests pass on a Mac whose system language is Turkish.
+  Core paths that still read the user's folder in tests (themes,
+  dictionaries, chart templates, plugins) are left as they are.)
 - [x] clippy (`--workspace --all-targets`) and `cargo fmt --check` are
   clean on this checkout (2026-10-05).
 - [ ] **Blocker, verified.** The index's `xlsx` component (0.0.4, tagged

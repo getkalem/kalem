@@ -10,6 +10,7 @@ use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;
 use ratatui::style::{Color, Modifier};
+use std::path::{Path, PathBuf};
 
 fn strip_osc(s: &str) -> String {
     let mut out = String::new();
@@ -43,6 +44,16 @@ impl Drop for T {
     }
 }
 
+/// A configuration folder of the test's own in `dir`, its settings in
+/// English: saving or reloading the settings neither touches the user's
+/// files nor switches the shared interface language to the system's.
+fn test_config(dir: &Path) -> PathBuf {
+    let config = dir.join("config");
+    std::fs::create_dir_all(&config).unwrap();
+    std::fs::write(config.join("settings.toml"), "[ui]\nlanguage = \"en\"\n").unwrap();
+    config
+}
+
 fn with_config(text: &str, config: Config, size: (u16, u16)) -> T {
     with_file(text, "t.org", config, size)
 }
@@ -58,7 +69,8 @@ fn with_file(text: &str, name: &str, config: Config, size: (u16, u16)) -> T {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join(name);
     std::fs::write(&path, text).unwrap();
-    let app = App::with_keymap(Some(&path), config, Caps::full(), &[], Vec::new()).unwrap();
+    let mut app = App::with_keymap(Some(&path), config, Caps::full(), &[], Vec::new()).unwrap();
+    app.config_dir = Some(test_config(&dir));
     let term = Terminal::new(TestBackend::new(size.0, size.1)).unwrap();
     let mut t = T {
         app,

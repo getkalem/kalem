@@ -12,6 +12,15 @@ use kalem_core::settings::Config;
 use kalem_ui::theme::Theme;
 use kalem_ui::workspace::Workspace;
 
+/// A settings file of the test's own in `dir`, in English: saving or
+/// reloading the settings neither touches the user's files nor switches
+/// the shared interface language to the system's.
+fn test_settings(dir: &std::path::Path) -> Option<std::path::PathBuf> {
+    let path = dir.join("settings.toml");
+    std::fs::write(&path, "[ui]\nlanguage = \"en\"\n").unwrap();
+    Some(path)
+}
+
 fn open(cx: &mut TestAppContext) -> (Entity<Workspace>, &mut VisualTestContext) {
     kalem_core::viewer::register(Arc::new(kalem_plugin_pdf_viewer::PdfViewer));
     static N: AtomicUsize = AtomicUsize::new(0);
@@ -23,9 +32,8 @@ fn open(cx: &mut TestAppContext) -> (Entity<Workspace>, &mut VisualTestContext) 
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../kalem-tui/tests/data/pages.pdf");
     std::fs::copy(data, dir.join("pages.pdf")).unwrap();
     std::fs::write(dir.join("notes.org"), "* Notes\n").unwrap();
-    let mut shared = kalem_ui::shared(Config::default());
+    let mut shared = kalem_ui::shared_in(Config::default(), test_settings(&dir));
     shared.html_clipboard = || None;
-    shared.settings_path = Some(dir.join("settings.toml"));
     shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
         dir.join("projects.toml"),
     )));

@@ -135,6 +135,11 @@ struct Status {
 pub struct App {
     /// The settings.
     pub config: Config,
+    /// The folder of the user's `settings.toml` and `keymap.json`: Kalem's
+    /// configuration folder, or none (an application made by
+    /// [`App::with_keymap`] until it is set, as tests do, so they never
+    /// read or write the user's own settings).
+    pub config_dir: Option<PathBuf>,
     registry: CommandRegistry,
     keymap: Keymap,
     /// Problems in the keymap files.
@@ -429,6 +434,7 @@ impl App {
             _ => (Vec::new(), Vec::new()),
         };
         let mut app = App::with_keymap(path, config, caps, &entries, issues)?;
+        app.config_dir = settings::config_dir();
         // The user's project list (tests keep theirs in memory).
         app.projects = ProjectState::load(projects::list_file());
         if let Some(p) = app.doc.meta.path.clone().filter(|p| p.is_file()) {
@@ -482,6 +488,7 @@ impl App {
             path: doc.meta.path.clone(),
         });
         let mut app = App {
+            config_dir: None,
             config,
             registry,
             keymap,
@@ -1926,7 +1933,7 @@ impl App {
                 self.message(tr!(m), false);
             }
             Request::Settings => {
-                let path = settings::config_dir().map(|d| d.join("settings.toml"));
+                let path = self.config_dir.as_ref().map(|d| d.join("settings.toml"));
                 let text = match path {
                     Some(p) => tr!("msg-settings-in", path = p.display().to_string()),
                     None => tr!("msg-no-settings-dir"),
@@ -1969,7 +1976,7 @@ impl App {
 
     /// Reads the settings and the user's keymap again (`SPC h r r`).
     fn reload_settings(&mut self) {
-        let path = settings::config_dir().map(|d| d.join("settings.toml"));
+        let path = self.config_dir.as_ref().map(|d| d.join("settings.toml"));
         let workspace = self
             .config
             .sources()
@@ -1986,7 +1993,7 @@ impl App {
     /// Builds the keymap again from the commands, the profile and the
     /// user's `keymap.json`.
     fn rebuild_keys(&mut self) {
-        let user = settings::config_dir().map(|d| d.join("keymap.json"));
+        let user = self.config_dir.as_ref().map(|d| d.join("keymap.json"));
         let entries = match user.as_deref().map(std::fs::read_to_string) {
             Some(Ok(text)) => {
                 keymap::parse_keymap_with(&text, keymap::Origin::User, &self.config.vim_leader()).0
@@ -2004,7 +2011,7 @@ impl App {
 
     /// Saves `key` in the user's settings and reads the settings again.
     fn set_setting(&mut self, key: &str, value: &serde_json::Value, quiet: bool) {
-        let Some(path) = settings::config_dir().map(|d| d.join("settings.toml")) else {
+        let Some(path) = self.config_dir.as_ref().map(|d| d.join("settings.toml")) else {
             self.message(tr!("msg-no-settings-dir"), true);
             return;
         };
