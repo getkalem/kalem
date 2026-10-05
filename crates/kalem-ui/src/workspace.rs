@@ -863,7 +863,8 @@ impl Workspace {
                     e.doc.meta.path = Some(to);
                     cx.notify();
                 }),
-                Some(Followed::Removed) if !e.read(cx).doc.is_modified() => {
+                Some(Followed::Removed) if !e.read(cx).doc.has_unsaved_edits() => {
+                    e.update(cx, |e, _| e.doc.accept_removal());
                     if self.editors.len() == 1 {
                         self.new_document(window, cx);
                     }

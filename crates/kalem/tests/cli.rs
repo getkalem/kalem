@@ -488,19 +488,24 @@ fn check_csv() {
     );
 }
 
+/// Markdown exports to HTML as Markdown (it was read as Org, with a
+/// warning); to another format it is refused, not exported as Org.
 #[test]
-fn export_says_markdown_is_read_as_org() {
-    let dir = std::env::temp_dir().join(format!("kalem-cli-md-{}", std::process::id()));
+fn export_reads_markdown_as_markdown() {
+    let dir = std::env::temp_dir().join(format!("kalem-cli-mdx-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let md = dir.join("notes.md");
-    std::fs::write(&md, "Some Title\n").unwrap();
+    std::fs::write(&md, "# Some Title\n\n- one\n").unwrap();
     let (code, out, err) = kalem(&["export", "--to", "html", "-o", "-", md.to_str().unwrap()]);
-    assert_eq!(code, 0);
-    assert!(out.contains("Title"), "{out}");
+    assert_eq!(code, 0, "{err}");
     assert!(
-        err.contains("warning: read as Org, not as Markdown"),
-        "{err}"
+        out.contains("<h1>Some Title</h1>") && out.contains("<li>one</li>"),
+        "{out}"
     );
+    assert!(err.is_empty(), "{err}");
+    let (code, _, err) = kalem(&["export", "--to", "latex", "-o", "-", md.to_str().unwrap()]);
+    assert_eq!(code, 1);
+    assert!(err.contains("not exported"), "{err}");
     let org = dir.join("notes.org");
     std::fs::write(&org, "* Title\n").unwrap();
     let (_, _, err) = kalem(&["export", "--to", "html", "-o", "-", org.to_str().unwrap()]);

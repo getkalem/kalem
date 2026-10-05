@@ -6,7 +6,7 @@ use std::process::{Command, ExitCode};
 
 use serde_json::Value;
 
-use super::{Result, read};
+use super::{Result, read_exact};
 
 pub(crate) struct DiffOptions {
     pub(crate) emacs_dumps: Option<PathBuf>,
@@ -173,12 +173,12 @@ pub(crate) fn diff_emacs(files: &[PathBuf], opts: &DiffOptions) -> Result<ExitCo
     let mut report = Vec::new();
     for (i, f) in files.iter().enumerate() {
         let dump = dump_path(&dir, f, i, opts);
-        let Ok(ej) = read(&dump) else {
+        let Ok(ej) = read_exact(&dump) else {
             eprintln!("kalem: no Emacs dump for {}", f.display());
             continue;
         };
         let ev: Value = parse_json(&ej).map_err(|e| format!("{}: {e}", dump.display()))?;
-        let text = read(f)?;
+        let text = read_exact(f)?;
         let ctx =
             org_syntax::ParseContext::for_file(&text, f, &org_syntax::ParseContext::default());
         let kv: Value =

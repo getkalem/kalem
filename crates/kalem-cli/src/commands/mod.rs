@@ -40,6 +40,12 @@ pub(crate) fn read(path: &Path) -> Result<String> {
     read_doc(path).map(|(text, _)| text)
 }
 
+/// A file's bytes as UTF-8, a byte order mark included: the comparisons
+/// with Emacs map its positions themselves.
+pub(crate) fn read_exact(path: &Path) -> Result<String> {
+    std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))
+}
+
 /// `kalem commands [--type TYPE]`: every command, or those whose scope
 /// serves `text_type`, with their scope and default keys.
 pub(crate) fn list_commands(text_type: Option<&str>) -> Result<ExitCode> {
@@ -317,17 +323,19 @@ pub(crate) fn check(
     unrendered: bool,
 ) -> Result<ExitCode> {
     let mut failed = false;
+    let mut unreadable = false;
     let mut results = Vec::new();
     let mut out = std::io::stdout().lock();
     let files = expand_files(files)?;
     for f in &files {
         let f = f.as_path();
-        // A file that cannot be read is reported, and the others checked.
+        // A file that cannot be read is reported, and the others checked;
+        // the status is then 2, as for any error, not 1 (problems found).
         let text = match read(f) {
             Ok(t) => t,
             Err(e) => {
                 let _ = writeln!(std::io::stderr(), "{e}");
-                failed = true;
+                unreadable = true;
                 continue;
             }
         };
@@ -465,7 +473,9 @@ pub(crate) fn check(
     if json {
         writeln!(out, "{}", serde_json::Value::Array(results)).map_err(|e| e.to_string())?;
     }
-    Ok(if failed {
+    Ok(if unreadable {
+        ExitCode::from(2)
+    } else if failed {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS

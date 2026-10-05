@@ -1321,7 +1321,10 @@ impl App {
             };
             match follow(kind, out, &path) {
                 Some(Followed::Moved(to)) => doc.meta.path = Some(to),
-                Some(Followed::Removed) if !doc.is_modified() => removed.push(ids[i].0),
+                Some(Followed::Removed) if !doc.has_unsaved_edits() => {
+                    doc.accept_removal();
+                    removed.push(ids[i].0);
+                }
                 _ => {}
             }
         }

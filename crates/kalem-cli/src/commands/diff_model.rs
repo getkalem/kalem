@@ -10,7 +10,7 @@ use std::process::{Command, ExitCode};
 use org_model::{Document, EntryId, Inherit};
 use serde_json::Value;
 
-use super::{DiffOptions, Result, read};
+use super::{DiffOptions, Result, read_exact};
 
 fn find_model_el(explicit: &Option<PathBuf>) -> Result<PathBuf> {
     if let Some(p) = explicit {
@@ -128,7 +128,7 @@ pub(crate) fn diff_model(files: &[PathBuf], opts: &DiffOptions) -> Result<ExitCo
         };
         let em: Value =
             serde_json::from_str(&json).map_err(|e| format!("{}: {e}", json_path.display()))?;
-        let text = read(f)?;
+        let text = read_exact(f)?;
         let doc = Document::new(org_syntax::parse_file(&text, f));
         let before = tally.failed.values().sum::<usize>();
         let mut c = Ctx {

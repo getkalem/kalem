@@ -983,6 +983,21 @@ impl DocumentState {
         self.version != self.saved_version || self.viewer.as_ref().is_some_and(|v| v.modified())
     }
 
+    /// Whether the text was edited since it was saved: [`Self::is_modified`]
+    /// without counting a deletion of the file on disk.
+    pub fn has_unsaved_edits(&self) -> bool {
+        self.version != self.deleted_saved.unwrap_or(self.saved_version)
+            || self.viewer.as_ref().is_some_and(|v| v.modified())
+    }
+
+    /// Kalem itself removed the file (trash, delete): its deletion is no
+    /// unsaved change, so the document closes without a question.
+    pub fn accept_removal(&mut self) {
+        if let Some(v) = self.deleted_saved.take() {
+            self.saved_version = v;
+        }
+    }
+
     /// Records that the current text was saved.
     pub fn mark_saved(&mut self) {
         self.saved_version = self.version;
