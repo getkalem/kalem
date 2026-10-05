@@ -762,7 +762,7 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   (`calc.rs:191`); the host parses every sheet on open, on the UI thread
   (`viewer.rs:640-643`). Cap the undo depth by bytes, and measure a
   1M-cell file before release.
-- [ ] **Major, reported.** Opening a formatted `.ods`, or Save As `.xlsx`
+- [~] **Major, reported.** Opening a formatted `.ods`, or Save As `.xlsx`
   from `.xls`, calls `change_style` once per styled run per row
   (`workbook_io.rs:382-402`), each taking a full snapshot: thousands of
   rows with currency or date formats mean thousands of whole-sheet
@@ -770,6 +770,13 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   5M cells is refused ("too large to convert", `workbook_io.rs:293`),
   and one fully colored row makes the extent 1024 columns wide
   (`ods_style.rs:280-298`), so data past about row 4,900 cannot be viewed.
+  (partly, 2026-10-05: the looks are copied in one batch, so the workbook
+  plugin keeps one copy for undo instead of one per change, and like runs
+  on the rows below each other go in one change (a rectangle). A
+  converted workbook of 3,000 rows formatted by column takes 0.3 s; one
+  formatted row by row, which ran the component out of its 4 GB, takes
+  41 s, the plugin's cost of a style change. Open: that cost and the
+  undo stack's memory (the item above), and the extent.)
 - [~] **Major, reported (Turkish and EU users).** Open as Workbook turns
   decimal-comma numbers (`1,5`, `1.234,56`), `50%` and `$12` into text
   (`workbook_io.rs:112-120`, `1202-1223`): the wizard offers Turkish

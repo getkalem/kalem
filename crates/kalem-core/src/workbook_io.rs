@@ -463,8 +463,22 @@ fn fill(src: &[(usize, SheetData)], dst: &mut dyn ViewerDocument) -> Result<(), 
     fill_into(src, &targets, dst)
 }
 
-/// `src`'s sheets' looks copied onto `dst`'s sheets `targets` (in order).
+/// `src`'s sheets' looks copied onto `dst`'s sheets `targets` (in order),
+/// as one batch: a viewer keeps one copy of the workbook for undo rather
+/// than one for each run of styled cells (thousands for a formatted
+/// `.ods`, publish_todo 3.7).
 fn fill_into(
+    src: &[(usize, SheetData)],
+    targets: &[usize],
+    dst: &mut dyn ViewerDocument,
+) -> Result<(), String> {
+    dst.begin_batch();
+    let filled = fill_looks(src, targets, dst);
+    dst.end_batch();
+    filled
+}
+
+fn fill_looks(
     src: &[(usize, SheetData)],
     targets: &[usize],
     dst: &mut dyn ViewerDocument,
@@ -477,10 +491,13 @@ fn fill_into(
         ) else {
             continue;
         };
-        // Each run of like cells along a row in one change.
-        for r in 0..=r1 {
+        // Each run of like cells along a row, and the same run on the rows
+        // below it (a column of amounts), in one change.
+        let mut open: Vec<(u32, u32, u32, StyleChange)> = Vec::new();
+        for r in 0..=r1 + 1 {
+            let mut runs: Vec<(u32, u32, StyleChange)> = Vec::new();
             let mut c = 0;
-            while c <= c1 {
+            while r <= r1 && c <= c1 {
                 let Some((_, cell, fmt)) = s.cells.get(&(r, c)) else {
                     c += 1;
                     continue;
@@ -495,10 +512,26 @@ fn fill_into(
                     end += 1;
                 }
                 if st != StyleChange::default() {
-                    dst.change_style(k, [r, c, r, end], st.clone()).map_err(e)?;
+                    runs.push((c, end, st));
                 }
                 c = end + 1;
             }
+            // A run that goes on from the row above extends its rectangle;
+            // the others end there.
+            let mut still = Vec::new();
+            for (top, c0, c1r, st) in open.drain(..) {
+                if let Some(i) = runs
+                    .iter()
+                    .position(|(a, b, x)| *a == c0 && *b == c1r && *x == st)
+                {
+                    runs.remove(i);
+                    still.push((top, c0, c1r, st));
+                } else {
+                    dst.change_style(k, [top, c0, r - 1, c1r], st).map_err(e)?;
+                }
+            }
+            still.extend(runs.into_iter().map(|(a, b, st)| (r, a, b, st)));
+            open = still;
         }
         for m in &s.layout.merged {
             dst.merge_cells(k, *m, false).map_err(e)?;
