@@ -23,7 +23,7 @@ Kalem is a text editor that shows a file the way it reads and never touches what
 | `.csv`, `.tsv` | A grid: sorting, filters, a record view, column statistics. |
 | `.bib` | A grid of entries. |
 | `.pdf` | A viewer: pages, zoom, search, and from a LaTeX build, Ctrl-click back to the source line. |
-| Pictures | A viewer for PNG, JPEG, GIF, WebP, TIFF, SVG and a dozen more, in the terminal too where it draws pictures. |
+| Pictures | A viewer for PNG, JPEG, GIF, WebP, TIFF and a dozen more, in the terminal too where it draws pictures. An SVG file, being text, opens as its XML; it shows as a picture where a document links it. |
 | `.xlsx` | A workbook: sheets as grids with their formulas and charts. |
 | Anything else | Code with highlighting. |
 

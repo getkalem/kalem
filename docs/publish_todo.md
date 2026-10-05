@@ -846,10 +846,13 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   decoded whole at full size before the 40 MP budget applies
   (`image-viewer/src/lib.rs:303-338`; `GifDecoder::new` has no limits):
   a 600-frame 720p screen recording needs about 2.2 GB of RGBA.
-- [ ] **Major, verified (code).** The README lists SVG as a viewer
+- [x] **Major, verified (code).** The README lists SVG as a viewer
   format; `viewer::for_file` (`viewer.rs:156-161`) returns `None` for
   anything that is text, so an SVG opens as XML source. Either add a
   "View as Picture" command for SVG or drop SVG from the README row.
+  (done 2026-10-05: the README's row no longer lists SVG and says an SVG
+  file opens as its XML, as design §2.6 has text files, and shows as a
+  picture where a document links it.)
 - [ ] **Minor, verified (Cargo.toml).** resvg is built with
   `default-features = false` (`image-viewer/Cargo.toml:22`,
   `kalem-core/Cargo.toml:30`), which drops `text` and `raster-images`:
