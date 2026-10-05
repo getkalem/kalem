@@ -48,15 +48,40 @@ From the editor: the *Kalem* menu (and the command palette) has
 
 On the command line the same: =kalem plugin browse=, =kalem plugin
 install NAME|LINK|PATH= (=--yes= not to be asked), =kalem plugin list=,
-=kalem plugin remove ID=. The index is read from the setting
-=plugins.index=, the index of =getkalem/plugins= by default; a
-=file://= link reads a copy on disk.
+=kalem plugin remove ID=. The indexes are read from the settings
+=plugins.sources= (yours, first) and =plugins.index= (the index of
+=getkalem/plugins= by default); a =file://= link reads a copy on disk.
 
 Only language plugins install today. A plugin with a WebAssembly
 component needs the plugin runtime (group 3.1) and is refused with
 that reason. A plugin is not signed yet: the index's SHA-256 is checked
 when a plugin is published as an archive, and a plugin from a link is
 installed as it is, which is why Kalem shows where it comes from.
+
+* Plugin sources: forks and your own plugins
+
+Anyone can change how a plugin behaves, or publish plugins of their
+own, without waiting for =getkalem/plugins=: fork that repository on
+GitHub (or start one), change or add plugin folders, and add the fork's
+index as a source. *Kalem ▸ Plugin Sources…* lists the sources: *Add a
+source* asks for an index's address, a source of yours is removed by
+choosing it, and the official index can be set there too (empty for the
+default).
+
+- Your sources (the setting =plugins.sources=) are read before the
+  official index (=plugins.index=): a plugin in a fork stands for the
+  plugin of the same ID in the official index, so *Browse Plugins*,
+  *Install Plugin…* and the update check take the fork's.
+- An index's =source= and =download= may be written relative to the
+  index itself: in
+  =https://raw.githubusercontent.com/ada/plugins/main/index.json=, the
+  source =wordcount= is the folder =wordcount= of =ada/plugins= at
+  =main=, so a fork's index needs no links rewritten. An index on disk
+  (=file://=) names folders beside it.
+- A source is an index's address: a =raw.githubusercontent.com= link, a
+  =github.com/.../blob/...= link, any =https= address or a =file://=
+  path. A single plugin installs without an index too: *Install
+  Plugin…* takes a GitHub folder's link or a folder on disk.
 
 * Where plugins are found
 

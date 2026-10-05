@@ -19,18 +19,11 @@ fn config() -> Config {
     c
 }
 
-fn index_url(c: &Config) -> String {
-    match c.str("plugins.index") {
-        "" => plugin_store::DEFAULT_INDEX.to_string(),
-        s => s.to_string(),
-    }
-}
-
 /// `kalem plugin browse`.
 pub(crate) fn browse() -> Result<ExitCode> {
     let c = config();
     let installed = plugin_store::installed();
-    for e in plugin_store::fetch_index(&index_url(&c))? {
+    for e in plugin_store::fetch_indexes(&plugin_store::index_urls(&c))? {
         let state = match installed.iter().find(|i| i.id == e.id) {
             Some(i) => format!(" (installed {})", i.version),
             None if !e.declarative && e.download.is_none() => {
@@ -49,7 +42,7 @@ pub(crate) fn browse() -> Result<ExitCode> {
 /// `kalem plugin install SOURCE [--yes]`.
 pub(crate) fn install(source: &str, yes: bool) -> Result<ExitCode> {
     let c = config();
-    let p = plugin_store::prepare(source, &index_url(&c))?;
+    let p = plugin_store::prepare(source, &plugin_store::index_urls(&c))?;
     for (i, line) in plugin_store::summary(&p).iter().enumerate() {
         println!("{}{line}", if i == 0 { "" } else { "  " });
     }

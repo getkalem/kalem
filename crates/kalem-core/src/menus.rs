@@ -76,6 +76,7 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("plugin.browse"),
                 item("plugin.install"),
                 item("plugin.list"),
+                item("plugin.sources"),
                 MenuEntry::Separator,
                 named(tr("menu-quit"), "app.quit"),
             ],

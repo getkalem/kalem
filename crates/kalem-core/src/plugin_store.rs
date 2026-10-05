@@ -61,6 +61,8 @@ pub struct IndexEntry {
     pub sha256: Option<String>,
     /// `declarative` for a language plugin; a component otherwise.
     pub declarative: bool,
+    /// The index it is listed in.
+    pub index: String,
 }
 
 /// A plugin downloaded and unpacked, waiting for the user's yes.
@@ -176,15 +178,164 @@ pub fn parse_index(text: &str) -> Result<Vec<IndexEntry>, String> {
                 download: p["download"].as_str().map(str::to_string),
                 sha256: p["sha256"].as_str().map(str::to_string),
                 declarative: p["kind"].as_str() == Some("declarative"),
+                index: String::new(),
             })
         })
         .collect())
 }
 
-/// The index at `url`.
+/// The index at `url`, its entries' sources and downloads written
+/// relative to it resolved (so that a fork of an index lists its own
+/// plugins without rewriting their links).
 pub fn fetch_index(url: &str) -> Result<Vec<IndexEntry>, String> {
     let bytes = fetch(url)?;
-    parse_index(&String::from_utf8_lossy(&bytes))
+    let mut entries = parse_index(&String::from_utf8_lossy(&bytes))?;
+    for e in &mut entries {
+        e.source = resolve_source(url, &e.source);
+        e.download = e.download.take().map(|d| resolve_file(url, &d));
+        e.index = url.to_string();
+    }
+    Ok(entries)
+}
+
+/// The indexes plugins are listed in: the user's own (`plugins.sources`:
+/// a fork of the official one, or one of their own), then the official
+/// one (`plugins.index`). A plugin in an earlier one stands for the same
+/// ID in a later one.
+pub fn index_urls(config: &crate::Config) -> Vec<String> {
+    let mut urls: Vec<String> = config
+        .strings("plugins.sources")
+        .into_iter()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect();
+    let main = match config.str("plugins.index").trim() {
+        "" => DEFAULT_INDEX.to_string(),
+        s => s.to_string(),
+    };
+    if !urls.contains(&main) {
+        urls.push(main);
+    }
+    urls
+}
+
+/// The plugins of the indexes at `urls` together, a plugin of an earlier
+/// index standing for the same ID in a later one. An index that cannot be
+/// read is left out, unless none can.
+pub fn fetch_indexes(urls: &[String]) -> Result<Vec<IndexEntry>, String> {
+    let mut out: Vec<IndexEntry> = Vec::new();
+    let mut errors = Vec::new();
+    for url in urls {
+        match fetch_index(url) {
+            Ok(entries) => {
+                for e in entries {
+                    if !out.iter().any(|o| o.id == e.id) {
+                        out.push(e);
+                    }
+                }
+            }
+            Err(e) => errors.push(e),
+        }
+    }
+    if out.is_empty()
+        && let Some(e) = errors.into_iter().next()
+    {
+        return Err(e);
+    }
+    Ok(out)
+}
+
+/// The folder an index's entry names, `rel` resolved against the index's
+/// address `base`: a link stays as it is; a relative path in an index on
+/// GitHub is a folder of that repository at the same reference, else a
+/// path or address beside the index.
+pub fn resolve_source(base: &str, rel: &str) -> String {
+    let rel = rel.trim();
+    if rel.is_empty() || is_absolute(rel) {
+        return rel.to_string();
+    }
+    if let Some((owner, repo, reference, dir)) = github_file(base) {
+        let path = join(&dir, rel);
+        return format!("https://github.com/{owner}/{repo}/tree/{reference}/{path}");
+    }
+    // An index on disk: a folder beside it.
+    if let Some(path) = base.strip_prefix("file://") {
+        let dir = Path::new(path).parent().unwrap_or(Path::new(""));
+        return dir.join(rel).to_string_lossy().into_owned();
+    }
+    resolve_file(base, rel)
+}
+
+/// A file an index's entry names (a download), `rel` resolved against the
+/// index's address `base`.
+pub fn resolve_file(base: &str, rel: &str) -> String {
+    let rel = rel.trim();
+    if rel.is_empty() || is_absolute(rel) {
+        return rel.to_string();
+    }
+    match base.rfind('/') {
+        Some(i) if base.contains("://") => {
+            let (scheme_host, _) = base.split_at(i);
+            // The address's folder, `..` and `.` taken.
+            let (root, dir) = match scheme_host.find("://").map(|k| k + 3) {
+                Some(k) => match scheme_host[k..].find('/') {
+                    Some(j) => (&scheme_host[..k + j], &scheme_host[k + j + 1..]),
+                    None => (scheme_host, ""),
+                },
+                None => (scheme_host, ""),
+            };
+            format!("{root}/{}", join(dir, rel))
+        }
+        _ => {
+            let dir = Path::new(base).parent().unwrap_or(Path::new(""));
+            dir.join(rel).to_string_lossy().into_owned()
+        }
+    }
+}
+
+fn is_absolute(s: &str) -> bool {
+    s.contains("://")
+        || s.starts_with("github.com/")
+        || s.starts_with('/')
+        || s.starts_with('~')
+        || Path::new(s).is_absolute()
+}
+
+/// The owner, repository, reference and folder of a file on GitHub
+/// (`raw.githubusercontent.com/O/R/REF/dir/f` or
+/// `github.com/O/R/blob/REF/dir/f`).
+fn github_file(url: &str) -> Option<(String, String, String, String)> {
+    let u = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))?;
+    let parts: Vec<&str> = u.split('/').collect();
+    let (owner, repo, reference, rest) = match *parts.first()? {
+        "raw.githubusercontent.com" if parts.len() >= 5 => {
+            (parts[1], parts[2], parts[3], &parts[4..])
+        }
+        "github.com" if parts.len() >= 6 && matches!(parts[3], "blob" | "raw") => {
+            (parts[1], parts[2], parts[4], &parts[5..])
+        }
+        _ => return None,
+    };
+    let dir = rest[..rest.len().saturating_sub(1)].join("/");
+    Some((owner.into(), repo.into(), reference.into(), dir))
+}
+
+/// `rel` under the folder `dir` (both with `/`), `.` and `..` taken.
+fn join(dir: &str, rel: &str) -> String {
+    let mut parts: Vec<&str> = dir.split('/').filter(|p| !p.is_empty()).collect();
+    for p in rel.split('/') {
+        match p {
+            "" | "." => {}
+            ".." => {
+                parts.pop();
+            }
+            p => parts.push(p),
+        }
+    }
+    parts.join("/")
 }
 
 /// The entry of the index a name stands for: its ID, its name, or the
@@ -406,16 +557,16 @@ fn new_staging() -> Result<PathBuf, String> {
 /// Downloads and unpacks the plugin `source` names into a staging
 /// folder and reads its manifest. Blocking: run it off the editor's
 /// thread.
-pub fn prepare(source: &str, index_url: &str) -> Result<Prepared, String> {
+pub fn prepare(source: &str, index_urls: &[String]) -> Result<Prepared, String> {
     let staging = new_staging()?;
-    let r = fill(source, index_url, &staging).and_then(|()| read_prepared(source, &staging));
+    let r = fill(source, index_urls, &staging).and_then(|()| read_prepared(source, &staging));
     if r.is_err() {
         let _ = std::fs::remove_dir_all(&staging);
     }
     r
 }
 
-fn fill(source: &str, index_url: &str, staging: &Path) -> Result<(), String> {
+fn fill(source: &str, index_urls: &[String], staging: &Path) -> Result<(), String> {
     match parse_source(source) {
         Source::Dir(d) => copy_dir(&d, staging),
         Source::File(f) => {
@@ -442,7 +593,7 @@ fn fill(source: &str, index_url: &str, staging: &Path) -> Result<(), String> {
             Ok(())
         }
         Source::Index(name) => {
-            let index = fetch_index(index_url)?;
+            let index = fetch_indexes(index_urls)?;
             let e = find_entry(&index, &name).ok_or_else(|| {
                 crate::tr!("plugin-no-such", name = name.as_str(), count = index.len())
             })?;
@@ -465,7 +616,7 @@ fn fill(source: &str, index_url: &str, staging: &Path) -> Result<(), String> {
                 }
                 // Not released yet: its source folder.
                 _ if !e.declarative => Err(component_not_released(&e.name)),
-                _ => fill(&e.source, index_url, staging),
+                _ => fill(&e.source, index_urls, staging),
             }
         }
     }
@@ -901,12 +1052,9 @@ pub fn check_updates(config: &crate::Config) {
     if !due {
         return;
     }
-    let index = match config.str("plugins.index") {
-        "" => DEFAULT_INDEX.to_string(),
-        s => s.to_string(),
-    };
+    let indexes = index_urls(config);
     std::thread::spawn(move || {
-        let Ok(entries) = fetch_index(&index) else {
+        let Ok(entries) = fetch_indexes(&indexes) else {
             // Offline: tried again at the next start.
             return;
         };
@@ -925,6 +1073,77 @@ pub fn check_updates(config: &crate::Config) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sources_relative_to_their_index() {
+        // A fork's index lists its plugins by folder: they resolve in the
+        // fork's repository, at the index's reference.
+        let raw = "https://raw.githubusercontent.com/ada/plugins/main/index.json";
+        assert_eq!(
+            resolve_source(raw, "wordcount"),
+            "https://github.com/ada/plugins/tree/main/wordcount"
+        );
+        assert_eq!(
+            resolve_source(
+                "https://github.com/ada/plugins/blob/dev/list/index.json",
+                "../x"
+            ),
+            "https://github.com/ada/plugins/tree/dev/x"
+        );
+        // Links stay as they are.
+        let link = "https://github.com/getkalem/plugins/tree/main/elixir";
+        assert_eq!(resolve_source(raw, link), link);
+        // Downloads beside the index; an index on disk, its folder.
+        assert_eq!(
+            resolve_file("https://example.com/kalem/index.json", "w-1.0.wasm"),
+            "https://example.com/kalem/w-1.0.wasm"
+        );
+        assert_eq!(
+            resolve_source("file:///home/ada/index.json", "./mine"),
+            "/home/ada/./mine"
+        );
+    }
+
+    #[test]
+    fn indexes_read_in_order() {
+        // The user's sources first, then the official index; a plugin of an
+        // earlier one stands for the same ID in a later one.
+        let dir = std::env::temp_dir().join(format!("kalem-indexes-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let fork = dir.join("fork.json");
+        let main = dir.join("main.json");
+        std::fs::write(
+            &fork,
+            r#"{"plugins":[{"id":"org.kalem.wc","name":"wc","version":"9","source":"wc","kind":"declarative"}]}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            &main,
+            r#"{"plugins":[{"id":"org.kalem.wc","name":"wc","version":"1","source":"https://github.com/getkalem/plugins/tree/main/wc","kind":"declarative"},{"id":"org.kalem.x","name":"x","version":"1","source":"x","kind":"declarative"}]}"#,
+        )
+        .unwrap();
+        let urls = vec![
+            format!("file://{}", fork.display()),
+            format!("file://{}", main.display()),
+        ];
+        let entries = fetch_indexes(&urls).unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].version, "9");
+        assert_eq!(entries[0].source, dir.join("wc").to_string_lossy());
+        let config = crate::Config::from_layers(&[(
+            crate::settings::Layer::User,
+            None,
+            "plugins.sources = [\"https://example.com/a.json\"]\n",
+        )]);
+        assert_eq!(
+            index_urls(&config),
+            vec![
+                "https://example.com/a.json".to_string(),
+                DEFAULT_INDEX.to_string()
+            ]
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn versions() {
@@ -1114,7 +1333,7 @@ mod tests {
         let url = format!("file://{}", at.display());
 
         std::fs::write(&at, index("0.2.0", &sha)).unwrap();
-        let p = prepare("counter", &url).unwrap();
+        let p = prepare("counter", std::slice::from_ref(&url)).unwrap();
         assert!(p.component && p.opens.is_empty());
         assert_eq!(
             (p.id.as_str(), p.version.as_str()),
@@ -1130,13 +1349,17 @@ mod tests {
         // The manifest at the release must be the entry's version.
         std::fs::write(&at, index("0.1.0", &sha)).unwrap();
         assert!(
-            prepare("counter", &url)
+            prepare("counter", std::slice::from_ref(&url))
                 .unwrap_err()
                 .contains("not org.x.counter 0.1.0")
         );
         // And the asset the hash the index gives.
         std::fs::write(&at, index("0.2.0", &"0".repeat(64))).unwrap();
-        assert!(prepare("counter", &url).unwrap_err().contains("SHA-256"));
+        assert!(
+            prepare("counter", std::slice::from_ref(&url))
+                .unwrap_err()
+                .contains("SHA-256")
+        );
         let _ = std::fs::remove_dir_all(&dir);
         // getkalem/plugins: the folder at the tag its release workflow makes.
         assert_eq!(

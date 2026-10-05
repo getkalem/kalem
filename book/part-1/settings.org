@@ -35,6 +35,7 @@ lists every one, generated from the code.
 | =projects.auto_add=       | =true=     | Folders under version control become projects                |
 | =org.todo_keywords=       | TODO, DONE | TODO states of files without =#+TODO=; see below             |
 | =files.show_hidden=       | =true=     | Dot files in the file manager                                |
+| =plugins.sources=         | =[]=       | Your plugin indexes, read first (Plugin Sources)             |
 | =log.level=               | ="info"=   | How much goes to the log                                     |
 
 =org.todo_keywords= is a list such as =["TODO", "NEXT", "|", "DONE"]=:

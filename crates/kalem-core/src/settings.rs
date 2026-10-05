@@ -298,6 +298,12 @@ pub const SPECS: &[Spec] = &[
         description: "Where Browse Plugins and Install Plugin read the plugin index (a URL, or file:// for a copy on disk)",
     },
     Spec {
+        key: "plugins.sources",
+        kind: Kind::List(None),
+        default: "[]",
+        description: "More plugin indexes, read before plugins.index: a fork of the official one or your own (Plugin Sources)",
+    },
+    Spec {
         key: "latex.root",
         kind: Kind::Str,
         default: r#""""#,

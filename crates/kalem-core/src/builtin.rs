@@ -4393,15 +4393,20 @@ fn plugin_commands() -> Vec<Command> {
             keys: String::new(),
         }
     }
-    fn index_url(ctx: &EditorContext<'_>) -> String {
-        match ctx.config.str("plugins.index") {
-            "" => crate::plugin_store::DEFAULT_INDEX.to_string(),
-            s => s.to_string(),
-        }
+    fn index_urls(ctx: &EditorContext<'_>) -> Vec<String> {
+        crate::plugin_store::index_urls(ctx.config)
+    }
+    /// The user's plugin indexes (`plugins.sources`).
+    fn sources(ctx: &EditorContext<'_>) -> Vec<String> {
+        ctx.config
+            .strings("plugins.sources")
+            .into_iter()
+            .map(str::to_string)
+            .collect()
     }
     /// Downloads `source` in the background, then offers to install it.
     fn start_install(ctx: &mut EditorContext<'_>, source: String) -> CommandResult {
-        let index = index_url(ctx);
+        let index = index_urls(ctx);
         crate::jobs::spawn(
             crate::tr!("plugin-fetching", source = source.as_str()),
             move || match crate::plugin_store::prepare(&source, &index) {
@@ -4447,6 +4452,109 @@ fn plugin_commands() -> Vec<Command> {
         Ok(())
     }
     vec![
+        // Where plugins are listed: the official index and the user's own
+        // (a fork of it on GitHub, or an index of their own plugins).
+        cmd(
+            "plugin.sources",
+            "Plugin Sources…",
+            "Plugins",
+            &[],
+            None,
+            |ctx, _| {
+                let mut items = vec![item(
+                    invocation("plugin.addSource", &json!({})),
+                    crate::tr!("plugin-source-add"),
+                    String::new(),
+                )];
+                for url in sources(ctx) {
+                    items.push(item(
+                        invocation("plugin.removeSource", &json!({ "url": url })),
+                        crate::tr!("plugin-source-remove", url = url.as_str()),
+                        crate::tr!("plugin-source-yours"),
+                    ));
+                }
+                let main = match ctx.config.str("plugins.index") {
+                    "" => crate::plugin_store::DEFAULT_INDEX.to_string(),
+                    s => s.to_string(),
+                };
+                items.push(item(
+                    invocation("plugin.setIndex", &json!({})),
+                    crate::tr!("plugin-source-main", url = main.as_str()),
+                    crate::tr!("plugin-source-official"),
+                ));
+                request(ctx, Request::Choose(items))
+            },
+        ),
+        cmd(
+            "plugin.addSource",
+            "Add Plugin Source…",
+            "Plugins",
+            &[],
+            None,
+            |ctx, args| {
+                let Some(url) = args["url"]
+                    .as_str()
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                else {
+                    return request(
+                        ctx,
+                        Request::Ask {
+                            command: "plugin.addSource".into(),
+                            args: json!({}),
+                            arg: "url".into(),
+                        },
+                    );
+                };
+                let mut list = sources(ctx);
+                if !list.iter().any(|u| u == url) {
+                    list.insert(0, url.to_string());
+                }
+                ctx.messages
+                    .push(crate::tr!("plugin-source-added", url = url));
+                set_setting(ctx, "plugins.sources", json!(list))
+            },
+        ),
+        cmd(
+            "plugin.removeSource",
+            "Remove Plugin Source",
+            "Plugins",
+            &[],
+            None,
+            |ctx, args| {
+                let url = args["url"].as_str().unwrap_or_default().to_string();
+                let list: Vec<String> = sources(ctx).into_iter().filter(|u| *u != url).collect();
+                ctx.messages
+                    .push(crate::tr!("plugin-source-removed", url = url.as_str()));
+                set_setting(ctx, "plugins.sources", json!(list))
+            },
+        ),
+        cmd(
+            "plugin.setIndex",
+            "Set Official Plugin Index…",
+            "Plugins",
+            &[],
+            None,
+            |ctx, args| {
+                let Some(url) = args["url"].as_str().map(str::trim) else {
+                    return request(
+                        ctx,
+                        Request::Ask {
+                            command: "plugin.setIndex".into(),
+                            args: json!({}),
+                            arg: "url".into(),
+                        },
+                    );
+                };
+                // Empty: the default again.
+                let url = if url.is_empty() {
+                    crate::plugin_store::DEFAULT_INDEX
+                } else {
+                    url
+                };
+                set_setting(ctx, "plugins.index", json!(url))
+            },
+        ),
         cmd(
             "plugin.browse",
             "Browse Plugins",
@@ -4454,9 +4562,9 @@ fn plugin_commands() -> Vec<Command> {
             &[],
             None,
             |ctx, _| {
-                let index = index_url(ctx);
+                let index = index_urls(ctx);
                 crate::jobs::spawn(crate::tr!("plugin-reading-index"), move || {
-                    match crate::plugin_store::fetch_index(&index) {
+                    match crate::plugin_store::fetch_indexes(&index) {
                         Ok(entries) => {
                             // Remembers the versions for Installed Plugins.
                             let _ = crate::plugin_store::updates(&entries);
@@ -9856,6 +9964,58 @@ mod tests {
         assert!(reg.register(c.clone()).is_err());
         c.id = "myPlugin.doThing".into();
         assert!(reg.register(c).is_ok());
+    }
+
+    #[test]
+    fn plugin_sources_from_the_menu() {
+        // Plugin Sources lists the user's indexes and the official one; a
+        // source is asked for, added first, and removed (asked by the
+        // owner, 2026-10-05: forks and own plugins from an address the user
+        // sets).
+        let reg = CommandRegistry::with_builtins();
+        let mut clip = crate::command::Clipboard::default();
+        let config = crate::Config::from_layers(&[(
+            crate::settings::Layer::User,
+            None,
+            "plugins.sources = [\"https://example.com/old.json\"]\n",
+        )]);
+        let mut run = |id: &str, args: serde_json::Value| {
+            let mut ctx = EditorContext {
+                document: None,
+                clipboard: &mut clip,
+                config: &config,
+                now: Instant::now(),
+                clock: jiff::civil::date(2026, 10, 5).at(9, 0, 0, 0),
+                messages: Vec::new(),
+                requests: Vec::new(),
+            };
+            reg.execute(id, &mut ctx, &args).unwrap();
+            ctx.requests
+        };
+        let req = run("plugin.sources", json!({}));
+        let [Request::Choose(items)] = &req[..] else {
+            panic!("{req:?}")
+        };
+        assert_eq!(items.len(), 3);
+        assert!(items[1].id.contains("plugin.removeSource"));
+        assert!(items[2].title.contains(crate::plugin_store::DEFAULT_INDEX));
+        let req = run("plugin.addSource", json!({}));
+        assert!(matches!(&req[..], [Request::Ask { arg, .. }] if arg == "url"));
+        let req = run(
+            "plugin.addSource",
+            json!({ "url": "https://github.com/ada/p/blob/main/index.json" }),
+        );
+        assert!(matches!(&req[..], [Request::SetSetting { key, value, .. }]
+            if key == "plugins.sources"
+                && *value == json!(["https://github.com/ada/p/blob/main/index.json", "https://example.com/old.json"])));
+        let req = run(
+            "plugin.removeSource",
+            json!({ "url": "https://example.com/old.json" }),
+        );
+        assert!(matches!(&req[..], [Request::SetSetting { value, .. }] if *value == json!([])));
+        let req = run("plugin.setIndex", json!({ "url": "" }));
+        assert!(matches!(&req[..], [Request::SetSetting { key, value, .. }]
+            if key == "plugins.index" && *value == json!(crate::plugin_store::DEFAULT_INDEX)));
     }
 
     #[test]
