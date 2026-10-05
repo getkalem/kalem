@@ -224,7 +224,12 @@ fn a_component_that_stops_says_why_and_answers_no_more() {
         assert!(doc.search(query).is_empty(), "{query}");
         let why = doc.stopped();
         match (query, &why) {
-            ("!panic", Some(Stopped::Failed(_))) => {}
+            // The panic's message and place reach the error (and the
+            // log) through the `diagnostics` import.
+            ("!panic", Some(Stopped::Failed(detail))) => assert!(
+                detail.contains("panicked at") && detail.contains("asked to"),
+                "{detail}"
+            ),
             ("!loop", Some(Stopped::Timeout(t))) => assert_eq!(t.as_millis(), 300),
             ("!grow", Some(Stopped::Memory(m))) => assert_eq!(*m, 64 << 20),
             _ => panic!("{query}: {why:?}"),

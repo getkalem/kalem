@@ -250,7 +250,7 @@ Why the native copies are still there, as found on 2026-10-05:
 
 ## W10. Plugins developed and debugged as components
 
-- [~] W10 What a plugin author needs without the native copy: `kalem
+- [x] W10 What a plugin author needs without the native copy: `kalem
   plugin build` and `kalem plugin dev DIR` (the component built and loaded
   again when its sources change), a panic's message and backtrace from the
   component in Kalem's log, the plugin's own unit tests run natively in
@@ -264,8 +264,11 @@ Why the native copies are still there, as found on 2026-10-05:
   their names too (+0.5 MB for the workbook plugin), and the host
   demangles a trap's backtrace: `kalem_plugin_xlsx::workbook::protection::password_attrs`
   over `<std::time::SystemTime>::now`. The template's README and the
-  Book say so. Open: the panic's message, which needs a host import the
-  panic hook calls before the abort (a new WIT interface, the owner's
-  decision: a plugin built against it would not link with a Kalem
-  without it); `kalem plugin dev` has no test of its own, its loop
-  never ends.)
+  Book say so. The panic's message, as the owner decided on 2026-10-05:
+  the API is 0.2.1, every world imports `diagnostics` (its `panicked`
+  the panic hook of kalem-plugin's adapters calls before the abort), and
+  the host keeps the message for the trap's error and logs it (test: the
+  `!panic` case of `a_component_that_stops_says_why_and_answers_no_more`);
+  `api_compatible` now honors the patch, a plugin built against 0.2.1
+  importing what a 0.2.0 host lacks. Open: `kalem plugin dev` has no test
+  of its own, its loop never ends.)

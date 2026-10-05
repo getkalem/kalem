@@ -22,13 +22,15 @@
 /// The version of the plugin API this host implements: the WIT package
 /// `kalem:plugin` of `kalem-plugin/wit`. A released interface never
 /// changes; a later version adds interfaces, so a component built against
-/// any `0.2.x` binds what it has (the Book, Part III, "Versions of the
-/// plugin API").
-pub const API_VERSION: &str = "0.2.0";
+/// an earlier `0.2.x` binds what it has (the Book, Part III, "Versions of
+/// the plugin API"). 0.2.1 added the `diagnostics` import.
+pub const API_VERSION: &str = "0.2.1";
 
 /// Whether a manifest's `api` requirement (`^0.2`, `0.2`, `^0.2.1`)
-/// names this host's API: the same `0.MINOR` before 1.0, the same major
-/// after. A manifest without one is tried.
+/// names this host's API: the same `0.MINOR` before 1.0 (the same major
+/// after), and no earlier than the version it names, as a component built
+/// against a later one may import what this host lacks. A manifest
+/// without one is tried.
 pub fn api_compatible(requirement: Option<&str>) -> bool {
     let Some(req) = requirement.map(str::trim).filter(|r| !r.is_empty()) else {
         return true;
@@ -40,12 +42,16 @@ pub fn api_compatible(requirement: Option<&str>) -> bool {
             .collect()
     };
     let (want, have) = (nums(req), nums(API_VERSION));
-    match (want.first(), want.get(1)) {
+    let same = match (want.first(), want.get(1)) {
         (Some(0), Some(minor)) => have.first() == Some(&0) && have.get(1) == Some(minor),
         (Some(0), None) => have.first() == Some(&0),
         (Some(major), _) => have.first() == Some(major),
         (None, _) => true,
-    }
+    };
+    let at = |v: &[u64], i: usize| v.get(i).copied().unwrap_or(0);
+    same && (0..3)
+        .map(|i| at(&have, i))
+        .ge((0..3).map(|i| at(&want, i)))
 }
 
 use std::fmt;
@@ -328,6 +334,7 @@ impl Plugin {
                     memory: limits.memory,
                     refused: false,
                 },
+                diagnostics: Diagnostics::default(),
             },
         );
         store.limiter(|d| &mut d.limiter);
@@ -372,6 +379,35 @@ pub struct Data<T> {
     /// The host's data, for the functions it grants.
     pub user: T,
     limiter: Limiter,
+    pub(crate) diagnostics: Diagnostics,
+}
+
+/// What a plugin said of itself going wrong (the `diagnostics` import):
+/// the message of its panic, which the trap that follows lacks.
+#[derive(Debug, Default)]
+pub struct Diagnostics {
+    panicked: Option<String>,
+}
+
+impl Diagnostics {
+    /// The plugin panicked with `message`: kept for the trap's error, and
+    /// logged.
+    fn panicked(&mut self, message: String) {
+        tracing::error!(%message, "a plugin panicked");
+        self.panicked = Some(message);
+    }
+}
+
+impl viewer::kalem::plugin::diagnostics::Host for Diagnostics {
+    fn panicked(&mut self, message: String) {
+        Diagnostics::panicked(self, message);
+    }
+}
+
+impl extension::diagnostics::Host for Diagnostics {
+    fn panicked(&mut self, message: String) {
+        Diagnostics::panicked(self, message);
+    }
 }
 
 /// The memory limit, remembering that it refused, to tell a plugin out of
@@ -415,7 +451,11 @@ fn classify<T>(e: wasmtime::Error, store: &Store<Data<T>>, limits: Limits) -> Er
     if store.data().limiter.refused {
         return Error::Memory(limits.memory);
     }
-    Error::Trap(demangled(&format!("{e:#}")))
+    let trace = demangled(&format!("{e:#}"));
+    Error::Trap(match &store.data().diagnostics.panicked {
+        Some(message) => format!("{message}\n{trace}"),
+        None => trace,
+    })
 }
 
 /// A trap's backtrace with the Rust functions' names readable
@@ -489,6 +529,7 @@ impl<T: Send + 'static> Instance<T> {
         f: impl FnOnce(&mut Store<Data<T>>) -> wasmtime::Result<R>,
     ) -> Result<R> {
         self.store.set_epoch_deadline(ticks(self.limits.time));
+        self.store.data_mut().diagnostics.panicked = None;
         f(&mut self.store).map_err(|e| classify(e, &self.store, self.limits))
     }
 
@@ -528,5 +569,7 @@ mod tests {
         assert!(super::api_compatible(None));
         assert!(!super::api_compatible(Some("^0.1")));
         assert!(!super::api_compatible(Some("^1.0")));
+        // Built against a later 0.2.x: it may import what this host lacks.
+        assert!(!super::api_compatible(Some("^0.2.9")));
     }
 }

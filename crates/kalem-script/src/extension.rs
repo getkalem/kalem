@@ -30,7 +30,7 @@ mod bindings {
 pub use api::{CommandSpec, Event, EventKind, Reply, Scope};
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
-pub use bindings::kalem::plugin::{editor, fs, http, net, settings};
+pub use bindings::kalem::plugin::{diagnostics, editor, fs, http, net, settings};
 
 /// An edit a plugin asked for, applied when its command returns, its
 /// places those of the document as the command found it.
@@ -1090,6 +1090,11 @@ impl Extension {
         limits: crate::Limits,
     ) -> crate::Result<Extension> {
         let mut linker = host.linker::<Session>();
+        diagnostics::add_to_linker::<_, HasSelf<crate::Diagnostics>>(
+            &mut linker,
+            |d: &mut crate::Data<Session>| &mut d.diagnostics,
+        )
+        .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
         api::add_to_linker::<_, HasSelf<Session>>(&mut linker, |d: &mut crate::Data<Session>| {
             &mut d.user
         })

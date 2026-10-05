@@ -307,6 +307,22 @@ pub fn clear() {
     HANDLERS.with(|h| *h.borrow_mut() = Handlers::default());
 }
 
+/// Installs, once, the panic hook that tells the host a panic's message
+/// and where it happened (the `diagnostics` import, wasm_todo W10): a
+/// component stops at a panic with a trap that carries neither.
+/// [`export_plugin!`](crate::export_plugin)'s `activate` calls it.
+pub fn report_panics() {
+    #[cfg(target_arch = "wasm32")]
+    {
+        static ONCE: std::sync::Once = std::sync::Once::new();
+        ONCE.call_once(|| {
+            std::panic::set_hook(Box::new(|info| {
+                crate::extension::kalem::plugin::diagnostics::panicked(&info.to_string());
+            }));
+        });
+    }
+}
+
 /// Exports a [`Plugin`] as the component's `extension` world:
 /// `export_plugin!(WordCount)`.
 #[macro_export]
@@ -317,6 +333,7 @@ macro_rules! export_plugin {
 
         impl $crate::extension::exports::kalem::plugin::plugin::Guest for __KalemPlugin {
             fn activate() -> ::std::result::Result<(), ::std::string::String> {
+                $crate::kalem::report_panics();
                 <$plugin as $crate::kalem::Plugin>::activate()
             }
 

@@ -25,7 +25,24 @@ impl std::fmt::Debug for Doc {
 }
 
 /// The plugin's description of itself.
+/// Installs, once, the panic hook that tells the host a panic's message
+/// and where it happened (the `diagnostics` import, wasm_todo W10): a
+/// component stops at a panic with a trap that carries neither. The
+/// adapter's entries call it, the host calling one of them first.
+pub fn report_panics() {
+    #[cfg(target_arch = "wasm32")]
+    {
+        static ONCE: std::sync::Once = std::sync::Once::new();
+        ONCE.call_once(|| {
+            std::panic::set_hook(Box::new(|info| {
+                crate::viewer::kalem::plugin::diagnostics::panicked(&info.to_string());
+            }));
+        });
+    }
+}
+
 pub fn describe(v: &dyn Viewer) -> w::Description {
+    report_panics();
     w::Description {
         id: v.id().to_string(),
         name: v.name().to_string(),
@@ -35,6 +52,7 @@ pub fn describe(v: &dyn Viewer) -> w::Description {
 
 /// Whether `v` opens the file `name` starting with `head`.
 pub fn detect(v: &dyn Viewer, name: &str, head: &[u8]) -> w::Detection {
+    report_panics();
     match v.detect(name, head) {
         Detection::No => w::Detection::No,
         Detection::Extension => w::Detection::Extension,
@@ -45,6 +63,7 @@ pub fn detect(v: &dyn Viewer, name: &str, head: &[u8]) -> w::Detection {
 /// Opens the host's `file` with `v`: the plugin reads it through the
 /// handle, piece by piece as it asks.
 pub fn open(v: &dyn Viewer, file: File) -> Result<w::Document, String> {
+    report_panics();
     let name = file.name();
     let len = file.len();
     let handle = FileHandle::from_reader(name, len, move |offset, len| {

@@ -160,6 +160,11 @@ impl Viewer {
             |d: &mut crate::Data<Files>| &mut d.user,
         )
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        kalem::plugin::diagnostics::add_to_linker::<
+            _,
+            wasmtime::component::HasSelf<crate::Diagnostics>,
+        >(&mut linker, |d: &mut crate::Data<Files>| &mut d.diagnostics)
+        .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
         let mut instance = plugin.instantiate(host, &linker, Files::default(), limits)?;
         // A component built against another version of the API than this
         // Kalem's (a function or a record's field added since) does not

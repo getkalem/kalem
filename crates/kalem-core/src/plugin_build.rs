@@ -405,7 +405,7 @@ fn standalone_manifest(name: &str) -> String {
   "version": "0.1.0",
   "description": "What the plugin does",
   "main": "dist/{name}.wasm",
-  "api": "^0.2",
+  "api": "^0.2.1",
   "activation": ["onStartup"],
   "permissions": []
 }}

@@ -1,0 +1,12 @@
+package kalem:plugin@0.2.1;
+
+/// What a plugin tells the host of itself going wrong (wasm_todo W10):
+/// a component built as Rust builds it stops at a panic with a trap that
+/// carries no message, so the plugin's panic hook says it first.
+/// Granted to every plugin without a permission: it only reaches the
+/// host's log.
+interface diagnostics {
+    /// The plugin panicked: `message` is the panic's, with where it
+    /// happened (`panicked at src/lib.rs:10:5: …`). The trap follows.
+    panicked: func(message: string);
+}

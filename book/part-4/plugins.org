@@ -193,19 +193,27 @@ a workbook needs about 256 MB inside the component for a million cells.
 * Versions of the plugin API
 
 The plugin API is the WIT package =kalem:plugin= (=crates/kalem-plugin/wit=),
-version 0.2.0; a component's manifest names the version it was built
-against (="api": "^0.2"=). The rules, so that a plugin built once keeps
-working:
+version 0.2.1; a component's manifest names the version it was built
+against (="api": "^0.2.1"=), and Kalem tries it when its own API is of
+the same 0.MINOR and no earlier. The rules, so that a plugin built once
+keeps working:
 
 - A released interface never changes: no function, field, case or type
   of it is added, removed or altered. The released ones (=viewer=,
   =files=, =clock=, =grid=) are copied in =wit-frozen/0.2.0/=, and a test
   (=tests/frozen.rs=) fails a change to them.
 - What is new goes into a new interface (=grid-2=, in a file of its
-  own) released with the next patch version (0.2.1); the worlds, kept in
+  own) released with the next patch version; the worlds, kept in
   =worlds.wit=, export it. Kalem binds the interfaces a component has, so
   one built against 0.2.0 still runs on a Kalem of 0.2.1, without what
-  it does not export.
+  it does not export. An interface the plugin imports is granted by
+  every later Kalem, so a component built against 0.2.1 needs a Kalem of
+  0.2.1 or later, which its manifest says.
+- 0.2.1 added the import =diagnostics=: a component built as Rust builds
+  it stops at a panic with a trap that has no message, so the panic hook
+  =kalem-plugin='s adapters install says it first, and Kalem's log and
+  the stop's error carry the panic's message and where it happened,
+  above the backtrace of the plugin's functions.
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 
