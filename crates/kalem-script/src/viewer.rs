@@ -273,6 +273,9 @@ pub const VIEWER_LIMITS: crate::Limits = crate::Limits {
 pub struct ComponentViewer {
     host: std::sync::Arc<crate::Host>,
     file: PathBuf,
+    /// The component's bytes when it is built into Kalem (wasm_todo W5)
+    /// rather than installed in a file.
+    bytes: Option<&'static [u8]>,
     id: String,
     name: String,
     extensions: Vec<&'static str>,
@@ -292,6 +295,7 @@ impl std::fmt::Debug for ComponentViewer {
         f.debug_struct("ComponentViewer")
             .field("id", &self.id)
             .field("file", &self.file)
+            .field("embedded", &self.bytes.is_some())
             .finish_non_exhaustive()
     }
 }
@@ -310,6 +314,7 @@ impl ComponentViewer {
         ComponentViewer {
             host,
             file: file.into(),
+            bytes: None,
             id: id.into(),
             name: name.into(),
             // Kept for the life of the program, as viewers are.
@@ -330,6 +335,33 @@ impl ComponentViewer {
             notice: None,
             warned: std::sync::atomic::AtomicBool::new(false),
         }
+    }
+
+    /// The component built into Kalem (`bytes`), known as `id` and `name`,
+    /// opening files with `extensions`: compiled, or read from the
+    /// host's cache, the first time it is needed.
+    pub fn embedded(
+        host: std::sync::Arc<crate::Host>,
+        bytes: &'static [u8],
+        id: impl Into<String>,
+        name: impl Into<String>,
+        extensions: &[String],
+        limits: crate::Limits,
+    ) -> ComponentViewer {
+        ComponentViewer {
+            bytes: Some(bytes),
+            ..ComponentViewer::new(host, PathBuf::new(), id, name, extensions, limits)
+        }
+    }
+
+    /// Whether the component is built into Kalem (else installed).
+    pub fn is_embedded(&self) -> bool {
+        self.bytes.is_some()
+    }
+
+    /// The plugin's name, as its manifest gives it.
+    pub fn label(&self) -> &str {
+        &self.name
     }
 
     /// With `fallback`, the bundled viewer it replaces, opening the files
@@ -362,7 +394,13 @@ impl ComponentViewer {
     /// The component, compiled or read from the cache on first use.
     pub fn plugin(&self) -> Result<&crate::Plugin, kalem_viewer::ViewerError> {
         self.plugin
-            .get_or_init(|| self.host.load_file(&self.file).map_err(|e| e.to_string()))
+            .get_or_init(|| {
+                match self.bytes {
+                    Some(b) => self.host.load(b),
+                    None => self.host.load_file(&self.file),
+                }
+                .map_err(|e| e.to_string())
+            })
             .as_ref()
             .map_err(|e| kalem_viewer::ViewerError(format!("{}: {e}", self.name)))
     }

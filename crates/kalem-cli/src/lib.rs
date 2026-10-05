@@ -460,6 +460,79 @@ pub fn bundled_plugins() {
     }
 }
 
+/// The plugin host the component viewers share, made on first need.
+#[cfg(feature = "plugins")]
+fn viewer_host() -> Option<std::sync::Arc<kalem_script::Host>> {
+    static HOST: std::sync::OnceLock<Option<std::sync::Arc<kalem_script::Host>>> =
+        std::sync::OnceLock::new();
+    HOST.get_or_init(|| {
+        let cache = kalem_core::logging::state_dir().map(|d| d.join("plugin-cache"));
+        kalem_script::Host::new(cache).ok().map(std::sync::Arc::new)
+    })
+    .clone()
+}
+
+/// A manifest's `opens`, as a viewer's extensions.
+#[cfg(feature = "plugins")]
+fn manifest_opens(m: &serde_json::Value) -> Vec<String> {
+    m["opens"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|e| e.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The bundled plugins built into Kalem as components (wasm_todo W5), each
+/// with its manifest: none without the feature `components`.
+#[cfg(feature = "plugins")]
+pub fn embedded_components() -> Vec<(serde_json::Value, &'static [u8])> {
+    #[cfg(feature = "components")]
+    {
+        kalem_components::components()
+            .iter()
+            .filter_map(|c| {
+                serde_json::from_str::<serde_json::Value>(c.manifest)
+                    .ok()
+                    .map(|m| (m, c.bytes))
+            })
+            .collect()
+    }
+    #[cfg(not(feature = "components"))]
+    {
+        Vec::new()
+    }
+}
+
+/// The embedded components as viewers, each in the place of the native
+/// viewer of the same name, which opens its files should it not run.
+#[cfg(feature = "plugins")]
+pub(crate) fn embedded_viewers() -> Vec<std::sync::Arc<kalem_script::viewer::ComponentViewer>> {
+    use kalem_script::viewer::{ComponentViewer, VIEWER_LIMITS};
+    let mut out = Vec::new();
+    for (m, bytes) in embedded_components() {
+        let Some(host) = viewer_host() else {
+            return out;
+        };
+        let full = m["id"].as_str().unwrap_or_default();
+        let id = full.rsplit('.').next().unwrap_or(full).to_string();
+        let name = m["name"].as_str().unwrap_or(full).to_string();
+        let bundled = kalem_core::viewer::viewers()
+            .into_iter()
+            .find(|v| v.id() == id);
+        out.push(std::sync::Arc::new(
+            ComponentViewer::embedded(host, bytes, id, name, &manifest_opens(&m), VIEWER_LIMITS)
+                .with_fallback(
+                    bundled,
+                    std::sync::Arc::new(|text| kalem_core::jobs::notice(text, true)),
+                ),
+        ));
+    }
+    out
+}
+
 /// The component viewers installed (`kalem plugin install` of a built
 /// viewer), registered from their manifests: a plugin with a `main`
 /// component that `opens` files. Nothing is compiled here: a thread
@@ -468,7 +541,18 @@ pub fn bundled_plugins() {
 #[cfg(feature = "plugins")]
 fn component_viewers() {
     let mut loaded = Vec::new();
-    for (_, v) in installed_viewers() {
+    // The bundled components first, then the installed ones, which take
+    // their place only when newer.
+    let embedded = embedded_viewers();
+    for v in &embedded {
+        kalem_core::viewer::register(v.clone());
+        loaded.push(v.clone());
+    }
+    for (p, v) in installed_viewers() {
+        // `kalem plugin list` says why it is not used.
+        if embedded_is_newer(&p).is_some() {
+            continue;
+        }
         match v {
             Ok(v) => {
                 kalem_core::viewer::register(v.clone());
@@ -490,6 +574,24 @@ fn component_viewers() {
     }
 }
 
+/// When Kalem has `p` built in at the same or a later version: why the
+/// installed copy is not used.
+#[cfg(feature = "plugins")]
+pub(crate) fn embedded_is_newer(p: &kalem_core::plugin_store::Installed) -> Option<String> {
+    let (m, _) = embedded_components()
+        .into_iter()
+        .find(|(m, _)| m["id"].as_str() == Some(p.id.as_str()))?;
+    let built_in = m["version"].as_str().unwrap_or_default().to_string();
+    (!kalem_core::plugin_store::newer(&p.version, &built_in)).then(|| {
+        kalem_core::tr!(
+            "plugin-built-in-newer",
+            name = p.name.clone(),
+            version = p.version.clone(),
+            built_in = built_in
+        )
+    })
+}
+
 /// The installed plugins that are component viewers, each with its
 /// viewer (not compiled yet), which falls back to the bundled viewer of
 /// the same name when it cannot run; or why it is not tried (its manifest
@@ -500,7 +602,6 @@ pub(crate) fn installed_viewers() -> Vec<(
     Result<std::sync::Arc<kalem_script::viewer::ComponentViewer>, String>,
 )> {
     use kalem_script::viewer::{ComponentViewer, VIEWER_LIMITS};
-    let mut host: Option<std::sync::Arc<kalem_script::Host>> = None;
     let mut out = Vec::new();
     for p in kalem_core::plugin_store::installed() {
         let Ok(text) = std::fs::read_to_string(p.dir.join("plugin.json")) else {
@@ -535,14 +636,7 @@ pub(crate) fn installed_viewers() -> Vec<(
             out.push((p, Err(why)));
             continue;
         }
-        if host.is_none() {
-            let cache = kalem_core::logging::state_dir().map(|d| d.join("plugin-cache"));
-            match kalem_script::Host::new(cache) {
-                Ok(h) => host = Some(std::sync::Arc::new(h)),
-                Err(_) => return out,
-            }
-        }
-        let Some(h) = host.clone() else {
+        let Some(h) = viewer_host() else {
             return out;
         };
         // A manifest may ask for other limits than a viewer's.

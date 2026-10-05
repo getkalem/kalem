@@ -46,6 +46,7 @@ latex-model = { path = "crates/latex-model", version = "0.0.1" }
 kalem-viewer = { path = "crates/kalem-viewer", version = "0.0.1" }
 kalem-script = { path = "crates/kalem-script", version = "0.0.1" }
 kalem-plugin = { path = "crates/kalem-plugin", version = "0.0.1" }
+kalem-components = { path = "crates/kalem-components", version = "0.0.1" }
 # The bundled plugins of getkalem/plugins move together, at one revision
 # (tools/check-plugin-pins.sh, in CI): bump the three lines at once.
 # The image viewer, a plugin of getkalem/plugins bundled into the binary

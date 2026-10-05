@@ -133,6 +133,8 @@ jobs:
       # sources Kalem pins, against this checkout's plugin API, and bound
       # by its plugin host.
       - run: cargo test -p kalem-components --features build
+      # W5: a Kalem with them built in lists and runs them.
+      - run: cargo test -p kalem-editor --no-default-features --features tui,components --test components
 
   binary-size:
     name: binary size

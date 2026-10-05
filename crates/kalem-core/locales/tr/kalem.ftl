@@ -1534,6 +1534,7 @@ plugin-not-installed-cancel = Kurulmadı
 plugin-available-from = { $version } mevcut · { $from }
 plugin-none-installed = Kurulu eklenti yok: Eklentilere Göz At onları listeler
 plugin-not-installed = { $id } kurulu değil
+plugin-built-in-newer = kullanılmıyor: { $name } { $version }, yerleşik olandan ({ $built_in }) yeni değil
 plugin-api-mismatch = { $name } { $version } eklenti API'si { $api } için derlenmiş, bu Kalem'inki { $ours }: eklentiyi güncelleyin (o zamana dek dosyalarını yerleşik görüntüleyici açar)
 plugin-update = { $name } eklentisini güncelle
 plugin-from-short = kaynak: { $source }

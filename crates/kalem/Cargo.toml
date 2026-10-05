@@ -28,6 +28,9 @@ tui = ["dep:kalem-tui"]
 viewers = ["kalem-cli/viewers"]
 # The plugin host (Wasmtime) for installed component plugins.
 plugins = ["kalem-cli/plugins"]
+# The bundled plugins as WebAssembly components in the binary, in place of
+# the native viewers (wasm_todo W5; needs the wasm32-unknown-unknown target).
+components = ["kalem-cli/components"]
 
 [dependencies]
 kalem-cli.workspace = true

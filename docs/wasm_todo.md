@@ -112,11 +112,21 @@ Why the native copies are still there, as found on 2026-10-05:
 
 ## W5. Embedded components loaded on first use
 
-- [ ] W5 The precompiled components embedded (`include_bytes!`) and
+- [~] W5 The precompiled components embedded (`include_bytes!`) and
   registered as viewers like installed ones (`ComponentViewer`), compiled
   code deserialized on first use, so a file opens without a compile wait;
   an installed newer version of the same plugin preferred over the
   embedded one; `kalem plugin list` showing which is used.
+  (done 2026-10-05 but the precompiling: the feature `components` of
+  `kalem-cli` and `kalem-editor` builds them in (`kalem-components`) and
+  registers each as a `ComponentViewer::embedded` in the place of the
+  native viewer of the same name, which stays its fallback; the startup
+  thread compiles them into the plugin cache, so after the first start
+  a file opens without a compile; an installed copy is used only when
+  newer (`embedded_is_newer`); `kalem plugin list` marks them "(built
+  in)" and an installed copy not used, `kalem plugin check` runs them
+  too. Test `crates/kalem/tests/components.rs`. Not default yet: W7 and
+  W6 decide. Open: precompiling at build time for the binary's engine.)
 
 ## W6. Speed and limits measured on components
 

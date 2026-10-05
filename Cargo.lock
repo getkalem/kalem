@@ -4370,6 +4370,7 @@ version = "0.0.1"
 dependencies = [
  "clap",
  "jiff",
+ "kalem-components",
  "kalem-core",
  "kalem-lsp",
  "kalem-plugin-image-viewer",

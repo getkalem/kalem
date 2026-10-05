@@ -69,11 +69,21 @@ pub(crate) fn check() -> Result<ExitCode> {
     config();
     #[cfg(feature = "plugins")]
     {
+        let mut failed = false;
+        // The ones built in (wasm_todo W5).
+        for v in crate::embedded_viewers() {
+            match v.check() {
+                Ok(()) => println!("{} (built in): runs", v.label()),
+                Err(e) => {
+                    failed = true;
+                    println!("{} (built in): cannot run: {}", v.label(), e.0);
+                }
+            }
+        }
         let viewers = crate::installed_viewers();
         if viewers.is_empty() {
             println!("No component viewers installed.");
         }
-        let mut failed = false;
         for (p, v) in viewers {
             let runs = match v {
                 Ok(v) => v.check().map_err(|e| e.0),
@@ -103,12 +113,29 @@ pub(crate) fn check() -> Result<ExitCode> {
 /// `kalem plugin list`.
 pub(crate) fn list() -> Result<ExitCode> {
     config();
+    // The plugins built into this Kalem as components (wasm_todo W5).
+    #[cfg(feature = "plugins")]
+    for (m, _) in crate::embedded_components() {
+        println!(
+            "{} {} — {} (built in)",
+            m["id"].as_str().unwrap_or_default(),
+            m["version"].as_str().unwrap_or_default(),
+            m["name"].as_str().unwrap_or_default()
+        );
+    }
     let all = plugin_store::installed();
     if all.is_empty() {
         println!("No plugins installed.");
     }
     for p in all {
-        let from = p.source.unwrap_or_else(|| "installed by hand".into());
+        #[cfg(feature = "plugins")]
+        let unused = crate::embedded_is_newer(&p);
+        #[cfg(not(feature = "plugins"))]
+        let unused: Option<String> = None;
+        let from = p
+            .source
+            .clone()
+            .unwrap_or_else(|| "installed by hand".into());
         println!(
             "{} {} — {} ({from})\n  {}",
             p.id,
@@ -116,6 +143,9 @@ pub(crate) fn list() -> Result<ExitCode> {
             p.name,
             p.dir.display()
         );
+        if let Some(why) = unused {
+            println!("  {why}");
+        }
     }
     Ok(ExitCode::SUCCESS)
 }

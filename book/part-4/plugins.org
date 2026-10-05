@@ -170,6 +170,13 @@ viewer's limits are 1 GB and 10 s a call, more than §11.6's defaults,
 since a viewer holds a whole file; a manifest may set others,
 =limits.memory_mb= and =limits.time_ms=.
 
+A build with the feature =components= (=cargo install --path
+crates/kalem --features components=, with the =wasm32-unknown-unknown=
+target installed) has the three bundled viewers built in as components
+too, made from the same sources, and uses them in the place of the
+native copies; =kalem plugin list= marks them /built in/. An installed
+copy of one is used only when it is newer.
+
 * Versions of the plugin API
 
 The plugin API is the WIT package =kalem:plugin= (=crates/kalem-plugin/wit=),
