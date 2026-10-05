@@ -6,7 +6,6 @@
 //! resource carries the file's path in the host and gives the plugin its
 //! name, its size and the bytes it asks for.
 
-use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
 
 use wasmtime::component::{Resource, ResourceTable};
@@ -45,10 +44,11 @@ mod grid_conv {
     include!("../../kalem-plugin/src/grid_conv.rs");
 }
 
-/// A file the host opened for a plugin.
+/// A file the host opened for a plugin: one on disk, or bytes the host
+/// holds (a workbook converted from `.ods` as it opened).
 #[derive(Debug)]
 pub struct OpenFile {
-    path: PathBuf,
+    file: kalem_viewer::FileHandle,
 }
 
 /// What a viewer plugin's store holds: the files it was given.
@@ -59,8 +59,8 @@ pub struct Files {
 
 impl Files {
     /// Hands the file at `path` to the plugin.
-    pub fn open(&mut self, path: impl Into<PathBuf>) -> wasmtime::Result<Resource<OpenFile>> {
-        Ok(self.table.push(OpenFile { path: path.into() })?)
+    pub fn open(&mut self, file: kalem_viewer::FileHandle) -> wasmtime::Result<Resource<OpenFile>> {
+        Ok(self.table.push(OpenFile { file })?)
     }
 
     fn get(&self, f: &Resource<OpenFile>) -> wasmtime::Result<&OpenFile> {
@@ -99,30 +99,22 @@ impl kalem::plugin::clock::Host for Files {
 impl kalem::plugin::files::HostFile for Files {
     fn name(&mut self, f: Resource<OpenFile>) -> String {
         self.get(&f)
-            .ok()
-            .and_then(|o| o.path.file_name())
-            .map(|n| n.to_string_lossy().into_owned())
+            .map(|o| o.file.name().to_string())
             .unwrap_or_default()
     }
 
     fn len(&mut self, f: Resource<OpenFile>) -> u64 {
         self.get(&f)
             .ok()
-            .and_then(|o| std::fs::metadata(&o.path).ok())
-            .map_or(0, |m| m.len())
+            .and_then(|o| o.file.len().ok())
+            .unwrap_or(0)
     }
 
     fn read(&mut self, f: Resource<OpenFile>, offset: u64, len: u32) -> Vec<u8> {
-        let Ok(o) = self.get(&f) else {
-            return Vec::new();
-        };
-        let mut buf = Vec::new();
-        if let Ok(mut file) = std::fs::File::open(&o.path)
-            && file.seek(SeekFrom::Start(offset)).is_ok()
-        {
-            let _ = file.take(u64::from(len)).read_to_end(&mut buf);
-        }
-        buf
+        self.get(&f)
+            .ok()
+            .and_then(|o| o.file.read_at(offset, len as usize).ok())
+            .unwrap_or_default()
     }
 
     fn drop(&mut self, f: Resource<OpenFile>) -> wasmtime::Result<()> {
@@ -220,10 +212,18 @@ impl Viewer {
     /// Opens the file at `path` in the plugin, which reads it through the
     /// handle and nothing else.
     pub fn open(&mut self, path: impl Into<PathBuf>) -> crate::Result<Result<Document, String>> {
+        self.open_file(kalem_viewer::FileHandle::new(path))
+    }
+
+    /// Opens `file` in the plugin: a file on disk, or bytes the host holds.
+    pub fn open_file(
+        &mut self,
+        file: kalem_viewer::FileHandle,
+    ) -> crate::Result<Result<Document, String>> {
         let file = self
             .instance
             .data_mut()
-            .open(path)
+            .open(file)
             .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
         let v = self.api.kalem_plugin_viewer();
         self.instance.run(|s| v.call_open(s, file))
@@ -438,8 +438,10 @@ impl kalem_viewer::Viewer for ComponentViewer {
                 };
             }
         };
+        // The handle itself: bytes the host holds reach the plugin too (a
+        // workbook converted from `.ods` has no file on disk).
         let doc = v
-            .open(file.path())
+            .open_file(file)
             .map_err(err)?
             .map_err(kalem_viewer::ViewerError)?;
         Ok(Box::new(ComponentDocument {

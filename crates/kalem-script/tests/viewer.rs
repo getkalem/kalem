@@ -189,3 +189,25 @@ fn interfaces_bound_as_the_component_has_them() {
         assert!(v.is_grid());
     }
 }
+
+/// A file the host holds in memory, with no file on disk (a workbook
+/// converted from `.ods` as it opened), reaches the plugin through the
+/// same handle: its name, its size and its bytes.
+#[test]
+fn bytes_the_host_holds_reach_the_plugin() {
+    let Some(bytes) = pages() else {
+        return;
+    };
+    let host = Host::new(None).unwrap();
+    let plugin = host.load(&bytes).unwrap();
+    let mut v = Viewer::new(&host, &plugin, Limits::default()).unwrap();
+    let content = b"PAGES and more".to_vec();
+    let len = content.len() as u64;
+    let file = kalem_viewer::FileHandle::from_reader("held.pages", len, move |at, n| {
+        let a = (at as usize).min(content.len());
+        content[a..(a + n).min(content.len())].to_vec()
+    });
+    let doc = v.open_file(file).unwrap().unwrap();
+    let s = v.document(|d, st| d.call_structure(st, doc)).unwrap();
+    assert_eq!(s.units.len(), 3);
+}

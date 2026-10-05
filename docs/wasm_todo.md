@@ -124,6 +124,12 @@ Why the native copies are still there, as found on 2026-10-05:
   viewer; the parity test of `xlsx_component.rs` run in CI always, not
   only when told where a component is, and widened to the PDF and picture
   viewers.
+  (Found on the way, 2026-10-05, and fixed: a component read its file by
+  path only, so a workbook Kalem holds in memory (an `.ods` converted as
+  it opens, `workbook_io::open_bytes`) reached it as a missing file; the
+  host's file resource now carries the `FileHandle` itself, test
+  `bytes_the_host_holds_reach_the_plugin`. Such paths are what W7's
+  editor tests through components will find.)
 
 ## W8. Errors and a component that fails
 
