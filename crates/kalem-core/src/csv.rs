@@ -923,8 +923,52 @@ pub(crate) fn compare(a: &str, b: &str, comma_decimal: bool) -> std::cmp::Orderi
         (Some(x), Some(y)) => x.total_cmp(&y),
         (Some(_), None) => Ordering::Less,
         (None, Some(_)) => Ordering::Greater,
-        (None, None) => a.to_lowercase().cmp(&b.to_lowercase()),
+        (None, None) => {
+            let turkish = crate::l10n::language() == "tr";
+            text_key(a, turkish)
+                .cmp(&text_key(b, turkish))
+                .then_with(|| a.cmp(b))
+        }
     }
+}
+
+/// `s` for a search without case: lower case, the Turkish `İ`, `I` and
+/// `ı` read as `i` (so that `izmir` finds `İzmir`, and `ÇAĞRI` `Çağrı`;
+/// `İ` lowercased alone is `i` with a combining dot, which found nothing).
+pub fn fold(s: &str) -> String {
+    s.chars()
+        .flat_map(|c| match c {
+            'İ' | 'I' | 'ı' => 'i'.to_lowercase(),
+            c => c.to_lowercase(),
+        })
+        .collect()
+}
+
+/// The sort key of a text value: its letters in alphabetical order
+/// without case, Turkish's among them where the alphabet has them (`ç`
+/// after `c`, `ğ` after `g`, `ı` before `i`, `ö` after `o`, `ş` after
+/// `s`, `ü` after `u`; they sorted after `z`). `I` lowercases to `ı` in
+/// Turkish (`turkish`), to `i` otherwise.
+fn text_key(s: &str, turkish: bool) -> Vec<u32> {
+    s.chars()
+        .map(|c| {
+            let c = match c {
+                'I' if turkish => 'ı',
+                'I' | 'İ' => 'i',
+                c => c.to_lowercase().next().unwrap_or(c),
+            };
+            let at = |base: char, after: u32| u32::from(base) * 4 + after;
+            match c {
+                'ç' => at('c', 2),
+                'ğ' => at('g', 2),
+                'ı' => at('i', 0),
+                'ö' => at('o', 2),
+                'ş' => at('s', 2),
+                'ü' => at('u', 2),
+                c => at(c, 1),
+            }
+        })
+        .collect()
 }
 
 /// The order of the data rows (the header stays first) sorted by column
@@ -1973,7 +2017,7 @@ pub fn filter_rows(
     needle: &str,
     cursor: usize,
 ) -> (Vec<Range<usize>>, usize, usize) {
-    let needle = needle.to_lowercase();
+    let needle = fold(needle);
     let mut out: Vec<Range<usize>> = Vec::new();
     let (mut matched, mut total) = (0, 0);
     let mut start = sep_line(text).map_or(0, |(_, n)| n);
@@ -1993,7 +2037,7 @@ pub fn filter_rows(
             && rec
                 .fields
                 .iter()
-                .any(|f| value(text, f, d).to_lowercase().contains(&needle));
+                .any(|f| fold(&value(text, f, d)).contains(&needle));
         if !header && !blank {
             total += 1;
             matched += usize::from(hit);
@@ -2229,6 +2273,29 @@ pub fn pasted(text: &str, d: &Dialect) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn turkish_filter_and_sort() {
+        // A filter finds İzmir by `izmir`, `IZMIR` and `İZMİR`, Çağrı by
+        // `ÇAĞRI`; a sort puts Ç after C, not after Z.
+        let text = "ad,şehir\nÖmer,Muğla\nAyşe,İzmir\nÇağrı,Iğdır\nGökhan,Ankara\nCem,Bursa\n";
+        let d = Dialect {
+            header: true,
+            ..Dialect::default()
+        };
+        for needle in ["izmir", "IZMIR", "İZMİR", "İzmir"] {
+            let (_, matched, _) = filter_rows(text, &d, needle, 0);
+            assert_eq!(matched, 1, "{needle}");
+        }
+        assert_eq!(filter_rows(text, &d, "ÇAĞRI", 0).1, 1);
+        assert_eq!(filter_rows(text, &d, "iğdır", 0).1, 1);
+        let order = sorted_order(text, &d, 0, false);
+        let names: Vec<&str> = order
+            .iter()
+            .map(|&r| ["ad", "Ömer", "Ayşe", "Çağrı", "Gökhan", "Cem"][r])
+            .collect();
+        assert_eq!(names, ["ad", "Ayşe", "Cem", "Çağrı", "Gökhan", "Ömer"]);
+    }
 
     #[test]
     fn quote_character_detected() {
