@@ -69,11 +69,12 @@ install NAME|LINK|PATH= (=--yes= not to be asked), =kalem plugin list=,
 =getkalem/plugins= by default); a =file://= link reads a copy on disk.
 
 Plugins with a WebAssembly component install as language plugins do;
-their component runs in Kalem's sandbox (see Plugins). A plugin is not
-signed yet: the index's SHA-256 is checked when a plugin is published
-through the index, and a plugin from a link is installed as it is (a
-component is checked to be one), which is why Kalem shows where it
-comes from before installing.
+their component runs in Kalem's sandbox (see Plugins). A plugin from
+an index is checked against the SHA-256 the index gives; the releases
+of =getkalem/plugins= are also signed with Sigstore, which Kalem does
+not check yet (their README says how to by hand). A plugin from a link
+is installed as it is (a component is checked to be one), which is why
+Kalem shows where it comes from before installing.
 
 * Plugin sources: forks and your own plugins
 

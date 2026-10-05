@@ -891,11 +891,18 @@ documents, `kalem check`'s round trip and diagnostics, a missing
 - [x] **Major.** The three items of sections 1 and 2 (unbindable xlsx
   0.0.4, dead instance after a trap, bundled viewers replaced).
   (done: each is checked off above.)
-- [ ] **Minor, reported.** The plugins README says releases are signed;
+- [x] **Minor, reported.** The plugins README says releases are signed;
   Kalem checks only the index's SHA-256, which comes from the same
   mutable `main`-branch `index.json` that names the download. Say
   "checksum from the index" until signing exists, and consider pinning
   the index to a tag for 0.1.
+  (done 2026-10-06: the releases are signed (Sigstore, keyless, by the
+  release workflow's identity); the plugins README (getkalem/plugins
+  c813c6b) and the Book's language plugins page say Kalem checks the
+  SHA-256 and not yet the signature, and give the `cosign verify-blob`
+  line. The plugins built in are pinned by hash in Kalem's own source
+  (W9), so the mutable index reaches only `kalem plugin install`;
+  checking the signature there is left for after 0.1.)
 - [x] Checked and fine: downloads verified against the SHA-256,
   archive unpacking rejects `..`, absolute paths and links and caps the
   size, the component path and id are validated, removal does not follow
