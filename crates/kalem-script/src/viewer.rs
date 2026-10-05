@@ -1211,6 +1211,71 @@ impl kalem_viewer::ViewerDocument for ComponentDocument {
             .map_err(kv::ViewerError)
     }
 
+    fn pivots(&mut self, unit: usize) -> Vec<kv::PivotInfo> {
+        self.g(|g, s, d| g.call_pivots(s, d, unit as u32))
+            .map(|v| v.conv())
+            .unwrap_or_default()
+    }
+
+    fn set_pivot(
+        &mut self,
+        unit: usize,
+        index: usize,
+        spec: kv::PivotSpec,
+    ) -> kv::Result<Vec<usize>> {
+        let spec: grid::PivotSpec = spec.conv();
+        self.ch(|g, s, d| g.call_set_pivot(s, d, unit as u32, index as u32, &spec))
+    }
+
+    fn insert_pivot_chart(
+        &mut self,
+        unit: usize,
+        index: usize,
+        kind: kv::ChartKind,
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_insert_pivot_chart(s, d, unit as u32, index as u32, kind.conv()))
+    }
+
+    fn slicers(&mut self, unit: usize) -> Vec<kv::Slicer> {
+        self.g(|g, s, d| g.call_slicers(s, d, unit as u32))
+            .map(|v| v.conv())
+            .unwrap_or_default()
+    }
+
+    fn insert_slicer(
+        &mut self,
+        unit: usize,
+        pivot: Option<usize>,
+        table: Option<&str>,
+        field: &str,
+        anchor: [u32; 4],
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| {
+            g.call_insert_slicer(
+                s,
+                d,
+                unit as u32,
+                pivot.map(|p| p as u32),
+                table,
+                field,
+                anchor.conv(),
+            )
+        })
+    }
+
+    fn select_slicer(
+        &mut self,
+        unit: usize,
+        index: usize,
+        selected: &[String],
+    ) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_select_slicer(s, d, unit as u32, index as u32, selected))
+    }
+
+    fn delete_slicer(&mut self, unit: usize, index: usize) -> kv::Result<Vec<usize>> {
+        self.ch(|g, s, d| g.call_delete_slicer(s, d, unit as u32, index as u32))
+    }
+
     fn refresh_pivots(&mut self) -> kv::Result<Vec<usize>> {
         self.ch(|g, s, d| g.call_refresh_pivots(s, d))
     }

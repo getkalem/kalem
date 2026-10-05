@@ -269,7 +269,28 @@ record!(kv::Chart, g::Chart {
     legend, labels, scale, background, border, plot_background, plot_border, gridlines,
     axis_format, horizontal_font, vertical_font, title_font, legend_font,
 });
-record!(kv::PivotSpec, g::PivotSpec { range, rows, cols, values });
+cases!(kv::ShowAs, g::ShowAs {
+    Normal, PercentOfTotal, PercentOfRow, PercentOfColumn, RunningTotal, Difference,
+    PercentDifference,
+});
+cases!(kv::GroupBy, g::GroupBy { Months, Quarters, Years, Days, Step });
+cases!(kv::PivotFilterKind, g::PivotFilterKind {
+    Items, Top, Bottom, TopPercent, BottomPercent, LabelEquals, LabelBegins, LabelContains,
+    LabelNotContains, ValueGreater, ValueLess, ValueEquals,
+});
+cases!(kv::ReportForm, g::ReportForm { Compact, Outline, Tabular });
+record!(kv::PivotValue, g::PivotValue { field, aggregate, show_as, base_field, base_item });
+record!(kv::PivotGroup, g::PivotGroup { field, by, start, end, step });
+record!(kv::CalculatedField, g::CalculatedField { name, formula });
+record!(kv::CalculatedItem, g::CalculatedItem { field, name, formula });
+record!(kv::PivotSort, g::PivotSort { field, descending, by_value });
+record!(kv::PivotFilter, g::PivotFilter { field, kind, value, number, text, hidden });
+record!(kv::PivotSpec, g::PivotSpec {
+    range, rows, cols, values, groups, calculated, calculated_items, sorts, filters, form,
+    subtotals, grand_totals,
+});
+record!(kv::PivotInfo, g::PivotInfo { name, location, fields, spec });
+record!(kv::Slicer, g::Slicer { name, caption, anchor, items });
 record!(kv::Validation, g::CellValidation {
     kind, op, value, value2, allow_blank, dropdown, prompt, error, list,
 });

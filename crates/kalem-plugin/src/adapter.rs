@@ -531,6 +531,32 @@ macro_rules! __kalem_grid_exports {
                 use $crate::adapter::grid::Conv;
                 $crate::adapter::grid::with(d, |x| x.insert_pivot(unit as usize, spec.conv())).map(|u| u as u32).map_err(|e| e.0)
             }
+            fn pivots(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> ::std::vec::Vec<$crate::adapter::grid::g::PivotInfo> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.pivots(unit as usize)).conv()
+            }
+            fn set_pivot(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, spec: $crate::adapter::grid::g::PivotSpec) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.set_pivot(unit as usize, index as usize, spec.conv())))
+            }
+            fn insert_pivot_chart(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, kind: $crate::adapter::grid::g::ChartKind) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.insert_pivot_chart(unit as usize, index as usize, kind.conv())))
+            }
+            fn slicers(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32) -> ::std::vec::Vec<$crate::adapter::grid::g::Slicer> {
+                use $crate::adapter::grid::Conv;
+                $crate::adapter::grid::with(d, |x| x.slicers(unit as usize)).conv()
+            }
+            fn insert_slicer(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, pivot: ::std::option::Option<u32>, table: ::std::option::Option<::std::string::String>, field: ::std::string::String, anchor: (u32, u32, u32, u32)) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                use $crate::adapter::grid::range;
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.insert_slicer(unit as usize, pivot.map(|p| p as usize), table.as_deref(), &field, range(anchor))))
+            }
+            fn select_slicer(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32, selected: ::std::vec::Vec<::std::string::String>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.select_slicer(unit as usize, index as usize, &selected)))
+            }
+            fn delete_slicer(d: $crate::adapter::grid::g::DocumentBorrow<'_>, unit: u32, index: u32) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
+                $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.delete_slicer(unit as usize, index as usize)))
+            }
             fn refresh_pivots(d: $crate::adapter::grid::g::DocumentBorrow<'_>) -> ::std::result::Result<::std::vec::Vec<u32>, ::std::string::String> {
                 $crate::adapter::grid::changed($crate::adapter::grid::with(d, |x| x.refresh_pivots()))
             }

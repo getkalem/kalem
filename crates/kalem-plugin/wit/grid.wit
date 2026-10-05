@@ -385,11 +385,114 @@ interface grid {
         min,
     }
 
+    enum show-as {
+        normal,
+        percent-of-total,
+        percent-of-row,
+        percent-of-column,
+        running-total,
+        difference,
+        percent-difference,
+    }
+
+    record pivot-value {
+        field: u32,
+        aggregate: aggregate,
+        show-as: show-as,
+        base-field: u32,
+        base-item: string,
+    }
+
+    enum group-by {
+        months,
+        quarters,
+        years,
+        days,
+        step,
+    }
+
+    record pivot-group {
+        field: u32,
+        by: group-by,
+        start: option<f64>,
+        end: option<f64>,
+        step: f64,
+    }
+
+    record calculated-field {
+        name: string,
+        formula: string,
+    }
+
+    record calculated-item {
+        field: u32,
+        name: string,
+        formula: string,
+    }
+
+    record pivot-sort {
+        field: u32,
+        descending: bool,
+        by-value: option<u32>,
+    }
+
+    enum pivot-filter-kind {
+        items,
+        top,
+        bottom,
+        top-percent,
+        bottom-percent,
+        label-equals,
+        label-begins,
+        label-contains,
+        label-not-contains,
+        value-greater,
+        value-less,
+        value-equals,
+    }
+
+    record pivot-filter {
+        field: u32,
+        kind: pivot-filter-kind,
+        value: u32,
+        number: f64,
+        text: string,
+        hidden: list<string>,
+    }
+
+    enum report-form {
+        compact,
+        outline,
+        tabular,
+    }
+
     record pivot-spec {
         range: range,
         rows: list<u32>,
         cols: list<u32>,
-        values: list<tuple<u32, aggregate>>,
+        values: list<pivot-value>,
+        groups: list<pivot-group>,
+        calculated: list<calculated-field>,
+        calculated-items: list<calculated-item>,
+        sorts: list<pivot-sort>,
+        filters: list<pivot-filter>,
+        form: report-form,
+        subtotals: bool,
+        grand-totals: bool,
+    }
+
+    record pivot-info {
+        name: string,
+        location: range,
+        fields: list<string>,
+        spec: pivot-spec,
+    }
+
+    record slicer {
+        name: string,
+        caption: string,
+        anchor: range,
+        items: list<tuple<string, bool>>,
     }
 
     enum validation-kind {
@@ -699,6 +802,13 @@ interface grid {
     set-legend-font: func(doc: borrow<document>, unit: u32, index: u32, font: axis-font) -> changed;
     delete-chart: func(doc: borrow<document>, unit: u32, index: u32) -> changed;
     insert-pivot: func(doc: borrow<document>, unit: u32, spec: pivot-spec) -> result<u32, string>;
+    pivots: func(doc: borrow<document>, unit: u32) -> list<pivot-info>;
+    set-pivot: func(doc: borrow<document>, unit: u32, index: u32, spec: pivot-spec) -> changed;
+    insert-pivot-chart: func(doc: borrow<document>, unit: u32, index: u32, kind: chart-kind) -> changed;
+    slicers: func(doc: borrow<document>, unit: u32) -> list<slicer>;
+    insert-slicer: func(doc: borrow<document>, unit: u32, pivot: option<u32>, table: option<string>, field: string, anchor: range) -> changed;
+    select-slicer: func(doc: borrow<document>, unit: u32, index: u32, selected: list<string>) -> changed;
+    delete-slicer: func(doc: borrow<document>, unit: u32, index: u32) -> changed;
     refresh-pivots: func(doc: borrow<document>) -> changed;
     validation: func(doc: borrow<document>, unit: u32, row: u32, col: u32) -> option<cell-validation>;
     change-style: func(doc: borrow<document>, unit: u32, range: range, change: style-change) -> changed;

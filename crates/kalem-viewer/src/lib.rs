@@ -1313,9 +1313,169 @@ pub enum Aggregate {
     Min,
 }
 
-/// A pivot table to insert, as a spreadsheet's PivotTable dialog makes it:
-/// fields are columns of the source range, counted from its first.
+/// How a value field shows its summaries (Show Values As).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ShowAs {
+    /// The summaries themselves.
+    #[default]
+    Normal,
+    /// Each as a percent of the grand total.
+    PercentOfTotal,
+    /// Each as a percent of its row's total.
+    PercentOfRow,
+    /// Each as a percent of its column's total.
+    PercentOfColumn,
+    /// Summed down the base field.
+    RunningTotal,
+    /// The difference from the base item's.
+    Difference,
+    /// The difference from the base item's, as a percent of it.
+    PercentDifference,
+}
+
+/// A pivot table's value field.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PivotValue {
+    /// The field summarized.
+    pub field: u32,
+    /// How.
+    pub aggregate: Aggregate,
+    /// How the summaries show.
+    pub show_as: ShowAs,
+    /// The field a running total runs down or a difference is taken in.
+    pub base_field: u32,
+    /// The item a difference is taken from; empty for the previous one.
+    pub base_item: String,
+}
+
+/// How a field's values are grouped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GroupBy {
+    /// Dates by month (January of every year together).
+    #[default]
+    Months,
+    /// Dates by quarter.
+    Quarters,
+    /// Dates by year.
+    Years,
+    /// Dates by day.
+    Days,
+    /// Numbers in steps.
+    Step,
+}
+
+/// A field's grouping.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PivotGroup {
+    /// The field grouped.
+    pub field: u32,
+    /// How.
+    pub by: GroupBy,
+    /// Numbers: where the steps start and end (`None` the values' own),
+    /// and how wide each is.
+    pub start: Option<f64>,
+    /// Where the steps end.
+    pub end: Option<f64>,
+    /// How wide each step is.
+    pub step: f64,
+}
+
+/// A field computed from the others (`Sales * 0.1`), counted after the
+/// source's fields.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CalculatedField {
+    /// Its name.
+    pub name: String,
+    /// Its formula, of the other fields' names (`= Sales - Cost`).
+    pub formula: String,
+}
+
+/// An item of a field computed from its other items (`East + West`).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CalculatedItem {
+    /// The field it is an item of.
+    pub field: u32,
+    /// Its name.
+    pub name: String,
+    /// Its formula, of the field's items (`= East + West`).
+    pub formula: String,
+}
+
+/// A row or column field's sort.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct PivotSort {
+    /// The field.
+    pub field: u32,
+    /// Largest or last first.
+    pub descending: bool,
+    /// By a value field's summaries (its place among the values), else
+    /// by the items' labels.
+    pub by_value: Option<u32>,
+}
+
+/// What a pivot filter keeps.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PivotFilterKind {
+    /// The items checked (the others hidden).
+    #[default]
+    Items,
+    /// The top so many items by a value.
+    Top,
+    /// The bottom so many.
+    Bottom,
+    /// The top items making up so many percent of the total.
+    TopPercent,
+    /// The bottom ones.
+    BottomPercent,
+    /// Labels equal to the text.
+    LabelEquals,
+    /// Labels beginning with it.
+    LabelBegins,
+    /// Labels containing it.
+    LabelContains,
+    /// Labels not containing it.
+    LabelNotContains,
+    /// Items whose value is greater than the number.
+    ValueGreater,
+    /// Less than it.
+    ValueLess,
+    /// Equal to it.
+    ValueEquals,
+}
+
+/// A filter of a row or column field.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PivotFilter {
+    /// The field.
+    pub field: u32,
+    /// What it keeps.
+    pub kind: PivotFilterKind,
+    /// The value field it looks at (its place among the values).
+    pub value: u32,
+    /// How many, the percent, or the number compared.
+    pub number: f64,
+    /// The text a label is compared with.
+    pub text: String,
+    /// The items hidden (`Items`).
+    pub hidden: Vec<String>,
+}
+
+/// How a pivot table lays out its row fields.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ReportForm {
+    /// The row fields in one column, indented.
+    #[default]
+    Compact,
+    /// Each in a column of its own, the subtotals on the item's row.
+    Outline,
+    /// Each in a column of its own, the subtotals in rows of their own.
+    Tabular,
+}
+
+/// A pivot table, as a spreadsheet's PivotTable dialog and field settings
+/// make it: fields are columns of the source range, counted from its
+/// first, then the calculated fields.
+#[derive(Debug, Clone, PartialEq)]
 pub struct PivotSpec {
     /// The source: first row, first column, last row, last column; its
     /// first row holds the fields' names.
@@ -1324,8 +1484,81 @@ pub struct PivotSpec {
     pub rows: Vec<u32>,
     /// The column fields.
     pub cols: Vec<u32>,
-    /// The value fields and how each is summarized.
-    pub values: Vec<(u32, Aggregate)>,
+    /// The value fields.
+    pub values: Vec<PivotValue>,
+    /// Fields grouped.
+    pub groups: Vec<PivotGroup>,
+    /// Calculated fields.
+    pub calculated: Vec<CalculatedField>,
+    /// Calculated items.
+    pub calculated_items: Vec<CalculatedItem>,
+    /// Sorts of the row and column fields.
+    pub sorts: Vec<PivotSort>,
+    /// Filters of the row and column fields.
+    pub filters: Vec<PivotFilter>,
+    /// Its report layout.
+    pub form: ReportForm,
+    /// Subtotals of the outer row fields shown.
+    pub subtotals: bool,
+    /// Grand totals shown.
+    pub grand_totals: bool,
+}
+
+impl Default for PivotSpec {
+    fn default() -> Self {
+        PivotSpec {
+            range: [0; 4],
+            rows: Vec::new(),
+            cols: Vec::new(),
+            values: Vec::new(),
+            groups: Vec::new(),
+            calculated: Vec::new(),
+            calculated_items: Vec::new(),
+            sorts: Vec::new(),
+            filters: Vec::new(),
+            form: ReportForm::Compact,
+            subtotals: true,
+            grand_totals: true,
+        }
+    }
+}
+
+impl PivotSpec {
+    /// A value field summarizing `field` as `aggregate`.
+    pub fn value(field: u32, aggregate: Aggregate) -> PivotValue {
+        PivotValue {
+            field,
+            aggregate,
+            ..PivotValue::default()
+        }
+    }
+}
+
+/// A pivot table on a sheet.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PivotInfo {
+    /// Its name.
+    pub name: String,
+    /// The cells it covers: first row, first column, last row, last column.
+    pub location: [u32; 4],
+    /// The fields' names, the source's then the calculated ones.
+    pub fields: Vec<String>,
+    /// How it is made.
+    pub spec: PivotSpec,
+}
+
+/// A slicer: a field's items as buttons filtering a pivot table or a
+/// table.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Slicer {
+    /// Its name.
+    pub name: String,
+    /// Its caption (the field's name).
+    pub caption: String,
+    /// The cells it covers.
+    pub anchor: [u32; 4],
+    /// Its items and whether each is selected.
+    pub items: Vec<(String, bool)>,
 }
 
 /// What a cell's data validation allows.
@@ -2651,6 +2884,65 @@ pub trait ViewerDocument: Send {
     /// Inserts a pivot table of a range of `unit` on a new unit; the new
     /// unit's index.
     fn insert_pivot(&mut self, _unit: usize, _spec: PivotSpec) -> Result<usize> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The pivot tables of a unit.
+    fn pivots(&mut self, _unit: usize) -> Vec<PivotInfo> {
+        Vec::new()
+    }
+
+    /// Makes pivot table `index` of [`ViewerDocument::pivots`] as `spec`
+    /// says (its source kept), computed again.
+    fn set_pivot(&mut self, _unit: usize, _index: usize, _spec: PivotSpec) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// A PivotChart of pivot table `index` of [`ViewerDocument::pivots`],
+    /// of `kind`, beside it.
+    fn insert_pivot_chart(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _kind: ChartKind,
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The slicers of a unit.
+    fn slicers(&mut self, _unit: usize) -> Vec<Slicer> {
+        Vec::new()
+    }
+
+    /// A slicer of `field` (by name) for pivot table `pivot` of
+    /// [`ViewerDocument::pivots`], or for the table named `table`, over
+    /// the cells of `anchor`.
+    fn insert_slicer(
+        &mut self,
+        _unit: usize,
+        _pivot: Option<usize>,
+        _table: Option<&str>,
+        _field: &str,
+        _anchor: [u32; 4],
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Slicer `index` of [`ViewerDocument::slicers`] with only `selected`
+    /// selected (every item when empty), its pivot table or table
+    /// filtered so.
+    fn select_slicer(
+        &mut self,
+        _unit: usize,
+        _index: usize,
+        _selected: &[String],
+    ) -> Result<Vec<usize>> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Removes slicer `index` of [`ViewerDocument::slicers`], its filter
+    /// taken away.
+    fn delete_slicer(&mut self, _unit: usize, _index: usize) -> Result<Vec<usize>> {
         Err(ViewerError("This format is not edited".into()))
     }
 
