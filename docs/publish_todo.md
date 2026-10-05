@@ -985,13 +985,19 @@ Wrong or stale text a first reader meets. Each is a text change.
   names `editor.restore_session`; `--engine` names `tectonic`; the help
   ends with the three variables.)
 - [ ] **The Book**
-  - `book/part-4/overview.org:3-7, 19-20`, `book/part-4/plugins.org:1-12`
+  - [x] `book/part-4/overview.org:3-7, 19-20`, `book/part-4/plugins.org:1-12`
     and `book/appendices/glossary.org:15` say the plugin runtime "is not
     built yet", "everything in this chapter is planned", getkalem/plugins
     is a "skeleton only". The runtime ships, `kalem plugin install`
     works, the repository holds four plugins. `plugins.org:20` ("a
     plugin that fails repeatedly is disabled") is not implemented for
     viewers.
+    (done 2026-10-06: the chapter opens with what runs (viewers,
+    extension plugins, `kalem plugin`) and what is planned, names the
+    three worlds and their interfaces, a viewer's limits and its being
+    turned off after three stops, the repository's plugins and tags,
+    and `kalem plugin dev`'s reload; the overview's table and the
+    glossary say the same.)
   - `book/part-5/decisions.org`: D31–D53 still read "*Decided* … RFC 0003",
     D52 "Typst embedded as the default", D53 "Part III is the home of the
     Kalem format"; D21, D24, D59 mention the format. Mark them withdrawn

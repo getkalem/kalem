@@ -1,15 +1,13 @@
-*Everything in this chapter is planned*, except language plugins,
-which are declarative and load today ([[file:language-plugins.org][Language plugins]]). The host
-that runs components exists (below) but Kalem does not load plugins
-through it yet: the API it will grant, the loader and the commands are
-to come. The design is decided
-(D25, D28, D29) and written out in section 11 of
-[[https://github.com/getkalem/kalem/blob/main/docs/design_document.md][the design document]]: the manifest, the API, the events, the
-extension points and an example plugin. The work is groups 3.1 to 3.3
-of =docs/todo.md=; the WIT definition (T3.1.3) is the one that will
-count, and names may still change. This chapter says what the model
-is, so that plugin authors and contributors can see where Kalem is
-going. What you can extend today is in [[file:overview.org][The extension model]].
+Plugins are WebAssembly components, and language plugins, which are
+declarative ([[file:language-plugins.org][Language plugins]]). Two kinds of component run today:
+viewers of files that are not text, Kalem's own viewers of pictures,
+PDF files and workbooks among them, and extension plugins, which add
+commands, keys, event handlers, edits of the document, settings and
+panels. =kalem plugin= finds, installs, builds and develops them. The
+design is decided (D25, D28, D29) and written out in section 11 of
+[[https://github.com/getkalem/kalem/blob/main/docs/design_document.md][the design document]]; what it names beyond these (modes, completers,
+block renderers, link types, export back-ends as plugins) is planned,
+each listed with its task in =crates/kalem-plugin/coverage.toml=.
 
 * The model
 
@@ -17,13 +15,13 @@ going. What you can extend today is in [[file:overview.org][The extension model]
   =kalem-plugin= crate, which is generated from the API's definition in
   WIT. It sees only what the API grants: no file system, network, clock
   or threads of its own; its own memory, 64 MB by default; a time
-  budget, 100 ms for a synchronous call. A plugin error never crashes
-  Kalem, and a plugin that fails repeatedly is disabled.
-- *One contract.* The trait a plugin implements is the one Kalem's own
-  modes and completers implement, so one crate builds two ways: as a
-  sandboxed component a user installs, or as a bundled plugin compiled
-  into the binary. Kalem ships no runtime for other languages and no
-  scripting engine.
+  budget, 100 ms for a synchronous call (a viewer's are 1 GB and 10 s,
+  below). A plugin error never crashes Kalem, and a viewer that stops
+  three times is turned off until it is updated.
+- *One contract.* The trait a viewer implements is the one Kalem's own
+  viewers implement, so a plugin's unit tests run natively in its crate
+  while Kalem runs it as a component, its own viewers included. Kalem
+  ships no runtime for other languages and no scripting engine.
 - *Permissions* are declared in the manifest, approved when the plugin
   is installed and recorded in =plugins.toml=: =fs:read:workspace=,
   =fs:write:workspace=, =fs:read:all=, =net:fetch:DOMAIN=, and
@@ -38,22 +36,28 @@ going. What you can extend today is in [[file:overview.org][The extension model]
 The API is defined in WIT, in =crates/kalem-plugin/wit/= (D6): the one
 source both sides are generated from. A plugin builds against the
 =kalem-plugin= crate (wit-bindgen); Kalem's host generates its side from
-the same files (wasmtime). Today the definition holds one world:
+the same files (wasmtime). It holds three worlds:
 
 - =document-viewer= (§11.13): a plugin opening files that are not text.
-  It exports =describe=, =detect= and =open=, and a =document= resource
-  with the viewers' contract (design §11.13): =structure=, =size=,
-  =render= (a bitmap the host paints), =text=, =text-rects=, =text-at=,
-  =info=, =search=, =links=, and the editor half (=edits=, =apply=,
-  =modified=, =save=). It imports =files= only: the =file= resource of
-  the one file the host opened for it, with its name, its size and the
-  bytes the plugin asks for, never a path.
+  It exports =viewer=: =describe=, =detect= and =open=, and a =document=
+  resource with the viewers' contract: =structure=, =size=, =render= (a
+  bitmap the host paints), =text=, =text-rects=, =text-at=, =info=,
+  =search=, =links=, and the editor half (=edits=, =apply=, =modified=,
+  =save=); and =password=, for a file that needs one. It imports
+  =files=, the =file= resource of the one file the host opened for it,
+  with its name, its size and the bytes the plugin asks for, never a
+  path; =clock=; and =diagnostics=.
+- =spreadsheet-viewer=: the same, and the =grid= interface of sheets of
+  cells (below).
+- =extension=: a plugin that adds to the editor rather than opening
+  files. It imports =kalem=, =editor=, =ui=, =settings=, =diagnostics=,
+  and =fs= and =net= when its permissions grant them, and exports
+  =plugin= (below).
 
 =crates/kalem-plugin/coverage.toml= lists every extension point of the
 design (§11.10 to §11.13) with the WIT interface that defines it or the
 open task that will; a test keeps it in step with the design document
-and the task list. The grid of spreadsheets and databases, commands,
-panels, modes, completers and the rest are planned there.
+and the task list.
 
 * The host
 
@@ -115,23 +119,25 @@ as they exist today are in [[file:completers-and-modes.org][Completers, modes an
 
 * Inspection and the repository
 
-Kalem has no REPL. What remains of a live runtime is an inspection
-panel (the loaded plugins with their permissions, budgets and errors,
-the command registry, timings), hot reloading of a plugin whose file
-changed, and a local debug socket, off by default (group 3.2).
+Kalem has no REPL. Of a live runtime it has one part: a component
+viewer whose file changed is read again for the documents opened from
+then on, which =kalem plugin dev= uses. An inspection panel (the loaded
+plugins with their permissions, budgets and errors, the command
+registry, timings) and a local debug socket, off by default, are
+planned (group 3.2).
 
 Plugins beyond the core live in =getkalem/plugins=: one Cargo
-workspace with a crate per plugin, a template that =kalem plugin new=
-copies, and an index Kalem reads as a static file. Its skeleton exists
-(T3.3.7). Components are never committed: CI builds every plugin
-against the current WIT, and a tag builds, signs and publishes each
-=.wasm=. =kalem plugin install=, =list= and =remove= work for
-declarative plugins and components alike: a component released in the
-index is downloaded, its SHA-256 checked against the index, and its
-manifest read from its folder at the release's tag
-(=pdf-viewer-v0.1.0=), which must name the same plugin and version; one
-not released yet is built from its source and installed from its
-folder. Two commands start and build a component:
+workspace with a crate per plugin (the viewers of pictures, PDF files
+and workbooks, and the Elixir language plugin today), a template that
+=kalem plugin new= copies, and an index Kalem reads as a static file.
+Components are never committed: CI builds every plugin against the
+current WIT, and a tag (=pdf-viewer-v0.0.2=) builds, signs and
+publishes its =.wasm=. =kalem plugin install=, =list= and =remove= work
+for declarative plugins and components alike: a component released in
+the index is downloaded, its SHA-256 checked against the index, and its
+manifest read from its folder at the release's tag, which must name the
+same plugin and version; one not released yet is built from its source
+and installed from its folder. Two commands start and build a component:
 
 - =kalem plugin new NAME= starts a plugin. Inside a checkout of
   =getkalem/plugins= it copies =template/= to =plugins/NAME= and renames

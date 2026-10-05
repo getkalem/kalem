@@ -2,23 +2,25 @@ Kalem can be changed in two ways. The first is data: settings, key
 bindings and themes, in files that Kalem reads, checks and reports on;
 that way is available today. The second is code: plugins, which add
 modes, completers, block types, link types, views and export formats;
-that way is designed and decided (D25, D28, D29), but its runtime is
-not built yet. It is phase 3 of the roadmap, and every planned item
-below is named by its task in =docs/todo.md=.
+that way is designed and decided (D25, D28, D29), and its runtime runs
+viewers and extension plugins today. Every planned item below is named
+by its task in =docs/todo.md=.
 
-| What                                         | Status    | Where                              |
-|----------------------------------------------+-----------+------------------------------------|
-| Settings (=settings.toml=, workspace layers) | Available | [[file:../part-1/settings.org][Settings]]                           |
-| Key bindings (=keymap.json=, two profiles)   | Available | [[file:commands-and-keys.org][Commands, scopes and keys]]          |
-| Command registry, scopes and when-clauses    | Available | [[file:commands-and-keys.org][Commands, scopes and keys]]          |
-| Themes (=themes/light.toml=, =dark.toml=)    | Available | this chapter, below                |
-| Completer contract (in Rust, inside Kalem)   | Available | [[file:completers-and-modes.org][Completers, modes and highlighters]] |
-| Highlighting of code (syntect, built in)     | Available | [[file:completers-and-modes.org][Completers, modes and highlighters]] |
-| Command line for scripts and CI              | Available | [[file:../part-1/the-command-line.org][The command line]]                   |
-| Document mode contract (=ModeSpec=)          | Available | [[file:completers-and-modes.org][Completers, modes and highlighters]] |
-| Plugins as WASM components on a WIT API      | Planned   | T3.1.0 to T3.1.17, [[file:plugins.org][Plugins]]         |
-| Plugin repository =getkalem/plugins=         | Started   | T3.3.7 (skeleton only), [[file:plugins.org][Plugins]]    |
-| Inspection panel, hot reload, debug socket   | Planned   | T3.2.1 to T3.2.5                   |
+| What                                         | Status    | Where                               |
+|----------------------------------------------+-----------+-------------------------------------|
+| Settings (=settings.toml=, workspace layers) | Available | [[file:../part-1/settings.org][Settings]]                            |
+| Key bindings (=keymap.json=, two profiles)   | Available | [[file:commands-and-keys.org][Commands, scopes and keys]]           |
+| Command registry, scopes and when-clauses    | Available | [[file:commands-and-keys.org][Commands, scopes and keys]]           |
+| Themes (=themes/light.toml=, =dark.toml=)    | Available | this chapter, below                 |
+| Completer contract (in Rust, inside Kalem)   | Available | [[file:completers-and-modes.org][Completers, modes and highlighters]]  |
+| Highlighting of code (syntect, built in)     | Available | [[file:completers-and-modes.org][Completers, modes and highlighters]]  |
+| Command line for scripts and CI              | Available | [[file:../part-1/the-command-line.org][The command line]]                    |
+| Document mode contract (=ModeSpec=)          | Available | [[file:completers-and-modes.org][Completers, modes and highlighters]]  |
+| Viewer plugins (WASM components, WIT API)    | Available | [[file:plugins.org][Plugins]]                             |
+| Extension plugins: commands, events, panels  | Available | [[file:plugins.org][Plugins]]                             |
+| Plugin repository =getkalem/plugins=, index  | Available | [[file:plugins.org][Plugins]]                             |
+| Modes, completers, renderers as plugins      | Planned   | =crates/kalem-plugin/coverage.toml= |
+| Inspection panel, debug socket               | Planned   | T3.2.1 to T3.2.5                    |
 
 "Available" means it works in the current version, in both editors,
 and this Book describes it from the code. "Planned" means the design
