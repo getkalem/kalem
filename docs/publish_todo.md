@@ -1017,6 +1017,9 @@ Wrong or stale text a first reader meets. Each is a text change.
     Markdown files; `book/part-1/the-command-line.org` omits `export`,
     `import`, `view`, `plugin`, `lsp`, `book`, `table` and lists the dev
     tools instead; lines 3 and 10 still say "Kalem" files.
+    (the command line done 2026-10-06: every command users run, the
+    development tools named as such, no "Kalem" files. Open: the
+    viewers' and Markdown's Part I chapters.)
   - `book/part-2/markdown.org:30-46`: the oracle section says 632 of 648
     CommonMark examples and "sixteen" differences; the test runs
     CommonMark 0.31.2 (652 examples, all must pass with core options,
