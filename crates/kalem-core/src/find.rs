@@ -86,24 +86,38 @@ pub fn find_all(text: &str, query: &str) -> Vec<Range<usize>> {
     }
     // Fold each character to the first character of its lower case, as
     // Emacs's case table does (`İ` and `I` fold to `i`), so byte offsets
-    // stay those of `text`.
-    let fold = |c: char| c.to_lowercase().next().unwrap_or(c);
-    let q: Vec<char> = query.chars().map(fold).collect();
-    let chars: Vec<(usize, char)> = text.char_indices().collect();
-    let mut out = Vec::new();
-    let mut i = 0;
-    while i + q.len() <= chars.len() {
-        if chars[i..i + q.len()]
-            .iter()
-            .zip(&q)
-            .all(|((_, c), q)| fold(*c) == *q)
-        {
-            let end = chars.get(i + q.len()).map_or(text.len(), |c| c.0);
-            out.push(chars[i].0..end);
-            i += q.len();
+    // stay those of `text`. Character by character, with nothing the size
+    // of the text allocated: Find runs at every keystroke of the query
+    // (publish_todo 3.6).
+    let fold = |c: char| {
+        if c.is_ascii() {
+            c.to_ascii_lowercase()
         } else {
-            i += 1;
+            c.to_lowercase().next().unwrap_or(c)
         }
+    };
+    let q: Vec<char> = query.chars().map(fold).collect();
+    let mut out = Vec::new();
+    let mut pos = 0;
+    while let Some(c) = text[pos..].chars().next() {
+        if fold(c) == q[0] {
+            // The query from here, or not.
+            let mut end = pos;
+            let mut rest = text[pos..].chars();
+            let whole = q.iter().all(|want| match rest.next() {
+                Some(c) if fold(c) == *want => {
+                    end += c.len_utf8();
+                    true
+                }
+                _ => false,
+            });
+            if whole {
+                out.push(pos..end);
+                pos = end;
+                continue;
+            }
+        }
+        pos += c.len_utf8();
     }
     out
 }
@@ -208,6 +222,9 @@ mod tests {
         // Turkish capitals fold to `i`; offsets are the text's.
         assert_eq!(find_all("İstanbul ı", "istanbul"), [0..9]);
         assert_eq!(find_all("Straße STRASSE", "straße"), [0..7]);
+        // Byte offsets of the text, a match never overlapping another.
+        assert_eq!(find_all("ŞİŞE şişe", "şişe"), [0..7, 8..14]);
+        assert_eq!(find_all("aAaA", "aa"), [0..2, 2..4]);
         let m = find_all(t, "foo");
         assert_eq!(next(&m, 5, false), Some(8..11));
         assert_eq!(next(&m, 13, false), Some(0..3));

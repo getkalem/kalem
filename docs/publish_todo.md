@@ -693,12 +693,15 @@ documents, `kalem check`'s round trip and diagnostics, a missing
 
 ### 3.6 Plain text and code
 
-- [ ] **Major, reported.** Case-insensitive Find allocates a
+- [x] **Major, reported.** Case-insensitive Find allocates a
   `Vec<(usize, char)>` of the whole text on every query keystroke and
   after every edit while the bar is open (`find.rs:90-107`,
   `panels.rs:841`, `kalem-ui/src/editor.rs:1036`, `kalem-tui/src/app.rs:3212`):
   about 800 MB per keystroke in a 50 MB file. Use a case-folded search
   without the vector (or `regex` with `(?i)`).
+  (done 2026-10-05: `find_all` folds character by character as it walks
+  the text, ASCII without a table, and allocates only the matches; the
+  folding and the offsets are as before (`finding`).)
 - [ ] **Minor, reported.** Save As does not re-detect the mode
   (`document.rs:616-620`): Ctrl+N, type Python, Save As `x.py` stays Org
   until reopened.
