@@ -426,7 +426,7 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   `ox-md` indents each level's contents again. Tests
   `many_links_in_a_paragraph_export_in_linear_time`,
   `a_list_nested_deep_exports`, `find_descendant_walks_as_descendants`.)
-- [ ] **Doc.** `book/part-2/org.org:901-902` says "the interim Kalem
+- [x] **Doc.** `book/part-2/org.org:901-902` says "the interim Kalem
   formatting is written by the HTML and LaTeX back-ends" while 118-122
   says exports drop it as Emacs does (the code drops it everywhere).
   The missing default author (Emacs uses `user-full-name` for
@@ -435,6 +435,10 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   `emacs -Q`" claim at `org.org:32-36`. `org.org:635` lists
   `org-change-tag-in-region` as reproduced; `org_edit::tags::change_tag_in_region`
   exists but no command calls it.
+  (done 2026-10-06: the export paragraph says the additions are
+  dropped and that no author is written without `#+AUTHOR:`; the
+  known differences have the default author; the table says
+  `org-change-tag-in-region` is in `org-edit` with no command yet.)
 
 ### 3.2 Markdown
 

@@ -205,6 +205,12 @@ Kalem follows them for compatibility:
 - With =tex:svg= (and the image types =dvisvgm=, =dvipng= and
   =imagemagick=), formulas are drawn by the editor's math engine as inline
   SVG; Emacs runs LaTeX and writes image files.
+- With no =#+AUTHOR:=, Emacs takes the author from =user-full-name=
+  (the account's full name) for the title block, =\author=, =pdfauthor=
+  and the HTML page's =author= meta element; Kalem writes none, so an
+  export does not carry the name of the account it was made on. Give
+  =#+AUTHOR:= in the document, or in a =#+SETUPFILE:= shared by a
+  project.
 
 * Broken links on export
 
