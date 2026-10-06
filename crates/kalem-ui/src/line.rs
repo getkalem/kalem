@@ -54,6 +54,9 @@ struct Prepared {
     /// Grid lines of a table row: column edges, whether it is a rule, and
     /// whether a rule is drawn under it.
     grid: Option<(Vec<Pixels>, bool, bool)>,
+    /// A table row's columns, narrowed when the table is wider than the
+    /// text.
+    columns: Option<Rc<Columns>>,
     /// A bar in the margin (quotes).
     bar: bool,
     /// A horizontal rule across the line.
@@ -109,6 +112,8 @@ fn grid(editor: &Editor, start: usize, fs: Pixels, window: &mut Window) -> Optio
     }
     let view = if editor.doc.latex().is_some() {
         kalem_core::latex_table::table_view(&editor.doc, start)?
+    } else if editor.doc.meta.mode == kalem_core::DocumentMode::Markdown {
+        kalem_core::markdown::table_view(&editor.doc, start)?
     } else {
         let (p, current) = editor.doc.parse()?;
         if !current {
@@ -176,19 +181,35 @@ fn prepare_grid(
     window: &mut Window,
 ) -> Option<Prepared> {
     use kalem_core::view::{PLACEHOLDER, Run, TableRow};
+    if editor.source {
+        return None;
+    }
     let text = editor.doc.text();
     let range = text.line_range(line);
     let ls = range.start;
-    let block = editor.block_at(ls)?;
-    if block.kind != BlockKind::Table || editor.source {
-        return None;
-    }
     let c = editor.doc.selection.head;
-    if block.range.start <= c && c <= block.content_end {
-        return None;
-    }
+    // The table's start; with the cursor in it, its source shows.
+    let start = if editor.doc.meta.mode == kalem_core::DocumentMode::Markdown {
+        if kalem_core::view::source_markers() == kalem_core::view::Markers::Always {
+            return None;
+        }
+        let t = kalem_core::markdown::table_range(&editor.doc, ls)?;
+        if t.start <= c && c <= t.end {
+            return None;
+        }
+        t.start
+    } else {
+        let block = editor.block_at(ls)?;
+        if block.kind != BlockKind::Table {
+            return None;
+        }
+        if block.range.start <= c && c <= block.content_end {
+            return None;
+        }
+        block.range.start
+    };
     let fs = base;
-    let g = grid(editor, block.range.start, fs, window)?;
+    let g = grid(editor, start, fs, window)?;
     let ri = g.view.rows.iter().position(|r| r.line().start == ls)?;
     let theme = editor.theme.clone();
     let mut runs: Vec<Run> = Vec::new();
@@ -207,6 +228,8 @@ fn prepare_grid(
         ascent: px(0.),
     };
     let total: Pixels = g.widths.iter().fold(px(0.), |a, w| a + *w + g.pad * 2.);
+    // The pieces that are cells, with the columns each covers.
+    let mut cell_pieces = Vec::new();
     match &g.view.rows[ri] {
         TableRow::Rule { line } => {
             runs.push(gap_run(line.clone()));
@@ -235,31 +258,38 @@ fn prepare_grid(
                     }
                     None => (String::new(), Vec::new(), line.end..line.end),
                 };
-                let cw = if text_.is_empty() {
-                    px(0.)
-                } else {
-                    window
-                        .text_system()
-                        .shape_line(crate::one_line(&text_), fs, &truns, None)
-                        .width
-                };
-                let free = *w - cw;
-                let (left, right) = match align {
-                    'r' => (free, px(0.)),
-                    'c' => (free / 2., free / 2.),
-                    _ => (px(0.), free),
-                };
                 // The bar and padding before the cell.
                 runs.push(gap_run(at..cell_src.start.max(at)));
-                pieces.push(gap(g.pad + left));
+                pieces.push(gap(g.pad));
+                // The cell: a block of the column's width, in which its
+                // text wraps when the columns are narrowed to fit; spacers
+                // align it.
+                let spacer = || Piece::Spacer {
+                    len: 0,
+                    min: px(0.),
+                };
+                let mut inner = Vec::new();
+                if matches!(align, 'r' | 'c') {
+                    inner.push(spacer());
+                }
                 if let Some(cell) = cells.get(i) {
                     runs.extend(cell.runs.iter().cloned());
-                    pieces.push(Piece::Text {
-                        text: text_,
-                        runs: truns,
-                    });
+                    if !text_.is_empty() {
+                        inner.push(Piece::Text {
+                            text: text_,
+                            runs: truns,
+                        });
+                    }
                     at = cell.range.end;
                 }
+                if align == 'c' {
+                    inner.push(spacer());
+                }
+                cell_pieces.push((pieces.len(), i, n));
+                pieces.push(Piece::Block {
+                    pieces: inner,
+                    width: *w,
+                });
                 // The empty cells a span covers.
                 if let Some(last) = cells.get(i + n - 1).filter(|_| n > 1) {
                     at = at.max(last.range.end);
@@ -267,7 +297,7 @@ fn prepare_grid(
                 i += n;
                 // The padding after it.
                 runs.push(gap_run(at..at));
-                pieces.push(gap(right + g.pad));
+                pieces.push(gap(g.pad));
                 x += *w + g.pad * 2.;
                 edges.push(x);
             }
@@ -291,12 +321,86 @@ fn prepare_grid(
         fold: None,
         background: None,
         grid: Some((edges, rule, under)),
+        columns: Some(Rc::new(Columns {
+            natural: g.widths.clone(),
+            pad: g.pad,
+            cells: cell_pieces,
+        })),
         bar: false,
         rule: false,
         nowrap: false,
         spacing: 1.,
         fit: Vec::new(),
     })
+}
+
+/// A table row's columns, fitted to the width there is when the row is
+/// laid out.
+struct Columns {
+    /// The columns' widths as their widest cells ask.
+    natural: Vec<Pixels>,
+    /// The room on either side of a cell.
+    pad: Pixels,
+    /// The pieces that are cells: their index, their first column and
+    /// the columns they cover.
+    cells: Vec<(usize, usize, usize)>,
+}
+
+impl Columns {
+    /// The row's pieces and column edges when the table is wider than
+    /// `available`: the narrow columns keep their widths, the others
+    /// share the rest (no narrower than four ems), their cells wrapping
+    /// inside them, as a browser lays out a table. `None` when it fits.
+    /// Every row of a table computes the same widths.
+    fn fit(
+        &self,
+        pieces: &[Piece],
+        rule: bool,
+        available: Pixels,
+        font_size: Pixels,
+    ) -> Option<(Vec<Piece>, Vec<Pixels>)> {
+        let n = self.natural.len();
+        let sum = |w: &[Pixels]| w.iter().fold(px(0.), |a, w| a + *w);
+        let room = available - self.pad * 2. * n as f32 - px(2.);
+        if n == 0 || sum(&self.natural) <= room {
+            return None;
+        }
+        let mut order: Vec<usize> = (0..n).collect();
+        order.sort_by(|a, b| {
+            self.natural[*a]
+                .partial_cmp(&self.natural[*b])
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        let mut widths = self.natural.clone();
+        let (mut left, mut count) = (room, n);
+        for i in order {
+            let share = left / count as f32;
+            widths[i] = self.natural[i].min(share.max(font_size * 4.));
+            left -= widths[i];
+            count -= 1;
+        }
+        let mut out = pieces.to_vec();
+        let mut edges = vec![px(0.)];
+        if rule {
+            let total = sum(&widths) + self.pad * 2. * n as f32;
+            if let Some(Piece::Widget { size, .. }) = out.first_mut() {
+                size.width = total;
+            }
+            edges.push(total);
+        } else {
+            let mut x = px(0.);
+            for &(at, first, covered) in &self.cells {
+                let last = (first + covered).min(n);
+                let w = sum(&widths[first..last]) + self.pad * 2. * (covered - 1) as f32;
+                if let Some(Piece::Block { width, .. }) = out.get_mut(at) {
+                    *width = w;
+                }
+                x += w + self.pad * 2.;
+                edges.push(x);
+            }
+        }
+        Some((out, edges))
+    }
 }
 
 /// A run standing for `src` that shows as `text` (not the source).
@@ -353,6 +457,7 @@ fn prepare_decoration(
         fold: None,
         background: None,
         grid: None,
+        columns: None,
         bar: false,
         rule,
         nowrap: false,
@@ -447,6 +552,7 @@ fn prepare_decoration(
         fold: None,
         background,
         grid: None,
+        columns: None,
         bar: false,
         rule: false,
         nowrap: false,
@@ -819,6 +925,7 @@ fn prepare_math_block(
         fold: None,
         background: None,
         grid: None,
+        columns: None,
         bar: false,
         rule: false,
         nowrap: false,
@@ -896,6 +1003,7 @@ fn prepare_toc(
         fold: None,
         background: None,
         grid: None,
+        columns: None,
         bar: false,
         rule: false,
         nowrap: false,
@@ -1284,6 +1392,7 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
         fold: heading_fold.map(|(f, s, _)| (f, s)),
         background,
         grid: None,
+        columns: None,
         bar: quote,
         rule: false,
         // A spreadsheet's rows do not wrap: they scroll sideways.
@@ -1350,7 +1459,14 @@ pub struct LineElement {
     pub other: bool,
 }
 
-type Shaped = (Rc<InlineLayout>, Rc<Prepared>, Pixels);
+/// A line laid out: its layout, what it was made from, its line height,
+/// and a table row's column edges when the columns were narrowed to fit.
+type Shaped = (
+    Rc<InlineLayout>,
+    Rc<Prepared>,
+    Pixels,
+    Option<Rc<Vec<Pixels>>>,
+);
 
 /// The layout of a line element.
 pub struct LineState {
@@ -1413,7 +1529,7 @@ impl gpui::Element for LineElement {
                 // Without wrapping, one row as long as the line, in the
                 // width there is.
                 let wrap = available.filter(|_| !prepared.nowrap);
-                if let Some((layout, _, line_height)) = slot.borrow().as_ref()
+                if let Some((layout, _, line_height, _)) = slot.borrow().as_ref()
                     && (prepared.nowrap || wrap.is_none_or(|w| layout.width == w))
                 {
                     return Size {
@@ -1424,10 +1540,25 @@ impl gpui::Element for LineElement {
                     };
                 }
                 let line_height = prepared.font_size * 1.45 * prepared.spacing;
+                // A table wider than the text: its columns narrowed, the
+                // cells wrapping in them.
+                let narrowed = wrap.and_then(|w| {
+                    let rule = prepared.grid.as_ref().is_some_and(|g| g.1);
+                    prepared
+                        .columns
+                        .as_ref()?
+                        .fit(&prepared.pieces, rule, w, prepared.font_size)
+                });
+                let (base_pieces, edges) = match narrowed {
+                    Some((pieces, edges)) => {
+                        (std::borrow::Cow::Owned(pieces), Some(Rc::new(edges)))
+                    }
+                    None => (std::borrow::Cow::Borrowed(&prepared.pieces), None),
+                };
                 // Pictures no wider than the text, or the share of it
                 // they ask for.
                 let fitted = wrap.filter(|_| !prepared.fit.is_empty()).map(|w| {
-                    let mut pieces = prepared.pieces.clone();
+                    let mut pieces = base_pieces.to_vec();
                     for &(i, share) in &prepared.fit {
                         if let Some(Piece::Widget { size, ascent, .. }) = pieces.get_mut(i) {
                             let want = share.map_or(size.width, |p| w * (p as f32 / 100.));
@@ -1442,7 +1573,7 @@ impl gpui::Element for LineElement {
                     pieces
                 });
                 let mut layout = InlineLayout::new(
-                    fitted.as_deref().unwrap_or(&prepared.pieces),
+                    fitted.as_deref().unwrap_or(&base_pieces),
                     prepared.font_size,
                     line_height,
                     wrap,
@@ -1460,7 +1591,7 @@ impl gpui::Element for LineElement {
                         .unwrap_or(layout.width),
                     height: layout.height.max(line_height),
                 };
-                *slot.borrow_mut() = Some((Rc::new(layout), prepared.clone(), line_height));
+                *slot.borrow_mut() = Some((Rc::new(layout), prepared.clone(), line_height, edges));
                 sz
             });
         (layout_id, LineState { shaped })
@@ -1487,7 +1618,7 @@ impl gpui::Element for LineElement {
         window: &mut Window,
         cx: &mut App,
     ) {
-        let Some((layout, p, line_height)) = state.shaped.borrow().clone() else {
+        let Some((layout, p, line_height, narrowed)) = state.shaped.borrow().clone() else {
             return;
         };
         let editor = self.editor.read(cx);
@@ -1598,6 +1729,7 @@ impl gpui::Element for LineElement {
         }
         // Table grid lines.
         if let Some((edges, rule, under)) = &p.grid {
+            let edges = narrowed.as_deref().unwrap_or(edges);
             let top = bounds.origin.y;
             let h = bounds.size.height;
             for x in edges {

@@ -59,8 +59,10 @@ typing keeps the columns aligned. Tab and Shift+Tab move between
 fields, Enter goes to the next row. Alt with Up and Down moves rows,
 with Left and Right columns; Alt+Shift+Down inserts a row, Alt+Shift+Up
 deletes one, Alt+Shift+Right inserts a column, Alt+Shift+Left deletes
-one. Away from the cursor a table is drawn as a grid, and cells pasted
-from a spreadsheet become a table. In the palette: /Align Table/,
+one. Away from the cursor a table is drawn as a grid (a table wider
+than the window has its widest columns narrowed, their cells' text
+wrapped inside them), and cells pasted from a spreadsheet become a
+table. In the palette: /Align Table/,
 /Insert Horizontal Rule/ (=|---+---|= below the row), /Sort Rows/ (by
 the cursor's column: =a= alphabetically, =n= by number, =t= by time, a
 capital letter in reverse), /Export Table…/ (CSV when the name ends

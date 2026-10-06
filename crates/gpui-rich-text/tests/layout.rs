@@ -174,3 +174,56 @@ fn justified_rows(cx: &mut TestAppContext) {
     assert!(end_x - start_x < wrap, "{start_x:?} {end_x:?}");
     let _ = size(px(1.), px(1.));
 }
+
+#[gpui::test]
+fn blocks_wrap_inside_their_width(cx: &mut TestAppContext) {
+    // A table row: a gap, a narrow cell whose text wraps, a gap, a cell
+    // of one word.
+    let gap = |w: f32| Piece::Widget {
+        len: 3,
+        size: size(px(w), px(0.)),
+        ascent: px(0.),
+    };
+    let long = "one two three four five six";
+    let pieces = vec![
+        gap(4.),
+        Piece::Block {
+            pieces: vec![text(long)],
+            width: px(80.),
+        },
+        gap(8.),
+        Piece::Block {
+            pieces: vec![text("x")],
+            width: px(40.),
+        },
+        gap(4.),
+    ];
+    let l = layout(cx, pieces, Some(px(400.)), None);
+    // One row of the line, as high as the wrapped cell.
+    assert_eq!(l.rows.len(), 1);
+    let single = layout(cx, vec![text("x")], Some(px(400.)), None).height;
+    assert!(l.height > single * 2., "{} {}", l.height, single);
+    // The first cell's offsets are inside its box, its later words
+    // lower down; the second cell is right of the box, on the first row.
+    let start = 3;
+    let first = l.caret(start);
+    let last = l.caret(start + long.len());
+    assert!(
+        first.origin.x >= px(4.) && last.origin.x < px(84.),
+        "{first:?} {last:?}"
+    );
+    assert!(last.origin.y > first.origin.y);
+    let x = start + long.len() + 3;
+    let c = l.caret(x);
+    assert!(
+        c.origin.x >= px(92.) && c.origin.y == first.origin.y,
+        "{c:?}"
+    );
+    // A position maps back into the cell under it.
+    let i = l.index_for_position(last.origin + gpui::point(px(-0.5), px(2.)));
+    assert!(i > start && i <= start + long.len(), "{i}");
+    // A selection across the wrapped cell has a rectangle on each of its
+    // rows.
+    let r = l.range_rects(start, start + long.len());
+    assert!(r.len() >= 3, "{r:?}");
+}

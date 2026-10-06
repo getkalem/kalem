@@ -369,7 +369,20 @@ fn compare(
                     && tw[..tw.len() - 1] == g[l][..tw.len() - 1]
                     && g[l][tw.len() - 1].starts_with(tw[tw.len() - 1].as_str())
             }) && TRUNCATED.with(|c| c.borrow().contains(l));
-            if g[l] != t[l] && !cut {
+            // A table row whose cells wrap: the terminal's screen rows run
+            // across the columns, the graphical editor reads cell by cell;
+            // the same words.
+            let table_row = text.lines().nth(*l).is_some_and(|s| {
+                let s = s.trim_start();
+                s.starts_with('|') || s.contains('&')
+            });
+            let same_words = || {
+                let (mut a, mut b) = (g[l].clone(), t[l].clone());
+                a.sort();
+                b.sort();
+                a == b
+            };
+            if g[l] != t[l] && !cut && !(table_row && same_words()) {
                 problems.push(format!(
                     "{name}: line {}:\n    graphical: {:?}\n    terminal:  {:?}",
                     l + 1,

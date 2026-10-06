@@ -12,9 +12,11 @@
 //!
 //! A line is a list of [`Piece`]s: text with style runs, widget boxes of a
 //! given size standing for some bytes of the display text (a checkbox, a
-//! formula), superscripts and subscripts, and spacers that grow to fill a
-//! short row (tags pushed to the right edge, centered text). Offsets are
-//! byte offsets into the concatenated display text of the pieces.
+//! formula), superscripts and subscripts, spacers that grow to fill a
+//! short row (tags pushed to the right edge, centered text), and blocks:
+//! boxes of a given width whose own pieces wrap inside them (the cells of
+//! a table row). Offsets are byte offsets into the concatenated display
+//! text of the pieces.
 //!
 //! Zed's editor does the same for its inline fold placeholders; this crate
 //! makes it reusable. It needs a gpui newer than 0.2.2, such as the
@@ -74,6 +76,15 @@ pub enum Piece {
         /// Its width when the line is full.
         min: Pixels,
     },
+    /// A box `width` wide whose pieces are laid out wrapping at that
+    /// width (a cell of a table row): the row is as high as its highest
+    /// block, and each block's first baseline is on the row's.
+    Block {
+        /// Its contents.
+        pieces: Vec<Piece>,
+        /// Its width, at which its contents wrap.
+        width: Pixels,
+    },
 }
 
 enum Item {
@@ -90,6 +101,12 @@ enum Item {
         ascent: Pixels,
         /// A spacer's room, not a caller's widget.
         spacer: bool,
+    },
+    Block {
+        layout: Box<InlineLayout>,
+        width: Pixels,
+        /// Its first baseline, from its top.
+        ascent: Pixels,
     },
 }
 
@@ -144,6 +161,8 @@ pub struct InlineLayout {
     /// Justified rows (by index): the display offsets of their stretched
     /// spaces, sorted, and the room each space gains.
     justified: Vec<(Vec<usize>, Pixels)>,
+    /// Whether any piece is a block.
+    blocks: bool,
 }
 
 fn is_cjk(c: char) -> bool {
@@ -267,6 +286,30 @@ impl InlineLayout {
                     at += len;
                     x += size.width;
                 }
+                Piece::Block { pieces, width } => {
+                    let inner = InlineLayout::new(
+                        pieces,
+                        font_size,
+                        line_height,
+                        Some(*width),
+                        None,
+                        window,
+                    );
+                    let len = inner.rows.last().map_or(0, |r| r.end);
+                    let first = inner.rows.first().map_or(px(0.), |r| r.baseline);
+                    placed.push(Placed {
+                        start: at,
+                        end: at + len,
+                        x,
+                        item: Item::Block {
+                            layout: Box::new(inner),
+                            width: *width,
+                            ascent: first,
+                        },
+                    });
+                    at += len;
+                    x += *width;
+                }
                 &Piece::Spacer { len, min } => {
                     spacers.push(placed.len());
                     placed.push(Placed {
@@ -312,7 +355,7 @@ impl InlineLayout {
                 let p = placed.iter().find(|p| p.start <= h && h < p.end)?;
                 Some(match &p.item {
                     Item::Text { line, .. } => p.x + line.x_for_index(h - p.start),
-                    Item::Widget { .. } => p.x,
+                    Item::Widget { .. } | Item::Block { .. } => p.x,
                 })
             })
             .filter(|h| wrap.is_some_and(|w| *h * 2. < w))
@@ -374,6 +417,10 @@ impl InlineLayout {
                         below = below.max(line.descent + extra);
                     }
                     Item::Text { .. } => {}
+                    Item::Block { layout, ascent, .. } => {
+                        above = above.max(*ascent);
+                        below = below.max(layout.height - *ascent);
+                    }
                 }
             }
             rows.push(Row {
@@ -386,6 +433,7 @@ impl InlineLayout {
             });
             y += above + below;
         }
+        let blocks = placed.iter().any(|p| matches!(p.item, Item::Block { .. }));
         InlineLayout {
             placed,
             rows,
@@ -396,7 +444,31 @@ impl InlineLayout {
             line_height,
             unwrapped_width,
             justified: Vec::new(),
+            blocks,
         }
+    }
+
+    /// The block holding display offset `i` (its ends included): it,
+    /// its row, its layout and its first baseline.
+    fn block_at(&self, i: usize) -> Option<(&Placed, usize, &InlineLayout, Pixels)> {
+        if !self.blocks {
+            return None;
+        }
+        self.placed.iter().find_map(|p| match &p.item {
+            Item::Block { layout, ascent, .. } if p.start <= i && i <= p.end => {
+                Some((p, self.row_index(p.start), &**layout, *ascent))
+            }
+            _ => None,
+        })
+    }
+
+    /// The top left of block `pl` in row `k`, relative to the line origin.
+    fn block_origin(&self, pl: &Placed, k: usize, ascent: Pixels) -> Point<Pixels> {
+        let r = &self.rows[k];
+        point(
+            pl.x - r.x0 + self.stretch(k, pl.start),
+            r.y + r.baseline - ascent,
+        )
     }
 
     /// Justifies the wrapped rows: every row but the last one stretches
@@ -471,6 +543,13 @@ impl InlineLayout {
                         p.x + size.width
                     }
                 }
+                Item::Block { width, .. } => {
+                    if i == p.start {
+                        p.x
+                    } else {
+                        p.x + *width
+                    }
+                }
             },
             _ => self.unwrapped_width,
         }
@@ -478,6 +557,11 @@ impl InlineLayout {
 
     /// The caret box for display offset `i`, relative to the line origin.
     pub fn caret(&self, i: usize) -> Bounds<Pixels> {
+        if let Some((pl, k, layout, ascent)) = self.block_at(i) {
+            let c = layout.caret(i - pl.start);
+            let o = self.block_origin(pl, k, ascent);
+            return Bounds::new(point(c.origin.x + o.x, c.origin.y + o.y), c.size);
+        }
         let k = self.row_index(i);
         let r = &self.rows[k];
         let pad = (self.line_height - self.ascent - self.descent) / 2.;
@@ -545,6 +629,10 @@ impl InlineLayout {
                             b
                         }
                     }
+                    Item::Block { layout, ascent, .. } => {
+                        let o = self.block_origin(pl, k, *ascent);
+                        pl.start + layout.index_for_position(point(p.x - o.x, p.y - o.y))
+                    }
                 };
             }
             best = b;
@@ -561,7 +649,36 @@ impl InlineLayout {
             if s >= e && !(a == b && a == r.start) {
                 continue;
             }
-            let xa = self.row_x(k, s);
+            // The part in each block, as the block's own rows have it.
+            let mut from = s;
+            let before = out.len();
+            if self.blocks {
+                for pl in &self.placed {
+                    let Item::Block { layout, ascent, .. } = &pl.item else {
+                        continue;
+                    };
+                    if pl.end <= s || pl.start >= e {
+                        continue;
+                    }
+                    if from < pl.start {
+                        let (xa, xb) = (self.row_x(k, from), self.row_x(k, pl.start));
+                        out.push(Bounds::new(point(xa, r.y), size(xb - xa, r.height)));
+                    }
+                    let o = self.block_origin(pl, k, *ascent);
+                    let (bs, be) = (s.max(pl.start) - pl.start, e.min(pl.end) - pl.start);
+                    for q in layout.range_rects(bs, be) {
+                        out.push(Bounds::new(
+                            point(q.origin.x + o.x, q.origin.y + o.y),
+                            q.size,
+                        ));
+                    }
+                    from = pl.end.min(e);
+                }
+                if from >= e && out.len() > before {
+                    continue;
+                }
+            }
+            let xa = self.row_x(k, from);
             let xb = self.row_x(k, e);
             out.push(Bounds::new(point(xa, r.y), size(xb - xa, r.height)));
         }
@@ -570,15 +687,15 @@ impl InlineLayout {
 
     /// Widget boxes relative to the line origin, with their display offsets.
     pub fn widgets(&self) -> impl Iterator<Item = (usize, Bounds<Pixels>)> + '_ {
-        self.placed.iter().filter_map(|p| match p.item {
-            Item::Widget {
+        self.placed.iter().flat_map(|p| match &p.item {
+            &Item::Widget {
                 size,
                 ascent,
                 spacer: false,
             } => {
                 let k = self.row_index(p.start);
                 let r = &self.rows[k];
-                Some((
+                vec![(
                     p.start,
                     Bounds::new(
                         point(
@@ -587,9 +704,22 @@ impl InlineLayout {
                         ),
                         size,
                     ),
-                ))
+                )]
             }
-            _ => None,
+            // A block's own, where it is.
+            Item::Block { layout, ascent, .. } => {
+                let o = self.block_origin(p, self.row_index(p.start), *ascent);
+                layout
+                    .widgets()
+                    .map(|(i, b)| {
+                        (
+                            p.start + i,
+                            Bounds::new(point(b.origin.x + o.x, b.origin.y + o.y), b.size),
+                        )
+                    })
+                    .collect()
+            }
+            _ => Vec::new(),
         })
     }
 
@@ -599,6 +729,11 @@ impl InlineLayout {
             let base_y = origin.y + row.y + row.baseline;
             for pl in &self.placed {
                 if pl.end <= row.start || pl.start >= row.end {
+                    continue;
+                }
+                if let Item::Block { layout, ascent, .. } = &pl.item {
+                    let o = self.block_origin(pl, k, *ascent);
+                    layout.paint(point(origin.x + o.x, origin.y + o.y), window, _cx);
                     continue;
                 }
                 let Item::Text {
@@ -714,6 +849,15 @@ fn atoms(placed: &[Placed]) -> Vec<Atom> {
                 end: p.end,
                 x0: p.x,
                 x1: p.x + size.width,
+                space: false,
+                widget: true,
+                cjk: false,
+            }),
+            Item::Block { width, .. } => out.push(Atom {
+                start: p.start,
+                end: p.end,
+                x0: p.x,
+                x1: p.x + *width,
                 space: false,
                 widget: true,
                 cjk: false,

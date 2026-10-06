@@ -37,7 +37,7 @@ pub fn table_at(md: &Md, text: &str, pos: usize) -> Option<Range<usize>> {
 /// The length of a table line's container prefix: its indentation and
 /// the markers of the block quotes it is in (`> `, `>> `, `> > `), which
 /// are not cells and stay as they are when the table is aligned.
-fn prefix_len(line: &str) -> usize {
+pub(crate) fn prefix_len(line: &str) -> usize {
     let b = line.as_bytes();
     let mut i = 0;
     loop {

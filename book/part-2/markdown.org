@@ -94,7 +94,9 @@ edits it as plain text. Concretely:
   cursor is drawn as a grid: each column as wide as its widest cell and
   lined up as its delimiter cell says (=:--= left, =--:= right, =:-:=
   centered), the bars as lines and the delimiter row as a rule, without
-  changing the text; a row wider than the window wraps. With
+  changing the text; a table wider than the window has its widest
+  columns narrowed and their cells' text wrapped inside them, as a web
+  page lays out a table, in the graphical and the terminal editor. With
   the cursor in the table it shows its source, and Tab aligns the
   source itself. Away from the cursor
   YAML front matter (=---=) folds to its first line, as a property drawer does

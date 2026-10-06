@@ -355,6 +355,30 @@ pub(crate) struct Grid {
     cells: Vec<Vec<Vec<Glyph>>>,
 }
 
+/// The column widths of a table in `room` cells (its bars and padding
+/// counted): `widths` when they fit, else the narrow columns kept and the
+/// others sharing the rest, none narrower than four cells, as the
+/// graphical editor narrows them.
+fn fit_columns(widths: &[u16], room: u16) -> Vec<u16> {
+    let n = widths.len();
+    let chrome = 3 * n as u16;
+    let room = room.saturating_sub(chrome);
+    if widths.iter().map(|w| u32::from(*w)).sum::<u32>() <= u32::from(room) {
+        return widths.to_vec();
+    }
+    let mut order: Vec<usize> = (0..n).collect();
+    order.sort_by_key(|&i| widths[i]);
+    let mut out = widths.to_vec();
+    let (mut left, mut count) = (room, n as u16);
+    for i in order {
+        let share = (left / count.max(1)).max(4);
+        out[i] = widths[i].min(share);
+        left = left.saturating_sub(out[i]);
+        count -= 1;
+    }
+    out
+}
+
 /// The editor view's state that layouts read.
 struct Shared<'a> {
     folds: &'a Folds,
@@ -840,6 +864,10 @@ impl<'a> Layout<'a> {
         // A LaTeX table's cells are drawn with an empty Org tree.
         let empty;
         let (view, p) = match self.parse {
+            _ if self.doc.meta.mode == kalem_core::DocumentMode::Markdown => {
+                empty = org_syntax::parse("");
+                (kalem_core::markdown::table_view(self.doc, start)?, &empty)
+            }
             Some(p) if self.doc.latex().is_none() => {
                 (view::table_view(&p.syntax(), p.context(), start, None)?, p)
             }
@@ -902,8 +930,11 @@ impl<'a> Layout<'a> {
         Some(g)
     }
 
-    /// A table line away from the cursor: one row of the aligned grid.
-    fn grid_row(&self, grid: &Grid, line: &Range<usize>) -> Option<Vec<Glyph>> {
+    /// A table line away from the cursor: a row of the aligned grid, as
+    /// many screen rows as its highest cell when the table is wider than
+    /// the screen and its columns are narrowed, the cells wrapping in
+    /// them (as in the graphical editor).
+    fn grid_rows(&self, grid: &Grid, line: &Range<usize>) -> Option<Vec<Vec<Glyph>>> {
         let ri = grid
             .view
             .rows
@@ -920,13 +951,20 @@ impl<'a> Layout<'a> {
             link: None,
             data: None,
         };
-        let dim = ratatui::style::Style::default().add_modifier(Modifier::DIM);
-        let mut out = Vec::new();
+        let blank = ratatui::style::Style::default();
+        let dim = blank.add_modifier(Modifier::DIM);
         let indent =
             text[line.clone()].len() - text[line.clone()].trim_start_matches([' ', '\t']).len();
-        for _ in 0..indent {
-            out.push(deco(" ", line.start, ratatui::style::Style::default()));
-        }
+        let widths = fit_columns(
+            &grid.widths,
+            self.width.get().saturating_sub(indent as u16 + 1),
+        );
+        let lead = |out: &mut Vec<Glyph>| {
+            for _ in 0..indent {
+                out.push(deco(" ", line.start, blank));
+            }
+        };
+        let mut rows: Vec<Vec<Glyph>> = Vec::new();
         match &grid.view.rows[ri] {
             TableRow::Rule { .. } => {
                 let (l, m, r, h) = if ascii {
@@ -934,63 +972,98 @@ impl<'a> Layout<'a> {
                 } else {
                     ("├", "┼", "┤", "─")
                 };
+                let mut out = Vec::new();
+                lead(&mut out);
                 out.push(deco(l, line.start, dim));
-                for (i, w) in grid.widths.iter().enumerate() {
+                for (i, w) in widths.iter().enumerate() {
                     for _ in 0..w + 2 {
                         out.push(deco(h, line.start, dim));
                     }
                     out.push(deco(
-                        if i + 1 == grid.widths.len() { r } else { m },
+                        if i + 1 == widths.len() { r } else { m },
                         line.start,
                         dim,
                     ));
                 }
+                rows.push(out);
             }
             TableRow::Data { cells, .. } => {
                 let bar = if ascii { "|" } else { "│" };
-                out.push(deco(bar, line.start, dim));
+                // Each cell's screen rows, its width and alignment, and
+                // where it starts and ends in the source.
+                let mut laid = Vec::new();
                 let mut i = 0;
-                while i < grid.widths.len() {
+                while i < widths.len() {
                     // A span: one cell as wide as the columns it covers.
                     let span = grid
                         .view
                         .spans
                         .iter()
                         .find(|s| s.0 == ri && s.1 == i)
-                        .map(|&(_, _, n, a)| (n.min(grid.widths.len() - i), a));
+                        .map(|&(_, _, n, a)| (n.min(widths.len() - i), a));
                     let (n, align) =
                         span.unwrap_or((1, grid.view.align.get(i).copied().unwrap_or('l')));
-                    let w = grid.widths[i..i + n].iter().sum::<u16>() + 3 * (n as u16 - 1);
+                    let w = widths[i..i + n].iter().sum::<u16>() + 3 * (n as u16 - 1);
                     let glyphs = grid.cells[ri].get(i).cloned().unwrap_or_default();
                     let at = cells.get(i).map_or(line.end, |c| c.range.start);
                     let end = cells.get(i + n - 1).map_or(line.end, |c| c.range.end);
-                    let cw: u16 = glyphs.iter().map(|g| g.width).sum();
-                    let pad = w.saturating_sub(cw);
-                    i += n;
-                    let (left, right) = match align {
-                        'r' => (pad, 0),
-                        'c' => (pad / 2, pad - pad / 2),
-                        _ => (0, pad),
+                    let mut wrapped = if glyphs.iter().map(|g| g.width).sum::<u16>() <= w {
+                        vec![glyphs]
+                    } else {
+                        tui_rich_text::wrap(glyphs, 0, w)
                     };
-                    out.push(deco(" ", at, ratatui::style::Style::default()));
-                    for _ in 0..left {
-                        out.push(deco(" ", at, ratatui::style::Style::default()));
+                    // A row's last space is no part of its width.
+                    for r in &mut wrapped {
+                        while r.len() > 1 && r.last().is_some_and(|g| g.text == " ") {
+                            r.pop();
+                        }
                     }
-                    out.extend(glyphs);
-                    for _ in 0..right + 1 {
-                        out.push(deco(" ", end, ratatui::style::Style::default()));
+                    laid.push((wrapped, w, align, at, end));
+                    i += n;
+                }
+                let height = laid.iter().map(|c| c.0.len()).max().unwrap_or(1).max(1);
+                for k in 0..height {
+                    let mut out = Vec::new();
+                    lead(&mut out);
+                    out.push(deco(bar, line.start, dim));
+                    for (wrapped, w, align, at, end) in &laid {
+                        let glyphs = wrapped.get(k).cloned().unwrap_or_default();
+                        let cw: u16 = glyphs.iter().map(|g| g.width).sum();
+                        let pad = w.saturating_sub(cw);
+                        let (left, right) = match align {
+                            'r' => (pad, 0),
+                            'c' => (pad / 2, pad - pad / 2),
+                            _ => (0, pad),
+                        };
+                        out.push(deco(" ", *at, blank));
+                        for _ in 0..left {
+                            out.push(deco(" ", *at, blank));
+                        }
+                        out.extend(glyphs);
+                        for _ in 0..right + 1 {
+                            out.push(deco(" ", *end, blank));
+                        }
+                        out.push(deco(bar, *end, dim));
                     }
-                    out.push(deco(bar, end, dim));
+                    rows.push(out);
                 }
                 // A rule written after the row's `\\\\`: under the row.
-                if grid.view.ruled.contains(&ri) {
-                    for g in &mut out {
+                if grid.view.ruled.contains(&ri)
+                    && let Some(last) = rows.last_mut()
+                {
+                    for g in last {
                         g.style = g.style.add_modifier(Modifier::UNDERLINED);
                     }
                 }
             }
         }
-        Some(out)
+        // Columns that cannot be narrowed enough: the rows wrap.
+        let width = self.width.get();
+        Some(
+            rows.into_iter()
+                .flat_map(|r| tui_rich_text::wrap(r, 0, width))
+                .collect(),
+        )
     }
 
     fn text(&self) -> &kalem_core::Text {
@@ -1093,24 +1166,34 @@ impl<'a> Layout<'a> {
             && !self.source
             && let Some(block) = self.table_block(range.start)
             && !(block.range.start <= self.cursor && self.cursor <= block.content_end)
-            && let Some(row) = self
+            && let Some(rows) = self
                 .grid(block.range.start)
-                .and_then(|g| self.grid_row(&g, &range))
+                .and_then(|g| self.grid_rows(&g, &range))
         {
-            // A row wider than the screen wraps, as in the graphical
-            // editor, rather than losing its end.
-            return tui_rich_text::wrap(row, 0, self.width.get());
+            return rows;
+        }
+        // A Markdown table away from the cursor, the same.
+        if self.doc.meta.mode == kalem_core::DocumentMode::Markdown
+            && !self.source
+            && view::source_markers() != view::Markers::Always
+            && let Some(table) = kalem_core::markdown::table_range(self.doc, range.start)
+            && !(table.start <= self.cursor && self.cursor <= table.end)
+            && let Some(rows) = self
+                .grid(table.start)
+                .and_then(|g| self.grid_rows(&g, &range))
+        {
+            return rows;
         }
         if let (Some(p), false) = (self.parse, self.source)
             && let Some(block) = self.table_block(range.start)
         {
             let editing = block.range.start <= self.cursor && self.cursor <= block.content_end;
             if !editing
-                && let Some(row) = self
+                && let Some(rows) = self
                     .grid(block.range.start)
-                    .and_then(|g| self.grid_row(&g, &range))
+                    .and_then(|g| self.grid_rows(&g, &range))
             {
-                return tui_rich_text::wrap(row, 0, self.width.get());
+                return rows;
             }
             // Being edited: the source, all markup shown, with box bars.
             let root = p.syntax();

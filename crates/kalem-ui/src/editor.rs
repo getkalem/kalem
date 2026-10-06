@@ -343,9 +343,10 @@ pub struct Editor {
     /// The next keys are described, not run (`SPC h k`).
     pub(crate) describing: bool,
     cursor_line: usize,
-    /// The first line of the block holding the cursor, drawn differently
-    /// while the cursor is inside.
-    cursor_block: Option<usize>,
+    /// The lines of the block holding the cursor that are drawn
+    /// differently while the cursor is inside: its first, or all of a
+    /// table's.
+    cursor_block: Option<(usize, usize)>,
     /// The source view: plain text.
     pub source: bool,
     /// Highlighted source blocks by start, for the text version.
@@ -464,7 +465,7 @@ pub struct Pane {
     /// Lines as last painted, by source line.
     pub painted: Rc<RefCell<HashMap<usize, Painted>>>,
     cursor_line: usize,
-    cursor_block: Option<usize>,
+    cursor_block: Option<(usize, usize)>,
     /// The source view.
     pub source: bool,
     left: bool,
@@ -931,9 +932,25 @@ impl Editor {
         let block = self
             .block_at(head)
             .filter(|b| b.range.start <= head && head <= b.content_end)
-            .map(|b| b.range.start)
+            // A table's rows change from grid to source, each as high as
+            // its wrapped cells or text.
+            .map(|b| {
+                let end = if b.kind == BlockKind::Table {
+                    b.content_end
+                } else {
+                    b.range.start
+                };
+                (b.range.start, end)
+            })
             // A LaTeX paragraph opens into its lines at the cursor.
-            .or_else(|| self.cursor_paragraph().map(|p| p.start));
+            .or_else(|| self.cursor_paragraph().map(|p| (p.start, p.start)))
+            .or_else(|| {
+                (self.doc.meta.mode == DocumentMode::Markdown && !self.source)
+                    .then(|| kalem_core::markdown::table_range(&self.doc, head))
+                    .flatten()
+                    .filter(|t| t.start <= head && head <= t.end)
+                    .map(|t| (t.start, t.end))
+            });
         let text = self.doc.text();
         let (old_count, new_count) = (self.line_count, text.line_count());
         // The changed span in the final text.
@@ -986,11 +1003,14 @@ impl Editor {
         self.line_count = new_count;
         // Lines whose markup changes with the cursor.
         let now = text.line_of(self.doc.selection.head.min(len));
-        let block = block.map(|b| text.line_of(b.min(len)));
+        let block = block.map(|(a, z)| (text.line_of(a.min(len)), text.line_of(z.min(len))));
         let mut lines = vec![self.cursor_line, now];
         if block != self.cursor_block {
-            lines.extend(self.cursor_block);
-            lines.extend(block);
+            // The old block's lines as they are numbered now, at most as
+            // many as there are.
+            for (a, z) in [self.cursor_block, block].into_iter().flatten() {
+                lines.extend(a..=z.min(new_count.saturating_sub(1)).max(a));
+            }
         }
         lines.sort_unstable();
         lines.dedup();

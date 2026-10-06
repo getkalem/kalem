@@ -306,6 +306,69 @@ fn tables_as_grids(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn wide_tables_wrap_in_their_cells(cx: &mut TestAppContext) {
+    // A Markdown table drawn as Org's are, its long cell wrapping in its
+    // column when the table is wider than the window (it wrapped row by
+    // row, the bars and rules broken).
+    let long = "word ".repeat(60);
+    let text = format!(
+        "Intro.\n\n| Path | Contents |\n|---|---|\n| `a` | {long}|\n| b | short |\n\nafter\n"
+    );
+    let (e, cx) = open_named(&text, "t.md", || None, cx);
+    cx.simulate_resize(gpui::size(gpui::px(640.), gpui::px(900.)));
+    at(&e, text.len(), cx);
+    cx.run_until_parked();
+    let (rows, wrapped, short, width, a_x, b_x, shown) = e.read_with(cx, |e, _| {
+        let p = |l: usize| e.painted.borrow().get(&l).cloned().expect("painted");
+        let x = |l: usize, src: usize| {
+            let p = p(l);
+            p.layout.caret(p.view.display_offset(src)).origin.x
+        };
+        (
+            p(4).layout.rows.len(),
+            p(4).layout.height,
+            p(5).layout.height,
+            (p(4).layout.width, p(4).bounds.size.width),
+            x(4, text.find("`a`").unwrap() + 1),
+            x(5, text.find("| b").unwrap() + 2),
+            p(4).view.display(),
+        )
+    });
+    // The long cell's row is several lines high and no wider than the
+    // text; the short row is one line; the columns line up.
+    assert_eq!(rows, 1, "the row itself is not broken");
+    assert!(wrapped > short * 3., "{wrapped:?} {short:?}");
+    assert!(width.0 <= width.1, "{width:?}");
+    assert!(
+        (f32::from(a_x) - f32::from(b_x)).abs() < 0.01,
+        "{a_x:?} {b_x:?}"
+    );
+    // The markers away from the cursor: no bars, no backticks.
+    assert!(!shown.contains('`') && !shown.contains('|'), "{shown:?}");
+    // In the table, the source shows again.
+    at(&e, text.find("| b").unwrap() + 2, cx);
+    cx.run_until_parked();
+    let source = e.read_with(cx, |e, _| {
+        e.painted.borrow().get(&5).map(|p| p.view.display())
+    });
+    assert_eq!(source.as_deref(), Some("| b | short |"));
+}
+
+#[gpui::test]
+fn wide_org_tables_wrap_in_their_cells(cx: &mut TestAppContext) {
+    let long = "word ".repeat(60);
+    let text = format!("| Path | Contents |\n|------+----------|\n| a | {long}|\nafter\n");
+    let (e, cx) = open(&text, cx);
+    cx.simulate_resize(gpui::size(gpui::px(640.), gpui::px(900.)));
+    at(&e, text.len(), cx);
+    cx.run_until_parked();
+    let rows = e.read_with(cx, |e, _| {
+        e.painted.borrow().get(&2).map(|p| p.layout.rows.len())
+    });
+    assert_eq!(rows, Some(1));
+}
+
+#[gpui::test]
 fn code_blocks_copy(cx: &mut TestAppContext) {
     let text =
         "#+begin_src rust\nfn main() {}\n#+end_src\n-----\n#+begin_quote\nq\n#+end_quote\nend\n";

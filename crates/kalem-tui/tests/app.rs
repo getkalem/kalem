@@ -438,6 +438,43 @@ fn tables_as_grids() {
 }
 
 #[test]
+fn wide_tables_wrap_in_their_cells() {
+    // Wider than the screen: the long column narrowed, its cell wrapping
+    // in it, every row's bars in line (they wrapped row by row).
+    let text = "| Path | Contents |\n|---|---|\n| `a` | one two three four five six seven eight nine ten |\n| b | short |\n\nafter\n";
+    let mut t = with_file(text, "t.md", Config::default(), (40, 12));
+    t.at(text.len());
+    let rows: Vec<String> = (0..7).map(|y| t.row(y)).collect();
+    assert_eq!(
+        rows,
+        [
+            "1  │ Path │ Contents                  │",
+            "2  ├──────┼───────────────────────────┤",
+            "3  │ a    │ one two three four five   │",
+            "   │      │ six seven eight nine ten  │",
+            "4  │ b    │ short                     │",
+            "5",
+            "6  after",
+        ]
+    );
+    // Org's tables the same.
+    let text = "| Path | Contents |\n|------+----------|\n| a | one two three four five six seven eight nine ten |\nafter\n";
+    let mut t = with_file(text, "t.org", Config::default(), (40, 12));
+    t.at(text.len());
+    let rows: Vec<String> = (0..5).map(|y| t.row(y)).collect();
+    assert_eq!(
+        rows,
+        [
+            " │ Path │ Contents                    │",
+            " ├──────┼─────────────────────────────┤",
+            " │ a    │ one two three four five six │",
+            " │      │ seven eight nine ten        │",
+            " after",
+        ]
+    );
+}
+
+#[test]
 fn grid_editing() {
     let text = "| ab   | c |\n| d    | e |\n";
     let mut t = open(text);

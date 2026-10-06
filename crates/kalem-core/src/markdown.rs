@@ -1049,6 +1049,107 @@ pub fn line_view(
     view_line(&md, text, range, cursor)
 }
 
+/// The table at `pos` (on one of its lines) as its node has it: from its
+/// first cell's line to the end of its last row.
+pub fn table_range(doc: &crate::DocumentState, pos: usize) -> Option<Range<usize>> {
+    let md = ready(doc)?;
+    md.on_line(md.line_of(pos))
+        .find(|n| n.kind == MdKind::Table)
+        .map(|n| n.range.clone())
+}
+
+/// The table at `pos` as a grid, for the graphical editor to draw as it
+/// draws Org's and LaTeX's: its rows, the delimiter row as a rule, each
+/// cell's runs, the columns' alignment from the delimiter row.
+pub fn table_view(doc: &crate::DocumentState, pos: usize) -> Option<crate::view::TableView> {
+    use crate::view::{TableCell, TableRow, TableView};
+    let md = ready(doc)?;
+    let text = doc.text().as_str();
+    let table = md
+        .on_line(md.line_of(pos))
+        .find(|n| n.kind == MdKind::Table)?
+        .range
+        .clone();
+    let mut rows = Vec::new();
+    let mut align = Vec::new();
+    let mut at = text[..table.start].rfind('\n').map_or(0, |i| i + 1);
+    while at < table.end {
+        let end = text[at..].find('\n').map_or(text.len(), |i| at + i);
+        let row = at..end;
+        let cells = cell_spans(text, row.clone());
+        if is_delimiter_row(text, &table, &row) {
+            if align.is_empty() {
+                align = cells
+                    .iter()
+                    .map(|c| {
+                        let c = text[c.clone()].trim();
+                        match (c.starts_with(':'), c.ends_with(':') && c.len() > 1) {
+                            (true, true) => 'c',
+                            (false, true) => 'r',
+                            _ => 'l',
+                        }
+                    })
+                    .collect();
+            }
+            rows.push(TableRow::Rule { line: row });
+        } else {
+            let v = view_line(&md, text, row.clone(), None);
+            let cells = cells
+                .into_iter()
+                .map(|c| {
+                    let s = &text[c.clone()];
+                    let lead = s.len() - s.trim_start_matches([' ', '\t']).len();
+                    let trail = s.len() - s.trim_end_matches([' ', '\t']).len();
+                    let range = c.start + lead..(c.end - trail).max(c.start + lead);
+                    TableCell {
+                        runs: crate::view::runs_within(&v, &range),
+                        range,
+                    }
+                })
+                .collect();
+            rows.push(TableRow::Data { line: row, cells });
+        }
+        at = end + 1;
+    }
+    if align.is_empty() {
+        return None;
+    }
+    Some(TableView {
+        range: table,
+        rows,
+        align,
+        spans: Vec::new(),
+        ruled: Vec::new(),
+    })
+}
+
+/// The cells of table row `row` as source ranges between its unescaped
+/// bars, without the space before the first bar (the indentation and a
+/// quote's `>`) and after the last.
+fn cell_spans(text: &str, row: Range<usize>) -> Vec<Range<usize>> {
+    let start = row.start + crate::markdown_table::prefix_len(&text[row.clone()]);
+    let bars = row_bars(text, start..row.end);
+    let mut out = Vec::with_capacity(bars.len() + 1);
+    let mut from = start;
+    for &b in &bars {
+        out.push(from..b);
+        from = b + 1;
+    }
+    out.push(from..row.end);
+    if !bars.is_empty() {
+        if text[out[0].clone()].trim().is_empty() {
+            out.remove(0);
+        }
+        if out
+            .last()
+            .is_some_and(|l| text[l.clone()].trim().is_empty())
+        {
+            out.pop();
+        }
+    }
+    out
+}
+
 /// The unescaped `|` of a table row, as offsets into the text.
 fn row_bars(text: &str, row: Range<usize>) -> Vec<usize> {
     let mut out = Vec::new();
@@ -1062,12 +1163,14 @@ fn row_bars(text: &str, row: Range<usize>) -> Vec<usize> {
     out
 }
 
-/// Whether `row` is a table's delimiter row (`| --- | :-: |`).
-fn is_delimiter_row(text: &str, row: Range<usize>) -> bool {
-    let t = text[row].trim();
-    t.contains('-')
-        && t.bytes()
-            .all(|b| matches!(b, b'|' | b'-' | b':' | b' ' | b'\t'))
+/// Whether `row` is the delimiter row (`| --- | :-: |`) of the table at
+/// `table`: its second line, as GFM has it, so that a body row of dashes
+/// is a row.
+fn is_delimiter_row(text: &str, table: &Range<usize>, row: &Range<usize>) -> bool {
+    let first_end = text[table.start..]
+        .find('\n')
+        .map_or(text.len(), |i| table.start + i);
+    row.start == first_end + 1
 }
 
 /// The cells of a row's view: the runs between its bars, the bars
@@ -1148,13 +1251,8 @@ enum ColumnAlign {
 /// The alignment of each cell of the table at `table`, from its
 /// delimiter row, indexed as the cells of a row.
 fn column_aligns(text: &str, table: &Range<usize>) -> Vec<ColumnAlign> {
-    let rows = text[table.clone()].split('\n');
-    let Some(delim) = rows.clone().find(|r| {
-        let t = r.trim();
-        t.contains('-')
-            && t.bytes()
-                .all(|b| matches!(b, b'|' | b'-' | b':' | b' ' | b'\t'))
-    }) else {
+    // The table's second line, as GFM has it.
+    let Some(delim) = text[table.clone()].split('\n').nth(1) else {
         return Vec::new();
     };
     delim
@@ -1207,7 +1305,7 @@ fn column_widths(
     while at < table.end {
         let end = text[at..table.end].find('\n').map_or(table.end, |i| at + i);
         let row = at..end;
-        if !is_delimiter_row(text, row.clone()) {
+        if !is_delimiter_row(text, table, &row) {
             let v = view_line(md, text, row.clone(), None);
             let bars = row_bars(text, row.clone());
             for (i, c) in row_cells(&v, &bars).into_iter().enumerate() {
@@ -1251,7 +1349,7 @@ fn table_row(
         mono: true,
         ..LineView::default()
     };
-    if is_delimiter_row(text, row.clone()) {
+    if is_delimiter_row(text, &table, &row) {
         // `| --- | :-: |` as `├─────┼─────┤`, the first and last bar
         // where the row has them.
         let lead = text[row.clone()].trim_start().starts_with('|');
@@ -3443,6 +3541,68 @@ mod tests {
     /// A table away from the cursor is a grid: its cells padded to their
     /// column's width, its bars lines, its delimiter row a rule; the row
     /// does not wrap. With the cursor in it, its source.
+    #[test]
+    fn a_table_as_a_grid_view() {
+        let text = "Intro.\n\n| Path | Contents |\n|---|:-:|\n| `crates/org-*` | Org: the *parser* |\n| a \\| b |\n\n> x | y\n> --: | ---\n> 1 | 2\n";
+        let meta = crate::Metadata {
+            path: None,
+            mode: crate::DocumentMode::Markdown,
+            line_ending: crate::LineEnding::Lf,
+            bom: false,
+            encoding: encoding_rs::UTF_8,
+            lossy: false,
+        };
+        let d = crate::DocumentState::new(
+            text,
+            meta,
+            std::sync::Arc::new(org_model::Settings::default()),
+        );
+        let at = text.find("| Path").unwrap();
+        let v = table_view(&d, at + 3).unwrap();
+        assert_eq!(v.align, ['l', 'c']);
+        assert_eq!(v.rows.len(), 4);
+        assert!(matches!(v.rows[1], crate::view::TableRow::Rule { .. }));
+        let shown = |row: &crate::view::TableRow| -> Vec<String> {
+            match row {
+                crate::view::TableRow::Data { cells, .. } => cells
+                    .iter()
+                    .map(|c| c.runs.iter().map(|r| r.text.as_str()).collect())
+                    .collect(),
+                crate::view::TableRow::Rule { .. } => Vec::new(),
+            }
+        };
+        assert_eq!(shown(&v.rows[0]), ["Path", "Contents"]);
+        // Markup drawn as away from the cursor; an escaped bar in its cell.
+        assert_eq!(shown(&v.rows[2]), ["crates/org-*", "Org: the parser"]);
+        assert_eq!(shown(&v.rows[3]).len(), 1);
+        assert_eq!(table_range(&d, at + 3).map(|r| r.start), Some(at));
+        // In a quote, without outer bars: the quote's marker is no cell.
+        let q = text.find("> x").unwrap();
+        let v = table_view(&d, q + 2).unwrap();
+        assert_eq!(v.align, ['r', 'l']);
+        assert_eq!(shown(&v.rows[2]), ["1", "2"]);
+        assert!(table_view(&d, 0).is_none());
+        // A body row of dashes is a row: the delimiter row is the second.
+        let text = "| a | b |\n|---|---|\n| - | - |\n";
+        let meta = crate::Metadata {
+            path: None,
+            mode: crate::DocumentMode::Markdown,
+            line_ending: crate::LineEnding::Lf,
+            bom: false,
+            encoding: encoding_rs::UTF_8,
+            lossy: false,
+        };
+        let d = crate::DocumentState::new(
+            text,
+            meta,
+            std::sync::Arc::new(org_model::Settings::default()),
+        );
+        let v = table_view(&d, 0).unwrap();
+        assert_eq!(shown(&v.rows[2]), ["-", "-"]);
+        let row = line_view(&d, d.text().line_range(2), None).display();
+        assert!(row.contains('-') && !row.contains('─'), "{row:?}");
+    }
+
     #[test]
     fn a_table_away_from_the_cursor_is_a_grid() {
         let text = "Intro.\n\n| Variable | Used in | Purpose |\n| --- | --- | --- |\n| `DATABASE_URL` | prod | the system database |\n| PORT | prod | listen port |\n\nAfter.\n";

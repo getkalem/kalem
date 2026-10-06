@@ -513,10 +513,14 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   badge) shows `[image: <full URL>]` instead of its alt text
   (`kalem-ui/src/line.rs:1006`, `kalem-tui/src/render.rs:415`); every
   README starts with such lines.
-- [ ] **Minor, reported.** Grid view: the delimiter row is found by
+- [x] **Minor, reported.** Grid view: the delimiter row is found by
   content, so a body row `| - | - |` is drawn as a rule
   (`is_delimiter_row`, `markdown.rs:1056`); misaligned rule when the
   outer pipes differ.
+  (done 2026-10-06: the delimiter row is the table's second line, as
+  GFM has it; Markdown tables are drawn in the grid of Org's tables,
+  whose rule spans the columns whatever the outer pipes, in both
+  editors.)
 - [ ] **Minor, reported.** Convert to Org (`markdown_org.rs`) does not
   escape text (`\*x\*`, `/x/`, `=x=` become emphasis; `\# text` becomes
   a comment and is dropped on export; `[[Page|Title]]` is written as a
