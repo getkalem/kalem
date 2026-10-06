@@ -19,7 +19,7 @@ Every decision of the design, with the task that closes it and its state, as the
 | D15 | Ecosystem crate spin-out timing | §4.7 | *Decided:* incubate, spin out when stable |
 | D16 | Syntax highlighting engine | T1.6a.2 | *Decided:* syntect |
 | D17 | Vim mode engine | T2.7b.1 | Decided: own engine; replaces the Emacs profile |
-| D18 | Entity table provenance | Phase 0 exit | Open: owner decision |
+| D18 | Entity table provenance | Phase 0 exit | *Decided (owner, 2026-10-06):* the renderings made from standards (HTML, LaTeX, Unicode) by =tools/gen-entities.py=, only the names Org's |
 | D19 | Markdown parser | T2.7c.1 | Decided (owner, 2026-10-01): comrak, in the fork =getkalem/comrak= |
 | D20 | File operations for the file manager | T2.7e.1 | Decided 2026-09-28 |
 | D21 | Product positioning: Org editor first, Markdown editor too, or a light Office replacement (fonts, colors, spreadsheet notation); the README, the launch and the order of phase 2 follow it | T2.7c.0, T2.1.12 | *Closed (owner, 2026-09-30):* faithful standard modes (docs/design_doc2.md); the Kalem format it also named was withdrawn on 2026-10-04 |

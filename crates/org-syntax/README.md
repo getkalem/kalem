@@ -28,7 +28,7 @@ Pre-release. The API may change before 0.1.
 
 ## Data provenance
 
-The character class, case and script tables and the entity table in `src/tables/` are generated from Emacs by `tools/gen-tables.el`, so that the parser classifies characters exactly as Org does. The entity table comes from Org's `org-entities.el` (GPL-3.0-or-later); how it is licensed in this crate is an open decision ([D18](https://github.com/getkalem/kalem/blob/main/book/part-5/decisions/D18-entity-table-provenance.org)) that must be settled before the crate is published.
+The character class, case and script tables in `src/tables/` are generated from Emacs by `tools/gen-tables.el`, so that the parser classifies characters exactly as Org does; they encode Unicode's facts as Emacs applies them. The entity table is made by `tools/gen-entities.py` from standards, not from Org ([D18](https://github.com/getkalem/kalem/blob/main/book/part-5/decisions/D18-entity-table-provenance.org)): Org's entity names (`data/entity-names.txt`), the HTML Standard's named character references (WHATWG, CC BY 4.0), LaTeX's math symbols and text encodings and unicode-math's symbol table (LPPL 1.3c), the Unicode Character Database, and Kalem's own rows (`data/entities-kalem.tsv`).
 
 ## License
 

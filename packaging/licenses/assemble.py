@@ -112,12 +112,18 @@ w(
 w(fence((here / "vim-LICENSE.txt").read_text()))
 w("### Org's entities\n")
 w(
-    "The table of Org's entities (`crates/org-syntax/src/tables/entities.rs`: "
-    "`\\alpha`, `\\nbsp` and 412 more, with their LaTeX, HTML, ASCII, "
-    "Latin-1 and UTF-8 forms) is generated from `org-entities.el`, part of "
-    "GNU Emacs, under the GNU General Public License, version 3 or later "
-    "(https://www.gnu.org/licenses/gpl-3.0.html). Decision D18 of the "
-    "Kalem Book is about it.\n"
+    "The renderings of Org's entities (`crates/org-syntax/src/tables/entities.rs`, "
+    "made by `tools/gen-entities.py`) come from the HTML Standard's named "
+    "character references, Copyright WHATWG (Apple, Google, Mozilla, "
+    "Microsoft), under the Creative Commons Attribution 4.0 International "
+    "license (https://creativecommons.org/licenses/by/4.0/; "
+    "https://html.spec.whatwg.org/entities.json), adapted: each name's "
+    "character taken; from LaTeX's `fontmath.ltx`, `amssymb.sty`, "
+    "`latexsym.sty`, `latex.ltx` and encoding definitions, and from "
+    "unicode-math's `unicode-math-table.tex`, under the LaTeX Project "
+    "Public License 1.3c (https://www.latex-project.org/lppl/); and from "
+    "the Unicode Character Database, under the Unicode License v3 "
+    "(https://www.unicode.org/license.txt).\n"
 )
 
 print("\n".join(out).replace("\r\n", "\n").replace("\r", "\n"))

@@ -57,12 +57,13 @@ Attribution-ShareAlike 3.0 license (CC BY-SA 3.0). They come embedded in
 the =hayagriva= crate (MIT or Apache-2.0), whose archive records each
 style's authors.
 
-The table of Org's entities (=\alpha=, =\nbsp=: 414 names with their
+The table of Org's entities (=\alpha=, =\nbsp=: 412 names with their
 LaTeX, HTML, ASCII, Latin-1 and UTF-8 renderings), in
-=crates/org-syntax/src/tables/entities.rs=, is generated from
-Emacs's =org-entities.el=, which is part of GNU Emacs under the GPL,
-version 3 or later. Whether a permissively licensed crate may carry it
-is decision D18, open; see
+=crates/org-syntax/src/tables/entities.rs=, is made by
+=tools/gen-entities.py= from standards rather than from Org (decision
+D18): the HTML Standard's named character references (WHATWG, CC BY
+4.0), LaTeX's math symbols and text encodings and unicode-math's symbol
+table (LPPL 1.3c), and the Unicode Character Database; only the names,
+which decide what Org reads as an entity, are Org's. See
 [[file:../part-5/decisions/D18-entity-table-provenance.org][D18: Entity
-table provenance]]. Until it is decided, =org-syntax= is not published
-on crates.io.
+table provenance]].

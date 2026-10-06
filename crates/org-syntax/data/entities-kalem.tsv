@@ -1,0 +1,54 @@
+# Entities no standard Kalem reads defines, and where Kalem chooses
+# otherwise, written for Kalem (decision D18). Columns, tab-separated:
+# name, utf8, latex, math (true or false), html, ascii, latin1; an empty
+# column is derived as tools/gen-entities.py says.
+# `""` is the empty string, `\u{200E}` a character by its code point.
+AA	Å	\AA{}	false			
+Diamond	◇	\Diamond	true			
+diamond	⋄	\diamond	true			
+diams	♦	\blacklozenge	true			
+hearts	♥	\heartsuit	true			
+loz	◊	\lozenge	true			
+Prime	″	''	true		"	
+checkmark	✓	\checkmark	true			
+crarr	↵	\hookleftarrow	true		<-'	
+EUR	€	\texteuro{}	false	&euro;		
+USD	$					
+P	¶					
+S	§					
+acutex	´	\'{}	false			
+asciicirc	^					
+blacksmile	☻	:-)	false		:-)	
+smiley	☺	:-)	false		:-)	
+frowny	☹	:-(	false		:-(	
+sad	☹	:-(	false		:-(	
+cdots	⋯	\cdots	true		...	
+dag	†	\dag{}	false			
+ddag	‡	\ddag{}	false			
+dalet	ℸ	\daleth	true		dalet	
+dots	…	\dots{}	false			
+ensp	\u{2002}	\hspace{0.5em}	false			
+emsp	\u{2003}	\hspace{1em}	false			
+thinsp	\u{2009}	\,	false			
+lrm	\u{200E}	""	false			
+rlm	\u{200F}	""	false			
+zwj	\u{200D}	""	false			
+gets	←	\gets	true			
+to	→	\to	true			
+land	∧	\land	true			
+lor	∨	\lor	true			
+neq	≠	\neq	true			
+micro	µ	\mu	true			
+minus	−	-	true			
+nsub	⊄	\not\subset	true		not subset	
+nsup	⊅	\not\supset	true		not superset	
+oline	‾	\overline{\ }	true		-	
+slash	/					
+under	_					
+vbar	|					
+upsih	ϒ	\Upsilon	true		Upsilon	
+circ	∘	\circ	true			
+# Documents written in Org mean the degree sign by \deg and the superset
+# sign by \sup, not the operators.
+deg	°					
+sup	⊃					

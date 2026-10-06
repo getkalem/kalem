@@ -1289,12 +1289,22 @@ Wrong or stale text a first reader meets. Each is a text change.
   Vim's licence, and Org's entity table as GPL-3.0-or-later (D18).
   cargo-dist's `include` and `release-terminal.yml` put it in every
   archive; `docs/releasing.md` runs it before a tag.)
-- [ ] **Major, owner (D18).** `crates/org-syntax/src/tables/entities.rs`
+- [x] **Major, owner (D18).** `crates/org-syntax/src/tables/entities.rs`
   is generated from GPL-3.0-or-later `org-entities.el` and ships in the
   MIT/Apache binaries. `releasing.md:29` and the D18 page treat it as a
   crates.io question only; it is a binary-distribution question first.
   Decide D18 (regenerate the table from the Org manual's public list, or
   state the provenance and licence) before tagging.
+  (done 2026-10-06, the owner choosing to make it from GPL-free sources:
+  `tools/gen-entities.py` keeps Org's 412 names
+  (`crates/org-syntax/data/entity-names.txt`) and takes each one's
+  meaning and renderings from the HTML Standard, LaTeX's own files,
+  unicode-math's table and the Unicode Character Database, with 46 rows
+  of Kalem's own (`data/entities-kalem.tsv`); `tools/gen-tables.el` no
+  longer reads `org-entities.el`. All tests pass, the export cases
+  compared with Emacs among them; the Book's D18 page, the known
+  differences, the licences appendix and THIRD-PARTY-LICENSES.md say
+  where it comes from.)
 - [~] **Minor.** `tests/corpus/LICENSES.md`: no rows for `model/*.org`,
   `tables/*.org`, `latex/synthetic/*.tex`, the fetch scripts, `tests/csv`
   and `tests/latex` (CONTRIBUTING.md:36 requires them); the 51 arXiv

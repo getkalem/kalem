@@ -229,3 +229,15 @@ ends with such a cell (and fails on some tables with cells spanning rows
 with "Invalid search bound"). Kalem writes every row, a spanning cell as
 =\multicolumn=, and a rule under cells that span rows as =\cline=; on
 tables without spanning cells the output is Emacs's, byte for byte.
+
+* Entities' renderings
+
+Kalem reads the same entity names as Org, but what each renders as
+comes from standards rather than from Org's =org-entities.el= (decision
+D18): the HTML Standard, LaTeX and Unicode. Where those differ from
+Org's choices, export and the editor follow them. A few characters
+differ (=\phi= is LaTeX's straight =ϕ= and =\varphi= the curly =φ=;
+=\Amacr= is =Ā=, not =Ã=; =\diams= is the suit's =♦=); the LaTeX of some symbols is the math command where Org
+writes a text one or the reverse; and the ASCII and Latin-1 forms, which
+Org invents, are Unicode's decompositions and names (=\Dagger= is =++=
+in ASCII). The export cases compared with Emacs agree.

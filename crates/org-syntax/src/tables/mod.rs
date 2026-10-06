@@ -248,8 +248,6 @@ pub(crate) fn entity(
     &'static str,
     &'static str,
 )> {
-    // The first of the names given twice (`deg`, `sup`), as `assoc`
-    // finds it in `org-entities`.
     let i = ENTITIES.partition_point(|e| e.0 < name);
     ENTITIES.get(i).filter(|e| e.0 == name)
 }
@@ -259,7 +257,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn entities_given_twice() {
+    fn entities_named_as_latex_operators_too() {
+        // `\deg` and `\sup` are signs, as Org documents mean them.
         assert_eq!(entity("deg").map(|e| e.1), Some("\\textdegree{}"));
         assert_eq!(entity("sup").map(|e| e.1), Some("\\supset"));
         assert!(entity("nope").is_none());

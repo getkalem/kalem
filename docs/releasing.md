@@ -29,5 +29,5 @@ dist generate
 
 ## Crates
 
-- `org-syntax` can be published once decision D18 (entity table provenance) is made.
+- `org-syntax` and the Org crates on it can be published as far as decision D18 goes: the entity table is made from standards (`tools/gen-entities.py`); they are published after 0.1.
 - gpui comes from crates.io (`gpui-unofficial`), so it no longer keeps `kalem-ui` and `gpui-rich-text` off crates.io. Git dependencies still do: `kalem-core` uses the comrak fork (`getkalem/comrak`), so `kalem-core` and what depends on it cannot be published yet (the bundled plugins are no longer a git dependency: their released components are downloaded by `kalem-components`' build); `gpui-rich-text` stays `publish = false` until its name and API are settled. The binaries are the distribution meanwhile.

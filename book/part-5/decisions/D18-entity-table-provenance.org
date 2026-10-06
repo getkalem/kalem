@@ -1,4 +1,4 @@
-- Status: *Open*, needs a decision by the project owner (possibly with legal advice) before =org-syntax= is published
+- Status: *Decided* (owner, 2026-10-06): the renderings are made from standards, not from Org; only the names are Org's
 - Affects: =crates/org-syntax/src/tables/entities.rs=, the Phase 0 exit criterion "=org-syntax= 0.1 ready for crates.io"
 
 * The question
@@ -27,3 +27,39 @@ Option 2 now, with option 3 in parallel. Parsing needs only the names, and expor
 * Until decided
 - The crate stays unpublished; =cargo publish --dry-run -p org-syntax= succeeds, but nothing is uploaded.
 - The README's "Data provenance" section states where the tables come from.
+
+* Decision
+The owner chose, on 2026-10-06, to make the table from sources that are
+not Org's, for the binaries as much as for the crate.
+=tools/gen-entities.py= writes =entities.rs= from:
+
+- the names, =crates/org-syntax/data/entity-names.txt=: Org's 412, the
+  interface, which decide what the parser reads as an entity, as Org
+  does;
+- for each name, what it stands for: Kalem's own rows
+  (=crates/org-syntax/data/entities-kalem.tsv=), then LaTeX's log-like
+  operators (=\sin=, read from =latex.ltx=), a name LaTeX defines as a
+  math symbol in LaTeX's meaning (=\circ= is the ring), then the HTML
+  Standard's named character references (WHATWG, CC BY 4.0), then
+  unicode-math's symbol table;
+- for each character, its renderings: LaTeX's math symbols
+  (=fontmath.ltx=, =amssymb.sty=, =latexsym.sty=) before its text
+  encodings (the =*enc.dfu= files), LaTeX 2ε being under the LPPL;
+  the HTML name when the HTML Standard gives that name this character,
+  else a numeric reference; ASCII and Latin-1 by the Unicode Character
+  Database's decompositions and names, and Kalem's own table of
+  symbols.
+
+No part of Emacs or Org is read. The names stay Org's because parsing
+must agree with Org's; the parser's differential tests compare only the
+names. Kalem's rows (44 and two choices: =\deg= and =\sup= are the
+degree and superset signs, as Org documents mean them) are written for
+it: spaces and marks, emoticons, aliases LaTeX defines through others
+(=\gets=, =\land=), and symbols no standard above gives a command.
+
+What differs from Emacs: the renderings follow the standards, so a few
+characters differ (=\phi= is LaTeX's =ϕ=, =\Amacr= is =Ā=), and the
+ASCII and Latin-1 renderings, Org's own, differ for about 150 names.
+The export cases compared with Emacs still agree. =org-syntax= may be
+published as far as this decision goes.
+

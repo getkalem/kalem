@@ -9,7 +9,7 @@ repository.workspace = true
 authors.workspace = true
 keywords = ["org-mode", "emacs", "editor"]
 categories = ["text-processing", "text-editors"]
-# Not on crates.io: it depends on org-syntax (decision D18).
+# Not on crates.io yet: the Org crates are published after Kalem's 0.1.
 publish = false
 
 [dependencies]
