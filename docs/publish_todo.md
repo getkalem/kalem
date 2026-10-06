@@ -927,10 +927,16 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   `EncryptionInfo` stream is refused as "protected by a password to
   open, which Kalem cannot open yet"; test
   `a_workbook_with_a_password_says_so`. Released as xlsx 0.0.6, built
-  in since 2026-10-06. Open: opening it
-  with the password (MS-OFFCRYPTO's agile encryption, AES and SHA-512,
-  through the plugin API's `password` interface) and saving it
-  encrypted again.)
+  in since 2026-10-06. Opening it with the password and saving it
+  encrypted again: done in getkalem/plugins c91cd12 (`xlsx/src/crypto.rs`:
+  agile and standard encryption read, agile written with the integrity
+  HMAC and the data spaces, a version 3 compound file; LibreOffice opens
+  the result; tests `agile_round_trip`, `standard_encryption_read`,
+  `a_workbook_with_a_password_to_open`), and in Kalem `clock.random`
+  draws from the system's secure source for the key. Open: releasing
+  xlsx 0.0.8 (the owner's call), bumping `components.toml`, and the
+  book's "cannot be opened yet" in `pdf-pictures-and-workbooks.org`
+  changed with the bump.)
 - [x] **Major, reported.** Installing any component from the index
   replaces the newer bundled viewer (`kalem-cli/src/lib.rs:510-522` maps
   `org.kalem.xlsx` to the bundled `xlsx`): a working xlsx 0.0.4 is OOXML

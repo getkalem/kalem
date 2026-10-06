@@ -86,10 +86,16 @@ impl kalem::plugin::clock::Host for Files {
             .to_string()
     }
 
+    /// The system's secure random source: a workbook's `RAND()`, and an
+    /// encrypted workbook's salts and key.
     fn random(&mut self) -> u64 {
         use std::hash::{BuildHasher, Hasher};
         use std::sync::atomic::{AtomicU64, Ordering};
-        // Keys random for each process, a counter and the time hashed.
+        if let Ok(n) = getrandom::u64() {
+            return n;
+        }
+        // Without one, keys random for each process, a counter and the
+        // time hashed.
         static N: AtomicU64 = AtomicU64::new(0);
         let mut h = std::collections::hash_map::RandomState::new().build_hasher();
         h.write_u64(N.fetch_add(1, Ordering::Relaxed));
