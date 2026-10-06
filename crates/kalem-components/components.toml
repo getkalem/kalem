@@ -26,8 +26,8 @@ manifest_sha256 = "97fa98b24b3a09b5be7968de3884e06a1ce4bae0ede726e5f6a40c3372a03
 
 [[component]]
 id = "org.kalem.xlsx"
-tag = "xlsx-v0.0.5"
+tag = "xlsx-v0.0.6"
 file = "xlsx.wasm"
-sha256 = "1ac29e9ba451ae7a0950c1d7d683758cf200ed1c2de587f4848e4d41c5f3b4cd"
+sha256 = "25332d496f7890e0bfcb1685500f414adbfc96a7fcd8a313603812e0225a3302"
 manifest = "plugins/xlsx/plugin.json"
-manifest_sha256 = "9a99d2f3752fb3ff0d8d6183053b2d6df4ae6883090e9376c007fa9f0cf94813"
+manifest_sha256 = "f9a33e21fb81ce4e09371e294b965d6413a05aeec1859cd1157c77bc377c45d7"

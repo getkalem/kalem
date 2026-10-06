@@ -731,7 +731,7 @@ documents, `kalem check`'s round trip and diagnostics, a missing
 - [x] **Blocker.** The silent "unmodified after undo" and the `.ods`
   rewrite (section 2).
   (done there: both are checked off in section 2.)
-- [~] **Major, verified (code).** Formulas typed in Kalem are written
+- [x] **Major, verified (code).** Formulas typed in Kalem are written
   without Excel's `_xlfn.` prefix (nothing adds it; `calc.rs:61` only
   strips it), so `=XLOOKUP`, `=CONCAT`, `=TEXTJOIN`, `=IFS`, `=STDEV.S`,
   `=FILTER`, `=UNIQUE` show `#NAME?` in Excel after a save; dynamic-array
@@ -742,9 +742,10 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   written with `_xlfn.` before each of the functions Excel added after
   2007 (`_xlfn._xlws.` for FILTER and SORT), outside strings and sheet
   names, and the formula bar shows it without, as Excel does; tests
-  `newer_functions_get_their_prefix_for_excel`, `cell_xml_forms`. Open:
-  the release; dynamic-array formulas still written without `cm` and
-  `t="array"`, which wants the spill range IronCalc does not give.)
+  `newer_functions_get_their_prefix_for_excel`, `cell_xml_forms`.
+  Released as xlsx 0.0.6, built in since 2026-10-06. Open: dynamic-array
+  formulas still written without `cm` and `t="array"`, which wants the
+  spill range IronCalc does not give.)
 - [x] **Major, reported.** Save As to another workbook extension keeps
   the old content types (`save_as_format("xlsx")` returns the same
   package, `kalem-core/src/viewer.rs:1723`): `.xlsm` → `.xlsx` keeps
@@ -765,7 +766,8 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   (done in getkalem/plugins f070764, for xlsx 0.0.6: an OLE file with an
   `EncryptionInfo` stream is refused as "protected by a password to
   open, which Kalem cannot open yet"; test
-  `a_workbook_with_a_password_says_so`. Open: the release; opening it
+  `a_workbook_with_a_password_says_so`. Released as xlsx 0.0.6, built
+  in since 2026-10-06. Open: opening it
   with the password (MS-OFFCRYPTO's agile encryption, AES and SHA-512,
   through the plugin API's `password` interface) and saving it
   encrypted again.)
