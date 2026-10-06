@@ -158,7 +158,7 @@ and the ones that make merges between two working sessions collide.
 
 ### Measured against the targets (§15 of the design document)
 
-From `book/part-5/performance.org` (an M1 Max, by hand) and this session's
+From `book/part-4/performance.org` (an M1 Max, by hand) and this session's
 measurements (an x86-64 container):
 
 | Measurement | Measured | Target | |

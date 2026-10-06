@@ -159,7 +159,7 @@ fn large_files_lay_out_lazily() {
         view.display()
     );
     // Generous for debug builds on slow machines; the release figure is in
-    // book/part-5/performance.org.
+    // book/part-4/performance.org.
     assert!(start.elapsed().as_secs() < 5, "{:?}", start.elapsed());
 }
 

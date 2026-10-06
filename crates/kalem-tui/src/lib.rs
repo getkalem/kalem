@@ -96,7 +96,7 @@ pub fn run(path: Option<&Path>) -> io::Result<()> {
     app.editor.images.borrow_mut().compress = ssh && kitty;
     tracing::info!(graphics = ?app.caps.graphics(), cell = ?app.caps.cell_size, "images");
     let (mut term, session) = terminal::start(&app.caps)?;
-    // For start-up measurements (book/part-5/performance.org): quit after the
+    // For start-up measurements (book/part-4/performance.org): quit after the
     // first frame.
     let exit_after_start = std::env::var_os("KALEM_EXIT_AFTER_START").is_some();
     loop {

@@ -2,7 +2,7 @@
 
 Three engines run one guest component, a Markdown parser, and are measured
 for Kalem's plugins. Throwaway code, not part of the workspace; the record
-of the decision is `book/part-5/decisions/D28-plugin-abi.org`.
+of the decision is `book/part-4/decisions/D28-plugin-abi.org`.
 
 - `wit/parser.wit`: the guest's world: `parse` (Markdown to element spans,
   as a mode's parse would cross the boundary), `spin` (a loop, for the time

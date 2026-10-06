@@ -1,5 +1,5 @@
 //! Parse and keystroke times on a generated 1 MB paper, for
-//! `book/part-5/performance.org`: `cargo run --release -p latex-syntax --example
+//! `book/part-4/performance.org`: `cargo run --release -p latex-syntax --example
 //! timing`.
 
 #![allow(clippy::print_stdout)]

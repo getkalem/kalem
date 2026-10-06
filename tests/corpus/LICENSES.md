@@ -101,37 +101,22 @@ The LaTeX sources of fifty arXiv papers of January 2024, each submitted under CC
 
 ### Class and style files inside the arXiv sources
 
-The papers' sources carry 24 class and style files that are not their
+The papers' sources carry class and style files that are not their
 authors' work: journals', conferences' and packages' files, which keep
-their own terms rather than the paper's CC BY. Those stated in the files
-are below; for the others, and for `aaai25.sty`, which reserves its
-rights, redistribution rests on the publisher having made them public
-for authors to submit with, and they are to be removed should a holder
-ask.
+their own terms rather than the paper's CC BY. Those kept are below,
+each under the terms it states. The 14 that stated none, and
+`aaai25.sty`, which reserved its rights, were taken out on 2026-10-06; a
+paper that used one is kept without it (the tests read the `.tex`
+files).
 
 | Path | Terms |
 |---|---|
 | `latex/arxiv/biology/2401.01489/pnas-new.cls` | LPPL (as the file states) |
-| `latex/arxiv/biology/2401.01489/pnasinvited.sty` | none stated |
-| `latex/arxiv/biology/2401.01489/pnasresearcharticle.sty` | none stated |
-| `latex/arxiv/biology/2401.01786/citesort.sty` | none stated |
-| `latex/arxiv/biology/2401.01786/dccpaper.cls` | none stated |
-| `latex/arxiv/biology/2401.02739/aaai25.sty` | "All rights reserved" (AAAI) |
-| `latex/arxiv/biology/2401.02739/definition.sty` | none stated |
 | `latex/arxiv/biology/2401.02739/fancyhdr.sty` | LPPL (as the file states) |
-| `latex/arxiv/computer-science/2401.00652/spconf.sty` | none stated |
-| `latex/arxiv/computer-science/2401.00653/spconf.sty` | none stated |
 | `latex/arxiv/computer-science/2401.00663/cvpr.sty` | LPPL (as the file states) |
 | `latex/arxiv/computer-science/2401.00678/jabbrv.sty` | LPPL (as the file states) |
-| `latex/arxiv/computer-science/2401.00678/wlscirep.cls` | none stated |
 | `latex/arxiv/computer-science/2401.00689/acmart.cls` | May be distributed with its source, `acmart.dtx` (LPPL, on CTAN), as the file states |
 | `latex/arxiv/computer-science/2401.00689/sn-jnl.cls` | LPPL (as the file states) |
 | `latex/arxiv/computer-science/2401.00692/sn-jnl.cls` | LPPL (as the file states) |
-| `latex/arxiv/economics/2401.00748/emlines2.sty` | none stated |
-| `latex/arxiv/economics/2401.01804/mcode.sty` | none stated |
-| `latex/arxiv/economics/2401.03671/eptcs.cls` | none stated |
-| `latex/arxiv/economics/2401.05210/natbib.sty` | none stated |
-| `latex/arxiv/physics/2401.00826/FrontiersinHarvardArxiv.cls` | none stated |
 | `latex/arxiv/physics/2401.00826/latexml.sty` | Public domain (as the file states) |
-| `latex/arxiv/physics/2401.00931/jheppub.sty` | none stated |
 | `latex/arxiv/physics/2401.00960/mnras.cls` | LPPL (as the file states) |

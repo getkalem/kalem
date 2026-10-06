@@ -11,7 +11,7 @@ Kalem is a text editor that shows a file the way it reads and never touches what
 - **The file stays yours.** Kalem edits the text in place and saves it byte for byte. No database, no import, no "save as". A co-author who uses Emacs, a TeX editor or Excel sees only your edits in the diff. Workbooks are the one exception, below: an `.xlsx` keeps the parts you did not edit byte for byte, but an `.ods`, `.xls` or `.xlsb` is converted as it opens.
 - **Every format as itself.** Kalem writes nothing into a file that its format does not define, and shows what it does not understand as source.
 - **Checked against the reference.** The Org parser, commands and exporters are compared with Emacs on thousands of files; Markdown with the CommonMark and GFM test suites; LaTeX with pandoc and a TeX engine; CSV with the files spreadsheets write.
-- **Fast.** One binary, no runtime. A keystroke in a paragraph reparses in a twentieth of a millisecond; the [measurements](book/part-5/performance.org) give each number with the command that reproduces it.
+- **Fast.** One binary, no runtime. A keystroke in a paragraph reparses in a twentieth of a millisecond; the [measurements](book/part-4/performance.org) give each number with the command that reproduces it.
 
 ## What opens as what
 
@@ -70,6 +70,6 @@ Settings live in `~/.config/kalem` on Linux and macOS (`$XDG_CONFIG_HOME/kalem` 
 
 ## More
 
-- [The Kalem Book](https://getkalem.github.io/kalem): the manual, and what Kalem does with each format. [Kalem and Emacs](book/part-5/kalem-and-emacs.org): what is taken from Emacs, and what is left out on purpose.
+- [The Kalem Book](https://getkalem.github.io/kalem): the manual, and what Kalem does with each format. [Kalem and Emacs](book/part-4/kalem-and-emacs.org): what is taken from Emacs, and what is left out on purpose.
 - [Contributing](CONTRIBUTING.md), the [design documents and task list](docs/README.md), the [changelog](CHANGELOG.md).
 - License: MIT or Apache-2.0, at your option.

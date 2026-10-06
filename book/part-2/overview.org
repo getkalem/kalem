@@ -6,7 +6,7 @@ Kalem follows.
 
 These are the formats built into Kalem. Every other format is to be a
 plugin, compiled Rust run as a WebAssembly component on the same
-contracts the built-in modes use ([[file:../part-4/plugins.org][Plugins]]); the plugin runtime is
+contracts the built-in modes use ([[file:../part-3/plugins.org][Plugins]]); the plugin runtime is
 not built yet, so today Kalem opens exactly the formats below, and every
 other text file as plain text. No file is converted in order to be
 opened: a format is opened as itself, or as plain text.

@@ -312,7 +312,7 @@ taken when any of these holds:
   the paragraph breaks the old one had.
 
 The property tests check that the result is always the full parse's
-tree. Measured (=book/part-5/performance.org=): a 1 MB paper parses in
+tree. Measured (=book/part-4/performance.org=): a 1 MB paper parses in
 32 ms and a keystroke reparses in 0.64 ms (median).
 
 * Projects

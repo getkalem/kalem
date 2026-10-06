@@ -2,7 +2,7 @@
 //!
 //! A plugin is a WebAssembly component on a WIT API. The engine is
 //! wasmtime with Cranelift, chosen on the spike of T3.1.0
-//! (`book/part-5/decisions/D28-plugin-abi.org`):
+//! (`book/part-4/decisions/D28-plugin-abi.org`):
 //!
 //! - a component compiles once and is cached in the state directory, keyed
 //!   by its bytes and the engine's compatibility, so a plugin's later

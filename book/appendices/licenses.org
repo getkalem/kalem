@@ -65,5 +65,5 @@ D18): the HTML Standard's named character references (WHATWG, CC BY
 4.0), LaTeX's math symbols and text encodings and unicode-math's symbol
 table (LPPL 1.3c), and the Unicode Character Database; only the names,
 which decide what Org reads as an entity, are Org's. See
-[[file:../part-5/decisions/D18-entity-table-provenance.org][D18: Entity
+[[file:../part-4/decisions/D18-entity-table-provenance.org][D18: Entity
 table provenance]].

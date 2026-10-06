@@ -1032,7 +1032,7 @@ Wrong or stale text a first reader meets. Each is a text change.
   names `editor.restore_session`; `--engine` names `tectonic`; the help
   ends with the three variables.)
 - [ ] **The Book**
-  - [x] `book/part-4/overview.org:3-7, 19-20`, `book/part-4/plugins.org:1-12`
+  - [x] `book/part-3/overview.org:3-7, 19-20`, `book/part-3/plugins.org:1-12`
     and `book/appendices/glossary.org:15` say the plugin runtime "is not
     built yet", "everything in this chapter is planned", getkalem/plugins
     is a "skeleton only". The runtime ships, `kalem plugin install`
@@ -1045,7 +1045,7 @@ Wrong or stale text a first reader meets. Each is a text change.
     turned off after three stops, the repository's plugins and tags,
     and `kalem plugin dev`'s reload; the overview's table and the
     glossary say the same.)
-  - [x] `book/part-5/decisions.org`: D31–D53 still read "*Decided* … RFC 0003",
+  - [x] `book/part-4/decisions.org`: D31–D53 still read "*Decided* … RFC 0003",
     D52 "Typst embedded as the default", D53 "Part III is the home of the
     Kalem format"; D21, D24, D59 mention the format. Mark them withdrawn
     (owner, 2026-10-04). `docs/design_document.md` lines 177, 193, 203,
@@ -1053,12 +1053,13 @@ Wrong or stale text a first reader meets. Each is a text change.
     (done 2026-10-06: D31 to D52 withdrawn, D53's `.klm` and Part III
     halves, D21, D24 and D59 no longer lean on the format; the design
     document's five places say it was withdrawn.)
-  - [x] `book/part-5/decisions/D30-latex-subset.org` is not in `index.org`
+  - [x] `book/part-4/decisions/D30-latex-subset.org` is not in `index.org`
     (never published; `decisions.org:34` names it as text).
     (done 2026-10-06: in the index, with a title; `kalem book check`
     finds 61 pages and no problem.)
-  - Folders `part-4` and `part-5` hold Parts III and IV; there is no
-    `part-3`. Rename before the URLs are public, or accept it.
+  - [x] Folders `part-4` and `part-5` held Parts III and IV; there was no
+    `part-3`. (done 2026-10-06, asked by the owner: renamed to `part-3`
+    and `part-4`, every reference with them.)
   - [x] No Part I chapter for the PDF, picture and workbook viewers (keys,
     passwords, what a save keeps, `.ods`/`.xls` conversion) and none for
     Markdown files; `book/part-1/the-command-line.org` omits `export`,
@@ -1131,7 +1132,7 @@ Wrong or stale text a first reader meets. Each is a text change.
     (done 2026-10-06: both say to take the character out, or to save
     the whole file as UTF-8 knowing it; the lossy case is section 2's
     refusal.)
-  - [x] `book/part-5/performance.org:30,35` gives 83.3 and 40.8 MiB; CI
+  - [x] `book/part-4/performance.org:30,35` gives 83.3 and 40.8 MiB; CI
     measures 85.4 and 42.3. The Book is published from `main` only
     (`index.org:21-23`), with no version banner and no link back to the
     repository or the releases: after 0.1 it describes unreleased code.
@@ -1166,7 +1167,7 @@ Wrong or stale text a first reader meets. Each is a text change.
     moved to `docs/history/`. Move the finished lists.
   - References to the superseded `docs/todo.md` as the task list:
     `rfcs/README.md:17`, `.github/pull_request_template.md:5`,
-    `book/part-5/design-documents.org:11`, `book/part-4/overview.org:7`,
+    `book/part-4/design-documents.org:11`, `book/part-3/overview.org:7`,
     `plugins.org:9`, `kalem-and-emacs.org:33`, `part-2/org.org:959`,
     `csv.org:51`, `bibtex.org:30`, `markdown.org:441`.
   - `docs/announcements/org-mailing-list-draft.md:11,21` says "Markdown
@@ -1344,10 +1345,8 @@ Wrong or stale text a first reader meets. Each is a text change.
   `latex/synthetic/`, the fetch scripts, `tests/csv` and `tests/latex`;
   the arXiv sources under a heading and a header row, each with its
   authors from arXiv's API; the 24 class and style files listed with
-  the terms each states. Open: 13 state none and `aaai25.sty` reserves
-  its rights; keep them as published-for-submission files, or take
-  them out (the tests that read the sources would lose their packages'
-  definitions).)
+  the terms each states. The 14 that state none and `aaai25.sty`, which
+  reserves its rights, taken out on 2026-10-06 at the owner's word.)
 - [x] **Minor.** `book/appendices/licenses.org` omits the Foxit fonts,
   ICC profiles and CMaps, the comrak and ironcalc forks, gpui, wasmtime,
   the Vim digraph table (`vim/digraphs.txt`, no stated provenance), the

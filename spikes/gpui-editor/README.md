@@ -1,7 +1,7 @@
 # gpui editor spike (T0.6, D3)
 
 A minimal WYSIWYG Org editor used to decide on gpui as Kalem's UI framework.
-The findings are in `book/part-5/decisions/D3-ui-framework.org`. This is throwaway
+The findings are in `book/part-4/decisions/D3-ui-framework.org`. This is throwaway
 code: it is not part of the workspace and is not maintained.
 
 ```sh

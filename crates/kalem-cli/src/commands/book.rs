@@ -789,7 +789,7 @@ mod tests {
     #[test]
     fn chapters_left_behind() {
         let map = chapter_map(
-            "[\"part-2/csv.org\"]\ncode = [\"crates/kalem-core/src/csv\"]\n[\"part-4/\"]\ncode = [\"crates/kalem-plugin/\"]\n",
+            "[\"part-2/csv.org\"]\ncode = [\"crates/kalem-core/src/csv\"]\n[\"part-3/\"]\ncode = [\"crates/kalem-plugin/\"]\n",
         )
         .unwrap();
         let changed = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
@@ -816,7 +816,7 @@ mod tests {
             left_behind(
                 &map,
                 "book",
-                &changed(&["crates/kalem-plugin/src/lib.rs", "book/part-4/plugins.org"])
+                &changed(&["crates/kalem-plugin/src/lib.rs", "book/part-3/plugins.org"])
             )
             .is_empty()
         );

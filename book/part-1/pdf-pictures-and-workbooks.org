@@ -1,5 +1,5 @@
 PDF files, pictures and Excel workbooks open in viewers: plugins that
-run in Kalem's sandbox, built into it (see [[file:../part-4/plugins.org][Plugins]]). A file that is
+run in Kalem's sandbox, built into it (see [[file:../part-3/plugins.org][Plugins]]). A file that is
 text, an SVG picture among them, opens as text; =kalem view FILE= shows
 a viewer's file on the command line.
 

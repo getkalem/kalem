@@ -1,7 +1,7 @@
 # Terminal editor spike (T0.8, D14)
 
 A terminal Org editor on ratatui + crossterm, used to decide the terminal UI
-stack. The findings are in `book/part-5/decisions/D14-terminal-ui-stack.org`. It
+stack. The findings are in `book/part-4/decisions/D14-terminal-ui-stack.org`. It
 compiles the gpui spike's `view.rs` unchanged, so both spikes share one
 display model. Throwaway code, not part of the workspace.
 

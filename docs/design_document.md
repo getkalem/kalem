@@ -482,7 +482,7 @@ The terminal shows colors and highlights and aligns short lines; it cannot show 
 4. **Deterministic and testable.** Time, filesystem and randomness are injected.
 5. **Lightness is a feature.** Every new dependency is justified by its effect on binary size and startup time.
 6. **Superset of Emacs, not a copy of its limits.** Same meaning for every file Emacs opens; none of Emacs's implementation limits (3.6).
-7. **The terminal is never second class** (asked by the owner, 2026-09-28). Wherever it is possible, the terminal frontend supports a feature as strongly as the graphical one: the same commands, keymaps, settings, panels and plugins, and a terminal form for everything a character grid can carry (text, glyphs, colors, images through the graphics protocols, OSC 8 links, OSC 52 clipboard). A feature lands in both frontends together and is done only when it works in both; what the terminal cannot show (fonts, sizes, pixel layout) gets its nearest honest form and is listed in `book/part-5/terminal-parity.org`, never dropped silently. People over SSH and in tmux (P6) are first-class users.
+7. **The terminal is never second class** (asked by the owner, 2026-09-28). Wherever it is possible, the terminal frontend supports a feature as strongly as the graphical one: the same commands, keymaps, settings, panels and plugins, and a terminal form for everything a character grid can carry (text, glyphs, colors, images through the graphics protocols, OSC 8 links, OSC 52 clipboard). A feature lands in both frontends together and is done only when it works in both; what the terminal cannot show (fonts, sizes, pixel layout) gets its nearest honest form and is listed in `book/part-4/terminal-parity.org`, never dropped silently. People over SSH and in tmux (P6) are first-class users.
 8. **Only the Kalem format is ours** (owner, 2026-09-30; the format withdrawn on 2026-10-04, after which Kalem designs no format and adds to none). `.klm` was the one format Kalem designs; every other format, Org, Markdown, CSV, LaTeX, and the files plugins open, is implemented to its own specification with nothing added, removed or changed, and nothing of Kalem's written into it. Anything Kalem wants to add to a document lives in `.klm` alone (D24, D53, D55).
 
 ### 4.2 Crate map
@@ -711,7 +711,7 @@ The `orgize` crate has been rowan-based since 0.10. A short evaluation **SHOULD*
 
 The outcome is one of three paths: direct dependency, fork, or a new parser. For a fork or a new parser, the design in 5.2 applies.
 
-**Outcome (D2 decided, 2026-09-27):** a new parser. orgize round-trips every corpus file and never panicked, but agreed with org-element on only 72.5% of element and object positions, lacks citations and inlinetasks, and has been dormant since mid-2024. `org-syntax` follows `org-element.el` function by function and reproduces its tree shape and ranges. Details: `book/part-5/decisions/D2-parser-foundation.org`.
+**Outcome (D2 decided, 2026-09-27):** a new parser. orgize round-trips every corpus file and never panicked, but agreed with org-element on only 72.5% of element and object positions, lacks citations and inlinetasks, and has been dormant since mid-2024. `org-syntax` follows `org-element.el` function by function and reproduces its tree shape and ranges. Details: `book/part-4/decisions/D2-parser-foundation.org`.
 
 ### 5.7 Testing
 
@@ -789,7 +789,7 @@ pub struct Transaction {
 
 ### 7.1 Framework decision (D3)
 
-**Decided: gpui** (spike report: `book/part-5/decisions/D3-ui-framework.org`). Rationale: pure Rust, proven for text editing by Zed, GPU accelerated, single binary. Risk: the API still moves, documentation is sparse, and its editor is not a reusable component; the editing engine is written from scratch.
+**Decided: gpui** (spike report: `book/part-4/decisions/D3-ui-framework.org`). Rationale: pure Rust, proven for text editing by Zed, GPU accelerated, single binary. Risk: the API still moves, documentation is sparse, and its editor is not a reusable component; the editing engine is written from scratch.
 
 The risk was measured with a **spike**. Spike goals:
 
@@ -888,7 +888,7 @@ The modal engine is independent of any UI and of Org. If no suitable crate exist
 
 ### 7.6 Terminal frontend: kalem-tui
 
-`kalem tui file.org` (or `kalem -t file.org`) opens the same editor in the terminal. It uses the same `kalem-core`, the same commands, keymaps, settings and plugins as the graphical frontend. Only the rendering differs. The terminal is never second class (4.1, principle 7): a feature is done when it works in both frontends, and what the grid cannot show is listed in `book/part-5/terminal-parity.org`.
+`kalem tui file.org` (or `kalem -t file.org`) opens the same editor in the terminal. It uses the same `kalem-core`, the same commands, keymaps, settings and plugins as the graphical frontend. Only the rendering differs. The terminal is never second class (4.1, principle 7): a feature is done when it works in both frontends, and what the grid cannot show is listed in `book/part-4/terminal-parity.org`.
 
 **Rendering in a character grid:**
 
@@ -910,7 +910,7 @@ The modal engine is independent of any UI and of Org. If no suitable crate exist
 
 **Constraints:** no proportional fonts or font sizes, so heading levels are distinguished by glyphs and colors. Terminal capabilities are detected (true color, italics, graphics protocol, OSC 8) with graceful fallbacks, and `NO_COLOR` is respected.
 
-**Stack (D14, decided):** ratatui + crossterm, with ratatui-image for graphics. The spike (`book/part-5/decisions/D14-terminal-ui-stack.org`) draws from the same display model as the GUI spike, costs 0.5 to 1.9 ms per 120 × 50 frame on a 4 MB file, and builds to 6.7 MB with LTO. Consequences:
+**Stack (D14, decided):** ratatui + crossterm, with ratatui-image for graphics. The spike (`book/part-4/decisions/D14-terminal-ui-stack.org`) draws from the same display model as the GUI spike, costs 0.5 to 1.9 ms per 120 × 50 frame on a 4 MB file, and builds to 6.7 MB with LTO. Consequences:
 
 - Hyperlinks are OSC 8 sequences in every cell of a link, grouped by an `id` parameter, so a cell redrawn alone keeps its link.
 - Terminal images are block-level: display formulas and image links become image blocks, inline formulas stay Unicode.
@@ -1006,7 +1006,7 @@ Fragments: `$x$`, `$$...$$`, `\(...\)`, `\[...\]`, `\begin{env}...\end{env}` (eq
 | (B, earlier) ReX and its forks | Small, TeX algorithms | No maintained release; the `rex` crate on crates.io is unrelated; replaced by RaTeX |
 | C. KaTeX through an embedded script engine → HTML/MathML | Very broad coverage | No native rendering; eliminated |
 
-**Outcome (D4): RaTeX.** On a 100-formula corpus it rendered 98 formulas with no visible errors; typst + MiTeX rendered 88, three of them wrongly, and several failures came from MiTeX lagging typst's symbol renames. RaTeX adds 4.6 MB to the binary against about 35 MB for typst, and its start-up is 1 ms against 11 to 17 ms. Details: `book/part-5/decisions/D4-math-engine.org`. Typst stays a candidate for whole-document export (9.3), which is a separate decision.
+**Outcome (D4): RaTeX.** On a 100-formula corpus it rendered 98 formulas with no visible errors; typst + MiTeX rendered 88, three of them wrongly, and several failures came from MiTeX lagging typst's symbol renames. RaTeX adds 4.6 MB to the binary against about 35 MB for typst, and its start-up is 1 ms against 11 to 17 ms. Details: `book/part-4/decisions/D4-math-engine.org`. Typst stays a candidate for whole-document export (9.3), which is a separate decision.
 
 ### 9.3 Full LaTeX and PDF
 
@@ -1671,31 +1671,31 @@ Two tracks run beside the phases below (design_doc2.md, section 11; owner, 2026-
 | ID | Decision | Options | Recommendation | Status |
 |---|---|---|---|---|
 | D1 | License | MIT OR Apache-2.0; GPL-3.0; mixed | MIT OR Apache-2.0 everywhere | **Decided:** MIT OR Apache-2.0 (18.1) |
-| D2 | Parser foundation | orgize dependency; orgize fork; new parser | After evaluation | **Decided:** new parser following org-element (5.6, `book/part-5/decisions/D2-parser-foundation.org`) |
-| D3 | UI framework | gpui; Tauri + ProseMirror; iced/floem | gpui, validated by the spike | **Decided:** gpui, with Kalem's own inline layout (7.1, `book/part-5/decisions/D3-ui-framework.org`) |
-| D4 | Math engine | mitex + typst; ReX; RaTeX; KaTeX | After the corpus comparison | **Decided:** RaTeX (9.2, `book/part-5/decisions/D4-math-engine.org`) |
+| D2 | Parser foundation | orgize dependency; orgize fork; new parser | After evaluation | **Decided:** new parser following org-element (5.6, `book/part-4/decisions/D2-parser-foundation.org`) |
+| D3 | UI framework | gpui; Tauri + ProseMirror; iced/floem | gpui, validated by the spike | **Decided:** gpui, with Kalem's own inline layout (7.1, `book/part-4/decisions/D3-ui-framework.org`) |
+| D4 | Math engine | mitex + typst; ReX; RaTeX; KaTeX | After the corpus comparison | **Decided:** RaTeX (9.2, `book/part-4/decisions/D4-math-engine.org`) |
 | D5 | tectonic | Bundle; separate download; system TeX only | Separate download | Open |
 | D6 | API definition source | Rust macros; a separate IDL; hand-written declarations | A single definition, bindings generated | **Decided (D28, 2026-09-28):** WIT is the single definition; the Rust bindings are generated from it and published as `kalem-plugin` |
 | D7 | Project name | – | – | **Decided:** Kalem; crate `kalem-editor`, binary `kalem`, GitHub `kalem-editor` (section 0) |
 | D8 | Agenda index storage | In memory; SQLite; custom file | In memory, disk cache later | Open |
-| D9 | Configuration formats | TOML and a script file; a script file only; JSON | TOML, a script file and keymap.json | **Decided:** `settings.toml`, `keymap.json` (comments allowed); no script file (D28, 2026-09-28), automation is a plugin (14, `book/part-5/decisions/D9-configuration-formats.org`) |
+| D9 | Configuration formats | TOML and a script file; a script file only; JSON | TOML, a script file and keymap.json | **Decided:** `settings.toml`, `keymap.json` (comments allowed); no script file (D28, 2026-09-28), automation is a plugin (14, `book/part-4/decisions/D9-configuration-formats.org`) |
 | D10 | A second scripting language | Phase 3; phase 4; never | Never, for now | **Closed (owner, 2026-09-28):** no scripting language ships; reopening needs an RFC |
-| D11 | Webviews in plugin panels | Never; optional | Never; JSON widget tree | **Decided (owner, 2026-10-04):** no webview; a widget tree in typed WIT (a flat list, children by index), rendered by both frontends (`book/part-5/decisions/D11-plugin-panels.org`) |
+| D11 | Webviews in plugin panels | Never; optional | Never; JSON widget tree | **Decided (owner, 2026-10-04):** no webview; a widget tree in typed WIT (a flat list, children by index), rendered by both frontends (`book/part-4/decisions/D11-plugin-panels.org`) |
 | D12 | Multiple documents | One window one document; tabs; multiple windows | Tabs, phase 2 | **Decided (owner, 2026-09-28):** one window holds many documents, listed on the left or as tabs at the top, grouped by project (2.8) |
 | D13 | Time library | jiff; chrono | jiff | **Decided:** jiff; date arithmetic follows Emacs's `encode-time` normalization on top of it (`org-model::time`) |
-| D14 | Terminal UI stack | ratatui + crossterm; termwiz; custom | ratatui + crossterm, ratatui-image for graphics | **Decided:** ratatui + crossterm + ratatui-image (7.6, `book/part-5/decisions/D14-terminal-ui-stack.org`) |
+| D14 | Terminal UI stack | ratatui + crossterm; termwiz; custom | ratatui + crossterm, ratatui-image for graphics | **Decided:** ratatui + crossterm + ratatui-image (7.6, `book/part-4/decisions/D14-terminal-ui-stack.org`) |
 | D15 | When to spin out ecosystem crates | From the start; when stable (4.7) | When the API is stable, per 4.7 | **Decided:** incubate in the monorepo, spin out when stable (4.7) |
-| D16 | Syntax highlighting engine | syntect (Sublime syntax definitions, pure Rust with fancy-regex); tree-sitter (incremental, structural, C grammars) | syntect first for breadth and Sublime compatibility; tree-sitter later for structure-aware features | **Decided:** syntect with `regex-fancy`, in `kalem-highlight` (`book/part-5/decisions/D16-syntax-highlighting.org`) |
+| D16 | Syntax highlighting engine | syntect (Sublime syntax definitions, pure Rust with fancy-regex); tree-sitter (incremental, structural, C grammars) | syntect first for breadth and Sublime compatibility; tree-sitter later for structure-aware features | **Decided:** syntect with `regex-fancy`, in `kalem-highlight` (`book/part-4/decisions/D16-syntax-highlighting.org`) |
 | D17 | Vim mode engine | Own engine in kalem-core; reuse an existing crate; embed Neovim | Own engine, spun out if it proves reusable (4.7); Neovim embedding rejected for size and dependency reasons | **Decided:** own engine, `kalem_core::vim`; the Vim profile replaces the Emacs Org profile (owner, 2026-09-28) |
-| D18 | Entity table provenance | Keep with attribution; split (names and UTF-8 in `org-syntax`, export renderings elsewhere); ask the Org maintainers and the FSF; GPL for `org-syntax` | Split now, ask in parallel (`book/part-5/decisions/D18-entity-table-provenance.org`) | Open: owner decision, blocks publishing `org-syntax` |
+| D18 | Entity table provenance | Keep with attribution; split (names and UTF-8 in `org-syntax`, export renderings elsewhere); ask the Org maintainers and the FSF; GPL for `org-syntax` | Split now, ask in parallel (`book/part-4/decisions/D18-entity-table-provenance.org`) | Open: owner decision, blocks publishing `org-syntax` |
 | D19 | Markdown parser | pulldown-cmark (offset iterator); comrak (AST with source positions); tree-sitter-markdown; own parser | comrak: GitHub's own rules (a port of `cmark-gfm`), all of GFM; its position defects fixed in Kalem's fork (`spikes/md-parser`: both 639/648 CommonMark, comrak 24/24 GFM against 12/24, a few positions outside their parent, four times slower than pulldown-cmark) | **Decided (owner, 2026-10-01):** comrak in the fork `getkalem/comrak`, fixes offered upstream |
-| D20 | File operations for the file manager (2.7) | `trash` crate plus std::fs with own copy, move and progress; `fs_extra`; shelling out to system tools | `trash` for deletion, own operations on std::fs for progress, cancellation and conflict handling | Decided 2026-09-28 (book/part-5/decisions/D20-file-operations.org) |
+| D20 | File operations for the file manager (2.7) | `trash` crate plus std::fs with own copy, move and progress; `fs_extra`; shelling out to system tools | `trash` for deletion, own operations on std::fs for progress, cancellation and conflict handling | Decided 2026-09-28 (book/part-4/decisions/D20-file-operations.org) |
 | D21 | Product positioning | Org editor first; Markdown editor too; a light Office replacement (fonts, colors, spreadsheet notation) | "Kalem edits plain-text files as they look, and keeps them plain text, byte for byte": Org first, Markdown next, the Word-like additions only in `.klm` (D24); the README, the launch and the order of phase 2 follow it | **Closed (owner, 2026-09-30):** faithful standard modes plus the Kalem format; four use cases: notes and tasks, documentation, scientific writing, printed documents (design_doc2.md) |
 | D22 | PDF without TeX | System print to PDF; a bundled HTML renderer; typst | Decide with T2.3.13, after the HTML page template exists | Open (review, 2026-09-28) |
 | D23 | UI framework revisited | Stay on gpui through a registry snapshot or vendoring; leave gpui | A registry snapshot first (`gpui-unofficial` or `gpui-pre`, T2.8.6a); the spike of T2.8.7 only if the snapshot lines fail twice or Zed's terms change | Snapshot taken: `gpui-unofficial` 1.22.0 (2026-10-05, R2.7); leaving gpui stays the owner's decision |
 | D24 | File kinds | One `.org` that may carry Kalem's additions; `.org` strict and `.klm` a superset | `.org` is strict Org; `.klm` is the Kalem format of RFC 0003 | `.org` strict **decided**; the `.klm` half **superseded by RFC 0003** (owner, 2026-09-30); Kalem's additions removed from Org now, ahead of the Kalem format (owner, 2026-09-30; T2.13.13) |
 | D25 | Plugin-provided highlighters, renderers and completers | Separate plugin APIs; the contracts built-in modes and completers use | One contract each, shared by built-ins and plugins, with a declarative and a programmatic level, a conformance suite and reference plugins (11.11, 11.12) | **Decided (owner, 2026-09-28)** |
-| D26 | Terminal parity | The terminal as a reduced frontend; the terminal never second class | Principle 7 of 4.1: a feature is done when it works in both frontends, gaps listed in `book/part-5/terminal-parity.org` | **Decided (owner, 2026-09-28)** |
+| D26 | Terminal parity | The terminal as a reduced frontend; the terminal never second class | Principle 7 of 4.1: a feature is done when it works in both frontends, gaps listed in `book/part-4/terminal-parity.org` | **Decided (owner, 2026-09-28)** |
 | D27 | Command scope | Keys for mode, language and file kind; one axis | One axis, the type of the text at the cursor, nesting by the innermost type, `klm` a subtype of `org`; structure stays in `when` (11.2) | **Decided (owner, 2026-09-28)** |
 | D28 | Plugin ABI and language | A scripting engine embedded natively with WASM later; WASM components with a scripting runtime; WASM components with Rust as the only language | WASM components on a WIT-defined API; Rust is the plugin language, on the same traits the core uses, so one crate builds as a bundled plugin inside the binary or as a sandboxed component; no scripting engine ships (D10); power users may compile community plugins into their own Kalem; out-of-process JSON-RPC for language servers and external tools; the engine (wasmtime or wasmi) by the spike T3.1.0 | **Decided (owner, 2026-09-28)**, engine open |
 | D29 | Small core | Everything built in; a small core with bundled plugins | The core: Org, Markdown, CSV and LaTeX (9.5), the Kalem format (RFC 0003), the text engine and view model, the two frontends, the infrastructure that runs before plugins; everything else a plugin, the expected ones bundled as embedded WASM components (11.0) | **Decided (owner, 2026-09-28)**, LaTeX added to the core the same day; new modes and file types live in `getkalem/plugins` (11.8) |

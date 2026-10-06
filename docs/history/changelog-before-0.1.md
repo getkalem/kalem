@@ -6,6 +6,11 @@ first release, as each was recorded under *Unreleased* in
 back (the Kalem format, `.klm`, was added and then removed). The
 changelog's 0.1 section gives the net state; this file is the record.
 
+### Changed
+- The terminal-only build's size ceiling (`tools/binary-size.txt`) is 50 MiB, from 42.5, by the owner's decision of 2026-10-06: it measured exactly its ceiling, so any growth of the core stopped CI; the target of 15 MB stays (roadmap R2.1).
+- The Book's folders are `part-3` and `part-4` for Parts III and IV (they were `part-4` and `part-5`, with no `part-3` since Part III's removal).
+- The test corpus no longer carries the 15 class and style files of the arXiv sources that state no licence or reserve their rights (`aaai25.sty`); the papers stay, under CC BY.
+
 ### Removed
 - The Kalem format (`.klm`): its parser (`klm-syntax`), its mode, its formatter and Repair Document, `kalem fmt --repair`, its conformance suite, RFC 0003 and Part III of the Book, by the owner's decision. A `.klm` file opens as plain text, and the scratch document is `scratch.org`. The Book's Parts IV and V are now Parts III and IV.
 

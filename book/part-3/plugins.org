@@ -62,7 +62,7 @@ and the task list.
 * The host
 
 =kalem-script= runs components in wasmtime with its Cranelift compiler,
-the engine chosen by measurement ([[file:../part-5/decisions/D28-plugin-abi.org][D28]]):
+the engine chosen by measurement ([[file:../part-4/decisions/D28-plugin-abi.org][D28]]):
 
 - A component is compiled the first time it loads and kept in the state
   directory, named by its hash and the engine's version and settings;

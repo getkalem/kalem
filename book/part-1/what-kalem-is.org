@@ -55,15 +55,15 @@ or Lisp interpreter; configuration is data, in TOML and JSON. The
 first plugins are bundled into the binary as the components they
 released: the viewers of PDF files, pictures and Excel workbooks;
 =kalem plugin install= adds others
-from the plugins' index. [[file:../part-4/overview.org][The extension model]] says what can be
-changed today and [[file:../part-4/plugins.org][Plugins]] has the design.
+from the plugins' index. [[file:../part-3/overview.org][The extension model]] says what can be
+changed today and [[file:../part-3/plugins.org][Plugins]] has the design.
 
 * Fast
 
 Kalem is one static binary with nothing to interpret. On an Apple M1
 Max it starts to its first frame in 148 ms, opens a 1 MB document in
 184 ms, draws a keystroke in 8.7 ms, and uses 47 MB of memory with an
-empty document. [[file:../part-5/performance.org][Performance]] has every target, the method and the
+empty document. [[file:../part-4/performance.org][Performance]] has every target, the method and the
 scripts that repeat the measurement.
 
 * Two editors and a command line
@@ -72,7 +72,7 @@ The graphical and the terminal editor share one core: the same
 commands, keys, settings, menus and views. The terminal editor draws
 formulas, images and tables too, so a document reads the same over
 SSH as on the desktop; what it cannot show is listed in
-[[file:../part-5/terminal-parity.org][Terminal parity]]. Every document operation is also a command-line
+[[file:../part-4/terminal-parity.org][Terminal parity]]. Every document operation is also a command-line
 tool, for scripts and CI: [[file:the-command-line.org][The command line]].
 
 * A power editor's tools
@@ -93,7 +93,7 @@ later, and go through pandoc today. Not a page layout tool, a full
 spreadsheet or a visual slide designer. Not a full IDE: language
 servers come as plugins, and the core knows no programming language.
 Not an Emacs: no Elisp, no agenda settings by the hundred;
-[[file:../part-5/kalem-and-emacs.org][Kalem and Emacs]] says what is taken from it and what is left out. Not a
+[[file:../part-4/kalem-and-emacs.org][Kalem and Emacs]] says what is taken from it and what is left out. Not a
 collaboration service: files and git are enough. The design document
 lists the
 [[https://github.com/getkalem/kalem/blob/main/docs/design_document.md#14-non-goals][non-goals]] in full.
