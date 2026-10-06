@@ -29,12 +29,15 @@ fn the_bundled_components_bind() {
     }
 }
 
+#[cfg(feature = "viewers")]
 #[test]
 fn the_built_in_workbook_viewer_opens_one_with_a_password() {
     // `data/locked.xlsx`: a workbook encrypted as Excel encrypts one with
     // a password to open (by xlsx 0.0.8, the password `kalem`). The
     // built-in viewer asks for it, asks again for a wrong one, opens it
-    // with the right one, and saves it encrypted again.
+    // with the right one, and saves it encrypted again. The viewer is
+    // Kalem's own, with its manifest's limits: the password's key takes
+    // longer than a plain call's 100 ms on CI.
     use kalem_viewer::{FileHandle, Viewer as _};
     let Some(c) = kalem_components::components()
         .iter()
@@ -42,16 +45,8 @@ fn the_built_in_workbook_viewer_opens_one_with_a_password() {
     else {
         return;
     };
-    let wasm: &'static [u8] = c.wasm();
     let host = std::sync::Arc::new(kalem_script::Host::new(None).unwrap());
-    let v = kalem_script::viewer::ComponentViewer::embedded(
-        host,
-        move || wasm,
-        c.id,
-        "Excel workbooks",
-        &["xlsx".to_string()],
-        kalem_script::Limits::default(),
-    );
+    let v = c.viewer(host);
     let dir = std::env::temp_dir().join(format!("kalem-locked-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
