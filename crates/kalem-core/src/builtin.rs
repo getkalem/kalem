@@ -4996,7 +4996,13 @@ fn new_workbook(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult {
     let Some(target) = new_file_target(ctx, "app.newWorkbook", args, "Book", "xlsx")? else {
         return Ok(());
     };
-    let bytes = crate::workbook_io::blank_xlsx(&["Sheet1".to_string()]);
+    let sheet = kalem_viewer::NewSheet {
+        name: "Sheet1".into(),
+        rows: Vec::new(),
+    };
+    let bytes = crate::workbook_io::workbook_viewer()
+        .and_then(|v| v.new_file("xlsx", &[sheet]).map_err(|e| e.to_string()))
+        .map_err(CommandError::new)?;
     std::fs::write(&target, bytes).map_err(|e| CommandError::new(e.to_string()))?;
     request(
         ctx,
@@ -5036,7 +5042,11 @@ fn new_from_template(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult
         return Ok(());
     };
     let bytes = std::fs::read(&template).map_err(|e| CommandError::new(e.to_string()))?;
-    let bytes = crate::workbook_io::template_to_workbook(&bytes).map_err(CommandError::new)?;
+    // The template opened by the workbook plugin and written as a workbook.
+    let bytes = crate::workbook_io::workbook_viewer()
+        .and_then(|v| crate::workbook_io::open_bytes(v.as_ref(), &template, bytes))
+        .and_then(|mut d| d.save_as(ext).map(|o| o.bytes).map_err(|e| e.to_string()))
+        .map_err(CommandError::new)?;
     std::fs::write(&target, bytes).map_err(|e| CommandError::new(e.to_string()))?;
     request(
         ctx,
@@ -5242,8 +5252,17 @@ fn open_as_workbook(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult 
         .filter(|c| !"[]:*?/\\".contains(*c))
         .take(31)
         .collect();
-    let bytes =
-        crate::workbook_io::rows_to_xlsx(if sheet.is_empty() { "Sheet1" } else { &sheet }, &rows);
+    let sheet = kalem_viewer::NewSheet {
+        name: if sheet.is_empty() {
+            "Sheet1".into()
+        } else {
+            sheet
+        },
+        rows,
+    };
+    let bytes = crate::workbook_io::workbook_viewer()
+        .and_then(|v| v.new_file("xlsx", &[sheet]).map_err(|e| e.to_string()))
+        .map_err(CommandError::new)?;
     std::fs::write(&target, bytes).map_err(|e| CommandError::new(e.to_string()))?;
     request(
         ctx,

@@ -3996,28 +3996,13 @@ fn new_workbooks_and_copied_sheets() {
     );
     assert_eq!(wb.cell_input(1, 1, 0), "Rent");
     // New from Template: a workbook made of a template.
-    let parts = kalem_core::workbook_io::unzip(&std::fs::read(&budget).unwrap()).unwrap();
-    let parts: Vec<(String, Vec<u8>)> = parts
-        .into_iter()
-        .map(|(n, b)| {
-            if n == "[Content_Types].xml" {
-                let t = String::from_utf8_lossy(&b).replace(
-                    "spreadsheetml.sheet.main+xml",
-                    "spreadsheetml.template.main+xml",
-                );
-                (n, t.into_bytes())
-            } else {
-                (n, b)
-            }
-        })
-        .collect();
-    let list: Vec<(&str, &[u8], bool)> = parts
-        .iter()
-        .map(|(n, b)| (n.as_str(), b.as_slice(), true))
-        .collect();
+    // The budget written as a template by the workbook plugin
+    // (`ViewerDocument::save_as`, the plugin API's `formats`).
+    let viewer = kalem_core::viewer::find("budget.xlsx", b"").unwrap();
+    let mut book = viewer.open(kalem_viewer::FileHandle::new(&budget)).unwrap();
     std::fs::write(
         t.dir.join("Rapor.xltx"),
-        kalem_core::workbook_io::zip(&list),
+        book.save_as("xltx").unwrap().bytes,
     )
     .unwrap();
     t.app.run_command(

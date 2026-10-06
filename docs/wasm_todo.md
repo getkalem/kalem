@@ -300,3 +300,19 @@ Why the native copies are still there, as found on 2026-10-05:
   `api_compatible` now honors the patch, a plugin built against 0.2.1
   importing what a 0.2.0 host lacks. Open: `kalem plugin dev` has no test
   of its own, its loop never ends.)
+
+## W11. The workbook's formats in its plugin
+
+- [x] W11 The code that writes the workbook formats moved from Kalem's
+  core into the workbook plugin, at the owner's request (2026-10-06):
+  making a new workbook from rows (New Workbook, Open as Workbook), a
+  workbook declared as another of its kinds (Save As `.xlsm` → `.xlsx`, a
+  template → a workbook) and written as an OpenDocument spreadsheet. The
+  plugin API 0.2.3 gives the plugin the `formats` interface for it
+  (`ViewerDocument::save_as`, `Viewer::new_file`); xlsx 0.0.7 implements
+  it (getkalem/plugins `formats.rs`), and `kalem-core/src/workbook_io.rs`
+  went from 1,629 lines to 644: what stays is the grid contract's own
+  work, a sheet copied from one grid document into another and a shown
+  workbook copied into a new one (any grid plugin's), and the reading of a
+  text file's columns, the CSV mode's. Sheet printing stays too: it
+  draws whatever a grid plugin gives, as the screen does.

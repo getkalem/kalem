@@ -696,7 +696,7 @@ impl ViewerState {
         if ods && viewer.extensions().contains(&"xlsx") && doc.grid(0).is_some_and(|l| !l.editable)
         {
             converted_from = Some("ods".to_string());
-            let bytes = crate::workbook_io::to_xlsx(viewer.as_ref(), doc.as_mut())?;
+            let bytes = crate::workbook_io::to_xlsx(viewer.as_ref(), doc.as_mut(), "xlsx")?;
             doc = crate::workbook_io::open_bytes(
                 viewer.as_ref(),
                 &path.with_extension("xlsx"),
@@ -1831,30 +1831,20 @@ impl ViewerState {
         }
         let editable = self.grid_layout_of(0).is_some_and(|l| l.editable);
         match ext.as_str() {
-            "ods" => {
-                let mut doc = self.doc();
-                let bytes = crate::workbook_io::to_ods(doc.as_mut())?;
-                // The workbook's own save marks it saved; its bytes are not
-                // what is written.
-                doc.save().map_err(|e| e.to_string())?;
-                Ok(bytes)
-            }
-            // The package's content types as the new extension says
-            // (Excel refuses an `.xlsx` declared a macro workbook).
-            "xlsx" | "xlsm" | "xltx" | "xltm" if editable => {
-                let bytes = self.save()?.bytes;
-                crate::workbook_io::retype(&bytes, &ext)
-            }
-            "xlsx" | "xlsm" | "xltx" | "xltm" => {
+            // A workbook shown only (`.xls`, `.xlsb`, `.ods`) copied into a
+            // new one of the kind asked.
+            "xlsx" | "xlsm" | "xltx" | "xltm" if !editable => {
                 let viewer = self.viewer.clone();
                 let mut doc = self.doc();
-                let bytes = crate::workbook_io::to_xlsx(viewer.as_ref(), doc.as_mut())?;
-                crate::workbook_io::retype(&bytes, &ext)
+                crate::workbook_io::to_xlsx(viewer.as_ref(), doc.as_mut(), &ext)
             }
-            "xls" | "xlsb" => Err(format!(
-                "Kalem does not write .{ext} files: save it as .xlsx or .ods"
-            )),
-            _ => Err(format!("A workbook is saved as .xlsx or .ods, not .{ext}")),
+            // The plugin writes its other kinds and `.ods`, and says which
+            // it does not write.
+            _ => self
+                .doc()
+                .save_as(&ext)
+                .map(|o| o.bytes)
+                .map_err(|e| e.to_string()),
         }
     }
 
