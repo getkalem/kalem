@@ -1229,11 +1229,13 @@ fn csv_step(ctx: &mut EditorContext<'_>, rows: isize, cols: isize, extend: bool)
         return Ok(());
     }
     let (layout, row, _, col) = csv_cell(d)?;
-    let n = layout
-        .index
-        .borrow_mut()
-        .count(d.text().as_str(), &layout.dialect);
-    let to_row = (row as isize + rows).clamp(0, n.saturating_sub(1) as isize) as usize;
+    // Up and down in the order the view shows the records (its filter and
+    // sort); at either end, where it is.
+    let to_row = if rows == 0 {
+        row
+    } else {
+        crate::csv::view_step(d, row, rows).unwrap_or(row)
+    };
     let to_col = (col as isize + cols).max(0) as usize;
     d.csv_edit = None;
     if extend {
@@ -1331,6 +1333,47 @@ fn csv_clear_selection(d: &mut crate::DocumentState, now: std::time::Instant) ->
     }
     d.go_to_csv_cell(row, col);
     Ok(())
+}
+
+/// The records before and after the cursor's in the order the view shows
+/// them (its filter and sort), which Enter, Tab and the arrows step to.
+fn csv_neighbours(ctx: &mut EditorContext<'_>) -> (Option<usize>, Option<usize>) {
+    let Ok(d) = ctx.doc() else {
+        return (None, None);
+    };
+    match crate::csv::cell_at(d) {
+        Some((_, row, _, _)) => (
+            crate::csv::view_step(d, row, -1),
+            crate::csv::view_step(d, row, 1),
+        ),
+        None => (None, None),
+    }
+}
+
+/// Where Enter or Tab past a record's end goes: the next record the view
+/// shows; past the last, a new record when the cursor's is the file's
+/// last (as Tab in an Org table), else nowhere (the ones after are
+/// hidden).
+fn csv_down(
+    text: &str,
+    l: &crate::csv::Layout,
+    row: usize,
+    rec: &crate::csv::Record,
+    next: Option<usize>,
+    col: usize,
+) -> (Option<org_edit::Transaction>, Option<(usize, usize)>) {
+    if let Some(r) = next {
+        return (None, Some((r, col)));
+    }
+    let n = l.index.borrow_mut().count(text, &l.dialect);
+    if row + 1 < n {
+        return (None, None);
+    }
+    let columns = l.widths.len().max(rec.fields.len());
+    (
+        Some(crate::csv::insert_row(text, rec, columns, &l.dialect)),
+        Some((row + 1, col)),
+    )
 }
 
 fn csv_edit(
@@ -3045,20 +3088,14 @@ fn csv_commands() -> Vec<Command> {
     };
     vec![
         c("csv.nextField", "Next Field", &["tab"], |ctx, _| {
+            let (_, next) = csv_neighbours(ctx);
             csv_edit(ctx, |text, l, row, rec, col| {
                 if col + 1 < rec.fields.len().max(l.widths.len()) {
                     return Ok((None, Some((row, col + 1))));
                 }
-                let n = l.index.borrow_mut().count(text, &l.dialect);
-                if row + 1 < n {
-                    return Ok((None, Some((row + 1, 0))));
-                }
-                // Past the last field: a new row, as Tab in an Org table.
-                let columns = l.widths.len().max(rec.fields.len());
-                Ok((
-                    Some(crate::csv::insert_row(text, rec, columns, &l.dialect)),
-                    Some((row + 1, 0)),
-                ))
+                // Past the last field: the next record shown, or a new
+                // one, as Tab in an Org table.
+                Ok(csv_down(text, l, row, rec, next, 0))
             })
         }),
         // Excel's keys in the grid (bound with `!sourceView` in the
@@ -3211,21 +3248,15 @@ fn csv_commands() -> Vec<Command> {
         // spreadsheet (Enter broke the record in two). Past the last row
         // Enter adds one, as Tab does.
         c("csv.cellBelow", "Cell Below", &[], |ctx, _| {
+            let (_, next) = csv_neighbours(ctx);
             csv_edit(ctx, |text, l, row, rec, col| {
-                let n = l.index.borrow_mut().count(text, &l.dialect);
-                if row + 1 < n {
-                    return Ok((None, Some((row + 1, col))));
-                }
-                let columns = l.widths.len().max(rec.fields.len());
-                Ok((
-                    Some(crate::csv::insert_row(text, rec, columns, &l.dialect)),
-                    Some((row + 1, col)),
-                ))
+                Ok(csv_down(text, l, row, rec, next, col))
             })
         }),
         c("csv.cellAbove", "Cell Above", &[], |ctx, _| {
-            csv_edit(ctx, |_, _, row, _, col| {
-                Ok((None, row.checked_sub(1).map(|r| (r, col))))
+            let (previous, _) = csv_neighbours(ctx);
+            csv_edit(ctx, |_, _, _, _, col| {
+                Ok((None, previous.map(|r| (r, col))))
             })
         }),
         c(
@@ -3233,15 +3264,13 @@ fn csv_commands() -> Vec<Command> {
             "Previous Field",
             &["shift+tab"],
             |ctx, _| {
-                csv_edit(ctx, |_, l, row, _, col| {
+                let (previous, _) = csv_neighbours(ctx);
+                csv_edit(ctx, |_, _, row, _, col| {
                     if col > 0 {
                         return Ok((None, Some((row, col - 1))));
                     }
-                    if row == 0 {
-                        return Ok((None, None));
-                    }
-                    let _ = l;
-                    Ok((None, Some((row - 1, usize::MAX))))
+                    // The previous record shown, at its last field.
+                    Ok((None, previous.map(|r| (r, usize::MAX))))
                 })
             },
         ),
@@ -3632,6 +3661,7 @@ fn csv_commands() -> Vec<Command> {
             let mut dialect = crate::csv::layout(d).dialect;
             dialect.delimiter = b;
             d.csv_dialect.set(Some(dialect));
+            d.csv_dialect_provisional.set(false);
             Ok(())
         }),
         c("csv.setQuote", "Set Quote Character", &[], |ctx, args| {
@@ -3646,6 +3676,7 @@ fn csv_commands() -> Vec<Command> {
             let mut dialect = crate::csv::layout(d).dialect;
             dialect.quote = q;
             d.csv_dialect.set(Some(dialect));
+            d.csv_dialect_provisional.set(false);
             Ok(())
         }),
         c(
@@ -3657,6 +3688,7 @@ fn csv_commands() -> Vec<Command> {
                 let mut dialect = crate::csv::layout(d).dialect;
                 dialect.header = !dialect.header;
                 d.csv_dialect.set(Some(dialect));
+                d.csv_dialect_provisional.set(false);
                 Ok(())
             },
         ),
@@ -3666,8 +3698,10 @@ fn csv_commands() -> Vec<Command> {
             &[],
             |ctx, _| {
                 let d = ctx.doc()?;
+                let text = d.text().as_str();
                 d.csv_dialect
-                    .set(Some(crate::csv::detect(d.text().as_str())));
+                    .set(Some(crate::csv::detect_for(text, d.meta.path.as_deref())));
+                d.csv_dialect_provisional.set(!crate::csv::settled(text));
                 Ok(())
             },
         ),
@@ -9986,6 +10020,56 @@ mod tests {
         // Once: the next paste inserts as before.
         d.paste("z", None, false, Instant::now());
         assert!(d.text().as_str().contains('z'));
+    }
+
+    #[test]
+    fn csv_steps_through_the_rows_the_view_shows() {
+        // With a filter on, Enter, Tab and the arrows go to the next row
+        // shown, not onto a hidden one; at the last row shown, with
+        // hidden rows after it, Enter stays.
+        let reg = CommandRegistry::with_builtins();
+        let mut d = doc(
+            "name,city\nAda,Izmir\nBob,Ankara\nCem,Izmir\nDen,Bursa\n",
+            10,
+        );
+        d.set_mode(
+            DocumentMode::Csv,
+            &crate::settings::Config::default().parse_base(),
+        );
+        d.csv_filter = Some("Izmir".into());
+        let mut clip = Clipboard::default();
+        let config = crate::settings::Config::default();
+        let mut ctx = EditorContext {
+            document: Some(&mut d),
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock: jiff::civil::date(2026, 10, 6).at(10, 0, 0, 0),
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        // The cell after a command, the text and the selection's head.
+        let mut run = |id: &str| {
+            reg.execute(id, &mut ctx, &json!({})).unwrap();
+            let d = ctx.document.as_deref().unwrap();
+            (
+                crate::csv::cell_at(d).map(|(_, row, _, col)| (row, col)),
+                d.text().as_str().to_string(),
+                d.selection.head,
+            )
+        };
+        assert_eq!(run("csv.cellBelow").0, Some((3, 0)), "Cem, past Bob");
+        assert_eq!(run("csv.cellAbove").0, Some((1, 0)), "Ada, past Bob");
+        assert_eq!(run("csv.nextField").0, Some((1, 1)));
+        assert_eq!(run("csv.nextField").0, Some((3, 0)), "Tab to Cem");
+        assert_eq!(run("csv.previousField").0, Some((1, 1)), "back to Ada");
+        // Shift with the arrow: the selection's corner on Cem's row.
+        let (_, text, head) = run("csv.extendDown");
+        assert!(text[head..].starts_with("Izmir\nDen"), "{head}");
+        let (_, before, _) = run("csv.cellBelow");
+        let (cell, after, _) = run("csv.cellBelow");
+        assert_eq!(cell, Some((3, 1)), "Den is hidden: it stays");
+        assert_eq!(after, before);
     }
 
     #[test]

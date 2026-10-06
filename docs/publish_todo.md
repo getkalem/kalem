@@ -791,24 +791,41 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   9.7 s to 38 ms in a release build (92 s to 0.3 s in a debug one), the
   status bar after a keystroke from 113 ms to 40 ms; the test fails
   past its ceilings.)
-- [ ] **Minor, reported.** The dialect is detected once at first layout
+- [x] **Minor, reported.** The dialect is detected once at first layout
   and frozen (`csv.rs:1560-1566`): a new or empty `.tsv` locks in `,`
   (detection ignores the extension, `csv.rs:457`), so Insert Column in a
   new `.tsv` writes commas; a header-only file is "no header", and after
   rows are added Sort File sorts the header into the data.
-- [ ] **Minor, reported.** Enter, Shift+Enter, Tab and Shift+Tab step by
+  (done 2026-10-06: `detect_for` reads a `.tsv` or `.tab` with tabs
+  when it has one or is empty; a dialect found on less than two records
+  is found again until there are two (`csv_dialect_provisional`), one
+  set by hand kept; a header alone is a header; test
+  `a_new_tsv_and_a_header_alone`.)
+- [x] **Minor, reported.** Enter, Shift+Enter, Tab and Shift+Tab step by
   file row and ignore the filter and the sort view (`builtin.rs:2815`,
   `1159`): with a filter on, Enter lands on a hidden row.
-- [ ] **Minor, reported.** Paste misreads spreadsheet clipboard text:
+  (done 2026-10-06: they step through the records the view shows, its
+  filter and sort applied (`csv::view_step`), and so do Shift with the
+  arrows; past the last row shown with hidden rows after it, nothing
+  moves and no row is added; test
+  `csv_steps_through_the_rows_the_view_shows`.)
+- [x] **Minor, reported.** Paste misreads spreadsheet clipboard text:
   `block_rows` ignores quotes (`csv_tools.rs:381-398`), so a copied cell
   with a line break shifts the rows and keeps literal quotes; a pasted
   line with no tab is split with the file's delimiter (`Smith, John`
   becomes two cells).
-- [~] **Minor, verified.** `kalem check` on CSV hard-codes
+  (done 2026-10-06: tab-separated text is read as TSV, a quoted value
+  with its line breaks and doubled quotes; one line without a tab is one
+  value, as Excel pastes it; lines without tabs stay CSV in the file's
+  dialect; tests in `csv_tools`.)
+- [x] **Minor, verified.** `kalem check` on CSV hard-codes
   `roundtrip = true` (`commands/mod.rs:336-353`), keeps the BOM as part
   of the first field, and does not recognise `sep=` after a BOM.
   (partly: the BOM is dropped before checking, so the first field and
-  a `sep=` line after it are right; the round trip is still assumed.)
+  a `sep=` line after it are right. Done 2026-10-06: `csv::roundtrip`
+  checks that the records and fields give the text back, each field
+  after its delimiter and each record after its line ending; test
+  `records_give_the_text_back`.)
 - [ ] **Minor, reported.** A regex `$` never matches before `\r\n` in a
   CRLF file (`find.rs:41-44`, no `.crlf(true)`).
 - [ ] **Minor, gap.** No command to change line endings or to add or

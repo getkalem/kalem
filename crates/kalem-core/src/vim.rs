@@ -1321,6 +1321,25 @@ impl Vim {
         ) && self.idle()
     }
 
+    /// The moving end of the visual selection, in visual mode.
+    pub fn visual_cursor(&self) -> Option<usize> {
+        self.visual().then_some(self.cursor)
+    }
+
+    /// Moves the moving end of the visual selection to `to`: for the
+    /// editor's own motion keys (Page Down, Home, End, the arrows with
+    /// Option or fn), which grow the selection in visual mode as Vim's
+    /// `<PageDown>` does, rather than ending it. `false` outside visual
+    /// mode.
+    pub fn move_visual(&mut self, doc: &mut DocumentState, to: usize) -> bool {
+        if !self.visual() {
+            return false;
+        }
+        self.cursor = to.min(doc.text().len());
+        doc.selection = self.visual_selection(doc);
+        true
+    }
+
     /// Whether typed text goes into the document (insert mode).
     pub fn takes_text(&self) -> bool {
         self.mode == Mode::Insert && self.command_line.is_none()

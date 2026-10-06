@@ -386,7 +386,8 @@ pub(crate) fn check(
             (true, diags)
         } else if mode == kalem_core::DocumentMode::Csv {
             // CSV: its malformed fields, not an Org parse.
-            let d = kalem_core::csv::detect(&text);
+            let d = kalem_core::csv::detect_for(&text, Some(f));
+            let roundtrip = kalem_core::csv::roundtrip(&text, &d);
             let diags = kalem_core::csv::problems(&text, &d, usize::MAX)
                 .into_iter()
                 .map(|p| org_syntax::Diagnostic {
@@ -399,7 +400,7 @@ pub(crate) fn check(
                     message: p.message,
                 })
                 .collect();
-            (true, diags)
+            (roundtrip, diags)
         } else {
             (parse.syntax().to_string() == text, parse.diagnostics())
         };

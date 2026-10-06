@@ -349,6 +349,26 @@ fn save_as_asks_before_replacing() {
 }
 
 #[test]
+fn vim_visual_mode_grows_with_page_down() {
+    // Page Down and the arrows with Alt in visual mode grow the selection
+    // from its start; the editor's own motion ended it.
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let text: String = (0..100).map(|i| format!("line {i}\n")).collect();
+    let mut t = with_config(&text, config, (40, 10));
+    t.at(0);
+    t.typ("vl");
+    t.key(KeyCode::PageDown, KeyModifiers::NONE);
+    let sel = t.app.doc.selection;
+    assert!(status(&mut t).starts_with("VISUAL"), "{}", status(&mut t));
+    assert_eq!(sel.anchor, 0);
+    assert!(sel.head > "line 0\nline 1\n".len(), "{sel:?}");
+    t.key(KeyCode::Down, KeyModifiers::ALT);
+    t.key(KeyCode::PageUp, KeyModifiers::NONE);
+    assert!(status(&mut t).starts_with("VISUAL"), "{}", status(&mut t));
+    assert_eq!(t.app.doc.selection.anchor, 0);
+}
+
+#[test]
 fn vim_profile() {
     let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
     let mut t = with_config("one two\nthree\n", config, (40, 5));

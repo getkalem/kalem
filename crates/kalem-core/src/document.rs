@@ -176,6 +176,10 @@ pub struct DocumentState {
     /// A CSV document's dialect, detected when it is first laid out and
     /// kept (edits do not change it), or set by hand.
     pub csv_dialect: std::cell::Cell<Option<crate::csv::Dialect>>,
+    /// The dialect was detected on one record or none, and is detected
+    /// again once there are two (`crate::csv::settled`); one set by hand
+    /// is not.
+    pub csv_dialect_provisional: std::cell::Cell<bool>,
     /// How the grid shows a CSV document (view state): alignment,
     /// rainbow columns, the coordinate grid.
     pub csv_view: crate::csv::View,
@@ -339,6 +343,7 @@ impl DocumentState {
             csv_filter: None,
             csv_sort: None,
             csv_dialect: std::cell::Cell::new(None),
+            csv_dialect_provisional: std::cell::Cell::new(false),
             csv_view: crate::csv::View::default(),
             csv_columns: crate::csv::Columns::default(),
             csv_paste_block: false,

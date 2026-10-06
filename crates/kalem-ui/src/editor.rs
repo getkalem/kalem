@@ -2504,7 +2504,24 @@ impl Editor {
             }
             key @ ("left" | "right" | "up" | "down" | "pageup" | "pagedown" | "home" | "end") => {
                 let vertical = matches!(key, "up" | "down" | "pageup" | "pagedown") && !line_motion;
-                if self.doc.extra.is_empty() {
+                // Vim's visual mode: the key moves the selection's moving
+                // end, from where it is, and the selection grows.
+                if let Some(c) = self
+                    .vim
+                    .as_ref()
+                    .and_then(kalem_core::vim::Vim::visual_cursor)
+                {
+                    let before = self.doc.selection;
+                    self.doc.selection = org_edit::Selection::caret(c);
+                    let target = self.motion_target(key, true, word, line_motion);
+                    self.doc.selection = before;
+                    let Some(t) = target else {
+                        return false;
+                    };
+                    if let Some(v) = self.vim.as_mut() {
+                        v.move_visual(&mut self.doc, t);
+                    }
+                } else if self.doc.extra.is_empty() {
                     // A CSV grid keeps its column into short records.
                     let column = (vertical && !shift && !self.source)
                         .then(|| self.doc.csv_column())

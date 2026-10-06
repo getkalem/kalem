@@ -1207,6 +1207,38 @@ fn vim_keys(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn vim_visual_mode_grows_with_page_down(cx: &mut TestAppContext) {
+    // Page Down (fn with the arrow on a Mac) and the arrows with Option
+    // in visual mode: the selection grows from its start, as Vim's
+    // `<PageDown>` makes it; the editor's own motion ended it.
+    let text: String = (0..200).map(|i| format!("line {i}\n")).collect();
+    let (e, cx) = open_vim(&text, cx);
+    at(&e, 0, cx);
+    cx.simulate_keystrokes("v l");
+    cx.simulate_keystrokes("fn-pagedown");
+    let (mode, sel) = e.read_with(cx, |e, _| {
+        (
+            e.vim.as_ref().map(|v| v.mode),
+            (e.doc.selection.anchor, e.doc.selection.head),
+        )
+    });
+    assert_eq!(mode, Some(kalem_core::vim::Mode::Visual));
+    assert_eq!(sel.0, 0, "{sel:?}");
+    assert!(sel.1 > "line 0\nline 1\n".len(), "{sel:?}");
+    // Again, and back up with Page Up: still visual, still from the start.
+    cx.simulate_keystrokes("fn-pagedown fn-pageup alt-down");
+    let (mode, anchor) = e.read_with(cx, |e, _| {
+        (e.vim.as_ref().map(|v| v.mode), e.doc.selection.anchor)
+    });
+    assert_eq!(mode, Some(kalem_core::vim::Mode::Visual));
+    assert_eq!(anchor, 0);
+    // Escape ends it as before.
+    cx.simulate_keystrokes("escape");
+    let mode = e.read_with(cx, |e, _| e.vim.as_ref().map(|v| v.mode));
+    assert_eq!(mode, Some(kalem_core::vim::Mode::Normal));
+}
+
+#[gpui::test]
 fn vim_insert_takes_completions(cx: &mut TestAppContext) {
     // In insert mode, Enter and Tab choose from an open completion menu
     // before the Vim layer sees them (a new line, a tab).

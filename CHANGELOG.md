@@ -26,6 +26,8 @@ changes made on the way here are recorded in
 - A log and crash reports in the state folder; settings in `settings.toml`, workspace settings per project, and `keymap.json`.
 
 ### Fixed
+- Vim keys: in visual mode Page Down and Page Up (fn with the arrows on a Mac), Home, End and the arrows with Option grow the selection, as Vim's `<PageDown>` does; they ended it.
+- CSV: a new `.tsv` is read with tabs; a header alone is a header; Enter, Tab and Shift with the arrows step through the rows a filter or a sort shows; cells pasted from a spreadsheet keep their line breaks and quotes, and one line without a tab is one value; `kalem check` checks the round trip.
 - LaTeX: a document's macro for `\tag` (`\numberthis`) or for `\nonumber` (`\nn`) numbers its line as LaTeX does, without false label warnings; a bibliography in `BIBINPUTS` or found by `kpsewhich` is read; a shared library cited in part gives one note, not one per entry.
 - Citation previews and the bibliography styles show an entry as it prints: `B\"uy\"uk` is Büyük and `{\TeX}book` TeXbook.
 - LaTeX: a path through `..` on the command line finds its root document; Show in PDF says when the file is not in the PDF rather than asking to build again.

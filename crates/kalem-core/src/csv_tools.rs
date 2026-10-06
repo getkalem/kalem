@@ -375,23 +375,24 @@ pub fn column_sum(text: &str, d: &Dialect, col: usize, skip: Option<usize>) -> O
     (!nums.is_empty()).then(|| nums.iter().sum())
 }
 
-/// The rows of a block from the clipboard: lines of fields separated by
-/// tabs (what spreadsheets copy), or by the dialect's delimiter when no
-/// line has a tab.
+/// The rows of a block from the clipboard: what spreadsheets copy, fields
+/// separated by tabs and a value with a line break, a tab or a quote in
+/// double quotes (read as TSV, quotes and all); one line without a tab, a
+/// single value (`Smith, John`); lines without tabs, CSV in the
+/// document's dialect.
 pub fn block_rows(block: &str, d: &Dialect) -> Vec<Vec<String>> {
     let block = block.strip_suffix('\n').unwrap_or(block);
     let block = block.strip_suffix('\r').unwrap_or(block);
     if block.contains('\t') {
-        block
-            .split('\n')
-            .map(|l| {
-                l.strip_suffix('\r')
-                    .unwrap_or(l)
-                    .split('\t')
-                    .map(str::to_string)
-                    .collect()
-            })
-            .collect()
+        let tsv = Dialect {
+            delimiter: b'\t',
+            quote: b'"',
+            header: false,
+            crlf: block.contains("\r\n"),
+        };
+        crate::csv::rows(block, &tsv)
+    } else if !block.contains('\n') {
+        vec![vec![block.to_string()]]
     } else {
         crate::csv::rows(block, d)
     }
@@ -514,8 +515,18 @@ mod tests {
         // A value that needs quotes gets them.
         let tx = paste_block(t, &d, 0, 0, &[vec!["p, q".into()]]).unwrap();
         assert_eq!(tx.apply(t), "\"p, q\",b,c\n1,2,3\n4,5,6\n");
-        // CSV on the clipboard, without tabs.
-        assert_eq!(block_rows("1,\"2,3\"\n", &d), vec![vec!["1", "2,3"]]);
+        // CSV on the clipboard, lines without tabs.
+        assert_eq!(
+            block_rows("1,\"2,3\"\n4,5\n", &d),
+            vec![vec!["1", "2,3"], vec!["4", "5"]]
+        );
+        // One line without a tab: one value.
+        assert_eq!(block_rows("Smith, John\n", &d), vec![vec!["Smith, John"]]);
+        // A spreadsheet's cell with a line break and quotes, in quotes.
+        assert_eq!(
+            block_rows("\"two\nlines\"\t\"say \"\"hi\"\"\"\nx\ty\n", &d),
+            vec![vec!["two\nlines", "say \"hi\""], vec!["x", "y"]]
+        );
     }
     use super::*;
     use crate::csv::detect;

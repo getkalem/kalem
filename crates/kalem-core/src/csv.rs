@@ -501,6 +501,65 @@ fn numeric(s: &str) -> bool {
 /// gives the most records with the same number of fields (more than one),
 /// a header when the first record's values are all text where later ones
 /// have numbers, or all different and not empty.
+/// Whether the records and fields of `text` read with `d` give it back
+/// whole: each field right after the one before and its delimiter, each
+/// record after the line ending of the one before, the last to the end.
+/// What `kalem check` reports as the round trip of a CSV file.
+pub fn roundtrip(text: &str, d: &Dialect) -> bool {
+    let b = text.as_bytes();
+    let mut at = sep_line(text).map_or(0, |(_, skip)| skip);
+    while at < text.len() {
+        let r = scan(text, at, d);
+        let mut expect = r.range.start;
+        if expect != at {
+            return false;
+        }
+        for (i, f) in r.fields.iter().enumerate() {
+            if i > 0 {
+                if b.get(expect) != Some(&d.delimiter) {
+                    return false;
+                }
+                expect += 1;
+            }
+            if f.range.start != expect {
+                return false;
+            }
+            expect = f.range.end;
+        }
+        if expect != r.range.end || r.next <= at {
+            return false;
+        }
+        match &text[r.range.end..r.next] {
+            "\n" | "\r\n" | "" => {}
+            _ => return false,
+        }
+        at = r.next;
+    }
+    true
+}
+
+/// [`detect`] for a file named `path`: a `.tsv` or `.tab` file is read
+/// with tabs when it has one or nothing yet (a new file), whatever else
+/// it holds.
+pub fn detect_for(text: &str, path: Option<&std::path::Path>) -> Dialect {
+    let mut d = detect(text);
+    let tabbed = path
+        .and_then(|p| p.extension())
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("tsv") || e.eq_ignore_ascii_case("tab"));
+    if tabbed && d.delimiter != b'\t' && (text.contains('\t') || text.trim().is_empty()) {
+        d.delimiter = b'\t';
+        d.header = looks_like_header(text, &d);
+    }
+    d
+}
+
+/// Whether `text` has two records or more, enough to tell its dialect: a
+/// dialect found on less is found again once there is more.
+pub fn settled(text: &str) -> bool {
+    text.trim_end().contains('\n')
+}
+
 pub fn detect(text: &str) -> Dialect {
     if let Some((delimiter, skip)) = sep_line(text) {
         let mut d = Dialect {
@@ -670,9 +729,6 @@ fn best_delimiter(sample: &str, crlf: bool, quote: u8) -> (DelimiterKey, u8) {
 
 fn looks_like_header(text: &str, d: &Dialect) -> bool {
     let first = scan(text, 0, d);
-    if first.next >= text.len() {
-        return false;
-    }
     let names: Vec<Cow<'_, str>> = first.fields.iter().map(|f| value(text, f, d)).collect();
     // The reader of the statistics and of sorting.
     let number = |s: &str| number(s, d.delimiter == b';').is_some();
@@ -1613,12 +1669,16 @@ thread_local! {
 /// The layout of the CSV document `doc`, for its text version.
 pub fn layout(doc: &crate::DocumentState) -> std::rc::Rc<Layout> {
     // The dialect is found once and kept: renaming a header cell to a
-    // number or editing the first line does not change it.
+    // number or editing the first line does not change it. Found on a
+    // text of one record or none (a new file, a header alone), it is
+    // found again until there are two.
+    let text = doc.text().as_str();
     let dialect = match doc.csv_dialect.get() {
-        Some(d) => d,
-        None => {
-            let d = detect(doc.text().as_str());
+        Some(d) if !doc.csv_dialect_provisional.get() => d,
+        _ => {
+            let d = detect_for(text, doc.meta.path.as_deref());
             doc.csv_dialect.set(Some(d));
+            doc.csv_dialect_provisional.set(!settled(text));
             d
         }
     };
@@ -2280,6 +2340,62 @@ thread_local! {
 /// column; the file keeps its order. Worked out once a version: a step
 /// of the cursor costs a search (publish_todo 3.5).
 pub fn shown_lines(doc: &crate::DocumentState) -> Option<std::rc::Rc<Vec<usize>>> {
+    let (shown, key, unfiltered) = shown(doc)?;
+    let t = doc.text();
+    let text = t.as_str();
+    // The cursor's record, which stays shown.
+    let cursor = doc.selection.head.min(text.len());
+    let rec = shown
+        .starts
+        .partition_point(|&s| s <= cursor)
+        .checked_sub(1);
+    let Some(rec) = rec.filter(|&r| !shown.kept.get(r).copied().unwrap_or(true)) else {
+        return Some(shown.base.clone());
+    };
+    let wkey = (key, rec);
+    if let Some(v) = WITH_CURSOR.with(|m| {
+        m.borrow()
+            .as_ref()
+            .filter(|(k, _)| *k == wkey)
+            .map(|(_, v)| v.clone())
+    }) {
+        return Some(v);
+    }
+    let v = std::rc::Rc::new(shown.lines_with(Some(rec), t, unfiltered));
+    WITH_CURSOR.with(|m| *m.borrow_mut() = Some((wkey, v.clone())));
+    Some(v)
+}
+
+/// Record `row`'s neighbour `step` records away (back when negative) in
+/// the order the view shows them, its filter and its sort applied: what
+/// Enter, Tab and the arrows step to (they stepped by the file's order,
+/// onto rows the filter hides). `None` past either end; without a filter
+/// or a sort, the file's order.
+pub fn view_step(doc: &crate::DocumentState, row: usize, step: isize) -> Option<usize> {
+    let Some((shown, _, _)) = shown(doc) else {
+        let layout = layout(doc);
+        let n = layout
+            .index
+            .borrow_mut()
+            .count(doc.text().as_str(), &layout.dialect);
+        let to = row as isize + step;
+        return (0..n as isize).contains(&to).then_some(to as usize);
+    };
+    let visible: Vec<usize> = shown
+        .order
+        .iter()
+        .copied()
+        .filter(|&r| r == row || shown.kept.get(r).copied().unwrap_or(true))
+        .collect();
+    let at = visible.iter().position(|&r| r == row)? as isize + step;
+    usize::try_from(at)
+        .ok()
+        .and_then(|i| visible.get(i).copied())
+}
+
+/// The view's order of a CSV document with a filter or a sort on, worked
+/// out once a version, with its key and whether no filter is on.
+fn shown(doc: &crate::DocumentState) -> Option<(std::rc::Rc<Shown>, ShownKey, bool)> {
     if doc.meta.mode != crate::DocumentMode::Csv {
         return None;
     }
@@ -2352,27 +2468,7 @@ pub fn shown_lines(doc: &crate::DocumentState) -> Option<std::rc::Rc<Vec<usize>>
             shown
         }
     };
-    // The cursor's record, which stays shown.
-    let cursor = doc.selection.head.min(text.len());
-    let rec = shown
-        .starts
-        .partition_point(|&s| s <= cursor)
-        .checked_sub(1);
-    let Some(rec) = rec.filter(|&r| !shown.kept.get(r).copied().unwrap_or(true)) else {
-        return Some(shown.base.clone());
-    };
-    let wkey = (key, rec);
-    if let Some(v) = WITH_CURSOR.with(|m| {
-        m.borrow()
-            .as_ref()
-            .filter(|(k, _)| *k == wkey)
-            .map(|(_, v)| v.clone())
-    }) {
-        return Some(v);
-    }
-    let v = std::rc::Rc::new(shown.lines_with(Some(rec), t, filter.is_none()));
-    WITH_CURSOR.with(|m| *m.borrow_mut() = Some((wkey, v.clone())));
-    Some(v)
+    Some((shown, key, filter.is_none()))
 }
 
 /// The status bar's numbers for the column at the cursor of a CSV
@@ -2483,6 +2579,59 @@ mod tests {
     }
 
     use super::*;
+
+    #[test]
+    fn records_give_the_text_back() {
+        // What `kalem check` reports as a CSV file's round trip.
+        for text in [
+            "a,b\n1,2\n",
+            "a,b\r\n\"x, y\",\"say \"\"hi\"\"\"\r\n",
+            "sep=;\na;b\n1;2",
+            "a,b\n\"two\nlines\",3\n",
+            "",
+            "\u{feff}a,b\n",
+        ] {
+            assert!(roundtrip(text, &detect(text)), "{text:?}");
+        }
+    }
+
+    #[test]
+    fn a_new_tsv_and_a_header_alone() {
+        // A new `.tsv` is read with tabs, a header alone is a header, and
+        // a dialect found on less than two records is found again once
+        // there are two (Insert Column wrote commas; Sort File sorted the
+        // header into the data).
+        let meta = |name: &str| crate::Metadata {
+            path: Some(std::path::PathBuf::from(name)),
+            mode: crate::DocumentMode::Csv,
+            line_ending: crate::LineEnding::Lf,
+            bom: false,
+            encoding: encoding_rs::UTF_8,
+            lossy: false,
+        };
+        let settings = std::sync::Arc::new(org_model::Settings::default());
+        let mut d = crate::DocumentState::new("", meta("/n/new.tsv"), settings.clone());
+        assert_eq!(layout(&d).dialect.delimiter, b'\t');
+        d.insert_text("name\tage\n", std::time::Instant::now());
+        let l = layout(&d);
+        assert!(l.dialect.header && l.dialect.delimiter == b'\t');
+        d.insert_text("Ali\t30\n", std::time::Instant::now());
+        let l = layout(&d);
+        assert!(l.dialect.header && l.dialect.delimiter == b'\t');
+        assert!(!d.csv_dialect_provisional.get());
+        // A `.tsv` written with commas only stays read with commas.
+        assert_eq!(
+            detect_for("a,b\n1,2\n", Some(std::path::Path::new("x.tsv"))).delimiter,
+            b','
+        );
+        // Set by hand, kept.
+        let d = crate::DocumentState::new("a;b\n", meta("/n/x.csv"), settings);
+        let mut set = layout(&d).dialect;
+        set.delimiter = b',';
+        d.csv_dialect.set(Some(set));
+        d.csv_dialect_provisional.set(false);
+        assert_eq!(layout(&d).dialect.delimiter, b',');
+    }
 
     /// Two documents of the same length, both at version 0, keep their
     /// own layout and filter: the memos were keyed by the version alone.

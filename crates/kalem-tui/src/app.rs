@@ -3984,6 +3984,26 @@ impl App {
                     code,
                     KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown
                 );
+                // Vim's visual mode: the key moves the selection's moving
+                // end, from where it is, and the selection grows.
+                if let Some(c) = self
+                    .vim
+                    .as_ref()
+                    .and_then(kalem_core::vim::Vim::visual_cursor)
+                {
+                    let before = self.doc.selection;
+                    self.doc.selection = org_edit::Selection::caret(c);
+                    let target = self.motion_target(code, true, word);
+                    self.doc.selection = before;
+                    if let (Some(t), Some(v)) = (target, self.vim.as_mut()) {
+                        v.move_visual(&mut self.doc, t);
+                        if !vertical {
+                            self.editor.viewport.goal_x = None;
+                        }
+                        self.after_change(true);
+                    }
+                    return;
+                }
                 if self.doc.extra.is_empty() {
                     // A CSV grid keeps its column into short records.
                     let column = (vertical && !shift && !self.editor.source)
