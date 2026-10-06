@@ -562,6 +562,9 @@ mod window_tests {
         let lang = Language::find("js").expect("js");
         let long = "var a=1;".repeat(MAX_LINE / 8 + 10);
         let text = format!("var x = \"s\";\n{long}\nvar y = 2;\n");
+        // The syntaxes loaded first: their loading is not what is timed
+        // (over a second on CI's debug build).
+        let _ = Highlighter::new(lang, "var z = 1;\n");
         let started = std::time::Instant::now();
         let h = Highlighter::new(lang, &text);
         assert!(started.elapsed() < std::time::Duration::from_secs(1));
