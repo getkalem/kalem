@@ -97,12 +97,27 @@ pub(crate) fn export(
     body_only: bool,
     subtree: Option<&str>,
 ) -> Result<ExitCode> {
-    if output.is_some() && files.len() > 1 {
+    // A folder stands for its Org files.
+    let given_one = files.len() == 1 && !files[0].is_dir();
+    let files = super::expand_files_of(
+        files,
+        &|p| kalem_core::DocumentMode::detect(Some(p), b"") == kalem_core::DocumentMode::Org,
+        "Org files",
+    )?;
+    if output.is_some() && !given_one {
         return Err("--output takes one input file".into());
     }
     let mut failed = false;
-    for file in files {
-        let (text, meta) = super::read_doc(file)?;
+    for file in &files {
+        // A file that cannot be read is reported, and the others exported.
+        let (text, meta) = match super::read_doc(file) {
+            Ok(d) => d,
+            Err(e) => {
+                eprintln!("{e}");
+                failed = true;
+                continue;
+            }
+        };
         let text = text.as_str();
         let mode = kalem_core::DocumentMode::detect(Some(file), text.as_bytes());
         // Markdown to Org: written from comrak's tree (T2.7c.7); to HTML:

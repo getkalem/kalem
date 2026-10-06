@@ -11,10 +11,21 @@ use super::Result;
 /// them (`org_edit::format`); with `check`, only lists the files that
 /// would change and fails if there are any.
 pub(crate) fn fmt(files: &[PathBuf], check: bool, align: bool) -> Result<ExitCode> {
+    // A folder stands for its Org and LaTeX files.
+    let files = super::expand_files_of(
+        files,
+        &|p| {
+            matches!(
+                kalem_core::DocumentMode::detect(Some(p), b""),
+                kalem_core::DocumentMode::Org | kalem_core::DocumentMode::Latex
+            )
+        },
+        "Org or LaTeX files",
+    )?;
     let mut out = std::io::stdout().lock();
     let mut changed = 0;
     let mut refused = 0;
-    for path in files {
+    for path in &files {
         let (text, meta, _) =
             kalem_core::files::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
         let mode = kalem_core::DocumentMode::detect(Some(path), text.as_bytes());
@@ -84,10 +95,30 @@ pub(crate) fn fmt(files: &[PathBuf], check: bool, align: bool) -> Result<ExitCod
 /// (`org-map-entries`), as `FILE:LINE: HEADLINE` lines or JSON.
 pub(crate) fn query(files: &[std::path::PathBuf], m: &str, json: bool) -> Result<ExitCode> {
     let now = jiff::Zoned::now().datetime();
+    // What Emacs leaves out of a match string, it says nothing of; this
+    // says it, and matches as Emacs does.
+    for part in org_model::Matcher::new(m, now).ignored() {
+        eprintln!("kalem query: {part:?} in the match string is no term and is left out");
+    }
+    // A folder stands for its Org files.
+    let files = super::expand_files_of(
+        files,
+        &|p| kalem_core::DocumentMode::detect(Some(p), b"") == kalem_core::DocumentMode::Org,
+        "Org files",
+    )?;
     let mut found = Vec::new();
-    for path in files {
+    let mut unreadable = false;
+    for path in &files {
         let f = path.to_string_lossy().into_owned();
-        let text = super::read(path)?;
+        // A file that cannot be read is reported, and the others read.
+        let text = match super::read(path) {
+            Ok(t) => t,
+            Err(e) => {
+                eprintln!("{e}");
+                unreadable = true;
+                continue;
+            }
+        };
         // `#+SETUPFILE`'s keywords and tags too, as export reads them.
         let doc = org_model::Document::with_settings(
             org_syntax::parse_file(&text, path),
@@ -129,5 +160,9 @@ pub(crate) fn query(files: &[std::path::PathBuf], m: &str, json: bool) -> Result
             );
         }
     }
-    Ok(ExitCode::SUCCESS)
+    Ok(if unreadable {
+        ExitCode::from(2)
+    } else {
+        ExitCode::SUCCESS
+    })
 }

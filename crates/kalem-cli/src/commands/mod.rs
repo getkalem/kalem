@@ -180,6 +180,17 @@ fn expand_files(paths: &[std::path::PathBuf]) -> Result<Vec<std::path::PathBuf>>
             DocumentMode::Org | DocumentMode::Markdown | DocumentMode::Latex | DocumentMode::Csv
         ) || p.extension().is_some_and(|e| e.eq_ignore_ascii_case("bib"))
     };
+    expand_files_of(paths, &wanted, "Org, Markdown, LaTeX, CSV or BibTeX files")
+}
+
+/// `paths` with each folder replaced by the files in it, and in its
+/// folders but hidden ones, `target` and `node_modules`, for which
+/// `wanted` holds (`what` names them when there are none), sorted.
+pub(crate) fn expand_files_of(
+    paths: &[std::path::PathBuf],
+    wanted: &dyn Fn(&Path) -> bool,
+    what: &str,
+) -> Result<Vec<std::path::PathBuf>> {
     let mut out = Vec::new();
     for p in paths {
         if !p.is_dir() {
@@ -206,10 +217,7 @@ fn expand_files(paths: &[std::path::PathBuf]) -> Result<Vec<std::path::PathBuf>>
             }
         }
         if found.is_empty() {
-            return Err(format!(
-                "{}: no Org, Markdown, LaTeX, CSV or BibTeX files in it",
-                p.display()
-            ));
+            return Err(format!("{}: no {what} in it", p.display()));
         }
         found.sort();
         out.extend(found);

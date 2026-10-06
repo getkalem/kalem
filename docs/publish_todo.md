@@ -399,13 +399,18 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   (done: the CLI reads files as the editors do (`read_doc`, through
   `kalem_core::files::read`): legacy encodings decoded and the BOM
   dropped, so the columns are right; `--to org` writes the BOM back.)
-- [~] **Minor, reported.** CLI unevenness: `fmt`, `export` and `query`
+- [x] **Minor, reported.** CLI unevenness: `fmt`, `export` and `query`
   reject folders ("Is a directory"), `check` accepts them; `check` and
   `export` stop at the first unreadable file; `kalem query FILE 'TODO="'`
   (malformed) prints nothing and exits 0.
   (partly: `kalem check` reports a file it cannot read and checks the
-  others. Open: folders for `fmt`, `export` and `query`; a malformed
-  match string.)
+  others. Done 2026-10-06: a folder stands for its Org files in
+  `export` and `query`, its Org and LaTeX files in `fmt`; `export` and
+  `query` report a file they cannot read and go on; Emacs too leaves
+  out what a match string has that is no term, silently (Org 9.7.11's
+  `org-make-tags-matcher` reads terms from the start of each part and
+  stops), so `kalem query` matches as it does and says, on standard
+  error, what was left out; test `folders_for_fmt_export_and_query`.)
 - [ ] **Minor, measured by the audit.** HTML export is quadratic in the
   links of one paragraph (4,000 links 1.7 s, 8,000 7 s; md and latex
   0.1 s). A list nested 2,000 levels overflows the stack in a debug build
@@ -1342,7 +1347,7 @@ Wrong or stale text a first reader meets. Each is a text change.
   compared with Emacs among them; the Book's D18 page, the known
   differences, the licences appendix and THIRD-PARTY-LICENSES.md say
   where it comes from.)
-- [~] **Minor.** `tests/corpus/LICENSES.md`: no rows for `model/*.org`,
+- [x] **Minor.** `tests/corpus/LICENSES.md`: no rows for `model/*.org`,
   `tables/*.org`, `latex/synthetic/*.tex`, the fetch scripts, `tests/csv`
   and `tests/latex` (CONTRIBUTING.md:36 requires them); the 51 arXiv
   rows after "## Extended corpus" have no header row, so GitHub renders

@@ -57,6 +57,7 @@ pub struct Matcher {
     tags: Option<Vec<Vec<Item>>>,
     todo: Option<Vec<Vec<(bool, TodoItem)>>>,
     todo_only: bool,
+    ignored: Vec<String>,
 }
 
 /// Translates an Emacs regular expression into `regex` syntax, for the
@@ -493,6 +494,7 @@ impl Matcher {
         let mut tags_part = input;
         let mut todo_part: Option<&str> = None;
         let mut todo_only = false;
+        let mut ignored = Vec::new();
         if let Some(start) = last_slash_run(input)
             && !input[start..].contains('"')
         {
@@ -524,6 +526,9 @@ impl Matcher {
                     });
                     t = &t[len..];
                 }
+                if !t.is_empty() {
+                    ignored.push(t.to_string());
+                }
                 or.push(and);
             }
             or
@@ -542,6 +547,9 @@ impl Matcher {
                         and.push((minus, item));
                         t = &t[len..];
                     }
+                    if !t.is_empty() {
+                        ignored.push(t.to_string());
+                    }
                     and
                 })
                 .collect()
@@ -550,7 +558,14 @@ impl Matcher {
             tags,
             todo,
             todo_only,
+            ignored,
         }
+    }
+
+    /// The parts of the match string that are no term, which Emacs too
+    /// leaves out: the rest of each `|` part from where its terms stop.
+    pub fn ignored(&self) -> &[String] {
+        &self.ignored
     }
 
     /// Whether entry `id` matches.

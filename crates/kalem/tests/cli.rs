@@ -625,6 +625,44 @@ fn org_footnotes_and_files_not_there() {
 }
 
 #[test]
+fn folders_for_fmt_export_and_query() {
+    let dir = std::env::temp_dir().join(format!("kalem-cli-folders-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("sub")).unwrap();
+    std::fs::create_dir_all(dir.join(".hidden")).unwrap();
+    std::fs::write(dir.join("a.org"), "* TODO A :work:\n| a | bb |\n|-|-|\n").unwrap();
+    std::fs::write(dir.join("sub/b.org"), "* B :work:\n").unwrap();
+    std::fs::write(dir.join(".hidden/c.org"), "* C :work:\n").unwrap();
+    std::fs::write(dir.join("r.md"), "# R\n").unwrap();
+    let d = dir.display().to_string();
+    // A folder stands for its Org files (and LaTeX's, for fmt).
+    let (code, out, _) = kalem(&["fmt", "--check", &d]);
+    assert_eq!(code, 1);
+    assert_eq!(out.lines().count(), 2, "{out}");
+    assert!(!out.contains(".hidden") && !out.contains("r.md"), "{out}");
+    let (code, out, _) = kalem(&["query", &d, "work"]);
+    assert_eq!(code, 0);
+    assert_eq!(out.lines().count(), 2, "{out}");
+    assert!(!out.contains(".hidden"), "{out}");
+    let (code, _, _) = kalem(&["export", "--to", "md", &d]);
+    assert_eq!(code, 0);
+    assert!(dir.join("a.md").exists() && dir.join("sub/b.md").exists());
+    let (code, _, err) = kalem(&["export", "--to", "md", "-o", "-", &d]);
+    assert_eq!(code, 2);
+    assert!(err.contains("--output takes one input file"), "{err}");
+    // What the match string has that is no term is said, and left out
+    // as Emacs leaves it out.
+    let (code, out, err) = kalem(&["query", &d, "work=\""]);
+    assert_eq!(code, 0);
+    assert_eq!(out.lines().count(), 2, "{out}");
+    assert!(
+        err.contains("\"=\\\"\" in the match string is no term"),
+        "{err}"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn latex_coverage_by_field() {
     let dir = std::env::temp_dir().join(format!("kalem-cli-coverage-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
