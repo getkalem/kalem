@@ -4724,8 +4724,10 @@ fn closing_the_last_document_keeps_kalem_open() {
 
 #[test]
 fn vim_quit_closes_the_pane_first() {
-    // `SPC w n` then `:q`: the pane closes, Kalem stays; `:q` from the
-    // last pane quits, as in Vim.
+    // `SPC w n` then `:q`: the pane closes, Kalem stays; then the
+    // document, as a tab closes, while others are open (the owner,
+    // 2026-10-06: `:q` closing a file quit Kalem); `:q` from the last
+    // document quits, as in Vim.
     let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
     let mut t = with_config("* A\n", config, (60, 10));
     t.typ(" wn");
@@ -4736,7 +4738,53 @@ fn vim_quit_closes_the_pane_first() {
     assert_eq!(title(&t), "t.org");
     t.typ(":q");
     t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(!t.app.quit);
+    assert_eq!(title(&t), "Untitled");
+    assert_eq!(t.app.open_files().len(), 1);
+    t.typ(":q");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert!(t.app.quit);
+}
+
+#[test]
+fn vim_force_quit_loses_one_document() {
+    // `:q!` loses this document's changes, not the others': it closes
+    // it while others are open.
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let mut t = with_config("* A\n", config, (60, 10));
+    t.app.run_command("file.new", serde_json::Value::Null);
+    t.typ("ix");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.app.run_command("file.next", serde_json::Value::Null);
+    assert_eq!(title(&t), "t.org");
+    t.typ("iy");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.typ(":q!");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(!t.app.quit);
+    assert_eq!(t.app.open_files().len(), 1);
+    assert_eq!(t.text(), "x");
+}
+
+#[test]
+fn vim_add_project_asks_for_the_folder() {
+    // `SPC p a` asks for the folder, the document's own offered.
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let mut t = with_config("* A\n", config, (60, 10));
+    let path = t.app.doc.meta.path.clone().unwrap();
+    let dir = path
+        .parent()
+        .unwrap()
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    t.typ(" pa");
+    let last = screen(&mut t).pop().unwrap();
+    assert!(
+        last.contains("Add Project") && last.contains(&dir),
+        "{last}"
+    );
 }
 
 #[test]

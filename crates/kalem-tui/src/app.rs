@@ -1234,11 +1234,12 @@ impl App {
     fn project_request(&mut self, r: ProjectRequest) {
         let project = self.project();
         let result = match r {
-            ProjectRequest::Add(Some(path)) => {
+            ProjectRequest::Add(path) => {
                 let path = PathBuf::from(settings::expand_home(&path));
                 self.projects.add(&path)
             }
-            ProjectRequest::Add(None) => {
+            // No folder dialog in a terminal: the folder is typed.
+            ProjectRequest::AddChosen => {
                 let dir =
                     kalem_core::command::argument_default("project.add", "path", &mut self.doc);
                 self.ask(
@@ -1252,9 +1253,6 @@ impl App {
                     dir,
                 );
                 return;
-            }
-            ProjectRequest::AddChosen => {
-                return self.project_request(ProjectRequest::Add(None));
             }
             ProjectRequest::Remove(root) => self.projects.remove(&root),
             ProjectRequest::Rename(name) => match &project {
@@ -2344,11 +2342,19 @@ impl App {
     /// A change of the panes (`SPC w`).
     fn pane_op(&mut self, op: &kalem_core::layout::PaneOp) {
         use kalem_core::layout::PaneOp;
-        if *op == PaneOp::CloseOrQuit {
+        if let PaneOp::CloseOrQuit { force } = *op {
             if self.layout.is_split() {
                 return self.pane_op(&PaneOp::Close(false));
             }
-            return self.request(Request::Quit);
+            // Then the document, as a tab closes, while others are open;
+            // from the last one Kalem quits, as Vim does.
+            match (self.docs.len() > 1, force) {
+                (true, false) => self.request(Request::Close),
+                (true, true) => self.close_document(),
+                (false, false) => self.request(Request::Quit),
+                (false, true) => self.close(),
+            }
+            return;
         }
         let old_focus = self.layout.focus();
         let before = self.layout.panes();
@@ -3865,9 +3871,6 @@ impl App {
         self.after_change(true);
         for (id, args) in out.commands {
             self.run_command(&id, args);
-        }
-        if out.force_quit {
-            self.close();
         }
         true
     }

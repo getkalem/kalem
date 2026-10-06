@@ -1680,6 +1680,7 @@ plugin-not-github = Not a GitHub link: { $link } (a repository's address, owner/
 plugin-no-release-asset = { $name }'s component { $file } is not in { $repo }'s folder nor in its releases: publish the built { $file } as an asset of a GitHub release (kalem plugin build makes it)
 arg-plugin-installGitHub-link = GitHub link (github.com/you/your-plugin, a folder or a release of it)
 arg-plugin-install-source = name, GitHub link, archive link or folder
+arg-project-add-path = folder
 plugin-no-such = { $count ->
     [one] No plugin named { $name } in the index ({ $count } plugin listed)
    *[other] No plugin named { $name } in the index ({ $count } plugins listed)

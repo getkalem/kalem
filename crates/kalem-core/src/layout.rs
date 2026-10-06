@@ -603,8 +603,10 @@ pub enum PaneOp {
     Redo,
     /// Split, the new pane on a new empty document.
     New,
-    /// Vim's `:q`: close the focused pane, or with one pane quit.
-    CloseOrQuit,
+    /// Vim's `:q`: close the focused pane, else its document (`force`,
+    /// `:q!`: losing the document's changes), quitting only when nothing
+    /// is left to close.
+    CloseOrQuit { force: bool },
 }
 
 impl Layout {
@@ -617,7 +619,7 @@ impl Layout {
             PaneOp::New => (true, Some(self.split(Axis::Row))),
             PaneOp::Focus(d) => (self.focus_dir(d).is_some(), None),
             PaneOp::Move(d) => (self.move_to_edge(d), None),
-            PaneOp::Close(_) | PaneOp::CloseOrQuit => {
+            PaneOp::Close(_) | PaneOp::CloseOrQuit { .. } => {
                 let f = self.focus;
                 (self.close(f), None)
             }

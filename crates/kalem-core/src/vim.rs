@@ -152,8 +152,6 @@ pub struct Outcome {
     pub message: Option<(String, bool)>,
     /// New search marks (empty to clear them).
     pub highlights: Option<Vec<Range<usize>>>,
-    /// Close without saving (`:q!`).
-    pub force_quit: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -4038,19 +4036,26 @@ impl Vim {
     fn ex_app(&mut self, doc: &mut DocumentState, cmd: &str, out: &mut Outcome) {
         let cmd = cmd.trim();
         let save = || ("app.save".to_string(), Value::Null);
-        // `:q` closes the pane, and quits only from the last one.
+        // `:q` closes the pane, else the document, as closing a tab; it
+        // quits only when nothing is left to close (the frontends say
+        // when). `:q!` loses the document's changes, not the others'.
         let quit = || ("pane.closeOrQuit".to_string(), Value::Null);
         match cmd {
             "" => {}
             "w" | "write" => out.commands.push(save()),
             "q" | "quit" => out.commands.push(quit()),
-            "q!" | "quit!" => out.force_quit = true,
+            "q!" | "quit!" => out.commands.push((
+                "pane.closeOrQuit".into(),
+                serde_json::json!({ "force": true }),
+            )),
             "wq" | "x" | "xit" | "exit" => {
                 out.commands.push(save());
                 out.commands.push(quit());
             }
-            "qa" | "qall" | "quitall" | "qa!" => {
-                out.commands.push(("app.quit".into(), Value::Null))
+            "qa" | "qall" | "quitall" => out.commands.push(("app.quit".into(), Value::Null)),
+            "qa!" | "qall!" | "quitall!" => {
+                out.commands
+                    .push(("app.quitWithoutSaving".into(), Value::Null));
             }
             "wqa" | "wqall" | "xa" | "xall" => {
                 out.commands.push(("file.saveAll".into(), Value::Null));

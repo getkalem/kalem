@@ -175,9 +175,6 @@ impl Editor {
         for (id, args) in out.commands {
             self.run_command(&id, args, window, cx);
         }
-        if out.force_quit {
-            cx.quit();
-        }
         true
     }
 }

@@ -7,8 +7,9 @@ Ctrl+Shift+Tab and Ctrl+PageUp to the previous one, Ctrl+Alt+O lists
 them by name, Ctrl+Alt+R lists the files you opened recently, and
 Ctrl+W closes the document, asking first when it has unsaved changes.
 
-A project is a folder in your project list. /Add Project/ adds the
-document's folder, /Add Project Folder…/ (Project menu) chooses one,
+A project is a folder in your project list. /Add Project/ (=SPC p a=
+with Vim keys) asks for its path, the document's folder offered,
+/Add Project Folder…/ (Project menu) chooses one in a dialog,
 and a folder under version control (Git, Mercurial, Subversion), or
 with a =.projectile= file or a =.kalem= folder (where a project's own
 settings live), joins the list by itself when you open one of its

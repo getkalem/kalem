@@ -2196,47 +2196,10 @@ impl Editor {
         use kalem_core::command::ProjectRequest as P;
         let project = self.project();
         let result = match r {
-            P::Add(Some(path)) => {
+            P::Add(path) => {
                 let path = std::path::PathBuf::from(kalem_core::settings::expand_home(&path));
                 self.shared.projects.borrow_mut().add(&path)
             }
-            P::Add(None) => match self
-                .doc
-                .meta
-                .path
-                .as_deref()
-                .and_then(std::path::Path::parent)
-            {
-                Some(dir) => {
-                    let dir = dir.to_path_buf();
-                    self.shared.projects.borrow_mut().add(&dir)
-                }
-                None => {
-                    // An unsaved document: choose a folder.
-                    let paths = cx.prompt_for_paths(gpui::PathPromptOptions {
-                        files: false,
-                        directories: true,
-                        multiple: false,
-                        prompt: None,
-                    });
-                    cx.spawn(async move |this, cx| {
-                        if let Ok(Ok(Some(paths))) = paths.await
-                            && let Some(p) = paths.into_iter().next()
-                        {
-                            let _ = this.update(cx, |e, cx| {
-                                let r = e.shared.projects.borrow_mut().add(&p);
-                                match r {
-                                    Ok(m) => e.message(m, false),
-                                    Err(m) => e.message(m, true),
-                                }
-                                cx.notify();
-                            });
-                        }
-                    })
-                    .detach();
-                    return;
-                }
-            },
             P::Remove(root) => self.shared.projects.borrow_mut().remove(&root),
             P::AddChosen => {
                 let paths = cx.prompt_for_paths(gpui::PathPromptOptions {

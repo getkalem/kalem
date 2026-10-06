@@ -224,7 +224,8 @@ fn a_jpeg_turned_and_saved_changes_its_tag_only() {
 #[test]
 fn vim_quit_closes_a_viewer_as_any_file() {
     // A picture open with Vim's keys: `:` opens the command line, and `:q`
-    // closes the pane, then quits from the last one, as with text.
+    // closes the pane, then the document, then quits from the last one,
+    // as with text.
     let dir = folder("vimquit");
     let config = kalem_core::settings::Config::from_layers(&[(
         kalem_core::settings::Layer::User,
@@ -253,5 +254,9 @@ fn vim_quit_closes_a_viewer_as_any_file() {
     assert_eq!(t.app.doc.meta.mode, DocumentMode::Viewer);
     t.typ(":q");
     t.key(KeyCode::Enter, KeyModifiers::NONE);
-    assert!(t.app.quit, "quit from the last pane");
+    assert!(!t.app.quit, "the picture closed");
+    assert_ne!(t.app.doc.meta.mode, DocumentMode::Viewer);
+    t.typ(":q");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(t.app.quit, "quit from the last document");
 }

@@ -399,8 +399,8 @@ pub enum PickKind {
 /// Changes of the project list and actions on a project's documents.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProjectRequest {
-    /// Add a folder: `path`, or the active document's folder.
-    Add(Option<String>),
+    /// Add the folder at this path.
+    Add(String),
     /// Add a folder chosen in a dialog (the projects view's menu).
     AddChosen,
     /// Take this project off the list; its folder stays as it is.

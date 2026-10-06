@@ -26,6 +26,8 @@ changes made on the way here are recorded in
 - A log and crash reports in the state folder; settings in `settings.toml`, workspace settings per project, and `keymap.json`.
 
 ### Fixed
+- Vim's `:q` closes the document when the window is not split, as a tab closes, instead of quitting Kalem with other documents open; Kalem quits from it only when nothing is left to close (in the terminal, from the last document). `:q!` loses the document's changes and no other's (it quit Kalem, losing every document's); `:qa!` quits without saving after asking.
+- Add Project (`SPC p a`) asks for the folder, the document's own offered, instead of adding the document's folder unasked, which showed nothing to see when it was a project already.
 - A line longer than 20,000 bytes (a minified script) shows without syntax colors: a 1 MB one took 3.6 s at each keystroke.
 - A UTF-8 file with a stray byte is read as UTF-8 (the byte shown as �), not as Windows-1252 throughout; one with a byte order mark and a stray byte opens. Save As takes the new name's mode and does what Save does (the events, trailing blanks, a build on save); overwriting a file changed on disk does too.
 - Line endings and the byte order mark can be changed (Line Endings: LF or CRLF, Byte Order Mark: Add or Remove), and the status bar names CRLF and a BOM; a regular expression's `$` matches before a CR LF.

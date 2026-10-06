@@ -32,6 +32,13 @@ and cursor after them must agree. Not there: Vim script, plugins,
 =:help=, Vim's fold commands (Tab folds Org headings), the =:!= filter
 and =gq=.
 
+=:q= closes the pane when the window is split, else the document, as a
+tab closes: Kalem stays open, an empty document taking the last one's
+place, and quits from =:q= only when nothing is left to close (in the
+terminal, from the last document, as Vim does). =:q!= closes the
+document losing its changes and no other's; =:qa= quits, =:qa!=
+quits without saving after asking.
+
 The Word-like Control and Alt keys are off where the Vim layer is on,
 except, as in Doom Emacs, Alt with the arrows (structure moves, table
 rows and columns), Control or Alt with Enter, and Ctrl+Space for

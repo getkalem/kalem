@@ -1593,6 +1593,7 @@ plugin-not-github = GitHub bağlantısı değil: { $link } (bir deponun adresi, 
 plugin-no-release-asset = { $name } bileşeni { $file }, { $repo } deposunun klasöründe de sürümlerinde de yok: derlenmiş { $file } dosyasını bir GitHub sürümüne ek olarak yayımlayın (kalem plugin build üretir)
 arg-plugin-installGitHub-link = GitHub bağlantısı (github.com/siz/eklentiniz, içindeki bir klasör ya da bir sürümü)
 arg-plugin-install-source = ad, GitHub bağlantısı, arşiv bağlantısı ya da klasör
+arg-project-add-path = klasör
 plugin-no-such = Dizinde { $name } adlı eklenti yok ({ $count } eklenti listeleniyor)
 plugin-updates = Eklenti güncellemeleri: { $list } (Kalem menüsü, Kurulu Eklentiler)
 plugin-no-manifest = { $source } bir eklenti değil: plugin.json dosyası yok

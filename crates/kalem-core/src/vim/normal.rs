@@ -252,7 +252,6 @@ impl Vim {
             if o.highlights.is_some() {
                 out.highlights = o.highlights;
             }
-            out.force_quit |= o.force_quit;
             if o.handled {
                 continue;
             }

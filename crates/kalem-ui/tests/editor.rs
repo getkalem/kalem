@@ -5036,3 +5036,64 @@ fn csv_right_reaches_b1_of_a_short_row(cx: &mut TestAppContext) {
         "1,7\n2,3\n"
     );
 }
+
+#[gpui::test]
+fn vim_quit_closes_the_document(cx: &mut TestAppContext) {
+    // `:q` closes the document, as a tab closes, and Kalem stays open
+    // (the owner, 2026-10-06: `:q` closing a file quit Kalem).
+    let (ws, dir, cx) = open_project(true, cx);
+    ws.update_in(cx, |ws, window, cx| {
+        ws.open(&dir.join("loose.org"), None, window, cx)
+    });
+    cx.run_until_parked();
+    assert_eq!(active_title(&ws, cx), "loose.org");
+    cx.simulate_keystrokes(": q enter");
+    cx.run_until_parked();
+    assert_eq!(active_title(&ws, cx), "a.org");
+    assert_eq!(ws.read_with(cx, |ws, _| ws.editors.len()), 1);
+    // `:q!` loses this document's changes only: the last one gives way
+    // to an empty document.
+    cx.simulate_keystrokes("i x escape");
+    cx.simulate_keystrokes(": q ! enter");
+    cx.run_until_parked();
+    assert_eq!(active_title(&ws, cx), "Untitled");
+    assert_eq!(ws.read_with(cx, |ws, _| ws.editors.len()), 1);
+    assert_eq!(
+        std::fs::read_to_string(dir.join("proj/a.org")).unwrap(),
+        "* A\nalpha\n"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[gpui::test]
+fn vim_add_project_asks_for_the_folder(cx: &mut TestAppContext) {
+    // `SPC p a` asks for the folder, the document's own offered; adding
+    // it unasked showed nothing when it was a project already.
+    let (ws, dir, cx) = open_project(true, cx);
+    cx.simulate_keystrokes("space p a");
+    cx.run_until_parked();
+    let input = ws.read_with(cx, |ws, cx| {
+        ws.editor.read(cx).palette.as_ref().map(|p| p.input.clone())
+    });
+    assert_eq!(input, Some(dir.join("proj").display().to_string()));
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    e.update(cx, |e, _| {
+        if let Some(p) = &mut e.palette {
+            p.input = dir.display().to_string();
+        }
+    });
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    let roots: Vec<_> = e.read_with(cx, |e, _| {
+        e.shared
+            .projects
+            .borrow()
+            .list
+            .list
+            .iter()
+            .map(|p| p.root.clone())
+            .collect()
+    });
+    assert!(roots.contains(&dir), "{roots:?}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -651,7 +651,7 @@ impl Workspace {
         cx: &mut Context<'_, Self>,
     ) {
         use kalem_core::layout::PaneOp;
-        if *op == PaneOp::CloseOrQuit {
+        if let PaneOp::CloseOrQuit { force } = *op {
             if self.layout.is_split() {
                 return self.pane_op(&PaneOp::Close(false), window, cx);
             }
@@ -660,7 +660,30 @@ impl Workspace {
                 self.editor.update(cx, |e, cx| e.toggle_split(cx));
                 return;
             }
-            return self.quit(window, cx);
+            // Then the document, as a tab closes: Kalem stays open, an
+            // empty document taking the last one's place (the owner,
+            // 2026-10-06: `:q` closing a file quit Kalem). Nothing left
+            // to close, an empty new document alone, `:q` quits.
+            let blank = self.editors.len() == 1 && {
+                let d = &self.editor.read(cx).doc;
+                d.meta.path.is_none()
+                    && d.dired.is_none()
+                    && d.viewer.is_none()
+                    && !d.is_modified()
+                    && d.text().is_empty()
+            };
+            if blank {
+                return self.quit(window, cx);
+            }
+            let editor = self.editor.clone();
+            if force {
+                self.close(&editor, window, cx);
+            } else {
+                editor.update(cx, |e, cx| {
+                    e.run_command("file.close", serde_json::Value::Null, window, cx)
+                });
+            }
+            return;
         }
         let old = self.layout.focus();
         // A split of the only document: the document beside itself, as

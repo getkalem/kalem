@@ -240,6 +240,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("org.footnote.new", object(&[("label", "string", false)])),
         ("project.remove", object(&[("path", "string", false)])),
         ("project.add", object(&[("path", "string", false)])),
+        ("pane.closeOrQuit", object(&[("force", "boolean", false)])),
         ("project.rename", object(&[("name", "string", true)])),
         ("table.import", object(&[("file", "string", true)])),
         ("table.export", object(&[("file", "string", true)])),
@@ -6947,9 +6948,19 @@ fn plain_commands() -> Vec<Command> {
             "Project",
             &[],
             None,
-            |ctx, args| {
-                let path = args.get("path").and_then(Value::as_str).map(str::to_string);
-                request(ctx, Request::Project(ProjectRequest::Add(path)))
+            |ctx, args| match args.get("path").and_then(Value::as_str) {
+                Some(path) => request(ctx, Request::Project(ProjectRequest::Add(path.to_string()))),
+                // The folder is asked for, the document's own offered
+                // (Doom's `SPC p a`); adding it unasked did nothing to see
+                // when it already was a project.
+                None => request(
+                    ctx,
+                    Request::Ask {
+                        command: "project.add".into(),
+                        args: serde_json::json!({}),
+                        arg: "path".into(),
+                    },
+                ),
             },
         ),
         cmd(
@@ -7191,7 +7202,10 @@ fn plain_commands() -> Vec<Command> {
             "Window",
             &[],
             None,
-            |ctx, _| request(ctx, Request::Pane(PaneOp::CloseOrQuit)),
+            |ctx, args| {
+                let force = args.get("force").and_then(Value::as_bool) == Some(true);
+                request(ctx, Request::Pane(PaneOp::CloseOrQuit { force }))
+            },
         ),
         cmd(
             "pane.closeWithDocument",
