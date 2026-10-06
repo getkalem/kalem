@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.2;
+package kalem:plugin@0.2.3;
 
 /// Files the host opens for a plugin. A plugin holds the handle of the
 /// file it was given and reads that file, lazily, and nothing else: no

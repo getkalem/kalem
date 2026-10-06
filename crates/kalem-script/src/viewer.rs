@@ -18,6 +18,7 @@ wasmtime::component::bindgen!({
     },
 });
 
+pub use exports::kalem::plugin::formats;
 pub use exports::kalem::plugin::password;
 pub use exports::kalem::plugin::viewer as api;
 
@@ -133,6 +134,9 @@ pub struct Viewer {
     grid: Option<grid::Guest>,
     /// The `password` exports (API 0.2.2), for files protected by one.
     password: Option<password::Guest>,
+    /// The `formats` exports (API 0.2.3), for a viewer writing files of
+    /// other formats.
+    formats: Option<formats::Guest>,
 }
 
 impl std::fmt::Debug for Viewer {
@@ -215,11 +219,24 @@ impl Viewer {
                     .map(Some)
             })
             .map_err(stale)?;
+        let formats = instance
+            .bindings(|store, i| {
+                let pre = i.instance_pre(&*store);
+                let name = format!("kalem:plugin/formats@{}", crate::API_VERSION);
+                if pre.component().get_export_index(None, &name).is_none() {
+                    return Ok(None);
+                }
+                formats::GuestIndices::new(&pre)?
+                    .load(&mut *store, i)
+                    .map(Some)
+            })
+            .map_err(stale)?;
         Ok(Viewer {
             instance,
             api,
             grid,
             password,
+            formats,
         })
     }
 
@@ -253,6 +270,38 @@ impl Viewer {
             .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
         let v = &self.api;
         self.instance.run(|s| v.call_open(s, file))
+    }
+
+    /// A new file of `extension` holding `sheets` (the `formats`
+    /// interface); `None` when the plugin has no such interface.
+    pub fn new_file(
+        &mut self,
+        extension: &str,
+        sheets: &[kalem_viewer::NewSheet],
+    ) -> crate::Result<Option<Result<Vec<u8>, String>>> {
+        let Some(f) = &self.formats else {
+            return Ok(None);
+        };
+        let sheets: Vec<formats::Sheet> = sheets
+            .iter()
+            .map(|s| formats::Sheet {
+                name: s.name.clone(),
+                rows: s.rows.clone(),
+            })
+            .collect();
+        self.instance
+            .run(|s| f.call_new_file(s, extension, &sheets))
+            .map(Some)
+    }
+
+    /// Calls `f` with the plugin's `formats` functions; `None` when it has
+    /// none.
+    pub fn formats<R>(
+        &mut self,
+        f: impl FnOnce(&formats::Guest, &mut wasmtime::Store<crate::Data<Files>>) -> wasmtime::Result<R>,
+    ) -> Option<crate::Result<R>> {
+        let g = self.formats.as_ref()?;
+        Some(self.instance.run(|s| f(g, s)))
     }
 
     /// Opens `file` with `password` (the `password` interface); `None`
@@ -592,6 +641,30 @@ impl kalem_viewer::Viewer for ComponentViewer {
     ) -> kalem_viewer::Result<Box<dyn kalem_viewer::ViewerDocument>> {
         self.open_document(file, Some(password))
     }
+
+    fn new_file(
+        &self,
+        extension: &str,
+        sheets: &[kalem_viewer::NewSheet],
+    ) -> kalem_viewer::Result<Vec<u8>> {
+        let mut v = match self.instance() {
+            Ok(v) => v,
+            Err(e) => {
+                self.warn(&e);
+                return match &self.fallback {
+                    Some(f) => f.new_file(extension, sheets),
+                    None => Err(e),
+                };
+            }
+        };
+        match v.new_file(extension, sheets).map_err(err)? {
+            Some(made) => made.map_err(kalem_viewer::ViewerError),
+            None => Err(kalem_viewer::ViewerError(format!(
+                "{} does not make .{extension} files",
+                self.name
+            ))),
+        }
+    }
 }
 
 impl ComponentViewer {
@@ -906,6 +979,22 @@ impl kalem_viewer::ViewerDocument for ComponentDocument {
     fn save(&mut self) -> kalem_viewer::Result<kalem_viewer::SaveOutput> {
         let out = self
             .call(|d, st, doc| d.call_save(st, doc))?
+            .map_err(kalem_viewer::ViewerError)?;
+        Ok(kalem_viewer::SaveOutput {
+            bytes: out.bytes,
+            losses: out.losses,
+        })
+    }
+
+    fn save_as(&mut self, extension: &str) -> kalem_viewer::Result<kalem_viewer::SaveOutput> {
+        let doc = self.doc;
+        let out = self
+            .run(|v| v.formats(|f, s| f.call_save_as(s, doc, extension)))
+            .unwrap_or_else(|| {
+                Err(kv::ViewerError(format!(
+                    "Kalem does not write .{extension} files"
+                )))
+            })?
             .map_err(kalem_viewer::ViewerError)?;
         Ok(kalem_viewer::SaveOutput {
             bytes: out.bytes,

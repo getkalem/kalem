@@ -1,0 +1,26 @@
+package kalem:plugin@0.2.3;
+
+/// Files of other formats (API 0.2.3): a document written as another of
+/// the formats its plugin writes (a workbook as `.ods`, a macro-enabled
+/// workbook as a plain one), and a new file made from rows of entries, as
+/// a workbook made from a text file's rows. The plugin writes its formats,
+/// so the host holds no code of theirs.
+interface formats {
+    use viewer.{document, save-output};
+
+    /// A sheet of a new file: its name, and its rows of entries as one
+    /// types them into cells (`=` before a formula, `'` before text that
+    /// would read otherwise, `1,234.5`, `50%`, ISO dates and times).
+    record sheet {
+        name: string,
+        rows: list<list<string>>,
+    }
+
+    /// The document's file with its edits written as a file of
+    /// `extension`; afterwards it counts as saved. An error for an
+    /// extension the plugin does not write.
+    save-as: func(doc: borrow<document>, extension: string) -> result<save-output, string>;
+
+    /// A new file of `extension` holding `sheets`.
+    new-file: func(extension: string, sheets: list<sheet>) -> result<list<u8>, string>;
+}

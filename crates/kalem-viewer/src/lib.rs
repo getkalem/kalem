@@ -408,6 +408,18 @@ pub struct Edit {
     pub inverse: Option<String>,
 }
 
+/// A sheet of a new file ([`Viewer::new_file`]): its name, and its rows
+/// of entries as one types them into cells: `=` before a formula, `'`
+/// before text that would read otherwise, numbers as `1234.5`, `1,234.5`
+/// or `50%`, ISO dates and times (`2026-10-06`, `14:30`).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct NewSheet {
+    /// The sheet's name.
+    pub name: String,
+    /// Its rows of entries, from the first row and column.
+    pub rows: Vec<Vec<String>>,
+}
+
 /// The bytes a document saves to, and what the format could not keep.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SaveOutput {
@@ -1895,6 +1907,15 @@ pub trait Viewer: Send + Sync {
     ) -> Result<Box<dyn ViewerDocument>> {
         self.open(file)
     }
+
+    /// A new file of `extension` (one of [`Viewer::extensions`]) holding
+    /// `sheets`, as a workbook viewer makes a new workbook, from rows of a
+    /// text file or blank. An error from a viewer that makes no files.
+    fn new_file(&self, extension: &str, _sheets: &[NewSheet]) -> Result<Vec<u8>> {
+        Err(ViewerError(format!(
+            "Kalem does not make .{extension} files"
+        )))
+    }
 }
 
 /// A file a [`Viewer`] opened.
@@ -1996,6 +2017,17 @@ pub trait ViewerDocument: Send {
     /// document counts as saved.
     fn save(&mut self) -> Result<SaveOutput> {
         Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// The file with the edits written as a file of `extension`: a
+    /// workbook as an OpenDocument spreadsheet, a macro-enabled one as a
+    /// plain workbook, its content declared as the extension says;
+    /// afterwards the document counts as saved. An error for an extension
+    /// the viewer does not write.
+    fn save_as(&mut self, extension: &str) -> Result<SaveOutput> {
+        Err(ViewerError(format!(
+            "Kalem does not write .{extension} files"
+        )))
     }
 
     /// A grid unit's shape (a sheet, a table); `None` for a unit that is

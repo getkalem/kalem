@@ -176,4 +176,22 @@ impl kalem_plugin::viewer::exports::kalem::plugin::password::Guest for Pages {
     }
 }
 
+/// No other formats: a viewer of the WIT world itself answers the
+/// `formats` interface with refusals.
+impl kalem_plugin::viewer::exports::kalem::plugin::formats::Guest for Pages {
+    fn save_as(
+        _doc: kalem_plugin::viewer::exports::kalem::plugin::formats::DocumentBorrow<'_>,
+        extension: String,
+    ) -> Result<kalem_plugin::viewer::exports::kalem::plugin::formats::SaveOutput, String> {
+        Err(format!("no .{extension} files"))
+    }
+
+    fn new_file(
+        extension: String,
+        _sheets: Vec<kalem_plugin::viewer::exports::kalem::plugin::formats::Sheet>,
+    ) -> Result<Vec<u8>, String> {
+        Err(format!("no .{extension} files"))
+    }
+}
+
 kalem_plugin::viewer::export_viewer!(Pages);

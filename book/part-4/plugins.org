@@ -204,7 +204,7 @@ million cells.
 * Versions of the plugin API
 
 The plugin API is the WIT package =kalem:plugin= (=crates/kalem-plugin/wit=),
-version 0.2.2; a component's manifest names the version it was built
+version 0.2.3; a component's manifest names the version it was built
 against (="api": "^0.2.1"=), and Kalem tries it when its own API is of
 the same 0.MINOR and no earlier. The rules, so that a plugin built once
 keeps working:
@@ -232,6 +232,14 @@ keeps working:
   keep it for the session. =kalem-plugin='s adapter exports it from the
   contract; a viewer written against the WIT world itself implements it
   (opening as =open= does when it has no such files).
+- 0.2.3 added the export =formats=: =save-as= writes a document as
+  another of the formats its plugin writes (a workbook as =.ods=, a
+  macro-enabled workbook as a plain one; =ViewerDocument::save_as=), and
+  =new-file= makes a new file from sheets of entries as typed
+  (=Viewer::new_file=: a blank workbook, a text file's rows). So the
+  host holds no code of a plugin's formats: Save As, Open as Workbook
+  and New Workbook go through the plugin. =kalem-plugin='s adapter
+  exports it from the contract, whose defaults refuse.
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 

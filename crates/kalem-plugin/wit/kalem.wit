@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.2;
+package kalem:plugin@0.2.3;
 
 /// The editor's commands, keys and events (design §11.2 to §11.4): what a
 /// plugin adds to the palette, menus and keymap, and what it hears.

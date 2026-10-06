@@ -244,6 +244,41 @@ impl w::GuestDocument for Doc {
     }
 }
 
+/// The `formats` interface (API 0.2.3) over the contract's
+/// [`ViewerDocument::save_as`] and [`Viewer::new_file`].
+#[doc(hidden)]
+pub mod formats {
+    pub use crate::viewer::exports::kalem::plugin::formats as f;
+
+    /// The document behind the handle written as a file of `extension`.
+    pub fn save_as(d: f::DocumentBorrow<'_>, extension: &str) -> Result<f::SaveOutput, String> {
+        super::report_panics();
+        let doc = d.get::<super::Doc>();
+        let out = doc.0.borrow_mut().save_as(extension).map_err(|e| e.0)?;
+        Ok(f::SaveOutput {
+            bytes: out.bytes,
+            losses: out.losses,
+        })
+    }
+
+    /// A new file of `extension` from `sheets`, made by `v`.
+    pub fn new_file(
+        v: &dyn super::Viewer,
+        extension: &str,
+        sheets: Vec<f::Sheet>,
+    ) -> Result<Vec<u8>, String> {
+        super::report_panics();
+        let sheets: Vec<kalem_viewer::NewSheet> = sheets
+            .into_iter()
+            .map(|s| kalem_viewer::NewSheet {
+                name: s.name,
+                rows: s.rows,
+            })
+            .collect();
+        v.new_file(extension, &sheets).map_err(|e| e.0)
+    }
+}
+
 /// Exports a viewer of the Rust contract as the component's
 /// `document-viewer` world: `export_viewer_of!(PdfViewer)`, the
 /// expression making the viewer (evaluated for each call; a unit struct
@@ -287,6 +322,25 @@ macro_rules! export_viewer_of {
                 ::std::string::String,
             > {
                 $crate::adapter::open_with_password(&$viewer, file, &password)
+            }
+        }
+
+        impl $crate::adapter::formats::f::Guest for __KalemViewer {
+            fn save_as(
+                doc: $crate::adapter::formats::f::DocumentBorrow<'_>,
+                extension: ::std::string::String,
+            ) -> ::std::result::Result<
+                $crate::adapter::formats::f::SaveOutput,
+                ::std::string::String,
+            > {
+                $crate::adapter::formats::save_as(doc, &extension)
+            }
+
+            fn new_file(
+                extension: ::std::string::String,
+                sheets: ::std::vec::Vec<$crate::adapter::formats::f::Sheet>,
+            ) -> ::std::result::Result<::std::vec::Vec<u8>, ::std::string::String> {
+                $crate::adapter::formats::new_file(&$viewer, &extension, sheets)
             }
         }
 

@@ -279,6 +279,39 @@ fn a_component_opens_a_file_with_its_password() {
     assert_eq!(doc.text(1), "two");
 }
 
+/// A component writes its document as another format and makes a new
+/// file (the `formats` interface, API 0.2.3).
+#[test]
+fn a_component_writes_other_formats() {
+    use kalem_viewer::{FileHandle, NewSheet, Viewer as _};
+    let Some(bytes) = component("adapted") else {
+        return;
+    };
+    let dir = std::env::temp_dir().join(format!("kalem-script-formats-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let wasm = dir.join("lines.wasm");
+    std::fs::write(&wasm, &bytes).unwrap();
+    let v = kalem_script::viewer::ComponentViewer::new(
+        std::sync::Arc::new(Host::new(None).unwrap()),
+        &wasm,
+        "lines",
+        "Lines",
+        &["lines".to_string()],
+        kalem_script::viewer::VIEWER_LIMITS,
+    );
+    let mut doc = v
+        .open(FileHandle::new(file("a.lines", b"LINES\none\ntwo")))
+        .unwrap();
+    assert_eq!(doc.save_as("upper").unwrap().bytes, b"ONE\nTWO");
+    assert!(doc.save_as("pdf").is_err());
+    let sheets = [NewSheet {
+        name: "S".into(),
+        rows: vec![vec!["a".into(), "1".into()], vec!["b".into()]],
+    }];
+    assert_eq!(v.new_file("lines", &sheets).unwrap(), b"LINES\na\t1\nb\n");
+    assert!(v.new_file("csv", &sheets).is_err());
+}
+
 /// An installed component whose file changes (`kalem plugin dev` built it
 /// again) is read again for the documents opened from then on (wasm_todo
 /// W10); the one built into Kalem never is.

@@ -3,8 +3,8 @@
 //! after the magic `LINES\n`, a page a line, read through the handle.
 
 use kalem_viewer::{
-    Bitmap, Detection, FileHandle, InfoField, RenderRequest, Rendered, Result, Structure, Unit,
-    UnitKind, Viewer, ViewerDocument, ViewerError,
+    Bitmap, Detection, FileHandle, InfoField, NewSheet, RenderRequest, Rendered, Result,
+    SaveOutput, Structure, Unit, UnitKind, Viewer, ViewerDocument, ViewerError,
 };
 
 pub struct Lines;
@@ -70,9 +70,36 @@ impl Viewer for Lines {
             size: file.len()?,
         }))
     }
+
+    /// A lines file of each sheet's rows, a row a line, its entries apart
+    /// by tabs (for the host's tests of the `formats` interface).
+    fn new_file(&self, extension: &str, sheets: &[NewSheet]) -> Result<Vec<u8>> {
+        if extension != "lines" {
+            return Err(ViewerError(format!("no .{extension} files")));
+        }
+        let mut out = String::from("LINES\n");
+        for s in sheets {
+            for row in &s.rows {
+                out.push_str(&row.join("\t"));
+                out.push('\n');
+            }
+        }
+        Ok(out.into_bytes())
+    }
 }
 
 impl ViewerDocument for Doc {
+    /// As `.upper`: the lines in capitals.
+    fn save_as(&mut self, extension: &str) -> Result<SaveOutput> {
+        if extension != "upper" {
+            return Err(ViewerError(format!("no .{extension} files")));
+        }
+        Ok(SaveOutput {
+            bytes: self.lines.join("\n").to_uppercase().into_bytes(),
+            losses: Vec::new(),
+        })
+    }
+
     fn structure(&self) -> Structure {
         Structure {
             units: (0..self.lines.len())
