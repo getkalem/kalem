@@ -925,9 +925,6 @@ impl FileWatcher {
 
 #[cfg(test)]
 mod tests {
-    /// A write-protected file is refused, not replaced; a writable file
-    /// in a folder Kalem may not write in is written in place.
-    #[cfg(unix)]
     #[test]
     fn utf8_with_a_stray_byte() {
         // Turkish in UTF-8 with one byte that is not: UTF-8, the byte as
@@ -951,6 +948,9 @@ mod tests {
         assert!(t.starts_with("Çok güzel"), "{t:?}");
     }
 
+    /// A write-protected file is refused, not replaced; a writable file
+    /// in a folder Kalem may not write in is written in place.
+    #[cfg(unix)]
     #[test]
     fn permissions_on_save() {
         use std::os::unix::fs::PermissionsExt;
