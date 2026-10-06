@@ -124,7 +124,9 @@ each platform with the results in the release issue.
   Done: T1.8.12; `release.yml` from `dist generate` with a runner per
   target (`ubuntu-20.04` is retired, gpui is not cross-compiled) and the
   windowing libraries; `release-terminal.yml` attaches the terminal-only
-  archives. Open: the tag and the changelog's `## 0.1.0`, after R2.4.
+  archives. The prerelease `v0.1.0-rc.1` (2026-10-06) ran the release
+  workflow end to end, all 15 jobs green. Open: the tag `v0.1.0` and the
+  changelog's `## 0.1.0`, after R2.4.
 - [ ] R2.4 The release checklist run by hand on macOS, Linux (X11 and
   Wayland) and Windows, results in the release issue, each failure
   either fixed or recorded as a known issue in the README. L, owner's

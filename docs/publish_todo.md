@@ -1249,10 +1249,29 @@ Wrong or stale text a first reader meets. Each is a text change.
   those two lines included, are `docs/history/changelog-before-0.1.md`
   as they were written; `docs/releasing.md` says to keep a version's
   section short.)
-- [ ] **Blocker.** The Release workflow has never run (`gh run list -w
+- [x] **Blocker.** The Release workflow has never run (`gh run list -w
   Release` is empty): `dist plan` is unvalidated and
   `aarch64-unknown-linux-gnu` and `x86_64-apple-darwin` have never been
   built in any CI. Push a prerelease tag (`v0.1.0-rc.1`) first.
+  (done 2026-10-06: `v0.1.0-rc.1` on 20cf67a, whose CI was green;
+  the Release run 37455158459 passed all 15 jobs: the five targets'
+  archives with their `.sha256`, the shell and PowerShell installers,
+  the release published as a prerelease with the changelog's Unreleased
+  section as its notes, and the five terminal-only archives attached
+  by `release-terminal.yml`. On macOS (arm64) the shell installer,
+  run into a temporary folder, installs a `kalem` that says
+  0.1.0-rc.1, checks and exports the Org guide and opens a PDF, a PNG
+  and a workbook through the built-in components, writing nothing to
+  its settings folder; the terminal archive's checksum holds and its
+  binary (38 MB) refuses a PDF as no viewer's. Found: dist writes the
+  Windows `.zip` without compression ("Stored"), 75 MB where xz gives
+  23 MB.)
+- [ ] **Minor.** The Windows archive is a `.zip` stored without
+  compression by cargo-dist 0.28 (75 MB; the binary in xz is 23 MB, in
+  deflate about 30 MB): `windows-archive = ".tar.gz"` or `".tar.xz"`
+  (Windows 10 and 11 unpack them, and the PowerShell installer reads
+  them), or a newer dist; the owner's call, as the format is what users
+  download.
 - [x] **Major.** The terminal-only archives are never attached:
   `release-terminal.yml` triggers on `release: published`, but
   `release.yml` creates the release with `GITHUB_TOKEN`, whose events do
