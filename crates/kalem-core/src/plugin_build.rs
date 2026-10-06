@@ -319,8 +319,13 @@ pub fn new(name: &str, cwd: &Path) -> Result<PathBuf, String> {
                     "Copy this folder to plugins/NAME and describe your plugin here",
                     "What the plugin does".to_string(),
                 ),
+                (".template", format!(".{name}")),
             ],
         )?;
+        let lib = dest.join("src/lib.rs");
+        let text = std::fs::read_to_string(&lib).map_err(|e| format!("{}: {e}", lib.display()))?;
+        std::fs::write(&lib, skeleton(&text, name))
+            .map_err(|e| format!("{}: {e}", lib.display()))?;
         let readme = dest.join("README.md");
         std::fs::write(&readme, readme_text(name, true))
             .map_err(|e| format!("{}: {e}", readme.display()))?;
@@ -333,7 +338,7 @@ pub fn new(name: &str, cwd: &Path) -> Result<PathBuf, String> {
     let files = [
         ("Cargo.toml", standalone_cargo(name)),
         ("plugin.json", standalone_manifest(name)),
-        ("src/lib.rs", LIB_RS.to_string()),
+        ("src/lib.rs", skeleton(LIB_RS, name)),
         ("README.md", readme_text(name, false)),
         (".gitignore", "target/\ndist/\n".to_string()),
     ];
@@ -361,6 +366,19 @@ fn copy_dir(from: &Path, to: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// The crate's type and file names in `text`, a skeleton named for
+/// `template`: `TemplateViewer`, `"Template"`, `"template"`, `.template`.
+fn skeleton(text: &str, name: &str) -> String {
+    let t = title(name);
+    let camel: String = t.split(' ').collect();
+    text.replace("TemplateViewer", &format!("{camel}Viewer"))
+        .replace("Template:", &format!("{t}:"))
+        .replace("\"Template\"", &format!("\"{t}\""))
+        .replace("\"template\"", &format!("\"{name}\""))
+        .replace(".template", &format!(".{name}"))
+        .replace("a.template", &format!("a.{name}"))
+}
+
 fn standalone_cargo(name: &str) -> String {
     format!(
         r#"[package]
@@ -376,9 +394,14 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+# The viewer contract, the traits Kalem's own viewers implement.
+kalem-viewer = {{ git = "https://github.com/getkalem/kalem", branch = "main" }}
 
-[dev-dependencies]
-serde_json = "1"
+# The component's exports (`kalem plugin build`): the contract adapted to
+# Kalem's plugin API, on wasm32 only. The feature `grid` for a viewer of
+# sheets of cells.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+kalem-plugin = {{ git = "https://github.com/getkalem/kalem", branch = "main" }}
 
 # Optimized for speed: optimized for size, a PDF page renders twelve
 # times slower, and the component is no smaller (D28's record). A
@@ -406,33 +429,209 @@ fn standalone_manifest(name: &str) -> String {
   "description": "What the plugin does",
   "main": "dist/{name}.wasm",
   "api": "^0.2.1",
-  "activation": ["onStartup"],
-  "permissions": []
+  "activation": ["onDocument"],
+  "permissions": [],
+  "opens": [".{name}"]
 }}
 "#,
         title = title(name)
     )
 }
 
-const LIB_RS: &str = r#"//! A Kalem plugin.
+/// The crate a plugin starts from: a viewer of a small format, each part
+/// of the contract in its place. `Template` and `template` are the
+/// plugin's title and name ([`skeleton`]).
+const LIB_RS: &str = r#"//! Template: a Kalem plugin that opens `.template` files.
 //!
-//! Kalem loads a plugin as a WebAssembly component and calls it through the
-//! contracts of its API, generated from Kalem's WIT definition as the
-//! `kalem-plugin` crate. Until those bindings are published (Kalem's task
-//! T3.1.3) this crate carries its manifest and a test; the plugin's code
-//! goes here.
+//! A viewer written against Kalem's Rust contract (`kalem_viewer`): the
+//! viewer says which files are its own and opens one; the document it
+//! returns says what units the file has (a picture, pages, frames, sheets)
+//! and draws each when asked, as pixels Kalem shows. The crate runs
+//! natively in its tests, and as a WebAssembly component in Kalem (`kalem
+//! plugin build`, `kalem plugin dev`), where it sees nothing but the file
+//! Kalem hands it.
+//!
+//! As it starts, a file is a picture drawn in text, `#` a dark cell and
+//! `.` a light one, a line a row:
+//!
+//! ```text
+//! .##.
+//! #..#
+//! .##.
+//! ```
+//!
+//! Replace `Doc`, `parse` and the drawing with your format.
 
-/// The manifest, embedded so that the component carries its own description.
-pub const MANIFEST: &str = include_str!("../plugin.json");
+use kalem_viewer::{
+    Bitmap, Detection, FileHandle, InfoField, RenderRequest, Rendered, Result, Structure, Unit,
+    UnitKind, Viewer, ViewerDocument, ViewerError,
+};
+
+/// The viewer: one for the whole plugin, with no state of its own.
+#[derive(Debug)]
+pub struct TemplateViewer;
+
+/// An open file: its rows of cells.
+struct Doc {
+    rows: Vec<Vec<bool>>,
+    name: String,
+}
+
+/// A cell's side in pixels at scale 1.
+const CELL: f32 = 8.0;
+
+impl Viewer for TemplateViewer {
+    fn id(&self) -> &str {
+        "template"
+    }
+
+    fn name(&self) -> &str {
+        "Template"
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &["template"]
+    }
+
+    /// Whether `name`, starting with `head` (its first bytes), is a file of
+    /// this viewer: by its content when the format has a signature, else
+    /// by its extension.
+    fn detect(&self, name: &str, _head: &[u8]) -> Detection {
+        let ext = name.rsplit('.').next().unwrap_or_default();
+        if ext.eq_ignore_ascii_case("template") {
+            Detection::Extension
+        } else {
+            Detection::No
+        }
+    }
+
+    /// Reads the file (`read_all`, or `read_at` for a piece of a large
+    /// one) and makes the document.
+    fn open(&self, file: FileHandle) -> Result<Box<dyn ViewerDocument>> {
+        let text = String::from_utf8(file.read_all()?).map_err(|e| ViewerError(e.to_string()))?;
+        Ok(Box::new(Doc {
+            rows: parse(&text)?,
+            name: file.name().to_owned(),
+        }))
+    }
+}
+
+/// The rows of a picture in text, `#` dark and `.` light, each as wide as
+/// the widest.
+fn parse(text: &str) -> Result<Vec<Vec<bool>>> {
+    if let Some(c) = text.chars().find(|c| !matches!(c, '#' | '.' | '\n' | '\r')) {
+        return Err(ViewerError(format!("Not a picture: {c:?} in it")));
+    }
+    let rows: Vec<Vec<bool>> = text
+        .lines()
+        .filter(|l| !l.is_empty())
+        .map(|l| l.chars().map(|c| c == '#').collect())
+        .collect();
+    if rows.is_empty() {
+        return Err(ViewerError("An empty picture".into()));
+    }
+    let width = rows.iter().map(Vec::len).max().unwrap_or(0);
+    Ok(rows
+        .into_iter()
+        .map(|mut r| {
+            r.resize(width, false);
+            r
+        })
+        .collect())
+}
+
+impl ViewerDocument for Doc {
+    /// The units: here one picture; pages, frames or sheets for other
+    /// formats.
+    fn structure(&self) -> Structure {
+        Structure {
+            units: vec![Unit {
+                kind: UnitKind::Image,
+                label: "1".into(),
+                duration_ms: None,
+            }],
+            outline: Vec::new(),
+        }
+    }
+
+    /// A unit's size at scale 1, in pixels.
+    fn size(&self, _unit: usize) -> Option<(f32, f32)> {
+        Some((
+            self.rows[0].len() as f32 * CELL,
+            self.rows.len() as f32 * CELL,
+        ))
+    }
+
+    /// The unit as pixels at the scale asked, in the theme's colors.
+    fn render(&mut self, _unit: usize, request: RenderRequest) -> Result<Rendered> {
+        let cell = (CELL * request.scale).max(1.0) as u32;
+        let (w, h) = (
+            self.rows[0].len() as u32 * cell,
+            self.rows.len() as u32 * cell,
+        );
+        let (dark, light) = (request.theme.foreground, request.theme.background);
+        let mut rgba = Vec::with_capacity((w * h * 4) as usize);
+        for y in 0..h {
+            for x in 0..w {
+                let on = self.rows[(y / cell) as usize][(x / cell) as usize];
+                let [r, g, b] = if on { dark } else { light };
+                rgba.extend([r, g, b, 255]);
+            }
+        }
+        Ok(Rendered::Bitmap(Bitmap::new(w, h, rgba)))
+    }
+
+    /// The unit's text, for search, copying and the terminal: the picture
+    /// as written.
+    fn text(&self, _unit: usize) -> String {
+        self.rows
+            .iter()
+            .map(|r| {
+                r.iter()
+                    .map(|&c| if c { '#' } else { '.' })
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// The information panel.
+    fn info(&self) -> Vec<InfoField> {
+        vec![
+            InfoField::new("Name", self.name.clone()),
+            InfoField::new(
+                "Size",
+                format!("{} × {} cells", self.rows[0].len(), self.rows.len()),
+            ),
+        ]
+    }
+}
+
+// The component's exports, written by `kalem-plugin`'s adapter over the
+// contract: nothing to add here.
+#[cfg(target_arch = "wasm32")]
+kalem_plugin::export_viewer_of!(TemplateViewer);
 
 #[cfg(test)]
 mod tests {
-    use super::MANIFEST;
+    use super::*;
 
     #[test]
-    fn manifest_is_json() {
-        let value: serde_json::Value = serde_json::from_str(MANIFEST).expect("plugin.json parses");
-        assert!(value.is_object());
+    fn a_picture_is_read_and_drawn() {
+        let rows = parse(".#\n#.\n").unwrap();
+        assert_eq!(rows, vec![vec![false, true], vec![true, false]]);
+        let mut doc = Doc {
+            rows,
+            name: "a.template".into(),
+        };
+        let request = RenderRequest {
+            scale: 0.125,
+            ..RenderRequest::default()
+        };
+        let Rendered::Bitmap(b) = doc.render(0, request).unwrap();
+        assert_eq!((b.width, b.height), (2, 2));
+        assert_eq!(doc.text(0), ".#\n#.");
+        assert!(parse("x").is_err());
     }
 }
 "#;
@@ -446,7 +645,7 @@ fn readme_text(name: &str, in_repository: bool) -> String {
     format!(
         r#"# {title}
 
-A Kalem plugin. Describe what it does in `plugin.json` (the fields are those of section 11.5 of Kalem's design document) and here.
+A Kalem plugin: a viewer of `.{name}` files. As it starts, a file is a picture drawn in text (`#` and `.`); `src/lib.rs` says where each part of the contract goes. Describe what the plugin does in `plugin.json` (the fields are those of section 11.5 of Kalem's design document) and here.
 
 ```sh
 {test}

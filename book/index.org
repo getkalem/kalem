@@ -59,6 +59,7 @@ repository, in Org, and =kalem book build= turns it into this site.
 - [[file:part-2/plain-text.org][Plain text and code]]
 
 * Part III. Extending Kalem
+- [[file:part-4/plugins-in-practice.org][Plugins in practice]]
 - [[file:part-4/overview.org][The extension model]]
 - [[file:part-4/commands-and-keys.org][Commands, scopes and keys]]
 - [[file:part-4/completers-and-modes.org][Completers, modes and highlighters]]

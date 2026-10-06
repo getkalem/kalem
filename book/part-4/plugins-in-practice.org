@@ -1,0 +1,129 @@
+This chapter is the short way in: how to add a plugin from the
+editor, how to change one that exists and use your own copy, and how
+to write a plugin for a file type Kalem does not open yet. The chapters
+after it say how everything works; this one says what to do.
+
+A plugin is a small program Kalem runs in a sandbox: it sees the file
+it was given and nothing else, has its own memory and time, and a plugin
+that fails is closed without taking Kalem down. The viewers of
+pictures, PDF files and workbooks are plugins, built into Kalem;
+language plugins (a syntax and a language server for a programming
+language) need no code at all.
+
+* Adding a plugin from the editor
+
+In the *Kalem* menu (and the command palette):
+
+- *Browse Plugins* lists the plugins of the official index,
+  =getkalem/plugins=, with what is installed. Choosing one shows what it
+  is, where it comes from and what it may do, and installs it.
+- *Install Plugin from GitHub…* asks for a link: a repository that is a
+  plugin, a folder in one, or a release's page. That is how a plugin of
+  your own, or anyone's that is not in the index, gets in.
+- *Installed Plugins* lists yours, offers an update when there is one,
+  and removes.
+
+On the command line: =kalem plugin browse=, =kalem plugin install
+NAME= (a name from the index, a link, or a folder on disk), =kalem
+plugin list=, =kalem plugin remove ID=. [[file:language-plugins.org][Language plugins]] has the details,
+and how to add an index of your own as a source.
+
+* What you need to build one
+
+- Rust, with [[https://rustup.rs][rustup]].
+- The target plugins are built for, once: =rustup target add
+  wasm32-unknown-unknown=.
+- The tool that wraps a build as a component, once: =cargo install
+  --locked wasm-tools=.
+- Kalem itself: =kalem plugin build= and =kalem plugin dev= do the rest.
+
+* Changing a plugin that exists
+
+Every plugin lives in [[https://github.com/getkalem/plugins][getkalem/plugins]], one folder each under
+=plugins/=. To change the workbook viewer, say:
+
+#+begin_src sh
+git clone https://github.com/getkalem/plugins
+cd plugins
+# edit plugins/xlsx/src/…
+cargo test -p kalem-plugin-xlsx       # the plugin's own tests, natively
+kalem plugin dev plugins/xlsx         # built, installed, built again at each change
+#+end_src
+
+=kalem plugin dev= builds the plugin, installs it, and builds and
+installs it again whenever its sources change, until you stop it. A
+Kalem that is running opens the next file with your build; one started
+later finds it installed. A panic in your code reaches Kalem's log with
+the names of your functions.
+
+One thing to know: Kalem keeps using the plugin built into it unless
+yours is /newer/. So raise =version= in =plugins/xlsx/plugin.json=
+(from =0.0.7= to =0.0.8=, say) before =kalem plugin dev=; =kalem plugin
+list= says which copy is in use. =kalem plugin remove org.kalem.xlsx=
+takes your copy out and the built-in one is back.
+
+To give your change to others:
+
+- the best way is a pull request to =getkalem/plugins=;
+- or push your fork and tag it =xlsx-v0.0.8=: the repository's release
+  workflow builds the component and publishes it (GitHub turns
+  workflows off on a fork until you enable them, once, in its Actions
+  tab). Then anyone installs it with *Install Plugin from GitHub…* and
+  the link of your fork's folder,
+  =https://github.com/YOU/plugins/tree/main/plugins/xlsx=; or adds your
+  fork's =index.json= as a plugin source, after which *Browse Plugins*
+  shows your version in place of the official one.
+
+* A plugin for a file type of your own
+
+=kalem plugin new NAME= starts one. Inside a checkout of
+=getkalem/plugins= it makes =plugins/NAME=; anywhere else, a crate of
+its own in =NAME/=:
+
+#+begin_src sh
+kalem plugin new dots
+cd dots
+cargo test                 # the test that comes with it, natively
+kalem plugin build         # dist/dots.wasm, the component
+kalem plugin dev           # installed, and built again as you work
+#+end_src
+
+What you get is a working viewer of a small format, a picture drawn in
+text (=#= and =.=), so that a =.dots= file opens in Kalem at once, as a
+picture in the window and in the terminal. Its two files:
+
+- =plugin.json=: the plugin's id, name, version, what it opens
+  (="opens": [".dots"]=), its permissions (a viewer needs none) and its
+  limits.
+- =src/lib.rs=: the viewer, and the document it opens. The viewer says
+  which files are its own (=detect=, by the file's first bytes or its
+  extension) and reads one (=open=; the file comes through a handle,
+  =read_all= or a piece at a time, since the plugin has no file system).
+  The document says what the file holds (=structure=: one picture,
+  pages, frames or sheets), how large a unit is (=size=), draws it when
+  asked (=render=: pixels, at the scale asked, in the theme's colors)
+  and gives its text (=text=, for search, copying and the terminal) and
+  its information panel (=info=). Each part is marked in the file;
+  replace the picture with your format.
+
+Tests run natively with =cargo test=, as for any crate; the same code is
+the component Kalem runs. The contract has more than the skeleton uses,
+each with a default: links in a unit, an outline, search, editing and
+saving (=save=), a file that needs a password, and, with the =grid=
+feature of =kalem-plugin=, sheets of cells as the workbook viewer has
+them. [[file:plugins.org][Plugins]] lists them, and =kalem-viewer='s documentation says what each
+does.
+
+To publish it: put the crate in a GitHub repository of its own, run
+=kalem plugin build=, and attach =dist/dots.wasm= to a release there;
+anyone installs it with *Install Plugin from GitHub…* and the
+repository's link (Kalem takes the component from the release). To be
+in the official index, open a pull request that adds =plugins/dots= to
+=getkalem/plugins=.
+
+* Beyond viewers
+
+A plugin may add commands, keys and panels to the editor rather than
+open files (an /extension/ plugin), and a language plugin is a manifest
+with a syntax and a language server, no code: [[file:plugins.org][Plugins]] and [[file:language-plugins.org][Language
+plugins]] say how.
