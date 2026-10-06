@@ -836,7 +836,7 @@ pub fn argument_default(id: &str, name: &str, doc: &mut crate::document::Documen
             let dir = folder_of(doc).or_else(|| std::env::current_dir().ok());
             dir.map(|d| {
                 let mut s = d.display().to_string();
-                if name == "path" && id == "file.open" && !s.ends_with(std::path::MAIN_SEPARATOR) {
+                if !s.ends_with(std::path::MAIN_SEPARATOR) {
                     s.push(std::path::MAIN_SEPARATOR);
                 }
                 s

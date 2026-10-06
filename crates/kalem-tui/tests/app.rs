@@ -4779,12 +4779,20 @@ fn vim_add_project_asks_for_the_folder() {
         .unwrap()
         .to_string_lossy()
         .into_owned();
+    std::fs::create_dir_all(path.parent().unwrap().join("chapters")).unwrap();
     t.typ(" pa");
-    let last = screen(&mut t).pop().unwrap();
+    let shown = screen(&mut t);
+    let last = &shown[shown.len() - 1];
     assert!(
         last.contains("Add Project") && last.contains(&dir),
         "{last}"
     );
+    // The folder's folders over the prompt; Tab completes one.
+    assert!(shown[shown.len() - 2].contains("chapters/"), "{shown:?}");
+    t.typ("ch");
+    t.key(KeyCode::Tab, KeyModifiers::NONE);
+    let shown = screen(&mut t);
+    assert!(shown[shown.len() - 1].contains("chapters/"), "{shown:?}");
 }
 
 #[test]

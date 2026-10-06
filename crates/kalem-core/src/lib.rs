@@ -72,6 +72,7 @@ pub mod packs;
 pub mod palette;
 pub mod pandoc;
 pub mod paste;
+pub mod path_prompt;
 pub mod pdf;
 pub mod plugin_build;
 pub mod plugin_doc;

@@ -532,6 +532,7 @@ prompt-close = Kapatmadan önce { $name } kaydedilsin mi? (e)vet, (h)ayır, vazg
 prompt-quit-many = { $count } belgede kaydedilmemiş değişiklik var. Çıkmadan önce kaydedilsinler mi? (e)vet, (h)ayır, vazgeçmek için Esc{" "}
 prompt-open = Dosya aç
 prompt-project-add = Proje klasörü ekle
+prompt-path-keys = Tab tamamlar, Enter seçer
 prompt-project-rename = Proje adı
 status-commands = komutlar
 

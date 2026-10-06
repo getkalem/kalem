@@ -5067,21 +5067,37 @@ fn vim_quit_closes_the_document(cx: &mut TestAppContext) {
 
 #[gpui::test]
 fn vim_add_project_asks_for_the_folder(cx: &mut TestAppContext) {
-    // `SPC p a` asks for the folder, the document's own offered; adding
-    // it unasked showed nothing when it was a project already.
+    // `SPC p a` asks for the folder, the document's own offered, its
+    // folders listed; Tab completes one (the owner, 2026-10-06: adding
+    // the document's folder unasked showed nothing).
     let (ws, dir, cx) = open_project(true, cx);
     cx.simulate_keystrokes("space p a");
     cx.run_until_parked();
-    let input = ws.read_with(cx, |ws, cx| {
-        ws.editor.read(cx).palette.as_ref().map(|p| p.input.clone())
-    });
-    assert_eq!(input, Some(dir.join("proj").display().to_string()));
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    let shown = |e: &Entity<Editor>, cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| {
+            let p = e.palette.as_ref().expect("the prompt");
+            let lines: Vec<String> = p.matches().iter().map(|it| it.title.clone()).collect();
+            (p.input.clone(), lines)
+        })
+    };
+    let sep = std::path::MAIN_SEPARATOR;
+    let proj = format!("{}{sep}", dir.join("proj").display());
+    assert_eq!(shown(&e, cx), (proj.clone(), vec!["sub/".to_string()]));
+    cx.update(|window, _| window.refresh());
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("palette-0").is_some(), "the folder listed");
+    cx.simulate_input("s");
+    cx.simulate_keystrokes("tab");
+    assert_eq!(shown(&e, cx).0, format!("{proj}sub/"));
+    // Back to the folder above: its folders, Enter adds what is typed.
     e.update(cx, |e, _| {
         if let Some(p) = &mut e.palette {
-            p.input = dir.display().to_string();
+            p.input = format!("{}{sep}", dir.display());
+            p.input_changed();
         }
     });
+    assert_eq!(shown(&e, cx).1, vec!["proj/".to_string()]);
     cx.simulate_keystrokes("enter");
     cx.run_until_parked();
     let roots: Vec<_> = e.read_with(cx, |e, _| {

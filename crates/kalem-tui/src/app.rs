@@ -4161,6 +4161,18 @@ impl App {
             _ => None,
         };
         if let Some((command, name, args)) = entry {
+            // A path: Tab completes it as far as the folder's entries
+            // agree, which the line over the prompt lists.
+            if k.code == KeyCode::Tab
+                && let Some(folders) = kalem_core::path_prompt::path_argument(&command, &name)
+            {
+                let base = kalem_core::command::folder_of(&self.doc);
+                let found = kalem_core::path_prompt::entries(&p.input, base.as_deref(), folders);
+                p.input = kalem_core::path_prompt::complete(&p.input, &found);
+                p.back = 0;
+                self.prompt = Some(p);
+                return;
+            }
             let alt = k.modifiers.contains(KeyModifiers::ALT);
             let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
             if k.code == KeyCode::Enter
@@ -4384,6 +4396,13 @@ impl App {
         let PromptKind::Arg { command, name, .. } = &p.kind else {
             return None;
         };
+        // A path's: the entries of the folder typed that it may become.
+        if let Some(folders) = kalem_core::path_prompt::path_argument(command, name) {
+            let base = kalem_core::command::folder_of(&self.doc);
+            let found = kalem_core::path_prompt::entries(&p.input, base.as_deref(), folders);
+            return (!found.is_empty())
+                .then(|| format!("Tab: {}", kalem_core::path_prompt::hint(&found)));
+        }
         if !kalem_core::viewer::cell_entry_prompt(command, name) || !p.input.starts_with('=') {
             return None;
         }

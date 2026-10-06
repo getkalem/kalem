@@ -34,6 +34,45 @@ pub struct ArgPrompt {
     pub label: String,
 }
 
+/// A path the palette asks for: the entries of the folder typed, to
+/// complete it with ([`kalem_core::path_prompt`]).
+#[derive(Debug, Clone)]
+pub struct PathPrompt {
+    /// Only folders wanted.
+    folders: bool,
+    /// The folder a relative path starts from.
+    base: Option<std::path::PathBuf>,
+    entries: Vec<kalem_core::path_prompt::Entry>,
+    /// The entries as lines: the input each makes, and its name.
+    items: Vec<PaletteItem>,
+    /// An entry chosen with the arrows, which Enter takes instead of the
+    /// input.
+    pub moved: bool,
+}
+
+impl PathPrompt {
+    fn refresh(&mut self, input: &str) {
+        use kalem_core::path_prompt as pp;
+        self.entries = pp::entries(input, self.base.as_deref(), self.folders);
+        self.items = self
+            .entries
+            .iter()
+            .map(|e| PaletteItem {
+                id: pp::with_entry(input, e),
+                title: if e.dir {
+                    format!("{}/", e.name)
+                } else {
+                    e.name.clone()
+                },
+                category: String::new(),
+                keys: String::new(),
+                also: String::new(),
+            })
+            .collect();
+        self.moved = false;
+    }
+}
+
 /// The command palette.
 #[derive(Debug)]
 pub struct Palette {
@@ -69,6 +108,8 @@ pub struct Palette {
     pub pointing: Option<kalem_core::formula_edit::Pointing>,
     /// A formula's argument tip or completions.
     pub hint: Option<String>,
+    /// A path asked for, completed from its folder's entries.
+    pub paths: Option<PathPrompt>,
 }
 
 impl Palette {
@@ -76,6 +117,9 @@ impl Palette {
     /// starts at its top (a line search at the cursor's line).
     pub fn input_changed(&mut self) {
         self.selected = 0;
+        if let Some(p) = &mut self.paths {
+            p.refresh(&self.input);
+        }
         if let Some(s) = &mut self.search {
             s.set_text(&self.input);
         }
@@ -104,12 +148,34 @@ impl Palette {
             declined: false,
             pointing: None,
             hint: None,
+            paths: None,
         }
+    }
+
+    /// Tab in a path: the entry chosen with the arrows, else the input
+    /// completed as far as the entries agree.
+    fn complete_path(&mut self) -> bool {
+        let Some(pp) = &self.paths else { return false };
+        let input = match pp.items.get(self.selected).filter(|_| pp.moved) {
+            Some(it) => it.id.clone(),
+            None => kalem_core::path_prompt::complete(&self.input, &pp.entries),
+        };
+        self.input = input;
+        self.back = 0;
+        self.input_changed();
+        true
     }
 
     /// The commands (or the list's items) matching the input, best first.
     pub fn matches(&self) -> Vec<&PaletteItem> {
-        if self.arg.is_some() || self.search.is_some() || self.lines.is_some() {
+        if self.arg.is_some() {
+            return self
+                .paths
+                .as_ref()
+                .map(|p| p.items.iter().collect())
+                .unwrap_or_default();
+        }
+        if self.search.is_some() || self.lines.is_some() {
             return Vec::new();
         }
         match &self.pick {
@@ -369,6 +435,14 @@ impl Editor {
             &config,
         );
         let mut p = Palette::new(input);
+        p.paths =
+            kalem_core::path_prompt::path_argument(command, &name).map(|folders| PathPrompt {
+                folders,
+                base: kalem_core::command::folder_of(&self.doc),
+                entries: Vec::new(),
+                items: Vec::new(),
+                moved: false,
+            });
         p.arg = Some(ArgPrompt {
             command: command.to_string(),
             args,
@@ -379,6 +453,7 @@ impl Editor {
             name,
             ty,
         });
+        p.input_changed();
         self.palette = Some(p);
         cx.notify();
     }
@@ -441,6 +516,16 @@ impl Editor {
     fn run_palette_line(&mut self, n: usize, window: &mut Window, cx: &mut Context<'_, Self>) {
         if self.palette.as_ref().is_some_and(|p| p.lines.is_some()) {
             self.end_line_search(Some(n), cx);
+            return;
+        }
+        // A path's entry clicked: the path goes on into it.
+        if let Some(p) = self.palette.as_mut().filter(|p| p.paths.is_some()) {
+            if let Some(pp) = &mut p.paths {
+                pp.moved = true;
+            }
+            p.selected = n;
+            p.complete_path();
+            cx.notify();
             return;
         }
         let Some(mut p) = self.palette.take() else {
@@ -740,9 +825,17 @@ impl Editor {
                 }
                 self.palette = None;
             }
+            "tab" if p.complete_path() => {}
             "enter" => match p.arg.take() {
                 Some(a) => {
-                    let input = std::mem::take(&mut p.input);
+                    // An entry chosen with the arrows, else what is typed.
+                    let chosen = p
+                        .paths
+                        .as_ref()
+                        .filter(|pp| pp.moved)
+                        .and_then(|pp| pp.items.get(p.selected))
+                        .map(|it| it.id.clone());
+                    let input = chosen.unwrap_or_else(|| std::mem::take(&mut p.input));
                     self.palette = None;
                     match kalem_core::command::parse_argument(&a.name, &a.ty, &input) {
                         Ok(v) => {
@@ -757,8 +850,18 @@ impl Editor {
                     self.run_palette_line(s, window, cx);
                 }
             },
-            "down" if n > 0 => p.selected = (p.selected + 1) % n,
-            "up" if n > 0 => p.selected = (p.selected + n - 1) % n,
+            "down" if n > 0 => {
+                p.selected = (p.selected + 1) % n;
+                if let Some(pp) = &mut p.paths {
+                    pp.moved = true;
+                }
+            }
+            "up" if n > 0 => {
+                p.selected = (p.selected + n - 1) % n;
+                if let Some(pp) = &mut p.paths {
+                    pp.moved = true;
+                }
+            }
             "pagedown" if n > 0 => p.selected = (p.selected + 10).min(n - 1),
             "pageup" => p.selected = p.selected.saturating_sub(10),
             // A file a viewer shows draws no text, so nothing takes typed
@@ -1021,6 +1124,8 @@ impl Editor {
             (Some(a), _, _) => {
                 if let Some(h) = &p.hint {
                     note = h.clone();
+                } else if p.paths.is_some() {
+                    note = kalem_core::l10n::tr("prompt-path-keys");
                 }
                 format!("{}  {typed}", a.label)
             }
@@ -1069,7 +1174,7 @@ impl Editor {
                     (text, at, String::new())
                 })
                 .collect(),
-            None if p.pick.is_some() => p
+            None if p.pick.is_some() || p.arg.is_some() => p
                 .matches()
                 .iter()
                 .map(|it| (it.title.clone(), it.category.clone(), it.keys.clone()))

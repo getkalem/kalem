@@ -552,6 +552,7 @@ prompt-close = Save { $name } before closing? (y)es, (n)o, Esc to cancel{" "}
 prompt-quit-many = { $count } documents have unsaved changes. Save them before quitting? (y)es, (n)o, Esc to cancel{" "}
 prompt-open = Open file
 prompt-project-add = Add project folder
+prompt-path-keys = Tab completes, Enter takes it
 prompt-project-rename = Project name
 status-commands = commands
 
