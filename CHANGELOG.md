@@ -26,6 +26,17 @@ changes made on the way here are recorded in
 - A log and crash reports in the state folder; settings in `settings.toml`, workspace settings per project, and `keymap.json`.
 
 ### Fixed
+- LaTeX: a document's macro for `\tag` (`\numberthis`) or for `\nonumber` (`\nn`) numbers its line as LaTeX does, without false label warnings; a bibliography in `BIBINPUTS` or found by `kpsewhich` is read; a shared library cited in part gives one note, not one per entry.
+- Citation previews and the bibliography styles show an entry as it prints: `B\"uy\"uk` is Büyük and `{\TeX}book` TeXbook.
+- LaTeX: a path through `..` on the command line finds its root document; Show in PDF says when the file is not in the PDF rather than asking to build again.
+- LaTeX: `\nocite{*}` is no unknown key, and the citation messages name a key as LaTeX writes it; `% !TEX program` and `% !TEX root` are read after a byte order mark.
+- A bibliography in Latin-1 or UTF-16 is read, as the editors read the file, instead of being reported unreadable with its keys unknown.
+- Markdown: Sort Rows puts Turkish letters in the alphabet's order, as CSV's sort does; a front matter list item with a comma (`"Doe, Jane"`) stays one item when the field is edited.
+- Markdown: a footnote mark without a definition, or a definition inside a code block, no longer makes every keystroke parse the whole document; footnote definitions are found on their lines.
+- Convert to Org keeps text as text: what Org would read as markup or structure (`\*x\*`, `/x/`, `\# x`) gets the zero-width space Org's manual advises; wiki links become links to the page's file; a heading in a quote no longer ends the quote.
+- A picture that is not drawn (a README's remote badge) shows its alt text, or its file's name, not its whole address.
+- Markdown: a displayed formula over several lines (`$$` on lines of their own) is drawn, as one formula on its first line away from the cursor, in both editors.
+- Markdown: TOML front matter (`+++`), as Hugo writes it, is front matter: folded away from the cursor, its `# comments` no headings.
 - A table wider than the window (Org, Markdown, LaTeX) is drawn as a grid whose widest columns are narrowed and whose cells wrap inside them, in both editors; its rows were broken across lines, the bars and rules with them. Markdown tables are drawn in the proportional grid of Org's.
 - Exporting a paragraph of thousands of links to HTML takes as long as to Markdown (8,000 links: 19 s to 0.6 s in a debug build), and a list nested thousands of levels deep exports instead of overflowing the stack.
 - `kalem fmt`, `kalem export` and `kalem query` take folders as `kalem check` does; `export` and `query` report a file they cannot read and go on; `kalem query` says what part of a match string it left out, as Emacs leaves it out.

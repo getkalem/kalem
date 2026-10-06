@@ -484,6 +484,21 @@ fn wide_tables_wrap_in_their_cells() {
 }
 
 #[test]
+fn markdown_display_math_over_several_lines() {
+    // One formula on its first line away from the cursor (here, without
+    // pictures, its Unicode form), its other lines hidden; with the
+    // cursor in it, its source.
+    let text = "Text.\n\n$$\na^2 +\nb^2\n$$\n\nAfter.\n";
+    let mut t = with_file(text, "t.md", Config::default(), (40, 10));
+    t.at(text.len());
+    let rows: Vec<String> = (0..5).map(|y| t.row(y)).collect();
+    assert_eq!(rows, ["1  Text.", "2", "3    a² + b²", "7", "8  After."]);
+    t.at(text.find("a^2").unwrap());
+    let rows: Vec<String> = (2..6).map(|y| t.row(y)).collect();
+    assert_eq!(rows, ["3  $$", "4  a^2 +", "5  b^2", "6  $$"]);
+}
+
+#[test]
 fn grid_editing() {
     let text = "| ab   | c |\n| d    | e |\n";
     let mut t = open(text);
@@ -1951,7 +1966,7 @@ fn citations() {
     let knuth = text.find("knuth84").unwrap();
     t.at(knuth);
     assert!(
-        status(&mut t).contains("@knuth84: Donald E. Knuth (1984). The \\TeXbook."),
+        status(&mut t).contains("@knuth84: Donald E. Knuth (1984). The TeXbook."),
         "{}",
         status(&mut t)
     );

@@ -58,11 +58,13 @@ pub fn load(files: &[PathBuf]) -> Arc<Bibliography> {
     Arc::new(Bibliography::load(files).0)
 }
 
-/// A field without the braces BibTeX protects words with.
+/// A field as it prints: without the braces BibTeX protects words with,
+/// its accents and named letters as characters (`B\"uy\"uk` is
+/// `Büyük`), as the `.bib` grid shows it.
 fn field<'a>(e: &'a Entry, name: &str) -> Option<std::borrow::Cow<'a, str>> {
     let v = e.field(name)?;
-    Some(if v.contains(['{', '}']) {
-        std::borrow::Cow::Owned(v.replace(['{', '}'], ""))
+    Some(if v.contains(['{', '}', '\\', '~']) {
+        std::borrow::Cow::Owned(crate::bibtex::plain(v))
     } else {
         std::borrow::Cow::Borrowed(v)
     })
@@ -273,17 +275,22 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(
             dir.join("refs.bib"),
-            "@book{knuth84, author = {Donald E. Knuth}, title = {The {\\TeX}book}, publisher = {Addison-Wesley}, year = 1984}\n",
+            "@book{knuth84, author = {Donald E. Knuth}, title = {The {\\TeX}book}, publisher = {Addison-Wesley}, year = 1984}\n@book{b, author = {B\\\"uy\\\"uk, Ay\\c{s}e}, title = {\\\"Ozet}, year = 2020}\n",
         )
         .unwrap();
         let file = dir.join("doc.org");
         let d = doc("#+bibliography: refs.bib\n\nAs [cite:@knuth84] and [cite:@nope].\n");
         let bib = bibliography(&d, Some(&file));
         let items = picker_items(&bib);
-        assert_eq!(items.len(), 1);
+        assert_eq!(items.len(), 2);
+        // As it prints: no braces, no backslashes, accents as letters.
         assert_eq!(
             items[0].title,
-            "@knuth84  Donald E. Knuth (1984). The \\TeXbook. Addison-Wesley."
+            "@knuth84  Donald E. Knuth (1984). The TeXbook. Addison-Wesley."
+        );
+        assert_eq!(
+            items[1].title,
+            "@b  B\u{fc}y\u{fc}k, Ay\u{15f}e (2020). \u{d6}zet."
         );
         assert_eq!(
             crate::palette::split_invocation(&items[0].id),
@@ -291,7 +298,7 @@ mod tests {
         );
         assert_eq!(
             preview(&d, Some(&file), 38).as_deref(),
-            Some("@knuth84: Donald E. Knuth (1984). The \\TeXbook. Addison-Wesley.")
+            Some("@knuth84: Donald E. Knuth (1984). The TeXbook. Addison-Wesley.")
         );
         let p = preview(&d, Some(&file), 57).unwrap();
         assert!(p.contains("nope"), "{p}");

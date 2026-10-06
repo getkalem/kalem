@@ -251,6 +251,15 @@ fn numbering() {
 }
 
 #[test]
+fn macros_for_tag_and_nonumber() {
+    // The document's `\numberthis` (`\addtocounter{equation}{1}\tag{…}`)
+    // numbers a line of `align*`; its `\nn` (`\nonumber`) leaves one of
+    // `align` unnumbered; no label is reported unwritten or clashing.
+    let m = check_labels("macro-tags");
+    assert!(m.unwritten_labels.is_empty() && m.label_clashes.is_empty());
+}
+
+#[test]
 fn classes() {
     // amsbook: sections, figures and tables without the chapter,
     // equations through the book; memoir: sections only.

@@ -733,11 +733,21 @@ pub(crate) fn commands() -> Vec<Command> {
                 if !pdf.is_file() {
                     return Err(CommandError::new(crate::l10n::tr("msg-no-pdf-yet")));
                 }
-                let place =
-                    crate::synctex::Synctex::cached(&pdf).and_then(|st| st.forward(&path, line));
-                if place.is_none() {
-                    ctx.messages.push(crate::l10n::tr("msg-no-synctex"));
-                }
+                // No SyncTeX file, or the file not in it (the build left it
+                // out, as `\includeonly` does): said apart.
+                let place = match crate::synctex::Synctex::cached(&pdf) {
+                    None => {
+                        ctx.messages.push(crate::l10n::tr("msg-no-synctex"));
+                        None
+                    }
+                    Some(st) => {
+                        let place = st.forward(&path, line);
+                        if place.is_none() {
+                            ctx.messages.push(crate::l10n::tr("msg-synctex-not-built"));
+                        }
+                        place
+                    }
+                };
                 // A paged file's "line" is the page, its "column" the
                 // height of the line's middle on it, in points.
                 ctx.requests.push(Request::OpenAt {
@@ -9131,6 +9141,63 @@ mod tests {
         assert!(md.contains("New * Saved") || md.contains("New"), "{md}");
         reg.execute("export.html", &mut ctx, &json!({})).unwrap();
         assert!(dir.join("n.html").is_file());
+    }
+
+    #[test]
+    fn show_in_pdf_says_why_it_cannot() {
+        // A line the PDF has: its page. A file the build left out (not in
+        // the SyncTeX file): said so, not "build it again". No SyncTeX
+        // file: build again.
+        crate::l10n::set_language("en");
+        let dir = std::env::temp_dir().join(format!("kalem-show-in-pdf-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let main = dir.join("main.tex");
+        let lines: String = (1..=10).map(|i| format!("% line {i}\n")).collect();
+        std::fs::write(&main, format!("\\documentclass{{article}}\n{lines}")).unwrap();
+        let left_out = dir.join("left-out.tex");
+        std::fs::write(&left_out, "% !TEX root = main.tex\nText.\n").unwrap();
+        std::fs::write(dir.join("main.pdf"), b"%PDF-1.5\n").unwrap();
+        let synctex =
+            crate::synctex::tests::SAMPLE.replace("/d/./", &format!("{}/./", dir.display()));
+        std::fs::write(dir.join("main.synctex"), synctex).unwrap();
+        let reg = CommandRegistry::with_builtins();
+        let mut clip = Clipboard::default();
+        let config = crate::settings::Config::default();
+        let mut show = |file: &std::path::Path, line: usize| {
+            let mut d = DocumentState::open(
+                file,
+                Arc::new(org_model::Settings::default()),
+                &Default::default(),
+            )
+            .unwrap();
+            let at = d.text().line_start(line - 1);
+            d.move_cursor(at, false);
+            let mut ctx = EditorContext {
+                document: Some(&mut d),
+                clipboard: &mut clip,
+                config: &config,
+                now: Instant::now(),
+                clock: jiff::civil::date(2026, 10, 6).at(10, 0, 0, 0),
+                messages: Vec::new(),
+                requests: Vec::new(),
+            };
+            reg.execute("latex.showInPdf", &mut ctx, &json!({}))
+                .unwrap();
+            (ctx.messages, ctx.requests)
+        };
+        let (messages, requests) = show(&main, 7);
+        assert!(messages.is_empty(), "{messages:?}");
+        assert!(
+            matches!(&requests[..], [Request::OpenAt { line: 1, .. }]),
+            "{requests:?}"
+        );
+        let (messages, _) = show(&left_out, 2);
+        assert_eq!(messages, [crate::l10n::tr("msg-synctex-not-built")]);
+        std::fs::remove_file(dir.join("main.synctex")).unwrap();
+        let (messages, _) = show(&main, 7);
+        assert_eq!(messages, [crate::l10n::tr("msg-no-synctex")]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

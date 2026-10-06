@@ -536,7 +536,7 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
                         range: c.range.clone(),
                         severity: Severity::Warning,
                         code: "cite-unknown-key",
-                        message: crate::tr!("cite-unknown-key", key = k.as_str()),
+                        message: crate::tr!("latex-cite-unknown-key", key = k.as_str()),
                         fix: None,
                     });
                 }
@@ -548,7 +548,7 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
         .bibliography
         .iter()
         .flat_map(|b| b.files.iter())
-        .map(|f| root_dir.join(f))
+        .map(|f| crate::latex_view::find_bib(&root_dir, f))
         .collect();
     if !files.is_empty() {
         let (bib, errors) = org_cite::Bibliography::load(&files);
@@ -596,28 +596,47 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
                 .flat_map(|c| c.keys.iter().map(String::as_str))
                 .collect();
             if let Some(b) = model.bibliography.iter().find(|b| b.file == 0) {
-                for e in bib.entries() {
-                    if !cited.contains(e.key.as_str()) {
-                        out.push(Diagnostic {
-                            range: b.range.clone(),
-                            severity: Severity::Info,
-                            code: "cite-unused-entry",
-                            message: crate::tr!("cite-unused-entry", key = e.key.as_str()),
-                            fix: None,
-                        });
-                    }
+                let unused: Vec<&str> = bib
+                    .entries()
+                    .iter()
+                    .map(|e| e.key.as_str())
+                    .filter(|k| !cited.contains(k))
+                    .collect();
+                // A shared library cited in part: one note, not one for
+                // each of its hundreds of entries.
+                let notes: Vec<String> = if unused.len() > 10 {
+                    vec![crate::tr!(
+                        "latex-cite-unused-entries",
+                        count = unused.len(),
+                        total = bib.entries().len()
+                    )]
+                } else {
+                    unused
+                        .iter()
+                        .map(|k| crate::tr!("latex-cite-unused-entry", key = *k))
+                        .collect()
+                };
+                for message in notes {
+                    out.push(Diagnostic {
+                        range: b.range.clone(),
+                        severity: Severity::Info,
+                        code: "cite-unused-entry",
+                        message,
+                        fix: None,
+                    });
                 }
             }
         }
         if errors.len() < files.len() {
             for c in model.citations.iter().filter(|c| c.file == this) {
-                for k in &c.keys {
+                // `\nocite{*}` takes every entry; it names none.
+                for k in c.keys.iter().filter(|k| *k != "*") {
                     if bib.get(k).is_none() && !model.bib_items.iter().any(|i| &i.key == k) {
                         out.push(Diagnostic {
                             range: c.range.clone(),
                             severity: Severity::Warning,
                             code: "cite-unknown-key",
-                            message: crate::tr!("cite-unknown-key", key = k.as_str()),
+                            message: crate::tr!("latex-cite-unknown-key", key = k.as_str()),
                             fix: None,
                         });
                     }
@@ -1272,6 +1291,45 @@ mod tests {
                 "latex-syntax",
                 "cite-unused-entry",
             ]
+        );
+        // The keys as LaTeX writes them, not Org's `@key`.
+        let unknown = check(&path, text)
+            .into_iter()
+            .find(|d| d.code == "cite-unknown-key")
+            .unwrap();
+        assert_eq!(unknown.message, "No bibliography has the key nope");
+        // `\nocite{*}` cites every entry and names no key.
+        let all = "\\documentclass{article}\n\\begin{document}\n\\nocite{*}\n\\bibliography{refs}\n\\end{document}\n";
+        let all_path = dir.join("all.tex");
+        std::fs::write(&all_path, all).unwrap();
+        let cite: Vec<_> = check(&all_path, all)
+            .into_iter()
+            .filter(|d| d.code.starts_with("cite-"))
+            .collect();
+        assert!(cite.is_empty(), "{cite:?}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_shared_library_cited_in_part_is_one_note() {
+        crate::l10n::set_language("en");
+        let dir = std::env::temp_dir().join(format!("kalem-shared-bib-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let entries: String = (0..12)
+            .map(|i| format!("@book{{k{i}, title = {{T{i}}}}}\n"))
+            .collect();
+        std::fs::write(dir.join("lib.bib"), entries).unwrap();
+        let text = "\\documentclass{article}\n\\begin{document}\nSee~\\cite{k0}.\n\\bibliography{lib}\n\\end{document}\n";
+        let path = dir.join("p.tex");
+        std::fs::write(&path, text).unwrap();
+        let unused: Vec<String> = check(&path, text)
+            .into_iter()
+            .filter(|d| d.code == "cite-unused-entry")
+            .map(|d| d.message)
+            .collect();
+        assert_eq!(
+            unused,
+            ["Nothing cites 11 of the 12 entries of the bibliography"]
         );
         let _ = std::fs::remove_dir_all(&dir);
     }

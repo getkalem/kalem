@@ -110,6 +110,57 @@ fn front_matter_folds_away_from_the_cursor() {
     let _ = std::fs::remove_dir_all(p2.parent().unwrap());
 }
 
+#[test]
+fn display_math_over_several_lines_is_a_math_block() {
+    // `$$` on lines of their own, as in GitHub's Markdown: one formula
+    // drawn on its first line away from the cursor, as Org draws a LaTeX
+    // environment. In a paragraph's text, not.
+    let text = "Text.\n\n$$\na^2 +\nb^2\n$$\n\nInline $$x$$ and\nmore $$y\nz$$ here.\n";
+    let (path, d) = open("math.md", text);
+    let blocks = kalem_core::markdown::blocks(&d);
+    let kinds: Vec<_> = blocks
+        .iter()
+        .map(|b| (b.kind.clone(), b.range.clone()))
+        .collect();
+    let math = text.find("$$\na").unwrap();
+    let after = text.find("b^2\n$$\n").unwrap() + "b^2\n$$\n".len();
+    assert_eq!(
+        kinds,
+        [
+            (kalem_core::view::BlockKind::Paragraph, 0..math),
+            (kalem_core::view::BlockKind::Math, math..after),
+            (kalem_core::view::BlockKind::Paragraph, after..text.len()),
+        ]
+    );
+    assert_eq!(blocks[1].content_end, after - 1);
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+}
+
+#[test]
+fn toml_front_matter_is_front_matter() {
+    // Hugo's `+++` … `+++`: folded as YAML's is, its `# comment` no
+    // heading, drawn dimmed and in the fixed font.
+    let text = "+++\ntitle = \"Notes\"\n# a comment\n+++\n# Heading\n\ntext\n";
+    let (path, mut d) = open("toml.md", text);
+    let blocks = kalem_core::markdown::blocks(&d);
+    assert_eq!(blocks[0].range, 0..text.find("# Heading").unwrap());
+    let titles: Vec<String> = kalem_core::markdown::outline_items(&d)
+        .into_iter()
+        .map(|i| i.title)
+        .collect();
+    assert_eq!(titles, ["Heading"]);
+    d.selection = org_edit::Selection::caret(text.len() - 2);
+    let v = kalem_core::markdown::line_view(&d, d.text().line_range(2), Some(text.len() - 2));
+    assert!(v.mono && v.runs.iter().all(|r| r.style.dim), "{v:?}");
+    // As HTML, no front matter in the page.
+    let html = kalem_core::markdown::to_html(text);
+    assert!(
+        !html.contains("title") && html.contains("<h1>Heading</h1>"),
+        "{html}"
+    );
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+}
+
 /// Real READMEs and a vault of notes with wiki links (`tests/corpus/
 /// markdown`, T2.7c.8): every line drawn with the cursor on it and away,
 /// every shown character from its line, every heading in the outline, and

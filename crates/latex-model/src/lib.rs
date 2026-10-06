@@ -836,6 +836,8 @@ struct EqEnv {
     body_end: usize,
     line_start: usize,
     nonumber: bool,
+    /// The line numbered by the document's macro for `\tag`.
+    number_this: bool,
     tag: Option<String>,
     labels: Vec<usize>,
     lines: usize,
@@ -1722,6 +1724,20 @@ impl<'r> Numbering<'r> {
                     e.tag = Some(text.clone());
                 }
             }
+            // The document's macro for `\tag` numbers the line (the common
+            // `\numberthis`: `\addtocounter{equation}{1}\tag{\theequation}`),
+            // one for `\nonumber` or `\notag` leaves it unnumbered (`\nn`).
+            Event::Use { name } => {
+                if let Some(m) = self.model.macros.iter().rev().find(|m| m.name == *name)
+                    && let Some(e) = self.eq.last_mut()
+                {
+                    if m.body.contains("\\tag") {
+                        e.number_this = true;
+                    } else if m.body.contains("\\nonumber") || m.body.contains("\\notag") {
+                        e.nonumber = true;
+                    }
+                }
+            }
         }
     }
 
@@ -1886,6 +1902,7 @@ impl<'r> Numbering<'r> {
                 body_end: body.end,
                 line_start: body.start,
                 nonumber: false,
+                number_this: false,
                 tag: None,
                 labels: Vec::new(),
                 lines: 0,
@@ -1960,11 +1977,12 @@ impl<'r> Numbering<'r> {
     /// The end of an equation (a line, or the environment at `last`).
     fn end_line(&mut self, end: usize) {
         let Some(e) = self.eq.last_mut() else { return };
-        let (tag, nonumber, numbered) = (e.tag.take(), e.nonumber, e.numbered);
+        let (tag, nonumber, numbered) = (e.tag.take(), e.nonumber, e.numbered || e.number_this);
         let labels = std::mem::take(&mut e.labels);
         let range = e.line_start..end;
         let env = e.name.clone();
         e.nonumber = false;
+        e.number_this = false;
         e.lines += 1;
         e.line_start = end;
         let (number, is_tag) = match tag {

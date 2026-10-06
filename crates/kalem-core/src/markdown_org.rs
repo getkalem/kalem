@@ -5,7 +5,11 @@
 //! `[ ]`, quotes, code blocks and raw HTML blocks, tables with a rule
 //! under the header, footnotes `[fn:name]`, math `\(…\)` and `\[…\]`,
 //! and the front matter's `title`, `author`, `date` and the rest as
-//! `#+KEY:` lines.
+//! `#+KEY:` lines. Text that Org would read as markup (`*x*` written
+//! `\*x\*`, `/x/`, `=x=`) gets a zero-width space after its opening
+//! character, and a line Org would read as structure (`\# x`, a `|` that
+//! makes no table) one before it, as Org's manual advises (Emacs reads
+//! them so); wiki links become links to the page's file.
 
 use comrak::nodes::{AstNode, ListDelimType, ListType, NodeValue as V};
 
@@ -20,6 +24,7 @@ pub fn to_org(text: &str) -> String {
     o.extension.footnotes = true;
     o.extension.math_dollars = true;
     o.extension.front_matter_delimiter = Some("---".to_string());
+    o.extension.wikilinks_title_after_pipe = true;
     let root = comrak::parse_document(&arena, text, &o);
     let mut w = Writer::default();
     w.blocks(root, "");
@@ -71,16 +76,24 @@ impl Writer {
             }
             V::Heading(h) => {
                 let title = self.inlines(node);
-                self.line(
-                    "",
-                    &format!("{} {}", "*".repeat(h.level as usize), title.trim()),
-                );
+                let top = node
+                    .parent()
+                    .is_some_and(|p| matches!(p.data().value, V::Document));
+                if top {
+                    self.line(
+                        "",
+                        &format!("{} {}", "*".repeat(h.level as usize), title.trim()),
+                    );
+                } else {
+                    // In a quote or a list a headline would end it: bold.
+                    self.line(indent, &escape_line_start(&format!("*{}*", title.trim())));
+                }
                 self.blank();
             }
             V::Paragraph => {
                 let p = self.inlines(node);
                 for l in p.lines() {
-                    self.line(indent, l);
+                    self.line(indent, &escape_line_start(l));
                 }
                 self.blank();
             }
@@ -231,7 +244,7 @@ impl Writer {
     fn inline<'a>(&mut self, node: &'a AstNode<'a>) -> String {
         let value = node.data().value.clone();
         match value {
-            V::Text(t) => t.to_string(),
+            V::Text(t) => escape_markup(&t),
             V::SoftBreak => "\n".into(),
             V::LineBreak => "\\\\\n".into(),
             V::Code(c) => {
@@ -250,12 +263,84 @@ impl Writer {
                 }
             }
             V::Image(l) => format!("[[{}]]", l.url),
+            // `[[Page]]` and `[[Page|title]]`: the page's Markdown file.
+            V::WikiLink(l) => {
+                let t = self.inlines(node);
+                let file = if std::path::Path::new(&l.url).extension().is_some() {
+                    l.url.clone()
+                } else {
+                    format!("{}.md", l.url)
+                };
+                if t.is_empty() || t == l.url {
+                    format!("[[file:{file}][{}]]", l.url)
+                } else {
+                    format!("[[file:{file}][{t}]]")
+                }
+            }
             V::FootnoteReference(f) => format!("[fn:{}]", f.name),
             V::Math(m) if m.display_math => format!("\\[{}\\]", m.literal),
             V::Math(m) => format!("\\({}\\)", m.literal),
             V::HtmlInline(h) => format!("@@html:{h}@@"),
             _ => self.inlines(node),
         }
+    }
+}
+
+/// The zero-width space Org's manual puts beside a character that would
+/// otherwise be read as markup.
+const ZWSP: char = '\u{200b}';
+
+/// `text` with a zero-width space after each `*`, `/`, `_`, `=`, `~` or
+/// `+` that would open Org markup: after a blank, the start or one of
+/// `-({'"`, before a character that is not blank, with a closing one
+/// after it in `text`. (Before it, Emacs reads the space as a blank and
+/// the markup stays.)
+fn escape_markup(text: &str) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    let marker = |c: char| matches!(c, '*' | '/' | '_' | '=' | '~' | '+');
+    let pre = |c: Option<&char>| c.is_none_or(|c| c.is_whitespace() || "-({'\"".contains(*c));
+    let post =
+        |c: Option<&char>| c.is_none_or(|c| c.is_whitespace() || "-.,;:!?')}[\"\\".contains(*c));
+    let mut out = String::with_capacity(text.len());
+    for (i, &c) in chars.iter().enumerate() {
+        if marker(c)
+            && pre(i.checked_sub(1).and_then(|j| chars.get(j)))
+            && chars.get(i + 1).is_some_and(|n| !n.is_whitespace())
+            && (i + 2..chars.len())
+                .any(|j| chars[j] == c && !chars[j - 1].is_whitespace() && post(chars.get(j + 1)))
+        {
+            out.push(c);
+            out.push(ZWSP);
+            continue;
+        }
+        out.push(c);
+    }
+    out
+}
+
+/// Line `l` of a paragraph, with a zero-width space before it when Org
+/// would read its start as something else: a comment or keyword (`#`),
+/// a headline or a list item (`*`, `-`, `+`, `1.`), a table (`|`), a
+/// fixed-width line (`:`), a rule, a drawer or a footnote definition.
+fn escape_line_start(l: &str) -> String {
+    let t = l.trim_start();
+    let word = t.split(char::is_whitespace).next().unwrap_or("");
+    let ordered = word.len() > 1
+        && (word.ends_with('.') || word.ends_with(')'))
+        && word[..word.len() - 1].chars().all(|c| c.is_ascii_digit())
+        && t.len() > word.len();
+    let structural = matches!(word, "#" | "*" | "-" | "+" | ":")
+        || t.starts_with("#+")
+        || t.starts_with('|')
+        || t.starts_with("-----")
+        || t.starts_with("[fn:")
+        || (t.starts_with(':') && t.len() > 1 && t[1..].find(':').is_some())
+        || ordered;
+    if structural {
+        let indent = &l[..l.len() - t.len()];
+        format!("{indent}{ZWSP}{t}")
+    } else {
+        l.to_string()
     }
 }
 
@@ -272,6 +357,50 @@ mod tests {
         // The Org reads back as a document with those headlines.
         let doc = org_model::Document::new(org_syntax::parse(&org));
         assert_eq!(doc.outline().entries.len(), 2);
+    }
+
+    #[test]
+    fn text_that_org_would_read_as_markup_stays_text() {
+        let org = to_org(
+            "\\*not bold\\* and /not italic/ and =not verbatim= but a/b and 5 * 3.\n\n\\# not a comment\n\n\\- not an item\n\n| not a table\n\n[[Page|The page]] and [[Other]].\n\n> # In a quote\n> text\n",
+        );
+        let z = ZWSP;
+        assert_eq!(
+            org,
+            format!(
+                "*{z}not bold* and /{z}not italic/ and ={z}not verbatim= but a/b and 5 * 3.\n\n{z}# not a comment\n\n{z}- not an item\n\n{z}| not a table\n\n[[file:Page.md][The page]] and [[file:Other.md][Other]].\n\n#+begin_quote\n*In a quote*\n\ntext\n#+end_quote\n"
+            ),
+            "\n{org}"
+        );
+        // Read back: one paragraph of plain text each, no headline, no
+        // comment, no list, no table; the quote whole, its heading bold.
+        let parse = org_syntax::parse(&org);
+        let kinds: Vec<_> = parse
+            .syntax()
+            .descendants()
+            .map(|n| n.kind())
+            .filter(|k| {
+                use org_syntax::SyntaxKind::*;
+                matches!(
+                    k,
+                    HEADLINE
+                        | COMMENT
+                        | PLAIN_LIST
+                        | TABLE
+                        | BOLD
+                        | ITALIC
+                        | VERBATIM
+                        | QUOTE_BLOCK
+                )
+            })
+            .collect();
+        assert_eq!(
+            kinds,
+            [
+                org_syntax::SyntaxKind::QUOTE_BLOCK,
+                org_syntax::SyntaxKind::BOLD
+            ]
+        );
     }
 
     #[test]

@@ -112,7 +112,9 @@ pub fn alias_source(root: &Path, files: &dyn Files) -> String {
 /// `% !TEX root = FILE` among the first lines of `text`.
 fn magic_root(text: &str) -> Option<String> {
     text.lines().take(20).find_map(|l| {
-        let l = l.trim_start().strip_prefix('%')?.trim_start();
+        // A byte order mark before the first line's `%` too.
+        let l = l.trim_start_matches('\u{feff}').trim_start();
+        let l = l.strip_prefix('%')?.trim_start();
         let l = l.strip_prefix('!').unwrap_or(l).trim_start();
         let (key, value) = l.split_once('=')?;
         let key: Vec<String> = key.split_whitespace().map(str::to_lowercase).collect();
@@ -188,6 +190,11 @@ pub fn find_root(
             .strip_prefix(&cwd)
             .map_or(root.clone(), Path::to_path_buf);
     }
+    // `ch/../ch/one.tex` as `ch/one.tex`, as the model names included
+    // files (`kalem latex build ../paper/ch/one.tex` compiled the chapter
+    // alone).
+    let normal = normalize(file);
+    let file = normal.as_path();
     let dir = file.parent().unwrap_or(Path::new("")).to_path_buf();
     for name in magic_root(text).into_iter().chain(subfiles_main(text)) {
         if let Some(p) = with_tex(&dir, &name)
@@ -569,5 +576,21 @@ impl ProjectCache {
             root: root.to_path_buf(),
             model,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn the_root_magic_comment_after_a_byte_order_mark() {
+        assert_eq!(
+            super::magic_root("\u{feff}% !TEX root = ../main.tex\ntext\n").as_deref(),
+            Some("../main.tex")
+        );
+        assert_eq!(
+            super::magic_root("%!TeX root=main.tex\n").as_deref(),
+            Some("main.tex")
+        );
+        assert_eq!(super::magic_root("text\n% !TEX program = xelatex\n"), None);
     }
 }

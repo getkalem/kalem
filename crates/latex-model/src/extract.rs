@@ -186,6 +186,13 @@ pub(crate) enum Event {
     Tag {
         text: String,
     },
+    /// A command without arguments in a numbered display (`align`…) that
+    /// no package defines: perhaps the document's macro for `\tag` or
+    /// `\nonumber` (`\numberthis`, `\nn`), resolved once the definitions
+    /// are known.
+    Use {
+        name: String,
+    },
 }
 
 impl Event {
@@ -241,7 +248,8 @@ impl Event {
             | Event::GraphicsPath(_)
             | Event::EnvExit
             | Event::NoNumber
-            | Event::Tag { .. } => true,
+            | Event::Tag { .. }
+            | Event::Use { .. } => true,
         }
     }
 }
@@ -562,6 +570,28 @@ impl Cache {
         }
         out.push(Item::Event(Event::EnvExit));
     }
+}
+
+/// Whether `cmd` is in a display whose lines amsmath or LaTeX numbers.
+fn in_display(cmd: &SyntaxNode) -> bool {
+    cmd.ancestors()
+        .filter(|a| a.kind() == ENVIRONMENT)
+        .any(|e| {
+            latex_syntax::name(&e).is_some_and(|n| {
+                matches!(
+                    n.trim_end_matches('*'),
+                    "align"
+                        | "flalign"
+                        | "alignat"
+                        | "xalignat"
+                        | "xxalignat"
+                        | "gather"
+                        | "multline"
+                        | "equation"
+                        | "eqnarray"
+                )
+            })
+        })
 }
 
 fn rel(r: rowan::TextRange, base: usize) -> Range<usize> {
@@ -1282,6 +1312,11 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
                     .first()
                     .map(|g| g.trim().to_string())
                     .unwrap_or_default();
+                if groups.is_empty() && in_display(cmd) {
+                    push(Event::Use {
+                        name: format!("\\{name}"),
+                    });
+                }
                 if first.len() > 1
                     && first.starts_with('\\')
                     && first[1..]

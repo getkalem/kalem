@@ -75,6 +75,12 @@ fn roots() {
             "{f}"
         );
     }
+    // A path through `..`, as a command line gives it.
+    let file = dir().join("parts/../chapters/two.tex");
+    assert_eq!(
+        find_root(&file, &read(&file), &Disk, None, Some(&dir())),
+        root
+    );
     // A setting names it for files that do not say.
     let file = dir().join("chapters/two.tex");
     let other = dir().join("other.tex");

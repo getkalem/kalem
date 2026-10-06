@@ -733,6 +733,9 @@ cite-bibliography-unreadable = { $file } kaynakçası okunamıyor: { $error }
 cite-entry-skipped = { $file } içindeki bir kayıt alınmadı: { $error }
 cite-unknown-key = Hiçbir kaynakçada @{ $key } anahtarı yok
 cite-unused-entry = Kaynakçadaki @{ $key } girdisine hiç atıf yapılmıyor
+latex-cite-unknown-key = Hiçbir kaynakçada { $key } anahtarı yok
+latex-cite-unused-entry = Kaynakçadaki { $key } girdisine hiç atıf yapılmıyor
+latex-cite-unused-entries = Kaynakçanın { $total } girdisinden { $count } tanesine hiç atıf yapılmıyor
 category-footnotes = Dipnotlar
 menu-footnote = Dipnot
 footnote-preview = Dipnot { $label }: { $text }
@@ -883,6 +886,7 @@ cmd-latex-build = PDF Oluştur
 cmd-latex-showInPdf = PDF'de Göster
 msg-no-pdf-yet = Henüz PDF yok: önce derleyin (F5)
 msg-no-synctex = PDF'nin SyncTeX dosyası yok: satırın sayfasına gitmek için yeniden derleyin
+msg-synctex-not-built = Bu dosya PDF'de yok (derleme onu dışarıda bıraktı): ilk sayfa gösteriliyor
 category-latex = LaTeX
 msg-latex-built = Oluşturuldu: { $path }{ $count ->
     [0] {""}

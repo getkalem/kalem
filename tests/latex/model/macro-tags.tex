@@ -1,0 +1,16 @@
+\documentclass{article}
+\usepackage{amsmath}
+\newcommand{\numberthis}{\addtocounter{equation}{1}\tag{\theequation}}
+\newcommand{\nn}{\nonumber}
+\begin{document}
+\begin{equation}z\label{z}\end{equation}
+\begin{align*}
+a &= b \numberthis \label{x}\\
+c &= d \\
+e &= f \numberthis \label{y}
+\end{align*}
+\begin{align}
+g &= h \nn \\
+i &= j \label{i}
+\end{align}
+\end{document}

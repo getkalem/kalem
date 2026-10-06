@@ -199,36 +199,10 @@ fn names(field: &str) -> Vec<Name> {
         .collect()
 }
 
-/// A word without its braces and control sequences' backslashes, as it
-/// prints: `{\TeX}book` is `TeXbook`, `van~den` `van den`.
+/// A word as it prints, as the `.bib` grid shows it: `{\TeX}book` is
+/// `TeXbook`, `van~den` `van den`, `B\"uy\"uk` `Büyük`, `\ss` `ß`.
 fn plain_text(s: &str) -> String {
-    let mut out = String::new();
-    let mut chars = s.chars().peekable();
-    while let Some(c) = chars.next() {
-        match c {
-            '{' | '}' => {}
-            '~' => out.push(' '),
-            '\\' => {
-                let word: String =
-                    std::iter::from_fn(|| chars.next_if(|c| c.is_ascii_alphabetic())).collect();
-                match word.as_str() {
-                    // An accent before a letter: the letter stays.
-                    "" => {
-                        chars.next();
-                    }
-                    "c" | "u" | "v" | "H" | "r" | "k" | "d" | "b" | "t" | "i" | "j" => {
-                        if word == "i" || word == "j" {
-                            out.push_str(&word);
-                        }
-                    }
-                    // A named letter or a logo: its name (`\TeX`, `\ss`).
-                    w => out.push_str(w),
-                }
-            }
-            c => out.push(c),
-        }
-    }
-    out
+    crate::bibtex::plain(s)
 }
 
 /// The first letter of a word (`format.name$`'s abbreviation).

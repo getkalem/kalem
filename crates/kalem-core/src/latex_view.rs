@@ -141,15 +141,78 @@ pub fn find_root(file: &std::path::Path, text: &str) -> std::path::PathBuf {
     root
 }
 
+/// Bibliography file `name` of a document whose root is in `dir`, found
+/// as BibTeX finds it: in that folder, else in the folders of
+/// `BIBINPUTS`, else where `kpsewhich` says (a library in
+/// `~/texmf/bibtex/bib`); the folder's path when none has it, for the
+/// message that it is missing.
+pub fn find_bib(dir: &std::path::Path, name: &str) -> std::path::PathBuf {
+    find_bib_in(
+        dir,
+        name,
+        std::env::var("BIBINPUTS").ok().as_deref(),
+        &kpsewhich,
+    )
+}
+
+fn find_bib_in(
+    dir: &std::path::Path,
+    name: &str,
+    bibinputs: Option<&str>,
+    kpse: &dyn Fn(&str) -> Option<std::path::PathBuf>,
+) -> std::path::PathBuf {
+    let local = dir.join(name);
+    let bare = std::path::Path::new(name).components().count() == 1;
+    if local.is_file() || !bare {
+        return local;
+    }
+    let sep = if cfg!(windows) { ';' } else { ':' };
+    let listed = bibinputs
+        .into_iter()
+        .flat_map(|v| v.split(sep))
+        .map(|d| d.trim_end_matches('/'))
+        .filter(|d| !d.is_empty())
+        .map(|d| std::path::Path::new(d).join(name))
+        .find(|p| p.is_file());
+    listed.or_else(|| kpse(name)).unwrap_or(local)
+}
+
+/// What `kpsewhich NAME` finds, remembered for the session.
+fn kpsewhich(name: &str) -> Option<std::path::PathBuf> {
+    type Found = std::collections::HashMap<String, Option<std::path::PathBuf>>;
+    static FOUND: std::sync::Mutex<Option<Found>> = std::sync::Mutex::new(None);
+    if let Some(f) = FOUND
+        .lock()
+        .ok()
+        .and_then(|m| m.as_ref().and_then(|m| m.get(name).cloned()))
+    {
+        return f;
+    }
+    let found = std::process::Command::new("kpsewhich")
+        .arg(name)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|p| !p.is_empty())
+        .map(std::path::PathBuf::from)
+        .filter(|p| p.is_file());
+    if let Ok(mut m) = FOUND.lock() {
+        m.get_or_insert_with(Default::default)
+            .insert(name.to_string(), found.clone());
+    }
+    found
+}
+
 /// The `% !TEX root = …` line among the first lines of `text`, as written.
 fn magic_root_line(text: &str) -> Option<String> {
     text.lines()
         .take(20)
         .find(|l| {
-            let l = l.trim_start();
+            let l = l.trim_start_matches('\u{feff}').trim_start();
             l.starts_with('%') && l.to_ascii_lowercase().contains("tex root")
         })
-        .map(|l| l.trim().to_string())
+        .map(|l| l.trim_start_matches('\u{feff}').trim().to_string())
 }
 
 /// A document's project: the other files from the disk (read again when
@@ -344,7 +407,10 @@ impl LatexState {
             .bibliography
             .iter()
             .flat_map(|b| b.files.iter())
-            .map(|f| base.map_or_else(|| std::path::PathBuf::from(f), |d| d.join(f)))
+            .map(|f| match base {
+                Some(d) => find_bib(d, f),
+                None => std::path::PathBuf::from(f),
+            })
             .collect()
     }
 
@@ -7767,6 +7833,34 @@ fn with_sections(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bibliographies_found_as_bibtex_finds_them() {
+        let dir = std::env::temp_dir().join(format!("kalem-find-bib-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let (doc, lib, texmf) = (dir.join("doc"), dir.join("lib"), dir.join("texmf"));
+        for d in [&doc, &lib, &texmf] {
+            std::fs::create_dir_all(d).unwrap();
+        }
+        std::fs::write(doc.join("own.bib"), "").unwrap();
+        std::fs::write(lib.join("shared.bib"), "").unwrap();
+        std::fs::write(texmf.join("central.bib"), "").unwrap();
+        let kpse = |name: &str| {
+            let p = texmf.join(name);
+            p.is_file().then_some(p)
+        };
+        let inputs = format!("{}//", lib.display());
+        let find = |name: &str| find_bib_in(&doc, name, Some(&inputs), &kpse);
+        // Beside the document first, then `BIBINPUTS`, then kpsewhich.
+        assert_eq!(find("own.bib"), doc.join("own.bib"));
+        assert_eq!(find("shared.bib"), lib.join("shared.bib"));
+        assert_eq!(find("central.bib"), texmf.join("central.bib"));
+        // Nowhere: the document's folder, for the message; a path with a
+        // folder is not searched for.
+        assert_eq!(find("gone.bib"), doc.join("gone.bib"));
+        assert_eq!(find("../x/central.bib"), doc.join("../x/central.bib"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     fn doc(text: &str) -> crate::DocumentState {
         let meta = crate::Metadata {

@@ -89,7 +89,9 @@ pub fn problems_in(file: &Path) -> Vec<Problem> {
 /// `% !TEX program = NAME` among the first lines.
 fn magic_program(text: &str) -> Option<String> {
     text.lines().take(20).find_map(|l| {
-        let l = l.trim_start().strip_prefix('%')?.trim_start();
+        // A byte order mark before the first line's `%` too.
+        let l = l.trim_start_matches('\u{feff}').trim_start();
+        let l = l.strip_prefix('%')?.trim_start();
         let l = l.strip_prefix('!').unwrap_or(l).trim_start();
         let (k, v) = l.split_once('=')?;
         let k: Vec<String> = k.split_whitespace().map(str::to_lowercase).collect();
@@ -888,6 +890,9 @@ mod tests {
         let model = |t: &str| latex_model::Model::new(&latex_syntax::parse(t));
         let t = "% !TEX program = lualatex\n\\documentclass{article}";
         assert_eq!(engine(t, &model(t), "auto"), Engine::LuaLatex);
+        // After a byte order mark, as a file read from the disk has it.
+        let t = "\u{feff}% !TEX program = xelatex\n\\documentclass{article}";
+        assert_eq!(engine(t, &model(t), "auto"), Engine::XeLatex);
         let t = "\\usepackage{fontspec}";
         assert_eq!(engine(t, &model(t), "auto"), Engine::XeLatex);
         assert_eq!(engine(t, &model(t), "pdflatex"), Engine::PdfLatex);

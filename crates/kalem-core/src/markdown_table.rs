@@ -332,17 +332,10 @@ pub fn edit_at(md: &Md, text: &str, pos: usize, e: TableEdit) -> Option<Transact
         }
         TableEdit::Sort(reverse) if n > 3 => {
             let mut body = rows.split_off(2);
-            let numbers: Option<Vec<f64>> = body
-                .iter()
-                .map(|r| r[col].trim().parse::<f64>().ok())
-                .collect();
-            match numbers {
-                Some(_) => body.sort_by(|a, b| {
-                    let (x, y) = (a[col].trim().parse::<f64>(), b[col].trim().parse::<f64>());
-                    x.unwrap_or(0.0).total_cmp(&y.unwrap_or(0.0))
-                }),
-                None => body.sort_by_key(|r| r[col].to_lowercase()),
-            }
+            // As a CSV column sorts: numbers by value before text, text in
+            // the alphabet's order without case (Turkish's `ç` after `c`,
+            // `ı` before `i` in a Turkish interface).
+            body.sort_by(|a, b| crate::csv::compare(a[col].trim(), b[col].trim(), false));
             if reverse {
                 body.reverse();
             }
@@ -584,6 +577,17 @@ mod tests {
         assert_eq!(names, ["Alpha", "beta", "gamma"]);
         // Outside the text around the table, nothing changes.
         assert!(t.starts_with("Intro\n\n") && t.ends_with("\n\nAfter\n"));
+        // Turkish letters where the alphabet has them, not after `z`.
+        let tr = "| ad |\n|---|\n| Ömer |\n| Çağrı |\n| Zeynep |\n| Cem |\n";
+        let md = Md::parse(tr);
+        let tx = edit_at(&md, tr, tr.find("Ömer").unwrap(), TableEdit::Sort(false)).unwrap();
+        let sorted = apply(tr, &tx);
+        let names: Vec<&str> = sorted
+            .lines()
+            .skip(2)
+            .map(|l| l.trim_matches(['|', ' ']))
+            .collect();
+        assert_eq!(names, ["Cem", "Çağrı", "Ömer", "Zeynep"]);
     }
 
     #[test]

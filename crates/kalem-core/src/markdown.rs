@@ -134,12 +134,26 @@ pub struct Md {
     /// For each top-level node, the furthest any of them up to it reaches.
     reach: Vec<usize>,
     /// The text has link reference definitions or footnotes, which reach
-    /// across the document ([`has_globals`]): an edit parses it whole.
+    /// across the document ([`Md::has_definitions`]): an edit parses it whole.
     globals: bool,
 }
 
-fn options() -> comrak::Options<'static> {
-    options_with(true)
+/// The options for `text`: its front matter YAML's (`---`) or TOML's
+/// (`+++`), as its first line says.
+fn options_for(text: &str) -> comrak::Options<'static> {
+    let mut o = options_with(true);
+    o.extension.front_matter_delimiter = Some(front_matter_fence(text).to_string());
+    o
+}
+
+/// The fence of the front matter `text` would start with: `+++` (TOML)
+/// when its first line is that, else `---` (YAML).
+fn front_matter_fence(text: &str) -> &'static str {
+    let body = text.strip_prefix('\u{feff}').unwrap_or(text);
+    match body.split('\n').next().map(str::trim_end) {
+        Some("+++") => "+++",
+        _ => "---",
+    }
 }
 
 /// The options, with front matter read or not (a region of a document
@@ -207,14 +221,60 @@ impl Md {
     /// Parses `text`.
     pub fn parse(text: &str) -> Md {
         let mut md = Md::parse_with(text, true);
-        md.globals = has_globals(text);
+        md.globals = md.has_definitions(text);
         md
+    }
+
+    /// Whether `text`, parsed as this, has a line that can be a link
+    /// reference definition or a footnote's (`[label]: …`, `[^label]: …`
+    /// at the start of a line, in a quote or a list item too), which
+    /// reach across the document, outside code blocks, HTML blocks and
+    /// the front matter: a `[^` or `[x]:` in code changes nothing.
+    fn has_definitions(&self, text: &str) -> bool {
+        if !text.contains("]:") {
+            return false;
+        }
+        let mut literal: Vec<Range<usize>> = self
+            .nodes
+            .iter()
+            .filter(|n| {
+                matches!(
+                    n.kind,
+                    MdKind::CodeBlock { .. } | MdKind::HtmlBlock | MdKind::FrontMatter
+                )
+            })
+            .map(|n| n.range.clone())
+            .collect();
+        literal.sort_by_key(|r| r.start);
+        let mut at = 0;
+        for l in text.split_inclusive('\n') {
+            let start = at;
+            at += l.len();
+            if !may_define(l) {
+                continue;
+            }
+            let i = literal.partition_point(|r| r.end <= start);
+            if literal.get(i).is_some_and(|r| r.start <= start) {
+                continue;
+            }
+            return true;
+        }
+        false
     }
 
     fn parse_with(text: &str, front_matter: bool) -> Md {
         use comrak::nodes::{ListType, NodeValue as V};
         let arena = comrak::Arena::new();
-        let root = comrak::parse_document(&arena, text, &options_with(front_matter));
+        let mut o = if front_matter {
+            options_for(text)
+        } else {
+            options_with(false)
+        };
+        // Footnote definitions where they are written, in the order of the
+        // text (comrak otherwise moves them to the end and drops those
+        // nothing refers to).
+        o.parse.leave_footnote_definitions = true;
+        let root = comrak::parse_document(&arena, text, &o);
         let starts = line_starts(text);
         // comrak's columns count bytes from 1; its ends are inclusive.
         let at = |lc: comrak::nodes::LineColumn| -> Option<usize> {
@@ -595,14 +655,15 @@ impl Md {
             suf -= 1;
         }
         let (old_end, delta) = (ob.len() - suf, nb.len() as isize - ob.len() as isize);
-        // A reference definition or footnote the edit makes: on the lines
-        // it changes.
+        // A reference definition or footnote definition the edit makes: on
+        // the lines it changes. (A footnote mark without a definition
+        // reaches nothing.)
         {
             let a = text[..pre].rfind('\n').map_or(0, |i| i + 1);
             let b = text[nb.len() - suf..]
                 .find('\n')
                 .map_or(nb.len(), |i| nb.len() - suf + i);
-            if has_globals(&text[a..b]) {
+            if text[a..b].split_inclusive('\n').any(may_define) {
                 return Md::parse(text);
             }
         }
@@ -681,6 +742,11 @@ impl Md {
                 return Md::parse(text);
             }
             region.nodes.truncate(cut);
+        }
+        // A definition the edit brings out of code (ending the HTML block
+        // or the fence it was in) reaches across the document.
+        if region.has_definitions(&text[start..new_end]) {
+            return Md::parse(text);
         }
         // Blocks that would run on into what follows, or meet what comes
         // before: a full parse.
@@ -810,9 +876,11 @@ impl Md {
                     } else {
                         nodes.len()
                     };
+                    // Unsorted, those starting after the line are among
+                    // the others.
                     ids.extend(
                         (0..upto)
-                            .filter(|&i| end(&nodes[i]) >= from)
+                            .filter(|&i| end(&nodes[i]) >= from && nodes[i].range.start < to)
                             .map(|i| t + i as u32),
                     );
                 }
@@ -837,14 +905,17 @@ impl Md {
 /// parse; the text it parsed.
 type Memo = ((u64, u64, usize), Rc<Md>, Rc<str>);
 
-/// Whether `text` has what reaches across a Markdown document: a link
-/// reference definition (`[label]: …` starting a line) or a footnote.
-fn has_globals(text: &str) -> bool {
-    text.contains("[^")
-        || (text.contains("]:")
-            && text
-                .lines()
-                .any(|l| l.trim_start().starts_with('[') && l.contains("]:")))
+/// Whether line `l` may be a link reference definition or a footnote's
+/// (`[label]: …`, `[^label]: …`), past the markers of the quotes and list
+/// items it is in (more than they are, at worst).
+fn may_define(l: &str) -> bool {
+    l.contains("]:")
+        && l.trim_start_matches(|c: char| {
+            c.is_ascii_whitespace()
+                || c.is_ascii_digit()
+                || matches!(c, '>' | '-' | '*' | '+' | '.' | ')')
+        })
+        .starts_with('[')
 }
 
 /// How many bytes `a` and `b` start with in common, compared a chunk at
@@ -2876,66 +2947,109 @@ pub fn resolve_wiki(doc: Option<&std::path::Path>, target: &str) -> std::path::P
 /// (raw HTML left out), for Copy as HTML and Copy as Rich Text.
 pub fn to_html(text: &str) -> String {
     let arena = comrak::Arena::new();
-    let o = options();
+    let o = options_for(text);
     let root = comrak::parse_document(&arena, text, &o);
     let mut out = String::new();
     let _ = comrak::format_html(root, &o, &mut out);
     out.trim().to_string()
 }
 
-/// The blocks of a Markdown document for the views' folding (T2.7c.3):
-/// the front matter as a drawer, folded to its first line while the
-/// cursor is away from it as Org folds a property drawer, and the rest
-/// one paragraph. None without front matter.
+/// The blocks of a Markdown document for the views (T2.7c.3): the front
+/// matter as a drawer, folded to its first line while the cursor is away
+/// from it as Org folds a property drawer; each displayed formula over
+/// several lines (`$$` on lines of their own) as a math block, drawn as
+/// one formula on its first line away from the cursor as Org's LaTeX
+/// environments are; the rest as paragraphs. None without either.
 pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
     use crate::view::{Block, BlockKind};
     let Some(md) = ready(doc) else {
         return Vec::new();
     };
-    if !md
+    let text = doc.text().as_str();
+    let front = md
         .nodes
         .iter()
         .any(|n| matches!(n.kind, MdKind::FrontMatter))
-    {
+        .then(|| front_matter_end(text))
+        .flatten();
+    let maths = display_math_lines(&md, text);
+    if front.is_none() && maths.is_empty() {
         return Vec::new();
     }
-    let text = doc.text().as_str();
-    let Some(end) = front_matter_end(text) else {
-        return Vec::new();
-    };
-    let mut out = vec![Block {
-        kind: BlockKind::Drawer,
-        range: 0..end,
-        content_end: end,
+    let block = |kind, range: Range<usize>, content_end| Block {
+        kind,
+        range,
+        content_end,
         depth: 0,
         headline: None,
-    }];
-    if end < text.len() {
-        out.push(Block {
-            kind: BlockKind::Paragraph,
-            range: end..text.len(),
-            content_end: text.len(),
-            depth: 0,
-            headline: None,
-        });
+    };
+    let mut out = Vec::new();
+    let mut at = 0;
+    if let Some(end) = front {
+        out.push(block(BlockKind::Drawer, 0..end, end));
+        at = end;
+    }
+    for (lines, content_end) in maths {
+        if lines.start < at {
+            continue;
+        }
+        if at < lines.start {
+            out.push(block(BlockKind::Paragraph, at..lines.start, lines.start));
+        }
+        at = lines.end;
+        out.push(block(BlockKind::Math, lines, content_end));
+    }
+    if at < text.len() {
+        out.push(block(BlockKind::Paragraph, at..text.len(), text.len()));
     }
     out
 }
 
-/// Where the front matter `---` … `---` (or `...`) at the start of `text`
-/// ends: after its closing line.
+/// The displayed formulas over several lines whose `$$` start and end
+/// lines of their own (the indentation of a list allowed): their lines
+/// with the last line feed, and the end of the last line.
+fn display_math_lines(md: &Md, text: &str) -> Vec<(Range<usize>, usize)> {
+    let mut out: Vec<(Range<usize>, usize)> = md
+        .nodes
+        .iter()
+        .filter(|n| matches!(n.kind, MdKind::Math { display: true }))
+        .filter_map(|n| {
+            let r = n.range.clone();
+            if !text[r.clone()].contains('\n') {
+                return None;
+            }
+            let start = text[..r.start].rfind('\n').map_or(0, |i| i + 1);
+            let end = text[r.end..].find('\n').map_or(text.len(), |i| r.end + i);
+            let alone =
+                text[start..r.start].trim().is_empty() && text[r.end..end].trim().is_empty();
+            alone.then(|| (start..(end + 1).min(text.len()), end))
+        })
+        .collect();
+    out.sort_by_key(|(r, _)| r.start);
+    out
+}
+
+/// Where the front matter at the start of `text` ends, after its closing
+/// line: YAML's `---` … `---` (or `...`), TOML's `+++` … `+++`.
 fn front_matter_end(text: &str) -> Option<usize> {
     let body = text.strip_prefix('\u{feff}').unwrap_or(text);
     let skip = text.len() - body.len();
     let mut lines = body.split_inclusive('\n');
     let first = lines.next()?;
-    if first.trim_end() != "---" {
-        return None;
-    }
+    let toml = match first.trim_end() {
+        "---" => false,
+        "+++" => true,
+        _ => return None,
+    };
     let mut at = skip + first.len();
     for l in lines {
         at += l.len();
-        if matches!(l.trim_end(), "---" | "...") {
+        let closes = if toml {
+            l.trim_end() == "+++"
+        } else {
+            matches!(l.trim_end(), "---" | "...")
+        };
+        if closes {
             return Some(at);
         }
     }
@@ -3406,6 +3520,22 @@ mod tests {
     }
 
     #[test]
+    fn definitions_in_code_reach_nothing() {
+        // Only a definition outside code makes an edit parse the whole.
+        let code =
+            "Text [^n].\n\n```\n[^1]: in code\n[x]: /in/code\n```\n\n<div>\n[z]: /html\n</div>\n";
+        assert!(!Md::parse(code).globals);
+        for real in [
+            "[x]: /url\n\n[x]\n",
+            "Text[^1].\n\n[^1]: Note.\n",
+            "> [x]: /url\n",
+            "- [x]: /url\n",
+        ] {
+            assert!(Md::parse(real).globals, "{real:?}");
+        }
+    }
+
+    #[test]
     fn reparse_equals_parse() {
         // Edits of every kind at every place of documents of every block,
         // the incremental parse compared with a full one (T2.7c.6).
@@ -3413,10 +3543,30 @@ mod tests {
             "# Title\n\nA paragraph\nwith two lines.\n\n- a\n- b\n\n  more of b\n\n1. one\n2. two\n\n> quote\n> more\n\n```rust\nlet x = 1;\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\nText *em* **strong** `code`.\n\n---\n\nEnd.\n",
             "Para\n\nSetext\n\nmore\n\n- x\n\n- y\n\n* z\n",
             "a\n\n<div>\nhtml\n</div>\n\nb\n\n    code\n\nc\n",
+            // `[^` and `[x]:` in code and HTML, a footnote mark without a
+            // definition: nothing that reaches across the document.
+            "Text [^n] and [x].\n\n```\n[^1]: in code\n[x]: /in/code\n```\n\n    [y]: /indented\n\n<div>\n[z]: /html\n</div>\n\nEnd [y].\n",
         ];
         let edits = [
-            "", "x", "\n", "\n\n", "# ", "- ", "```", "---", "|", "> ", "*", "1. ", "===", "<div>",
+            "",
+            "x",
+            "\n",
+            "\n\n",
+            "# ",
+            "- ",
+            "```",
+            "---",
+            "|",
+            "> ",
+            "*",
+            "1. ",
+            "===",
+            "<div>",
             "    ",
+            "[^",
+            "]: /u",
+            "[x]",
+            "\n[x]: /u\n",
         ];
         let mut seed: u64 = std::env::var("KALEM_SEED")
             .ok()
@@ -3664,8 +3814,10 @@ mod tests {
     #[test]
     fn a_keystroke_reparses_a_little() {
         // A megabyte of sections; a letter typed in the middle reparses
-        // the block around it, not the document.
-        let section = "## Part\n\nSome *text* with `code` and a [link](x.md).\n\n- one\n- two\n\n```rust\nlet x = 1;\n```\n\n";
+        // the block around it, not the document. A footnote mark without a
+        // definition and definitions in code reach nothing: they do not
+        // make it parse the whole.
+        let section = "## Part\n\nSome *text* with `code`, a [link](x.md) and a mark[^1].\n\n- one\n- two\n\n```rust\nlet x = 1;\n[x]: /in/code\n[^1]: in code\n```\n\n";
         let text = section.repeat(1_000_000 / section.len());
         let md = Md::parse(&text);
         let at = text.len() / 2;
@@ -3924,7 +4076,7 @@ mod spec {
     /// The HTML as GitHub renders it, raw HTML kept (its tag filter
     /// applied), with Kalem's extensions.
     fn html(md: &str) -> String {
-        tag_filter(&html_with(md, options()))
+        tag_filter(&html_with(md, options_for(md)))
     }
 
     /// The HTML of CommonMark's own examples: the options of [`html`]

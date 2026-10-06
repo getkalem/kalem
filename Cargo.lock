@@ -5649,6 +5649,7 @@ dependencies = [
 name = "org-cite"
 version = "0.1.0-rc.1"
 dependencies = [
+ "encoding_rs",
  "hayagriva",
  "serde_json",
 ]

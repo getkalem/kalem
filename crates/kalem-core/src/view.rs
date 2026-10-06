@@ -1141,6 +1141,29 @@ pub struct TableView {
     pub ruled: Vec<usize>,
 }
 
+/// What a picture shows when it is not drawn (it cannot be loaded, as a
+/// remote badge, or the terminal has no pictures): `[image: …]` with its
+/// description, as Markdown's alt text, else its file's name, not the
+/// whole address. `shown` is the text of the picture's run.
+pub fn image_label(shown: &str, path: &str) -> String {
+    // A widget's placeholder is no description.
+    let shown = shown.replace(PLACEHOLDER, "");
+    let alt = shown.trim();
+    if !alt.is_empty() && !alt.contains(path) {
+        return format!("[image: {alt}]");
+    }
+    let name = path
+        .split(['?', '#'])
+        .next()
+        .unwrap_or(path)
+        .trim_end_matches('/')
+        .rsplit(['/', '\\'])
+        .next()
+        .filter(|n| !n.is_empty())
+        .unwrap_or(path);
+    format!("[image: {name}]")
+}
+
 /// The runs of `view` within `range`, cut at its ends.
 pub(crate) fn runs_within(view: &LineView, range: &Range<usize>) -> Vec<Run> {
     view.runs
@@ -1864,6 +1887,32 @@ impl Folds {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn labels_of_pictures_not_drawn() {
+        // A README's badge: its alt text, not its address.
+        assert_eq!(
+            super::image_label(
+                "build status",
+                "https://img.shields.io/badge/ci-passing-green.svg?x=1"
+            ),
+            "[image: build status]"
+        );
+        // No description (Org's `[[file:…]]`, whose run is its source): the
+        // file's name.
+        assert_eq!(
+            super::image_label("", "https://example.com/a/logo.png?v=2"),
+            "[image: logo.png]"
+        );
+        assert_eq!(
+            super::image_label("[[file:img/dot.png]]", "img/dot.png"),
+            "[image: dot.png]"
+        );
+        assert_eq!(super::image_label("", "dot.png"), "[image: dot.png]");
+        assert_eq!(
+            super::image_label(super::PLACEHOLDER, "img/dot.png"),
+            "[image: dot.png]"
+        );
+    }
 
     #[test]
     fn outline_depth_and_startup() {

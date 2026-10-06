@@ -550,10 +550,11 @@ impl<'a> Layout<'a> {
         // LaTeX environments drawn as images show on their first line (in
         // Org documents and LaTeX documents).
         let latex = doc.latex().is_some();
+        let markdown = doc.meta.mode == kalem_core::DocumentMode::Markdown;
         // Without images, the formula shows its Unicode approximation on
         // its first line all the same.
         let pictures = images.borrow().picker.is_some();
-        if (parse.is_some() || latex) && !source && !raw_math {
+        if (parse.is_some() || latex || markdown) && !source && !raw_math {
             let text = doc.text();
             let c = doc.selection.head;
             for b in blocks.iter().filter(|b| b.kind == BlockKind::Math) {
@@ -570,6 +571,11 @@ impl<'a> Layout<'a> {
                     let mut im = images.borrow_mut();
                     let key = match parse {
                         Some(p) => im.math(src, p, doc.version()),
+                        // Markdown's `$$` formula, without definitions.
+                        None if markdown => ImageKey::Math {
+                            source: src.to_string(),
+                            macros: String::new(),
+                        },
                         None => {
                             let src = kalem_core::latex_view::math_source(doc, b.range.clone())
                                 .unwrap_or_else(|| src.to_string());
@@ -659,6 +665,19 @@ impl<'a> Layout<'a> {
         if self.doc.latex().is_some() && !self.source {
             return self.latex_image(line);
         }
+        // A Markdown formula over several lines, on its first line.
+        if self.doc.meta.mode == kalem_core::DocumentMode::Markdown && !self.source {
+            self.images.borrow().picker.as_ref()?;
+            let src = self.math_block(self.range(line).start)?;
+            let mut images = self.images.borrow_mut();
+            let key = ImageKey::Math {
+                source: src.to_string(),
+                macros: String::new(),
+            };
+            let (rows, cols) = images.size(&key, self.width.get())?;
+            let label = src.lines().next().unwrap_or("").to_string();
+            return Some((key, label, rows, cols));
+        }
         let p = self.parse.filter(|_| !self.source)?;
         self.images.borrow().picker.as_ref()?;
         let range = self.range(line);
@@ -678,18 +697,19 @@ impl<'a> Layout<'a> {
             match &r.widget {
                 Some(
                     w @ (view::Widget::Image { .. } | view::Widget::Math { display: true, .. }),
-                ) if found.is_none() => found = Some(w.clone()),
+                ) if found.is_none() => found = Some((w.clone(), r.text.clone())),
                 None if r.text.trim().is_empty() => {}
                 _ => return None,
             }
         }
         let mut images = self.images.borrow_mut();
         let (key, label) = match found? {
-            view::Widget::Image { path, width } => {
+            (view::Widget::Image { path, width }, shown) => {
                 let cols = images.cols(width, self.width.get(), &path);
-                (images.file(&path, cols), format!("[image: {path}]"))
+                let label = view::image_label(&shown, &path);
+                (images.file(&path, cols), label)
             }
-            view::Widget::Math { source, .. } if !self.raw_math => {
+            (view::Widget::Math { source, .. }, _) if !self.raw_math => {
                 let label = kalem_core::math::unicode(&source);
                 (images.math(&source, p, self.doc.version()), label)
             }
@@ -728,7 +748,7 @@ impl<'a> Layout<'a> {
                 Some(
                     w @ (view::Widget::Image { .. } | view::Widget::Math { display: true, .. }),
                 ) if found.is_none() => {
-                    found = Some(w.clone());
+                    found = Some((w.clone(), r.text.clone()));
                 }
                 None if r.text.trim().is_empty() => {}
                 _ => return None,
@@ -736,11 +756,12 @@ impl<'a> Layout<'a> {
         }
         let mut images = self.images.borrow_mut();
         let (key, label) = match found? {
-            view::Widget::Image { path, width } => {
+            (view::Widget::Image { path, width }, shown) => {
                 let cols = images.cols(width, self.width.get(), &path);
-                (images.file(&path, cols), format!("[image: {path}]"))
+                let label = view::image_label(&shown, &path);
+                (images.file(&path, cols), label)
             }
-            view::Widget::Math { source, .. } if !self.raw_math => {
+            (view::Widget::Math { source, .. }, _) if !self.raw_math => {
                 let label = kalem_core::math::unicode(&source);
                 (images.latex_math(&source, self.doc), label)
             }
@@ -1317,9 +1338,15 @@ impl<'a> Layout<'a> {
                 let latex = self.doc.meta.mode == kalem_core::DocumentMode::Latex
                     && !self.source
                     && range.len() <= view::LONG_LINE;
-                // LaTeX: a formula over several lines without its picture,
-                // its Unicode approximation (the terminal's own).
-                let v = match latex.then(|| self.math_text(&range)).flatten() {
+                let markdown = self.doc.meta.mode == kalem_core::DocumentMode::Markdown
+                    && !self.source
+                    && range.len() <= view::LONG_LINE;
+                // LaTeX and Markdown: a formula over several lines without
+                // its picture, its Unicode approximation (the terminal's own).
+                let v = match (latex || markdown)
+                    .then(|| self.math_text(&range))
+                    .flatten()
+                {
                     Some(u) => {
                         // Centered as LaTeX centers it (`fleqn`: flush
                         // left, indented).
@@ -1427,6 +1454,10 @@ impl<'a> Layout<'a> {
         // The body: the environment's `\\begin` and `\\end` out, its number
         // (a `\\tag`) after it.
         let mut body = src.trim().to_string();
+        // Markdown's `$$` … `$$`.
+        if let Some(inner) = body.strip_prefix("$$").and_then(|b| b.strip_suffix("$$")) {
+            body = inner.to_string();
+        }
         if body.starts_with("\\begin{")
             && let Some(close) = body.find('}')
         {

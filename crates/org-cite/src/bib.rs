@@ -84,6 +84,26 @@ impl Bibliography {
     }
 }
 
+/// The text of bibliography `file`, decoded as the editors decode it:
+/// UTF-8 (its byte order mark left out), UTF-16 with its mark, else
+/// Windows-1252, the Latin-1 that older BibTeX files are written in.
+fn read_text(file: &Path) -> Result<String, String> {
+    let bytes = std::fs::read(file).map_err(|e| e.to_string())?;
+    if let Some((encoding, bom)) = encoding_rs::Encoding::for_bom(&bytes) {
+        return Ok(encoding
+            .decode_without_bom_handling(&bytes[bom..])
+            .0
+            .into_owned());
+    }
+    Ok(match String::from_utf8(bytes) {
+        Ok(text) => text,
+        Err(e) => encoding_rs::WINDOWS_1252
+            .decode_without_bom_handling(e.as_bytes())
+            .0
+            .into_owned(),
+    })
+}
+
 /// The entries of one file, a malformed BibTeX entry left out with its
 /// reason (the rest of the file is read); `Err` when the file cannot be
 /// read at all.
@@ -93,7 +113,7 @@ pub fn read_tolerant(file: &Path) -> Result<(Vec<Entry>, Vec<String>), String> {
         .and_then(|e| e.to_str())
         .map(str::to_ascii_lowercase);
     if matches!(lower.as_deref(), Some("bib" | "bibtex")) {
-        let text = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+        let text = read_text(file)?;
         return Ok(parse_bibtex_tolerant(&text));
     }
     read(file).map(|e| (e, Vec::new()))
@@ -101,7 +121,7 @@ pub fn read_tolerant(file: &Path) -> Result<(Vec<Entry>, Vec<String>), String> {
 
 /// The entries of one file.
 pub fn read(file: &Path) -> Result<Vec<Entry>, String> {
-    let text = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let text = read_text(file)?;
     match file
         .extension()
         .and_then(|e| e.to_str())
@@ -548,6 +568,44 @@ mod tests {
         assert_eq!(y[0].key, "knuth");
         assert_eq!(y[0].field("author"), Some("Knuth, Donald"));
         assert_eq!(y[0].field("year"), Some("1984"));
+    }
+
+    #[test]
+    fn files_in_latin_1_and_utf_16_read() {
+        // As the editors read them; `read_to_string` refused them, so the
+        // bibliography was "unreadable" and its keys unknown.
+        let dir = std::env::temp_dir().join(format!("org-cite-enc-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let entry = "@book{m, author = {M\u{fc}ller, J\u{f6}rg}, title = {\u{c7}a\u{11f}}}\n";
+        let latin1: Vec<u8> = "@book{m, author = {M\u{fc}ller, J\u{f6}rg}, title = {T}}\n"
+            .chars()
+            .map(|c| c as u8)
+            .collect();
+        let mut utf16 = vec![0xff, 0xfe];
+        utf16.extend(entry.encode_utf16().flat_map(u16::to_le_bytes));
+        for (name, bytes, title) in [
+            ("latin1.bib", latin1, "T"),
+            ("utf16.bib", utf16, "\u{c7}a\u{11f}"),
+            (
+                "bom.bib",
+                [&[0xef, 0xbb, 0xbf][..], entry.as_bytes()].concat(),
+                "\u{c7}a\u{11f}",
+            ),
+        ] {
+            let f = dir.join(name);
+            std::fs::write(&f, bytes).unwrap();
+            let (e, errors) = read_tolerant(&f).unwrap();
+            assert!(errors.is_empty(), "{name}: {errors:?}");
+            assert_eq!(e[0].key, "m", "{name}");
+            assert_eq!(
+                e[0].field("author"),
+                Some("M\u{fc}ller, J\u{f6}rg"),
+                "{name}"
+            );
+            assert_eq!(e[0].field("title"), Some(title), "{name}");
+            assert_eq!(read(&f).unwrap().len(), 1, "{name}");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

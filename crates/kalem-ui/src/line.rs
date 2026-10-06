@@ -1111,7 +1111,9 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
                 // name until images (T1.5.7).
                 let (shown, color) = match w {
                     Widget::Math { source, .. } => (kalem_core::math::unicode(source), theme.link),
-                    Widget::Image { path, .. } => (format!("[image: {path}]"), theme.muted),
+                    Widget::Image { path, .. } => {
+                        (kalem_core::view::image_label(&r.text, path), theme.muted)
+                    }
                     Widget::Checkbox(_) | Widget::TocRow { .. } => unreachable!("handled above"),
                 };
                 let mut run = text_run(&r.style, shown.len(), view.heading, mono, &theme);

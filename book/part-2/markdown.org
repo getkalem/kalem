@@ -197,11 +197,10 @@ edits it as plain text. Concretely:
   matter's fields as Obsidian's properties panel does; choosing one
   offers its value to change, and the list has /Add a property…/ and a
   delete for each. YAML (=---=, =key: value=, lists as =[a, b]= or as
-  =- item= lines) and TOML (=+++=, which the view draws as text, not
-  yet as front matter) are read; only the changed field's
-  line is rewritten, quoted when YAML needs it, a list kept a list (its
-  items separated by commas), and a document without front matter gets
-  one.
+  =- item= lines) and TOML (=+++=, folded as YAML's is) are read; only
+  the changed field's line is rewritten, quoted when YAML needs it, a
+  list kept a list (its items separated by commas, an item with a comma
+  in double quotes), and a document without front matter gets one.
 - Formulas: a table followed by lines =<!-- TBLFM: … -->= (as
   Obsidian's Advanced Tables writes them, and invisible elsewhere) is
   computed by F9 (/Recalculate Table/, =markdown.table.recalculate=)
@@ -278,8 +277,14 @@ starting with =*= or =#+= quoted with a comma as Org does), raw HTML
 blocks =#+begin_export html= and inline HTML =@@html:…@@=, tables with
 a rule under the header row, thematic breaks =-----=, footnotes
 =[fn:NAME]= with their definitions, =$x$= =\(x\)= and =$$x$$= =\[x\]=,
-hard line breaks =\\=, and the front matter's keys as =#+KEY:= lines
-(=title=, =author=, =date= become Org's). The command writes
+hard line breaks =\\=, wiki links =[[Page|title]]= as
+=[[file:Page.md][title]]=, a heading inside a quote or a list as a bold
+line (a headline would end it), and the front matter's keys as =#+KEY:=
+lines (=title=, =author=, =date= become Org's). Text Org would read
+otherwise stays text, with a zero-width space as Org's manual advises:
+after the opening character of what would be markup (=\*x\*=, =/x/=
+and ==x== as text), and before a line that would be structure
+(=\# x=, a =|= that makes no table, =\- x=). The command writes
 =NAME.org= beside the file, never over an existing one, and opens it;
 the command line writes it, or to =-o=. The Markdown file does not
 change.
@@ -465,7 +470,12 @@ The mode is in use. What is left of group 6 of =docs/todo.md= (the former
 - *Large files* (T2.7c.6): a keystroke in a 10 MB file reparses in
   10 ms at the median and 23 ms at the 99th percentile; most of it is
   moving the positions of the nodes after the edit. A representation
-  with relative positions would take that off.
+  with relative positions would take that off. A document with a link
+  reference definition (=[x]: url=) or a footnote's (=[^1]: …=) outside
+  code is parsed whole at each edit, since a definition reaches every
+  reference (about 1.4 s at 10 MB); a footnote mark without a
+  definition, or a definition in a code block, does not do so. Parsing
+  only the edited blocks with the definitions is open.
 - *A known-differences chapter* of its own, following the skeleton the
   other formats use (T2.10.8); today the thirteen differences are listed
   under /The oracle/ above.

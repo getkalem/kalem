@@ -12,7 +12,8 @@ use std::ops::Range;
 pub struct Field {
     /// The key.
     pub key: String,
-    /// The value as one line: a list's items joined by `, `.
+    /// The value as one line: a list's items joined by `, `, an item with
+    /// a comma in double quotes.
     pub value: String,
     /// Whether it is a list.
     pub list: bool,
@@ -45,13 +46,37 @@ fn unquote(v: &str) -> String {
 fn flow_list(v: &str) -> Option<Vec<String>> {
     let v = v.trim();
     let inner = v.strip_prefix('[')?.strip_suffix(']')?;
-    Some(
-        inner
-            .split(',')
-            .map(unquote)
-            .filter(|s| !s.is_empty())
-            .collect(),
-    )
+    Some(split_items(inner))
+}
+
+/// The items of a list written `a, "b, c", d`: split at the commas outside
+/// quotes, each unquoted.
+fn split_items(s: &str) -> Vec<String> {
+    let mut items = Vec::new();
+    let (mut from, mut quote) = (0, None);
+    for (i, c) in s.char_indices() {
+        match (c, quote) {
+            ('"' | '\'', None) if s[from..i].trim().is_empty() => quote = Some(c),
+            (c, Some(q)) if c == q => quote = None,
+            (',', None) => {
+                items.push(unquote(&s[from..i]));
+                from = i + 1;
+            }
+            _ => {}
+        }
+    }
+    items.push(unquote(&s[from..]));
+    items.retain(|i| !i.is_empty());
+    items
+}
+
+/// Item `item` of a list's value: in double quotes when it has a comma.
+fn item_text(item: &str) -> String {
+    if item.contains(',') {
+        format!("\"{item}\"")
+    } else {
+        item.to_string()
+    }
 }
 
 /// Reads the front matter at the start of `text`.
@@ -93,7 +118,7 @@ pub fn read(text: &str) -> Option<FrontMatter> {
             if !f.value.is_empty() {
                 f.value.push_str(", ");
             }
-            f.value.push_str(&item);
+            f.value.push_str(&item_text(&item));
             f.lines.end = at;
             continue;
         }
@@ -108,7 +133,14 @@ pub fn read(text: &str) -> Option<FrontMatter> {
             continue;
         };
         let (value, list) = match flow_list(v) {
-            Some(items) => (items.join(", "), true),
+            Some(items) => (
+                items
+                    .iter()
+                    .map(|i| item_text(i))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                true,
+            ),
             None => (unquote(v), false),
         };
         fields.push(Field {
@@ -143,11 +175,16 @@ fn scalar(v: &str, toml: bool) -> String {
 /// separated by commas).
 fn line_of(key: &str, value: &str, list: bool, toml: bool) -> String {
     let v = if list {
-        let items: Vec<String> = value
-            .split(',')
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(|s| scalar(s, toml))
+        // In `[…]` a comma or a bracket ends a plain item: quoted.
+        let items: Vec<String> = split_items(value)
+            .iter()
+            .map(|s| {
+                if s.contains([',', '[', ']', '{', '}']) {
+                    format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
+                } else {
+                    scalar(s, toml)
+                }
+            })
             .collect();
         format!("[{}]", items.join(", "))
     } else {
@@ -244,6 +281,21 @@ mod tests {
         assert!(!s.contains("draft"));
         assert!(set(&s, "title", "Plain").is_none(), "unchanged");
         assert!(s.ends_with("---\n# Body\n"));
+    }
+
+    #[test]
+    fn list_items_with_commas() {
+        let t = "---\ntags: [\"a, b\", c]\nauthors:\n  - \"Doe, Jane\"\n  - Roe\n---\n";
+        let fm = read(t).unwrap();
+        assert_eq!(fm.fields[0].value, "\"a, b\", c");
+        assert_eq!(fm.fields[1].value, "\"Doe, Jane\", Roe");
+        // Edited, each item stays one.
+        let s = apply(t, &set(t, "tags", "\"a, b\", c, d").unwrap());
+        assert!(s.contains("tags: [\"a, b\", c, d]\n"), "{s}");
+        let s = apply(&s, &set(&s, "authors", "\"Doe, Jane\", Roe, Poe").unwrap());
+        assert!(s.contains("authors: [\"Doe, Jane\", Roe, Poe]\n"), "{s}");
+        // A quote inside an item is the item's.
+        assert_eq!(split_items("it's, b"), ["it's", "b"]);
     }
 
     #[test]

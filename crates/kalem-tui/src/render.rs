@@ -414,7 +414,7 @@ pub fn glyphs(
             }
             Some(Widget::Image { path, .. }) => {
                 style = style.add_modifier(Modifier::DIM);
-                (format!("[image: {path}]"), false)
+                (kalem_core::view::image_label(&run.text, path), false)
             }
             Some(Widget::TocRow { .. }) => (run.text.clone(), false),
             None if run.text == "•" && caps.ascii => ("-".to_string(), false),

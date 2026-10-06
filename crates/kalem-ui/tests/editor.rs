@@ -2689,7 +2689,7 @@ fn citations(cx: &mut TestAppContext) {
     let status = e.read_with(cx, |e, _| e.formula_status.clone());
     assert_eq!(
         status.as_deref(),
-        Some("@knuth84: Donald E. Knuth (1984). The \\TeXbook.")
+        Some("@knuth84: Donald E. Knuth (1984). The TeXbook.")
     );
     // The picker: typing finds an entry, Enter cites it.
     at(&e, text.find(" said").unwrap(), cx);
@@ -2726,7 +2726,7 @@ fn citations(cx: &mut TestAppContext) {
     }
     assert_eq!(
         shown.as_deref(),
-        Some("@knuth84: Donald E. Knuth (1984). The \\TeXbook.")
+        Some("@knuth84: Donald E. Knuth (1984). The TeXbook.")
     );
 }
 
@@ -3078,6 +3078,32 @@ fn latex_math(cx: &mut TestAppContext) {
     assert_eq!(
         e.read_with(cx, |e, _| e.visible.clone()),
         vec![0, 1, 2, 3, 4, 5]
+    );
+}
+
+#[gpui::test]
+fn markdown_display_math(cx: &mut TestAppContext) {
+    // `$$` on lines of their own: one formula on the first line away from
+    // the cursor, as a LaTeX environment; in it, the source.
+    let text = "Text.\n\n$$\na^2 +\nb^2\n$$\n\nAfter.\n";
+    let (e, cx) = open_named(text, "m.md", || None, cx);
+    at(&e, text.len(), cx);
+    assert_eq!(
+        e.read_with(cx, |e, _| e.visible.clone()),
+        vec![0, 1, 2, 6, 7, 8]
+    );
+    let formula = e.read_with(cx, |e, _| {
+        e.painted.borrow().get(&2).map(|p| {
+            p.widgets
+                .iter()
+                .any(|w| matches!(w.2, kalem_core::view::Widget::Math { display: true, .. }))
+        })
+    });
+    assert_eq!(formula, Some(true));
+    at(&e, text.find("a^2").unwrap(), cx);
+    assert_eq!(
+        e.read_with(cx, |e, _| e.visible.clone()),
+        vec![0, 1, 2, 3, 4, 5, 6, 7, 8]
     );
 }
 

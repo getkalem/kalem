@@ -379,12 +379,12 @@ fn clean(p: &Path) -> PathBuf {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     /// The records `pdflatex -synctex=1` wrote for a two-page document
     /// (`main.tex` with `\input{part}` on its second page), cut short.
-    const SAMPLE: &str = "SyncTeX Version:1
+    pub(crate) const SAMPLE: &str = "SyncTeX Version:1
 Input:1:/d/./main.tex
 Input:2:/texmf/article.cls
 Output:pdf

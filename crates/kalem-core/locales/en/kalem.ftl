@@ -806,6 +806,9 @@ cite-bibliography-unreadable = The bibliography { $file } cannot be read: { $err
 cite-entry-skipped = An entry of { $file } is left out: { $error }
 cite-unknown-key = No bibliography has the key @{ $key }
 cite-unused-entry = Nothing cites the bibliography entry @{ $key }
+latex-cite-unknown-key = No bibliography has the key { $key }
+latex-cite-unused-entry = Nothing cites the bibliography entry { $key }
+latex-cite-unused-entries = Nothing cites { $count } of the { $total } entries of the bibliography
 category-footnotes = Footnotes
 menu-footnote = Footnote
 footnote-preview = Footnote { $label }: { $text }
@@ -957,6 +960,7 @@ cmd-latex-build = Build PDF
 cmd-latex-showInPdf = Show in PDF
 msg-no-pdf-yet = No PDF yet: build it first (F5)
 msg-no-synctex = The PDF has no SyncTeX file: build it again to go to the line's page
+msg-synctex-not-built = This file is not in the PDF (the build left it out): the first page shown
 category-latex = LaTeX
 msg-latex-built = Built { $path }{ $count ->
     [0] {""}

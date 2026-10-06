@@ -566,8 +566,13 @@ The model collects =\newcommand=, =\renewcommand=, =\providecommand=
 =\renewenvironment= (arguments, default, begin and end code). The bodies
 of definitions are templates: no label, citation or section inside them
 counts. =\bibliography{a,b}= and =\addbibresource{a.bib}= give the
-bibliography files, =.bib= added where missing; =\bibliographystyle=
-gives the style.
+bibliography files, =.bib= added where missing, found as BibTeX finds
+them: beside the root document, else in the folders of =BIBINPUTS=,
+else where =kpsewhich= says (a library in =~/texmf/bibtex/bib=);
+=\bibliographystyle= gives the style. A command without arguments in a
+numbered display that the document defines with =\tag= (the common
+=\numberthis=) numbers its line, and one defined with =\nonumber= or
+=\notag= (=\nn=) leaves it unnumbered, as LaTeX does.
 
 * The rendered subset
 

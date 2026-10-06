@@ -503,16 +503,29 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   (done: Tab nests an item with what it holds under the one before it,
   at that item's text (`markdown.list.indent`), Shift+Tab takes it out
   (`markdown.list.outdent`); test `nesting_list_items`.)
-- [ ] **Minor, reported.** TOML front matter (`+++`) is read by Edit
+- [x] **Minor, reported.** TOML front matter (`+++`) is read by Edit
   Properties only; the view draws it as a paragraph and a `# comment` in
   it becomes an H1 in the outline (`markdown.rs:155-157`).
-- [ ] **Minor, reported.** Display math over several lines
+  (done 2026-10-06: comrak reads the front matter with the fence the
+  first line has, `+++` or `---`; it folds as YAML's does, dimmed, no
+  heading in the outline, none in Copy as HTML; test
+  `toml_front_matter_is_front_matter`.)
+- [x] **Minor, reported.** Display math over several lines
   (`$$\n…\n$$`) is never drawn (`markdown.rs:1598-1601`); only one-line
   `$$…$$` is.
-- [ ] **Minor, reported.** A picture that cannot be loaded (every remote
+  (done 2026-10-06: `$$` on lines of their own make a math block, drawn
+  as one formula on its first line away from the cursor, its other
+  lines hidden, as Org's LaTeX environments are, in both editors (the
+  terminal's picture, or its Unicode form); tests
+  `display_math_over_several_lines_is_a_math_block`,
+  `markdown_display_math`, `markdown_display_math_over_several_lines`.)
+- [x] **Minor, reported.** A picture that cannot be loaded (every remote
   badge) shows `[image: <full URL>]` instead of its alt text
   (`kalem-ui/src/line.rs:1006`, `kalem-tui/src/render.rs:415`); every
   README starts with such lines.
+  (done 2026-10-06: `[image: …]` with the alt text, else the file's
+  name without its address (`view::image_label`), in both editors;
+  test `labels_of_pictures_not_drawn`.)
 - [x] **Minor, reported.** Grid view: the delimiter row is found by
   content, so a body row `| - | - |` is drawn as a rule
   (`is_delimiter_row`, `markdown.rs:1056`); misaligned rule when the
@@ -521,22 +534,44 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   GFM has it; Markdown tables are drawn in the grid of Org's tables,
   whose rule spans the columns whatever the outer pipes, in both
   editors.)
-- [ ] **Minor, reported.** Convert to Org (`markdown_org.rs`) does not
+- [x] **Minor, reported.** Convert to Org (`markdown_org.rs`) does not
   escape text (`\*x\*`, `/x/`, `=x=` become emphasis; `\# text` becomes
   a comment and is dropped on export; `[[Page|Title]]` is written as a
   broken Org link; a heading in a quote splits the block).
-- [ ] **Minor, reported.** Any `[^` or `[x]:` anywhere (even inside a
+  (done 2026-10-06: a zero-width space after the opening character of
+  what Org would read as markup, and before a paragraph line Org would
+  read as structure, the places Emacs 30 with Org 9.7.11 reads as text
+  (checked there; before the opening character Emacs still reads
+  markup); wiki links as `[[file:Page.md][title]]`; a heading in a quote
+  or a list as a bold line; test
+  `text_that_org_would_read_as_markup_stays_text`.)
+- [x] **Minor, reported.** Any `[^` or `[x]:` anywhere (even inside a
   code block) makes every keystroke a full parse (`has_globals`,
   `markdown.rs:834`): about 1.4 s per keystroke at 10 MB. The Book's
   "10 ms at 10 MB" does not hold for such files.
-- [~] **Minor, reported.** `kalem export FILE.md --to org` overwrites an
+  (done 2026-10-06: only a definition line outside code blocks, HTML
+  blocks and the front matter makes edits parse the whole
+  (`Md::has_definitions`), and on the edited lines only a definition
+  line does, not a footnote mark; an edit that brings a definition out
+  of code parses the whole. Footnote definitions stay where they are
+  written (`leave_footnote_definitions`), which also lets `on_line`
+  find them (comrak moved them to the end, out of the order it reads);
+  `on_line` no longer returns, in a block whose nodes are out of order,
+  nodes starting after the line. The random edits gain marks and
+  definitions (10 seeds of 3,000 rounds pass); the keystroke test has
+  them in code. Documents with real definitions are still parsed whole,
+  as the Book now says.)
+- [x] **Minor, reported.** `kalem export FILE.md --to org` overwrites an
   existing `FILE.org` without asking (`export.rs:192`); Convert to Org
   and `kalem import` refuse. Table Sort is not Turkish-aware (CSV's is).
   Front-matter list values with commas are split when edited
   (`front_matter.rs:46-55`).
   (partly: `kalem export FILE.md --to org` no longer replaces an
-  existing `FILE.org` without `--output`; table sort and front matter
-  open.)
+  existing `FILE.org` without `--output`. Done 2026-10-06: Table Sort
+  compares as a CSV column does (`csv::compare`: numbers before text,
+  Turkish letters in the alphabet's order); a list item with a comma is
+  shown in double quotes and written back quoted, so it stays one item;
+  tests in `markdown_table` and `list_items_with_commas`.)
 
 ### 3.3 LaTeX
 
@@ -574,7 +609,7 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   (done: the view, the missing-picture check, completion and Insert
   Figure resolve from the root document's folder; tested on a chapter
   in a subfolder.)
-- [~] **Major, verified.** `kalem check`, `kalem parse` and
+- [x] **Major, verified.** `kalem check`, `kalem parse` and
   `kalem latex build` read with `read_to_string`
   (`kalem-cli/src/commands/mod.rs:28-30`, `606`): a Latin-1 file stops
   the whole run with "stream did not contain valid UTF-8", exit 2, and
@@ -585,8 +620,11 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   editors decode these files correctly; the CLI should use the same
   decoder.
   (done for the CLI: `read_doc` decodes as the editors do; a file it
-  cannot read is reported and the others checked. The `.bib` part
-  (`bibliography-unreadable` for Latin-1) is open.)
+  cannot read is reported and the others checked. Done 2026-10-06 for
+  the `.bib`: `org-cite` decodes a bibliography as the editors do,
+  UTF-8 without its mark, UTF-16 with one, else Windows-1252 (Latin-1),
+  for Org, LaTeX and the CLI alike; test
+  `files_in_latin_1_and_utf_16_read`.)
 - [x] **Major, verified.** `kalem fmt --align` is not idempotent: a table
   row whose first cell is empty starts with alignment padding, which
   `step()` (`latex_fmt.rs:69-97`) reads as the indentation step, so the
@@ -653,9 +691,12 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   preamble needs (`engine_of`). Tests `what_to_install_without_tex`,
   `a_picture_takes_its_documents_engine`,
   `a_build_that_cannot_start_says_so_in_json`.)
-- [ ] **Minor, reported.** `\nocite{*}` is flagged "No bibliography has
+- [x] **Minor, reported.** `\nocite{*}` is flagged "No bibliography has
   the key @*" (`latex_check.rs:591` lacks the `*` filter of `:503`);
   fails `--deny-warnings`. The LaTeX messages use Org's `@key` spelling.
+  (done 2026-10-06: `*` left out there too; LaTeX's own messages
+  (`latex-cite-unknown-key`, `latex-cite-unused-entry`) name the key as
+  LaTeX writes it, in both languages; the codes stay.)
 - [x] **Minor, reported.** Every "File `x' not found" gets "Install it
   with: tlmgr install x" (`latex_build.rs:286-291`), pictures and
   `\input` files included ("tlmgr install ../ch/pic").
@@ -664,23 +705,42 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   characters, pdfTeX wraps at 79 bytes (`latex_build.rs:148`): a
   warning about `\ref{şekil:…}` loses its line number.
   (done: 79 bytes or 79 characters; test `wrapped_lines_by_bytes`.)
-- [ ] **Minor, reported.** A BOM hides `% !TEX program` and `% !TEX root`
+- [x] **Minor, reported.** A BOM hides `% !TEX program` and `% !TEX root`
   when read from disk (`magic_program`, `latex_build.rs:90-98`,
   `trim_start` does not strip U+FEFF).
-- [ ] **Minor, reported.** A CLI path with `..` breaks root detection
+  (done 2026-10-06: the three readers (`magic_program`, `magic_root`,
+  `magic_root_line`) skip it; tests `engines`,
+  `the_root_magic_comment_after_a_byte_order_mark`.)
+- [x] **Minor, reported.** A CLI path with `..` breaks root detection
   (`commands/mod.rs:602` uses `absolute`, `project.rs:229` compares as
   written): `kalem latex build ../paper/ch/one.tex` compiles the chapter
   alone.
-- [ ] **Minor, reported.** Show in PDF says "no SyncTeX file: build it
+  (done 2026-10-06: `find_root` takes the path without its `.` and `..`
+  first, as the model names included files; test `roots`.)
+- [x] **Minor, reported.** Show in PDF says "no SyncTeX file: build it
   again" for every failed forward search (`builtin.rs:729-733`).
-- [ ] **Minor, reported.** Citation previews in the view show raw TeX
+  (done 2026-10-06: that only when there is no SyncTeX file; a file
+  the SyncTeX file does not have (the build left it out) is said so;
+  test `show_in_pdf_says_why_it_cannot`.)
+- [x] **Minor, reported.** Citation previews in the view show raw TeX
   accents (`B\"uy\"uk`) or drop them (`cite.rs:62-100`,
   `bibstyle.rs:204-231`); the `.bib` grid's `bibtex::plain` does it right.
-- [ ] **Minor, reported.** The `\numberthis` macro gives false
+  (done 2026-10-06: both through `bibtex::plain`; `{\TeX}book` is
+  `TeXbook`, `\"Ozet` `Özet`; test `picker_and_preview`.)
+- [x] **Minor, reported.** The `\numberthis` macro gives false
   `latex-label-unwritten`/`latex-label-clash` warnings; a central
   `~/texmf/bibtex/bib` library is not found (no `kpsewhich`/`BIBINPUTS`);
   `cite-unused-entry` floods a shared library (826 messages over the
   corpus).
+  (done 2026-10-06: a command without arguments in a numbered display
+  is resolved against the document's macros: one whose body has `\tag`
+  numbers the line, one with `\nonumber` or `\notag` (`\nn`) does
+  not; the numbers are pdflatex's (`tests/latex/model/macro-tags`).
+  A bibliography not beside the root is looked for in `BIBINPUTS`, then
+  with `kpsewhich` (`latex_view::find_bib`). More than ten unused
+  entries are one note with their count; tests
+  `macros_for_tag_and_nonumber`, `bibliographies_found_as_bibtex_finds_them`,
+  `a_shared_library_cited_in_part_is_one_note`.)
 
 ### 3.4 BibTeX
 
