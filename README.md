@@ -82,7 +82,7 @@ Kalem has Emacs's architecture, every action a command and every keymap data, an
 
 ## Known limitations
 
-- A workbook protected by a password cannot be opened yet; an `.ods`, `.xls` or `.xlsb` is converted to be edited (the table above).
+- An `.ods`, `.xls` or `.xlsb` workbook is converted to be edited (the table above), and one with a password to open is saved as `.ods` without its encryption.
 - Markdown: export, printing and `kalem fmt` are for Org and LaTeX; TOML front matter (`+++`) and `$$` blocks over several lines show as text. In a large file with footnotes or link reference definitions, each keystroke parses the whole file again.
 - LaTeX: building a PDF needs TeX Live, MiKTeX or Tectonic installed; Kalem does not download one.
 - The terminal-only build has no viewers and no plugin host, and draws an SVG picture without its text.
