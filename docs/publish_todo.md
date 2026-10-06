@@ -826,11 +826,16 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   checks that the records and fields give the text back, each field
   after its delimiter and each record after its line ending; test
   `records_give_the_text_back`.)
-- [ ] **Minor, reported.** A regex `$` never matches before `\r\n` in a
+- [x] **Minor, reported.** A regex `$` never matches before `\r\n` in a
   CRLF file (`find.rs:41-44`, no `.crlf(true)`).
-- [ ] **Minor, gap.** No command to change line endings or to add or
+  (done 2026-10-06: `.crlf(true)`; test `line_ends_in_a_crlf_file`.)
+- [x] **Minor, gap.** No command to change line endings or to add or
   remove a UTF-8 BOM (`builtin.rs:4996` keeps the old BOM); the status
   bar does not show the line ending.
+  (done 2026-10-06: `file.lineEndingsLf`, `file.lineEndingsCrlf` (the
+  text's breaks changed as one edit) and `file.toggleBom`; the status
+  bar names `CRLF` and `BOM` beside a legacy encoding; test
+  `line_endings_and_byte_order_mark_changed`.)
 
 ### 3.6 Plain text and code
 
@@ -843,20 +848,39 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   (done 2026-10-05: `find_all` folds character by character as it walks
   the text, ASCII without a table, and allocates only the matches; the
   folding and the offsets are as before (`finding`).)
-- [ ] **Minor, reported.** Save As does not re-detect the mode
+- [x] **Minor, reported.** Save As does not re-detect the mode
   (`document.rs:616-620`): Ctrl+N, type Python, Save As `x.py` stays Org
   until reopened.
-- [ ] **Minor, reported.** The GUI's forced Overwrite after "changed on
+  (done 2026-10-06: `DocumentState::mode_for_name` after a Save As in
+  both editors, the views drawn again; test
+  `save_as_takes_the_new_names_mode`.)
+- [x] **Minor, reported.** The GUI's forced Overwrite after "changed on
   disk" skips the after-save steps (no `DocumentAfterSave`, no
   `lsp::saved`, no "Saved", no build-on-save; `editor.rs:1933-1943`);
   `save_as` and `save_quietly` skip `before_save` and the events.
-- [ ] **Minor, reported.** A UTF-8 file with one stray byte is guessed
+  (done 2026-10-06: `before_save` and `after_save` in the graphical
+  editor, used by Save, Overwrite and Save As; the quiet save emits the
+  events and tells the language servers, without a message or a build;
+  the terminal editor's Save As too (its Overwrite went through Save
+  already); tests `saving_and_outside_changes`,
+  `save_as_does_what_a_save_does_first`.)
+- [x] **Minor, reported.** A UTF-8 file with one stray byte is guessed
   whole as Windows-1252 (mojibake everywhere); a file with a BOM and one
   invalid byte cannot be opened at all (`files.rs:188-194`).
-- [ ] **Minor, risk.** Syntax highlighting runs synchronously on open and
+  (done 2026-10-06: a file whose valid multi-byte UTF-8 sequences are at
+  least four times its stray bytes is read as UTF-8, the strays as
+  U+FFFD, and so is a file with a UTF-8 mark; both read with a loss, so
+  Save keeps the file until Reopen with Encoding; test
+  `utf8_with_a_stray_byte`.)
+- [x] **Minor, risk.** Syntax highlighting runs synchronously on open and
   after each edit up to 4 MB with no per-line length cap
   (`kalem-highlight/src/lib.rs:313-403`): a 1 MB minified line is parsed
   whole. Measure with one such file.
+  (done 2026-10-06: measured, release build: a 1 MB minified script on
+  one line took 3.7 s to open and 3.6 s a keystroke. A line longer than
+  20,000 bytes (`MAX_LINE`, VS Code's `maxTokenizationLineLength`) shows
+  plain, its state passed on: 0.7 ms and 0.8 ms; test
+  `a_line_too_long_shows_plain`.)
 - [x] **Doc.** `book/part-1/files.org:15-17` says documents follow
   renames "from Kalem or from the file manager"; an external rename
   (`mv`, Finder, `git mv`) shows "deleted on disk" and Save recreates the

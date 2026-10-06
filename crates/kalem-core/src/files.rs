@@ -193,11 +193,18 @@ pub fn decode_with(
             if binary(&bytes[len..]) {
                 return Err(OpenError::Binary);
             }
-            let mut text = String::from_utf8(bytes).map_err(|e| OpenError::NotUtf8 {
-                at: e.utf8_error().valid_up_to(),
-            })?;
-            text.drain(..len);
-            (text, UTF_8, true, false)
+            // UTF-8 by its mark: a stray byte read as U+FFFD, the file
+            // opened and said to be read with a loss (it was refused).
+            match String::from_utf8(bytes) {
+                Ok(mut text) => {
+                    text.drain(..len);
+                    (text, UTF_8, true, false)
+                }
+                Err(e) => {
+                    let text = String::from_utf8_lossy(&e.into_bytes()[len..]).into_owned();
+                    (text, UTF_8, true, true)
+                }
+            }
         }
         None => {
             if binary(&bytes) {
@@ -216,6 +223,13 @@ pub fn decode_with(
                 }
                 None => match String::from_utf8(bytes) {
                     Ok(t) => (t, UTF_8, false, false),
+                    // UTF-8 with a few stray bytes (much more of it valid
+                    // UTF-8 than not): UTF-8 with the strays as U+FFFD,
+                    // not a legacy encoding guessed for all of it.
+                    Err(e) if mostly_utf8(e.as_bytes()) => {
+                        let text = String::from_utf8_lossy(e.as_bytes()).into_owned();
+                        (text, UTF_8, false, true)
+                    }
                     Err(e) => {
                         let bytes = e.into_bytes();
                         let enc = guess(&bytes);
@@ -246,6 +260,32 @@ pub fn decode_with(
         lossy,
     };
     Ok((mac_to_lf(text, meta.line_ending), meta))
+}
+
+/// Whether `bytes`, which are not all UTF-8, are UTF-8 with stray bytes:
+/// at least four valid sequences of several bytes for each byte that is
+/// not UTF-8 (a file in a legacy encoding has almost none).
+fn mostly_utf8(bytes: &[u8]) -> bool {
+    let (mut multibyte, mut invalid) = (0usize, 0usize);
+    let mut rest = bytes;
+    loop {
+        match std::str::from_utf8(rest) {
+            Ok(s) => {
+                multibyte += s.chars().filter(|c| !c.is_ascii()).count();
+                break;
+            }
+            Err(e) => {
+                let valid = e.valid_up_to();
+                // The part before the error is valid UTF-8.
+                multibyte += std::str::from_utf8(&rest[..valid])
+                    .map_or(0, |s| s.chars().filter(|c| !c.is_ascii()).count());
+                let bad = e.error_len().unwrap_or(rest.len() - valid);
+                invalid += bad;
+                rest = &rest[valid + bad..];
+            }
+        }
+    }
+    invalid > 0 && multibyte >= invalid * 4
 }
 
 /// Whether `text`, read from `bytes` in `enc`, is written back as the
@@ -296,10 +336,22 @@ pub fn decode_as(
     (mac_to_lf(text, meta.line_ending), meta)
 }
 
-/// The encoding a status bar names: nothing for UTF-8, else its name
-/// (`UTF-16LE`, `windows-1254`).
-pub fn encoding_label(meta: &Metadata) -> Option<&'static str> {
-    (meta.encoding != encoding_rs::UTF_8).then(|| meta.encoding.name())
+/// How a status bar names the way the file is written: nothing for UTF-8
+/// with LF and no byte order mark, else what differs (`UTF-16LE`,
+/// `windows-1254`, `CRLF`, `BOM`).
+pub fn encoding_label(meta: &Metadata) -> Option<String> {
+    let mut parts: Vec<String> = Vec::new();
+    if meta.encoding != encoding_rs::UTF_8 {
+        parts.push(meta.encoding.name().to_string());
+    } else if meta.bom {
+        parts.push(crate::l10n::tr("status-bom"));
+    }
+    match meta.line_ending {
+        LineEnding::CrLf => parts.push(crate::l10n::tr("status-crlf")),
+        LineEnding::Cr => parts.push("CR".into()),
+        LineEnding::Lf => {}
+    }
+    (!parts.is_empty()).then(|| parts.join(" "))
 }
 
 /// What to tell when a file was opened in an encoding guessed from its
@@ -877,6 +929,29 @@ mod tests {
     /// in a folder Kalem may not write in is written in place.
     #[cfg(unix)]
     #[test]
+    fn utf8_with_a_stray_byte() {
+        // Turkish in UTF-8 with one byte that is not: UTF-8, the byte as
+        // U+FFFD, read with a loss (it was all read as Windows-1252).
+        let mut bytes = "* Başlık\nçok güzel şeyler\n".as_bytes().to_vec();
+        bytes.insert(3, 0xFF);
+        let (t, m) = decode(Some(Path::new("a.org")), bytes).unwrap();
+        assert_eq!(m.encoding, encoding_rs::UTF_8);
+        assert!(
+            m.lossy && t.contains('\u{FFFD}') && t.contains("güzel"),
+            "{t:?}"
+        );
+        // With a byte order mark: opened (it was refused).
+        let mut bytes = b"\xEF\xBB\xBFg\xC3\xBCzel \xFF\n".to_vec();
+        let (t, m) = decode(Some(Path::new("b.txt")), bytes.clone()).unwrap();
+        assert!(m.bom && m.lossy && t == "güzel \u{FFFD}\n", "{t:?}");
+        // Windows-1254 throughout stays a guess of its own.
+        bytes = b"\xC7ok g\xFCzel \xFEeyler, \xFDl\xFDk su\n".to_vec();
+        let (t, m) = decode(Some(Path::new("c.txt")), bytes).unwrap();
+        assert_ne!(m.encoding, encoding_rs::UTF_8);
+        assert!(t.starts_with("Çok güzel"), "{t:?}");
+    }
+
+    #[test]
     fn permissions_on_save() {
         use std::os::unix::fs::PermissionsExt;
         let dir = std::env::temp_dir().join(format!("kalem-perm-{}", std::process::id()));
@@ -1004,7 +1079,7 @@ mod tests {
             assert!(m.bom && m.encoding == enc && m.mode == DocumentMode::Org);
             assert_eq!(m.line_ending, LineEnding::CrLf);
             assert_eq!(encode(&t, &m), bytes);
-            assert_eq!(encoding_label(&m), Some(enc.name()));
+            assert_eq!(encoding_label(&m), Some(format!("{} CRLF", enc.name())));
             assert_eq!(guessed_message(&m), None);
         }
         // Turkish in Windows-1254, guessed from its bytes.

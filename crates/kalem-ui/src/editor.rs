@@ -1433,20 +1433,7 @@ impl Editor {
                 cx.notify();
             }
             Request::Split => self.toggle_split(cx),
-            Request::ModeChanged => {
-                self.blocks = None;
-                self.folds = Folds::default();
-                self.refresh_vim();
-                self.list.reset(0);
-                self.visible.clear();
-                self.sync_pane(&[]);
-                self.with_other(|e| {
-                    e.list.reset(0);
-                    e.visible.clear();
-                    e.sync_pane(&[]);
-                });
-                cx.notify();
-            }
+            Request::ModeChanged => self.mode_changed(cx),
             Request::Settings => self.open_settings(window, cx),
             Request::ToggleMath => {
                 self.math = !self.math;
@@ -1910,40 +1897,12 @@ impl Editor {
             return;
         }
         let path = self.doc.meta.path.clone().unwrap_or_default();
-        let event = kalem_core::events::Event::DocumentBeforeSave {
-            doc: self.doc_id,
-            path: path.clone(),
-        };
-        let outcome = self
-            .shared
-            .bus
-            .borrow_mut()
-            .emit_vetoable(&event, Instant::now())
-            .wait();
-        self.shared.bus.borrow_mut().settle(&event, &outcome);
-        if let Some((_, reason)) = outcome.veto {
-            self.message(tr!("msg-not-saved", reason = reason), true);
+        if !self.before_save(&path, cx) {
             return;
         }
-        self.doc.before_save(&self.shared.config, Instant::now());
-        self.after_change(cx);
         match self.doc.save(self.shared.config.save_options(), false) {
             Ok(()) => {
-                self.shared
-                    .bus
-                    .borrow_mut()
-                    .emit(&kalem_core::events::Event::DocumentAfterSave {
-                        doc: self.doc_id,
-                        path,
-                    });
-                kalem_core::lsp::saved(&self.doc);
-                self.disk_conflict = false;
-                self.message(tr!("msg-saved"), false);
-                // A LaTeX document builds on save when asked to; one
-                // saved while a build runs is built when it ends.
-                if self.doc.latex().is_some() && self.shared.config.bool("latex.build_on_save") {
-                    self.run_command("latex.build", serde_json::Value::Null, window, cx);
-                }
+                self.after_save(path, Some(tr!("msg-saved")), Some(window), cx);
             }
             Err(kalem_core::document::SaveError::ChangedOnDisk) => {
                 let (overwrite, cancel) = (tr!("dialog-overwrite"), tr!("dialog-cancel"));
@@ -1956,9 +1915,15 @@ impl Editor {
                 );
                 cx.spawn_in(window, async move |this, cx| {
                     if answer.await == Ok(0) {
-                        let _ = this.update(cx, |e, cx| {
-                            if let Err(err) = e.doc.save(e.shared.config.save_options(), true) {
-                                e.message(tr!("msg-not-saved", reason = err.to_string()), true);
+                        let _ = this.update_in(cx, |e, window, cx| {
+                            // Overwritten: the same steps as a save.
+                            match e.doc.save(e.shared.config.save_options(), true) {
+                                Ok(()) => {
+                                    e.after_save(path, Some(tr!("msg-saved")), Some(window), cx)
+                                }
+                                Err(err) => {
+                                    e.message(tr!("msg-not-saved", reason = err.to_string()), true)
+                                }
                             }
                             cx.notify();
                         });
@@ -1993,7 +1958,63 @@ impl Editor {
         cx.notify();
     }
 
-    fn save_as(&mut self, _window: &mut Window, cx: &mut Context<'_, Self>) {
+    /// Before a save to `path`: `document:before-save` (a plugin may
+    /// refuse it) and the document's own steps (trailing blanks, the
+    /// final line feed); `false` when it is refused.
+    fn before_save(&mut self, path: &std::path::Path, cx: &mut Context<'_, Self>) -> bool {
+        let event = kalem_core::events::Event::DocumentBeforeSave {
+            doc: self.doc_id,
+            path: path.to_path_buf(),
+        };
+        let outcome = self
+            .shared
+            .bus
+            .borrow_mut()
+            .emit_vetoable(&event, Instant::now())
+            .wait();
+        self.shared.bus.borrow_mut().settle(&event, &outcome);
+        if let Some((_, reason)) = outcome.veto {
+            self.message(tr!("msg-not-saved", reason = reason), true);
+            return false;
+        }
+        self.doc.before_save(&self.shared.config, Instant::now());
+        self.after_change(cx);
+        true
+    }
+
+    /// After a save to `path`, whichever way it was made (Save, Overwrite,
+    /// Save As, a save before closing): `document:after-save`, the
+    /// language servers told, the conflict cleared, `message` shown, and
+    /// with a window a LaTeX build when `latex.build_on_save` asks for one
+    /// (a document saved while a build runs is built when it ends).
+    fn after_save(
+        &mut self,
+        path: std::path::PathBuf,
+        message: Option<String>,
+        window: Option<&mut Window>,
+        cx: &mut Context<'_, Self>,
+    ) {
+        self.shared
+            .bus
+            .borrow_mut()
+            .emit(&kalem_core::events::Event::DocumentAfterSave {
+                doc: self.doc_id,
+                path,
+            });
+        kalem_core::lsp::saved(&self.doc);
+        self.disk_conflict = false;
+        if let Some(m) = message {
+            self.message(m, false);
+        }
+        if let Some(window) = window
+            && self.doc.latex().is_some()
+            && self.shared.config.bool("latex.build_on_save")
+        {
+            self.run_command("latex.build", serde_json::Value::Null, window, cx);
+        }
+    }
+
+    fn save_as(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) {
         let dir = self
             .doc
             .meta
@@ -2012,14 +2033,21 @@ impl Editor {
             .and_then(|p| p.file_name())
             .map(|n| n.to_string_lossy().into_owned());
         let chosen = cx.prompt_for_new_path(&dir, name.as_deref());
-        cx.spawn(async move |this, cx| {
+        cx.spawn_in(window, async move |this, cx| {
             if let Ok(Ok(Some(path))) = chosen.await {
-                let _ = this.update(cx, |e, cx| {
+                let _ = this.update_in(cx, |e, window, cx| {
+                    if !e.before_save(&path, cx) {
+                        return;
+                    }
                     match e.doc.save_as(&path, e.shared.config.save_options()) {
-                        Ok(()) => e.message(
-                            tr!("msg-saved-as", path = path.display().to_string()),
-                            false,
-                        ),
+                        Ok(()) => {
+                            // The new name's mode (`x.py` is Python).
+                            if e.doc.mode_for_name(&e.shared.config.parse_base()) {
+                                e.mode_changed(cx);
+                            }
+                            let message = tr!("msg-saved-as", path = path.display().to_string());
+                            e.after_save(path, Some(message), Some(window), cx);
+                        }
                         Err(err) => e.message(tr!("msg-not-saved", reason = err.to_string()), true),
                     }
                     cx.notify();
@@ -2027,6 +2055,22 @@ impl Editor {
             }
         })
         .detach();
+    }
+
+    /// The views drawn again after the document's mode changed.
+    fn mode_changed(&mut self, cx: &mut Context<'_, Self>) {
+        self.blocks = None;
+        self.folds = Folds::default();
+        self.refresh_vim();
+        self.list.reset(0);
+        self.visible.clear();
+        self.sync_pane(&[]);
+        self.with_other(|e| {
+            e.list.reset(0);
+            e.visible.clear();
+            e.sync_pane(&[]);
+        });
+        cx.notify();
     }
 
     /// Closes the document, asking about unsaved changes first.
@@ -2102,11 +2146,40 @@ impl Editor {
         if !self.doc.is_modified() {
             return true;
         }
-        if self.doc.meta.path.is_none() {
+        let Some(path) = self.doc.meta.path.clone() else {
+            return false;
+        };
+        // The events and the document's steps as a save has them, without
+        // a message or a build.
+        let event = kalem_core::events::Event::DocumentBeforeSave {
+            doc: self.doc_id,
+            path: path.clone(),
+        };
+        let outcome = self
+            .shared
+            .bus
+            .borrow_mut()
+            .emit_vetoable(&event, Instant::now())
+            .wait();
+        self.shared.bus.borrow_mut().settle(&event, &outcome);
+        if let Some((_, reason)) = outcome.veto {
+            self.message(tr!("msg-not-saved", reason = reason), true);
             return false;
         }
+        self.doc.before_save(&self.shared.config, Instant::now());
         match self.doc.save(self.shared.config.save_options(), false) {
-            Ok(()) => true,
+            Ok(()) => {
+                self.shared
+                    .bus
+                    .borrow_mut()
+                    .emit(&kalem_core::events::Event::DocumentAfterSave {
+                        doc: self.doc_id,
+                        path,
+                    });
+                kalem_core::lsp::saved(&self.doc);
+                self.disk_conflict = false;
+                true
+            }
             Err(e) => {
                 self.message(tr!("msg-not-saved", reason = e.to_string()), true);
                 false

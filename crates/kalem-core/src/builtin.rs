@@ -6378,6 +6378,59 @@ fn plain_commands() -> Vec<Command> {
                 request(ctx, Request::CopyText(text))
             },
         ),
+        // How the file is written: its line endings and byte order mark,
+        // from the next save.
+        cmd(
+            "file.lineEndingsLf",
+            "Line Endings: LF (macOS, Linux)",
+            "File",
+            &[],
+            None,
+            |ctx, _| {
+                let now = ctx.now;
+                ctx.doc()?
+                    .set_line_ending(crate::document::LineEnding::Lf, now);
+                ctx.messages
+                    .push(crate::tr!("msg-line-endings", ending = "LF"));
+                Ok(())
+            },
+        ),
+        cmd(
+            "file.lineEndingsCrlf",
+            "Line Endings: CRLF (Windows)",
+            "File",
+            &[],
+            None,
+            |ctx, _| {
+                let now = ctx.now;
+                ctx.doc()?
+                    .set_line_ending(crate::document::LineEnding::CrLf, now);
+                ctx.messages
+                    .push(crate::tr!("msg-line-endings", ending = "CRLF"));
+                Ok(())
+            },
+        ),
+        cmd(
+            "file.toggleBom",
+            "Byte Order Mark: Add or Remove",
+            "File",
+            &[],
+            None,
+            |ctx, _| {
+                let d = ctx.doc()?;
+                if d.meta.encoding != encoding_rs::UTF_8 {
+                    return Err(CommandError::new(crate::tr!("msg-bom-utf8-only")));
+                }
+                let bom = !d.meta.bom;
+                d.set_bom(bom);
+                ctx.messages.push(crate::l10n::tr(if bom {
+                    "msg-bom-added"
+                } else {
+                    "msg-bom-removed"
+                }));
+                Ok(())
+            },
+        ),
         // This file (Doom's `SPC f`, T2.7i.3).
         cmd(
             "file.delete",

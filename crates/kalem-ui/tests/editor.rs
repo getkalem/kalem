@@ -1094,6 +1094,22 @@ fn saving_and_outside_changes(cx: &mut TestAppContext) {
     cx.dispatch_action(kalem_ui::editor::RunCommand::new("app.revert"));
     assert_eq!(text(&e, cx), "* A third, longer version\n");
     assert!(!e.read_with(cx, |e, _| e.doc.is_modified()));
+    // Saving over a change on disk: asked, then saved as a save is, its
+    // message shown and the conflict gone.
+    cx.simulate_input("y");
+    std::fs::write(&path, "* A fourth\n").unwrap();
+    e.update(cx, |e, cx| e.check_disk(cx));
+    cx.simulate_keystrokes(&format!("{}-s", primary()));
+    assert!(cx.has_pending_prompt());
+    cx.simulate_prompt_answer("Overwrite");
+    cx.run_until_parked();
+    assert!(std::fs::read_to_string(&path).unwrap().contains('y'));
+    let status = e.read_with(cx, |e, _| e.status.clone());
+    assert!(
+        status.is_some_and(|(m, error)| !error && m == "Saved"),
+        "saved after overwriting"
+    );
+    assert!(!e.read_with(cx, |e, _| e.doc.is_modified()));
 }
 
 #[gpui::test]

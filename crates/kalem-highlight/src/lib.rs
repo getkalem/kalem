@@ -240,14 +240,24 @@ fn kind(stack: &ScopeStack) -> Option<Kind> {
     })
 }
 
+/// The longest line colored, in bytes, as VS Code's
+/// `editor.maxTokenizationLineLength`: a longer one (a minified script, a
+/// line of data) shows plain, its state passed on as it came, since
+/// parsing it took seconds at each keystroke (3.6 s for a 1 MB line).
+pub const MAX_LINE: usize = 20_000;
+
 /// Highlights one line (with its line feed) from `state` and `stack`,
-/// which it moves on to the next line.
+/// which it moves on to the next line; a line longer than [`MAX_LINE`]
+/// gets no spans and leaves them as they are.
 fn highlight_line(
     set: &SyntaxSet,
     state: &mut ParseState,
     stack: &mut ScopeStack,
     line: &str,
 ) -> Vec<Span> {
+    if line.len() > MAX_LINE {
+        return Vec::new();
+    }
     let ops = state.parse_line(line, set).unwrap_or_default();
     let mut spans: Vec<Span> = Vec::new();
     let mut at = 0;
@@ -497,6 +507,11 @@ pub fn highlight(language: Language, text: &str) -> Vec<Vec<Span>> {
     let mut stack = ScopeStack::new();
     let mut out = Vec::new();
     for line in text.split_inclusive('\n') {
+        // Too long to color: plain, the state as it came.
+        if line.len() > MAX_LINE {
+            out.push(Vec::new());
+            continue;
+        }
         let ops = state.parse_line(line, set).unwrap_or_default();
         let mut spans: Vec<Span> = Vec::new();
         let mut at = 0;
@@ -539,6 +554,23 @@ pub fn highlight(language: Language, text: &str) -> Vec<Vec<Span>> {
 #[cfg(test)]
 mod window_tests {
     use super::*;
+
+    #[test]
+    fn a_line_too_long_shows_plain() {
+        // A minified script: the long line plain, the lines after it
+        // colored as before, at once (3.6 s a keystroke on 1 MB).
+        let lang = Language::find("js").expect("js");
+        let long = "var a=1;".repeat(MAX_LINE / 8 + 10);
+        let text = format!("var x = \"s\";\n{long}\nvar y = 2;\n");
+        let started = std::time::Instant::now();
+        let h = Highlighter::new(lang, &text);
+        assert!(started.elapsed() < std::time::Duration::from_secs(1));
+        assert!(!h.line(0).is_empty());
+        assert!(h.line(1).is_empty());
+        assert!(!h.line(2).is_empty());
+        let whole = highlight(lang, &text);
+        assert!(whole[1].is_empty() && !whole[2].is_empty());
+    }
 
     #[test]
     fn languages_beyond_syntect() {

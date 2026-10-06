@@ -4333,10 +4333,38 @@ impl App {
 
     /// Saves the document as `path` (Save As, once its name is settled).
     fn save_as_to(&mut self, path: PathBuf) {
+        // The steps of a save: `document:before-save` (which may refuse
+        // it) and the document's own.
+        let event = Event::DocumentBeforeSave {
+            doc: self.doc_id,
+            path: path.clone(),
+        };
+        let outcome = self.bus.emit_vetoable(&event, Instant::now()).wait();
+        self.bus.settle(&event, &outcome);
+        if let Some((_, reason)) = outcome.veto {
+            self.message(tr!("msg-not-saved", reason = reason), true);
+            return;
+        }
+        self.doc.before_save(&self.config, Instant::now());
+        self.after_change(true);
         match self.doc.save_as(&path, self.config.save_options()) {
             Ok(()) => {
                 if let Some(w) = &mut self.watcher {
                     let _ = w.watch(&path);
+                }
+                self.bus.emit(&Event::DocumentAfterSave {
+                    doc: self.doc_id,
+                    path: path.clone(),
+                });
+                kalem_core::lsp::saved(&self.doc);
+                if self.doc.latex().is_some() && self.config.bool("latex.build_on_save") {
+                    self.run_command("latex.build", serde_json::Value::Null);
+                }
+                // The new name's mode (`x.py` is Python).
+                if self.doc.mode_for_name(&self.config.parse_base()) {
+                    self.editor.reset();
+                    self.refresh_vim();
+                    self.dirty = true;
                 }
                 self.message(
                     tr!("msg-saved-as", path = path.display().to_string()),

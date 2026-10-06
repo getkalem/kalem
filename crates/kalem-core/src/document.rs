@@ -699,6 +699,21 @@ impl DocumentState {
     }
 
     /// Saves to `path`, which becomes the document's file.
+    /// Takes the mode the document's name and text say, after Save As
+    /// gave it a new name (a new document typed as Python and saved as
+    /// `x.py` stayed Org until reopened); `true` when it changed.
+    pub fn mode_for_name(&mut self, base: &ParseContext) -> bool {
+        if self.dired.is_some() || self.viewer.is_some() {
+            return false;
+        }
+        let mode = DocumentMode::detect(self.meta.path.as_deref(), self.text().as_str().as_bytes());
+        if mode == self.meta.mode {
+            return false;
+        }
+        self.set_mode(mode, base);
+        true
+    }
+
     pub fn save_as(&mut self, path: &Path, options: SaveOptions) -> Result<(), SaveError> {
         self.meta.path = Some(path.to_path_buf());
         self.disk = None;
@@ -987,6 +1002,44 @@ impl DocumentState {
     /// The version of the text, incremented by every change.
     pub fn version(&self) -> u64 {
         self.version
+    }
+
+    /// Writes the file with line ending `ending` (LF or CR LF) from the
+    /// next save: the text's line breaks made so as one edit (undone as
+    /// one), and the document modified even when the text stays the same
+    /// (a classic Mac file made LF).
+    pub fn set_line_ending(&mut self, ending: LineEnding, now: Instant) {
+        if self.meta.line_ending == ending {
+            return;
+        }
+        let text = self.text().as_str();
+        let mut tx = Transaction::new("Line Endings");
+        if ending == LineEnding::CrLf {
+            for (i, _) in text.match_indices('\n') {
+                if i == 0 || text.as_bytes()[i - 1] != b'\r' {
+                    tx.edit(i..i, "\r");
+                }
+            }
+        } else {
+            for (i, _) in text.match_indices("\r\n") {
+                tx.edit(i..i + 1, "");
+            }
+        }
+        self.meta.line_ending = ending;
+        if tx.edits.is_empty() {
+            self.version += 1;
+        } else {
+            self.apply(&tx, ChangeKind::Command, now);
+        }
+    }
+
+    /// Writes a UTF-8 file with a byte order mark (`bom`) or without one
+    /// from the next save; the document is modified.
+    pub fn set_bom(&mut self, bom: bool) {
+        if self.meta.bom != bom && self.meta.encoding == encoding_rs::UTF_8 {
+            self.meta.bom = bom;
+            self.version += 1;
+        }
     }
 
     /// Whether there are changes since the last save.
@@ -2380,6 +2433,37 @@ mod tests {
         d.move_cursor(2, false);
         d.type_text("z", true, now);
         assert_eq!(d.text().as_str(), "| z    | c |\n");
+    }
+
+    #[test]
+    fn line_endings_and_byte_order_mark_changed() {
+        let dir = std::env::temp_dir().join(format!("kalem-eol-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("w.txt");
+        std::fs::write(&p, "\u{feff}one\r\ntwo\r\n").unwrap();
+        let now = Instant::now();
+        let mut d =
+            DocumentState::open(&p, Arc::new(Settings::default()), &ParseContext::default())
+                .unwrap();
+        assert_eq!(
+            crate::files::encoding_label(&d.meta).as_deref(),
+            Some("BOM CRLF")
+        );
+        // To LF: the text's breaks too, as one edit; then no mark.
+        d.set_line_ending(LineEnding::Lf, now);
+        assert_eq!(d.text().as_str(), "one\ntwo\n");
+        assert!(d.is_modified());
+        d.set_bom(false);
+        assert_eq!(crate::files::encoding_label(&d.meta), None);
+        d.save(crate::files::SaveOptions::default(), false).unwrap();
+        assert_eq!(std::fs::read(&p).unwrap(), b"one\ntwo\n");
+        // And back, saved as CR LF with a mark.
+        d.set_line_ending(LineEnding::CrLf, now);
+        d.set_bom(true);
+        assert!(d.is_modified());
+        d.save(crate::files::SaveOptions::default(), false).unwrap();
+        assert_eq!(std::fs::read(&p).unwrap(), b"\xEF\xBB\xBFone\r\ntwo\r\n");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

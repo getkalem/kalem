@@ -40,6 +40,8 @@ fn regex_case_sensitive(query: &str) -> bool {
 fn compile(query: &str) -> Result<regex::Regex, String> {
     regex::RegexBuilder::new(query)
         .multi_line(true)
+        // `$` before a CR LF too, and `^` after one, in a CR LF file.
+        .crlf(true)
         .case_insensitive(!regex_case_sensitive(query))
         .build()
         .map_err(|e| {
@@ -210,6 +212,19 @@ pub fn replace_all_with(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn line_ends_in_a_crlf_file() {
+        // `$` before a CR LF and `^` after one, the CR not in the match.
+        let r = FindOptions { regex: true };
+        let t = "one\r\ntwo\r\n";
+        assert_eq!(find_with(t, "[eo]$", r).unwrap(), vec![2..3, 7..8]);
+        assert_eq!(find_with(t, "^t", r).unwrap(), vec![5..6]);
+        assert_eq!(
+            find_with("one\ntwo\n", "[eo]$", r).unwrap(),
+            vec![2..3, 6..7]
+        );
+    }
 
     #[test]
     // A single match is a one-range list.

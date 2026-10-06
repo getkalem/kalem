@@ -304,6 +304,47 @@ fn saving() {
 /// Save As takes a name beside the document, and asks before it
 /// replaces another file (it wrote over it).
 #[test]
+fn save_as_takes_the_new_names_mode() {
+    // Typed as Org, saved as `x.py`: Python from then on, not after
+    // opening it again.
+    let mut t = open("def f():\n    return 1\n");
+    assert_eq!(t.app.doc.meta.mode, kalem_core::DocumentMode::Org);
+    let current = t.app.doc.meta.path.clone().unwrap();
+    t.app.run_command("app.saveAs", serde_json::json!({}));
+    for _ in 0..current.display().to_string().chars().count() {
+        t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    }
+    t.typ(&current.with_file_name("x.py").display().to_string());
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(
+        t.app.doc.meta.mode,
+        kalem_core::DocumentMode::Text {
+            language: Some("py".into())
+        }
+    );
+}
+
+#[test]
+fn save_as_does_what_a_save_does_first() {
+    // `editor.trim_trailing_whitespace` on Save As too, as on Save.
+    let config = Config::from_layers(&[(
+        Layer::User,
+        None,
+        "editor.trim_trailing_whitespace = true\n",
+    )]);
+    let mut t = with_config("* A   \nbody  \n", config, (60, 10));
+    let current = t.app.doc.meta.path.clone().unwrap();
+    let target = current.with_file_name("trimmed.org");
+    t.app.run_command("app.saveAs", serde_json::json!({}));
+    for _ in 0..current.display().to_string().chars().count() {
+        t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    }
+    t.typ(&target.display().to_string());
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(std::fs::read_to_string(&target).unwrap(), "* A\nbody\n");
+}
+
+#[test]
 fn save_as_asks_before_replacing() {
     let mut t = open("* A\n");
     let dir = t

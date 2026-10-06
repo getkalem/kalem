@@ -1,7 +1,10 @@
 Saving is atomic: a crash never leaves half a file. Line endings, a
 byte order mark, file permissions, the group and symbolic links are
 kept; a write-protected file is not saved over (Save As writes
-another). When another program changes an open file, Kalem reloads it
+another). The status bar names line endings that are not LF (=CRLF=)
+and a byte order mark (=BOM=); /Line Endings: LF/, /Line Endings:
+CRLF/ and /Byte Order Mark: Add or Remove/ (in the palette) change
+them from the next save. When another program changes an open file, Kalem reloads it
 if you have no unsaved changes; otherwise the status bar says so, and
 /Revert to Saved/ takes the other version. Undo goes back past a
 reload. When another program deletes it, the document stays open and

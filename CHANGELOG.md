@@ -26,6 +26,9 @@ changes made on the way here are recorded in
 - A log and crash reports in the state folder; settings in `settings.toml`, workspace settings per project, and `keymap.json`.
 
 ### Fixed
+- A line longer than 20,000 bytes (a minified script) shows without syntax colors: a 1 MB one took 3.6 s at each keystroke.
+- A UTF-8 file with a stray byte is read as UTF-8 (the byte shown as �), not as Windows-1252 throughout; one with a byte order mark and a stray byte opens. Save As takes the new name's mode and does what Save does (the events, trailing blanks, a build on save); overwriting a file changed on disk does too.
+- Line endings and the byte order mark can be changed (Line Endings: LF or CRLF, Byte Order Mark: Add or Remove), and the status bar names CRLF and a BOM; a regular expression's `$` matches before a CR LF.
 - Vim keys: in visual mode Page Down and Page Up (fn with the arrows on a Mac), Home, End and the arrows with Option grow the selection, as Vim's `<PageDown>` does; they ended it.
 - CSV: a new `.tsv` is read with tabs; a header alone is a header; Enter, Tab and Shift with the arrows step through the rows a filter or a sort shows; cells pasted from a spreadsheet keep their line breaks and quotes, and one line without a tab is one value; `kalem check` checks the round trip.
 - LaTeX: a document's macro for `\tag` (`\numberthis`) or for `\nonumber` (`\nn`) numbers its line as LaTeX does, without false label warnings; a bibliography in `BIBINPUTS` or found by `kpsewhich` is read; a shared library cited in part gives one note, not one per entry.
