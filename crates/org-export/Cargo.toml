@@ -17,6 +17,7 @@ org-syntax.workspace = true
 org-cite.workspace = true
 jiff = { version = "0.2", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo"] }
 unicode-width = "0.2"
+stacker = "0.1"
 
 [lints]
 workspace = true

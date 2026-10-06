@@ -616,9 +616,7 @@ impl Html {
                 .find(|a| ex.tree.kind(*a).is_some_and(|k| k.is_element()));
             let first = parent.and_then(|p| {
                 ex.tree
-                    .descendants(p)
-                    .into_iter()
-                    .find(|&d| ex.tree.kind(d) == Some(LINK))
+                    .find_descendant(p, |d| ex.tree.kind(d) == Some(LINK))
             });
             match (parent, first) {
                 (Some(p), Some(f)) if f == id => read_attribute(ex, p, "ATTR_HTML"),

@@ -84,6 +84,12 @@ impl std::fmt::Debug for MathRenderer {
     }
 }
 
+/// Runs `f` with room on the stack for a document nested deep (a list
+/// of thousands of levels), as the parser does.
+pub(crate) fn deep<R>(f: impl FnOnce() -> R) -> R {
+    stacker::maybe_grow(256 * 1024, 8 * 1024 * 1024, f)
+}
+
 /// Exports Org `text` with `backend`.
 pub fn export(text: &str, backend: &dyn Backend, settings: &Settings) -> Result<String, String> {
     let now = settings.now.clone().unwrap_or_else(jiff::Zoned::now);
@@ -341,6 +347,46 @@ mod tests {
         let latex = export(text, &Latex::default(), &settings).unwrap();
         assert_eq!(latex, "Some red text.\n\nRight.\n");
     }
+    #[test]
+    fn a_list_nested_deep_exports() {
+        // On a stack of 1 MiB, which 400 levels overflowed in a debug
+        // build, as 2,000 did a debug build's main thread.
+        std::thread::Builder::new()
+            .stack_size(1024 * 1024)
+            .spawn(|| {
+                let text: String = (0..400)
+                    .map(|i| format!("{}- x\n", " ".repeat(i)))
+                    .collect();
+                let settings = Settings {
+                    body_only: true,
+                    ..Settings::default()
+                };
+                for backend in [&Html as &dyn Backend, &Latex::default(), &Markdown] {
+                    let out = export(&text, backend, &settings).unwrap();
+                    assert_eq!(out.matches('x').count(), 400);
+                }
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    #[test]
+    fn many_links_in_a_paragraph_export_in_linear_time() {
+        // Each link looked for the paragraph's first among all its nodes.
+        let text: String = (0..20_000)
+            .map(|i| format!("[[https://e.com/{i}][l]] "))
+            .collect();
+        let settings = Settings {
+            body_only: true,
+            ..Settings::default()
+        };
+        let start = std::time::Instant::now();
+        let out = export(&text, &Html, &settings).unwrap();
+        assert_eq!(out.matches("<a href").count(), 20_000);
+        assert!(start.elapsed().as_secs() < 20, "{:?}", start.elapsed());
+    }
+
     #[test]
     fn a_footnote_with_no_definition_stops_the_export_as_in_emacs() {
         let settings = Settings {

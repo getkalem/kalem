@@ -411,10 +411,21 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   `org-make-tags-matcher` reads terms from the start of each part and
   stops), so `kalem query` matches as it does and says, on standard
   error, what was left out; test `folders_for_fmt_export_and_query`.)
-- [ ] **Minor, measured by the audit.** HTML export is quadratic in the
+- [x] **Minor, measured by the audit.** HTML export is quadratic in the
   links of one paragraph (4,000 links 1.7 s, 8,000 7 s; md and latex
   0.1 s). A list nested 2,000 levels overflows the stack in a debug build
   (release survives 10,000); the fuzz job runs debug.
+  (done 2026-10-06: each link looked for its paragraph's first link
+  among all the paragraph's nodes, collected; the search now stops at
+  the first, walking lazily (`Tree::find_descendant`), as
+  `org-element-map` with FIRST-MATCH does: 8,000 links in a debug build
+  19 s to 0.6 s, as fast as Markdown. The export tree's building, the
+  transcoding and the walk for select tags run with room on the stack
+  (`stacker`, as the parser): 10,000 levels export in a debug build;
+  Markdown's nested lists stay quadratic in their depth, as Emacs's
+  `ox-md` indents each level's contents again. Tests
+  `many_links_in_a_paragraph_export_in_linear_time`,
+  `a_list_nested_deep_exports`, `find_descendant_walks_as_descendants`.)
 - [ ] **Doc.** `book/part-2/org.org:901-902` says "the interim Kalem
   formatting is written by the HTML and LaTeX back-ends" while 118-122
   says exports drop it as Emacs does (the code drops it everywhere).

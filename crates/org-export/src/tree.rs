@@ -160,6 +160,10 @@ impl Tree {
     }
 
     fn node(&mut self, n: &SyntaxNode, parent: Option<Id>) -> Id {
+        crate::deep(|| self.node_unguarded(n, parent))
+    }
+
+    fn node_unguarded(&mut self, n: &SyntaxNode, parent: Option<Id>) -> Id {
         let kind = n.kind();
         let id = self.push(Node {
             kind: Kind::Node(kind),
@@ -410,11 +414,69 @@ impl Tree {
         out
     }
 
+    /// The first of `descendants(id)` for which `f` holds, without
+    /// walking past it (`org-element-map` with FIRST-MATCH).
+    pub fn find_descendant(&self, id: Id, f: impl Fn(Id) -> bool) -> Option<Id> {
+        if f(id) {
+            return Some(id);
+        }
+        // Each node being walked, with the list it is in (its secondary
+        // strings, then its contents) and the place in that list, so that
+        // a node of many children costs nothing until they are reached.
+        let mut stack: Vec<(Id, usize, usize)> = vec![(id, 0, 0)];
+        while let Some(top) = stack.last_mut() {
+            let (x, list, i) = *top;
+            let n = &self.nodes[x];
+            let items: &[Id] = match list.cmp(&n.secondary.len()) {
+                std::cmp::Ordering::Less => &n.secondary[list].1,
+                std::cmp::Ordering::Equal => &n.children,
+                std::cmp::Ordering::Greater => {
+                    stack.pop();
+                    continue;
+                }
+            };
+            let Some(&c) = items.get(i) else {
+                *top = (x, list + 1, 0);
+                continue;
+            };
+            top.2 += 1;
+            if f(c) {
+                return Some(c);
+            }
+            stack.push((c, 0, 0));
+        }
+        None
+    }
+
     /// The text of a node's plain text and objects, as written.
     pub fn source(&self, id: Id) -> String {
         match &self.nodes[id].syntax {
             Some(s) => s.text().to_string(),
             None => self.nodes[id].text.clone(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn find_descendant_walks_as_descendants() {
+        let text = "#+TITLE: T\n* Head *bold* [[a][b]] :t:\n:PROPERTIES:\n:X: 1\n:END:\nSee [[x]] and *[[y][z]]*.[fn:1]\n- item [[w]]\n  | [[v]] | c |\n\n[fn:1] Note [[u]].\n** Sub [[t]]\n";
+        let parse = org_syntax::parse(text);
+        let tree = Tree::build(&parse.syntax());
+        let kinds: Vec<Option<SyntaxKind>> = (0..tree.nodes.len()).map(|i| tree.kind(i)).collect();
+        for id in 0..tree.nodes.len() {
+            for want in &kinds {
+                assert_eq!(
+                    tree.find_descendant(id, |d| tree.kind(d) == *want),
+                    tree.descendants(id)
+                        .into_iter()
+                        .find(|&d| tree.kind(d) == *want),
+                    "{id} {want:?}"
+                );
+            }
         }
     }
 }

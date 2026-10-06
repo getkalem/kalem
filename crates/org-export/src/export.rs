@@ -864,6 +864,15 @@ impl<'b> Exporter<'b> {
             select: &[String],
             out: &mut HashSet<Id>,
         ) {
+            crate::deep(|| walk_unguarded(ex, id, genealogy, select, out));
+        }
+        fn walk_unguarded(
+            ex: &Exporter<'_>,
+            id: Id,
+            genealogy: &mut Vec<Id>,
+            select: &[String],
+            out: &mut HashSet<Id>,
+        ) {
             let t = &ex.tree;
             match t.kind(id) {
                 Some(HEADLINE | INLINETASK) => {
@@ -1234,6 +1243,10 @@ impl<'b> Exporter<'b> {
 
     /// `org-export-data`.
     pub fn data(&mut self, id: Id) -> String {
+        crate::deep(|| self.data_unguarded(id))
+    }
+
+    fn data_unguarded(&mut self, id: Id) -> String {
         if let Some(s) = self.memo.get(&id) {
             return s.clone();
         }

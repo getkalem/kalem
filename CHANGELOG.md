@@ -26,6 +26,7 @@ changes made on the way here are recorded in
 - A log and crash reports in the state folder; settings in `settings.toml`, workspace settings per project, and `keymap.json`.
 
 ### Fixed
+- Exporting a paragraph of thousands of links to HTML takes as long as to Markdown (8,000 links: 19 s to 0.6 s in a debug build), and a list nested thousands of levels deep exports instead of overflowing the stack.
 - `kalem fmt`, `kalem export` and `kalem query` take folders as `kalem check` does; `export` and `query` report a file they cannot read and go on; `kalem query` says what part of a match string it left out, as Emacs leaves it out.
 - Org: an export stops, as Emacs's does, at a footnote with no definition; `kalem check` reports a footnote with no definition or with two, and an `#+INCLUDE`, a `#+SETUPFILE` or a `file:` link whose file is not there.
 - Save As a workbook of another kind (`.xlsm` as `.xlsx`, a template as a workbook) writes the content type of that kind and, where macros are not allowed, leaves the VBA project out: Excel refused the file.
