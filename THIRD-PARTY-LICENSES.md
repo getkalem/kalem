@@ -8120,7 +8120,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### MIT License
 
-Used by: md-5 0.10.6, sha2 0.10.9.
+Used by: md-5 0.10.6, sha1 0.10.7, sha2 0.10.9.
 
 ```text
 Copyright (c) 2006-2009 Graydon Hoare

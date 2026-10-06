@@ -58,7 +58,7 @@ the names of your functions.
 
 One thing to know: Kalem keeps using the plugin built into it unless
 yours is /newer/. So raise =version= in =plugins/xlsx/plugin.json=
-(from =0.0.7= to =0.0.8=, say) before =kalem plugin dev=; =kalem plugin
+(from =0.0.8= to =0.0.9=, say) before =kalem plugin dev=; =kalem plugin
 list= says which copy is in use. =kalem plugin remove org.kalem.xlsx=
 takes your copy out and the built-in one is back.
 

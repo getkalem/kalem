@@ -919,7 +919,7 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   relationship and content types; the bytes stay as they are when
   nothing changes. `save_as_format` uses it for edited and converted
   workbooks alike. Test `a_workbook_saved_as_another_kind_says_so`.)
-- [~] **Major, reported.** A password-protected `.xlsx` (an OLE
+- [x] **Major, reported.** A password-protected `.xlsx` (an OLE
   container) fails with "malformed package: no end of central directory
   record" (`xlsx/src/workbook.rs:365`, `package.rs:192`); detect
   `EncryptionInfo` and say "protected by a password".
@@ -933,10 +933,9 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   HMAC and the data spaces, a version 3 compound file; LibreOffice opens
   the result; tests `agile_round_trip`, `standard_encryption_read`,
   `a_workbook_with_a_password_to_open`), and in Kalem `clock.random`
-  draws from the system's secure source for the key. Open: releasing
-  xlsx 0.0.8 (the owner's call), bumping `components.toml`, and the
-  book's "cannot be opened yet" in `pdf-pictures-and-workbooks.org`
-  changed with the bump.)
+  draws from the system's secure source for the key. Released as xlsx
+  0.0.8 (tag at plugins 457ce84, the owner's go-ahead 2026-10-06) and
+  built in from it; the book says so.)
 - [x] **Major, reported.** Installing any component from the index
   replaces the newer bundled viewer (`kalem-cli/src/lib.rs:510-522` maps
   `org.kalem.xlsx` to the bundled `xlsx`): a working xlsx 0.0.4 is OOXML

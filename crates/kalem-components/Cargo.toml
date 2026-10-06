@@ -37,6 +37,7 @@ wasmparser = "0.247"
 
 [dev-dependencies]
 kalem-script.workspace = true
+kalem-viewer.workspace = true
 serde_json = "1"
 
 [lints]

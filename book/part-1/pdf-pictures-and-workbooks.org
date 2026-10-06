@@ -36,8 +36,9 @@ cells, and with colors off shows its text.
   formulas when it opens the file. An =.ods=, =.xls= or =.xlsb= is
   converted as it opens: Kalem asks before saving it back in its own
   format, saying what it keeps (number formats are lost), and Save As
-  =.xlsx= leaves the original alone. A workbook protected by a password
-  cannot be opened yet.
+  =.xlsx= leaves the original alone. A workbook with a password to open
+  asks for it, and is saved encrypted again with it (saved as =.ods=, it
+  is not encrypted, and Kalem says so).
 
 A viewer that fails, runs past its time or out of its memory stops: the
 editor closes its document at once and says why, and goes on. A viewer

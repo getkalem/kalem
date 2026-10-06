@@ -24,6 +24,7 @@ changes made on the way here are recorded in
 - The command line: `check`, `fmt`, `export`, `import`, `view`, `query`, `table recalc`, `latex build`, `complete`, `commands`, `plugin` and `lsp`, with JSON output for scripts.
 - Plugins: viewers and extension plugins (commands, keys, events, the document, settings, panels) as WebAssembly components in a sandbox with their own memory, time and permissions, on a versioned API (0.2.2); declarative language plugins; `kalem plugin` to browse the index, install from it or from GitHub, list, check, remove, start, build and develop plugins.
 - A log and crash reports in the state folder; settings in `settings.toml`, workspace settings per project, and `keymap.json`.
+- Excel workbooks with a password to open (Excel 2007's and 2010's encryption) open with the password Kalem asks for and are saved encrypted again with it (xlsx 0.0.8).
 
 ### Fixed
 - Vim's `:q` closes the document when the window is not split, as a tab closes, instead of quitting Kalem with other documents open; Kalem quits from it only when nothing is left to close (in the terminal, from the last document). `:q!` loses the document's changes and no other's (it quit Kalem, losing every document's); `:qa!` quits without saving after asking.
