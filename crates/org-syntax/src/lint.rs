@@ -76,9 +76,37 @@ fn check(root: &SyntaxNode) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     let mut custom_ids: HashMap<String, Vec<TextRange>> = HashMap::new();
     let mut names: HashMap<String, Vec<TextRange>> = HashMap::new();
+    // Footnotes, as org-lint checks them: definitions by label, the
+    // labels an inline footnote defines, and references to a label.
+    let mut footnotes: HashMap<String, Vec<TextRange>> = HashMap::new();
+    let mut inline_labels: Vec<String> = Vec::new();
+    let mut references: Vec<(String, TextRange)> = Vec::new();
     for n in root.descendants() {
         match n.kind() {
             PARAGRAPH => paragraph(&n, &mut out),
+            FOOTNOTE_DEFINITION => {
+                if let Some(f) = ast::FootnoteDefinition::cast(n.clone()) {
+                    footnotes
+                        .entry(f.label())
+                        .or_default()
+                        .push(first_line(&n).0);
+                }
+            }
+            FOOTNOTE_REFERENCE => {
+                if let Some(f) = ast::FootnoteReference::cast(n.clone())
+                    && let Some(label) = f.label()
+                {
+                    if f.is_inline() {
+                        inline_labels.push(label);
+                    } else {
+                        // Without the blanks after it.
+                        let len = n.text().to_string().trim_end().len();
+                        let range =
+                            TextRange::at(n.text_range().start(), TextSize::from(len as u32));
+                        references.push((label, range));
+                    }
+                }
+            }
             KEYWORD => {
                 if let Some(k) = ast::Keyword::cast(n.clone()) {
                     let key = k.key();
@@ -122,6 +150,28 @@ fn check(root: &SyntaxNode) -> Vec<Diagnostic> {
             && let Some(name) = ast::element_name(&n)
         {
             names.entry(name).or_default().push(first_line(&n).0);
+        }
+    }
+    for (label, range) in references {
+        if !footnotes.contains_key(&label) && !inline_labels.contains(&label) {
+            out.push(diag(
+                range,
+                Severity::Warning,
+                "undefined-footnote-reference",
+                format!("footnote {label} has no definition; an export stops here"),
+            ));
+        }
+    }
+    for (label, ranges) in footnotes {
+        if ranges.len() > 1 {
+            for r in ranges {
+                out.push(diag(
+                    r,
+                    Severity::Warning,
+                    "duplicate-footnote-definition",
+                    format!("footnote {label} is defined more than once; the first is used"),
+                ));
+            }
         }
     }
     for (what, code, map) in [
@@ -297,6 +347,25 @@ mod tests {
             ),
             vec!["duplicate-custom-id", "duplicate-custom-id"]
         );
+    }
+
+    #[test]
+    fn footnotes_as_org_lint_checks_them() {
+        assert_eq!(codes("See [fn:9].\n"), vec!["undefined-footnote-reference"]);
+        assert_eq!(
+            codes("See [fn:1].\n\n[fn:1] One.\n\n[fn:1] Two.\n"),
+            vec![
+                "duplicate-footnote-definition",
+                "duplicate-footnote-definition"
+            ]
+        );
+        // Defined by a definition, or by an inline footnote; anonymous.
+        assert!(codes("See [fn:1].\n\n[fn:1] One.\n").is_empty());
+        assert!(codes("See [fn:a:Note] and [fn:a].\n").is_empty());
+        assert!(codes("See [fn::Note].\n").is_empty());
+        let d = crate::parse("See [fn:9] here.\n").diagnostics();
+        assert_eq!(u32::from(d[0].range.start()), 4);
+        assert_eq!(u32::from(d[0].range.len()), 6);
     }
 
     #[test]

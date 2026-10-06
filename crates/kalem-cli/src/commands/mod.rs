@@ -412,6 +412,21 @@ pub(crate) fn check(
             }
             diags.sort_by_key(|d| d.range.start());
         }
+        // Files the document names that are not there, as org-lint finds
+        // them: an export would stop at a missing `#+INCLUDE`.
+        if mode == kalem_core::DocumentMode::Org {
+            for (r, code, path) in kalem_core::org_mode::missing_files(&parse, f) {
+                diags.push(org_syntax::Diagnostic {
+                    range: org_syntax::TextRange::new(
+                        org_syntax::TextSize::from(r.start as u32),
+                        org_syntax::TextSize::from(r.end as u32),
+                    ),
+                    severity: org_syntax::Severity::Warning,
+                    code,
+                    message: kalem_core::tr!("msg-md-missing-file", path = path),
+                });
+            }
+        }
         // Citations: the bibliography files, and keys none of them has.
         if mode != kalem_core::DocumentMode::Csv && !markdown {
             diags.extend(citation_diagnostics(&text, f));

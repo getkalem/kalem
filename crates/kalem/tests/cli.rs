@@ -586,6 +586,45 @@ fn parse_and_check_by_kind_and_folder() {
 }
 
 #[test]
+fn org_footnotes_and_files_not_there() {
+    let dir = std::env::temp_dir().join(format!("kalem-cli-org-lint-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let f = dir.join("doc.org");
+    std::fs::write(
+        &f,
+        "#+INCLUDE: \"gone.org\"\nSee [fn:9] and [[file:gone.png]].\n\n[fn:1] One.\n\n[fn:1] Two.\n",
+    )
+    .unwrap();
+    let f = f.display().to_string();
+    let (code, out, _) = kalem(&["check", "--format", "json", &f]);
+    assert_eq!(code, 0, "{out}");
+    let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+    let codes: Vec<&str> = v[0]["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["code"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        codes,
+        [
+            "missing-include-file",
+            "undefined-footnote-reference",
+            "missing-linked-file",
+            "duplicate-footnote-definition",
+            "duplicate-footnote-definition"
+        ]
+    );
+    // The export stops there, as Emacs's does.
+    std::fs::write(dir.join("doc.org"), "See [fn:9].\n").unwrap();
+    let (code, _, err) = kalem(&["export", "--to", "md", "-o", "-", &f]);
+    assert_ne!(code, 0);
+    assert!(err.contains("Definition not found for footnote 9"), "{err}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn latex_coverage_by_field() {
     let dir = std::env::temp_dir().join(format!("kalem-cli-coverage-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);

@@ -370,15 +370,26 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   nothing where `kalem export` recognizes REVIEW; the Book's
   `org.org:465` says the model reads it).
   (done: both parse with `parse_file`; `kalem query` finds REVIEW.)
-- [ ] **Minor, verified.** An undefined footnote reference exports as an
+- [x] **Minor, verified.** An undefined footnote reference exports as an
   empty footnote with exit 0 (`See [fn:9].` → `[1]` with no text);
   Emacs stops with "Definition not found for footnote 9". `kalem check`
   reports neither undefined nor duplicate footnotes; add it to the
   known-differences page or fail.
-- [ ] **Minor, verified.** `kalem check` does not report a missing
+  (done 2026-10-06: the export stops with Emacs's message, where
+  `org-export-get-footnote-definition` does; org-lint's
+  `undefined-footnote-reference` and `duplicate-footnote-definition` in
+  `org-syntax`'s checks, so the editors show them too; tests
+  `a_footnote_with_no_definition_stops_the_export_as_in_emacs`,
+  `footnotes_as_org_lint_checks_them`.)
+- [x] **Minor, verified.** `kalem check` does not report a missing
   `#+INCLUDE`, a missing `#+SETUPFILE` or links to missing local files
   (exit 0; the export then fails); org-lint does, and Markdown files get
   `markdown-missing-file`.
+  (done 2026-10-06: `missing-include-file`, `missing-setup-file` and
+  `missing-linked-file` from `kalem_core::org_mode::missing_files`,
+  remote files left alone; the Org manual of the corpus is found to
+  include `fdl.org`, which is not there; tests
+  `files_named_and_not_there`, `org_footnotes_and_files_not_there`.)
 - [x] **Minor, verified.** The CLI refuses non-UTF-8 Org files that the
   editors, `fmt` and `table recalc` open (`read_to_string` at
   `commands/mod.rs:28-30`, exit 2; see 3.3 for the same in LaTeX).

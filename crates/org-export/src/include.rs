@@ -48,6 +48,12 @@ fn find_word(value: &str, word: &str) -> Option<usize> {
     None
 }
 
+/// The file an `#+INCLUDE:` keyword's `value` names, as the export
+/// reads it: absolute, from `dir`, or a URL; `None` when it names none.
+pub fn included_file(value: &str, dir: &Path) -> Option<String> {
+    parse_value(value, dir, 0).file
+}
+
 fn parse_value(value: &str, dir: &Path, induced: usize) -> Include {
     let mut value = value.to_string();
     let mut inc = Include::default();

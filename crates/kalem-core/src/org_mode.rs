@@ -166,6 +166,84 @@ fn link(n: &SyntaxNode) -> Kind {
     }
 }
 
+/// What an Org document names that is not there, as org-lint finds
+/// it: the file of an `#+INCLUDE` or a `#+SETUPFILE`, and the file of a
+/// `file:` link (pictures too), each from the folder of `path`. Remote
+/// files (a URL, `/ssh:host:`) are not looked for. Each with its range,
+/// its code and the file as written.
+pub fn missing_files(
+    parse: &org_syntax::Parse,
+    path: &std::path::Path,
+) -> Vec<(Range<usize>, &'static str, String)> {
+    let dir = path.parent().unwrap_or(std::path::Path::new(""));
+    let dir = if dir.as_os_str().is_empty() {
+        std::path::Path::new(".")
+    } else {
+        dir
+    };
+    let remote = |f: &str| {
+        f.contains("://")
+            || f.strip_prefix('/')
+                .and_then(|r| r.split('/').next())
+                .is_some_and(|first| first.contains(':'))
+    };
+    let missing = |f: &str| !remote(f) && !std::path::Path::new(f).exists();
+    // Without the blanks after the node.
+    let range = |n: &SyntaxNode| {
+        let start = usize::from(n.text_range().start());
+        start..start + n.text().to_string().trim_end().len()
+    };
+    let mut out = Vec::new();
+    for n in parse.syntax().descendants() {
+        match n.kind() {
+            K::KEYWORD => {
+                let Some(k) = ast::Keyword::cast(n.clone()) else {
+                    continue;
+                };
+                let value = k.value();
+                match k.key().as_str() {
+                    "INCLUDE" => {
+                        if let Some(f) = org_export::include::included_file(&value, dir)
+                            && missing(&f)
+                        {
+                            out.push((range(&n), "missing-include-file", value));
+                        }
+                    }
+                    "SETUPFILE" => {
+                        let name = value
+                            .trim()
+                            .trim_matches('"')
+                            .trim_start_matches('<')
+                            .trim_end_matches('>');
+                        if !name.is_empty()
+                            && !remote(name)
+                            && missing(&org_export::export::expand_file_name(name, dir))
+                        {
+                            out.push((range(&n), "missing-setup-file", name.to_string()));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            K::LINK => {
+                let Some(l) = ast::Link::cast(n.clone()) else {
+                    continue;
+                };
+                let info = l.info(parse.context());
+                if info.link_type == "file"
+                    && !info.path.is_empty()
+                    && !remote(&info.path)
+                    && missing(&org_export::export::expand_file_name(&info.path, dir))
+                {
+                    out.push((range(&n), "missing-linked-file", info.path));
+                }
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,5 +348,34 @@ mod tests {
             crate::modes::check(&OrgMode, &text, &[(mid..mid, "\n* x\n")])
                 .unwrap_or_else(|e| panic!("{}: {e}", f.display()));
         }
+    }
+
+    #[test]
+    fn files_named_and_not_there() {
+        let dir = std::env::temp_dir().join(format!("kalem-org-missing-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("here.org"), "x\n").unwrap();
+        std::fs::write(dir.join("fig.png"), "").unwrap();
+        let path = dir.join("doc.org");
+        let text = "#+SETUPFILE: here.org\n#+SETUPFILE: \"gone.setup\"\n#+INCLUDE: \"here.org\" :lines \"1-2\"\n#+INCLUDE: \"gone.org::*Head\"\n#+INCLUDE: https://example.com/x.org\n\n[[file:fig.png]] [[./gone.png]] [[file:gone.txt::12][text]] [[/ssh:host:/x]] [[https://a.b]]\n";
+        let parse = org_syntax::parse_file(text, &path);
+        let found: Vec<(&str, String)> = missing_files(&parse, &path)
+            .into_iter()
+            .map(|(r, code, f)| {
+                assert!(!text[r.clone()].ends_with([' ', '\n']), "{r:?}");
+                (code, f)
+            })
+            .collect();
+        assert_eq!(
+            found,
+            vec![
+                ("missing-setup-file", "gone.setup".to_string()),
+                ("missing-include-file", "\"gone.org::*Head\"".to_string()),
+                ("missing-linked-file", "./gone.png".to_string()),
+                ("missing-linked-file", "gone.txt".to_string()),
+            ]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

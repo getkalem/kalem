@@ -1692,7 +1692,13 @@ impl<'b> Exporter<'b> {
                 (k == Some(FOOTNOTE_DEFINITION)
                     || (k == Some(FOOTNOTE_REFERENCE) && !self.footnote_is_standard(d)))
                     && self.footnote_label(d).as_deref() == Some(label.as_str())
-            })?;
+            });
+        // As Emacs, which stops the export there.
+        let Some(found) = found else {
+            self.error
+                .get_or_insert_with(|| format!("Definition not found for footnote {label}"));
+            return None;
+        };
         let contents = self.tree.children(found).to_vec();
         self.footnote_defs
             .get_or_insert_with(HashMap::new)

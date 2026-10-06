@@ -925,11 +925,19 @@ likely mistakes in the spirit of =org-lint=:
 | =unbalanced-call=                | A =#+CALL:= line whose brackets do not balance    |
 | =duplicate-custom-id=            | A =CUSTOM_ID= used twice                          |
 | =duplicate-name=                 | A =#+NAME= used twice                             |
+| =undefined-footnote-reference=   | A footnote with no definition; an export stops    |
+| =duplicate-footnote-definition=  | A footnote defined twice; the first is used       |
+| =missing-include-file=           | An =#+INCLUDE= file that is not there             |
+| =missing-setup-file=             | A =#+SETUPFILE= that is not there                 |
+| =missing-linked-file=            | A =file:= link, or a picture, to no file          |
 | =bibliography-unreadable=        | A =#+BIBLIOGRAPHY= file that cannot be read       |
 | =cite-unknown-key=               | A citation key no bibliography has                |
 | =kalem-markup-in-org=            | An interim Kalem addition in a =.org= file        |
 
-Diagnostics never change how the file parses.
+Diagnostics never change how the file parses. The last three need the
+file's folder, so ~kalem check~ reports them and the editors do not;
+an export, as Emacs's, stops at a footnote with no definition
+("Definition not found for footnote 9") and at a missing include.
 
 * Limits and performance
 

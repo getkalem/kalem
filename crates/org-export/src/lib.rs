@@ -179,6 +179,10 @@ pub fn export(text: &str, backend: &dyn Backend, settings: &Settings) -> Result<
     } else {
         backend.template(&mut ex, full)
     };
+    // The footnotes are collected by the templates.
+    if let Some(e) = ex.error.take() {
+        return Err(e);
+    }
     let out = match &cite_finalizer {
         Some(f) => cite::finalize(out, f),
         None => out,
@@ -336,6 +340,31 @@ mod tests {
         assert_eq!(html, "<p>\nSome red text.\n</p>\n\n<p>\nRight.\n</p>\n");
         let latex = export(text, &Latex::default(), &settings).unwrap();
         assert_eq!(latex, "Some red text.\n\nRight.\n");
+    }
+    #[test]
+    fn a_footnote_with_no_definition_stops_the_export_as_in_emacs() {
+        let settings = Settings {
+            body_only: true,
+            ..Settings::default()
+        };
+        for backend in [&Html as &dyn Backend, &Latex::default(), &Markdown] {
+            assert_eq!(
+                export("See [fn:9].\n", backend, &settings),
+                Err("Definition not found for footnote 9".to_string())
+            );
+            // Defined, inline, or not exported: no error.
+            assert!(export("See [fn:9].\n\n[fn:9] Note.\n", backend, &settings).is_ok());
+            assert!(export("See [fn:9:Note] and [fn:9].\n", backend, &settings).is_ok());
+            assert!(export("#+OPTIONS: f:nil\nSee [fn:9].\n", backend, &settings).is_ok());
+            assert!(
+                export(
+                    "* Kept\n* Not :noexport:\nSee [fn:9].\n",
+                    backend,
+                    &settings
+                )
+                .is_ok()
+            );
+        }
     }
     use std::path::Path;
 
