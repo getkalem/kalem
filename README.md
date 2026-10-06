@@ -22,17 +22,17 @@ Kalem is a text editor that shows a file the way it reads and never touches what
 | `.tex`, `.latex`, `.ltx` | A document: numbered sections, typeset formulas, references, citations, figures; PDF builds with the errors at their lines. |
 | `.csv`, `.tsv`, `.tab` | A grid: sorting, filters, a record view, column statistics. |
 | `.bib` | A grid of entries. |
-| `.pdf` | A viewer: pages, zoom, search, and from a LaTeX build, Ctrl-click back to the source line. |
-| Pictures | A viewer for PNG, JPEG, GIF, WebP, TIFF and a dozen more, in the terminal too where it draws pictures (kitty, Ghostty, WezTerm, iTerm2, or Sixel). An SVG file, being text, opens as its XML; it shows as a picture where a document links it. |
-| `.xlsx`, `.xlsm`, `.xltx`, `.xltm` | A workbook: sheets as grids with their formulas and charts, edited and saved as itself. A save asks Excel to recalculate when it opens the file. |
-| `.ods`, `.xls`, `.xlsb` | A workbook converted as it opens: number formats are lost, and saving it back in its own format asks first, saying what it keeps. Save As `.xlsx` leaves the original alone. |
+| `.pdf` | A viewer, the PDF plugin: pages, zoom, search, and from a LaTeX build, Ctrl-click back to the source line. |
+| Pictures | A viewer, the picture plugin, for PNG, JPEG, GIF, WebP, TIFF and a dozen more, in the terminal too where it draws pictures (kitty, Ghostty, WezTerm, iTerm2, or Sixel). An SVG file, being text, opens as its XML; it shows as a picture where a document links it. |
+| `.xlsx`, `.xlsm`, `.xltx`, `.xltm` | A workbook, the workbook plugin: sheets as grids with their formulas and charts, edited and saved as itself. A save asks Excel to recalculate when it opens the file. |
+| `.ods`, `.xls`, `.xlsb` | A workbook, the same plugin, converted as it opens: number formats are lost, and saving it back in its own format asks first, saying what it keeps. Save As `.xlsx` leaves the original alone. |
 | Anything else | Code with highlighting. |
 
-Around them: a file manager, projects, find in files, a command palette, Vim keys with Doom Emacs's leader, themes, English and Turkish. The viewers are plugins: WebAssembly components released by [getkalem/plugins](https://github.com/getkalem/plugins), each with its own memory and only the permissions it declares, built into the binary; `kalem plugin install` adds others from the index. The keys are Word's by default, and Vim's with Doom Emacs's leader one setting away (`editor.keymap_profile`). Not yet: the agenda, signed installers.
+Around them: a file manager, projects, find in files, a command palette, Vim keys with Doom Emacs's leader, themes, English and Turkish. The three viewers are plugins: WebAssembly components released by [getkalem/plugins](https://github.com/getkalem/plugins), each with its own memory and only the permissions it declares, built into the binary; `kalem plugin install` adds others from the index. The keys are Word's by default, and Vim's with Doom Emacs's leader one setting away (`editor.keymap_profile`). Not yet: the agenda, signed installers.
 
 ## Install
 
-From a release, once 0.1 is out, on macOS and Linux:
+From a release, on macOS and Linux:
 
 ```bash
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/getkalem/kalem/releases/latest/download/kalem-editor-installer.sh | sh

@@ -1,4 +1,28 @@
-Kalem has no releases yet. Build it from source with Rust 1.96 or later:
+From a release, on macOS and Linux:
+
+#+begin_src sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/getkalem/kalem/releases/latest/download/kalem-editor-installer.sh | sh
+#+end_src
+
+and on Windows, in PowerShell:
+
+#+begin_src powershell
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/getkalem/kalem/releases/latest/download/kalem-editor-installer.ps1 | iex"
+#+end_src
+
+The installers put =kalem= in =~/.cargo/bin= (the archives they unpack,
+one for each of macOS on Apple silicon and Intel, Linux on x86-64 and
+ARM, and Windows on x86-64, are on the
+[[https://github.com/getkalem/kalem/releases][releases page]] with a
+=.sha256= beside each); delete it there to uninstall. Each release also
+has terminal-only archives, =kalem-terminal-TARGET=: the terminal editor
+and the command-line tools without the graphical editor, the viewers of
+PDF files, pictures and workbooks, and plugins. On Linux the full binary
+links the windowing libraries (xkbcommon, Wayland, X11, fontconfig,
+freetype, Vulkan) even for =kalem tui=, so a server should take the
+terminal archive; both need glibc 2.35 or later (Ubuntu 22.04).
+
+Or build it from source with Rust 1.96 or later:
 
 #+begin_src sh
 git clone https://github.com/getkalem/kalem && cd kalem
@@ -20,10 +44,6 @@ your =PATH= when Rust came with rustup.
   not signed, so the first time, open it with right-click and /Open/.
 - Windows :: Rust with its MSVC tools, nothing more. The settings live
   in =%APPDATA%\kalem=.
-
-Releases are planned for macOS (Apple silicon and Intel), Linux (x86-64
-and ARM) and Windows (x86-64), with a terminal-only archive for servers
-and minimal systems.
 
 The terminal-only build leaves out the graphical editor, and with it the
 viewers of PDF files, pictures and workbooks and the plugin host, which

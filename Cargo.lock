@@ -3108,7 +3108,7 @@ dependencies = [
 
 [[package]]
 name = "gpui-rich-text"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "gpui-unofficial",
 ]
@@ -4211,7 +4211,7 @@ dependencies = [
 
 [[package]]
 name = "kalem-cli"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "clap",
  "image",
@@ -4240,7 +4240,7 @@ dependencies = [
 
 [[package]]
 name = "kalem-components"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "flate2",
  "kalem-script",
@@ -4254,7 +4254,7 @@ dependencies = [
 
 [[package]]
 name = "kalem-core"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "chardetng",
  "comrak",
@@ -4303,7 +4303,7 @@ dependencies = [
 
 [[package]]
 name = "kalem-editor"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "insta",
  "kalem-cli",
@@ -4314,7 +4314,7 @@ dependencies = [
 
 [[package]]
 name = "kalem-fs"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "dunce",
  "filetime",
@@ -4325,7 +4325,7 @@ dependencies = [
 
 [[package]]
 name = "kalem-highlight"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "serde",
  "syntect",
@@ -4335,7 +4335,7 @@ dependencies = [
 
 [[package]]
 name = "kalem-lsp"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "proptest",
  "serde_json",
@@ -4344,7 +4344,7 @@ dependencies = [
 
 [[package]]
 name = "kalem-plugin"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "kalem-viewer",
  "toml_edit 0.25.15+spec-1.1.0",
@@ -4353,7 +4353,7 @@ dependencies = [
 
 [[package]]
 name = "kalem-project"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "dunce",
  "grep-matcher",
@@ -4367,7 +4367,7 @@ dependencies = [
 
 [[package]]
 name = "kalem-script"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "getrandom 0.3.4",
  "jiff",
@@ -4381,7 +4381,7 @@ dependencies = [
 
 [[package]]
 name = "kalem-tui"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "crossterm",
  "image",
@@ -4407,7 +4407,7 @@ dependencies = [
 
 [[package]]
 name = "kalem-ui"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "gpui-platform-gpui-unofficial",
  "gpui-rich-text",
@@ -4435,7 +4435,7 @@ dependencies = [
 
 [[package]]
 name = "kalem-viewer"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 
 [[package]]
 name = "kasuari"
@@ -4510,7 +4510,7 @@ dependencies = [
 
 [[package]]
 name = "latex-model"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "latex-syntax",
  "rowan",
@@ -4518,7 +4518,7 @@ dependencies = [
 
 [[package]]
 name = "latex-syntax"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "proptest",
  "rowan",
@@ -5649,7 +5649,7 @@ dependencies = [
 
 [[package]]
 name = "org-cite"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "encoding_rs",
  "hayagriva",
@@ -5658,7 +5658,7 @@ dependencies = [
 
 [[package]]
 name = "org-edit"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "insta",
  "jiff",
@@ -5672,7 +5672,7 @@ dependencies = [
 
 [[package]]
 name = "org-export"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "jiff",
  "org-cite",
@@ -5683,7 +5683,7 @@ dependencies = [
 
 [[package]]
 name = "org-math"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "image",
  "ratex-layout",
@@ -5695,7 +5695,7 @@ dependencies = [
 
 [[package]]
 name = "org-model"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "jiff",
  "org-syntax",
@@ -5706,7 +5706,7 @@ dependencies = [
 
 [[package]]
 name = "org-syntax"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "criterion",
  "insta",
@@ -5720,7 +5720,7 @@ dependencies = [
 
 [[package]]
 name = "org-table"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "num-bigint",
  "num-integer",
@@ -8438,7 +8438,7 @@ dependencies = [
 
 [[package]]
 name = "tui-rich-text"
-version = "0.1.0-rc.1"
+version = "0.1.0"
 dependencies = [
  "ratatui",
  "unicode-width",

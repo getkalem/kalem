@@ -141,7 +141,7 @@ The constitution of the specification. Every later syntax decision is tested aga
 ```
 klm 1.0
 title: On the Shape of Notes
-author: Mehmet Şekercioğlu
+author: Ayşe Yılmaz
 lang: tr
 style: article.klms
 

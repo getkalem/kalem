@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-06
+
 The first release. Kalem is an editor for plain-text documents that
 shows each format as it reads and keeps the file byte for byte; the
 changes made on the way here are recorded in
