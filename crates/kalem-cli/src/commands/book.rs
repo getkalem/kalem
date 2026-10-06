@@ -500,13 +500,88 @@ fn pages(dir: &Path, c: &Contents) -> (Vec<Page>, Vec<String>) {
     (out, problems)
 }
 
-/// `kalem book check DIR`: every chapter exports, and every link inside
-/// the Book leads to a page of it.
+/// The idioms of Emacs and Vim that the README's first screen must not
+/// use (docs/todo.md T2.10.13). The launch sends writers of Markdown, Org
+/// and LaTeX to the README; most of them know neither editor and leave at
+/// a word they do not know. The first screen is the text above the first
+/// section after the mode table; these words belong to the section "For
+/// Emacs and Vim hands" lower down.
+const FIRST_SCREEN_IDIOMS: &[&str] = &[
+    "Doom",
+    "Dired",
+    "Projectile",
+    "leader",
+    "which-key",
+    "SPC",
+    "Evil",
+    "C-c",
+];
+
+/// The README's first screen: its text above the first section heading
+/// (`## `) after the mode table, or all of it if there is no table.
+fn first_screen(readme: &str) -> &str {
+    let mut end = readme.len();
+    let mut offset = 0;
+    let mut table_seen = false;
+    let mut in_table = false;
+    for line in readme.split_inclusive('\n') {
+        if line.starts_with('|') {
+            in_table = true;
+            table_seen = true;
+        } else {
+            if table_seen && !in_table && line.starts_with("## ") {
+                end = offset;
+                break;
+            }
+            in_table = false;
+        }
+        offset += line.len();
+    }
+    &readme[..end]
+}
+
+/// Whether `word` occurs in `line` as a word of its own: with no letter,
+/// digit or underscore on either side (`Doom's` and `Dired-style` count,
+/// `cheerleader` does not).
+fn has_word(line: &str, word: &str) -> bool {
+    let boundary = |c: Option<char>| c.is_none_or(|c| !c.is_alphanumeric() && c != '_');
+    line.match_indices(word).any(|(at, _)| {
+        boundary(line[..at].chars().next_back()) && boundary(line[at + word.len()..].chars().next())
+    })
+}
+
+/// The idioms of `FIRST_SCREEN_IDIOMS` on the README's first screen, as
+/// `line N: WORD`, once per word and line.
+fn first_screen_idioms(readme: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for (i, line) in first_screen(readme).lines().enumerate() {
+        for word in FIRST_SCREEN_IDIOMS {
+            if has_word(line, word) {
+                out.push(format!("line {}: {word}", i + 1));
+            }
+        }
+    }
+    out
+}
+
+/// `kalem book check DIR`: every chapter exports, every link inside the
+/// Book leads to a page of it, and the `README.md` beside the Book's
+/// folder, when there is one, keeps its first screen free of the idioms
+/// of Emacs and Vim (`FIRST_SCREEN_IDIOMS`).
 pub(crate) fn check(dir: &Path) -> Result<ExitCode> {
     let index = std::fs::read_to_string(dir.join("index.org"))
         .map_err(|e| format!("{}: {e}", dir.join("index.org").display()))?;
     let c = contents(&index);
-    let (pages, problems) = pages(dir, &c);
+    let (pages, mut problems) = pages(dir, &c);
+    let readme = dir.parent().unwrap_or(Path::new("")).join("README.md");
+    if let Ok(text) = std::fs::read_to_string(&readme) {
+        problems.extend(first_screen_idioms(&text).into_iter().map(|p| {
+            format!(
+                "{}: {p} on the first screen (an Emacs or Vim idiom; it belongs in \"For Emacs and Vim hands\")",
+                readme.display()
+            )
+        }));
+    }
     for p in &problems {
         eprintln!("{p}");
     }
@@ -823,6 +898,30 @@ mod tests {
         // The Book's own map reads.
         let own = chapter_map(include_str!("../../../../book/chapters.toml")).unwrap();
         assert!(own.iter().any(|(c, _)| c == "part-2/latex.org"));
+    }
+
+    #[test]
+    fn readme_first_screen() {
+        let readme = "# Kalem\n\nIntro with Doom's leader.\n\n| File | What |\n|---|---|\n| `.org` | A document, Dired-style |\n\nAround them: `SPC` and C-c.\n\n## Install\n\nDoom, Dired, Projectile, leader, which-key, SPC, Evil, C-c: allowed here.\n";
+        assert_eq!(
+            first_screen_idioms(readme),
+            [
+                "line 3: Doom",
+                "line 3: leader",
+                "line 7: Dired",
+                "line 9: SPC",
+                "line 9: C-c"
+            ]
+        );
+        // Whole words only.
+        assert!(first_screen_idioms("the cheerleader was Evilly keen\n").is_empty());
+        // No table: the whole text is the first screen.
+        assert_eq!(
+            first_screen_idioms("# X\n\n## Keys\n\nDoom\n"),
+            ["line 5: Doom"]
+        );
+        // The repository's own README.
+        assert!(first_screen_idioms(include_str!("../../../../README.md")).is_empty());
     }
 
     #[test]
