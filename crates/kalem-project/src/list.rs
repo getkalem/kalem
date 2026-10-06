@@ -128,6 +128,9 @@ pub struct Projects {
     pub recent: Vec<PathBuf>,
     /// The file the list is kept in.
     pub file: Option<PathBuf>,
+    /// The folders removed from the list since it was loaded: a save
+    /// leaves them out of what another Kalem wrote meanwhile.
+    pub removed: Vec<PathBuf>,
 }
 
 fn strings(item: Option<&Item>) -> Vec<String> {
@@ -244,7 +247,11 @@ impl Projects {
     }
 
     /// Writes the list to its file (through a temporary file, so that it
-    /// is never half written).
+    /// is never half written), with what another Kalem wrote there since
+    /// this one read it: its projects stay unless this one removed them,
+    /// and its recent files follow this one's. A file that cannot be read
+    /// is left alone (the error); one that is not a project list is kept
+    /// beside it as `projects.toml.broken` before it is written over.
     pub fn save(&self) -> io::Result<()> {
         let Some(file) = &self.file else {
             return Ok(());
@@ -252,9 +259,40 @@ impl Projects {
         if let Some(dir) = file.parent() {
             std::fs::create_dir_all(dir)?;
         }
+        let mut out = self.clone();
+        match std::fs::read_to_string(file) {
+            Ok(text) => match text.parse::<DocumentMut>() {
+                Ok(_) => out.merge(&Projects::parse(&text)),
+                Err(e) => {
+                    tracing::warn!("the project list is not valid TOML, kept aside: {e}");
+                    let aside = file.with_extension("toml.broken");
+                    if !aside.exists() {
+                        std::fs::write(&aside, &text)?;
+                    }
+                }
+            },
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e),
+        }
         let tmp = file.with_extension("toml.tmp");
-        std::fs::write(&tmp, self.to_toml())?;
+        std::fs::write(&tmp, out.to_toml())?;
         std::fs::rename(&tmp, file)
+    }
+
+    /// `disk`'s projects this list lacks and did not remove, and its recent
+    /// files after this list's.
+    fn merge(&mut self, disk: &Projects) {
+        for p in &disk.list {
+            if !self.list.iter().any(|q| q.root == p.root) && !self.removed.contains(&p.root) {
+                self.list.push(p.clone());
+            }
+        }
+        for f in &disk.recent {
+            if !self.recent.contains(f) {
+                self.recent.push(f.clone());
+            }
+        }
+        self.recent.truncate(RECENT);
     }
 
     /// Adds the folder `root`; returns its index. Errors if it is not a
@@ -271,6 +309,7 @@ impl Projects {
                 p.name
             ));
         }
+        self.removed.retain(|r| *r != root);
         let mut p = Project::new(root);
         p.used = now();
         self.list.push(p);
@@ -282,7 +321,11 @@ impl Projects {
     pub fn remove(&mut self, root: &Path) -> bool {
         let n = self.list.len();
         self.list.retain(|p| p.root != root);
-        self.list.len() != n
+        if self.list.len() == n {
+            return false;
+        }
+        self.removed.push(root.to_path_buf());
+        true
     }
 
     /// Renames the project of folder `root`.
@@ -387,6 +430,56 @@ mod tests {
             p.get(&dir).unwrap().relative(&dir.join("x/y.org")),
             "x/y.org"
         );
+    }
+
+    /// Two Kalems at once (the window and the terminal, or two of either):
+    /// what each adds and removes stays, whichever saves last.
+    #[test]
+    fn two_lists_saved_in_turn_keep_both() {
+        let dir = temp("two");
+        let (a_dir, b_dir, c_dir) = (dir.join("a"), dir.join("b"), dir.join("c"));
+        for d in [&a_dir, &b_dir, &c_dir] {
+            std::fs::create_dir_all(d).unwrap();
+        }
+        let file = dir.join("projects.toml");
+        let mut first = Projects::load(Some(file.clone()));
+        first.add(&c_dir).unwrap();
+        first.save().unwrap();
+        // Both read the list with c in it.
+        let mut one = Projects::load(Some(file.clone()));
+        let mut two = Projects::load(Some(file.clone()));
+        one.add(&a_dir).unwrap();
+        one.save().unwrap();
+        two.add(&b_dir).unwrap();
+        assert!(two.remove(&c_dir));
+        two.save().unwrap();
+        let roots: Vec<PathBuf> = Projects::load(Some(file.clone()))
+            .list
+            .into_iter()
+            .map(|p| p.root)
+            .collect();
+        assert!(
+            roots.contains(&a_dir) && roots.contains(&b_dir),
+            "{roots:?}"
+        );
+        assert!(!roots.contains(&c_dir), "{roots:?}");
+    }
+
+    /// A file that is not a project list is kept aside, not lost.
+    #[test]
+    fn a_broken_list_is_kept_aside() {
+        let dir = temp("broken");
+        let file = dir.join("projects.toml");
+        std::fs::write(&file, "[[project]\npath = \"/x").unwrap();
+        let mut p = Projects::load(Some(file.clone()));
+        assert!(p.list.is_empty());
+        p.add(&dir).unwrap();
+        p.save().unwrap();
+        assert_eq!(
+            std::fs::read_to_string(dir.join("projects.toml.broken")).unwrap(),
+            "[[project]\npath = \"/x"
+        );
+        assert_eq!(Projects::load(Some(file)).list.len(), 1);
     }
 
     #[test]

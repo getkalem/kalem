@@ -970,9 +970,34 @@ fn load_record() -> toml_edit::DocumentMut {
         .unwrap_or_default()
 }
 
+/// Writes `plugins.toml` through a temporary file; a file there that is
+/// not TOML (which [`load_record`] read as empty) is kept aside as
+/// `plugins.toml.broken` first, and one that cannot be read is not
+/// written over.
 fn save_record(doc: &toml_edit::DocumentMut) -> Result<(), String> {
     let path = record_path().ok_or("No settings folder")?;
-    std::fs::write(&path, doc.to_string()).map_err(|e| format!("{}: {e}", path.display()))
+    save_record_at(&path, doc)
+}
+
+fn save_record_at(path: &Path, doc: &toml_edit::DocumentMut) -> Result<(), String> {
+    let e = |err: std::io::Error| format!("{}: {err}", path.display());
+    match std::fs::read_to_string(path) {
+        Ok(text) if text.parse::<toml_edit::DocumentMut>().is_err() => {
+            let aside = path.with_extension("toml.broken");
+            if !aside.exists() {
+                std::fs::write(&aside, &text).map_err(e)?;
+            }
+        }
+        Ok(_) => {}
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+        Err(err) => return Err(e(err)),
+    }
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(e)?;
+    }
+    let tmp = path.with_extension("toml.tmp");
+    std::fs::write(&tmp, doc.to_string()).map_err(e)?;
+    std::fs::rename(&tmp, path).map_err(e)
 }
 
 fn record(p: &Prepared) -> Result<(), String> {
@@ -1305,6 +1330,23 @@ pub fn check_updates(config: &crate::Config) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_broken_record_is_kept_aside() {
+        let dir = std::env::temp_dir().join(format!("kalem-record-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("plugins.toml");
+        std::fs::write(&path, "[plugins\n").unwrap();
+        let mut doc = toml_edit::DocumentMut::new();
+        doc["x"] = toml_edit::value(1);
+        save_record_at(&path, &doc).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(dir.join("plugins.toml.broken")).unwrap(),
+            "[plugins\n"
+        );
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "x = 1\n");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
     #[test]
     fn stops_counted_by_version_and_forgotten() {
         let dir = std::env::temp_dir().join(format!("kalem-stops-{}", std::process::id()));

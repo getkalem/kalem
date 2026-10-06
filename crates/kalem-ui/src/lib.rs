@@ -55,6 +55,12 @@ pub fn shared_in(config: Config, settings_path: Option<PathBuf>) -> editor::Shar
         .as_deref()
         .and_then(std::path::Path::parent)
         .map(|d| d.join("keymap.json"));
+    // The project list beside the settings file: a test's folder (or none,
+    // the list in memory) never reaches the user's projects.
+    let projects_file = settings_path
+        .as_deref()
+        .and_then(std::path::Path::parent)
+        .map(|d| d.join("projects.toml"));
     let (entries, mut issues) = match user.as_deref().map(std::fs::read_to_string) {
         Some(Ok(text)) => {
             keymap::parse_keymap_with(&text, keymap::Origin::User, &config.vim_leader())
@@ -71,9 +77,7 @@ pub fn shared_in(config: Config, settings_path: Option<PathBuf>) -> editor::Shar
         settings_path,
         math: math::Formulas::default(),
         pictures: Default::default(),
-        projects: RefCell::new(kalem_core::projects::ProjectState::load(
-            kalem_core::projects::list_file(),
-        )),
+        projects: RefCell::new(kalem_core::projects::ProjectState::load(projects_file)),
         jobs: Rc::default(),
         completers: kalem_core::completers::Registry::with_builtins(),
         bus: Rc::new(RefCell::new({

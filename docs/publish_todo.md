@@ -113,6 +113,30 @@ plumbing and can go in parallel with the code fixes.
 These break the one promise of the README ("never touches what you did
 not edit") or kill the process. Fix all of them before 0.1.
 
+- [x] **Blocker, reported by the owner (2026-10-06).** Projects added in
+  Kalem disappear now and then. The graphical editor's tests wrote the
+  user's own `~/.config/kalem/projects.toml`: `kalem_ui::shared_in`
+  isolates the settings file a test gives but loaded and saved the
+  project list from `projects::list_file()`, so every test run (dozens
+  of tests at once, each with its own copy) rewrote it, last writer
+  winning; the owner's list was left with no project and test files as
+  its recent files. Two Kalems at once (the window and the terminal)
+  lose each other's additions the same way, and an unreadable list was
+  read as empty and saved over.
+  (done 2026-10-06: the project list lives beside the settings file
+  `shared_in` is given, none for a test that gives none; a save reads
+  the file again and keeps the projects another Kalem added, leaving
+  out only those this one removed, and its recent files after this
+  one's; a file that is not TOML is kept as `projects.toml.broken`, one
+  that cannot be read is not written over. `plugins.toml` gets the same
+  guard (`plugins.toml.broken`, written through a temporary file).
+  Settings were never at risk: `save_setting` reads the file at each
+  change and refuses a file that is not TOML. Every test of the
+  workspace now leaves `~/.config/kalem` as it was, checked by
+  comparing its files before and after. Tests
+  `two_lists_saved_in_turn_keep_both`, `a_broken_list_is_kept_aside`,
+  `a_broken_record_is_kept_aside`.)
+
 - [x] **Blocker, verified (code).** A workbook edit can be silently not
   saved. "Modified" is `history_len() != saved_at` (plugins
   `xlsx/src/viewer.rs:2382`), a count, not a content check. Type in A1,
