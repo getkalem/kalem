@@ -20,6 +20,14 @@ fn test_settings(dir: &std::path::Path) -> Option<std::path::PathBuf> {
     Some(path)
 }
 
+/// Files the tests trash go to a folder of their own, not to the user's
+/// trash (and at once, not after the trash service).
+fn test_trash() {
+    kalem_core::kalem_fs::set_trash_dir(Some(
+        std::env::temp_dir().join(format!("kalem-ui-trash-{}", std::process::id())),
+    ));
+}
+
 /// The primary modifier of the Word-like profile on this platform.
 fn primary() -> &'static str {
     if cfg!(target_os = "macos") {
@@ -49,6 +57,7 @@ fn open_named<'a>(
     html: fn() -> Option<String>,
     cx: &'a mut TestAppContext,
 ) -> (Entity<Editor>, &'a mut VisualTestContext) {
+    test_trash();
     static N: AtomicUsize = AtomicUsize::new(0);
     let n = N.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!("kalem-ui-{}-{n}", std::process::id()));
@@ -1672,6 +1681,7 @@ fn open_project(
     std::path::PathBuf,
     &mut VisualTestContext,
 ) {
+    test_trash();
     static N: AtomicUsize = AtomicUsize::new(0);
     let n = N.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!("kalem-ui-proj-{}-{n}", std::process::id()));
@@ -2262,7 +2272,8 @@ fn this_file_keys(cx: &mut TestAppContext) {
     wait(cx, &|| copy.exists());
     assert!(copy.exists());
     assert_eq!(path(cx), Some(renamed.clone()));
-    // `SPC f D` asks, trashes the file and closes its document.
+    // `SPC f D` asks, trashes the file (into the tests' trash folder) and
+    // closes its document.
     let p = copy.clone();
     ws.update_in(cx, |ws, window, cx| ws.open(&p, None, window, cx));
     cx.run_until_parked();

@@ -38,3 +38,34 @@ fn trash_and_restore() {
     assert_eq!(std::fs::read_to_string(&a).unwrap(), "first");
     assert!(kalem_fs::restore(&[dir.join("never.txt")]).is_err());
 }
+
+/// A trash folder of the test's own, as the editors' tests use: trashed
+/// files go there and come back from there, the latest first.
+#[test]
+fn a_trash_folder_of_its_own() {
+    let dir = std::env::temp_dir().join(format!("kalem-trash-folder-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let work = dir.join("work");
+    std::fs::create_dir_all(&work).unwrap();
+    kalem_fs::set_trash_dir(Some(dir.join("trash")));
+    let a = work.join("a.txt");
+    std::fs::write(&a, "first").unwrap();
+    kalem_fs::trash_paths(std::slice::from_ref(&a)).unwrap();
+    std::fs::write(&a, "second").unwrap();
+    kalem_fs::trash_paths(std::slice::from_ref(&a)).unwrap();
+    assert!(!a.exists());
+    assert_eq!(std::fs::read_dir(dir.join("trash")).unwrap().count(), 2);
+    kalem_fs::restore(std::slice::from_ref(&a)).unwrap();
+    assert_eq!(std::fs::read_to_string(&a).unwrap(), "second");
+    assert!(kalem_fs::restore(std::slice::from_ref(&a)).is_err());
+    std::fs::remove_file(&a).unwrap();
+    kalem_fs::restore(std::slice::from_ref(&a)).unwrap();
+    assert_eq!(std::fs::read_to_string(&a).unwrap(), "first");
+    // Trashed again after a restore: found again as the latest.
+    kalem_fs::trash_paths(std::slice::from_ref(&a)).unwrap();
+    kalem_fs::restore(std::slice::from_ref(&a)).unwrap();
+    assert_eq!(std::fs::read_to_string(&a).unwrap(), "first");
+    assert!(kalem_fs::restore(&[work.join("never.txt")]).is_err());
+    kalem_fs::set_trash_dir(None);
+    std::fs::remove_dir_all(&dir).unwrap();
+}

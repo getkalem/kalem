@@ -294,9 +294,73 @@ pub fn delete_path(path: &Path) -> io::Result<()> {
     }
 }
 
+/// The folder trashed files go to instead of the system trash (see
+/// [`set_trash_dir`]).
+static TRASH_DIR: std::sync::Mutex<Option<PathBuf>> = std::sync::Mutex::new(None);
+
+/// Moves the files [`trash_paths`] is given into `dir` instead of the
+/// system trash, and [`restore`] takes them back from there; `None`, the
+/// default, is the system trash again. For tests, which must leave the
+/// user's trash alone (and wait for no trash service), for the whole
+/// process.
+pub fn set_trash_dir(dir: Option<PathBuf>) {
+    if let Ok(mut d) = TRASH_DIR.lock() {
+        *d = dir;
+    }
+}
+
+fn trash_dir() -> Option<PathBuf> {
+    TRASH_DIR.lock().ok().and_then(|d| d.clone())
+}
+
+/// Moves `paths` into the trash folder `dir`, each under a name of its
+/// own: a number, then its name.
+fn trash_into(dir: &Path, paths: &[PathBuf]) -> Result<(), String> {
+    std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    for p in paths {
+        let name = p
+            .file_name()
+            .ok_or_else(|| format!("{}: no name", p.display()))?;
+        // After the latest number, so that the latest is found again.
+        let n = std::fs::read_dir(dir).map_or(0, |r| {
+            r.flatten()
+                .filter_map(|e| {
+                    let file = e.file_name().to_string_lossy().into_owned();
+                    file.split_once('-')?.0.parse::<u64>().ok()
+                })
+                .max()
+                .map_or(0, |m| m + 1)
+        });
+        let target = dir.join(format!("{n}-{}", name.to_string_lossy()));
+        move_path(p, &target).map_err(|e| format!("{}: {e}", p.display()))?;
+    }
+    Ok(())
+}
+
+/// The latest item of `name` in the trash folder `dir`.
+fn latest_in(dir: &Path, name: &std::ffi::OsStr) -> Option<PathBuf> {
+    let name = name.to_string_lossy();
+    std::fs::read_dir(dir)
+        .ok()?
+        .flatten()
+        .filter_map(|e| {
+            let file = e.file_name().to_string_lossy().into_owned();
+            let (n, rest) = file.split_once('-')?;
+            if rest != name {
+                return None;
+            }
+            Some((n.parse::<u64>().ok()?, e.path()))
+        })
+        .max_by_key(|(n, _)| *n)
+        .map(|(_, p)| p)
+}
+
 /// Moves `paths` to the system trash. On macOS this asks the file
 /// manager service (`NSFileManager`), which needs no extra permission.
 pub fn trash_paths(paths: &[PathBuf]) -> Result<(), String> {
+    if let Some(dir) = trash_dir() {
+        return trash_into(&dir, paths);
+    }
     #[allow(unused_mut)]
     let mut ctx = trash::TrashContext::default();
     #[cfg(target_os = "macos")]
@@ -315,6 +379,16 @@ pub fn restore(paths: &[PathBuf]) -> Result<(), String> {
         if std::fs::symlink_metadata(p).is_ok() {
             return Err(format!("{} exists", p.display()));
         }
+    }
+    if let Some(dir) = trash_dir() {
+        for p in paths {
+            let item = p
+                .file_name()
+                .and_then(|n| latest_in(&dir, n))
+                .ok_or_else(|| format!("{} is not in the trash", p.display()))?;
+            move_path(&item, p).map_err(|e| e.to_string())?;
+        }
+        return Ok(());
     }
     restore_items(paths)
 }

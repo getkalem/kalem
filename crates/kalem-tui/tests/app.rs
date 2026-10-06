@@ -54,12 +54,21 @@ fn test_config(dir: &Path) -> PathBuf {
     config
 }
 
+/// Files the tests trash go to a folder of their own, not to the user's
+/// trash (and at once, not after the trash service).
+fn test_trash() {
+    kalem_core::kalem_fs::set_trash_dir(Some(
+        std::env::temp_dir().join(format!("kalem-tui-trash-{}", std::process::id())),
+    ));
+}
+
 fn with_config(text: &str, config: Config, size: (u16, u16)) -> T {
     with_file(text, "t.org", config, size)
 }
 
 /// A terminal editor on `text` saved as `name` in a new folder.
 fn with_file(text: &str, name: &str, config: Config, size: (u16, u16)) -> T {
+    test_trash();
     let dir = std::env::temp_dir().join(format!(
         "kalem-tui-{}-{:?}",
         std::process::id(),
@@ -1258,6 +1267,7 @@ fn formulas_as_images() {
 /// `proj` (`a.org`, `sub/b.org`) and `loose.org` outside it, in a legacy
 /// terminal (no kitty keyboard protocol).
 fn project_app(config: Config) -> (T, std::path::PathBuf) {
+    test_trash();
     let dir = std::env::temp_dir().join(format!(
         "kalem-tui-proj-{}-{:?}",
         std::process::id(),
@@ -4186,7 +4196,8 @@ fn this_file_keys() {
     t.app.take_output();
     t.typ(" fy");
     assert!(!t.app.take_output().is_empty());
-    // `SPC f D` asks, moves it to the trash and closes the document.
+    // `SPC f D` asks, moves it to the trash (the tests' trash folder) and
+    // closes the document.
     t.app.open_path(&dir.join("proj/copy.org"), None);
     t.typ(" fD");
     t.typ("y");

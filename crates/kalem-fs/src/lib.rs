@@ -24,5 +24,5 @@ pub use listing::{
 };
 pub use ops::{
     Conflict, OpKind, Operation, Outcome, chmod, conflicts, copy_path, delete_path, mkdir,
-    move_path, restore, symlink, touch, trash_paths, unique_name,
+    move_path, restore, set_trash_dir, symlink, touch, trash_paths, unique_name,
 };
