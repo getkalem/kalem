@@ -1264,10 +1264,11 @@ Wrong or stale text a first reader meets. Each is a text change.
   before is cheap).
   (done 2026-10-06 in the repository: `SECURITY.md` (what counts, a
   private report through GitHub's *Report a vulnerability*, the latest
-  release supported) and contact links to the Book and to it. Open, the
-  owner's: turning on private vulnerability reporting, which is off
-  (`gh api repos/getkalem/kalem/private-vulnerability-reporting`), the
-  repository's description, Discussions.)
+  release supported) and contact links to the Book and to it; private
+  vulnerability reporting turned on in getkalem/kalem and
+  getkalem/plugins (the owner, 2026-10-06), which has a SECURITY.md of
+  its own (139ed07). Open, the owner's: the repository's description,
+  Discussions.)
 
 ## 6. Licensing
 
