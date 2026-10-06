@@ -81,7 +81,7 @@ fn main() {
             kalem_core::DocumentState::open(&path, Arc::new(org_model::Settings::default()), &base)
                 .expect("open");
         let mut log = String::new();
-        for _ in 0..count {
+        for step in 0..count {
             let text = doc.text().as_str().to_string();
             let body = text.find("\\begin{document}").map_or(0, |i| i + 16);
             let end = text.rfind("\\end{document}").unwrap_or(text.len());
@@ -121,12 +121,15 @@ fn main() {
             };
             let r = reg.execute(name, &mut ctx, &a);
             // After Enter, a word typed on the new line, as one does.
-            // (A row, ended, in an environment of rows.)
+            // (A row, ended, in an environment of rows; in the braces of
+            // a new `\bibitem{}`, a key of this step's own, as one would
+            // not give two items one key.)
             if name == "latex.enter" && r.is_ok() {
                 let t = doc.text().as_str();
                 let at = doc.selection.head;
                 let prev = t[..at].trim_end_matches([' ', '\t']).trim_end_matches('\n');
                 let row = prev.trim_end().ends_with("\\\\");
+                let key = t[..at].ends_with("\\bibitem{");
                 // Not before a table's rule (a row would need its end).
                 let next = t[at..].trim_start();
                 let rule = ["\\toprule", "\\midrule", "\\bottomrule", "\\hline"]
@@ -134,6 +137,8 @@ fn main() {
                     .any(|r| next.starts_with(r));
                 if row {
                     doc.insert_text("x \\\\", std::time::Instant::now());
+                } else if key {
+                    doc.insert_text(&format!("x{v}s{step}"), std::time::Instant::now());
                 } else if !rule {
                     doc.insert_text("x", std::time::Instant::now());
                 }
