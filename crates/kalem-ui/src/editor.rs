@@ -1676,9 +1676,11 @@ impl Editor {
                 }
             }
             Request::SetSetting { key, value, quiet } => {
+                let before = self.status.clone();
                 self.set_setting(&key, value, cx);
-                if quiet {
-                    self.status = None;
+                // Quiet: what the command said stays; an error replaces it.
+                if quiet && !self.status.as_ref().is_some_and(|(_, error)| *error) {
+                    self.status = before;
                 }
             }
             // After a setting it changes is applied (`set_setting` defers).

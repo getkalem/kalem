@@ -149,6 +149,8 @@ pub fn menus() -> Vec<MenuSpec> {
                 MenuEntry::AddProjectFolder(tr("menu-add-project-folder")),
                 item("project.remove"),
                 item("project.rename"),
+                MenuEntry::Separator,
+                item("project.toggleAutoAdd"),
             ],
         },
         MenuSpec {

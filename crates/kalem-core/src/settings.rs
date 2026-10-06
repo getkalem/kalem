@@ -342,8 +342,8 @@ pub const SPECS: &[Spec] = &[
     Spec {
         key: "projects.auto_add",
         kind: Kind::Bool,
-        default: "true",
-        description: "A folder under version control (Git, Mercurial, Subversion) or with a .projectile file becomes a project when one of its files is opened, as in Projectile",
+        default: "false",
+        description: "A folder under version control (Git, Mercurial, Subversion) or with a .projectile file becomes a project when one of its files is opened, as in Projectile; off, projects are only added with Add Project",
     },
     Spec {
         key: "files.details",
@@ -1117,11 +1117,13 @@ pub fn remember_mode(path: &Path, mode: &str) -> Result<PathBuf, String> {
 }
 
 /// Sets `key` (dotted, a known setting) to `value` in the settings file
-/// at `path`, keeping its comments; the file and its directory are made
-/// when missing.
+/// at `path`, keeping its comments, or removes it for `null` (back to
+/// its default); the file and its directory are made when missing.
 pub fn save_setting(path: &Path, key: &str, value: &Value) -> Result<(), String> {
     let s = spec(key).ok_or_else(|| format!("Unknown setting `{key}`"))?;
-    check(s.kind, value).map_err(|e| format!("`{key}` {e}"))?;
+    if !value.is_null() {
+        check(s.kind, value).map_err(|e| format!("`{key}` {e}"))?;
+    }
     let text = match std::fs::read_to_string(path) {
         Ok(t) => t,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
@@ -1244,6 +1246,13 @@ mod tests {
         );
         assert!(save_setting(&path, "editor.theme", &Value::from("blue")).is_err());
         assert!(save_setting(&path, "editor.nothing", &Value::from(1)).is_err());
+        // Null takes the setting out: back to its default.
+        save_setting(&path, "editor.font_size", &Value::Null).unwrap();
+        let c = Config::load(Some(&path), None);
+        assert_eq!(
+            (c.str("editor.theme"), c.int("editor.font_size")),
+            ("dark", 16)
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 

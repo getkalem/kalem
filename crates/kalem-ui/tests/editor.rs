@@ -1072,6 +1072,45 @@ fn settings_panel(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn adding_projects_automatically_is_a_choice(cx: &mut TestAppContext) {
+    let (e, cx) = open("* A\n", cx);
+    let auto = |e: &Entity<Editor>, cx: &mut gpui::VisualTestContext| {
+        e.read_with(cx, |e, _| e.shared.config.bool("projects.auto_add"))
+    };
+    // Off by default: projects are added by hand.
+    assert!(!auto(&e, cx));
+    // The command turns it on, saved, and says what it means.
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("project.toggleAutoAdd"));
+    cx.run_until_parked();
+    assert!(auto(&e, cx));
+    let status = e.read_with(cx, |e, _| e.status.clone());
+    assert!(
+        status
+            .as_ref()
+            .is_some_and(|(m, error)| !error && m.contains("version control")),
+        "{status:?}"
+    );
+    let path = e.read_with(cx, |e, _| e.shared.settings_path.clone().unwrap());
+    let saved = std::fs::read_to_string(&path).unwrap();
+    assert!(saved.contains("auto_add = true"), "{saved}");
+    // The settings panel shows the choice and changes it.
+    cx.simulate_keystrokes(&format!("{}-,", primary()));
+    let none = gpui::Modifiers::default();
+    let b = cx
+        .debug_bounds("settings-projects-manual")
+        .expect("the Projects row");
+    cx.simulate_click(b.center(), none);
+    cx.run_until_parked();
+    assert!(!auto(&e, cx));
+    let b = cx
+        .debug_bounds("settings-projects-auto")
+        .expect("its other choice");
+    cx.simulate_click(b.center(), none);
+    cx.run_until_parked();
+    assert!(auto(&e, cx));
+}
+
+#[gpui::test]
 fn saving_and_outside_changes(cx: &mut TestAppContext) {
     let (e, cx) = open("* A\n", cx);
     let path = e.read_with(cx, |e, _| e.doc.meta.path.clone().unwrap());

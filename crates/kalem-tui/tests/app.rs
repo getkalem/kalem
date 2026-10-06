@@ -1904,13 +1904,14 @@ fn vim_dash_and_explore() {
 }
 
 #[test]
-fn a_file_under_version_control_opens_its_project() {
+fn a_file_under_version_control_opens_its_project_when_asked() {
     let dir = std::env::temp_dir().join(format!("kalem-tui-auto-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("repo/.git")).unwrap();
     std::fs::create_dir_all(dir.join("repo/src")).unwrap();
     std::fs::write(dir.join("repo/src/a.org"), "* A\n").unwrap();
     std::fs::write(dir.join("repo/b.org"), "* B\n").unwrap();
+    std::fs::write(dir.join("repo/c.org"), "* C\n").unwrap();
     let dir = kalem_core::projects::normal(&dir);
     let mut app = App::with_keymap(
         Some(&dir.join("repo/src/a.org")),
@@ -1921,14 +1922,27 @@ fn a_file_under_version_control_opens_its_project() {
     )
     .unwrap();
     app.projects = kalem_core::projects::ProjectState::load(Some(dir.join("projects.toml")));
+    app.config_dir = Some(test_config(&dir));
     let term = Terminal::new(TestBackend::new(80, 12)).unwrap();
     let mut t = T {
         app,
         term,
         dir: Some(dir.clone()),
     };
-    // Opening another file of the repository makes it a project.
+    // By default projects are added by hand only.
     t.app.open_path(&dir.join("repo/b.org"), None);
+    assert!(t.app.projects.list.list.is_empty());
+    assert!(!t.app.context_flag("inProject"));
+    // Turned on, opening another file of the repository makes it a
+    // project; the setting is saved.
+    t.app
+        .run_command("project.toggleAutoAdd", serde_json::json!({}));
+    assert!(t.app.config.bool("projects.auto_add"));
+    let saved = std::fs::read_to_string(dir.join("config/settings.toml")).unwrap();
+    assert!(saved.contains("auto_add = true"), "{saved}");
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains("A folder under version control"), "{rows}");
+    t.app.open_path(&dir.join("repo/c.org"), None);
     let names: Vec<String> = t
         .app
         .projects
@@ -1944,6 +1958,64 @@ fn a_file_under_version_control_opens_its_project() {
     settle(&mut t);
     let rows = screen(&mut t).join("\n");
     assert!(rows.contains("a.org") && rows.contains("b.org"), "{rows}");
+}
+
+#[test]
+fn the_settings_panel_lists_and_changes_every_setting() {
+    let mut t = with_config("* A\n", Config::default(), (90, 30));
+    let saved = |t: &T| {
+        std::fs::read_to_string(t.dir.as_ref().unwrap().join("config/settings.toml")).unwrap()
+    };
+    t.app.run_command("app.settings", serde_json::json!({}));
+    let rows = screen(&mut t).join("\n");
+    assert!(
+        rows.contains("Settings") && rows.contains("editor") && rows.contains("font_family"),
+        "{rows}"
+    );
+    // The chosen setting's key, default and description below.
+    assert!(rows.contains("editor.font_family  Default:"), "{rows}");
+    // `/` filters; a switch flips with Space, saved at once.
+    t.typ("/auto_add");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    let rows = screen(&mut t).join("\n");
+    assert!(
+        rows.contains("projects") && rows.contains("auto_add"),
+        "{rows}"
+    );
+    assert!(!rows.contains("font_family"), "{rows}");
+    t.typ(" ");
+    assert!(t.app.config.bool("projects.auto_add"));
+    assert!(saved(&t).contains("auto_add = true"), "{}", saved(&t));
+    // `d` takes it back to its default, out of the file.
+    t.typ("d");
+    assert!(!t.app.config.bool("projects.auto_add"));
+    assert!(!saved(&t).contains("auto_add"), "{}", saved(&t));
+    // A change shows at once: line numbers off.
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.typ("/line_numbers");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(t.app.editor.line_numbers);
+    t.typ("l");
+    assert!(!t.app.editor.line_numbers);
+    // Choices go round with h and l; Enter asks for text.
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.typ("/latex.engine");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    for _ in 0.."auto".len() {
+        t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    }
+    t.typ("tectonic");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(t.app.config.str("latex.engine"), "tectonic");
+    // Still open; Escape clears the filter, then closes.
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains("latex.engine  Default: auto"), "{rows}");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    assert!(screen(&mut t).join("\n").contains("font_family"));
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    assert!(!screen(&mut t).join("\n").contains("font_family"));
+    assert_eq!(t.text(), "* A\n", "no key reached the document");
 }
 
 #[test]

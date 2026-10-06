@@ -9,14 +9,16 @@ Ctrl+W closes the document, asking first when it has unsaved changes.
 
 A project is a folder in your project list. /Add Project/ (=SPC p a=
 with Vim keys) asks for its path, the document's folder offered and
-its folders listed (Tab completes a name, the arrows choose one),
-/Add Project Folder…/ (Project menu) chooses one in a dialog,
-and a folder under version control (Git, Mercurial, Subversion), or
-with a =.projectile= file or a =.kalem= folder (where a project's own
-settings live), joins the list by itself when you open one of its
-files (=projects.auto_add = false= turns that off). Nothing is written
-into the folder: the list and the recent files are kept in
-=projects.toml= beside =settings.toml=.
+its folders listed (Tab completes a name, the arrows choose one), and
+/Add Project Folder…/ (Project menu) chooses one in a dialog. Only the
+folders you add are projects. /Toggle Adding Projects Automatically/
+(Project menu), or the Projects row of the settings panel, makes a
+folder under version control (Git, Mercurial, Subversion), or with a
+=.projectile= file or a =.kalem= folder (where a project's own settings
+live), join the list by itself when you open one of its files, as in
+Projectile (=projects.auto_add = true=). Nothing is written into the
+folder: the list and the recent files are kept in =projects.toml=
+beside =settings.toml=.
 
 The document you are in decides the current project: Ctrl+P and
 Search in Project work on it at once, and Switch Project lists it

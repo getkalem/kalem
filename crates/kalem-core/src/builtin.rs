@@ -6985,6 +6985,32 @@ fn plain_commands() -> Vec<Command> {
             None,
             |ctx, _| request(ctx, Request::Project(ProjectRequest::AddChosen)),
         ),
+        // Whether a folder under version control becomes a project when
+        // one of its files opens (`projects.auto_add`). Off by default:
+        // projects are added by hand (owner, 2026-10-06).
+        cmd(
+            "project.toggleAutoAdd",
+            "Toggle Adding Projects Automatically",
+            "Project",
+            &[],
+            None,
+            |ctx, _| {
+                let on = !ctx.config.bool("projects.auto_add");
+                ctx.messages.push(crate::l10n::tr(if on {
+                    "msg-project-auto-add-on"
+                } else {
+                    "msg-project-auto-add-off"
+                }));
+                request(
+                    ctx,
+                    Request::SetSetting {
+                        key: "projects.auto_add".into(),
+                        value: Value::Bool(on),
+                        quiet: true,
+                    },
+                )
+            },
+        ),
         cmd(
             "project.rename",
             "Rename Project",

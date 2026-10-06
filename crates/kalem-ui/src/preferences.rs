@@ -1,6 +1,6 @@
-//! The settings panel (T1.5.19): theme, keys, text size and font. A
-//! change is written to the user's `settings.toml` (comments kept) and
-//! applies to every window at once.
+//! The settings panel (T1.5.19): theme, keys, language, text size, font
+//! and how projects are added. A change is written to the user's
+//! `settings.toml` (comments kept) and applies to every window at once.
 
 use std::rc::Rc;
 
@@ -183,6 +183,7 @@ impl Editor {
         let profile = config.str("editor.keymap_profile");
         let size = config.int("editor.font_size");
         let family = config.str("editor.font_family").to_string();
+        let auto_add = config.bool("projects.auto_add");
         let fonts = s.fonts().into_iter().enumerate().map(|(i, f)| {
             let name = f.to_string();
             let label = if name.is_empty() {
@@ -306,6 +307,23 @@ impl Editor {
             )
             .child(row(tr("settings-font")).child(SharedString::from(format!("{}▏", s.filter))))
             .child(div().flex().flex_col().pl(px(96.)).children(fonts))
+            .child(
+                row(tr("settings-projects"))
+                    .child(choice(
+                        "settings-projects-manual",
+                        tr("settings-projects-manual"),
+                        !auto_add,
+                        "projects.auto_add",
+                        false.into(),
+                    ))
+                    .child(choice(
+                        "settings-projects-auto",
+                        tr("settings-projects-auto"),
+                        auto_add,
+                        "projects.auto_add",
+                        true.into(),
+                    )),
+            )
             .child(
                 div()
                     .id("settings-file")

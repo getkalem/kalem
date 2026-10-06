@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- A settings panel in the terminal editor (Settings: Alt+, or Ctrl+,, `SPC h v`, the Kalem menu): every setting grouped by its table, changed in place with lazygit-like keys (`j`/`k` choose, `h`/`l` or Space change, Enter types a text, `/` filters, `d` back to the default, `e` opens `settings.toml`).
+- A Projects row in the settings panel of the graphical editor: projects added by hand only, or folders under version control too.
+
+### Changed
+- Projects are added by hand by default: opening a file in a folder under version control no longer adds that folder to the project list. Toggle Adding Projects Automatically (Project menu) or the settings panel turns it back on (`projects.auto_add`).
+
+### Fixed
+- The terminal editor applies a changed setting at once (line numbers, wrapping, line width, centering, where the open files show, the keys and the Vim layer, the theme), from the settings panel, a command such as Toggle Line Numbers, or Reload Settings and Keys; before, only a restart showed it.
+
 ## [0.1.0] - 2026-10-06
 
 The first release. Kalem is an editor for plain-text documents that

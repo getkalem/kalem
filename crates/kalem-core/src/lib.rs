@@ -86,6 +86,7 @@ pub mod rich;
 pub mod rich_copy;
 pub mod sessions;
 pub mod settings;
+pub mod settings_list;
 pub mod sheet_chart;
 pub mod sheet_print;
 pub mod siunitx;

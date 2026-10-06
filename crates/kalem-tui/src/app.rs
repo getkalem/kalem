@@ -186,6 +186,8 @@ pub struct App {
     completers: kalem_core::completers::Registry,
     /// The command palette, when open.
     palette: Option<Palette>,
+    /// The settings panel, when open.
+    settings: Option<crate::settings_panel::SettingsPanel>,
     /// The request that opened the last list to choose from, and what was
     /// typed in it (`SPC '`).
     last_picker: Option<(Request, String)>,
@@ -536,6 +538,7 @@ impl App {
             signature: None,
             completers: kalem_core::completers::Registry::with_builtins(),
             palette: None,
+            settings: None,
             find: None,
             last_query: String::new(),
             last_regex: false,
@@ -1983,12 +1986,10 @@ impl App {
                 self.message(tr!(m), false);
             }
             Request::Settings => {
-                let path = self.config_dir.as_ref().map(|d| d.join("settings.toml"));
-                let text = match path {
-                    Some(p) => tr!("msg-settings-in", path = p.display().to_string()),
-                    None => tr!("msg-no-settings-dir"),
-                };
-                self.message(text, false);
+                self.palette = None;
+                self.completion = None;
+                self.settings = Some(crate::settings_panel::SettingsPanel::default());
+                self.dirty = true;
             }
             Request::Fold { global } => self.fold(global),
             Request::OpenLink(action) => self.open_link(action),
@@ -2033,10 +2034,14 @@ impl App {
             .iter()
             .find(|(l, _)| *l == settings::Layer::Workspace)
             .and_then(|(_, p)| p.clone());
-        self.config = Config::load(path.as_deref(), workspace.as_deref());
+        let old = std::mem::replace(
+            &mut self.config,
+            Config::load(path.as_deref(), workspace.as_deref()),
+        );
         self.config.apply_process_settings();
         kalem_core::extensions::set_config(&self.config);
         self.rebuild_keys();
+        self.apply_settings(&old);
         self.message(tr!("msg-reloaded-settings"), false);
     }
 
@@ -2059,7 +2064,9 @@ impl App {
         self.keymap = full.for_terminal(self.caps.kitty_keyboard).0;
     }
 
-    /// Saves `key` in the user's settings and reads the settings again.
+    /// Saves `key` in the user's settings (takes it out for `null`, back
+    /// to its default), reads the settings again and applies what
+    /// changed. A workspace's setting of the same key wins, and says so.
     fn set_setting(&mut self, key: &str, value: &serde_json::Value, quiet: bool) {
         let Some(path) = self.config_dir.as_ref().map(|d| d.join("settings.toml")) else {
             self.message(tr!("msg-no-settings-dir"), true);
@@ -2075,11 +2082,245 @@ impl App {
             .iter()
             .find(|(l, _)| *l == settings::Layer::Workspace)
             .and_then(|(_, p)| p.clone());
-        self.config = Config::load(Some(&path), workspace.as_deref());
+        let old = std::mem::replace(
+            &mut self.config,
+            Config::load(Some(&path), workspace.as_deref()),
+        );
         self.config.apply_process_settings();
-        if !quiet {
-            self.message(tr!("msg-setting-saved", key = key), false);
+        self.apply_settings(&old);
+        if !value.is_null() && self.config.get(key) != Some(value) {
+            self.message(tr!("msg-setting-overridden", key = key), true);
+        } else if !quiet {
+            let m = if value.is_null() {
+                "msg-setting-reset"
+            } else {
+                "msg-setting-saved"
+            };
+            self.message(tr!(m, key = key), false);
         }
+    }
+
+    /// Applies the settings that differ from `old`: the views' line
+    /// width, centering, wrapping and line numbers, where the open files
+    /// show, the keys and the Vim layer, the theme's colors, and the
+    /// plugins' copy of the settings.
+    fn apply_settings(&mut self, old: &Config) {
+        let changed = self.config.changed_keys(old);
+        if changed.is_empty() {
+            return;
+        }
+        let has = |key: &str| {
+            changed
+                .iter()
+                .any(|c| c == key || c.strip_prefix(key).is_some_and(|r| r.starts_with('.')))
+        };
+        kalem_core::extensions::set_config(&self.config);
+        let width = u16::try_from(self.config.int("editor.line_width")).unwrap_or(0);
+        let center = self.config.bool("editor.center_text");
+        let wrap = self.config.bool("editor.soft_wrap");
+        let numbers = self.config.bool("editor.line_numbers");
+        let (w, c, s, n) = (
+            has("editor.line_width"),
+            has("editor.center_text"),
+            has("editor.soft_wrap"),
+            has("editor.line_numbers"),
+        );
+        let views = std::iter::once(&mut self.editor)
+            .chain(self.panes.values_mut().map(|(_, v)| v))
+            .chain(self.docs.iter_mut().flatten().map(|b| &mut b.editor));
+        for v in views {
+            if w {
+                v.line_width = width;
+            }
+            if c {
+                v.center = center;
+            }
+            if s {
+                v.wrap = wrap;
+            }
+            if n {
+                v.line_numbers = numbers;
+            }
+        }
+        if has("ui.open_files") {
+            self.files_at = match self.config.str("ui.open_files") {
+                "top" => FilesAt::Top,
+                "hidden" => FilesAt::Hidden,
+                _ => FilesAt::Left,
+            };
+            self.files_shown = self.files_at != FilesAt::Hidden;
+        }
+        if has("editor.keymap_profile") || has("editor.vim") {
+            self.rebuild_keys();
+            self.refresh_vim();
+        }
+        if has("editor.theme")
+            && let Some(colors) = crate::theme_colors(&self.config, &self.caps)
+        {
+            self.caps.colors = Some(colors);
+        }
+        self.dirty = true;
+    }
+
+    /// Keys for the settings panel, lazygit's way: `j` and `k` choose,
+    /// `h` and `l` (or Space) change in place, Enter edits, `/` filters,
+    /// `d` goes back to the default, `e` opens `settings.toml`, `q` or
+    /// Escape closes.
+    fn settings_key(&mut self, k: &KeyEvent) {
+        enum Act {
+            Move(isize),
+            First,
+            Last,
+            Step(bool),
+            Edit,
+            Reset,
+            File,
+            Close,
+        }
+        let Some(panel) = &mut self.settings else {
+            return;
+        };
+        self.dirty = true;
+        let list = &mut panel.list;
+        let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
+        if list.filtering {
+            match k.code {
+                KeyCode::Esc => {
+                    list.set_filter("");
+                    list.filtering = false;
+                }
+                KeyCode::Enter => list.filtering = false,
+                KeyCode::Backspace => {
+                    let mut f = list.filter.clone();
+                    if f.pop().is_none() {
+                        list.filtering = false;
+                    }
+                    list.set_filter(&f);
+                }
+                KeyCode::Up => list.move_by(-1),
+                KeyCode::Down => list.move_by(1),
+                KeyCode::Char(c) if !ctrl => {
+                    let f = format!("{}{c}", list.filter);
+                    list.set_filter(&f);
+                }
+                _ => {}
+            }
+            return;
+        }
+        let act = match k.code {
+            KeyCode::Esc if !list.filter.is_empty() => {
+                list.set_filter("");
+                return;
+            }
+            KeyCode::Char('/') => {
+                list.filtering = true;
+                return;
+            }
+            KeyCode::Esc | KeyCode::Char('q') => Act::Close,
+            KeyCode::Char('g') if ctrl => Act::Close,
+            KeyCode::Char('p') if ctrl => Act::Move(-1),
+            KeyCode::Char('n') if ctrl => Act::Move(1),
+            KeyCode::Char('u') if ctrl => Act::Move(-10),
+            KeyCode::Char('d') if ctrl => Act::Move(10),
+            KeyCode::Up | KeyCode::Char('k') => Act::Move(-1),
+            KeyCode::Down | KeyCode::Char('j') => Act::Move(1),
+            KeyCode::PageUp => Act::Move(-10),
+            KeyCode::PageDown => Act::Move(10),
+            KeyCode::Home | KeyCode::Char('g') => Act::First,
+            KeyCode::End | KeyCode::Char('G') => Act::Last,
+            KeyCode::Right | KeyCode::Char('l' | ' ') => Act::Step(true),
+            KeyCode::Left | KeyCode::Char('h') => Act::Step(false),
+            KeyCode::Enter => Act::Edit,
+            KeyCode::Char('d') => Act::Reset,
+            KeyCode::Char('e') => Act::File,
+            _ => return,
+        };
+        match act {
+            Act::Move(by) => list.move_by(by),
+            Act::First => list.selected = 0,
+            Act::Last => list.last(),
+            Act::Step(forward) => self.settings_step(forward),
+            Act::Edit => self.settings_edit(),
+            Act::Reset => {
+                if let Some(spec) = self.settings.as_ref().and_then(|p| p.list.current()) {
+                    self.set_setting(spec.key, &Value::Null, false);
+                }
+            }
+            Act::File => self.settings_file(),
+            Act::Close => self.settings = None,
+        }
+    }
+
+    /// The mouse in the settings panel: the wheel moves the choice, a
+    /// click chooses a setting, a click on the chosen one edits it.
+    fn settings_mouse(&mut self, m: crossterm::event::MouseEvent) {
+        let Some(panel) = &mut self.settings else {
+            return;
+        };
+        match m.kind {
+            MouseEventKind::ScrollUp => panel.list.move_by(-3),
+            MouseEventKind::ScrollDown => panel.list.move_by(3),
+            MouseEventKind::Down(MouseButton::Left) => match panel.at(m.column, m.row) {
+                Some(n) if n == panel.list.selected => self.settings_edit(),
+                Some(n) => panel.list.selected = n,
+                None => return,
+            },
+            _ => return,
+        }
+        self.dirty = true;
+    }
+
+    /// The chosen setting a step forward or back: a switch flipped, the
+    /// next choice, a number up or down; text is typed instead.
+    fn settings_step(&mut self, forward: bool) {
+        let Some(spec) = self.settings.as_ref().and_then(|p| p.list.current()) else {
+            return;
+        };
+        match kalem_core::settings_list::edit(spec) {
+            kalem_core::settings_list::Edit::Step => {
+                if let Some(v) = kalem_core::settings_list::step(&self.config, spec, forward) {
+                    self.set_setting(spec.key, &v, false);
+                }
+            }
+            kalem_core::settings_list::Edit::Type if forward => self.settings_edit(),
+            _ => {}
+        }
+    }
+
+    /// Edits the chosen setting: stepped forward, its text asked for
+    /// (the current text offered), or `settings.toml` opened for a list.
+    fn settings_edit(&mut self) {
+        use kalem_core::settings_list::Edit;
+        let Some(spec) = self.settings.as_ref().and_then(|p| p.list.current()) else {
+            return;
+        };
+        match kalem_core::settings_list::edit(spec) {
+            Edit::Step => self.settings_step(true),
+            Edit::Type => {
+                let current = self.config.str(spec.key).to_string();
+                self.ask(
+                    PromptKind::Arg {
+                        command: "settings.set".into(),
+                        args: serde_json::json!({ "key": spec.key }),
+                        name: "value".into(),
+                        ty: "string".into(),
+                    },
+                    &format!("{}: ", spec.key),
+                    current,
+                );
+            }
+            Edit::File => self.settings_file(),
+        }
+    }
+
+    /// Closes the settings panel and opens the user's `settings.toml`.
+    fn settings_file(&mut self) {
+        let Some(path) = self.config_dir.as_ref().map(|d| d.join("settings.toml")) else {
+            self.message(tr!("msg-no-settings-dir"), true);
+            return;
+        };
+        self.settings = None;
+        self.open_path(&path, None);
     }
 
     /// Opens a link target with the system's opener.
@@ -2687,6 +2928,10 @@ impl App {
     }
 
     fn mouse(&mut self, m: crossterm::event::MouseEvent) {
+        if self.settings.is_some() {
+            self.settings_mouse(m);
+            return;
+        }
         let shift = m.modifiers.contains(KeyModifiers::SHIFT);
         // A click in another pane focuses it first.
         if let MouseEventKind::Down(_) = m.kind
@@ -3686,6 +3931,10 @@ impl App {
         }
         if self.prompt.is_some() {
             self.prompt_key(k);
+            return;
+        }
+        if self.settings.is_some() {
+            self.settings_key(&k);
             return;
         }
         if self.palette.is_some() {
@@ -5095,6 +5344,13 @@ impl App {
         }
         if let Some(p) = &self.palette {
             p.draw(f.buffer_mut(), text_area, &self.caps);
+        }
+        if let Some(s) = &self.settings {
+            let over = Rect {
+                height: area.height.saturating_sub(1),
+                ..area
+            };
+            s.draw(f.buffer_mut(), over, &self.config, &self.caps);
         }
         let due = kalem_core::keymap::hints_due(&self.config, self.pending_at, Instant::now());
         if !self.pending.is_empty() && due.is_some_and(|d| d.is_zero()) {

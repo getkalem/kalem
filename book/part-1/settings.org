@@ -1,19 +1,29 @@
 /Settings/ in the Kalem menu (Ctrl+, or Cmd+,) sets the theme, the
-keys, the language, the text size and the font. Changes apply to every
+keys, the language, the text size, the font, and whether folders under
+version control become projects by themselves. Changes apply to every
 window and are saved in =settings.toml= in the settings directory:
 =$KALEM_CONFIG_DIR=, or =kalem= in =$XDG_CONFIG_HOME=, =%APPDATA%= on
 Windows, or =~/.config=. A project can have its own
 =.kalem/settings.toml=, which applies over yours.
 
-The terminal editor has no settings panel: /Settings/ (Ctrl+,, or
-Alt+, where the terminal cannot send it) shows the path of
-=settings.toml= in the status line. Edit the file there, or use the
-commands that change a setting, such as /Toggle Folder Tree/ or
-/Toggle Line Numbers/, which save it. After editing a settings file
-or =keymap.json= by hand, /Reload Settings and Keys/ (=help.reload=, in
+In the terminal editor /Settings/ (Ctrl+,, or Alt+, where the terminal
+cannot send it; =SPC h v= with Vim's keys; the Kalem menu on F10)
+lists every setting, grouped by its table as in =settings.toml=, the
+way lazygit lists things: =j= and =k= (or the arrows) choose one, its
+default and what it does show below, =h= and =l= (or Space) change it
+in place (a switch flipped, the next choice, a number up or down),
+Enter asks for a text, =/= filters by key or description, =d= takes a
+setting back to its default, =e= opens =settings.toml= (where lists
+are edited), and =q= or Escape closes. Values that differ from the
+default stand out. A change is saved at once and shows at once; when
+the workspace's =.kalem/settings.toml= sets the same key, the status
+line says that it wins.
+
+Commands that change a setting, such as /Toggle Folder Tree/ or
+/Toggle Line Numbers/, save it too. After editing a settings file or
+=keymap.json= by hand, /Reload Settings and Keys/ (=help.reload=, in
 the palette; =SPC h r r= with Vim's keys) reads them again in both
-editors; a change made in the panel or by such a command is read at
-once.
+editors.
 
 The settings you are most likely to change; [[https://getkalem.github.io/kalem/appendices/settings.html][the Settings appendix]]
 of the Book's site lists every one, generated from the code
@@ -35,7 +45,7 @@ of the Book's site lists every one, generated from the code
 | =editor.restore_session=  | =false=    | On start without a file, the documents open at the last quit |
 | =ui.open_files=           | ="left"=   | Open files on the =left=, at the =top=, =hidden=             |
 | =ui.folder_tree=          | =true=     | The project's folders and files below the open files         |
-| =projects.auto_add=       | =true=     | Folders under version control become projects                |
+| =projects.auto_add=       | =false=    | Folders under version control become projects by themselves  |
 | =org.todo_keywords=       | TODO, DONE | TODO states of files without =#+TODO=; see below             |
 | =files.show_hidden=       | =true=     | Dot files in the file manager                                |
 | =plugins.sources=         | =[]=       | Your plugin indexes, read first (Plugin Sources)             |

@@ -282,7 +282,7 @@ Kalem has a directory editor modeled on Emacs's Dired: a directory opens as a do
 
 ### 2.8 Projects (a simple Projectile)
 
-A project is a folder in the user's project list. Any folder can be added: no `.git` directory, configuration file or build file is needed, and nothing is written into it. The list lives in the user's settings (14), not in the projects. As in Projectile, a folder under version control (`.git`, `.hg`, `.svn`) or with a `.projectile` or `.kalem` marker joins the list by itself when one of its files is opened (asked by the owner, 2026-09-28; `projects.auto_add` turns it off); the home folder never does.
+A project is a folder in the user's project list. Any folder can be added: no `.git` directory, configuration file or build file is needed, and nothing is written into it. The list lives in the user's settings (14), not in the projects. Projects are added explicitly by default. With `projects.auto_add` on (the Project menu or the settings panel), as in Projectile, a folder under version control (`.git`, `.hg`, `.svn`) or with a `.projectile` or `.kalem` marker joins the list by itself when one of its files is opened (asked by the owner, 2026-09-28; off by default since 2026-10-06, owner); the home folder never does.
 
 **Managing projects.** "Add project" adds the current file's folder or a chosen folder; "Remove project" removes one from the list (its files are untouched); the list shows each project's name (the folder name, editable) and path. Projects whose folder has disappeared are shown as missing and can be removed.
 

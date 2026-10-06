@@ -14,6 +14,7 @@ pub mod editor;
 pub mod input;
 pub mod panels;
 pub mod render;
+pub mod settings_panel;
 pub mod terminal;
 pub mod viewer;
 
@@ -44,19 +45,7 @@ pub fn run(path: Option<&Path>) -> io::Result<()> {
     kalem_core::plugin_store::check_updates(&config);
     terminal::raw_mode()?;
     let mut caps = caps::query(Duration::from_millis(500));
-    // Theme colors where the terminal shows them; its light or dark
-    // background decides for `system`.
-    if caps.true_color && !caps.no_color {
-        let dark = kalem_core::theme::wants_dark(
-            config.str("editor.theme"),
-            caps.dark_background().unwrap_or(true),
-        );
-        let dir = kalem_core::theme::user_dir();
-        caps.colors = Some(std::sync::Arc::new(kalem_core::theme::ThemeColors::load(
-            dark,
-            dir.as_deref(),
-        )));
-    }
+    caps.colors = theme_colors(&config, &caps);
     tracing::info!(terminal = ?caps.terminal, kitty_keyboard = caps.kitty_keyboard, "terminal");
     let mut app = match app::App::new(path, config, caps) {
         Ok(a) => a,
@@ -171,4 +160,25 @@ pub fn detect() -> io::Result<()> {
     crossterm::terminal::disable_raw_mode()?;
     let report = c.report();
     std::io::Write::write_fmt(&mut io::stdout(), format_args!("{report}\n"))
+}
+
+/// The theme's colors where the terminal shows them (true color), none
+/// elsewhere; the terminal's light or dark background decides for
+/// `system`.
+pub fn theme_colors(
+    config: &kalem_core::Config,
+    caps: &caps::Caps,
+) -> Option<std::sync::Arc<kalem_core::theme::ThemeColors>> {
+    if !caps.true_color || caps.no_color {
+        return None;
+    }
+    let dark = kalem_core::theme::wants_dark(
+        config.str("editor.theme"),
+        caps.dark_background().unwrap_or(true),
+    );
+    let dir = kalem_core::theme::user_dir();
+    Some(std::sync::Arc::new(kalem_core::theme::ThemeColors::load(
+        dark,
+        dir.as_deref(),
+    )))
 }
