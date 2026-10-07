@@ -14,25 +14,16 @@ Kalem (Turkish for "pen") shows a file the way it reads and never touches what y
 
 ## Why Kalem
 
-- **Every file as itself.** Kalem never converts a file to open it. A Markdown file opens as Markdown, a CSV file as a grid, a LaTeX file as the document it typesets, an Excel workbook as a workbook (the one exception, an `.ods`, `.xls` or `.xlsb` workbook, is converted as it opens and says so). Kalem writes nothing into a file that its format does not define, and what it does not understand it shows as the source it is, never hidden and never guessed.
-- **The file stays yours.** Kalem edits the text in place and saves only what you changed, byte for byte. No database, no import, no "save as". Open the file in another editor, or in `git diff`, and you see only your edits.
+- **Every file as itself, and the file stays yours.** Kalem never converts a file to open it (workbooks in `.ods`, `.xls` or `.xlsb` are the one exception, below), writes nothing into a file that its format does not define, and shows what it does not understand as the source it is. It edits the text in place and saves only what you changed, byte for byte: no database, no import, no "save as". Open the file in another editor, or in `git diff`, and you see only your edits.
 - **Checked against the reference, on thousands of files.** Org against Emacs itself; LaTeX on 925 arXiv papers and 21 real projects, the HoTT book and the Stacks project among them; Markdown on every example of the CommonMark and GFM test suites; CSV on files written by Excel, LibreOffice and Google Sheets. On the way the project wrote the specification LaTeX never had: [LaTeX as written](book/appendices/latex-as-written.org).
 - **Fast.** Kalem is written in Rust: one binary, no runtime, no scripting engine. A keystroke in a paragraph reparses it in a twentieth of a millisecond. The [measurements](book/part-4/performance.org) give every number with the command that reproduces it.
 - **One editor, in a window and in a terminal.** The same documents, commands and keys in the graphical editor and in `kalem tui`, over SSH too. Every operation on a document is also a command on the command line: `kalem check`, `kalem fmt`, `kalem export`.
-- **Vim keys, if you want them.** Vim's modes, motions, operators, text objects, registers, macros and command line are built in, checked against Vim itself; one setting turns them on. The default keys are the ones most editors use: Ctrl+S, Ctrl+Z, Ctrl+F.
-- **Menus and the mouse, if you do not.** You are not tied to shortcuts: a menu bar, a toolbar, right-click menus, a command palette and the mouse reach every command, in the terminal too (F10 lists the menu items there).
+- **Vim keys if you want them, menus if you do not.** Vim's modes, motions, operators, registers, macros and command line are built in, checked against Vim itself, and one setting turns them on; the default keys are the ones most editors use. Either way a menu bar, a toolbar, right-click menus, a command palette and the mouse reach every command, in the terminal too.
 - **Plugins in Rust, not JavaScript.** A plugin is compiled Rust, run as a WebAssembly component with its own memory, a time budget and only the permissions it declares. Plugins run fast, and a plugin cannot freeze the editor or take it down.
-
-<table>
-  <tr>
-    <td><img src="assets/screenshot-terminal.png" alt="The same Org file in the terminal editor, the project's folder tree beside it"></td>
-    <td><img src="assets/screenshot-settings.png" alt="The settings panel: every setting grouped by its table, changed in place with lazygit-like keys"></td>
-  </tr>
-</table>
 
 ## Documents
 
-Five formats are built into the core. Each has a chapter in the Book's [Part II](book/part-2/overview.org) that says exactly what Kalem reads, shows, edits and writes, and against what it is tested: Org is compared with Emacs command by command and export by export; a LaTeX file parses back to its own bytes after tens of thousands of edits, its numbering is checked against pdflatex and its structure against pandoc.
+Five formats are built into the core, each with a chapter in the Book's [Part II](book/part-2/overview.org) that says exactly what Kalem reads, shows, edits and writes, and against what it is tested.
 
 | File | What you see |
 |---|---|
@@ -55,6 +46,7 @@ Around them: a file manager, projects, find in files, a command palette, an outl
     <td><img src="assets/screenshot-csv.png" alt="A CSV file in Kalem: a grid, a two-line cell shown as it is"></td>
   </tr>
 </table>
+<p align="center"><i>A Markdown note and the Org guide; a LaTeX article and a CSV file.</i></p>
 
 ## Viewers and plugins
 
@@ -72,6 +64,7 @@ Three viewers are built into the binary as plugins, so you do not leave the edit
     <td><img src="assets/screenshot-xlsx.png" alt="An Excel workbook in Kalem: a sheet as a grid, its totals from formulas, its chart drawn"></td>
   </tr>
 </table>
+<p align="center"><i>The PDF built from the article, and a workbook with its formulas and its chart.</i></p>
 
 Programming languages come as plugins too: the syntax, and a language server for diagnostics, completion, hover, rename, code actions and formatting. Today there is one, for Elixir (with Expert or ElixirLS); more follow.
 
@@ -79,32 +72,31 @@ Programming languages come as plugins too: the syntax, and a language server for
 kalem plugin install elixir
 ```
 
-If your format is not here, a plugin adds it. `kalem plugin browse` lists the plugins of the index, and `kalem plugin new` starts your own, in Rust: a viewer, an editor for a format, or a language. The plugins live in [getkalem/plugins](https://github.com/getkalem/plugins); the Book's [Part III](book/part-3/overview.org) has the contract.
+If your format is not here, a plugin adds it: `kalem plugin browse` lists the plugins of the index, and `kalem plugin new` starts your own, in Rust. The plugins live in [getkalem/plugins](https://github.com/getkalem/plugins); the Book's [Part III](book/part-3/overview.org) has the contract.
 
 ## From Emacs, for everyone
 
 Kalem's author used Emacs for many years. The parts of the Emacs world that worked best are built into Kalem's core, not added on top:
 
-- **Org mode.** The document mode above, compared with Emacs command by command.
-- **Projects**, as Projectile has them: a project list, find a file in the project (Ctrl+P), search in the project (Ctrl+Shift+F), switch project.
-- **A file manager**, as Dired: Ctrl+Alt+D lists the document's folder with the cursor on its file; marks, and renaming by editing the listing, as wdired does.
-- **Leader keys** with the Vim keys, in Doom Emacs's layout: Space is the leader, `SPC p p` switches the project, `SPC SPC` finds a file in it, and a panel shows what can follow a prefix, as which-key does.
+- **Org mode**, compared with Emacs command by command.
+- **Projects**, as Projectile has them: a project list, find a file in the project (Ctrl+P), search in it (Ctrl+Shift+F), switch project.
+- **A file manager**, as Dired: Ctrl+Alt+D lists the document's folder with the cursor on its file; marks, and names edited in the listing as wdired does.
+- **Leader keys** with the Vim keys, in Doom Emacs's layout: Space is the leader, `SPC p p` switches the project, and a panel shows what can follow a prefix, as which-key does.
 
 <table>
   <tr>
     <td><img src="assets/screenshot-files.png" alt="The file manager: a folder listed with permissions, sizes and dates, as Dired lists it"></td>
     <td><img src="assets/screenshot-projects.png" alt="The projects view in the terminal editor: three projects listed as if in one folder"></td>
   </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="assets/screenshot-settings.png" width="60%" alt="The settings panel in the terminal editor: every setting grouped by its table, changed in place with lazygit-like keys"></td>
+  </tr>
 </table>
+<p align="center"><i>The file manager, the projects view, and the settings panel with its lazygit-like keys.</i></p>
 
-You do not need to be an Emacs user, and nothing has to be learned first. The interface most people know is there: a menu bar, tabs, a folder tree, a command palette, right-click menus, Ctrl+S. What Kalem leaves out is Elisp: there is no scripting engine; configuration is data in `settings.toml` and `keymap.json`, and every key can be changed. The Book's [Kalem and Emacs](book/part-4/kalem-and-emacs.org) says what is taken, what is left out, and why.
+You do not need to be an Emacs user, and nothing has to be learned first: the interface most people know is there, a menu bar, tabs, a folder tree, a command palette, right-click menus, Ctrl+S. What Kalem leaves out is Elisp: there is no scripting engine; configuration is data in `settings.toml` and `keymap.json`, and every key can be changed. The Book's [Kalem and Emacs](book/part-4/kalem-and-emacs.org) says what is taken, what is left out, and why.
 
-For Emacs and Vim hands, the details:
-
-- **Vim keys.** `editor.keymap_profile = "vim"` in `settings.toml`, or the Keys row of the settings panel (Ctrl+,). Modes, motions, operators, text objects and counts, registers and macros, marks, search with Vim's patterns, and the command line with ranges, `:s`, `:g`, `:sort`, `:set` and the file and window commands. Fifteen thousand generated key sequences were run in Vim and in Kalem, and the text and cursor after them must agree ([Keys](book/part-1/keys.org), "Vim keys").
-- **Doom's leader.** Every key of Doom's leader map is listed with what it does in Kalem, or why not yet ([Keys](book/part-1/keys.org), "Doom's leader map in Kalem").
-- **Dired's keys** in the file manager: `e` edits the names in place, `* t` and the other marks, `K` takes an entry out of the listing ([The file manager](book/part-1/the-file-manager.org)).
-- **Emacs's Org keys.** [`docs/keymaps/emacs.json`](docs/keymaps/emacs.json) is a complete keymap with Org mode's Emacs keys (`C-c C-t`, `C-c C-c`…) to copy from into your `keymap.json`; the hint panel follows `C-x` and `C-c` too ([Keys](book/part-1/keys.org), "Your own keys").
+For Emacs and Vim hands: `editor.keymap_profile = "vim"` turns the Vim keys on, and every key of Doom's leader map is listed with what it does in Kalem ([Keys](book/part-1/keys.org)); the file manager has Dired's keys ([The file manager](book/part-1/the-file-manager.org)); [`docs/keymaps/emacs.json`](docs/keymaps/emacs.json) is a complete keymap with Org mode's Emacs keys to copy from.
 
 ## Install
 
@@ -120,9 +112,9 @@ On Windows, in PowerShell:
 powershell -ExecutionPolicy Bypass -c "irm https://github.com/getkalem/kalem/releases/latest/download/kalem-editor-installer.ps1 | iex"
 ```
 
-The installers put `kalem` in `~/.cargo/bin`; delete it there to uninstall. The release also has terminal-only archives (`kalem-terminal-*`): the terminal editor and the command-line tools, without the graphical editor, the viewers and the plugins; a server should take those. Both need glibc 2.35 or later on Linux (Ubuntu 22.04). On macOS the binary is not signed yet: a `Kalem.app` built from source with `tools/macos-app.sh` opens the first time with right-click and *Open*.
+The installers put `kalem` in `~/.cargo/bin`; delete it there to uninstall. The release also has terminal-only archives (`kalem-terminal-*`) for servers, without the graphical editor and the viewers. The Book's [Installing](book/part-1/installing.org) has the details: glibc 2.35 or later on Linux, the unsigned `Kalem.app` on macOS, and the libraries a build from source needs.
 
-From source, with Rust 1.96 or later (on Linux the graphical editor also needs the development files listed in the Book's [Installing](book/part-1/installing.org)):
+From source, with Rust 1.96 or later:
 
 ```bash
 git clone https://github.com/getkalem/kalem && cd kalem
@@ -134,13 +126,16 @@ kalem notes.md                      # the editor; `kalem tui notes.md` for the t
 kalem export notes.org --to html    # the command-line tools: check, fmt, query, export…
 ```
 
-Settings live in `~/.config/kalem` on Linux and macOS (`$XDG_CONFIG_HOME/kalem` if it is set) and in `%APPDATA%\kalem` on Windows; the log and crash reports in `~/.local/state/kalem` (`$XDG_STATE_HOME/kalem`), or `%LOCALAPPDATA%\kalem`. `KALEM_CONFIG_DIR` and `KALEM_STATE_DIR` move them, and `KALEM_LOG=debug` makes the log say more.
+Settings live in `~/.config/kalem` on Linux and macOS (`$XDG_CONFIG_HOME/kalem` if it is set) and in `%APPDATA%\kalem` on Windows; the log and crash reports in `~/.local/state/kalem`, or `%LOCALAPPDATA%\kalem`. `KALEM_CONFIG_DIR` and `KALEM_STATE_DIR` move them, and `KALEM_LOG=debug` makes the log say more.
 
 ## Not yet
 
 - The Org agenda.
 - Language plugins beyond Elixir.
 - Signed installers and a macOS app in the release; a Windows MSI; Linux AppImage and Flatpak packages.
+
+## Limits
+
 - Markdown: export, printing and `kalem fmt` are for Org and LaTeX; TOML front matter (`+++`) and `$$` blocks over several lines show as text.
 - LaTeX: building a PDF needs TeX Live, MiKTeX or Tectonic installed; Kalem does not download one.
 - The terminal-only build has no viewers and no plugin host, and draws an SVG picture without its text.
