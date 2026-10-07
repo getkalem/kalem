@@ -3757,8 +3757,12 @@ impl Vim {
                     doc.selection = Selection::caret(to);
                 }
             }
-            // An unused character does nothing (and is not typed).
-            _ => self.reset(),
+            // An unused character does nothing (and is not typed); Vim beeps,
+            // which stops a macro.
+            _ => {
+                self.failed = true;
+                self.reset();
+            }
         }
     }
 
@@ -4247,7 +4251,11 @@ impl Vim {
                 self.apply_op(doc, op, Target::Lines(l1, l2), host, out);
                 self.changed_if(op);
             }
-            Some(_) => self.reset(),
+            // Another operator after one (`<d`): Vim beeps.
+            Some(_) => {
+                self.failed = true;
+                self.reset();
+            }
             None => {
                 let c = self.count.take().unwrap_or(0);
                 self.op = Some((op, c));
