@@ -544,7 +544,8 @@ fn org_dwim(ctx: &mut EditorContext<'_>) -> CommandResult {
     }
 }
 
-/// Doom Emacs's `+org/insert-item-below` (C-RET) and `-above` (C-S-RET):
+/// Doom Emacs's `+org/insert-item-below` (C-RET) and `-above` (C-S-RET),
+/// Insert Item Below and Above:
 /// next to the list item, table row or heading at the cursor, a new one
 /// of its kind (an item with a checkbox when it has one, a heading with
 /// its TODO keyword), then Vim's Insert mode there.
@@ -6670,16 +6671,16 @@ fn plain_commands() -> Vec<Command> {
         // C-S-RET with Vim keys).
         cmd(
             "org.insertItemBelow",
-            "Insert Item, Row or Heading Below",
-            "Insert",
+            "Insert Item Below",
+            "Lists",
             &[],
             Some(ORG),
             |ctx, _| org_insert_item(ctx, false),
         ),
         cmd(
             "org.insertItemAbove",
-            "Insert Item, Row or Heading Above",
-            "Insert",
+            "Insert Item Above",
+            "Lists",
             &[],
             Some(ORG),
             |ctx, _| org_insert_item(ctx, true),

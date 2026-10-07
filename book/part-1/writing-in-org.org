@@ -41,7 +41,8 @@ next and previous element, =gh= to the element around the cursor and
 =gl= into the one at it. Ctrl+Enter and Ctrl+Shift+Enter insert an
 item, a table row or a heading (with its TODO keyword) below or above
 the one at the cursor and start Insert mode, as Doom's C-RET and
-C-S-RET (in a terminal that can send them).
+C-S-RET (/Insert Item Below/ and /Above/; in a terminal that can send
+the keys).
 
 /Cut Subtree/ and /Copy Subtree/ take the heading at the cursor with
 everything under it, and /Paste Subtree/ pastes one at the level that

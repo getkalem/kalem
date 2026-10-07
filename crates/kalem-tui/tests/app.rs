@@ -814,10 +814,12 @@ fn command_palette() {
     assert!(row.contains("ctrl+t"), "{row:?}");
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(t.text(), "* TODO A\n");
-    // Commands that do not apply here are not offered.
+    // Commands that do not apply here are not offered (Insert Column is
+    // for tables; "insert row" would find Insert Item Below, which
+    // applies).
     t.at(0);
     t.key(KeyCode::F(1), KeyModifiers::NONE);
-    t.typ("insert row");
+    t.typ("insert column");
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(t.text(), "* TODO A\n");
 }
