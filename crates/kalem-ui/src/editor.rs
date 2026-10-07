@@ -1524,6 +1524,7 @@ impl Editor {
                 cx.notify();
             }
             Request::Fold { global } => self.fold(global, cx),
+            Request::FoldOp(op) => self.fold_op(op, cx),
             Request::OpenLink(action) => self.open_link(action, cx),
             Request::Outline => self.toggle_outline(cx),
             Request::PluginPanel(id) => {
@@ -1890,6 +1891,23 @@ impl Editor {
         }
         self.goal_x = None;
         self.after_change(cx);
+    }
+
+    /// Vim's `z` keys: open or close the fold at the cursor, or all.
+    fn fold_op(&mut self, op: view::FoldOp, cx: &mut Context<'_, Self>) {
+        let blocks = self.blocks();
+        let head = self.doc.selection.head;
+        let to = self.folds.apply(&blocks, head, op);
+        if to != head {
+            self.doc.move_cursor(to, false);
+        }
+        match op {
+            view::FoldOp::CloseAll => self.global_fold = view::Visibility::Folded,
+            view::FoldOp::OpenAll => self.global_fold = view::Visibility::Subtree,
+            _ => {}
+        }
+        self.sync_list(&[]);
+        cx.notify();
     }
 
     fn fold(&mut self, global: bool, cx: &mut Context<'_, Self>) {

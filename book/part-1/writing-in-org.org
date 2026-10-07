@@ -18,9 +18,12 @@ title moves to it, at the start of a heading it goes above. /Insert
 Heading After Subtree/ (Emacs's =C-RET=), /Insert Subheading/ and
 /Insert TODO Heading/ are in the palette. Alt+Left and Alt+Right
 promote and demote a heading, with Shift its whole subtree; Alt+Up and
-Alt+Down move a subtree past its neighbors. Tab on a heading folds and unfolds it;
-Shift+Tab cycles the whole document between overview, contents and
-everything.
+Alt+Down move a subtree past its neighbors. Tab on a heading folds and
+unfolds it; Shift+Tab cycles the whole document between overview,
+contents and everything. With Vim keys the =z= keys fold as in Doom
+Emacs: =za= toggles the heading the cursor is under, =zo= and =zc=
+open and close it, =zO= opens everything under it, =zM= shows the
+overview, =zR= everything, and =zA= is Shift+Tab.
 
 /Cut Subtree/ and /Copy Subtree/ take the heading at the cursor with
 everything under it, and /Paste Subtree/ pastes one at the level that

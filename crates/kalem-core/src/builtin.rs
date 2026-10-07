@@ -8241,6 +8241,30 @@ fn plain_commands() -> Vec<Command> {
             Some(ORG),
             |ctx, _| request(ctx, Request::Fold { global: true }),
         ),
+        // Vim's `z` keys, as Doom's Org module has them.
+        cmd("view.foldOpen", "Open Fold", "View", &[], None, |ctx, _| {
+            request(ctx, Request::FoldOp(crate::view::FoldOp::Open))
+        }),
+        cmd(
+            "view.foldOpenSubtree",
+            "Open Fold and the Folds Under It",
+            "View",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::FoldOp(crate::view::FoldOp::OpenSubtree)),
+        ),
+        cmd("view.foldClose", "Close Fold", "View", &[], None, |ctx, _| {
+            request(ctx, Request::FoldOp(crate::view::FoldOp::Close))
+        }),
+        cmd("view.foldToggle", "Toggle Fold", "View", &[], None, |ctx, _| {
+            request(ctx, Request::FoldOp(crate::view::FoldOp::Toggle))
+        }),
+        cmd("view.foldCloseAll", "Close All Folds", "View", &[], None, |ctx, _| {
+            request(ctx, Request::FoldOp(crate::view::FoldOp::CloseAll))
+        }),
+        cmd("view.foldOpenAll", "Open All Folds", "View", &[], None, |ctx, _| {
+            request(ctx, Request::FoldOp(crate::view::FoldOp::OpenAll))
+        }),
         cmd("edit.undo", "Undo", "Edit", &["ctrl+z"], None, |ctx, _| {
             ctx.doc()?
                 .undo()

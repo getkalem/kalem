@@ -149,6 +149,8 @@ pub enum Request {
         /// The whole document (`S-TAB`).
         global: bool,
     },
+    /// Open or close folds: Vim's `z` keys.
+    FoldOp(crate::view::FoldOp),
     /// Open a file in the window: `path`, or ask for one.
     Open {
         /// The file.

@@ -2012,6 +2012,7 @@ impl App {
                 self.dirty = true;
             }
             Request::Fold { global } => self.fold(global),
+            Request::FoldOp(op) => self.fold_op(op),
             Request::OpenLink(action) => self.open_link(action),
             Request::Palette => self.open_palette(),
             Request::Menus => {
@@ -2415,6 +2416,24 @@ impl App {
                 true,
             ),
         }
+    }
+
+    /// Vim's `z` keys: open or close the fold at the cursor, or all.
+    fn fold_op(&mut self, op: kalem_core::view::FoldOp) {
+        use kalem_core::view::FoldOp;
+        let blocks = self.editor.all_blocks(&self.doc);
+        let head = self.doc.selection.head;
+        let to = self.editor.folds.apply(&blocks, head, op);
+        if to != head {
+            self.doc.move_cursor(to, false);
+        }
+        match op {
+            FoldOp::CloseAll => self.global_fold = Visibility::Folded,
+            FoldOp::OpenAll => self.global_fold = Visibility::Subtree,
+            _ => {}
+        }
+        self.editor.follow = true;
+        self.dirty = true;
     }
 
     fn fold(&mut self, global: bool) {

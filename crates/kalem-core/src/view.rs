@@ -1885,6 +1885,92 @@ impl Folds {
     }
 }
 
+/// What Vim's `z` keys do to the folds, as Doom Emacs's Org module has
+/// them (`+org/open-fold`, `+org/close-fold`, `+org/toggle-fold`…).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoldOp {
+    /// `zo`: the heading at the cursor opens.
+    Open,
+    /// `zO`: it opens with every heading under it.
+    OpenSubtree,
+    /// `zc`, `zC`: it closes.
+    Close,
+    /// `za`: it closes when open and opens when closed.
+    Toggle,
+    /// `zM`: every heading closes, the overview.
+    CloseAll,
+    /// `zR`: every heading opens.
+    OpenAll,
+}
+
+impl Folds {
+    /// `op` on the heading whose entry holds `cursor` (or on all). Returns
+    /// where the cursor goes: the heading line when a fold closes over it.
+    pub fn apply(&mut self, blocks: &[Block], cursor: usize, op: FoldOp) -> usize {
+        match op {
+            FoldOp::OpenAll => {
+                *self = Folds::default();
+                return cursor;
+            }
+            FoldOp::CloseAll => {
+                *self = Folds::startup(blocks, "overview");
+                // The top-level heading over the cursor, which shows.
+                let min = blocks.iter().filter_map(heading_level).min().unwrap_or(1);
+                return blocks
+                    .iter()
+                    .filter(|b| heading_level(b) == Some(min) && b.range.start <= cursor)
+                    .next_back()
+                    .map_or(cursor, |b| {
+                        if cursor < b.content_end {
+                            cursor
+                        } else {
+                            b.range.start
+                        }
+                    });
+            }
+            _ => {}
+        }
+        // The heading of the entry the cursor is in.
+        let Some(i) = blocks
+            .iter()
+            .rposition(|b| b.range.start <= cursor)
+            .and_then(|j| {
+                let b = &blocks[j];
+                let h = if heading_level(b).is_some() {
+                    b.range.start
+                } else {
+                    b.headline?
+                };
+                blocks
+                    .iter()
+                    .position(|b| b.range.start == h && heading_level(b).is_some())
+            })
+        else {
+            return cursor;
+        };
+        let h = blocks[i].range.start;
+        let close = match op {
+            FoldOp::Open => false,
+            FoldOp::OpenSubtree => {
+                for b in &blocks[subtree(blocks, i)] {
+                    self.set(b.range.start, None);
+                }
+                false
+            }
+            FoldOp::Toggle => self.get(h).is_none(),
+            _ => true,
+        };
+        self.set(h, close.then_some(Fold::Subtree));
+        // The heading line itself stays in view.
+        // (A heading block's content ends after its line feed.)
+        if close && cursor >= blocks[i].content_end {
+            h
+        } else {
+            cursor
+        }
+    }
+}
+
 /// The global visibility `#+STARTUP: OPTION` leaves the document in, from
 /// which Shift+Tab's cycle goes on (`org-cycle-global-status`).
 pub fn startup_visibility(option: &str) -> Visibility {
@@ -1932,6 +2018,34 @@ mod tests {
             super::image_label(super::PLACEHOLDER, "img/dot.png"),
             "[image: dot.png]"
         );
+    }
+
+    #[test]
+    fn fold_ops() {
+        use super::*;
+        let t = "* A\ntext\n** B\nmore\n* C\n";
+        let p = org_syntax::parse(t);
+        let b = blocks(&p.syntax(), p.context());
+        let shown = |f: &Folds| f.visible(&b).iter().map(|b| b.range.start).collect::<Vec<_>>();
+        let mut f = Folds::default();
+        let all = shown(&f);
+        // `zc` in the body of B closes B and takes the cursor to it.
+        let more = t.find("more").unwrap();
+        let b_at = t.find("** B").unwrap();
+        assert_eq!(f.apply(&b, more, FoldOp::Close), b_at);
+        assert!(!shown(&f).contains(&more));
+        // `za` on B opens it again; `zM` shows the top level only.
+        assert_eq!(f.apply(&b, b_at, FoldOp::Toggle), b_at);
+        assert_eq!(shown(&f), all);
+        assert_eq!(f.apply(&b, more, FoldOp::CloseAll), 0);
+        assert_eq!(shown(&f), vec![0, t.find("* C").unwrap()]);
+        // `zO` on A opens A and B; `zR` opens all.
+        f.set(b_at, Some(Fold::Subtree));
+        f.apply(&b, 0, FoldOp::OpenSubtree);
+        assert_eq!(shown(&f), all);
+        f.apply(&b, 0, FoldOp::CloseAll);
+        f.apply(&b, 0, FoldOp::OpenAll);
+        assert_eq!(shown(&f), all);
     }
 
     #[test]

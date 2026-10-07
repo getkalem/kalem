@@ -3287,6 +3287,22 @@ impl Vim {
             Pending::Z => {
                 self.pending = Pending::None;
                 let n = self.count.take();
+                // Folds, as Doom Emacs has them in Org: `zo`, `zO`, `zc`,
+                // `zC`, `za`, `zA` (the global cycle), `zM` and `zR`.
+                let fold = match key {
+                    Key::Char('o') => Some("view.foldOpen"),
+                    Key::Char('O') => Some("view.foldOpenSubtree"),
+                    Key::Char('c' | 'C') => Some("view.foldClose"),
+                    Key::Char('a') => Some("view.foldToggle"),
+                    Key::Char('A') => Some("view.foldAll"),
+                    Key::Char('M') => Some("view.foldCloseAll"),
+                    Key::Char('R') => Some("view.foldOpenAll"),
+                    _ => None,
+                };
+                if let Some(id) = fold {
+                    out.commands.push((id.into(), Value::Null));
+                    return self.reset();
+                }
                 self.z_command(doc, key, n, host);
                 return self.reset();
             }

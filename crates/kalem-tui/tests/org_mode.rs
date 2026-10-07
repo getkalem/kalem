@@ -213,3 +213,25 @@ fn shift_arrows_on_a_timestamp() {
     t.key(KeyCode::Up, KeyModifiers::SHIFT);
     assert!(t.text().starts_with("* TODO [#B] Call"), "{}", t.text());
 }
+
+#[test]
+fn vim_z_keys_fold_as_in_doom() {
+    let text = "* A\ntext\n** B\nmore\n* C\n";
+    let mut t = open_with(text, "editor.keymap_profile = \"vim\"\n", text.find("more").unwrap());
+    // `zc` in B's body closes B, the cursor on its heading.
+    t.typ("zc");
+    assert_eq!(t.row(2), " ** B …");
+    assert_eq!(t.app.doc.selection.head, text.find("** B").unwrap());
+    // `zo` opens it, `za` closes it again.
+    t.typ("zo");
+    assert_eq!(t.row(3), "     more");
+    t.typ("za");
+    assert_eq!(t.row(3), " ◉ C");
+    // `zM` is the overview, `zR` opens everything; `zz` still scrolls.
+    t.typ("zM");
+    assert_eq!((t.row(0), t.row(1)), (" * A …".into(), " ◉ C".into()));
+    t.typ("zR");
+    assert_eq!(t.row(3), "     more");
+    t.typ("zz");
+    assert_eq!(t.text(), text);
+}
