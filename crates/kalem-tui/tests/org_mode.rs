@@ -147,3 +147,20 @@ fn bold_as_a_word_processor_does() {
     t.key(KeyCode::Char('b'), KeyModifiers::CONTROL);
     assert_eq!(t.text(), "x \n");
 }
+
+#[test]
+fn links_into_the_document_itself_have_no_file() {
+    // As `org-insert-link`: a stored link to a heading of this document,
+    // or a typed `file:` link into it, is written without the file.
+    let text = "* First\n\n* Second\n";
+    let mut t = open(text, text.find("Second").unwrap());
+    t.app.run_command("link.store", serde_json::json!({}));
+    t.app.doc.move_cursor(8, false);
+    t.app.run_command("org.link.insertStored", serde_json::json!({}));
+    assert_eq!(t.text(), "* First\n[[*Second][Second]]\n* Second\n");
+    t.app.run_command(
+        "org.insert.link",
+        serde_json::json!({ "link": "file:t.org::*First", "description": "up" }),
+    );
+    assert_eq!(t.text(), "* First\n[[*Second][Second]][[*First][up]]\n* Second\n");
+}

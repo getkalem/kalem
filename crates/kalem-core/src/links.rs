@@ -108,18 +108,54 @@ pub fn links_of(doc: &mut crate::DocumentState) -> Vec<Stored> {
 /// The Org text of `links` for a document at `doc_path`: one link, or one
 /// a line.
 pub fn org_text(links: &[Stored], doc_path: Option<&Path>) -> String {
-    let dir = doc_path
-        .map(|p| std::path::absolute(p).unwrap_or_else(|_| p.to_path_buf()))
-        .and_then(|p| p.parent().map(Path::to_path_buf));
     links
         .iter()
         .filter_map(|l| {
-            let path = std::path::absolute(&l.path).unwrap_or_else(|_| l.path.clone());
-            let target = file_target(&path, dir.as_deref(), l.search.as_deref());
+            let target = org_target(l, doc_path);
             org_edit::insert::link_string(&target, Some(&l.description)).ok()
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+/// `link` as `org-insert-link` writes it in the document at `doc_path`: a
+/// `file:` link with a search option into that very document loses its
+/// file (`file:notes.org::*Top` in notes.org is `*Top`).
+pub fn same_file_link(link: &str, doc_path: Option<&Path>) -> String {
+    let (Some(rest), Some(doc)) = (link.strip_prefix("file:"), doc_path) else {
+        return link.to_string();
+    };
+    let Some((path, search)) = rest.split_once("::") else {
+        return link.to_string();
+    };
+    let abs = |p: &Path| std::path::absolute(p).unwrap_or_else(|_| p.to_path_buf());
+    let doc = abs(doc);
+    let path = crate::settings::expand_home(path);
+    let target = doc
+        .parent()
+        .map_or_else(|| PathBuf::from(&path), |d| d.join(&path));
+    if abs(&target) == doc {
+        search.to_string()
+    } else {
+        link.to_string()
+    }
+}
+
+/// The target of an Org link to `link` from the document at `doc_path`:
+/// its search option alone when it is in that document (`*Heading`, as
+/// `org-insert-link` drops the file of a link to the same file), else
+/// [`file_target`] relative to the document's folder.
+pub fn org_target(link: &Stored, doc_path: Option<&Path>) -> String {
+    let abs = |p: &Path| std::path::absolute(p).unwrap_or_else(|_| p.to_path_buf());
+    let doc = doc_path.map(abs);
+    let path = abs(&link.path);
+    if let Some(search) = &link.search
+        && doc.as_deref() == Some(path.as_path())
+    {
+        return search.clone();
+    }
+    let dir = doc.as_deref().and_then(Path::parent);
+    file_target(&path, dir, link.search.as_deref())
 }
 
 /// Links to `paths` in the syntax of a document in `mode` at `doc_path`,
@@ -219,5 +255,26 @@ mod tests {
             org_text(&links, Some(Path::new("/w/notes/doc.org"))),
             "[[file:a.org::*Intro][Intro]]"
         );
+        // A heading of the document itself: no file, as in Emacs.
+        assert_eq!(
+            org_text(&links, Some(Path::new("/w/notes/a.org"))),
+            "[[*Intro][Intro]]"
+        );
+        let file = Stored {
+            search: None,
+            ..links[0].clone()
+        };
+        assert_eq!(
+            org_target(&file, Some(Path::new("/w/notes/a.org"))),
+            "file:a.org"
+        );
+        // Typed or offered links into the document itself, as Emacs.
+        let doc = Some(Path::new("/w/notes/a.org"));
+        assert_eq!(same_file_link("file:a.org::*Intro", doc), "*Intro");
+        assert_eq!(same_file_link("file:./a.org::#id", doc), "#id");
+        assert_eq!(same_file_link("file:/w/notes/a.org::x", doc), "x");
+        assert_eq!(same_file_link("file:b.org::*Intro", doc), "file:b.org::*Intro");
+        assert_eq!(same_file_link("file:a.org", doc), "file:a.org");
+        assert_eq!(same_file_link("https://a.org::x", doc), "https://a.org::x");
     }
 }

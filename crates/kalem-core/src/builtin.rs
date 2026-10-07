@@ -8973,6 +8973,8 @@ fn plain_commands() -> Vec<Command> {
                     .get("description")
                     .and_then(Value::as_str)
                     .map(str::to_string);
+                let path = ctx.doc()?.meta.path.clone();
+                let link = crate::links::same_file_link(&link, path.as_deref());
                 ctx.org(|d, p, m| org_edit::insert::insert_link(d, p, m, &link, desc.as_deref()))
             },
         ),
