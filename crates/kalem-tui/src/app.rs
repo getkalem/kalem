@@ -2023,6 +2023,12 @@ impl App {
             Request::Fold { global } => self.fold(global),
             Request::FoldOp(op) => self.fold_op(op),
             Request::Run { command, args } => self.run_command(&command, args),
+            Request::VimInsert => {
+                if let Some(v) = &mut self.vim {
+                    v.insert_at_cursor(&mut self.doc);
+                    self.update_cursor_shape();
+                }
+            }
             Request::OpenLink(action) => self.open_link(action),
             Request::Palette => self.open_palette(),
             Request::Menus => {

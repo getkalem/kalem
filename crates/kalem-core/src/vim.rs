@@ -1515,6 +1515,20 @@ impl Vim {
     }
 
     /// Whether typed text goes into the document (insert mode).
+    /// Insert mode at the cursor, as `i` enters it, for a command that
+    /// leaves the cursor where text is to be typed (Doom's C-RET in Org).
+    pub fn insert_at_cursor(&mut self, doc: &mut DocumentState) {
+        if self.takes_text() {
+            return;
+        }
+        let pos = doc.selection.head.min(doc.text().len());
+        self.mode = Mode::Normal;
+        self.cursor = pos;
+        self.insert_count = 1;
+        self.insert_repeat = insert::Repeat::Here;
+        self.open_insert(doc, 'i', pos, line_of(doc, pos));
+    }
+
     pub fn takes_text(&self) -> bool {
         self.mode == Mode::Insert && self.command_line.is_none()
     }

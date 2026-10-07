@@ -1526,6 +1526,11 @@ impl Editor {
             Request::Fold { global } => self.fold(global, cx),
             Request::FoldOp(op) => self.fold_op(op, cx),
             Request::Run { command, args } => self.run_command(&command, args, window, cx),
+            Request::VimInsert => {
+                if let Some(v) = &mut self.vim {
+                    v.insert_at_cursor(&mut self.doc);
+                }
+            }
             Request::OpenLink(action) => self.open_link(action, cx),
             Request::Outline => self.toggle_outline(cx),
             Request::PluginPanel(id) => {

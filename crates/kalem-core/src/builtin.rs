@@ -542,6 +542,51 @@ fn org_dwim(ctx: &mut EditorContext<'_>) -> CommandResult {
     }
 }
 
+/// Doom Emacs's `+org/insert-item-below` (C-RET) and `-above` (C-S-RET):
+/// next to the list item, table row or heading at the cursor, a new one
+/// of its kind (an item with a checkbox when it has one, a heading with
+/// its TODO keyword), then Vim's Insert mode there.
+fn org_insert_item(ctx: &mut EditorContext<'_>, above: bool) -> CommandResult {
+    let now = ctx.now;
+    let doc = ctx.doc()?;
+    let model = doc
+        .model()
+        .ok_or_else(|| CommandError::new(crate::tr!("msg-not-org")))?;
+    let pos = doc.selection.head;
+    let when = doc.when_context();
+    let on = |k: &str| matches!(when.get(k), Some(crate::when::Value::Bool(true)));
+    let run = |id: &str, args: Value| Request::Run {
+        command: id.to_string(),
+        args,
+    };
+    if on("inTable") {
+        let args = if above {
+            serde_json::json!({})
+        } else {
+            serde_json::json!({ "below": true })
+        };
+        ctx.requests.push(run("table.insertRow", args));
+    } else if let Some((start, checkbox)) = org_edit::list::item_at(&model, pos) {
+        let to = if above {
+            start
+        } else {
+            let text = doc.text();
+            text.line_range(text.line_of(pos)).end
+        };
+        doc.move_cursor(to, false);
+        ctx.requests
+            .push(run("list.insertItem", serde_json::json!({ "checkbox": checkbox })));
+    } else {
+        let ctx_ = model.parse().context().clone();
+        let text = text_of(&model);
+        let t = org_edit::headline::insert_heading_doom(&text, pos, above, &ctx_)
+            .map_err(CommandError::from)?;
+        doc.apply(&t, org_edit::ChangeKind::Command, now);
+    }
+    ctx.requests.push(Request::VimInsert);
+    Ok(())
+}
+
 /// Whether the line at `pos` is an item with a checkbox.
 fn checkbox_on_line(text: &str, pos: usize) -> bool {
     let bol = text[..pos.min(text.len())].rfind('\n').map_or(0, |i| i + 1);
@@ -6557,6 +6602,24 @@ fn plain_commands() -> Vec<Command> {
                 };
                 Ok(())
             },
+        ),
+        // Doom Emacs's `+org/insert-item-below` and `-above` (C-RET and
+        // C-S-RET with Vim keys).
+        cmd(
+            "org.insertItemBelow",
+            "Insert Item, Row or Heading Below",
+            "Insert",
+            &[],
+            Some(ORG),
+            |ctx, _| org_insert_item(ctx, false),
+        ),
+        cmd(
+            "org.insertItemAbove",
+            "Insert Item, Row or Heading Above",
+            "Insert",
+            &[],
+            Some(ORG),
+            |ctx, _| org_insert_item(ctx, true),
         ),
         // Doom Emacs's `+org/remove-link` (SPC m l d).
         cmd(

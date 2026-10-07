@@ -38,7 +38,10 @@ link, goes to a footnote's other end or recalculates a table, as
 Doom's =+org/dwim-at-point= (/Act at Cursor/). =]h= and =[h= go to
 the next and previous heading of the same level, =gj= and =gk= to the
 next and previous element, =gh= to the element around the cursor and
-=gl= into the one at it.
+=gl= into the one at it. Ctrl+Enter and Ctrl+Shift+Enter insert an
+item, a table row or a heading (with its TODO keyword) below or above
+the one at the cursor and start Insert mode, as Doom's C-RET and
+C-S-RET (in a terminal that can send them).
 
 /Cut Subtree/ and /Copy Subtree/ take the heading at the cursor with
 everything under it, and /Paste Subtree/ pastes one at the level that

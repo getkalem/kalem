@@ -363,7 +363,36 @@ fn vim_takes_a_folded_heading_as_one_line() {
     t.typ("k");
     assert_eq!(t.app.doc.selection.head, 0);
     t.typ("yyGp");
-    assert_eq!(t.text(), "* A\n** child\ntext\n* B\n* C\n* A\n** child\ntext\n");
+    assert_eq!(
+        t.text(),
+        "* A\n** child\ntext\n* B\n* C\n* A\n** child\ntext\n"
+    );
     t.typ("ggdd");
     assert_eq!(t.text(), "* B\n* C\n* A\n** child\ntext\n");
+}
+
+#[test]
+fn doom_insert_item_below_and_above() {
+    let vim = "editor.keymap_profile = \"vim\"\n";
+    // On a TODO heading: one of its level after its subtree, with the
+    // keyword, and Insert mode to type its title.
+    let text = "* TODO A\nbody\n** sub\n\n* B\n";
+    let mut t = open_with(text, vim, 2);
+    t.app
+        .run_command("org.insertItemBelow", serde_json::json!({}));
+    t.typ("New");
+    assert_eq!(t.text(), "* TODO A\nbody\n** sub\n* TODO New\n\n* B\n");
+    // Above a heading.
+    let mut t = open_with(text, vim, text.find("* B").unwrap());
+    t.app
+        .run_command("org.insertItemAbove", serde_json::json!({}));
+    t.typ("Z");
+    assert_eq!(t.text(), "* TODO A\nbody\n** sub\n\n* Z\n* B\n");
+    // In a list: an item, with a checkbox when the item has one.
+    let text = "- [ ] one\n- [ ] two\n";
+    let mut t = open_with(text, vim, 3);
+    t.app
+        .run_command("org.insertItemBelow", serde_json::json!({}));
+    t.typ("mid");
+    assert_eq!(t.text(), "- [ ] one\n- [ ] mid\n- [ ] two\n");
 }

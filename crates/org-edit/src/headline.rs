@@ -941,6 +941,58 @@ pub fn insert_heading(
     })
 }
 
+/// Doom Emacs's `+org/insert-item-below` (`above` false) and `-above` on
+/// a heading: one of its level after its subtree, before the blank lines
+/// that end it, or right above it, with its TODO keyword (a done one
+/// becoming the first keyword). Point ends after the new stars and
+/// keyword.
+pub fn insert_heading_doom(
+    text: &str,
+    point: usize,
+    above: bool,
+    ctx: &ParseContext,
+) -> Result<Transaction, EditError> {
+    let limit = ctx.inlinetask_min_level;
+    let heading = back_to_heading(text, point, limit).ok();
+    let level = heading.map_or(1, |(_, l)| l);
+    let keyword = heading.and_then(|(h, _)| {
+        let line = &text[h..text[h..].find('\n').map_or(text.len(), |i| h + i)];
+        let k = org_model::complex_heading(line, ctx)?
+            .todo
+            .map(|r| line[r].to_string())?;
+        if ctx.done_keywords.contains(&k) {
+            ctx.todo_keywords.first().cloned()
+        } else {
+            Some(k)
+        }
+    });
+    let head = format!(
+        "{} {}",
+        "*".repeat(level),
+        keyword.map_or(String::new(), |k| format!("{k} "))
+    );
+    run(text, point, "Insert heading", |buf| {
+        if above {
+            let Some((h, _)) = heading else {
+                return user_error("Before first headline");
+            };
+            buf.point = h;
+            buf.insert_at_point(&head);
+            let p = buf.point;
+            buf.insert_before_point(p, "\n");
+            return Ok(());
+        }
+        // `org-end-of-subtree`: before the blank lines ending it.
+        let end = heading.map_or(buf.text.len(), |(h, l)| subtree_end(&buf.text, h, l, limit));
+        let at = buf.text[..end]
+            .trim_end_matches(['\n', '\r', '\t', ' '])
+            .len();
+        buf.point = at;
+        buf.insert_at_point(&format!("\n{head}"));
+        Ok(())
+    })
+}
+
 /// `org-insert-subheading`: a heading one level below the one at point,
 /// after its line (even at its start).
 pub fn insert_subheading(

@@ -151,6 +151,9 @@ pub enum Request {
     },
     /// Open or close folds: Vim's `z` keys.
     FoldOp(crate::view::FoldOp),
+    /// Vim's Insert mode at the cursor, after a command that made a place
+    /// to type (Doom's C-RET).
+    VimInsert,
     /// Run another command, chosen by a command that acts on what is at
     /// the cursor (Act at Cursor).
     Run {

@@ -2000,6 +2000,15 @@ fn list_type(st: &Struct, prevs: &[(usize, Option<usize>)], item: usize) -> &'st
     }
 }
 
+/// The start of the line of the item `pos` is in (`org-beginning-of-item`),
+/// with whether that item has a checkbox; none outside lists.
+pub fn item_at(doc: &Document, pos: usize) -> Option<(usize, bool)> {
+    let (text, ctx) = setup(doc);
+    let b = in_item(&text, pos, ctx)?;
+    let checkbox = full_item(&text, b).is_some_and(|f| f.checkbox.is_some());
+    Some((b, checkbox))
+}
+
 /// `org-in-item-p`: the item containing `pos`.
 fn in_item(text: &str, pos: usize, ctx: &ParseContext) -> Option<usize> {
     let b = bol(text, pos);
