@@ -1056,14 +1056,17 @@ fn settings_panel(cx: &mut TestAppContext) {
     let (e, cx) = open("* A\n", cx);
     cx.simulate_keystrokes(&format!("{}-,", primary()));
     assert!(cx.debug_bounds("settings").is_some());
-    let none = gpui::Modifiers::default();
-    for id in [
-        "settings-theme-dark",
-        "settings-size-up",
-        "settings-keys-vim",
+    // Every setting in the list, as in the terminal editor.
+    assert!(cx.debug_bounds("settings-row-editor.font_family").is_some());
+    // `/` filters; `h` and `l` step a choice or a number, saved at once.
+    for (filter, key) in [
+        ("editor.theme", "h"),
+        ("font_size", "l"),
+        ("keymap_profile", "l"),
     ] {
-        let b = cx.debug_bounds(id).expect(id);
-        cx.simulate_click(b.center(), none);
+        cx.simulate_keystrokes("/");
+        cx.simulate_input(filter);
+        cx.simulate_keystrokes(&format!("enter {key} escape"));
         cx.run_until_parked();
     }
     let (dark, size, profile, path) = e.read_with(cx, |e, _| {
@@ -1076,18 +1079,98 @@ fn settings_panel(cx: &mut TestAppContext) {
     });
     assert!(dark);
     assert_eq!((size, profile.as_str()), (17., "vim"));
-    let saved = std::fs::read_to_string(path).unwrap();
+    let saved = std::fs::read_to_string(&path).unwrap();
     assert!(
         saved.contains("theme = \"dark\"") && saved.contains("font_size = 17"),
         "{saved}"
     );
-    // Vim keys work now.
-    cx.simulate_keystrokes("escape");
+    // Text is typed in place: Enter, the text, Enter.
+    cx.simulate_keystrokes("/");
+    cx.simulate_input("latex.engine");
+    cx.simulate_keystrokes("enter enter");
+    assert!(cx.debug_bounds("settings-input").is_some());
+    cx.simulate_keystrokes("backspace backspace backspace backspace");
+    cx.simulate_input("tectonic");
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    assert_eq!(
+        e.read_with(cx, |e, _| e.shared.config.str("latex.engine").to_string()),
+        "tectonic"
+    );
+    // `d` takes a setting back to its default, out of the file.
+    cx.simulate_keystrokes("d");
+    cx.run_until_parked();
+    let saved = std::fs::read_to_string(&path).unwrap();
+    assert!(!saved.contains("tectonic"), "{saved}");
+    // Escape clears the filter, then closes; Vim keys work now.
+    cx.simulate_keystrokes("escape escape");
+    assert!(e.read_with(cx, |e, _| e.settings.is_none()));
     cx.simulate_keystrokes("A");
     cx.simulate_input("!");
     cx.simulate_keystrokes("escape");
     assert_eq!(text(&e, cx), "* A!\n");
+}
+
+#[gpui::test]
+fn lists_and_tables_in_the_settings_panel(cx: &mut TestAppContext) {
+    let (e, cx) = open("* A\n", cx);
+    let get = |e: &Entity<Editor>, cx: &mut gpui::VisualTestContext, key: &str| {
+        e.read_with(cx, |e, _| e.shared.config.get(key).cloned())
+    };
+    cx.simulate_keystrokes(&format!("{}-,", primary()));
+    // A list of choices: Enter shows them, Space puts one in.
+    cx.simulate_keystrokes("/");
+    cx.simulate_input("vim.modes");
+    cx.simulate_keystrokes("enter enter");
+    assert!(cx.debug_bounds("settings-item-0").is_some());
+    cx.simulate_keystrokes("space");
+    cx.run_until_parked();
+    assert_eq!(
+        get(&e, cx, "editor.vim.modes"),
+        Some(serde_json::json!(["org"]))
+    );
+    cx.simulate_keystrokes("escape escape");
+    // A list of texts: `a` adds an item typed in place, `x` removes one.
+    cx.simulate_keystrokes("/");
+    cx.simulate_input("todo_keywords");
+    cx.simulate_keystrokes("enter enter a");
+    cx.simulate_input("WAIT");
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    assert_eq!(
+        get(&e, cx, "org.todo_keywords"),
+        Some(serde_json::json!(["TODO", "|", "DONE", "WAIT"]))
+    );
+    cx.simulate_keystrokes("j x");
+    cx.run_until_parked();
+    assert_eq!(
+        get(&e, cx, "org.todo_keywords"),
+        Some(serde_json::json!(["TODO", "DONE", "WAIT"]))
+    );
+    cx.simulate_keystrokes("escape escape");
+    // A table: `path = mode` typed; a wrong entry says why and stays.
+    cx.simulate_keystrokes("/");
+    cx.simulate_input("files.modes");
+    cx.simulate_keystrokes("enter enter a");
+    cx.simulate_input("notes.txt");
+    cx.simulate_keystrokes("enter");
+    let status = e.read_with(cx, |e, _| e.status.clone());
+    assert!(status.is_some_and(|(_, error)| error), "said why");
+    cx.simulate_input(" = markdown");
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    assert_eq!(
+        get(&e, cx, "files.modes"),
+        Some(serde_json::json!({"notes.txt": "markdown"}))
+    );
+    // A click chooses an item, one on the chosen item edits it.
+    let b = cx.debug_bounds("settings-item-0").expect("the entry");
+    cx.simulate_click(b.center(), gpui::Modifiers::default());
+    cx.simulate_click(b.center(), gpui::Modifiers::default());
+    assert!(cx.debug_bounds("settings-input").is_some());
+    cx.simulate_keystrokes("escape escape escape escape");
     assert!(e.read_with(cx, |e, _| e.settings.is_none()));
+    assert_eq!(text(&e, cx), "* A\n", "no key reached the document");
 }
 
 #[gpui::test]
@@ -1112,18 +1195,18 @@ fn adding_projects_automatically_is_a_choice(cx: &mut TestAppContext) {
     let path = e.read_with(cx, |e, _| e.shared.settings_path.clone().unwrap());
     let saved = std::fs::read_to_string(&path).unwrap();
     assert!(saved.contains("auto_add = true"), "{saved}");
-    // The settings panel shows the choice and changes it.
+    // The settings panel shows it; a click on the chosen row flips it.
     cx.simulate_keystrokes(&format!("{}-,", primary()));
+    cx.simulate_keystrokes("/");
+    cx.simulate_input("auto_add");
+    cx.simulate_keystrokes("enter");
     let none = gpui::Modifiers::default();
     let b = cx
-        .debug_bounds("settings-projects-manual")
+        .debug_bounds("settings-row-projects.auto_add")
         .expect("the Projects row");
     cx.simulate_click(b.center(), none);
     cx.run_until_parked();
     assert!(!auto(&e, cx));
-    let b = cx
-        .debug_bounds("settings-projects-auto")
-        .expect("its other choice");
     cx.simulate_click(b.center(), none);
     cx.run_until_parked();
     assert!(auto(&e, cx));

@@ -34,10 +34,12 @@ fn switching_to_turkish(cx: &mut TestAppContext) {
         "ctrl"
     };
     cx.simulate_keystrokes(&format!("{primary}-,"));
-    let b = cx
-        .debug_bounds("settings-language-tr")
-        .expect("the Turkish choice");
-    cx.simulate_click(b.center(), gpui::Modifiers::default());
+    cx.simulate_keystrokes("/");
+    cx.simulate_input("ui.language");
+    // `auto`, `en`, `tr`: two steps.
+    cx.simulate_keystrokes("enter l");
+    cx.run_until_parked();
+    cx.simulate_keystrokes("l");
     cx.run_until_parked();
     assert_eq!(kalem_core::l10n::language(), "tr");
     // Titles, messages and counts in Turkish.
