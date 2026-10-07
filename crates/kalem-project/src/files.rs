@@ -82,6 +82,65 @@ pub fn walk(root: &Path, ignore: &[String], cancel: &AtomicBool, mut sink: impl 
     }
 }
 
+/// The ignore files at the top of `root` and the project's own patterns,
+/// for telling events in ignored folders apart (`target/` while building);
+/// those deeper are not read, their events walking again as before.
+fn top_ignores(root: &Path, ignore: &[String]) -> Option<ignore::gitignore::Gitignore> {
+    let mut b = ignore::gitignore::GitignoreBuilder::new(root);
+    for name in [".gitignore", ".ignore"] {
+        let path = root.join(name);
+        if path.is_file() {
+            let _ = b.add(path);
+        }
+    }
+    for pat in ignore {
+        let _ = b.add_line(None, pat);
+    }
+    b.build().ok()
+}
+
+/// Whether an event at `p` may change the files found (`files`, sorted):
+/// a file the walk would list that is not among them, one of them gone, a
+/// folder that came or went. A save (a copy written beside the file and
+/// renamed over it) and the changes in a version control folder or an
+/// ignored one are none: each walked the whole project again.
+fn comes_or_goes(
+    root: &Path,
+    ignored: Option<&ignore::gitignore::Gitignore>,
+    files: &[PathBuf],
+    p: &Path,
+) -> bool {
+    let Ok(rel) = p.strip_prefix(root) else {
+        return true;
+    };
+    if rel
+        .components()
+        .any(|c| VCS.iter().any(|v| c.as_os_str() == *v))
+    {
+        return false;
+    }
+    let meta = std::fs::symlink_metadata(p).ok();
+    let dir = meta.as_ref().is_some_and(std::fs::Metadata::is_dir);
+    if ignored.is_some_and(|g| g.matched_path_or_any_parents(rel, dir).is_ignore()) {
+        return false;
+    }
+    if dir {
+        return true;
+    }
+    let at = files.partition_point(|f| f.as_path() < rel);
+    let known = files.get(at).is_some_and(|f| f == rel);
+    // A folder gone with files found in it.
+    let held = files
+        .get(at)
+        .is_some_and(|f| f.starts_with(rel) && f != rel);
+    match (known, meta.is_some_and(|m| m.is_file())) {
+        (true, true) => false,
+        (false, true) => !binary(p),
+        (true, false) => true,
+        (false, false) => held,
+    }
+}
+
 #[derive(Debug, Default)]
 struct State {
     /// Relative paths, sorted once the walk is done.
@@ -121,6 +180,8 @@ impl FileIndex {
         let watcher = {
             use notify::Watcher;
             let st = state.clone();
+            let base = root.to_path_buf();
+            let ignored = top_ignores(root, ignore);
             let w = notify::recommended_watcher(move |ev: notify::Result<notify::Event>| {
                 let Ok(ev) = ev else { return };
                 use notify::EventKind as K;
@@ -128,7 +189,21 @@ impl FileIndex {
                     ev.kind,
                     K::Create(_) | K::Remove(_) | K::Modify(notify::event::ModifyKind::Name(_))
                 ) || matches!(ev.kind, K::Any | K::Other);
-                if structural && let Ok(mut s) = st.lock() {
+                if !structural {
+                    return;
+                }
+                // Looked at without the lock, which the editor waits for.
+                let (done, files) = match st.lock() {
+                    Ok(s) if !s.stale => (s.done, s.files.clone()),
+                    _ => return,
+                };
+                let changed = !done
+                    || ev.paths.is_empty()
+                    || ev
+                        .paths
+                        .iter()
+                        .any(|p| comes_or_goes(&base, ignored.as_ref(), &files, p));
+                if changed && let Ok(mut s) = st.lock() {
                     s.stale = true;
                 }
             });
@@ -232,5 +307,55 @@ impl FileIndex {
 impl Drop for FileIndex {
     fn drop(&mut self) {
         self.cancel.store(true, Ordering::Relaxed);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn events_that_change_no_file_found() {
+        let root =
+            std::env::temp_dir().join(format!("kalem-project-events-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        for (f, text) in [
+            ("a.org", "x"),
+            ("sub/b.org", "y"),
+            (".gitignore", "target/\n"),
+            ("target/out.o", "z"),
+            (".git/index", "i"),
+            ("new.org", "n"),
+            ("pic.png", "p"),
+        ] {
+            let p = root.join(f);
+            std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+            std::fs::write(p, text).unwrap();
+        }
+        let files: Vec<PathBuf> = ["a.org", "sub/b.org"].iter().map(PathBuf::from).collect();
+        let ignored = top_ignores(&root, &["*.log".into()]);
+        let changes = |rel: &str| comes_or_goes(&root, ignored.as_ref(), &files, &root.join(rel));
+        // A file saved again, the version control folder, ignored ones, a
+        // picture, a save's copy already gone: nothing came or went.
+        assert!(!changes("a.org"));
+        assert!(!changes(".git/index"));
+        assert!(!changes("target/out.o"));
+        assert!(!changes("x.log"));
+        assert!(!changes("pic.png"));
+        assert!(!changes(".a.org.kalem-save"));
+        // A new file, a file gone, a folder gone with files in it.
+        assert!(changes("new.org"));
+        std::fs::remove_file(root.join("sub/b.org")).unwrap();
+        assert!(changes("sub/b.org"));
+        std::fs::remove_dir_all(root.join("sub")).unwrap();
+        assert!(changes("sub"));
+        // Outside the project: walked again, to be sure.
+        assert!(comes_or_goes(
+            &root,
+            None,
+            &files,
+            Path::new("/elsewhere/a.org")
+        ));
+        let _ = std::fs::remove_dir_all(&root);
     }
 }
