@@ -87,6 +87,8 @@ pub(crate) enum Event {
         of: Option<String>,
         /// `\subfloat[caption]` (subfig): a sub-caption.
         sub: bool,
+        /// `\caption*` (the caption package): no number.
+        starred: bool,
     },
     Footnote {
         explicit: Option<String>,
@@ -141,6 +143,9 @@ pub(crate) enum Event {
         counter: String,
         within: String,
         remove: bool,
+        /// The counter printed after `within`'s number too (not with
+        /// `\counterwithin*` or `\@addtoreset`, which only reset it).
+        format: bool,
     },
     EnvEnter {
         name: String,
@@ -555,12 +560,25 @@ impl Cache {
             .and_then(|b| b.children().find(|c| c.kind() == OPT_ARG))
             .map(|o| inner(&o))
             .or_else(|| body.as_ref().and_then(leading_note));
+        // listings' `label=` (a `caption=` numbers the listing).
+        let listing_label = (name == "lstlisting")
+            .then(|| note.as_deref().map(listing_options))
+            .flatten();
         out.push(Item::Event(Event::EnvEnter {
             name: name.clone(),
-            range,
+            range: range.clone(),
             body: body_range,
             note,
         }));
+        if let Some((Some(label), captioned)) = listing_label {
+            if captioned {
+                out.push(Item::Event(Event::Step {
+                    counter: "lstlisting".into(),
+                    refer: true,
+                }));
+            }
+            out.push(Item::Event(Event::Label { name: label, range }));
+        }
         if let Some(b) = &body
             && !signatures::is_verbatim(&name)
         {
@@ -570,6 +588,43 @@ impl Cache {
         }
         out.push(Item::Event(Event::EnvExit));
     }
+}
+
+/// The `label=` of listings' options, and whether they have a caption.
+fn listing_options(options: &str) -> (Option<String>, bool) {
+    let mut parts = Vec::new();
+    let (mut depth, mut start) = (0i32, 0);
+    for (i, c) in options.char_indices() {
+        match c {
+            '{' => depth += 1,
+            '}' => depth -= 1,
+            ',' if depth == 0 => {
+                parts.push(&options[start..i]);
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    parts.push(&options[start..]);
+    let mut label = None;
+    let mut captioned = false;
+    for p in parts {
+        let Some((k, v)) = p.split_once('=') else {
+            continue;
+        };
+        let v = v.trim();
+        let v = v
+            .strip_prefix('{')
+            .and_then(|v| v.strip_suffix('}'))
+            .unwrap_or(v)
+            .trim();
+        match k.trim() {
+            "label" if !v.is_empty() => label = Some(v.to_string()),
+            "caption" if !v.is_empty() => captioned = true,
+            _ => {}
+        }
+    }
+    (label, captioned)
 }
 
 /// Whether `cmd` is in a display whose lines amsmath or LaTeX numbers.
@@ -872,12 +927,26 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
                 });
             }
         }
-        "caption" => push(Event::Caption {
+        // listings' `\lstinputlisting[label=…, caption=…]{file}`.
+        "lstinputlisting" => {
+            if let (Some(label), captioned) = listing_options(o.first().unwrap_or(&"")) {
+                if captioned {
+                    push(Event::Step {
+                        counter: "lstlisting".into(),
+                        refer: true,
+                    });
+                }
+                push(Event::Label { name: label, range });
+            }
+        }
+        // KOMA-Script's captions above and below.
+        "caption" | "captionabove" | "captionbelow" => push(Event::Caption {
             text: m.first().unwrap_or(&"").to_string(),
             short: o.first().map(|s| s.to_string()),
             range,
             of: None,
             sub: false,
+            starred,
         }),
         "captionof" => {
             if let Some(kind) = m.first() {
@@ -887,6 +956,7 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
                     range,
                     of: Some(kind.trim().to_string()),
                     sub: false,
+                    starred,
                 });
             }
         }
@@ -898,6 +968,7 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
             range,
             of: None,
             sub: true,
+            starred: false,
         }),
         "footnote" => push(Event::Footnote {
             explicit: o.first().map(|s| s.trim().to_string()),
@@ -1199,12 +1270,14 @@ fn command(cmd: &SyntaxNode, base: usize, out: &mut Vec<Item>) -> bool {
         "item" => push(Event::Item {
             explicit: !o.is_empty(),
         }),
-        "numberwithin" | "counterwithin" | "counterwithout" => {
+        "numberwithin" | "counterwithin" | "counterwithout" | "@addtoreset"
+        | "@removefromreset" => {
             if let (Some(c), Some(w)) = (m.first(), m.get(1)) {
                 push(Event::NumberWithin {
                     counter: c.trim().to_string(),
                     within: w.trim().to_string(),
-                    remove: name == "counterwithout",
+                    remove: matches!(name.as_str(), "counterwithout" | "@removefromreset"),
+                    format: !starred && !name.starts_with('@'),
                 });
             }
         }

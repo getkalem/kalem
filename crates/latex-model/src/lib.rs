@@ -442,6 +442,8 @@ pub struct Model {
     /// The first use (`\gls`, `\ac`) of each entry: its file and range,
     /// where an acronym prints its long form.
     pub glossary_first: Vec<(String, usize, Range<usize>)>,
+    /// The document has an `\appendix`.
+    pub appendix: bool,
 }
 
 impl Model {
@@ -881,6 +883,8 @@ struct Numbering<'r> {
     /// The AMS classes number parts `\arabic`, not `\Roman`.
     arabic_part: bool,
     appendix: bool,
+    /// RevTeX's numbering (`revtex4-2`).
+    revtex: bool,
     mainmatter: bool,
     current: (Option<String>, Target),
     envs: Vec<String>,
@@ -935,6 +939,7 @@ impl<'r> Numbering<'r> {
             pending: Vec::new(),
             arabic_part: false,
             appendix: false,
+            revtex: false,
             mainmatter: true,
             current: (None, Target::None),
             envs: Vec::new(),
@@ -1062,6 +1067,12 @@ impl<'r> Numbering<'r> {
                     "Roman" => styled(&|n| roman(n, true)),
                     "alph" => styled(&|n| alph(n, false)),
                     "Alph" => styled(&|n| alph(n, true)),
+                    // LaTeX's footnote symbols, in its order.
+                    "fnsymbol" => styled(&|n| {
+                        ["*", "†", "‡", "§", "¶", "‖", "**", "††", "‡‡"]
+                            .get((n - 1).max(0) as usize)
+                            .map_or_else(|| n.to_string(), |s| (*s).to_string())
+                    }),
                     t if t.starts_with("the") && t.len() > 3 && depth < 8 => {
                         Some((self.the_at(&t[3..], depth + 1), 0))
                     }
@@ -1161,6 +1172,19 @@ impl<'r> Numbering<'r> {
             } => {
                 self.set_class(class_kind(name));
                 self.arabic_part = matches!(name.as_str(), "amsart" | "amsbook" | "amsproc");
+                // RevTeX: sections I, A, 1 (`\ref` to a subsection prints
+                // `I A`), tables I, II.
+                self.revtex = name.starts_with("revtex");
+                if self.revtex {
+                    for (c, f) in [
+                        ("section", "\\Roman{section}"),
+                        ("subsection", "\\Alph{subsection}"),
+                        ("subsubsection", "\\arabic{subsubsection}"),
+                        ("table", "\\Roman{table}"),
+                    ] {
+                        self.formats.insert(c.into(), f.into());
+                    }
+                }
                 self.model.class = Some(DocumentClass {
                     name: name.clone(),
                     options: options.clone(),
@@ -1236,7 +1260,15 @@ impl<'r> Numbering<'r> {
                         let c = SECTION_COUNTERS[(*level + 1) as usize];
                         self.step(c);
                         let n = self.the(c);
-                        self.current = (Some(n.clone()), Target::Section(*level));
+                        // RevTeX's `\p@subsection`: the section before it.
+                        let referred = match level {
+                            2 if self.revtex => format!("{} {n}", self.the("section")),
+                            3 if self.revtex => {
+                                format!("{} {} {n}", self.the("section"), self.the("subsection"))
+                            }
+                            _ => n.clone(),
+                        };
+                        self.current = (Some(referred), Target::Section(*level));
                         n
                     })
                 };
@@ -1259,12 +1291,28 @@ impl<'r> Numbering<'r> {
             }
             Event::Appendix => {
                 self.appendix = true;
+                self.model.appendix = true;
                 // `\appendix` defines `\thesection` (`\thechapter`) anew.
                 self.formats.remove(if self.class == ClassKind::Article {
                     "section"
                 } else {
                     "chapter"
                 });
+                // RevTeX's appendix numbers its equations by section (A1),
+                // its subsections in Arabic (A 1).
+                if self.revtex {
+                    self.formats
+                        .insert("equation".into(), "\\thesection\\arabic{equation}".into());
+                    self.formats
+                        .insert("subsection".into(), "\\arabic{subsection}".into());
+                    if !self
+                        .resets
+                        .iter()
+                        .any(|(c, w)| c == "equation" && w == "section")
+                    {
+                        self.resets.push(("equation".into(), "section".into()));
+                    }
+                }
                 if self.class == ClassKind::Article {
                     self.counters.insert("section".into(), 0);
                     self.counters.insert("subsection".into(), 0);
@@ -1377,6 +1425,7 @@ impl<'r> Numbering<'r> {
                 range,
                 of,
                 sub,
+                starred,
             } => {
                 let env = self
                     .envs
@@ -1390,6 +1439,8 @@ impl<'r> Numbering<'r> {
                 };
                 let in_sub = *sub || env.as_deref().is_some_and(|e| e.starts_with("sub"));
                 let number = match kind {
+                    // `\caption*`: no number, no counter stepped.
+                    Some(_) if *starred => None,
                     // A sub-caption (subcaption's `subfigure`, subfig's
                     // `\subfloat`): (a), (b), … in the float; `\ref`
                     // prints the float's number before it, the one its
@@ -1572,6 +1623,20 @@ impl<'r> Numbering<'r> {
                 counter,
                 within,
                 remove,
+                format: false,
+            } => {
+                // The reset alone; the counter printed as it was.
+                if *remove {
+                    self.resets.retain(|(c, w)| !(c == counter && w == within));
+                } else if !self.resets.iter().any(|(c, w)| c == counter && w == within) {
+                    self.resets.push((counter.clone(), within.clone()));
+                }
+            }
+            Event::NumberWithin {
+                counter,
+                within,
+                remove,
+                format: true,
             } => {
                 self.plain.remove(counter);
                 if *remove {

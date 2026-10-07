@@ -1,0 +1,28 @@
+\documentclass{article}
+\usepackage{caption}
+\usepackage{listings}
+\makeatletter
+\@addtoreset{equation}{section}
+\makeatother
+\renewcommand{\theequation}{\thesection.\arabic{equation}}
+\counterwithin*{table}{section}
+\renewcommand{\thefootnote}{\fnsymbol{footnote}}
+\begin{document}
+\section{One}\label{s1}
+\begin{equation}a\label{e1}\end{equation}
+\begin{figure}\caption{Normal}\label{f1}\end{figure}
+\begin{figure}\caption*{No number}\end{figure}
+\begin{figure}\caption{After star}\label{f2}\end{figure}
+\begin{table}\caption{T}\label{t1}\end{table}
+Text\footnote{First.\label{fn1}} and\footnote{Second.\label{fn2}}.
+\section{Two}\label{s2}
+\begin{equation}b\label{e2}\end{equation}
+\begin{table}\caption{U}\label{t2}\end{table}
+\begin{lstlisting}[caption={A loop}, label=lst:loop]
+for i in x: pass
+\end{lstlisting}
+\begin{lstlisting}[label={lst:two},caption=Two]
+y
+\end{lstlisting}
+\ref{e1} \ref{e2} \ref{f1} \ref{f2} \ref{t1} \ref{t2} \ref{fn1} \ref{fn2} \ref{lst:loop} \ref{lst:two}
+\end{document}

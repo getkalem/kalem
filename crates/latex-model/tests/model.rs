@@ -265,6 +265,9 @@ fn classes() {
     // equations through the book; memoir: sections only.
     check_labels("class-amsbook");
     check_labels("class-memoir");
+    // RevTeX: sections I, A, 1, referred to as `I A 1`; tables in Roman;
+    // the appendix's equations by section (A1).
+    check_labels("class-revtex");
 }
 
 #[test]
@@ -406,6 +409,18 @@ fn counters() {
 }
 
 /// The AMS classes number parts in Arabic numerals.
+/// `\caption*`, `\@addtoreset`, `\counterwithin*`, `\fnsymbol` and
+/// listings' `label=`, as pdflatex numbers them.
+#[test]
+fn counters_kept_and_reset() {
+    let m = check_labels("counters2");
+    assert!(
+        m.floats
+            .iter()
+            .any(|f| f.captions.iter().any(|c| c.number.is_none()))
+    );
+}
+
 #[test]
 fn amsart_parts() {
     check_labels("amsart-parts");
