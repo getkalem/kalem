@@ -138,6 +138,7 @@ impl Vim {
         cur: usize,
     ) -> Result<Option<(usize, &'a str)>, String> {
         let last = last_line(doc);
+        let cur = cur.min(last);
         let mut rest = s.trim_start();
         let mut line = match rest.chars().next() {
             Some('.') => {
@@ -151,8 +152,9 @@ impl Vim {
             Some(c) if c.is_ascii_digit() => {
                 let n: String = rest.chars().take_while(char::is_ascii_digit).collect();
                 rest = &rest[n.len()..];
-                // Line 0 is before the first (`:m0`).
-                Some(n.parse::<usize>().unwrap_or(1).saturating_sub(1).min(last)).map(|l| {
+                // Line 0 is before the first (`:m0`); one past the last is
+                // left for the command to refuse.
+                Some(n.parse::<usize>().unwrap_or(1).saturating_sub(1)).map(|l| {
                     if n.trim_start_matches('0').is_empty() {
                         usize::MAX
                     } else {
@@ -217,7 +219,13 @@ impl Vim {
                 base as isize + 1
             } - 1;
             let l = if sign == '+' { base + n } else { base - n };
-            line = Some(l.clamp(0, last as isize) as usize);
+            // Line 0 (one before the first) a command takes as the first;
+            // before it there is nothing.
+            line = Some(match l {
+                -1 => usize::MAX,
+                l if l < -1 => return Err("E16: Invalid range".into()),
+                l => l as usize,
+            });
             rest = &t[1 + digits.len()..];
         }
         Ok(line.map(|l| (l, rest)))
@@ -307,8 +315,21 @@ impl Vim {
             args = &args[1..];
         }
         let cur = line_of(doc, self.cursor);
-        let (a, b) = range.unwrap_or((cur, cur));
         let last = last_line(doc);
+        // Lines past the last: a command refuses them (E16); a line number
+        // alone goes to the last line.
+        let past = |l: usize| l != usize::MAX && l > last;
+        if let Some((ra, rb)) = range
+            && !name.is_empty()
+            && (past(ra) || past(rb))
+        {
+            out.message = Some(("E16: Invalid range".into(), true));
+            return;
+        }
+        let (a, b) = range.unwrap_or((cur, cur));
+        // Line 0 is the first for a command that works on lines.
+        let fix = |l: usize| if l == usize::MAX { 0 } else { l.min(last) };
+        let (a, b) = (fix(a), fix(b).max(fix(a)));
         let is = |short: &str, long: &str| name.len() >= short.len() && long.starts_with(name);
         match name {
             "" => {
@@ -410,15 +431,11 @@ impl Vim {
                     Some((a, b)) => (a..=b).collect(),
                     None => vec![cur],
                 };
-                // Each line held by a mark that moves with the text.
-                let base = doc.marks.held.len();
-                for l in &lines {
-                    let p = line_start(doc, *l);
-                    doc.marks.held.push(p);
-                }
-                for i in 0..lines.len() {
-                    let p = doc.marks.held[base + i].min(doc.text().len());
-                    let p = line_start(doc, line_of(doc, p));
+                // Line by line number, as Vim goes: a line the keys
+                // delete moves the next up past it, and past the end the
+                // last line takes the rest.
+                for &l in &lines {
+                    let p = line_start(doc, l.min(last_line(doc)));
                     doc.selection = Selection::caret(p);
                     self.cursor = p;
                     self.mode = Mode::Normal;
@@ -433,7 +450,6 @@ impl Vim {
                     self.failed = false;
                     self.macro_depth -= 1;
                 }
-                doc.marks.held.truncate(base);
             }
             _ if is("sor", "sort") => self.sort(doc, args, range.unwrap_or((0, last)), bang),
             "k" => self.set_mark(doc, args, b),
