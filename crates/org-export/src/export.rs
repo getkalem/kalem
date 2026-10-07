@@ -82,6 +82,65 @@ pub type BackendOption = (
 /// Fuzzy link targets by their normalized search cells.
 type FuzzyCache = HashMap<Vec<(u8, String)>, Vec<Id>>;
 
+/// `org-export--footnote-reference-map` from the root, walked only as far
+/// as asked and resumed from there: footnote numbers and first references
+/// cost one walk of the document, not one each. A definition is entered
+/// (and looked up) when the walk goes past its first reference, as when
+/// the map stops at a reference and starts over for the next.
+#[derive(Debug, Default)]
+struct FootnoteWalk {
+    /// The nodes still to walk, the next last.
+    stack: Vec<Id>,
+    /// The reference met last, whose definition (if first met) and
+    /// contents come next.
+    pending: Option<(Id, bool)>,
+    /// Whether the walk reached the end of the document.
+    done: bool,
+    /// The references met, in order; a reference in a definition given
+    /// inline elsewhere can come twice.
+    refs: Vec<Id>,
+    /// Footnotes counted so far: a label once, an anonymous reference
+    /// each time it is met.
+    count: usize,
+    /// Each label met: its first reference and its number.
+    labels: HashMap<String, (Id, usize)>,
+    /// The number of each anonymous reference, where first met.
+    anonymous: HashMap<Id, usize>,
+}
+
+/// Footnote labels in the whole document (`org-element-map` order,
+/// ignored nodes too).
+#[derive(Debug, Default)]
+struct FootnoteIndex {
+    /// The first definition of each label: a definition or an inline
+    /// reference.
+    definitions: HashMap<String, Id>,
+    /// The references of each label, the first two (all a caller asks).
+    references: HashMap<String, Vec<Id>>,
+}
+
+/// A running value over some nodes of the document, in `org-element-map`
+/// order: see [`Exporter::tally`].
+#[derive(Debug, Default)]
+pub struct Tally {
+    /// For each node counted: the value before it and after it.
+    at: HashMap<Id, (usize, usize)>,
+    /// The value after all.
+    total: usize,
+}
+
+impl Tally {
+    /// The value before node `id` and after it, if `id` was walked.
+    pub fn at(&self, id: Id) -> Option<(usize, usize)> {
+        self.at.get(&id).copied()
+    }
+
+    /// The value after all the nodes.
+    pub fn total(&self) -> usize {
+        self.total
+    }
+}
+
 /// What export works with (`info` in `ox.el`).
 #[derive(Debug, Clone, Default)]
 pub struct Info {
@@ -125,10 +184,20 @@ pub struct Exporter<'b> {
     backend: &'b dyn Backend,
     memo: HashMap<Id, String>,
     refs: HashMap<Id, String>,
+    /// The values of `refs`, for the uniqueness of a new one.
+    ref_names: HashSet<String>,
     ref_state: u64,
     fuzzy_cache: Option<FuzzyCache>,
     footnote_defs: Option<HashMap<String, Vec<Id>>>,
     tables: std::cell::RefCell<HashMap<Id, std::rc::Rc<TableInfo>>>,
+    // Facts gathered from the whole tree on first use, forgotten by
+    // `tree_changed`.
+    footnote_walk: Option<FootnoteWalk>,
+    footnote_index: Option<FootnoteIndex>,
+    ids: std::cell::OnceCell<HashMap<String, Id>>,
+    radios: std::cell::OnceCell<HashMap<String, Id>>,
+    id_link_targets: std::cell::OnceCell<HashSet<Id>>,
+    tallies: std::cell::RefCell<HashMap<(&'static str, SyntaxKind), std::rc::Rc<Tally>>>,
     /// The plain text being transcoded, for smart quotes.
     pub current_text: Option<Id>,
     /// The first error that stops the export, as Emacs's `user-error`.
@@ -388,13 +457,97 @@ impl<'b> Exporter<'b> {
             backend,
             memo: HashMap::new(),
             refs: HashMap::new(),
+            ref_names: HashSet::new(),
             ref_state: 0x5eed,
             fuzzy_cache: None,
             footnote_defs: None,
             tables: std::cell::RefCell::new(HashMap::new()),
+            footnote_walk: None,
+            footnote_index: None,
+            ids: std::cell::OnceCell::new(),
+            radios: std::cell::OnceCell::new(),
+            id_link_targets: std::cell::OnceCell::new(),
+            tallies: std::cell::RefCell::new(HashMap::new()),
             current_text: None,
             error: None,
         }
+    }
+
+    /// Forgets the footnotes, ids, radio targets and tallies gathered
+    /// from the tree, after its shape changed (citations replaced by
+    /// their output).
+    pub fn tree_changed(&mut self) {
+        self.footnote_added();
+        self.footnote_index = None;
+        self.ids = std::cell::OnceCell::new();
+        self.radios = std::cell::OnceCell::new();
+        self.id_link_targets = std::cell::OnceCell::new();
+        self.tallies.get_mut().clear();
+    }
+
+    /// Forgets the footnote numbers after an anonymous footnote without
+    /// a label came into the tree (a citation put in a note): the walk
+    /// starts over, the labels stay where they were.
+    pub fn footnote_added(&mut self) {
+        self.footnote_walk = None;
+    }
+
+    /// For each node of the document `walked` keeps, in `org-element-map`
+    /// order (ignored nodes too), the value of a running `step` before it
+    /// and after it: the ordinal of an element among those of its type
+    /// with a caption, the line number a block's numbering continues from.
+    /// Made once for `key` and kept until the tree changes, where a walk
+    /// for each link would cost the whole document each time.
+    pub fn tally(
+        &self,
+        key: (&'static str, SyntaxKind),
+        walked: impl Fn(&Self, Id) -> bool,
+        mut step: impl FnMut(&Self, Id, usize) -> usize,
+    ) -> std::rc::Rc<Tally> {
+        self.tally_with(key, |ex| {
+            let mut tally = Tally::default();
+            for d in ex.tree.descendants(ex.tree.root) {
+                if !walked(ex, d) {
+                    continue;
+                }
+                let before = tally.total;
+                tally.total = step(ex, d, before);
+                tally.at.insert(d, (before, tally.total));
+            }
+            tally
+        })
+    }
+
+    /// The places of the nodes `list` gives, counting from 0: the
+    /// headlines of a table of contents, asked of every headline. Made
+    /// once for `key` and kept until the tree changes.
+    pub fn tally_list(
+        &self,
+        key: (&'static str, SyntaxKind),
+        list: impl FnOnce(&Self) -> Vec<Id>,
+    ) -> std::rc::Rc<Tally> {
+        self.tally_with(key, |ex| {
+            let mut tally = Tally::default();
+            for d in list(ex) {
+                let before = tally.total;
+                tally.total += 1;
+                tally.at.entry(d).or_insert((before, tally.total));
+            }
+            tally
+        })
+    }
+
+    fn tally_with(
+        &self,
+        key: (&'static str, SyntaxKind),
+        make: impl FnOnce(&Self) -> Tally,
+    ) -> std::rc::Rc<Tally> {
+        if let Some(t) = self.tallies.borrow().get(&key) {
+            return t.clone();
+        }
+        let tally = std::rc::Rc::new(make(self));
+        self.tallies.borrow_mut().insert(key, tally.clone());
+        tally
     }
 
     /// The back-end.
@@ -1657,7 +1810,7 @@ impl<'b> Exporter<'b> {
                 .wrapping_add(1442695040888963407);
             let n = (self.ref_state >> 36) & 0xfff_ffff;
             let r = format!("org{n:07x}");
-            if !self.refs.values().any(|v| *v == r) {
+            if self.ref_names.insert(r.clone()) {
                 self.refs.insert(id, r.clone());
                 return r;
             }
@@ -1696,16 +1849,7 @@ impl<'b> Exporter<'b> {
         if let Some(d) = self.footnote_defs.as_ref().and_then(|m| m.get(&label)) {
             return Some(d.clone());
         }
-        let found = self
-            .tree
-            .descendants(self.tree.root)
-            .into_iter()
-            .find(|&d| {
-                let k = self.tree.kind(d);
-                (k == Some(FOOTNOTE_DEFINITION)
-                    || (k == Some(FOOTNOTE_REFERENCE) && !self.footnote_is_standard(d)))
-                    && self.footnote_label(d).as_deref() == Some(label.as_str())
-            });
+        let found = self.footnote_index().definitions.get(&label).copied();
         // As Emacs, which stops the export there.
         let Some(found) = found else {
             self.error
@@ -1719,76 +1863,135 @@ impl<'b> Exporter<'b> {
         self.footnote_defs.as_ref()?.get(&label).cloned()
     }
 
-    /// Calls `f` on every footnote reference in reading order, entering
-    /// definitions at their first reference
-    /// (`org-export--footnote-reference-map`).
-    fn footnote_reference_map(
-        &mut self,
-        data: &[Id],
-        f: &mut dyn FnMut(&Exporter<'_>, Id) -> bool,
-    ) -> bool {
-        let mut seen: Vec<String> = Vec::new();
-        self.footnote_search(data, &mut seen, f)
+    /// The footnote labels of the document, gathered on first use.
+    fn footnote_index(&mut self) -> &FootnoteIndex {
+        if self.footnote_index.is_none() {
+            let mut index = FootnoteIndex::default();
+            for d in self.tree.descendants(self.tree.root) {
+                let k = self.tree.kind(d);
+                if !matches!(k, Some(FOOTNOTE_DEFINITION | FOOTNOTE_REFERENCE)) {
+                    continue;
+                }
+                let Some(label) = self.footnote_label(d) else {
+                    continue;
+                };
+                if k == Some(FOOTNOTE_REFERENCE) {
+                    let refs = index.references.entry(label.clone()).or_default();
+                    if refs.len() < 2 {
+                        refs.push(d);
+                    }
+                }
+                if k == Some(FOOTNOTE_DEFINITION) || !self.footnote_is_standard(d) {
+                    index.definitions.entry(label).or_insert(d);
+                }
+            }
+            self.footnote_index = Some(index);
+        }
+        self.footnote_index.get_or_insert_default()
     }
 
-    fn footnote_search(
-        &mut self,
-        data: &[Id],
-        seen: &mut Vec<String>,
-        f: &mut dyn FnMut(&Exporter<'_>, Id) -> bool,
-    ) -> bool {
-        for &d in data {
-            // `org-element-map` over references, not entering
-            // definitions.
-            let mut stack = vec![d];
-            while let Some(x) = stack.pop() {
-                if self.info.ignore.contains(&x) {
-                    continue;
-                }
-                let k = self.tree.kind(x);
-                if k == Some(FOOTNOTE_DEFINITION) {
-                    continue;
-                }
-                if k == Some(FOOTNOTE_REFERENCE) {
-                    if f(self, x) {
-                        return true;
-                    }
-                    let label = self.footnote_label(x);
-                    let new = label.as_ref().is_none_or(|l| !seen.contains(l));
-                    if new {
-                        if let Some(l) = label {
-                            seen.push(l);
-                        }
-                        if self.footnote_is_standard(x)
-                            && let Some(def) = self.footnote_definition(x)
-                            && self.footnote_search(&def, seen, f)
-                        {
-                            return true;
-                        }
-                    }
-                }
-                let n = &self.tree.nodes[x];
-                let mut next: Vec<Id> = Vec::new();
-                for (_, v) in &n.secondary {
-                    next.extend(v);
-                }
-                next.extend(&n.children);
-                stack.extend(next.into_iter().rev());
+    /// Whether a footnote reference of the document (ignored ones too)
+    /// other than `id` is labelled `label`.
+    pub fn footnote_label_shared(&mut self, id: Id, label: &str) -> bool {
+        self.footnote_index()
+            .references
+            .get(label)
+            .is_some_and(|refs| refs.iter().any(|&r| r != id))
+    }
+
+    /// Pushes the secondary strings and contents of `x` on `stack`, the
+    /// first last, as `org-element-map` walks them.
+    fn push_contents(&self, stack: &mut Vec<Id>, x: Id) {
+        let n = &self.tree.nodes[x];
+        let at = stack.len();
+        for (_, v) in &n.secondary {
+            stack.extend(v);
+        }
+        stack.extend(&n.children);
+        stack[at..].reverse();
+    }
+
+    /// The next footnote reference in reading order, definitions entered
+    /// at their first reference (`org-export--footnote-reference-map`);
+    /// `None` at the end of the document.
+    fn footnote_next(&mut self) -> Option<Id> {
+        let mut w = match self.footnote_walk.take() {
+            Some(w) => w,
+            None => FootnoteWalk {
+                stack: vec![self.tree.root],
+                ..FootnoteWalk::default()
+            },
+        };
+        let next = self.footnote_step(&mut w);
+        self.footnote_walk = Some(w);
+        next
+    }
+
+    fn footnote_step(&mut self, w: &mut FootnoteWalk) -> Option<Id> {
+        if w.done {
+            return None;
+        }
+        if let Some((x, first)) = w.pending.take() {
+            // Past `x`: its definition, when first met, then its contents.
+            self.push_contents(&mut w.stack, x);
+            if first
+                && self.footnote_is_standard(x)
+                && let Some(def) = self.footnote_definition(x)
+            {
+                w.stack.extend(def.into_iter().rev());
             }
         }
-        false
+        while let Some(x) = w.stack.pop() {
+            if self.info.ignore.contains(&x) {
+                continue;
+            }
+            match self.tree.kind(x) {
+                // `org-element-map` over references, not entering
+                // definitions.
+                Some(FOOTNOTE_DEFINITION) => {}
+                Some(FOOTNOTE_REFERENCE) => {
+                    let n = w.count + 1;
+                    let first = match self.footnote_label(x) {
+                        Some(l) => match w.labels.entry(l) {
+                            std::collections::hash_map::Entry::Occupied(_) => false,
+                            std::collections::hash_map::Entry::Vacant(e) => {
+                                e.insert((x, n));
+                                w.count += 1;
+                                true
+                            }
+                        },
+                        None => {
+                            w.anonymous.entry(x).or_insert(n);
+                            w.count += 1;
+                            true
+                        }
+                    };
+                    w.refs.push(x);
+                    w.pending = Some((x, first));
+                    return Some(x);
+                }
+                _ => self.push_contents(&mut w.stack, x),
+            }
+        }
+        w.done = true;
+        None
+    }
+
+    /// The footnotes counted by the walk so far.
+    fn footnote_count(&self) -> usize {
+        self.footnote_walk.as_ref().map_or(0, |w| w.count)
     }
 
     /// `org-export-collect-footnote-definitions`: (number, label, contents).
     pub fn collect_footnote_definitions(&mut self) -> Vec<(usize, Option<String>, Vec<Id>)> {
-        let root = self.tree.root;
-        let mut refs: Vec<Id> = Vec::new();
-        self.footnote_reference_map(&[root], &mut |_, r| {
-            refs.push(r);
-            false
-        });
+        while self.footnote_next().is_some() {}
+        let refs = self
+            .footnote_walk
+            .as_ref()
+            .map(|w| w.refs.clone())
+            .unwrap_or_default();
         let mut out = Vec::new();
-        let mut labels: Vec<String> = Vec::new();
+        let mut labels: HashSet<String> = HashSet::new();
         let mut n = 0;
         for r in refs {
             let l = self.footnote_label(r);
@@ -1798,7 +2001,7 @@ impl<'b> Exporter<'b> {
                 out.push((n, l.clone(), def));
             }
             if let Some(l) = l {
-                labels.push(l);
+                labels.insert(l);
             }
         }
         out
@@ -1809,46 +2012,36 @@ impl<'b> Exporter<'b> {
         let Some(label) = self.footnote_label(id) else {
             return true;
         };
-        let root = self.tree.root;
-        let mut first = None;
-        self.footnote_reference_map(&[root], &mut |ex, r| {
-            if ex.footnote_label(r).as_deref() == Some(label.as_str()) {
-                first = Some(r);
-                return true;
+        loop {
+            let first = self
+                .footnote_walk
+                .as_ref()
+                .and_then(|w| w.labels.get(&label));
+            if let Some(&(first, _)) = first {
+                return first == id;
             }
-            false
-        });
-        first == Some(id)
+            if self.footnote_next().is_none() {
+                return false;
+            }
+        }
     }
 
-    /// `org-export-get-footnote-number`.
+    /// `org-export-get-footnote-number`: a label's number where it is
+    /// first met, an anonymous reference's where it is.
     pub fn footnote_number(&mut self, id: Id) -> usize {
         let label = self.footnote_label(id);
-        let root = self.tree.root;
-        let mut count = 0;
-        let mut seen: Vec<String> = Vec::new();
-        let mut found = None;
-        self.footnote_reference_map(&[root], &mut |ex, r| {
-            let l = ex.footnote_label(r);
-            match (&l, &label) {
-                (None, None) if r == id => {
-                    found = Some(count + 1);
-                    return true;
-                }
-                (Some(a), Some(b)) if a == b => {
-                    found = Some(count + 1);
-                    return true;
-                }
-                (None, _) => count += 1,
-                (Some(a), _) if !seen.contains(a) => {
-                    seen.push(a.clone());
-                    count += 1;
-                }
-                _ => {}
+        loop {
+            let found = self.footnote_walk.as_ref().and_then(|w| match &label {
+                Some(l) => w.labels.get(l).map(|&(_, n)| n),
+                None => w.anonymous.get(&id).copied(),
+            });
+            if let Some(n) = found {
+                return n;
             }
-            false
-        });
-        found.unwrap_or(count + 1)
+            if self.footnote_next().is_none() {
+                return self.footnote_count() + 1;
+            }
+        }
     }
 
     /// `org-export--install-footnote-definitions` for definitions outside
@@ -1969,14 +2162,46 @@ impl<'b> Exporter<'b> {
     /// `org-export-resolve-id-link` for `#custom-id` and `id:` links in
     /// the document.
     pub fn resolve_id(&self, id_value: &str) -> Option<Id> {
-        self.tree
-            .descendants(self.tree.root)
-            .into_iter()
-            .find(|&d| {
-                self.tree.kind(d) == Some(HEADLINE)
-                    && (self.node_property(d, "ID", false).as_deref() == Some(id_value)
-                        || self.node_property(d, "CUSTOM_ID", false).as_deref() == Some(id_value))
-            })
+        // The first headline with the value as `ID` or `CUSTOM_ID`, from
+        // a table made on first use.
+        let ids = self.ids.get_or_init(|| {
+            let mut ids = HashMap::new();
+            for d in self.tree.descendants(self.tree.root) {
+                if self.tree.kind(d) != Some(HEADLINE) {
+                    continue;
+                }
+                for prop in ["ID", "CUSTOM_ID"] {
+                    if let Some(v) = self.node_property(d, prop, false) {
+                        ids.entry(v).or_insert(d);
+                    }
+                }
+            }
+            ids
+        });
+        ids.get(id_value).copied()
+    }
+
+    /// Whether an `id:` or `#custom-id` link of the document points to
+    /// `id` (`org-md--headline-referred-p`).
+    pub fn id_link_target_p(&self, id: Id) -> bool {
+        let targets = self.id_link_targets.get_or_init(|| {
+            let mut targets = HashSet::new();
+            for d in self.tree.descendants(self.tree.root) {
+                if self.tree.kind(d) != Some(LINK) {
+                    continue;
+                }
+                let Some(info) = self.link_info(d) else {
+                    continue;
+                };
+                if matches!(info.link_type.as_str(), "custom-id" | "id")
+                    && let Some(t) = self.resolve_id(&info.path)
+                {
+                    targets.insert(t);
+                }
+            }
+            targets
+        });
+        targets.contains(&id)
     }
 
     /// `org-export-resolve-radio-link`.
@@ -1987,17 +2212,23 @@ impl<'b> Exporter<'b> {
                 .join(" ")
                 .to_lowercase()
         };
-        let want = clean(path);
-        self.tree
-            .descendants(self.tree.root)
-            .into_iter()
-            .find(|&d| {
-                self.tree.kind(d) == Some(RADIO_TARGET)
-                    && self
-                        .syntax(d)
-                        .and_then(|s| ast::AstNode::cast(s.clone()))
-                        .is_some_and(|r: ast::RadioTarget| clean(&r.value()) == want)
-            })
+        // The first radio target of each cleaned value.
+        let radios = self.radios.get_or_init(|| {
+            let mut radios = HashMap::new();
+            for d in self.tree.descendants(self.tree.root) {
+                if self.tree.kind(d) != Some(RADIO_TARGET) {
+                    continue;
+                }
+                if let Some(r) = self
+                    .syntax(d)
+                    .and_then(|s| <ast::RadioTarget as ast::AstNode>::cast(s.clone()))
+                {
+                    radios.entry(clean(&r.value())).or_insert(d);
+                }
+            }
+            radios
+        });
+        radios.get(&clean(path)).copied()
     }
 
     // Tables.

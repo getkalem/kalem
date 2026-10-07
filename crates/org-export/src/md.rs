@@ -97,8 +97,15 @@ impl Markdown {
             return false;
         }
         let toc = ex.opt("with-toc");
-        if toc.truthy() && html::collect_headlines(ex, toc.int()).contains(&id) {
-            return true;
+        if toc.truthy() {
+            // The table of contents, listed once for all headlines.
+            let depth = toc.int();
+            let listed = ex.tally_list(("md-toc", HEADLINE), |ex| {
+                html::collect_headlines(ex, depth)
+            });
+            if listed.at(id).is_some() {
+                return true;
+            }
         }
         // A `#+TOC: headlines` keyword in the section of the document or
         // of an ancestor lists it.
@@ -130,30 +137,10 @@ impl Markdown {
                 }
             }
         }
-        // A link points to it.
-        let links: Vec<Id> = ex
-            .tree
-            .descendants(ex.tree.root)
-            .into_iter()
-            .filter(|&d| ex.tree.kind(d) == Some(LINK))
-            .collect();
-        for l in links {
-            let Some(info) = ex.link_info(l) else {
-                continue;
-            };
-            let dest = match info.link_type.as_str() {
-                "fuzzy" => ex.resolve_fuzzy(&info.path),
-                "custom-id" | "id" => ex.resolve_id(&info.path),
-                _ => None,
-            };
-            // `org-md--headline-referred-p` only checks id links; fuzzy
-            // links resolve through `org-export-resolve-id-link` too, which
-            // fails on them.
-            if dest == Some(id) && matches!(info.link_type.as_str(), "custom-id" | "id") {
-                return true;
-            }
-        }
-        false
+        // A link points to it. `org-md--headline-referred-p` only checks
+        // id links; fuzzy links resolve through
+        // `org-export-resolve-id-link` too, which fails on them.
+        ex.id_link_target_p(id)
     }
 
     fn build_toc(&self, ex: &mut Exporter<'_>, depth: Option<i64>, scope: Option<Id>) -> String {
@@ -399,16 +386,12 @@ fn ordinal(ex: &mut Exporter<'_>, dest: Id) -> Option<String> {
         ITEM => Some(item_last_number(ex, el).to_string()),
         FOOTNOTE_DEFINITION | FOOTNOTE_REFERENCE => Some(ex.footnote_number(el).to_string()),
         k => {
-            let mut n = 0;
-            for d in ex.tree.descendants(ex.tree.root) {
-                if ex.tree.kind(d) == Some(k) {
-                    n += 1;
-                }
-                if d == el {
-                    return Some(n.to_string());
-                }
-            }
-            None
+            let tally = ex.tally(
+                ("md-ordinal", k),
+                |ex, d| ex.tree.kind(d) == Some(k),
+                |_, _, n| n + 1,
+            );
+            tally.at(el).map(|(_, after)| after.to_string())
         }
     }
 }

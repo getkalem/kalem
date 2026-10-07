@@ -741,24 +741,20 @@ impl Html {
             ITEM => Some(item_number(ex, el)),
             FOOTNOTE_DEFINITION | FOOTNOTE_REFERENCE => Some(ex.footnote_number(el).to_string()),
             k => {
-                let has_caption = |ex: &Exporter<'_>, x: Id| {
-                    ex.syntax(x)
-                        .is_some_and(|s| ast::affiliated_keywords(s).any(|a| a.key() == "CAPTION"))
-                };
-                let mut n = 0;
-                for d in ex.tree.descendants(ex.tree.root) {
-                    if ex.tree.kind(d) != Some(k) {
-                        continue;
-                    }
-                    let counts = has_caption(ex, d);
-                    if d == el {
-                        return counts.then(|| (n + 1).to_string());
-                    }
-                    if counts {
-                        n += 1;
-                    }
-                }
-                None
+                // The elements of its type with a caption, counted once
+                // for every link.
+                let tally = ex.tally(
+                    ("html-ordinal", k),
+                    |ex, d| ex.tree.kind(d) == Some(k),
+                    |ex, d, n| {
+                        let caption = ex.syntax(d).is_some_and(|s| {
+                            ast::affiliated_keywords(s).any(|a| a.key() == "CAPTION")
+                        });
+                        n + usize::from(caption)
+                    },
+                );
+                let (before, after) = tally.at(el)?;
+                (after > before).then(|| after.to_string())
             }
         }
     }
@@ -1213,23 +1209,19 @@ fn item_number(ex: &Exporter<'_>, item: Id) -> String {
         .join(".")
 }
 
+/// The number of the standalone images with a caption up to `para`.
 fn figure_number(h: &Html, ex: &Exporter<'_>, para: Id) -> usize {
-    let mut n = 0;
-    for d in ex.tree.descendants(ex.tree.root) {
-        if ex.tree.kind(d) != Some(PARAGRAPH) {
-            continue;
-        }
-        let has_caption = ex
-            .syntax(d)
-            .is_some_and(|s| ast::affiliated_keywords(s).any(|a| a.key() == "CAPTION"));
-        if has_caption && h.standalone_image_p(ex, d) {
-            n += 1;
-        }
-        if d == para {
-            break;
-        }
-    }
-    n
+    let tally = ex.tally(
+        ("html-figure", PARAGRAPH),
+        |ex, d| ex.tree.kind(d) == Some(PARAGRAPH),
+        |ex, d, n| {
+            let has_caption = ex
+                .syntax(d)
+                .is_some_and(|s| ast::affiliated_keywords(s).any(|a| a.key() == "CAPTION"));
+            n + usize::from(has_caption && h.standalone_image_p(ex, d))
+        },
+    );
+    tally.at(para).map_or(tally.total(), |(_, after)| after)
 }
 
 /// The caption of an element, lines joined with a space.
@@ -1656,20 +1648,20 @@ pub fn get_loc(ex: &Exporter<'_>, id: Id) -> usize {
     if new {
         return n;
     }
-    let mut loc = 0;
-    for d in ex.tree.descendants(ex.tree.root) {
-        if !matches!(ex.tree.kind(d), Some(SRC_BLOCK | EXAMPLE_BLOCK)) {
-            continue;
-        }
-        if d == id {
-            return loc + n;
-        }
-        if let (Some((new_d, nd)), _) = number_lines(ex, d) {
-            let lines = unravel_code(ex, d).0.split('\n').count();
-            loc = if new_d { nd + lines } else { loc + nd + lines };
-        }
-    }
-    loc + n
+    // The line each block leaves the numbering at, counted once for all
+    // blocks.
+    let tally = ex.tally(
+        ("loc", SRC_BLOCK),
+        |ex, d| matches!(ex.tree.kind(d), Some(SRC_BLOCK | EXAMPLE_BLOCK)),
+        |ex, d, loc| match number_lines(ex, d) {
+            (Some((new_d, nd)), _) => {
+                let lines = unravel_code(ex, d).0.split('\n').count();
+                if new_d { nd + lines } else { loc + nd + lines }
+            }
+            _ => loc,
+        },
+    );
+    tally.at(id).map_or(tally.total(), |(before, _)| before) + n
 }
 
 /// `org-remove-indentation`: the smallest indentation of non-blank lines

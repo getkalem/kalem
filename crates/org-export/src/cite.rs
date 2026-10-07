@@ -4,6 +4,7 @@
 //! The processor is `basic` (`oc-basic.el`): author–year citations and a
 //! bibliography sorted by author, from the files `#+BIBLIOGRAPHY:` names.
 
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use org_cite::bib::{Bibliography, Entry};
@@ -506,7 +507,18 @@ pub(crate) fn citation(ex: &Exporter<'_>, id: Id) -> Option<ast::Citation> {
 /// `org-cite-list-citations`: the citations in reading order, those in
 /// footnote definitions where the definitions are referred to.
 pub(crate) fn list_citations(ex: &Exporter<'_>) -> Vec<Id> {
-    fn search(ex: &Exporter<'_>, data: &[Id], out: &mut Vec<Id>, depth: usize) {
+    /// The citations found, in order.
+    struct Found {
+        list: Vec<Id>,
+        seen: HashSet<Id>,
+    }
+    fn search(
+        ex: &Exporter<'_>,
+        definitions: &HashMap<String, Id>,
+        data: &[Id],
+        out: &mut Found,
+        depth: usize,
+    ) {
         for &d in data {
             let mut stack = vec![d];
             while let Some(x) = stack.pop() {
@@ -516,8 +528,8 @@ pub(crate) fn list_citations(ex: &Exporter<'_>) -> Vec<Id> {
                 match ex.tree.kind(x) {
                     Some(FOOTNOTE_DEFINITION) => continue,
                     Some(CITATION) => {
-                        if !out.contains(&x) {
-                            out.push(x);
+                        if out.seen.insert(x) {
+                            out.list.push(x);
                         }
                         continue;
                     }
@@ -530,9 +542,9 @@ pub(crate) fn list_citations(ex: &Exporter<'_>) -> Vec<Id> {
                         if let Some(r) = r.filter(|r| !r.is_inline())
                             && let Some(label) = r.label()
                         {
-                            if let Some(def) = definition(ex, &label) {
+                            if let Some(&def) = definitions.get(&label) {
                                 let contents = ex.tree.children(def).to_vec();
-                                search(ex, &contents, out, depth + 1);
+                                search(ex, definitions, &contents, out, depth + 1);
                             }
                             continue;
                         }
@@ -549,23 +561,32 @@ pub(crate) fn list_citations(ex: &Exporter<'_>) -> Vec<Id> {
             }
         }
     }
-    let mut out = Vec::new();
-    search(ex, &[ex.tree.root], &mut out, 0);
-    out
+    let mut out = Found {
+        list: Vec::new(),
+        seen: HashSet::new(),
+    };
+    search(ex, &definitions(ex), &[ex.tree.root], &mut out, 0);
+    out.list
 }
 
-/// The first footnote definition labelled `label`.
-fn definition(ex: &Exporter<'_>, label: &str) -> Option<Id> {
-    ex.tree.descendants(ex.tree.root).into_iter().find(|&d| {
-        !ex.info.ignore.contains(&d)
-            && ex.tree.kind(d) == Some(FOOTNOTE_DEFINITION)
-            && ex
-                .tree
-                .syntax(d)
-                .cloned()
-                .and_then(ast::FootnoteDefinition::cast)
-                .is_some_and(|f| f.label() == label)
-    })
+/// The first footnote definition of each label, not counting ignored
+/// ones.
+fn definitions(ex: &Exporter<'_>) -> HashMap<String, Id> {
+    let mut out = HashMap::new();
+    for d in ex.tree.descendants(ex.tree.root) {
+        if ex.info.ignore.contains(&d) || ex.tree.kind(d) != Some(FOOTNOTE_DEFINITION) {
+            continue;
+        }
+        if let Some(f) = ex
+            .tree
+            .syntax(d)
+            .cloned()
+            .and_then(ast::FootnoteDefinition::cast)
+        {
+            out.entry(f.label()).or_insert(d);
+        }
+    }
+    out
 }
 
 /// `org-cite--set-post-blank`.
@@ -876,6 +897,8 @@ pub(crate) fn wrap_citation(ex: &mut Exporter<'_>, id: Id) -> Id {
     ex.tree.extract(id);
     ex.tree.nodes[foot].children.push(id);
     ex.tree.nodes[id].parent = Some(foot);
+    // A new footnote: the numbers count it from now on.
+    ex.footnote_added();
     foot
 }
 

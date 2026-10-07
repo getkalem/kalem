@@ -641,16 +641,9 @@ impl Latex {
             return format!("{sep}\\footnotemark");
         }
         let text = ex.data_list(&def);
-        let others = label.as_ref().is_some_and(|l| {
-            ex.tree.descendants(ex.tree.root).into_iter().any(|f| {
-                f != id
-                    && ex.tree.kind(f) == Some(FOOTNOTE_REFERENCE)
-                    && Self::cast::<ast::FootnoteReference>(ex, f)
-                        .and_then(|x| x.label())
-                        .as_ref()
-                        == Some(l)
-            })
-        });
+        let others = label
+            .as_ref()
+            .is_some_and(|l| ex.footnote_label_shared(id, l));
         let def_label = if others {
             trim(&self.definition_label(ex, id, &def)).to_string()
         } else {

@@ -174,6 +174,9 @@ pub fn export(text: &str, backend: &dyn Backend, settings: &Settings) -> Result<
     backend.filter_parse_tree(&mut ex);
     ex.collect_tree_properties();
     let cite_finalizer = cite::process(&mut ex, &keywords)?;
+    // Citations gave way to their output: what was gathered from the
+    // tree before is gathered again.
+    ex.tree_changed();
     let root_id = ex.tree.root;
     let body = export::normalize_string(&ex.data(root_id));
     if let Some(e) = ex.error.take() {

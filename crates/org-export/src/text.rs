@@ -1138,20 +1138,19 @@ fn ordinal(ex: &mut Exporter<'_>, dest: Id) -> Option<String> {
 
 /// The position of an element among the captioned ones of its type.
 fn ordinal_captioned(ex: &Exporter<'_>, el: Id) -> usize {
-    let kind = ex.tree.kind(el);
-    let mut n = 0;
-    for d in ex.tree.descendants(ex.tree.root) {
-        if d == el {
-            return n + 1;
-        }
-        if ex.tree.kind(d) == kind
-            && ex.tree.secondary(d, Secondary::Caption(0)).is_some()
-            && !ex.info.ignore.contains(&d)
-        {
-            n += 1;
-        }
-    }
-    n + 1
+    let Some(kind) = ex.tree.kind(el) else {
+        return 1;
+    };
+    let tally = ex.tally(
+        ("ascii-ordinal", kind),
+        |ex, d| ex.tree.kind(d) == Some(kind),
+        |ex, d, n| {
+            let counts = ex.tree.secondary(d, Secondary::Caption(0)).is_some()
+                && !ex.info.ignore.contains(&d);
+            n + usize::from(counts)
+        },
+    );
+    tally.at(el).map_or(tally.total(), |(before, _)| before) + 1
 }
 
 impl Backend for Text {
