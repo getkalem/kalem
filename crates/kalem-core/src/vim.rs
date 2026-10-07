@@ -3144,19 +3144,10 @@ impl Vim {
                     Key::Char(c @ ('*' | '#')) if self.op.is_none() => {
                         // As `*` and `#`, the word not as a whole word.
                         let n = self.count.take().unwrap_or(1);
-                        if let Some(w) = ident_at(doc, self.cursor) {
-                            self.cursor = w.start;
-                            let word = doc.text().as_str()[w].to_string();
-                            let pat = format!("\\V{}", word.replace('\\', "\\\\"));
-                            let back = c == '#';
-                            self.last_search = Some((pat.clone(), back));
-                            self.search_offset = None;
+                        if let Some(to) = self.star_search(doc, c == '#', false, n, out) {
                             self.jump(doc);
-                            if let Some(to) = self.search_from(doc, &pat, back, self.cursor, n) {
-                                doc.selection = Selection::caret(to);
-                                self.cursor = to;
-                            }
-                            out.highlights = self.matches(doc, &pat).ok();
+                            doc.selection = Selection::caret(to);
+                            self.cursor = to;
                         }
                     }
                     Key::Char(c @ ('n' | 'N')) => {
@@ -3451,6 +3442,16 @@ impl Vim {
                 'g' => self.pending = Pending::G,
                 '[' | ']' => self.pending = Pending::Bracket(c == ']'),
                 'v' | 'V' => self.force = Some(c),
+                // `d*`: to the next match of the word.
+                '*' | '#' => {
+                    let n = self.count.take().unwrap_or(1) * self.op.map_or(1, |o| o.1.max(1));
+                    let m = self.star_search(doc, c == '#', true, n, out).map(|to| Motion {
+                        to,
+                        linewise: false,
+                        inclusive: false,
+                    });
+                    self.finish_motion(doc, m, host, out);
+                }
                 '\'' | '`' => self.pending = Pending::GotoMark(c == '\''),
                 '?' if op == Op::Rot13 => self.operator(doc, op, host, out),
                 '/' | '?' => self.command_line = Some(c.to_string()),
@@ -3633,32 +3634,40 @@ impl Vim {
             'v' => self.start_visual(Mode::Visual),
             'V' => self.start_visual(Mode::VisualLine),
             '*' | '#' => {
-                let Some(w) = ident_at(doc, pos) else {
-                    return;
-                };
-                // The search starts at the word (`*` skips it).
-                let pos = w.start;
-                let word = doc.text().as_str()[w].to_string();
-                let word_start = word.starts_with(is_word);
-                let word_end = word.ends_with(is_word);
-                let pat = format!(
-                    "{}\\V{}\\m{}",
-                    if word_start { "\\<" } else { "" },
-                    word.replace('\\', "\\\\"),
-                    if word_end { "\\>" } else { "" }
-                );
-                let back = c == '#';
-                self.last_search = Some((pat.clone(), back));
-                self.search_offset = None;
-                self.jump(doc);
-                if let Some(to) = self.search_from(doc, &pat, back, pos, n) {
+                if let Some(to) = self.star_search(doc, c == '#', true, n, out) {
+                    self.jump(doc);
                     doc.selection = Selection::caret(to);
                 }
-                out.highlights = self.matches(doc, &pat).ok();
             }
             // An unused character does nothing (and is not typed).
             _ => self.reset(),
         }
+    }
+
+    /// `*` and `#` (`g*`, `g#`: `whole` false, not as a whole word): the
+    /// word at the cursor searched for, now the last search; where its
+    /// `n`th match from the word's start is.
+    fn star_search(
+        &mut self,
+        doc: &DocumentState,
+        back: bool,
+        whole: bool,
+        n: usize,
+        out: &mut Outcome,
+    ) -> Option<usize> {
+        let w = ident_at(doc, self.cursor)?;
+        let from = w.start;
+        let word = doc.text().as_str()[w].to_string();
+        let pat = format!(
+            "{}\\V{}\\m{}",
+            if whole && word.starts_with(is_word) { "\\<" } else { "" },
+            word.replace('\\', "\\\\"),
+            if whole && word.ends_with(is_word) { "\\>" } else { "" }
+        );
+        self.last_search = Some((pat.clone(), back));
+        self.search_offset = None;
+        out.highlights = self.matches(doc, &pat).ok();
+        self.search_from(doc, &pat, back, from, n)
     }
 
     /// The matches of Vim pattern `pattern`, with 'ignorecase' and
