@@ -2044,6 +2044,84 @@ fn the_settings_panel_lists_and_changes_every_setting() {
 }
 
 #[test]
+fn lists_and_tables_change_in_the_settings_panel() {
+    let mut t = with_config("* A\n", Config::default(), (90, 30));
+    t.app.run_command("app.settings", serde_json::json!({}));
+    // A list of choices: Enter shows them, Space puts one in.
+    t.typ("/vim.modes");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(screen(&mut t).join("\n").contains("Enter shows them"));
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    let rows = screen(&mut t).join("\n");
+    assert!(
+        rows.contains("[ ] org") && rows.contains("Space in or out"),
+        "{rows}"
+    );
+    t.typ(" ");
+    assert_eq!(
+        t.app.config.get("editor.vim.modes"),
+        Some(&serde_json::json!(["org"]))
+    );
+    assert!(screen(&mut t).join("\n").contains("[x] org"));
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    // A list of texts: `a` adds, `K` moves up, Enter edits, `x` removes.
+    t.typ("/todo_keywords");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    t.typ("a");
+    t.typ("WAIT");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    let keywords = |t: &T| t.app.config.get("org.todo_keywords").cloned();
+    assert_eq!(
+        keywords(&t),
+        Some(serde_json::json!(["TODO", "|", "DONE", "WAIT"]))
+    );
+    t.typ("GK");
+    assert_eq!(
+        keywords(&t),
+        Some(serde_json::json!(["TODO", "|", "WAIT", "DONE"]))
+    );
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    for _ in 0.."WAIT".len() {
+        t.key(KeyCode::Backspace, KeyModifiers::NONE);
+    }
+    t.typ("NEXT");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    t.typ("kx");
+    assert_eq!(
+        keywords(&t),
+        Some(serde_json::json!(["TODO", "NEXT", "DONE"]))
+    );
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    // A table: `path = mode` typed, the mode stepped with l.
+    t.typ("/files.modes");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(screen(&mut t).join("\n").contains("(empty)"));
+    t.typ("a");
+    t.typ("notes.txt = markdown");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(
+        t.app.config.get("files.modes"),
+        Some(&serde_json::json!({"notes.txt": "markdown"}))
+    );
+    t.typ("l");
+    assert_eq!(
+        t.app.config.get("files.modes"),
+        Some(&serde_json::json!({"notes.txt": "csv"}))
+    );
+    let saved =
+        std::fs::read_to_string(t.dir.as_ref().unwrap().join("config/settings.toml")).unwrap();
+    assert!(
+        saved.contains("notes.txt") && saved.contains("NEXT"),
+        "{saved}"
+    );
+    assert_eq!(t.text(), "* A\n", "no key reached the document");
+}
+
+#[test]
 fn text_under_a_heading_is_indented_to_its_title() {
     let text = "Before\n* One\nunder one\n*** Three\nunder three\n\n| a | b |\n";
     let mut t = open(text);

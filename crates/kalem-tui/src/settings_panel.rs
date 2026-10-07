@@ -1,7 +1,7 @@
 //! The settings panel (`app.settings`, Ctrl+, or `SPC h v`), lazygit's
 //! way: every setting in a framed list grouped by table, the chosen
-//! one's description below, a key for each change
-//! ([`kalem_core::settings_list`]).
+//! one's description below, a key for each change; a list's or a table's
+//! items in the same frame ([`kalem_core::settings_list`]).
 
 use std::cell::RefCell;
 
@@ -12,7 +12,7 @@ use unicode_width::UnicodeWidthStr;
 
 use kalem_core::l10n::tr;
 use kalem_core::settings::{Config, SPECS};
-use kalem_core::settings_list::{self, Browser, Edit, Line};
+use kalem_core::settings_list::{self, Browser, Edit, Items, Line};
 
 use crate::caps::Caps;
 use crate::panels::{accent_style, panel_style, selected_style};
@@ -22,8 +22,8 @@ use crate::panels::{accent_style, panel_style, selected_style};
 pub struct SettingsPanel {
     /// The list as browsed.
     pub list: Browser,
-    /// Where each setting was drawn: its row and its index among those
-    /// shown, for clicks.
+    /// Where each setting (or, its items shown, each item) was drawn: its
+    /// row, its columns and its index, for clicks.
     pub spots: RefCell<Vec<(u16, u16, u16, usize)>>,
 }
 
@@ -48,11 +48,23 @@ impl SettingsPanel {
         let shown = self.list.shown();
         let selected = self.list.selected.min(shown.len().saturating_sub(1));
         let filter_row = self.list.filtering || !self.list.filter.is_empty();
-        // The frame, the filter, the list, a rule, the chosen setting's
-        // key and three lines of its description.
-        let fixed = 2 + u16::from(filter_row) + 5;
+        let items_of = self
+            .list
+            .item
+            .and_then(|_| shown.get(selected))
+            .map(|&i| &SPECS[i])
+            .and_then(|spec| Some((spec, settings_list::items_kind(spec)?)));
+        // The frame, the filter, the list (or the setting's key and its
+        // items), a rule, the chosen setting's key and three lines of its
+        // description.
+        let rows = match items_of {
+            Some((spec, _)) => settings_list::items(config, spec).len().max(1) + 1,
+            None => lines.len().max(1) + usize::from(filter_row),
+        }
+        .max(lines.len());
+        let fixed = 2 + 5;
         let w = area.width.saturating_sub(4).min(88);
-        let h = (lines.len().max(1) as u16 + fixed).min(area.height.saturating_sub(2));
+        let h = (rows as u16 + fixed).min(area.height.saturating_sub(2));
         let x0 = area.x + (area.width - w) / 2;
         let y0 = area.y + 1;
         let bg = panel_style(caps);
@@ -102,9 +114,63 @@ impl SettingsPanel {
                 dim,
             );
         }
-        let hints = format!(" {} ", tr("settings-hints"));
+        let hints = match items_of.map(|(_, k)| k) {
+            Some(Items::Choices(_)) => tr("settings-items-choices"),
+            Some(Items::Texts) => tr("settings-items-texts"),
+            Some(Items::Table(_)) => tr("settings-items-table"),
+            None => tr("settings-hints"),
+        };
+        let hints = format!(" {hints} ");
         buf.set_stringn(x0 + 2, bottom, &hints, inner, dim);
-        let mut y = y0 + 1;
+        let y = y0 + 1;
+        let rule_y = bottom - 5;
+        if let Some((spec, _)) = items_of {
+            self.draw_items(buf, (x0, y, w, rule_y), spec, config, caps);
+        } else {
+            self.draw_list(buf, (x0, y, w, rule_y), config, caps, filter_row);
+        }
+        // The chosen setting: its key, default and description.
+        for x in x0 + 1..x0 + w - 1 {
+            buf[(x, rule_y)].set_symbol(hz).set_style(dim);
+        }
+        buf[(x0, rule_y)].set_symbol(lt).set_style(dim);
+        buf[(x0 + w - 1, rule_y)].set_symbol(rt).set_style(dim);
+        if let Some(spec) = shown.get(selected).map(|&i| &SPECS[i]) {
+            let about = match settings_list::edit(spec) {
+                Edit::Items => kalem_core::tr!(
+                    "settings-items",
+                    count = settings_list::items(config, spec).len()
+                ),
+                _ => kalem_core::tr!(
+                    "settings-default",
+                    value = settings_list::shown_default(spec)
+                ),
+            };
+            let head = format!("{}  {about}", spec.key);
+            buf.set_stringn(x0 + 2, rule_y + 1, &head, inner, accent);
+            for (dy, text) in (2..).zip(wrap(spec.description, inner, 3)) {
+                buf.set_stringn(x0 + 2, rule_y + dy, &text, inner, bg);
+            }
+        }
+    }
+
+    /// The list of settings in the frame `x0, y, w` above row `rule_y`,
+    /// the filter first when there is one.
+    fn draw_list(
+        &self,
+        buf: &mut Buffer,
+        (x0, mut y, w, rule_y): (u16, u16, u16, u16),
+        config: &Config,
+        caps: &Caps,
+        filter_row: bool,
+    ) {
+        let lines = self.list.lines();
+        let shown = self.list.shown();
+        let selected = self.list.selected.min(shown.len().saturating_sub(1));
+        let inner = (w - 4) as usize;
+        let bg = panel_style(caps);
+        let dim = bg.add_modifier(Modifier::DIM);
+        let accent = accent_style(caps, bg);
         if filter_row {
             let caret = if self.list.filtering { "▏" } else { "" };
             let caret = if caps.ascii && !caret.is_empty() {
@@ -117,7 +183,6 @@ impl SettingsPanel {
             y += 1;
         }
         // The list, scrolled so that the chosen setting shows.
-        let rule_y = bottom - 5;
         let room = rule_y.saturating_sub(y) as usize;
         let at = lines
             .iter()
@@ -173,25 +238,61 @@ impl SettingsPanel {
             }
             y += 1;
         }
-        // The chosen setting: its key, default and description.
-        for x in x0 + 1..x0 + w - 1 {
-            buf[(x, rule_y)].set_symbol(hz).set_style(dim);
+    }
+
+    /// The items of `spec` (a list or a table) in the frame `x0, y, w`
+    /// above row `rule_y`: its key, then each item, a choice marked in or
+    /// out.
+    fn draw_items(
+        &self,
+        buf: &mut Buffer,
+        (x0, mut y, w, rule_y): (u16, u16, u16, u16),
+        spec: &kalem_core::settings::Spec,
+        config: &Config,
+        caps: &Caps,
+    ) {
+        let inner = (w - 4) as usize;
+        let bg = panel_style(caps);
+        let dim = bg.add_modifier(Modifier::DIM);
+        let accent = accent_style(caps, bg);
+        buf.set_stringn(
+            x0 + 2,
+            y,
+            spec.key,
+            inner,
+            accent.add_modifier(Modifier::BOLD),
+        );
+        y += 1;
+        let items = settings_list::items(config, spec);
+        if items.is_empty() {
+            buf.set_stringn(x0 + 4, y, tr("settings-empty"), inner, dim);
+            return;
         }
-        buf[(x0, rule_y)].set_symbol(lt).set_style(dim);
-        buf[(x0 + w - 1, rule_y)].set_symbol(rt).set_style(dim);
-        if let Some(spec) = shown.get(selected).map(|&i| &SPECS[i]) {
-            let about = match settings_list::edit(spec) {
-                Edit::File => tr("settings-in-file"),
-                _ => kalem_core::tr!(
-                    "settings-default",
-                    value = settings_list::shown_default(spec)
-                ),
+        let room = rule_y.saturating_sub(y) as usize;
+        let selected = self.list.item.unwrap_or(0).min(items.len() - 1);
+        let first = (selected + 1).saturating_sub(room);
+        for (n, item) in items.iter().enumerate().skip(first).take(room) {
+            let style = if n == selected {
+                selected_style(caps, bg)
+            } else {
+                bg
             };
-            let head = format!("{}  {about}", spec.key);
-            buf.set_stringn(x0 + 2, rule_y + 1, &head, inner, accent);
-            for (dy, text) in (2..).zip(wrap(spec.description, inner, 3)) {
-                buf.set_stringn(x0 + 2, rule_y + dy, &text, inner, bg);
+            for x in x0 + 1..x0 + w - 1 {
+                buf[(x, y)].set_style(style);
             }
+            let text = match item.on {
+                Some(true) => format!("[x] {}", item.text),
+                Some(false) => format!("[ ] {}", item.text),
+                None => item.text.clone(),
+            };
+            let style = if item.on == Some(true) {
+                accent_style(caps, style).add_modifier(Modifier::BOLD)
+            } else {
+                style
+            };
+            buf.set_stringn(x0 + 4, y, &text, inner.saturating_sub(2), style);
+            self.spots.borrow_mut().push((y, x0 + 1, x0 + w - 1, n));
+            y += 1;
         }
     }
 }

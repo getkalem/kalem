@@ -2218,6 +2218,10 @@ impl App {
             return;
         };
         self.dirty = true;
+        if panel.list.item.is_some() {
+            self.settings_item_key(k);
+            return;
+        }
         let list = &mut panel.list;
         let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
         if list.filtering {
@@ -2288,16 +2292,147 @@ impl App {
         }
     }
 
+    /// Keys for a list's or a table's items in the settings panel: `j`
+    /// and `k` choose, Space puts a choice in or out, Enter edits an item
+    /// and `a` adds one, `x` removes it, `J` and `K` move a text, `h` and
+    /// `l` step an entry's mode, Escape goes back to the settings.
+    fn settings_item_key(&mut self, k: &KeyEvent) {
+        use kalem_core::settings_list::{self as sl, Items};
+        let Some(panel) = &mut self.settings else {
+            return;
+        };
+        let Some(spec) = panel.list.current() else {
+            panel.list.item = None;
+            return;
+        };
+        let Some(kind) = sl::items_kind(spec) else {
+            panel.list.item = None;
+            return;
+        };
+        let count = sl::items(&self.config, spec).len();
+        let i = panel.list.item.unwrap_or(0).min(count.saturating_sub(1));
+        let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
+        let value = match (k.code, kind) {
+            (KeyCode::Esc | KeyCode::Char('q') | KeyCode::Backspace, _) => {
+                panel.list.item = None;
+                return;
+            }
+            (KeyCode::Char('g'), _) if ctrl => {
+                panel.list.item = None;
+                return;
+            }
+            (KeyCode::Up | KeyCode::Char('k'), _) => {
+                panel.list.move_item(-1, count);
+                return;
+            }
+            (KeyCode::Down | KeyCode::Char('j'), _) => {
+                panel.list.move_item(1, count);
+                return;
+            }
+            (KeyCode::Home | KeyCode::Char('g'), _) => {
+                panel.list.item = Some(0);
+                return;
+            }
+            (KeyCode::End | KeyCode::Char('G'), _) => {
+                panel.list.item = Some(count.saturating_sub(1));
+                return;
+            }
+            (
+                KeyCode::Char(' ' | 'l' | 'h') | KeyCode::Enter | KeyCode::Left | KeyCode::Right,
+                Items::Choices(_),
+            ) => sl::toggle(&self.config, spec, i),
+            (KeyCode::Enter, _) if count > 0 => {
+                self.settings_item_edit(Some(i));
+                return;
+            }
+            (KeyCode::Enter | KeyCode::Char('a' | 'o'), Items::Texts | Items::Table(_)) => {
+                self.settings_item_edit(None);
+                return;
+            }
+            (KeyCode::Char('x' | 'd') | KeyCode::Delete, Items::Texts | Items::Table(_)) => {
+                sl::remove(&self.config, spec, i)
+            }
+            (KeyCode::Char('K'), Items::Texts) => {
+                sl::shift(&self.config, spec, i, true).map(|(v, to)| {
+                    panel.list.item = Some(to);
+                    v
+                })
+            }
+            (KeyCode::Char('J'), Items::Texts) => {
+                sl::shift(&self.config, spec, i, false).map(|(v, to)| {
+                    panel.list.item = Some(to);
+                    v
+                })
+            }
+            (KeyCode::Char(' ' | 'l') | KeyCode::Right, Items::Table(_)) => {
+                sl::cycle(&self.config, spec, i, true)
+            }
+            (KeyCode::Char('h') | KeyCode::Left, Items::Table(_)) => {
+                sl::cycle(&self.config, spec, i, false)
+            }
+            _ => return,
+        };
+        if let Some(v) = value {
+            self.set_setting(spec.key, &v, false);
+        }
+    }
+
+    /// Asks for an item of the chosen list or table: item `at` edited
+    /// (its text offered), or a new one.
+    fn settings_item_edit(&mut self, at: Option<usize>) {
+        let Some(spec) = self.settings.as_ref().and_then(|p| p.list.current()) else {
+            return;
+        };
+        let items = kalem_core::settings_list::items(&self.config, spec);
+        let current = at
+            .and_then(|i| items.get(i))
+            .map(|it| it.text.clone())
+            .unwrap_or_default();
+        let label = match at {
+            Some(_) => format!("{}: ", spec.key),
+            None => format!("{} · {}: ", spec.key, tr!("settings-item-new")),
+        };
+        let mut args = serde_json::json!({ "key": spec.key });
+        if let Some(i) = at {
+            args["at"] = serde_json::json!(i);
+        }
+        self.ask(
+            PromptKind::Arg {
+                command: "settings.item".into(),
+                args,
+                name: "value".into(),
+                ty: "string".into(),
+            },
+            &label,
+            current,
+        );
+    }
+
     /// The mouse in the settings panel: the wheel moves the choice, a
-    /// click chooses a setting, a click on the chosen one edits it.
+    /// click chooses a setting (or an item), a click on the chosen one
+    /// edits it.
     fn settings_mouse(&mut self, m: crossterm::event::MouseEvent) {
         let Some(panel) = &mut self.settings else {
             return;
         };
-        match m.kind {
-            MouseEventKind::ScrollUp => panel.list.move_by(-3),
-            MouseEventKind::ScrollDown => panel.list.move_by(3),
-            MouseEventKind::Down(MouseButton::Left) => match panel.at(m.column, m.row) {
+        let items = panel
+            .list
+            .current()
+            .filter(|_| panel.list.item.is_some())
+            .map(|spec| kalem_core::settings_list::items(&self.config, spec).len());
+        match (m.kind, items) {
+            (MouseEventKind::ScrollUp, Some(n)) => panel.list.move_item(-3, n),
+            (MouseEventKind::ScrollDown, Some(n)) => panel.list.move_item(3, n),
+            (MouseEventKind::ScrollUp, None) => panel.list.move_by(-3),
+            (MouseEventKind::ScrollDown, None) => panel.list.move_by(3),
+            (MouseEventKind::Down(MouseButton::Left), Some(_)) => match panel.at(m.column, m.row) {
+                Some(n) if Some(n) == panel.list.item => {
+                    self.settings_item_key(&KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE))
+                }
+                Some(n) => panel.list.item = Some(n),
+                None => return,
+            },
+            (MouseEventKind::Down(MouseButton::Left), None) => match panel.at(m.column, m.row) {
                 Some(n) if n == panel.list.selected => self.settings_edit(),
                 Some(n) => panel.list.selected = n,
                 None => return,
@@ -2319,13 +2454,17 @@ impl App {
                     self.set_setting(spec.key, &v, false);
                 }
             }
-            kalem_core::settings_list::Edit::Type if forward => self.settings_edit(),
+            kalem_core::settings_list::Edit::Type | kalem_core::settings_list::Edit::Items
+                if forward =>
+            {
+                self.settings_edit();
+            }
             _ => {}
         }
     }
 
     /// Edits the chosen setting: stepped forward, its text asked for
-    /// (the current text offered), or `settings.toml` opened for a list.
+    /// (the current text offered), or a list's or a table's items shown.
     fn settings_edit(&mut self) {
         use kalem_core::settings_list::Edit;
         let Some(spec) = self.settings.as_ref().and_then(|p| p.list.current()) else {
@@ -2346,7 +2485,11 @@ impl App {
                     current,
                 );
             }
-            Edit::File => self.settings_file(),
+            Edit::Items => {
+                if let Some(p) = &mut self.settings {
+                    p.list.open_items();
+                }
+            }
         }
     }
 
