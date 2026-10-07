@@ -72,9 +72,11 @@ ranges of the text as written. Its grammar, exactly:
 6. A value is one or more parts joined by =#= (whitespace allowed around
    it). A part is a braced group ={…}= with balanced braces; a quoted
    string ="…"=, in which quotes inside braces do not end it; or a bare
-   token (a number or a macro name) read with the type's rule. In braced
-   and quoted parts a backslash makes the next byte ordinary. The
-   field's value range runs from the first part to the end of the last.
+   token (a number or a macro name) read with the type's rule. As in
+   BibTeX, a backslash escapes nothing: =\{= counts as a brace, and a
+   quote outside braces ends a quoted part (="Schr\"odinger"= ends after
+   =Schr\=; ={\"o}= keeps it in). The field's value range runs from the
+   first part to the end of the last.
 7. What cannot be read is skipped: a field with no name, or a name
    with no ~=~ after it, is skipped to the next comma or the entry's
    end at the top level of braces, and the scan goes on.
@@ -87,6 +89,28 @@ So a malformed field (a stray =%= comment line inside an entry, for
 instance, since BibTeX has no comments inside entries) or an unbalanced
 brace costs that field or that entry, not the rest of the file. The text
 is not changed by this; only the grid is.
+
+* Problems of a BibTeX file
+
+=kalem check FILE.bib= and the status bar report what BibTeX itself
+stops at or warns about (=bibtex::problems=), each with a code:
+
+| Code                      | When                                                                                                         |
+|---------------------------+--------------------------------------------------------------------------------------------------------------|
+| =bibtex-unclosed=         | an entry not closed before the next one                                                                      |
+| =bibtex-no-key=           | an entry without a key                                                                                       |
+| =bibtex-duplicate-key=    | a key another entry has, letter case aside                                                                   |
+| =bibtex-syntax=           | text the scanner skips (step 7 above): not =name = value=                                                    |
+| =bibtex-missing-comma=    | a value followed by more than a comma, the entry's end or the next entry                                     |
+| =bibtex-duplicate-field=  | a field given twice in an entry                                                                              |
+| =bibtex-undefined-string= | a bare name in a value that no =@string= defines and that is not a month                                     |
+| =bibtex-unknown-type=     | an entry type neither BibTeX's standard styles nor biblatex know                                             |
+| =bibtex-missing-field=    | a field the entry's type requires missing or empty, after its =crossref='s fields (one in another file: none) |
+
+The required fields are those of BibTeX's standard styles, or biblatex's
+(no publisher, =booktitle= for a part of a book) for an entry written
+for biblatex: one with =date=, =journaltitle=, =location= or
+=maintitle=, or an =@inbook= with a =booktitle=.
 
 * Values for display
 

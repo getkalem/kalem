@@ -802,6 +802,11 @@ bibtex-unclosed = This entry is not closed before the next one: a closing brace 
 bibtex-no-key = This entry has no key to cite it by
 bibtex-duplicate-key = Another entry has the key { $key }
 bibtex-missing-field = { $kind } entries need { $field }
+bibtex-syntax = BibTeX cannot read this as a field (name = value): it stops here
+bibtex-missing-comma = A comma is missing after this value: BibTeX stops at the next field
+bibtex-duplicate-field = The field { $field } is given twice: BibTeX keeps the first
+bibtex-undefined-string = No @string defines { $name }: BibTeX leaves the value empty
+bibtex-unknown-type = BibTeX's styles do not know the entry type { $kind }
 msg-needs-password = This file is protected by a password
 arg-file-openWithPassword-password = the password
 msg-no-latex = No LaTeX found. Install TeX Live: { $command } (or Tectonic, which fetches what a document needs: https://tectonic-typesetting.github.io)

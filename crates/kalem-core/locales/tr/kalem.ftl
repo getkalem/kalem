@@ -731,6 +731,11 @@ bibtex-unclosed = Bu girdi bir sonrakinden önce kapanmıyor: bir kapanış ayra
 bibtex-no-key = Bu girdinin atıfta kullanılacak anahtarı yok
 bibtex-duplicate-key = { $key } anahtarı başka bir girdide de var
 bibtex-missing-field = { $kind } girdileri { $field } ister
+bibtex-syntax = BibTeX bunu alan (ad = değer) olarak okuyamaz: burada durur
+bibtex-missing-comma = Bu değerden sonra virgül eksik: BibTeX sonraki alanda durur
+bibtex-duplicate-field = { $field } alanı iki kez verilmiş: BibTeX ilkini alır
+bibtex-undefined-string = { $name } için @string tanımı yok: BibTeX değeri boş bırakır
+bibtex-unknown-type = BibTeX biçemleri { $kind } girdi türünü tanımıyor
 msg-needs-password = Bu dosya parolayla korunuyor
 arg-file-openWithPassword-password = parola
 msg-no-latex = LaTeX bulunamadı. TeX Live kurun: { $command } (ya da bir belgenin gerektirdiğini kendisi indiren Tectonic: https://tectonic-typesetting.github.io)

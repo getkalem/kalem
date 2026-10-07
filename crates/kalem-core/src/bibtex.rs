@@ -30,6 +30,17 @@ pub struct Entry {
     pub fields: Vec<Field>,
     /// The closing brace or parenthesis.
     pub close: usize,
+    /// What the scanner could not read in it, which BibTeX reports.
+    pub mistakes: Vec<(Range<usize>, Mistake)>,
+}
+
+/// Text of an entry the scanner skips, as BibTeX stops at it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mistake {
+    /// Not a field (`name = value`): skipped to the next comma.
+    Unreadable,
+    /// No comma between a value and the next field.
+    MissingComma,
 }
 
 impl Entry {
@@ -63,6 +74,7 @@ fn skip_braces(b: &[u8], i: usize) -> usize {
             return j;
         }
         match b[j] {
+            // A backslash escapes nothing: BibTeX counts every brace.
             b'{' => depth += 1,
             b'}' => {
                 depth = depth.saturating_sub(1);
@@ -70,7 +82,6 @@ fn skip_braces(b: &[u8], i: usize) -> usize {
                     return j + 1;
                 }
             }
-            b'\\' => j += 1,
             _ => {}
         }
         j += 1;
@@ -87,10 +98,10 @@ fn skip_quoted(b: &[u8], i: usize) -> usize {
             return j;
         }
         match b[j] {
+            // `\"` ends the string too, as in BibTeX (`{\"o}` does not).
             b'{' => depth += 1,
             b'}' => depth = depth.saturating_sub(1),
             b'"' if depth == 0 => return j + 1,
-            b'\\' => j += 1,
             _ => {}
         }
         j += 1;
@@ -141,6 +152,7 @@ pub fn entries(text: &str) -> Vec<Entry> {
         }
         let key = key_start..j;
         let mut fields = Vec::new();
+        let mut mistakes = Vec::new();
         let mut end = None;
         // Past what cannot be read: to the next comma or the entry's end
         // at the top level.
@@ -180,12 +192,16 @@ pub fn entries(text: &str) -> Vec<Entry> {
             let n = j..ident_end(b, j);
             if n.is_empty() {
                 // Not a field: skipped.
+                let from = j;
                 j = recover(j + 1);
+                mistakes.push((from..j, Mistake::Unreadable));
                 continue;
             }
             j = skip_ws(b, n.end);
             if b.get(j) != Some(&b'=') {
+                let from = n.start;
                 j = recover(j);
+                mistakes.push((from..j, Mistake::Unreadable));
                 continue;
             }
             j = skip_ws(b, j + 1);
@@ -214,6 +230,13 @@ pub fn entries(text: &str) -> Vec<Entry> {
                 value: v_start..v_end,
             });
             j = v_end;
+            // What follows a value: a comma, the entry's end, or the next
+            // entry; another field (`name =`) there lacks its comma.
+            let next = skip_ws(b, j);
+            let name_end = ident_end(b, next);
+            if v_end > v_start && name_end > next && b.get(skip_ws(b, name_end)) == Some(&b'=') {
+                mistakes.push((v_end..next, Mistake::MissingComma));
+            }
         }
         let Some(close_at) = end else {
             // An entry left open: what was read is kept, to the next entry
@@ -228,12 +251,14 @@ pub fn entries(text: &str) -> Vec<Entry> {
                 f.name.end = f.name.end.min(last);
                 f.name.start = f.name.start.min(f.name.end);
             }
+            mistakes.retain(|(r, _): &(Range<usize>, Mistake)| r.start < last);
             out.push(Entry {
                 range: at..last,
                 kind,
                 key,
                 fields,
                 close: last,
+                mistakes,
             });
             match next_entry {
                 Some(n) => {
@@ -249,6 +274,7 @@ pub fn entries(text: &str) -> Vec<Entry> {
             key,
             fields,
             close: close_at,
+            mistakes,
         });
         i = close_at + 1;
     }
@@ -401,6 +427,114 @@ fn required(kind: &str) -> &'static [&'static str] {
     }
 }
 
+/// The fields biblatex requires, for an entry written for it (with a
+/// `date`, a `journaltitle`, an `@inbook` with its `booktitle`): no
+/// publisher, `booktitle` for a part of a book.
+fn required_biblatex(kind: &str) -> &'static [&'static str] {
+    match kind {
+        "article" => &["author", "title", "journal|journaltitle", "year|date"],
+        "book" | "mvbook" | "collection" | "proceedings" | "manual" | "online" => {
+            &["title", "year|date"]
+        }
+        "inbook" | "incollection" | "inproceedings" | "conference" => {
+            &["author", "title", "booktitle", "year|date"]
+        }
+        "thesis" | "mastersthesis" | "phdthesis" => {
+            &["author", "title", "school|institution", "year|date"]
+        }
+        "report" | "techreport" => &["author", "title", "institution", "year|date"],
+        "unpublished" => &["author", "title", "year|date"],
+        _ => &[],
+    }
+}
+
+/// The entry types BibTeX's standard styles and biblatex know.
+const KNOWN_TYPES: &[&str] = &[
+    "article",
+    "book",
+    "booklet",
+    "conference",
+    "inbook",
+    "incollection",
+    "inproceedings",
+    "manual",
+    "mastersthesis",
+    "misc",
+    "phdthesis",
+    "proceedings",
+    "techreport",
+    "unpublished",
+    // biblatex's.
+    "bookinbook",
+    "collection",
+    "dataset",
+    "electronic",
+    "inreference",
+    "mvbook",
+    "mvcollection",
+    "mvproceedings",
+    "mvreference",
+    "online",
+    "patent",
+    "periodical",
+    "reference",
+    "report",
+    "set",
+    "software",
+    "suppbook",
+    "suppcollection",
+    "suppperiodical",
+    "thesis",
+    "www",
+    "xdata",
+    "artwork",
+    "audio",
+    "bibnote",
+    "commentary",
+    "image",
+    "jurisdiction",
+    "legislation",
+    "legal",
+    "letter",
+    "movie",
+    "music",
+    "performance",
+    "review",
+    "standard",
+    "video",
+    "unknown",
+];
+
+/// The month abbreviations BibTeX defines.
+const MONTHS: &[&str] = &[
+    "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+];
+
+/// The bare parts of a value (macro names and numbers), not its braced or
+/// quoted ones: `tug # { 1}` has `tug`.
+fn bare_parts(value: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let (mut depth, mut quoted, mut start) = (0i32, false, 0);
+    for (i, c) in value.char_indices() {
+        match c {
+            '{' => depth += 1,
+            '}' => depth -= 1,
+            '"' if depth == 0 => quoted = !quoted,
+            '#' if depth == 0 && !quoted => {
+                parts.push(&value[start..i]);
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    parts.push(&value[start..]);
+    parts
+        .into_iter()
+        .map(str::trim)
+        .filter(|p| !p.is_empty() && !p.starts_with(['{', '"']))
+        .collect()
+}
+
 /// The problems of a BibTeX file, in text order: an entry not closed
 /// before the next one, an entry without a key, a key two entries use,
 /// and a field the entry's type requires missing (publish_todo 3.4).
@@ -409,7 +543,13 @@ pub fn problems(text: &str) -> Vec<crate::modes::ModeDiagnostic> {
     let mut out = Vec::new();
     let mut seen: std::collections::HashMap<String, Range<usize>> =
         std::collections::HashMap::new();
-    for e in entries(text) {
+    let all = entries(text);
+    let strings = strings(text);
+    let by_key: std::collections::HashMap<String, &Entry> = all
+        .iter()
+        .map(|e| (text[e.key.clone()].trim().to_lowercase(), e))
+        .collect();
+    for e in &all {
         let at = e.range.start..e.kind.end;
         let closer = text.as_bytes().get(e.close).copied();
         if !matches!(closer, Some(b'}' | b')')) {
@@ -433,9 +573,94 @@ pub fn problems(text: &str) -> Vec<crate::modes::ModeDiagnostic> {
                 message: crate::tr!("bibtex-duplicate-key", key = key),
             });
         }
+        // What BibTeX stops at: text that is not a field, a missing comma.
+        for (r, m) in &e.mistakes {
+            let (code, key) = match m {
+                Mistake::Unreadable => ("bibtex-syntax", "bibtex-syntax"),
+                Mistake::MissingComma => ("bibtex-missing-comma", "bibtex-missing-comma"),
+            };
+            out.push(ModeDiagnostic {
+                range: if r.is_empty() {
+                    r.start..r.start + 1
+                } else {
+                    r.clone()
+                },
+                code: code.into(),
+                message: crate::l10n::tr(key),
+            });
+        }
+        // A field given twice: BibTeX keeps the first.
+        let mut names: Vec<String> = Vec::new();
+        for f in &e.fields {
+            let n = text[f.name.clone()].to_ascii_lowercase();
+            if names.contains(&n) {
+                out.push(ModeDiagnostic {
+                    range: f.name.clone(),
+                    code: "bibtex-duplicate-field".into(),
+                    message: crate::tr!("bibtex-duplicate-field", field = n.as_str()),
+                });
+            } else {
+                names.push(n);
+            }
+            // An abbreviation no `@string` defines.
+            for part in bare_parts(&text[f.value.clone()]) {
+                let k = part.to_ascii_lowercase();
+                if !k.chars().all(|c| c.is_ascii_digit())
+                    && !strings.contains_key(&k)
+                    && !MONTHS.contains(&k.as_str())
+                {
+                    out.push(ModeDiagnostic {
+                        range: f.value.clone(),
+                        code: "bibtex-undefined-string".into(),
+                        message: crate::tr!("bibtex-undefined-string", name = part),
+                    });
+                }
+            }
+        }
         let kind = text[e.kind.clone()].to_ascii_lowercase();
-        for need in required(&kind) {
-            if !need.split('|').any(|f| e.field(text, f).is_some()) {
+        if !KNOWN_TYPES.contains(&kind.as_str()) {
+            out.push(ModeDiagnostic {
+                range: e.kind.clone(),
+                code: "bibtex-unknown-type".into(),
+                message: crate::tr!("bibtex-unknown-type", kind = kind.as_str()),
+            });
+        }
+        // A `crossref`'s entry gives the fields this one lacks, as BibTeX
+        // reads it; one in another file is not known here.
+        let parent = match e.field(text, "crossref") {
+            Some(f) => {
+                let key = text[f.value.clone()]
+                    .trim_matches(['{', '}', '"'])
+                    .trim()
+                    .to_lowercase();
+                match by_key.get(&key) {
+                    Some(p) => Some(*p),
+                    None => continue,
+                }
+            }
+            None => None,
+        };
+        // An empty value (`author = {}`, as New Entry writes it) is as
+        // good as none.
+        let given = |en: &Entry, f: &str| {
+            en.field(text, f).is_some_and(|v| {
+                !text[v.value.clone()]
+                    .trim_matches(|c: char| c == '{' || c == '}' || c == '"' || c.is_whitespace())
+                    .is_empty()
+            })
+        };
+        let has = |f: &str| given(e, f) || parent.is_some_and(|p| given(p, f));
+        let biblatex = ["date", "journaltitle", "location", "maintitle"]
+            .iter()
+            .any(|f| has(f))
+            || (kind == "inbook" && has("booktitle"));
+        let needs = if biblatex {
+            required_biblatex(&kind)
+        } else {
+            required(&kind)
+        };
+        for need in needs {
+            if !need.split('|').any(has) {
                 out.push(ModeDiagnostic {
                     range: at.clone(),
                     code: "bibtex-missing-field".into(),
@@ -1006,6 +1231,51 @@ mod tests {
         // `kalem check` and the status bar get them through the packs.
         let pack = crate::packs::for_language("bib").expect("BibTeX's pack");
         assert_eq!(pack.diagnostics(text).len(), p.len());
+        // What BibTeX stops at or warns about.
+        let codes =
+            |t: &str| -> Vec<String> { super::problems(t).into_iter().map(|d| d.code).collect() };
+        let one = |fields: &str| codes(&format!("@misc{{k,\n{fields}\n}}\n"));
+        assert_eq!(
+            one("  title = {A},\n  note = tug,"),
+            ["bibtex-undefined-string"]
+        );
+        assert_eq!(
+            one("  title = {A}\n  note = {B},"),
+            ["bibtex-missing-comma"]
+        );
+        assert_eq!(one("  title {A},"), ["bibtex-syntax"]);
+        assert_eq!(
+            one("  title = {A},\n  Title = {B},"),
+            ["bibtex-duplicate-field"]
+        );
+        assert_eq!(
+            one("  author = \"Erwin Schr\\\"odinger\","),
+            ["bibtex-syntax"]
+        );
+        assert!(one("  author = \"Erwin Schr{\\\"o}dinger\", month = jan,").is_empty());
+        assert_eq!(
+            codes("@artcle{k,\n  title = {A}\n}\n"),
+            ["bibtex-unknown-type"]
+        );
+        // An empty required field is a missing one; a crossref's entry
+        // gives what the entry lacks; biblatex's entries need no
+        // publisher.
+        assert_eq!(
+            codes(
+                "@article{k,\n  author = {},\n  title = {T},\n  journal = {J},\n  year = 2000\n}\n"
+            ),
+            ["bibtex-missing-field"]
+        );
+        assert!(codes("@inproceedings{a,\n  author = {A},\n  title = {T},\n  crossref = {P}\n}\n@proceedings{p,\n  title = {P},\n  booktitle = {P},\n  year = 2020\n}\n").is_empty());
+        assert!(
+            codes(
+                "@inproceedings{a,\n  author = {A},\n  title = {T},\n  crossref = {elsewhere}\n}\n"
+            )
+            .is_empty()
+        );
+        assert!(
+            codes("@book{b,\n  author = {A},\n  title = {T},\n  date = {2020}\n}\n").is_empty()
+        );
     }
 
     use super::*;
