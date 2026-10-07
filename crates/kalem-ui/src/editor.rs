@@ -4442,7 +4442,9 @@ impl gpui::Render for Editor {
             InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement, Styled,
             div, list,
         };
-        let a11y = self.a11y_text();
+        // The accessible text only for a screen reader listening: it lays
+        // out every painted line again (gpui draws again when one starts).
+        let a11y = window.is_a11y_active().then(|| self.a11y_text());
         // Under the caret: a formula rendered, or the completion menu (and a
         // formula's Unicode approximation when it cannot be rendered).
         let (math_popup, text_popup) = match self.formula_preview(window) {
@@ -4878,7 +4880,11 @@ impl gpui::Render for Editor {
             .id("editor")
             .role(gpui::Role::MultilineTextInput)
             .aria_label(SharedString::from(label))
-            .a11y_synthetic_children(move |b| build_a11y(b, a11y))
+            .a11y_synthetic_children(move |b| {
+                if let Some(t) = a11y {
+                    build_a11y(b, t);
+                }
+            })
             .key_context("Editor")
             .track_focus(&self.focus)
             .on_key_down(cx.listener(Self::key_down))

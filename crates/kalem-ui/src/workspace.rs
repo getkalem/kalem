@@ -434,6 +434,17 @@ impl Workspace {
             let e = self.editors[next.min(self.editors.len() - 1)].clone();
             self.activate(e, window, cx);
         }
+        // Nothing to go back to: kept here, the closed document lived on,
+        // its timer ticking and its language server not told.
+        for slot in [
+            &mut self.previous,
+            &mut self.last_text,
+            &mut self.last_document,
+        ] {
+            if slot.as_ref() == Some(editor) {
+                *slot = None;
+            }
+        }
         cx.notify();
     }
 
