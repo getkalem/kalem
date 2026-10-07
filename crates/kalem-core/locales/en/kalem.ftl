@@ -942,6 +942,7 @@ cmd-markdown-convertToOrg = Convert to Org
 cmd-markdown-newline = New Item
 cmd-markdown-table-nextField = Next Field
 cmd-markdown-table-previousField = Previous Field
+cmd-markdown-table-nextRow = Next Row
 cmd-markdown-table-align = Align Table
 category-markdown = Markdown
 msg-csv-duplicates = { $count ->

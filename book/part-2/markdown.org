@@ -158,7 +158,13 @@ edits it as plain text. Concretely:
   (=:---=, =:---:=, =---:=) with as many dashes as the column is wide,
   pads cells as their column is aligned, gives short rows empty cells,
   keeps escaped pipes =\|= inside their cell, and keeps the first line's
-  indentation.
+  indentation. /Next Row/ (=markdown.table.nextRow=) aligns the table
+  and goes to the same column of the row below, from the header to the
+  first body row, past the last row adding an empty one, as Enter in an
+  Org table does; it has no key, since Enter in a Markdown table stays a
+  line break for typing a row as text, and binding it to Enter in
+  =keymap.json= (="when": "editorMode == markdown && inMarkdownTable"=)
+  makes Enter Org's.
 - The table keys of Org move a table's rows and columns: Alt+Up and
   Alt+Down move the body row (the header stays, and no row goes above the
   delimiter row), Alt+Left and Alt+Right the column with its alignment;
@@ -223,13 +229,20 @@ edits it as plain text. Concretely:
   (=markdown.newline=, when ~inMarkdownList~): the new line gets the
   same indentation, =>= markers and bullet, the next number (=9.= is
   followed by =10.=, the =.= or =)= kept), and an empty =[ ]= after a
-  task item; the text after the cursor moves to the new item. On an
-  item or quoted line that holds nothing but its markers, Enter removes
-  them, which ends the list. In a numbered list the items after the new
-  one are numbered on from it. At the end of an opening fence (=```=
-  or =~~~=, with or without a language) that nothing closes, Enter adds
-  an empty line and the closing fence and puts the cursor between them.
-  Elsewhere, and in code blocks, Enter
+  task item; the text after the cursor moves to the new item. On a
+  nested item that holds nothing but its markers, Enter takes it out a
+  level, as Shift+Tab does (and as Org's Enter does); on a top-level item
+  or quoted line that holds nothing but its markers, Enter removes them,
+  which ends the list or quote, and leaves a blank line before the
+  cursor, so that what is typed next is a paragraph of its own and not a
+  lazy continuation of the item before (CommonMark reads a line right
+  after an item's text as more of it). A tab after the bullet or number
+  is kept as written, and a CR LF file gets CR LF. In a numbered list the
+  items after the new one are numbered on from it. At the end of an
+  opening fence (=```= or =~~~=, with or without a language) that
+  nothing closes, Enter adds an empty line and the closing fence and puts
+  the cursor between them. Over a selection the selection goes first,
+  in the same step. Elsewhere, and in code blocks, Enter
   (=edit.newline=) starts a new line with the current line's
   indentation.
 - /Toggle Comment/ (Ctrl+Alt+C) wraps each selected line in
@@ -289,6 +302,13 @@ and ==x== as text), and before a line that would be structure
 the command line writes it, or to =-o=. The Markdown file does not
 change.
 
+=kalem export FILE.md --to html= writes =NAME.html=, a page of comrak's
+HTML (raw HTML left out, as /Copy as HTML/ has it) titled by the front
+matter's =title= (else the file's name); its formulas, =$x$= and
+=$$x$$=, are written =\(x\)= and =\[x\]= for MathJax, loaded as Org's
+HTML export loads it. =--body-only= writes the HTML alone. Other
+formats are refused for a Markdown file: convert it to Org first.
+
 /Import as Org/ (the command =file.import=, and =kalem import FILE.md=
 on the command line) converts a Markdown file to Org through pandoc,
 when pandoc is installed. The file (=.md=, =.markdown=, =.mdown=,
@@ -314,9 +334,9 @@ Rust port of Org's export engine (=crates/org-export=):
 
 Both write =NAME.md= (or where =#+EXPORT_FILE_NAME= says), honour the
 export options (=#+OPTIONS=, =#+SETUPFILE=, =EXPORT_= properties, body
-only), and read their input as Org whatever its extension: =kalem
-export README.md= does not read Markdown, and says so on standard
-error ("read as Org, not as Markdown"). The output is the input's
+only), and read Org: for a Markdown file =kalem export= refuses
+them and says so on standard error (it exports Markdown to HTML and
+to Org only, /Converting Markdown to Org/ above). The output is the input's
 name with its extension replaced by =.md=, except when that is the
 input itself: =README.md= exports to =README.md.md= (Emacs refuses with
 "Output file cannot be the same as the input file").

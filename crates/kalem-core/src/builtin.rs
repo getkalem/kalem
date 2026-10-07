@@ -2678,7 +2678,7 @@ fn markdown_commands() -> Vec<Command> {
                 "Markdown",
                 &["ctrl+b"],
                 Some("editorMode == markdown"),
-                |ctx, _| lines_command(ctx, |t, s| Some(crate::markdown::wrap(t, s, "**", "**"))),
+                |ctx, _| md_emphasis(ctx, crate::markdown::MdKind::Strong, "**", "**"),
             ),
             Scope::only(&["markdown"]),
         ),
@@ -2689,7 +2689,7 @@ fn markdown_commands() -> Vec<Command> {
                 "Markdown",
                 &["ctrl+i"],
                 Some("editorMode == markdown"),
-                |ctx, _| lines_command(ctx, |t, s| Some(crate::markdown::wrap(t, s, "*", "*"))),
+                |ctx, _| md_emphasis(ctx, crate::markdown::MdKind::Emphasis, "*", "*"),
             ),
             Scope::only(&["markdown"]),
         ),
@@ -2700,7 +2700,7 @@ fn markdown_commands() -> Vec<Command> {
                 "Markdown",
                 &[],
                 Some("editorMode == markdown"),
-                |ctx, _| lines_command(ctx, |t, s| Some(crate::markdown::wrap(t, s, "`", "`"))),
+                |ctx, _| md_emphasis(ctx, crate::markdown::MdKind::Code, "`", "`"),
             ),
             Scope::only(&["markdown"]),
         ),
@@ -2711,7 +2711,7 @@ fn markdown_commands() -> Vec<Command> {
                 "Markdown",
                 &[],
                 Some("editorMode == markdown"),
-                |ctx, _| lines_command(ctx, |t, s| Some(crate::markdown::wrap(t, s, "~~", "~~"))),
+                |ctx, _| md_emphasis(ctx, crate::markdown::MdKind::Strikethrough, "~~", "~~"),
             ),
             Scope::only(&["markdown"]),
         ),
@@ -2749,6 +2749,11 @@ fn markdown_commands() -> Vec<Command> {
                 })
             },
         ),
+        // Enter of an Org table, a row down; no key, since Enter in a
+        // Markdown table stays a line break for typing a row as text.
+        md_table("markdown.table.nextRow", "Next Row", &[], |ctx, _| {
+            md_table_run(ctx, crate::markdown_table::next_row)
+        }),
         md_table(
             "markdown.table.recalculate",
             "Recalculate Table",
@@ -3161,11 +3166,47 @@ fn markdown_commands() -> Vec<Command> {
                 "Markdown",
                 &[],
                 Some("editorMode == markdown && inMarkdownList"),
-                |ctx, _| md_table_run(ctx, crate::markdown::newline),
+                |ctx, _| {
+                    let now = ctx.now;
+                    let d = ctx.doc()?;
+                    let s = d.selection;
+                    if s.anchor == s.head {
+                        return md_table_run(ctx, crate::markdown::newline);
+                    }
+                    // Over a selection: the selection goes, then Enter as
+                    // without one, in one step.
+                    let (a, b) = (s.anchor.min(s.head), s.anchor.max(s.head));
+                    let text = d.text().as_str();
+                    let rest = format!("{}{}", &text[..a], &text[b..]);
+                    let md = crate::markdown::parsed(d).reparse(text, &rest);
+                    let tx = crate::markdown::newline(&md, &rest, a)
+                        .and_then(|tx| {
+                            let caret = tx.selection_after?;
+                            crate::lines::replace_differing(text, &tx.apply(&rest), "New Line")
+                                .map(|t| t.select(caret))
+                        })
+                        .unwrap_or_else(|| crate::input::newline(text, s.head, Some(s.anchor)));
+                    d.apply(&tx, org_edit::ChangeKind::Command, now);
+                    Ok(())
+                },
             ),
             Scope::only(&["markdown"]),
         ),
     ]
+}
+
+/// Bold, italic, code or strike-through at the selection of a Markdown
+/// document ([`crate::markdown::wrap`]).
+fn md_emphasis(
+    ctx: &mut EditorContext<'_>,
+    kind: crate::markdown::MdKind,
+    open: &str,
+    close: &str,
+) -> CommandResult {
+    let md = crate::markdown::parsed(ctx.doc()?);
+    lines_command(ctx, |t, s| {
+        crate::markdown::wrap(&md, t, s, kind, open, close)
+    })
 }
 
 /// A command on the Markdown table at the cursor, its keys bound there.

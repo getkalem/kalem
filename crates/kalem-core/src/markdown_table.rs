@@ -199,6 +199,56 @@ fn cell_start(aligned: &str, row: usize, col: usize) -> usize {
     at
 }
 
+/// The aligned table `aligned` with an empty row of `ncols` cells added
+/// at its end, aligned again.
+fn with_new_row(aligned: &str, ncols: usize) -> String {
+    let empty = vec!["   "; ncols].join(" | ");
+    align(&format!("{aligned}\n| {empty} |"))
+}
+
+/// The table at `text[range]` aligned, the cursor moved to cell (`r`,
+/// `c`) of it.
+fn aligned_with_caret(
+    text: &str,
+    range: Range<usize>,
+    aligned: &str,
+    r: usize,
+    c: usize,
+    name: &str,
+) -> Transaction {
+    let caret = range.start + cell_start(aligned, r, c);
+    let mut new = String::with_capacity(text.len() + 16);
+    new.push_str(&text[..range.start]);
+    new.push_str(aligned);
+    new.push_str(&text[range.end..]);
+    let tx =
+        crate::lines::replace_differing(text, &new, name).unwrap_or_else(|| Transaction::new(name));
+    tx.select(Selection::caret(caret))
+}
+
+/// Enter in a table, as `org-table-next-row`: the table aligned and the
+/// cursor in the same column of the row below (the first body row from
+/// the header), a new empty row past the last.
+pub fn next_row(md: &Md, text: &str, pos: usize) -> Option<Transaction> {
+    let range = table_at(md, text, pos)?;
+    let (row, col) = cell_of(text, &range, pos);
+    let mut aligned = align(&text[range.clone()]);
+    let rows = aligned.split('\n').count();
+    let ncols = cells(aligned.split('\n').next().unwrap_or("")).len().max(1);
+    let r = (row + 1).max(2);
+    if r >= rows {
+        aligned = with_new_row(&aligned, ncols);
+    }
+    Some(aligned_with_caret(
+        text,
+        range,
+        &aligned,
+        r,
+        col.min(ncols - 1),
+        "Next Row",
+    ))
+}
+
 /// The table aligned and the cursor moved one cell on (`forward`) or back:
 /// rows wrap, the delimiter row is skipped, and past the last cell of the
 /// last row a new empty row is added.
@@ -221,13 +271,7 @@ pub fn next_field(md: &Md, text: &str, pos: usize, forward: bool) -> Option<Tran
         }
         if r >= rows {
             // A new row, as Tab does in an Org table.
-            let indent: String = aligned
-                .chars()
-                .take_while(|c| *c == ' ' || *c == '\t')
-                .collect();
-            let empty = vec!["   "; ncols].join(" | ");
-            aligned.push_str(&format!("\n{indent}| {empty} |"));
-            aligned = align(&aligned);
+            aligned = with_new_row(&aligned, ncols);
         }
     } else if c > 0 {
         c -= 1;
@@ -238,14 +282,14 @@ pub fn next_field(md: &Md, text: &str, pos: usize, forward: bool) -> Option<Tran
         }
         c = ncols - 1;
     }
-    let caret = range.start + cell_start(&aligned, r, c);
-    let mut new = String::with_capacity(text.len() + 16);
-    new.push_str(&text[..range.start]);
-    new.push_str(&aligned);
-    new.push_str(&text[range.end..]);
-    let tx = crate::lines::replace_differing(text, &new, "Next Field")
-        .unwrap_or_else(|| Transaction::new("Next Field"));
-    Some(tx.select(Selection::caret(caret)))
+    Some(aligned_with_caret(
+        text,
+        range,
+        &aligned,
+        r,
+        c,
+        "Next Field",
+    ))
 }
 
 /// A change of a table's rows or columns, as Org's table keys make them.
@@ -641,5 +685,28 @@ mod tests {
         assert_eq!(&s[caret..caret + 1], "1");
         assert!(next_field(&md, &s, 0, true).is_none());
         assert!(align_at(&md, &s, at).is_none());
+    }
+
+    #[test]
+    fn enter_goes_to_the_row_below() {
+        // As Org's Enter in a table: the same column a row down, past the
+        // delimiter row from the header, a new row past the last.
+        let t = "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter\n";
+        let md = Md::parse(t);
+        let tx = next_row(&md, t, t.find('b').unwrap()).unwrap();
+        let s = apply(t, &tx);
+        assert_eq!(s, "| a   | b   |\n| --- | --- |\n| 1   | 2   |\n\nAfter\n");
+        let caret = tx.selection_after.unwrap().head;
+        assert_eq!(&s[caret..caret + 1], "2");
+        let tx = next_row(&Md::parse(&s), &s, caret).unwrap();
+        let s = apply(&s, &tx);
+        assert_eq!(
+            s,
+            "| a   | b   |\n| --- | --- |\n| 1   | 2   |\n|     |     |\n\nAfter\n"
+        );
+        let caret = tx.selection_after.unwrap().head;
+        // In the new row's second cell.
+        assert_eq!(caret, s.find("\n|     |").unwrap() + 1 + 8);
+        assert!(next_row(&Md::parse(&s), &s, s.find("After").unwrap()).is_none());
     }
 }

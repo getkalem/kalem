@@ -733,8 +733,9 @@ impl Completer for WordsCompleter {
                     }
                 }
                 let w = &text[s..e];
-                // Not the word being typed itself.
-                let here = ctx.base + e == ctx.point && ctx.base + s == start;
+                // Not the word being typed itself, nor the word the cursor
+                // is typing into (`mid|2`), which would be doubled.
+                let here = ctx.base + s == start && ctx.base + e >= ctx.point;
                 if !here
                     && w.len() > prefix.len()
                     && w.chars().count() >= 3
@@ -962,6 +963,15 @@ mod tests {
         assert_eq!(labels, ["quartz", "qualities", "quantum"]);
         apply(&mut d, &items[1], Instant::now());
         assert!(d.text().as_str().ends_with("\nqualities"));
+        // Typing into a word (`mid|2`) does not offer that word.
+        let t = "one\n\nmid2 two\n";
+        let mut d = doc(t, DocumentMode::Markdown, 8);
+        assert!(
+            Registry::with_builtins()
+                .complete(&mut d, false, Duration::ZERO)
+                .iter()
+                .all(|i| i.label != "mid2")
+        );
         // Two letters open nothing, unless asked.
         let t = "alpha beta\nal";
         let mut d = doc(t, DocumentMode::Text { language: None }, t.len());

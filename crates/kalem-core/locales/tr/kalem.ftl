@@ -869,6 +869,7 @@ cmd-markdown-convertToOrg = Org’a Dönüştür
 cmd-markdown-newline = Yeni Madde
 cmd-markdown-table-nextField = Sonraki Alan
 cmd-markdown-table-previousField = Önceki Alan
+cmd-markdown-table-nextRow = Sonraki Satır
 cmd-markdown-table-align = Tabloyu Hizala
 category-markdown = Markdown
 msg-csv-duplicates = { $count ->

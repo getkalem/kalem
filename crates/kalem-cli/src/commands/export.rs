@@ -189,21 +189,14 @@ pub(crate) fn export(
         let out = if markdown_to_org {
             Ok(kalem_core::markdown_org::to_org(text))
         } else if markdown_to_html {
-            let body = kalem_core::markdown::to_html(text);
             Ok(if body_only {
-                body
+                kalem_core::markdown::to_html(text)
             } else {
-                let title = file
+                let stem = file
                     .file_stem()
                     .map(|s| s.to_string_lossy().into_owned())
                     .unwrap_or_default();
-                format!(
-                    "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>{}</title>\n</head>\n<body>\n{body}</body>\n</html>\n",
-                    title
-                        .replace('&', "&amp;")
-                        .replace('<', "&lt;")
-                        .replace('>', "&gt;")
-                )
+                kalem_core::markdown::to_html_page(text, &stem)
             })
         } else if to == Target::Org {
             let (out, counts) = kalem_core::kinds::strip_markup(text);

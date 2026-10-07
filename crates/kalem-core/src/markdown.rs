@@ -211,6 +211,30 @@ pub fn missing_files(text: &str, path: &std::path::Path) -> Vec<(Range<usize>, S
 }
 
 /// Byte offsets of the line starts.
+/// A code span's text: inside its backticks, without the one space
+/// CommonMark strips from each side when both have one (``` `` `x` `` ```
+/// reads `` `x` ``).
+fn code_content(text: &str, range: &Range<usize>) -> Range<usize> {
+    let s = &text[range.clone()];
+    let n = s.bytes().take_while(|&b| b == b'`').count();
+    let m = s.bytes().rev().take_while(|&b| b == b'`').count();
+    let (a, b) = (
+        (range.start + n).min(range.end),
+        range.end.saturating_sub(m).max(range.start + n),
+    );
+    let inner = &text[a..b];
+    let space = |c: u8| matches!(c, b' ' | b'\n');
+    if inner.len() >= 2
+        && inner.bytes().next().is_some_and(space)
+        && inner.bytes().last().is_some_and(space)
+        && !inner.bytes().all(space)
+    {
+        a + 1..b - 1
+    } else {
+        a..b
+    }
+}
+
 fn line_starts(text: &str) -> Vec<usize> {
     std::iter::once(0)
         .chain(text.match_indices('\n').map(|(i, _)| i + 1))
@@ -416,14 +440,7 @@ impl Md {
             let kids: Vec<_> = node.children().collect();
             drop(data);
             let content = match &kind {
-                // A code span's text: inside its backticks.
-                MdKind::Code => {
-                    let s = &text[range.clone()];
-                    let n = s.bytes().take_while(|&b| b == b'`').count();
-                    let m = s.bytes().rev().take_while(|&b| b == b'`').count();
-                    (range.start + n).min(range.end)
-                        ..range.end.saturating_sub(m).max(range.start + n)
-                }
+                MdKind::Code => code_content(text, &range),
                 MdKind::Math { .. } => {
                     let s = &text[range.clone()];
                     let n = s.bytes().take_while(|&b| b == b'$').count();
@@ -538,13 +555,9 @@ impl Md {
                 let n = &mut md.nodes[i];
                 n.range = real(n.range.start).min(pr.end)..real(n.range.end).min(pr.end);
                 n.content = real(n.content.start).min(pr.end)..real(n.content.end).min(pr.end);
-                // A code span's text: inside its backticks, read again.
+                // A code span's text, read again.
                 if n.kind == MdKind::Code {
-                    let s = &text[n.range.clone()];
-                    let a = s.bytes().take_while(|&b| b == b'`').count();
-                    let b = s.bytes().rev().take_while(|&b| b == b'`').count();
-                    n.content = (n.range.start + a).min(n.range.end)
-                        ..n.range.end.saturating_sub(b).max(n.range.start + a);
+                    n.content = code_content(text, &n.range);
                 }
             }
         }
@@ -2285,22 +2298,21 @@ fn prefix(line: &str) -> Option<Prefix> {
         next.push_str(&line[start..i]);
         break;
     }
-    // A bullet or a number.
+    // A bullet or a number, and the space or tab after it.
     let rest = &line[i..];
+    let blank = |k: usize| matches!(rest.as_bytes().get(k), Some(b' ' | b'\t'));
     let bullet = rest.as_bytes().first().copied();
-    if matches!(bullet, Some(b'-' | b'*' | b'+')) && rest.as_bytes().get(1) == Some(&b' ') {
+    if matches!(bullet, Some(b'-' | b'*' | b'+')) && blank(1) {
         next.push_str(&rest[..2]);
         i += 2;
         any = true;
     } else {
         let digits = rest.bytes().take_while(u8::is_ascii_digit).count();
         let delim = rest.as_bytes().get(digits).copied();
-        if (1..=9).contains(&digits)
-            && matches!(delim, Some(b'.' | b')'))
-            && rest.as_bytes().get(digits + 1) == Some(&b' ')
-        {
+        if (1..=9).contains(&digits) && matches!(delim, Some(b'.' | b')')) && blank(digits + 1) {
             let n: u64 = rest[..digits].parse().ok()?;
-            next.push_str(&format!("{}{} ", n + 1, delim? as char));
+            let after = &rest[digits + 1..digits + 2];
+            next.push_str(&format!("{}{}{after}", n + 1, delim? as char));
             i += digits + 2;
             any = true;
         }
@@ -2318,11 +2330,27 @@ fn prefix(line: &str) -> Option<Prefix> {
     any.then_some(Prefix { next, len: i })
 }
 
+/// The end of the line holding `at`, before its line feed and the
+/// carriage return of a CR LF line, and the line ending to insert there.
+fn line_end(text: &str, at: usize) -> (usize, &'static str) {
+    let end = text[at..].find('\n').map_or(text.len(), |i| at + i);
+    let start = text[..at].rfind('\n').map_or(0, |i| i + 1);
+    let cr = end > start && text.as_bytes()[end - 1] == b'\r' && at < end;
+    // The last line takes the ending of the line before it.
+    let crlf = cr || (end == text.len() && text[..start].ends_with("\r\n"));
+    (
+        if cr { end - 1 } else { end },
+        if crlf { "\r\n" } else { "\n" },
+    )
+}
+
 /// Enter in a list item or a quote (T2.7c.5): a new item or quoted line
 /// with the same markers, the number one higher, an empty checkbox; on an
-/// item or quoted line holding nothing but its markers, the markers go,
-/// which ends the list. `None` elsewhere (a code block, a paragraph):
-/// Enter is then a plain new line.
+/// item or quoted line holding nothing but its markers, a nested item goes
+/// out a level (as in Org), and otherwise the markers go and the list or
+/// quote ends, a blank line after it so that what is typed next is not a
+/// lazy continuation of the item before. `None` elsewhere (a code block,
+/// a paragraph): Enter is then a plain new line.
 pub fn newline(md: &Md, text: &str, at: usize) -> Option<org_edit::Transaction> {
     let idx = md.line_of(at);
     if let Some(tx) = close_fence(md, text, at) {
@@ -2344,7 +2372,7 @@ pub fn newline(md: &Md, text: &str, at: usize) -> Option<org_edit::Transaction> 
         return None;
     }
     let start = text[..at].rfind('\n').map_or(0, |i| i + 1);
-    let end = text[at..].find('\n').map_or(text.len(), |i| at + i);
+    let (end, eol) = line_end(text, at);
     let line = &text[start..end];
     let p = prefix(line)?;
     if at < start + p.len {
@@ -2352,11 +2380,25 @@ pub fn newline(md: &Md, text: &str, at: usize) -> Option<org_edit::Transaction> 
     }
     let mut tx = org_edit::Transaction::new("New Line");
     if line[p.len..].trim().is_empty() {
-        // Only markers: they go, and the list ends here.
-        tx.replace(start..end, "").ok()?;
-        return Some(tx.select(org_edit::Selection::caret(start)));
+        // Only markers: a nested item goes out a level.
+        if let Some(tx) = indent_item(md, text, at, false) {
+            return Some(tx);
+        }
+        // Else they go, and the list ends here: after a blank line when
+        // the line before is text the next line would continue.
+        let prev = text[..start.saturating_sub(1)]
+            .rsplit('\n')
+            .next()
+            .filter(|_| start > 0);
+        let sep = if prev.is_some_and(|l| !l.trim().is_empty()) {
+            eol
+        } else {
+            ""
+        };
+        tx.replace(start..end, sep).ok()?;
+        return Some(tx.select(org_edit::Selection::caret(start + sep.len())));
     }
-    let insert = format!("\n{}", p.next);
+    let insert = format!("{eol}{}", p.next);
     tx.replace(at..at, &insert).ok()?;
     renumber_after(md, text, end, &p.next, &mut tx);
     Some(tx.select(org_edit::Selection::caret(at + insert.len())))
@@ -2562,11 +2604,15 @@ pub fn move_item(md: &Md, text: &str, at: usize, up: bool) -> Option<org_edit::T
     } else {
         first.start + b.len() + between.len() + offset
     };
-    // The list starts at the number it started at.
-    let first = [&text[first.clone()], &text[second.clone()]]
+    // The list starts at the number its first item has.
+    let first = md
+        .nodes
         .iter()
-        .find_map(|s| {
-            let s = s.trim_start();
+        .find(|n| {
+            n.parent == item.parent && matches!(n.kind, MdKind::Item | MdKind::TaskItem { .. })
+        })
+        .and_then(|n| {
+            let s = text[n.range.clone()].trim_start();
             s[..s.bytes().take_while(u8::is_ascii_digit).count()]
                 .parse::<u64>()
                 .ok()
@@ -2630,7 +2676,7 @@ fn renumber_after(
 /// line for the code and the closing fence after it.
 fn close_fence(md: &Md, text: &str, at: usize) -> Option<org_edit::Transaction> {
     let start = text[..at].rfind('\n').map_or(0, |i| i + 1);
-    let end = text[at..].find('\n').map_or(text.len(), |i| at + i);
+    let (end, eol) = line_end(text, at);
     if at != end {
         return None;
     }
@@ -2662,42 +2708,122 @@ fn close_fence(md: &Md, text: &str, at: usize) -> Option<org_edit::Transaction> 
     if block.range.end < text.trim_end().len() {
         return None;
     }
-    let insert = format!("\n{indent}\n{indent}{fence}");
+    let insert = format!("{eol}{indent}{eol}{indent}{fence}");
     let mut tx = org_edit::Transaction::new("New Line");
     tx.replace(at..at, &insert).ok()?;
-    Some(tx.select(org_edit::Selection::caret(at + 1 + indent.len())))
+    Some(tx.select(org_edit::Selection::caret(at + eol.len() + indent.len())))
 }
 
-/// The selection wrapped in `open` and `close` (`**` for bold), or the
-/// markers taken away when they are already around it; without a
-/// selection the markers with the cursor between them.
+/// The selection wrapped in `open` and `close` (`**` for bold), as Org's
+/// emphasis commands do it: in text of `kind` already (the selection or
+/// the cursor in bold text, for `**`), its markers go; otherwise the
+/// selection without the blanks at its ends is wrapped, and without a
+/// selection the markers go in with the cursor between them (or go again
+/// when nothing was typed between them). `None` in code, for a
+/// selection of blanks, or one that would not read as the emphasis: across
+/// paragraphs or blocks, or cutting other formatting in two.
 pub fn wrap(
+    md: &Md,
     text: &str,
     sel: org_edit::Selection,
+    kind: MdKind,
     open: &str,
     close: &str,
-) -> org_edit::Transaction {
+) -> Option<org_edit::Transaction> {
     let (a, z) = (sel.anchor.min(sel.head), sel.anchor.max(sel.head));
     let mut tx = org_edit::Transaction::new("Emphasis");
-    let around =
-        a >= open.len() && text[..a].ends_with(open) && text[z..].starts_with(close) && a < z;
-    if around {
-        let _ = tx.delete(z..z + close.len());
-        let _ = tx.delete(a - open.len()..a);
-        let (s, e) = (a - open.len(), z - open.len());
-        return tx.select(org_edit::Selection { anchor: s, head: e });
+    // In text of that kind: its markers go.
+    if let Some(n) =
+        md.nodes.iter().rev().find(|n| {
+            n.kind == kind && n.content != n.range && n.range.start <= a && z <= n.range.end
+        })
+    {
+        let _ = tx.delete(n.content.end..n.range.end);
+        let _ = tx.delete(n.range.start..n.content.start);
+        let lead = n.content.start - n.range.start;
+        let map = |p: usize| p.clamp(n.content.start, n.content.end) - lead;
+        return Some(tx.select(org_edit::Selection {
+            anchor: map(sel.anchor),
+            head: map(sel.head),
+        }));
+    }
+    // Code is read as written: no emphasis in it.
+    let code = md.nodes.iter().any(|n| {
+        let literal = matches!(
+            n.kind,
+            MdKind::CodeBlock { .. } | MdKind::HtmlBlock | MdKind::Math { .. }
+        ) || (n.kind == MdKind::Code && kind != MdKind::Code);
+        literal
+            && if a == z {
+                n.range.start < a && a < n.range.end
+            } else {
+                a < n.range.end && n.range.start < z
+            }
+    });
+    if code {
+        return None;
     }
     if a == z {
+        // The markers typed with nothing between them: they go again.
+        if text[..a].ends_with(open) && text[a..].starts_with(close) {
+            let _ = tx.delete(a..a + close.len());
+            let _ = tx.delete(a - open.len()..a);
+            return Some(tx.select(org_edit::Selection::caret(a - open.len())));
+        }
         let _ = tx.insert(a, format!("{open}{close}"));
-    } else {
-        let _ = tx.insert(z, close.to_string());
-        let _ = tx.insert(a, open.to_string());
+        return Some(tx.select(org_edit::Selection::caret(a + open.len())));
     }
+    // Without the blanks at the ends, which would keep the markers from
+    // reading as emphasis (`**word **`).
+    let s = &text[a..z];
+    let (a, z) = (
+        a + s.len() - s.trim_start().len(),
+        z - (s.len() - s.trim_end().len()),
+    );
+    if a >= z || text[a..z].contains("\n\n") {
+        return None;
+    }
+    // Within one paragraph, heading or table cell.
+    let leaf = |p: usize| {
+        md.nodes.iter().rposition(|n| {
+            matches!(
+                n.kind,
+                MdKind::Paragraph | MdKind::Heading { .. } | MdKind::TableCell
+            ) && n.range.start <= p
+                && p <= n.range.end
+        })
+    };
+    if leaf(a).is_none() || leaf(a) != leaf(z) {
+        return None;
+    }
+    // Not cutting a link or other formatting in two: each is outside the
+    // selection, all in it, or holds it in its text.
+    let cuts = md.nodes.iter().any(|n| {
+        matches!(
+            n.kind,
+            MdKind::Emphasis
+                | MdKind::Strong
+                | MdKind::Strikethrough
+                | MdKind::Code
+                | MdKind::Link { .. }
+                | MdKind::WikiLink { .. }
+                | MdKind::Image { .. }
+                | MdKind::Math { .. }
+        ) && !(z <= n.range.start
+            || n.range.end <= a
+            || (a <= n.range.start && n.range.end <= z)
+            || (n.content.start <= a && z <= n.content.end))
+    });
+    if cuts {
+        return None;
+    }
+    let _ = tx.insert(z, close.to_string());
+    let _ = tx.insert(a, open.to_string());
     let s = a + open.len();
-    tx.select(org_edit::Selection {
+    Some(tx.select(org_edit::Selection {
         anchor: s,
         head: s + (z - a),
-    })
+    }))
 }
 
 /// A link around the selection: `[text](|)`, the cursor where the address
@@ -2992,6 +3118,68 @@ pub fn to_html(text: &str) -> String {
     let mut out = String::new();
     let _ = comrak::format_html(root, &o, &mut out);
     out.trim().to_string()
+}
+
+/// Markdown as a page of its own, as `kalem export FILE.md --to html`
+/// writes it: titled by the front matter's `title` (else `fallback`), and
+/// its formulas typeset by MathJax as Org's HTML export has them.
+pub fn to_html_page(text: &str, fallback: &str) -> String {
+    let (body, math) = mathjax_spans(&to_html(text));
+    let title = crate::front_matter::read(text)
+        .and_then(|f| {
+            f.fields
+                .into_iter()
+                .find(|f| f.key.eq_ignore_ascii_case("title") && !f.list)
+        })
+        .map_or_else(|| fallback.to_string(), |f| f.value);
+    let title = title
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;");
+    let script = if math {
+        "<script id=\"MathJax-script\" async src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js\"></script>\n"
+    } else {
+        ""
+    };
+    format!(
+        "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>{title}</title>\n{script}</head>\n<body>\n{body}\n</body>\n</html>\n"
+    )
+}
+
+/// comrak's formulas (`<span data-math-style="inline">x</span>`) with the
+/// delimiters MathJax reads (`\(x\)`, `\[x\]`), and whether there were any.
+fn mathjax_spans(html: &str) -> (String, bool) {
+    const OPEN: &str = "<span data-math-style=\"";
+    let mut out = String::with_capacity(html.len());
+    let mut rest = html;
+    let mut any = false;
+    while let Some(i) = rest.find(OPEN) {
+        let after = &rest[i + OPEN.len()..];
+        let (style, delims) = if after.starts_with("display\">") {
+            ("display", ("\\[", "\\]"))
+        } else if after.starts_with("inline\">") {
+            ("inline", ("\\(", "\\)"))
+        } else {
+            out.push_str(&rest[..i + OPEN.len()]);
+            rest = after;
+            continue;
+        };
+        let body_at = i + OPEN.len() + style.len() + 2;
+        let Some(close) = rest[body_at..].find("</span>") else {
+            break;
+        };
+        out.push_str(&rest[..i]);
+        out.push_str(&format!(
+            "<span class=\"math {style}\">{}{}{}</span>",
+            delims.0,
+            &rest[body_at..body_at + close],
+            delims.1
+        ));
+        rest = &rest[body_at + close + "</span>".len()..];
+        any = true;
+    }
+    out.push_str(rest);
+    (out, any)
 }
 
 /// The blocks of a Markdown document for the views (T2.7c.3): the front
@@ -3295,6 +3483,13 @@ mod tests {
         let (s, _) = apply(gap, &renumber_list(gap, 0).unwrap());
         assert_eq!(s, "4. a\n5. b\n6. c\n");
         assert!(renumber_list(&s, 0).is_none());
+        // Items after the first keep the list's first number, at the end
+        // of a text without a final line feed too.
+        let n = "3. a\n4. b\n5. c";
+        let (s, c) = apply(n, &move_item(&Md::parse(n), n, 13, true).unwrap());
+        assert_eq!(s, "3. a\n4. c\n5. b");
+        let (s, _) = apply(&s, &move_item(&Md::parse(&s), &s, c, false).unwrap());
+        assert_eq!(s, n);
         // Bullets move too.
         let b = "- x\n- y\n";
         let (s, _) = apply(b, &move_item(&Md::parse(b), b, 5, true).unwrap());
@@ -3311,16 +3506,37 @@ mod tests {
             (s, tx.selection_after.unwrap())
         };
         let sel = |a, h| org_edit::Selection { anchor: a, head: h };
+        let bold = |t: &str, s| wrap(&Md::parse(t), t, s, MdKind::Strong, "**", "**");
         let t = "say hello now";
-        let (s, after) = apply(t, &wrap(t, sel(4, 9), "**", "**"));
+        let (s, after) = apply(t, &bold(t, sel(4, 9)).unwrap());
         assert_eq!(s, "say **hello** now");
         assert_eq!(&s[after.anchor..after.head], "hello");
         // Again: taken away.
-        let (s, _) = apply(&s, &wrap(&s, after, "**", "**"));
-        assert_eq!(s, t);
-        // Without a selection: the cursor between the markers.
-        let (s, after) = apply(t, &wrap(t, sel(4, 4), "`", "`"));
+        let (s2, after2) = apply(&s, &bold(&s, after).unwrap());
+        assert_eq!(s2, t);
+        assert_eq!(&s2[after2.anchor..after2.head], "hello");
+        // The cursor in bold text, or the whole of it selected: the same.
+        assert_eq!(apply(&s, &bold(&s, sel(8, 8)).unwrap()).0, t);
+        assert_eq!(apply(&s, &bold(&s, sel(4, 13)).unwrap()).0, t);
+        // Blanks at the ends of the selection stay outside.
+        assert_eq!(
+            apply(t, &bold(t, sel(3, 10)).unwrap()).0,
+            "say **hello** now"
+        );
+        assert!(bold(t, sel(3, 4)).is_none());
+        // Nothing in code, across blocks or cutting a link in two.
+        let c = "a `code` b\n\n- one\n- two\n\n[x y](u)\n";
+        assert!(bold(c, sel(4, 6)).is_none());
+        assert!(bold(c, sel(15, 23)).is_none());
+        assert!(bold(c, sel(27, 29)).is_some());
+        assert!(bold(c, sel(29, 33)).is_none());
+        // Without a selection: the cursor between the markers, which go
+        // again when nothing was typed.
+        let code = |t: &str, s| wrap(&Md::parse(t), t, s, MdKind::Code, "`", "`");
+        let (s, after) = apply(t, &code(t, sel(4, 4)).unwrap());
         assert_eq!((s.as_str(), after.head), ("say ``hello now", 5));
+        let (s, after) = apply(&s, &code(&s, after).unwrap());
+        assert_eq!((s.as_str(), after.head), (t, 4));
         let (s, after) = apply(t, &insert_link(t, sel(4, 9), false));
         assert_eq!((s.as_str(), after.head), ("say [hello]() now", 12));
         let (s, after) = apply(t, &insert_link(t, sel(4, 4), false));
@@ -3380,6 +3596,10 @@ mod tests {
         // Offsets map through the hidden markers.
         let at = t.find("strong").unwrap() + 2;
         assert_eq!(v.source_offset(v.display_offset(at)), at);
+        // A code span's one space each side is not its text (CommonMark):
+        // backticks shown in code.
+        let t = "Use `` `x` `` and `` a `` and ` `.\n";
+        assert_eq!(shown(t, 0, None), "Use `x` and a and  .");
     }
 
     #[test]
@@ -3446,10 +3666,33 @@ mod tests {
         assert_eq!(run("  * nested\n", 10).unwrap().0, "  * nested\n  * \n");
         assert_eq!(run("> quote\n", 7).unwrap().0, "> quote\n> \n");
         assert_eq!(run("> - in quote\n", 12).unwrap().0, "> - in quote\n> - \n");
+        // A tab after the marker, as it was.
+        assert_eq!(run("-\ta\n", 3).unwrap().0, "-\ta\n-\t\n");
+        assert_eq!(run("1.\ta\n", 4).unwrap().0, "1.\ta\n2.\t\n");
         // Splitting an item at the cursor.
         assert_eq!(run("- onetwo\n", 5).unwrap().0, "- one\n- two\n");
-        // An empty item ends the list.
-        assert_eq!(run("- a\n- \n", 6).unwrap(), ("- a\n\n".to_string(), 4));
+        // An empty item ends the list, a blank line after it: the next line
+        // typed is not a lazy continuation of the item before.
+        assert_eq!(run("- a\n- \n", 6).unwrap(), ("- a\n\n\n".to_string(), 5));
+        assert_eq!(run("> a\n> ", 6).unwrap(), ("> a\n\n".to_string(), 5));
+        assert_eq!(run("Text\n\n- ", 8).unwrap(), ("Text\n\n".to_string(), 6));
+        assert_eq!(run("- ", 2).unwrap(), (String::new(), 0));
+        // A nested one goes out a level first.
+        assert_eq!(
+            run("- a\n  - b\n  - \n", 14).unwrap(),
+            ("- a\n  - b\n- \n".to_string(), 12)
+        );
+        // CR LF lines get CR LF.
+        assert_eq!(
+            run("- a\r\n- b\r\n", 3).unwrap(),
+            ("- a\r\n- \r\n- b\r\n".to_string(), 7)
+        );
+        assert_eq!(run("x\r\n- a", 6).unwrap().0, "x\r\n- a\r\n- ");
+        assert_eq!(run("- a\r\n- \r\n", 7).unwrap().0, "- a\r\n\r\n\r\n");
+        assert_eq!(
+            run("```rust\r\n", 7).unwrap(),
+            ("```rust\r\n\r\n```\r\n".to_string(), 9)
+        );
         // The numbers after a new item go one up.
         assert_eq!(
             run("1. a\n2. b\n3. c\n", 4).unwrap().0,
@@ -3937,6 +4180,27 @@ mod tests {
         let t = "# İstanbul *çok* güzel\r\n\r\nŞehir `kod`\r\n";
         assert_eq!(shown(t, 0, None), "İstanbul çok güzel");
         assert_eq!(shown(t, 2, None), "Şehir kod");
+    }
+
+    #[test]
+    fn a_page_of_html() {
+        // The front matter's title, MathJax for the formulas.
+        let t = "---\ntitle: A & B\n---\n\nSome $x^2$ and\n\n$$\ny\n$$\n";
+        let page = to_html_page(t, "notes");
+        assert!(page.contains("<title>A &amp; B</title>"), "{page}");
+        assert!(
+            page.contains("<span class=\"math inline\">\\(x^2\\)</span>"),
+            "{page}"
+        );
+        assert!(
+            page.contains("<span class=\"math display\">\\[\ny\n\\]</span>"),
+            "{page}"
+        );
+        assert!(page.contains("MathJax-script"), "{page}");
+        // Without either: the file's name, no script.
+        let page = to_html_page("# Hi\n", "notes");
+        assert!(page.contains("<title>notes</title>"), "{page}");
+        assert!(!page.contains("<script"), "{page}");
     }
 
     #[test]

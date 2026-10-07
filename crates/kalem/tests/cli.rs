@@ -502,7 +502,17 @@ fn export_reads_markdown_as_markdown() {
         out.contains("<h1>Some Title</h1>") && out.contains("<li>one</li>"),
         "{out}"
     );
+    assert!(out.contains("<title>notes</title>"), "{out}");
     assert!(err.is_empty(), "{err}");
+    // The front matter's title, and MathJax for the formulas.
+    std::fs::write(&md, "---\ntitle: Notes on $x$\n---\n\nSee $x^2$.\n").unwrap();
+    let (code, out, err) = kalem(&["export", "--to", "html", "-o", "-", md.to_str().unwrap()]);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("<title>Notes on $x$</title>"), "{out}");
+    assert!(
+        out.contains("\\(x^2\\)") && out.contains("MathJax-script"),
+        "{out}"
+    );
     let (code, _, err) = kalem(&["export", "--to", "latex", "-o", "-", md.to_str().unwrap()]);
     assert_eq!(code, 1);
     assert!(err.contains("not exported"), "{err}");

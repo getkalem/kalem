@@ -2742,7 +2742,18 @@ fn markdown_enter_continues_a_list() {
     assert_eq!(t.app.doc.text().as_str(), "- [x] one\n- [ ] two\n");
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     t.key(KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!(t.app.doc.text().as_str(), "- [x] one\n- [ ] two\n\n");
+    // The list ends with a blank line, so what follows is a paragraph of
+    // its own, not a lazy continuation of the item before.
+    t.typ("after");
+    assert_eq!(t.app.doc.text().as_str(), "- [x] one\n- [ ] two\n\nafter\n");
+    // Over a selection: it goes, and the item goes on, undone in one step.
+    let mut t = with_file("- one two\n", "s.md", Config::default(), (70, 8));
+    t.app.doc.selection = org_edit::Selection { anchor: 2, head: 6 };
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(t.text(), "- \n- two\n");
+    assert_eq!(t.app.doc.selection.head, 5);
+    t.key(KeyCode::Char('z'), KeyModifiers::CONTROL);
+    assert_eq!(t.text(), "- one two\n");
 }
 
 #[test]
