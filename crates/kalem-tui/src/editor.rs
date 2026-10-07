@@ -2502,6 +2502,8 @@ mod tests {
     use super::*;
 
     #[test]
+    // Lists of one byte range are what `subtract` takes, not a range.
+    #[allow(clippy::single_range_in_vec_init)]
     fn ranges_subtracted() {
         let cut = |r: &[Range<usize>], h: &[Range<usize>]| subtract(r, h);
         assert_eq!(cut(&[0..10], &[]), [0..10]);
