@@ -1822,6 +1822,22 @@ impl Vim {
             Key::Char('j' | 'k') | Key::Down | Key::Up | Key::Ctrl('n' | 'p')
         );
         let m = match key {
+            // A CSV grid: the same column of the row shown below or above
+            // (a record can span lines, and a filter or a sorted view
+            // leaves rows out or orders them anew); an operator still
+            // takes the lines.
+            Key::Char('j' | 'k') | Key::Down | Key::Up | Key::Ctrl('n' | 'p')
+                if self.op.is_none()
+                    && host.rich_view()
+                    && doc.meta.mode == DocumentMode::Csv =>
+            {
+                let down = matches!(key, Key::Char('j') | Key::Down | Key::Ctrl('n'));
+                let n = isize::try_from(n).unwrap_or(isize::MAX);
+                match crate::csv::view_vertical(doc, pos, if down { n } else { -n }) {
+                    Some(to) => charwise(to),
+                    None => return Some(None),
+                }
+            }
             // 'whichwrap' `b,s`: Backspace and Space go on to the line
             // before and after.
             Key::Backspace if self.op.is_none() && pos == line_start(doc, line) && line > 0 => {

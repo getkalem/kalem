@@ -111,6 +111,7 @@ impl Editor {
             (false, true) => self.vim = None,
             _ => {}
         }
+        self.doc.csv_vim = self.vim.is_some();
     }
 
     /// A key for the Vim layer; `true` if it used it.

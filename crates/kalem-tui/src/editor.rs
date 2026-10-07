@@ -2189,7 +2189,16 @@ impl EditorView {
                 .scroll_to(&l, doc.selection.head, width, height);
             self.follow = false;
         }
-        let pinned = header && (self.viewport.top > 0 || self.viewport.top_row > 0);
+        // The header record, after a `sep=` or mode line (that line was
+        // pinned in its place).
+        let header_at = if header {
+            kalem_core::csv::preamble(doc.text().as_str())
+        } else {
+            0
+        };
+        let pinned = header
+            && (self.viewport.top > header_at
+                || (self.viewport.top == header_at && self.viewport.top_row > 0));
         let header_area = Rect { height: 1, ..area };
         let area = if pinned {
             Rect {
@@ -2290,7 +2299,7 @@ impl EditorView {
                         (
                             narrow(header_area),
                             Viewport {
-                                top: 0,
+                                top: header_at,
                                 top_row: 0,
                                 goal_x: None,
                             },
@@ -2319,7 +2328,7 @@ impl EditorView {
         }
         if pinned {
             let top = Viewport {
-                top: 0,
+                top: header_at,
                 top_row: 0,
                 goal_x: None,
             };

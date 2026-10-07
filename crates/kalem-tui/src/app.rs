@@ -4178,6 +4178,7 @@ impl App {
             }
             _ => {}
         }
+        self.doc.csv_vim = self.vim.is_some();
         self.update_cursor_shape();
     }
 
@@ -4348,13 +4349,21 @@ impl App {
                     self.horizontal(true)
                 }
             }
-            KeyCode::Up | KeyCode::Down => {
-                let d = if code == KeyCode::Up { -1 } else { 1 };
-                self.editor.vertical(&self.doc, &self.caps, d)
-            }
-            KeyCode::PageUp | KeyCode::PageDown => {
+            KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown => {
                 let h = self.editor.area.height.saturating_sub(2).max(1) as isize;
-                let d = if code == KeyCode::PageUp { -h } else { h };
+                let d = match code {
+                    KeyCode::Up => -1,
+                    KeyCode::Down => 1,
+                    KeyCode::PageUp => -h,
+                    _ => h,
+                };
+                // A CSV grid: the same column of the row shown, a record
+                // of several lines one row (by the text's lines, Down on
+                // the last row went to its last field and typing replaced
+                // it).
+                if self.doc.meta.mode == DocumentMode::Csv && !self.editor.source {
+                    return Some(kalem_core::csv::view_vertical(&self.doc, head, d).unwrap_or(head));
+                }
                 self.editor.vertical(&self.doc, &self.caps, d)
             }
             KeyCode::Home if word => 0,

@@ -1112,10 +1112,17 @@ impl Editor {
     /// stays at the top, below that row rather than under it.
     fn reveal_item(&mut self, i: usize) {
         self.list.scroll_to_reveal_item(i);
+        // The header record's place in the list (after a `sep=` or mode
+        // line, which is not it).
+        let text = self.doc.text();
+        let header_line = text.line_of(kalem_core::csv::preamble(text.as_str()));
         let pinned = self.doc.meta.mode == DocumentMode::Csv
             && !self.source
-            && i > 0
-            && self.visible.first() == Some(&0)
+            && self
+                .visible
+                .iter()
+                .position(|&l| l == header_line)
+                .is_some_and(|h| i > h)
             && kalem_core::csv::layout(&self.doc).dialect.header;
         if pinned {
             let top = self.list.logical_scroll_top();
@@ -2680,14 +2687,11 @@ impl Editor {
                     }
                 };
                 // A CSV grid: the same column, rows as records, whether
-                // drawn yet or not (the text's lines are not the grid's).
+                // drawn yet or not (the text's lines are not the grid's),
+                // in the order the view shows them (a sorted view's too).
                 if self.doc.meta.mode == DocumentMode::Csv && !self.source {
-                    let visible = &self.visible;
-                    let text = self.doc.text();
-                    let shown = |at: usize| visible.binary_search(&text.line_of(at)).is_ok();
-                    if let Some(t) = kalem_core::csv::vertical_target(&self.doc, rows, shown) {
-                        return Some(t);
-                    }
+                    let head = self.doc.selection.head;
+                    return Some(kalem_core::csv::view_vertical(&self.doc, head, rows).unwrap_or(head));
                 }
                 self.vertical(rows)
             }
@@ -4495,10 +4499,16 @@ impl gpui::Render for Editor {
         // A pane: the list of its visible lines.
         let center = self.shared.config.bool("editor.center_text");
         let focus = self.focus.clone();
-        // A CSV file's header row stays at the top when its rows scroll.
+        // A CSV file's header row stays at the top when its rows scroll:
+        // its record's line, after a `sep=` or mode line (that line was
+        // pinned in its place).
         let header = self.doc.meta.mode == DocumentMode::Csv
             && !self.source
             && kalem_core::csv::layout(&self.doc).dialect.header;
+        let header_line = self
+            .doc
+            .text()
+            .line_of(kalem_core::csv::preamble(self.doc.text().as_str()));
         let background = theme.background;
         let foreground = theme.foreground;
         let border = theme.border;
@@ -4566,8 +4576,9 @@ impl gpui::Render for Editor {
             let header_editor = entity.clone();
             let top = state.logical_scroll_top();
             let pinned = header
-                && visible.first() == Some(&0)
-                && (top.item_ix > 0 || top.offset_in_item > px(0.));
+                && visible.iter().position(|&l| l == header_line).is_some_and(|h| {
+                    top.item_ix > h || (top.item_ix == h && top.offset_in_item > px(0.))
+                });
             // A spreadsheet starts at the pane's top left: its letters bar
             // at the top, its row numbers at the left edge.
             let (top, left) = if sheet.is_some() {
@@ -4822,7 +4833,7 @@ impl gpui::Render for Editor {
                         .border_color(border)
                         .child(crate::line::LineElement {
                             editor: header_editor,
-                            line: 0,
+                            line: header_line,
                             other,
                         })
                 })),
