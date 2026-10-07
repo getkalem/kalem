@@ -403,6 +403,9 @@ pub struct Vim {
     /// Where Vim's cursor is as the next operator changes the text (its
     /// `uh_cursor`): undo comes back there.
     op_start: Option<usize>,
+    /// Where an operator began changing the text, for `'.` and the
+    /// change list.
+    change_at: Option<usize>,
     /// `v`, `V` or CTRL-V after an operator: the motion made of
     /// characters, lines or a block (`:help o_v`).
     force: Option<char>,
@@ -1330,6 +1333,7 @@ impl Vim {
             last_search: None,
             search_offset: None,
             op_start: None,
+            change_at: None,
             force: None,
             failed: false,
             goal: None,
@@ -1580,7 +1584,8 @@ impl Vim {
                 }
                 // The `.` mark, the change list and `U`'s line.
                 if doc.version() != version && key != Key::Char('U') {
-                    let at = doc.selection.head;
+                    // Where the change began (`dd`: the line's start).
+                    let at = self.change_at.take().unwrap_or(doc.selection.head);
                     self.note_change(doc, at);
                     // `U` keeps a line changed within itself; lines added or
                     // deleted above it lose it (it is elsewhere now).
@@ -2354,6 +2359,7 @@ impl Vim {
         let at = self.op_start.take().unwrap_or(a).min(len);
         if op != Op::Yank {
             doc.selection = Selection::caret(at);
+            self.change_at = Some(a);
         }
         if op == Op::Reindent {
             let (l1, l2) = (line_of(doc, a), line_of(doc, b));
