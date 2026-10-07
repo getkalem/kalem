@@ -676,14 +676,17 @@ fn build_inner(
         run(&tool)?;
     }
     let mut missing_tool = None;
+    let mut bib_problems: Vec<Problem> = Vec::new();
     if let Tool::Engine(program) = &tool {
         let aux = out.join(&stem).with_extension("aux");
         let bcf = out.join(&stem).with_extension("bcf");
-        let bib = if bcf.is_file() {
+        // biblatex's `.bcf` of this run (one left by an older build of a
+        // document that has moved to BibTeX is not), else `\bibdata` in
+        // the `.aux` or one it inputs (a bibliography in an `\include`d
+        // chapter).
+        let bib = if bcf.is_file() && fresh(&bcf) {
             Some("biber")
-        } else if std::fs::read(&aux)
-            .is_ok_and(|a| String::from_utf8_lossy(&a).contains("\\bibdata{"))
-        {
+        } else if aux_has_bibdata(&out, &aux) {
             Some("bibtex")
         } else {
             None
@@ -718,6 +721,16 @@ fn build_inner(
                         .stderr(std::process::Stdio::null()),
                     cancelled,
                 )?;
+                // BibTeX's errors (no style, a database not found, an
+                // entry it could not read), from its `.blg`.
+                if b == "bibtex" {
+                    let blg = out.join(&stem).with_extension("blg");
+                    if fresh(&blg) {
+                        bib_problems = std::fs::read(&blg)
+                            .map(|t| bibtex_problems(&String::from_utf8_lossy(&t)))
+                            .unwrap_or_default();
+                    }
+                }
                 again = 2;
             } else {
                 missing_tool = Some(b);
@@ -725,6 +738,15 @@ fn build_inner(
         }
         for _ in 0..again {
             run(&tool)?;
+        }
+        // Again while LaTeX asks for it (references that moved), as
+        // latexmk does, up to five runs in all.
+        let mut runs = 1 + again;
+        while runs < 5
+            && std::fs::read(&log_path).is_ok_and(|l| asks_rerun(&String::from_utf8_lossy(&l)))
+        {
+            run(&tool)?;
+            runs += 1;
         }
     }
     let printed_text = std::fs::read(&printed)
@@ -755,6 +777,7 @@ fn build_inner(
             severity: Severity::Warning,
         });
     }
+    problems.extend(bib_problems);
     Ok(Built {
         pdf: (pdf.is_file() && fresh(&pdf)).then_some(pdf),
         problems,
@@ -781,6 +804,85 @@ pub fn report(root: &Path, problems: &[Problem]) -> String {
         .join("\n")
 }
 
+/// Whether the `.aux` at `aux`, or one it inputs (`\@input{chapter.aux}`
+/// of an `\include`, in the output folder `out`), names a bibliography.
+fn aux_has_bibdata(out: &Path, aux: &Path) -> bool {
+    let mut pending = vec![aux.to_path_buf()];
+    let mut seen = std::collections::HashSet::new();
+    while let Some(a) = pending.pop() {
+        if !seen.insert(a.clone()) || seen.len() > 1000 {
+            continue;
+        }
+        let Ok(bytes) = std::fs::read(&a) else {
+            continue;
+        };
+        let text = String::from_utf8_lossy(&bytes);
+        if text.contains("\\bibdata{") {
+            return true;
+        }
+        for line in text.lines() {
+            if let Some(name) = line
+                .trim()
+                .strip_prefix("\\@input{")
+                .and_then(|r| r.strip_suffix('}'))
+            {
+                pending.push(out.join(name));
+            }
+        }
+    }
+    false
+}
+
+/// Whether a LaTeX log asks for another run: references, citations or
+/// labels that changed.
+fn asks_rerun(log: &str) -> bool {
+    log.contains("Rerun to get")
+        || log.contains("Label(s) may have changed. Rerun")
+        || log.contains("Rerun LaTeX")
+        || log.contains("Please rerun LaTeX")
+}
+
+/// BibTeX's errors in its `.blg`: each message with the line of the
+/// file it names (`---line 5 of file refs.bib`).
+fn bibtex_problems(blg: &str) -> Vec<Problem> {
+    let mut out = Vec::new();
+    let lines: Vec<&str> = blg.lines().collect();
+    for (i, l) in lines.iter().enumerate() {
+        let l = l.trim_end();
+        let (message, place) = match l.split_once("---") {
+            Some((m, p)) if !m.trim().is_empty() => (m.trim().to_string(), Some(p)),
+            // The place on the next line (`I couldn't open database file
+            // x.bib` then `---line 3 of file doc.aux`).
+            _ if l.starts_with("I couldn't open") || l.starts_with("I found no") => (
+                l.to_string(),
+                lines.get(i + 1).and_then(|n| n.strip_prefix("---")),
+            ),
+            _ => continue,
+        };
+        if message.starts_with("Warning") {
+            continue;
+        }
+        let (mut file, mut line) = (None, None);
+        if let Some(p) = place
+            && let Some(rest) = p.strip_prefix("line ")
+            && let Some((n, f)) = rest.split_once(" of file ")
+        {
+            line = n.trim().parse().ok();
+            file = Some(f.trim().to_string()).filter(|f| !f.ends_with(".aux"));
+            if file.is_none() {
+                line = None;
+            }
+        }
+        out.push(Problem {
+            file,
+            line,
+            message: format!("BibTeX: {message}"),
+            severity: Severity::Error,
+        });
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -797,6 +899,58 @@ mod tests {
         let mut files = Vec::new();
         track("(./my paper.tex [1]", &mut files);
         assert_eq!(files, ["./my paper.tex"]);
+    }
+
+    /// BibTeX's errors from its `.blg`; its warnings are LaTeX's too.
+    #[test]
+    fn bibtex_errors() {
+        let blg = "This is BibTeX, Version 0.99d\nI found no \\bibstyle command---while reading file p.aux\nI couldn't open database file missing.bib\n---line 3 of file p.aux\n : \\bibdata{missing\nI was expecting a `,' or a `}'---line 5 of file refs.bib\nWarning--I didn't find a database entry for \"x\"\n(There were 3 error messages)\n";
+        let p = bibtex_problems(blg);
+        let got: Vec<(Option<&str>, Option<usize>, &str)> = p
+            .iter()
+            .map(|p| (p.file.as_deref(), p.line, p.message.as_str()))
+            .collect();
+        assert_eq!(
+            got,
+            [
+                (None, None, "BibTeX: I found no \\bibstyle command"),
+                (
+                    None,
+                    None,
+                    "BibTeX: I couldn't open database file missing.bib"
+                ),
+                (
+                    Some("refs.bib"),
+                    Some(5),
+                    "BibTeX: I was expecting a `,' or a `}'"
+                ),
+            ]
+        );
+        assert!(asks_rerun(
+            "LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right."
+        ));
+        assert!(!asks_rerun("Output written on p.pdf (1 page)."));
+    }
+
+    /// A bibliography in an `\include`d chapter: its `.aux` names it.
+    #[test]
+    fn bibdata_in_an_included_aux() {
+        let dir = std::env::temp_dir().join(format!("kalem-aux-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("chapters")).unwrap();
+        std::fs::write(
+            dir.join("main.aux"),
+            "\\relax\n\\@input{chapters/biblio.aux}\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("chapters/biblio.aux"),
+            "\\bibstyle{plain}\n\\bibdata{refs}\n",
+        )
+        .unwrap();
+        assert!(aux_has_bibdata(&dir, &dir.join("main.aux")));
+        std::fs::write(dir.join("chapters/biblio.aux"), "\\relax\n").unwrap();
+        assert!(!aux_has_bibdata(&dir, &dir.join("main.aux")));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// Install hints only for a package's files.
