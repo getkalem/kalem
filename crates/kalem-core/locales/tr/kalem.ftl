@@ -463,6 +463,7 @@ format-link = Bağlantı
 prompt-argument = { $command } { $name }:{" "}
 prompt-save-as = Farklı kaydet:{" "}
 prompt-replace-file = { $path } var. Yerine yazılsın mı? (e/h){" "}
+prompt-create-folder = { $path } klasörü yok. Oluşturulsun mu? (e/h){" "}
 prompt-quit = Çıkmadan önce değişiklikler kaydedilsin mi? (e)vet, (h)ayır, vazgeçmek için Esc{" "}
 prompt-reload = Dosya diskte değişti. Yeniden yüklensin ve değişiklikleriniz atılsın mı? (e/h){" "}
 prompt-overwrite = Dosya diskte değişti. Üzerine yazılsın mı? (e/h){" "}

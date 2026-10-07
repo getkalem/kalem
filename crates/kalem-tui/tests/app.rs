@@ -389,6 +389,50 @@ fn save_as_asks_before_replacing() {
     );
 }
 
+/// Save As into a folder that does not exist asks to make it, as Emacs
+/// does; so does a save of a file whose folder is not there.
+#[test]
+fn saving_into_a_new_folder() {
+    let mut t = open("* A\n");
+    let current = t.app.doc.meta.path.clone().unwrap();
+    let dir = current.parent().unwrap().to_path_buf();
+    let save_as = |t: &mut T, name: &str| {
+        let current = t.app.doc.meta.path.clone().unwrap();
+        t.app.run_command("app.saveAs", serde_json::json!({}));
+        for _ in 0..current.display().to_string().chars().count() {
+            t.key(KeyCode::Backspace, KeyModifiers::NONE);
+        }
+        t.typ(name);
+        t.key(KeyCode::Enter, KeyModifiers::NONE);
+    };
+    // Asked (a long path may not fit the line): No makes nothing and
+    // saves nothing.
+    save_as(&mut t, "new/deeper/b.org");
+    t.key(KeyCode::Char('n'), KeyModifiers::NONE);
+    assert!(!dir.join("new").exists());
+    assert_eq!(t.app.doc.meta.path.as_deref(), Some(current.as_path()));
+    // Yes: the folder made, the file saved there.
+    save_as(&mut t, "new/deeper/b.org");
+    t.key(KeyCode::Char('y'), KeyModifiers::NONE);
+    assert_eq!(
+        std::fs::read_to_string(dir.join("new/deeper/b.org")).unwrap(),
+        "* A\n"
+    );
+    assert_eq!(
+        t.app.doc.meta.path.as_deref(),
+        Some(dir.join("new/deeper/b.org").as_path())
+    );
+    // The folder deleted under the file: Save asks too.
+    std::fs::remove_dir_all(dir.join("new")).unwrap();
+    t.typ("!");
+    t.key(KeyCode::Char('s'), KeyModifiers::CONTROL);
+    t.key(KeyCode::Char('y'), KeyModifiers::NONE);
+    assert_eq!(
+        std::fs::read_to_string(dir.join("new/deeper/b.org")).unwrap(),
+        "!* A\n"
+    );
+}
+
 /// Opening a new file in a folder that does not exist offers to make the
 /// folder (Doom's `SPC .`); saving it failed.
 #[test]

@@ -99,6 +99,9 @@ enum PromptKind {
     SaveAs,
     /// Save As would replace this other file: replace it?
     ReplaceFile(PathBuf),
+    /// The folder of a file to save does not exist: make it, then save
+    /// (`true`: Save As to the file).
+    CreateFolder(PathBuf, bool),
     /// Unsaved changes when quitting: yes, no, cancel.
     Quit,
     /// Quitting without saving the unsaved changes: yes, no.
@@ -407,6 +410,13 @@ fn watches(doc: &DocumentState, changed: &[PathBuf]) -> bool {
             .dired
             .as_deref()
             .is_some_and(|s| s.subdirs.iter().any(|d| changed.contains(d)))
+}
+
+/// The folder of `path` when it is not there.
+fn missing_folder(path: &Path) -> Option<PathBuf> {
+    path.parent()
+        .filter(|d| !d.as_os_str().is_empty() && std::fs::symlink_metadata(d).is_err())
+        .map(Path::to_path_buf)
 }
 
 fn new_document(path: Option<&Path>, config: &Config) -> Result<DocumentState, OpenError> {
@@ -2680,6 +2690,14 @@ impl App {
             self.request(Request::SaveAs);
             return;
         };
+        // A file opened in a folder that is not there (`kalem tui new/a.txt`,
+        // or the folder deleted since).
+        if self.doc.dired.is_none()
+            && let Some(dir) = missing_folder(&path)
+        {
+            self.ask_create_folder(path, &dir, false);
+            return;
+        }
         let event = Event::DocumentBeforeSave {
             doc: self.doc_id,
             path: path.clone(),
@@ -4665,6 +4683,7 @@ impl App {
                 | PromptKind::Overwrite
                 | PromptKind::SaveConverted
                 | PromptKind::ReplaceFile(_)
+                | PromptKind::CreateFolder(..)
         );
         // A cell's entry: Alt+Enter a line break, Ctrl+Enter into every
         // selected cell, AutoComplete's offer taken with Enter or turned
@@ -4779,6 +4798,18 @@ impl App {
                         let path = path.clone();
                         self.save_as_to(path);
                     }
+                    (PromptKind::CreateFolder(path, save_as), true, _) => {
+                        let (path, save_as) = (path.clone(), *save_as);
+                        if let Some(dir) = missing_folder(&path)
+                            && let Err(e) = std::fs::create_dir_all(&dir)
+                        {
+                            self.message(tr!("msg-not-saved", reason = e.to_string()), true);
+                        } else if save_as {
+                            self.save_as_to(path);
+                        } else {
+                            self.save(false);
+                        }
+                    }
                     (PromptKind::SaveConverted, true, _) => {
                         self.doc.conversion_accepted = true;
                         self.save(false);
@@ -4853,6 +4884,10 @@ impl App {
                     self.ask(PromptKind::ReplaceFile(path), &label, String::new());
                     return;
                 }
+                if let Some(dir) = missing_folder(&path) {
+                    self.ask_create_folder(path, &dir, true);
+                    return;
+                }
                 self.save_as_to(path);
             }
             _ => {}
@@ -4879,6 +4914,17 @@ impl App {
             Ok(ExternalChange::Listing) => self.after_change(false),
             Err(e) => self.message(tr!("msg-cannot-read", error = e.to_string()), true),
         }
+    }
+
+    /// Asks before making `dir`, the missing folder of `path`, to save
+    /// there (`save_as`: Save As to `path`), as Emacs does.
+    fn ask_create_folder(&mut self, path: PathBuf, dir: &Path, save_as: bool) {
+        let label = tr!("prompt-create-folder", path = dir.display().to_string());
+        self.ask(
+            PromptKind::CreateFolder(path, save_as),
+            &label,
+            String::new(),
+        );
     }
 
     /// Saves the document as `path` (Save As, once its name is settled).

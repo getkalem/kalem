@@ -483,6 +483,7 @@ format-link = Link
 prompt-argument = { $command } { $name }:{" "}
 prompt-save-as = Save as:{" "}
 prompt-replace-file = { $path } exists. Replace it? (y/n){" "}
+prompt-create-folder = { $path } does not exist. Create it? (y/n){" "}
 prompt-quit = Save changes before quitting? (y)es, (n)o, Esc to cancel{" "}
 prompt-reload = The file changed on disk. Reload and lose your changes? (y/n){" "}
 prompt-overwrite = The file changed on disk. Overwrite it? (y/n){" "}
