@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Opening a new file in a folder that does not exist (`SPC .`, `SPC f f` or Open File with a typed path, from the file manager too: `new/a.txt`) offers to make the folder, as Doom Emacs does; the file opened, and saving it then failed with "No such file or directory".
 - The first start after an update, or after a language plugin changed, no longer waits about a second before showing anything (`kalem tui` took 1.1 s with the Elixir plugin installed, later starts 0.04 s): the plugins' syntaxes, when not cached yet, are built on a thread of their own while the editor starts; only a file in a plugin's language waits for its colors.
 
 ## [0.2.1] - 2026-10-07

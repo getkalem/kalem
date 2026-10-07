@@ -153,7 +153,11 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         (
             "file.open",
-            object(&[("path", "string", false), ("prompt", "boolean", false)]),
+            object(&[
+                ("path", "string", false),
+                ("prompt", "boolean", false),
+                ("createFolder", "boolean", false),
+            ]),
         ),
         ("file.scratch", object(&[("project", "boolean", false)])),
         ("plugin.install", object(&[("source", "string", false)])),
@@ -6968,6 +6972,40 @@ fn plain_commands() -> Vec<Command> {
                         },
                     );
                 }
+                // A new file in a folder that does not exist: the folder is
+                // made once asked (Doom's `doom-create-missing-directories-h`);
+                // saving it failed.
+                if let Some(p) = &path {
+                    let full = std::path::PathBuf::from(crate::settings::expand_home(p));
+                    let base = ctx.document.as_deref().and_then(crate::command::folder_of);
+                    let full = match base {
+                        Some(d) if !full.is_absolute() => d.join(&full),
+                        _ => full,
+                    };
+                    if let Some(dir) = full.parent().filter(|d| {
+                        !d.as_os_str().is_empty() && std::fs::symlink_metadata(d).is_err()
+                    }) {
+                        if !arg_bool(args, "createFolder") {
+                            let name = full
+                                .file_name()
+                                .map_or(String::new(), |f| f.to_string_lossy().into_owned());
+                            let dir = crate::projects::tilde(dir);
+                            let mut a = args.clone();
+                            a["path"] = Value::String(full.display().to_string());
+                            a["createFolder"] = Value::Bool(true);
+                            let item = crate::palette::PaletteItem {
+                                id: crate::palette::invocation("file.open", &a),
+                                title: crate::tr!("open-create-folder", name = name),
+                                category: crate::tr!("open-no-folder", dir = dir.as_str()),
+                                keys: String::new(),
+                                also: String::new(),
+                            };
+                            return request(ctx, Request::Choose(vec![item]));
+                        }
+                        std::fs::create_dir_all(dir)
+                            .map_err(|e| CommandError::new(e.to_string()))?;
+                    }
+                }
                 request(ctx, Request::Open { path })
             },
         ),
@@ -10240,6 +10278,46 @@ mod tests {
         assert!(md.contains("New * Saved") || md.contains("New"), "{md}");
         reg.execute("export.html", &mut ctx, &json!({})).unwrap();
         assert!(dir.join("n.html").is_file());
+    }
+
+    #[test]
+    fn opening_in_a_missing_folder_asks_first() {
+        crate::l10n::set_language("en");
+        let dir = std::env::temp_dir().join(format!("kalem-open-missing-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("new/a.txt");
+        let reg = CommandRegistry::with_builtins();
+        let mut clip = Clipboard::default();
+        let config = crate::settings::Config::default();
+        let mut ctx = EditorContext {
+            document: None,
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock: jiff::civil::date(2026, 10, 7).at(10, 0, 0, 0),
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        reg.execute("file.open", &mut ctx, &json!({ "path": path }))
+            .unwrap();
+        let Some(Request::Choose(items)) = ctx.requests.pop() else {
+            panic!("asked first");
+        };
+        assert_eq!(items[0].title, "Create it and open a.txt");
+        assert!(
+            items[0].category.ends_with("/new does not exist"),
+            "{}",
+            items[0].category
+        );
+        assert!(!dir.exists());
+        let (id, args) = crate::palette::split_invocation(&items[0].id);
+        reg.execute(id, &mut ctx, &args).unwrap();
+        assert!(dir.join("new").is_dir());
+        assert!(matches!(
+            ctx.requests.pop(),
+            Some(Request::Open { path: Some(p) }) if std::path::Path::new(&p) == path
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -389,6 +389,39 @@ fn save_as_asks_before_replacing() {
     );
 }
 
+/// Opening a new file in a folder that does not exist offers to make the
+/// folder (Doom's `SPC .`); saving it failed.
+#[test]
+fn opening_a_new_file_in_a_new_folder() {
+    let mut t = open("* A\n");
+    let dir = t.app.doc.meta.path.clone().unwrap();
+    let dir = dir.parent().unwrap().to_path_buf();
+    t.app.run_command(
+        "file.open",
+        serde_json::json!({ "path": "new/deeper/a.txt" }),
+    );
+    assert!(!dir.join("new").exists(), "only once asked");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(dir.join("new/deeper").is_dir());
+    assert_eq!(
+        t.app.doc.meta.path.as_deref(),
+        Some(dir.join("new/deeper/a.txt").as_path())
+    );
+    t.typ("hi");
+    t.key(KeyCode::Char('s'), KeyModifiers::CONTROL);
+    assert_eq!(
+        std::fs::read_to_string(dir.join("new/deeper/a.txt")).unwrap(),
+        "hi"
+    );
+    // A folder that exists: opened without a question.
+    t.app
+        .run_command("file.open", serde_json::json!({ "path": "b.txt" }));
+    assert_eq!(
+        t.app.doc.meta.path.as_deref(),
+        Some(dir.join("new/deeper/b.txt").as_path())
+    );
+}
+
 #[test]
 fn vim_visual_mode_grows_with_page_down() {
     // Page Down and the arrows with Alt in visual mode grow the selection
