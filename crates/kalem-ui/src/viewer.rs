@@ -649,6 +649,9 @@ impl Editor {
             let mut out = Vec::new();
             let mut used = 0.0;
             let mut full = 0;
+            // Looked up for every row passed: a filter may hide tens of
+            // thousands.
+            let hidden: std::collections::HashSet<u32> = hidden.iter().copied().collect();
             let mut i = origin;
             let pane_end = (origin + frozen).min(max);
             let main = if split { first } else { first.max(frozen) };

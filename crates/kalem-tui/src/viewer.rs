@@ -212,6 +212,8 @@ fn in_view(
 ) -> Vec<(u32, u16)> {
     let mut out = Vec::new();
     let mut used = 0u16;
+    // Looked up for every row passed: a filter may hide tens of thousands.
+    let hidden: std::collections::HashSet<u32> = hidden.iter().copied().collect();
     let mut push = |i: u32, out: &mut Vec<(u32, u16)>| -> bool {
         if hidden.contains(&i) {
             return true;

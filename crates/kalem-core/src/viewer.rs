@@ -2098,6 +2098,9 @@ impl ViewerState {
         let Some(l) = self.grid_layout() else { return };
         let p = self.grid_pos();
         let step = |v: u32, d: i64, max: u32, hidden: &[u32]| -> u32 {
+            // Looked up for every row passed: a filter may hide tens of
+            // thousands.
+            let hidden: std::collections::HashSet<u32> = hidden.iter().copied().collect();
             let mut x = i64::from(v);
             let dir = d.signum();
             let mut left = d.abs();
@@ -2723,8 +2726,10 @@ impl ViewerState {
                 .trim_end_matches(" (hidden)")
                 .to_owned();
             let heights: std::collections::HashMap<u32, f32> = l.heights.iter().copied().collect();
+            let hidden_rows: std::collections::HashSet<u32> =
+                l.hidden_rows.iter().copied().collect();
             let height = |r: u32| {
-                if l.hidden_rows.contains(&r) {
+                if hidden_rows.contains(&r) {
                     0.0
                 } else {
                     heights.get(&r).copied().unwrap_or(l.default_height)
@@ -2926,17 +2931,21 @@ impl ViewerState {
         let cells = self
             .doc()
             .grid_cells(self.unit, f[0] + 1..f[2] + 1, col..col + 1);
+        // By row, and sets: a sheet's column may have a hundred thousand
+        // rows.
+        let mut texts = std::collections::HashMap::new();
+        for c in cells {
+            texts.entry(c.0).or_insert(c.2.text);
+        }
+        let hidden: std::collections::HashSet<u32> = l.hidden_rows.iter().copied().collect();
+        let mut seen = std::collections::HashSet::new();
         let mut out: Vec<String> = Vec::new();
         for r in f[0] + 1..=f[2] {
-            if l.hidden_rows.contains(&r) {
+            if hidden.contains(&r) {
                 continue;
             }
-            let t = cells
-                .iter()
-                .find(|c| c.0 == r)
-                .map(|c| c.2.text.clone())
-                .unwrap_or_default();
-            if !out.contains(&t) {
+            let t = texts.get(&r).cloned().unwrap_or_default();
+            if seen.insert(t.clone()) {
                 out.push(t);
             }
         }
