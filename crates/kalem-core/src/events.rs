@@ -526,6 +526,48 @@ impl EventBus {
     }
 }
 
+/// Ranges `ranges` (sorted, apart) moved through `tx`, as
+/// `Transaction::map` moves each end, in one pass over its edits: an edit
+/// on every line of a large file (a CSV column inserted) and its undo,
+/// each ranges through every edit, took seconds.
+fn map_ranges(tx: &Transaction, ranges: &[Range<usize>]) -> Vec<Range<usize>> {
+    let (mut i, mut shift) = (0usize, 0isize);
+    let mut map = |pos: usize, assoc: Assoc| -> usize {
+        while let Some(e) = tx.edits.get(i) {
+            let (s, t) = (e.range.start, e.range.end);
+            if pos < s {
+                break;
+            }
+            if s == t {
+                if pos == s && assoc == Assoc::Before {
+                    break;
+                }
+                shift += e.insert.len() as isize;
+                i += 1;
+                continue;
+            }
+            if pos < t {
+                // Inside a replaced range: not past it, a later end may be.
+                let ns = (s as isize + shift) as usize;
+                return match assoc {
+                    Assoc::Before => ns,
+                    Assoc::After => ns + e.insert.len(),
+                };
+            }
+            shift += e.insert.len() as isize - (t - s) as isize;
+            i += 1;
+        }
+        (pos as isize + shift) as usize
+    };
+    ranges
+        .iter()
+        .map(|r| {
+            let start = map(r.start, Assoc::Before);
+            start..map(r.end, Assoc::After)
+        })
+        .collect()
+}
+
 /// Collects a document's edits into `document:changed` events, sent once
 /// no edit has come for `delay`. Ranges of earlier edits are moved
 /// through later ones, and overlapping or touching ranges are merged.
@@ -550,11 +592,7 @@ impl ChangeDebouncer {
             .pending
             .entry(doc)
             .or_insert((version, Vec::new(), now));
-        let mut ranges: Vec<Range<usize>> = entry
-            .1
-            .iter()
-            .map(|r| tx.map(r.start, Assoc::Before)..tx.map(r.end, Assoc::After))
-            .collect();
+        let mut ranges = map_ranges(tx, &entry.1);
         let mut shift: isize = 0;
         for e in &tx.edits {
             let start = (e.range.start as isize + shift) as usize;
@@ -751,5 +789,24 @@ mod tests {
             }]
         );
         assert!(d.due(ms(900)).is_empty());
+    }
+
+    #[test]
+    fn ranges_move_as_each_end_would() {
+        // Insertions, deletions and replacements, before, inside, at and
+        // after the ranges' ends.
+        let mut tx = Transaction::new("t");
+        tx.insert(0, "ab").unwrap();
+        tx.replace(3..5, "").unwrap();
+        tx.insert(8, "x").unwrap();
+        tx.replace(9..12, "QQ").unwrap();
+        tx.insert(20, "yyy").unwrap();
+        tx.replace(21..30, "z").unwrap();
+        let ranges = vec![0..0, 2..4, 6..8, 10..11, 14..20, 25..40];
+        let one_by_one: Vec<Range<usize>> = ranges
+            .iter()
+            .map(|r| tx.map(r.start, Assoc::Before)..tx.map(r.end, Assoc::After))
+            .collect();
+        assert_eq!(map_ranges(&tx, &ranges), one_by_one);
     }
 }
