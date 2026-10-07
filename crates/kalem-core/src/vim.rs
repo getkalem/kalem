@@ -2408,7 +2408,8 @@ impl Vim {
                     Op::Lower | Op::Upper | Op::Toggle | Op::Rot13 => {
                         let r = line_start(doc, l1)..line_end(doc, l2);
                         self.change_case(doc, op, r);
-                        doc.selection = Selection::caret(first_non_blank(doc, l1));
+                        // Where the operator began (`g~j` keeps the column).
+                        doc.selection = Selection::caret(at.min(line_end(doc, l1)));
                     }
                 }
             }
@@ -2746,8 +2747,15 @@ impl Vim {
             } else if line + 1 < doc.text().line_count() {
                 line_start(doc, line + 1)
             } else {
-                // After a last line without a line feed.
+                // After a last line without a line feed (an empty text:
+                // its one empty line, the lines put after it ending as
+                // lines do).
                 let len = doc.text().len();
+                if len == 0 {
+                    edit(doc, 0..0, &format!("\n{t}"), 1);
+                    doc.selection = Selection::caret(first_non_blank(doc, 1));
+                    return (1, t.len());
+                }
                 let body = t.strip_suffix('\n').unwrap_or(&t).to_string();
                 edit(doc, len..len, &format!("\n{body}"), len + 1);
                 let l = line_of(doc, len + 1);
@@ -2952,7 +2960,7 @@ impl Vim {
                     (_, '[' | ']') => {
                         let what = if (c == ']') == forward { '{' } else { '}' };
                         let both = self.op.is_some() && forward && what == '{';
-                        let alone = self.op.is_none() && !self.visual();
+                        let alone = self.op.is_none();
                         let m = objects::findpar_of(doc, self.cursor, forward, n, Some(what), both)
                             .map(|(to, inclusive)| Motion {
                                 to: if alone {

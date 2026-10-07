@@ -435,7 +435,12 @@ pub(super) fn findpar_of(
             }
         }
     }
-    if both && curr < last && doc.text().as_str()[line_start(doc, curr)..].starts_with('}') {
+    // `]]` after an operator takes the `}` line; past the last line it
+    // ends at the start of that line.
+    if both && doc.text().as_str()[line_start(doc, curr)..].starts_with('}') {
+        if curr >= last {
+            return Some((line_start(doc, curr), false));
+        }
         curr += 1;
     }
     if forward && curr == last && what != Some('}') {
@@ -463,6 +468,8 @@ pub(super) fn unmatched(
     };
     let text = doc.text().as_str();
     let mut at = pos;
+    // As many as there are, the last one found (none: the motion fails).
+    let mut found_any = false;
     for _ in 0..count.max(1) {
         let mut depth = 0usize;
         let found = if forward {
@@ -491,9 +498,15 @@ pub(super) fn unmatched(
                 None
             })
         };
-        at = found?;
+        match found {
+            Some(f) => {
+                at = f;
+                found_any = true;
+            }
+            None => break,
+        }
     }
-    Some(at)
+    found_any.then_some(at)
 }
 
 /// Vim's `current_par()`: the lines of `count` paragraphs (`ap` with the
