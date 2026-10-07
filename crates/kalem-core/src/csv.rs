@@ -2700,8 +2700,8 @@ impl Frozen {
         let mut after: std::collections::HashMap<usize, Vec<usize>> = Default::default();
         let mut first = Vec::new();
         let mut last_placed = None;
-        for i in 0..n {
-            if placed[i] {
+        for (i, &here) in placed.iter().enumerate() {
+            if here {
                 last_placed = Some(i);
             } else {
                 match last_placed {
