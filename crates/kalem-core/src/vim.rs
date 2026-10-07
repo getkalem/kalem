@@ -508,7 +508,11 @@ fn class(c: char, big: bool) -> u8 {
 fn step_chars(doc: &DocumentState, pos: usize, k: isize) -> usize {
     let mut p = pos;
     for _ in 0..k.unsigned_abs() {
-        let r = if k > 0 { objects::incl(doc, &mut p) } else { objects::decl(doc, &mut p) };
+        let r = if k > 0 {
+            objects::incl(doc, &mut p)
+        } else {
+            objects::decl(doc, &mut p)
+        };
         if r == -1 {
             break;
         }
@@ -682,7 +686,11 @@ fn block_part(doc: &DocumentState, line: usize, left: usize, right: usize, ts: u
     let mut start = None;
     let (mut pre, mut post, mut end) = (0, 0, e);
     for (i, c) in doc.text().as_str()[s..e].char_indices() {
-        let next = if c == '\t' { (col / ts + 1) * ts } else { col + c.width().unwrap_or(0) };
+        let next = if c == '\t' {
+            (col / ts + 1) * ts
+        } else {
+            col + c.width().unwrap_or(0)
+        };
         if start.is_none() && col >= right {
             break;
         }
@@ -1929,9 +1937,7 @@ impl Vim {
             // leaves rows out or orders them anew); an operator still
             // takes the lines.
             Key::Char('j' | 'k') | Key::Down | Key::Up | Key::Ctrl('n' | 'p')
-                if self.op.is_none()
-                    && host.rich_view()
-                    && doc.meta.mode == DocumentMode::Csv =>
+                if self.op.is_none() && host.rich_view() && doc.meta.mode == DocumentMode::Csv =>
             {
                 let down = matches!(key, Key::Char('j') | Key::Down | Key::Ctrl('n'));
                 let n = isize::try_from(n).unwrap_or(isize::MAX);
@@ -2408,7 +2414,10 @@ impl Vim {
                     }
                     continue;
                 }
-                let _ = tx.insert(block_part(doc, l, col, usize::MAX, ts).range.start, typed.clone());
+                let _ = tx.insert(
+                    block_part(doc, l, col, usize::MAX, ts).range.start,
+                    typed.clone(),
+                );
             }
             let tx = tx.select(Selection::caret(head));
             doc.apply(&tx, ChangeKind::Command, Instant::now());
@@ -2488,7 +2497,12 @@ impl Vim {
                 let ts = self.options.tabstop.max(1);
                 (
                     at_display_col(doc, *first, *left, ts),
-                    at_display_col(doc, (*last).min(last_line(doc)), right.saturating_sub(1), ts),
+                    at_display_col(
+                        doc,
+                        (*last).min(last_line(doc)),
+                        right.saturating_sub(1),
+                        ts,
+                    ),
                 )
             }
         };
@@ -2567,8 +2581,9 @@ impl Vim {
             } => {
                 let last = last.min(last_line(doc));
                 let ts = self.options.tabstop.max(1);
-                let parts: Vec<BlockPart> =
-                    (first..=last).map(|l| block_part(doc, l, left, right, ts)).collect();
+                let parts: Vec<BlockPart> = (first..=last)
+                    .map(|l| block_part(doc, l, left, right, ts))
+                    .collect();
                 let ranges: Vec<Range<usize>> = parts.iter().map(|p| p.range.clone()).collect();
                 let top = ranges[0].start + parts[0].pre;
                 // What is in the block: a tab at an edge as the spaces of it
@@ -2582,14 +2597,19 @@ impl Vim {
                         }
                         let width = |c: char, col: usize| {
                             use unicode_width::UnicodeWidthChar;
-                            if c == '\t' { (col / ts + 1) * ts - col } else { c.width().unwrap_or(0) }
+                            if c == '\t' {
+                                (col / ts + 1) * ts - col
+                            } else {
+                                c.width().unwrap_or(0)
+                            }
                         };
                         let mut col = display_col(doc, p.range.start, ts);
                         let n = t.chars().count();
                         let mut out = String::new();
                         for (i, c) in t.chars().enumerate() {
                             let w = width(c, col);
-                            let cut = if i == 0 { p.pre } else { 0 } + if i + 1 == n { p.post } else { 0 };
+                            let cut = if i == 0 { p.pre } else { 0 }
+                                + if i + 1 == n { p.post } else { 0 };
                             if (i == 0 && p.pre > 0) || (i + 1 == n && p.post > 0) {
                                 out.push_str(&" ".repeat(w.saturating_sub(cut)));
                             } else {
@@ -2832,14 +2852,28 @@ impl Vim {
     /// `]p` and `[p`: lines put with the indent of the cursor's line, their
     /// own indents kept relative to the first (empty lines without one);
     /// other text as `p` and `P` put it.
-    fn put_indented(&mut self, doc: &mut DocumentState, before: bool, count: usize, host: &mut dyn Host) {
-        let Some(mut r) = self.fetch(host) else { return };
+    fn put_indented(
+        &mut self,
+        doc: &mut DocumentState,
+        before: bool,
+        count: usize,
+        host: &mut dyn Host,
+    ) {
+        let Some(mut r) = self.fetch(host) else {
+            return;
+        };
         if r.linewise {
             let ts = self.options.tabstop.max(1);
             let width = |l: &str| {
-                l.chars().take_while(|c| *c == ' ' || *c == '\t').fold(0, |col, c| {
-                    if c == '\t' { (col / ts + 1) * ts } else { col + 1 }
-                })
+                l.chars()
+                    .take_while(|c| *c == ' ' || *c == '\t')
+                    .fold(0, |col, c| {
+                        if c == '\t' {
+                            (col / ts + 1) * ts
+                        } else {
+                            col + 1
+                        }
+                    })
             };
             let line = line_of(doc, self.cursor);
             let want = insert::vcol(doc, first_non_blank(doc, line), ts) as isize;
@@ -2853,7 +2887,10 @@ impl Vim {
                     }
                     let w = (width(l) as isize + want - first).max(0) as usize;
                     let rest = l.trim_start_matches([' ', '\t']);
-                    format!("{}{rest}", insert::indent_string(w, ts, self.options.expandtab))
+                    format!(
+                        "{}{rest}",
+                        insert::indent_string(w, ts, self.options.expandtab)
+                    )
                 })
                 .collect();
             r.text = format!("{}\n", lines.join("\n"));
@@ -2863,7 +2900,9 @@ impl Vim {
         self.put_linewise = r.linewise;
         let (start, added) = self.put_text(doc, &r, before, count, pos, line);
         doc.marks.named.insert('[', start);
-        doc.marks.named.insert(']', (start + added).min(doc.text().len()));
+        doc.marks
+            .named
+            .insert(']', (start + added).min(doc.text().len()));
     }
 
     /// Puts register `r`; where the text went and its length.
@@ -3041,7 +3080,8 @@ impl Vim {
                     }
                     // With 'autoindent' the blanks after go too.
                     if self.options.autoindent {
-                        while end < e && matches!(doc.text().as_str().as_bytes()[end], b' ' | b'\t') {
+                        while end < e && matches!(doc.text().as_str().as_bytes()[end], b' ' | b'\t')
+                        {
                             end += 1;
                         }
                     }
@@ -3260,7 +3300,11 @@ impl Vim {
                     Key::Char(c @ ('-' | '+')) if !self.visual() && self.op.is_none() => {
                         let n = self.count.take().unwrap_or(1);
                         for _ in 0..n {
-                            let done = if c == '-' { doc.undo() } else { doc.redo_from_start() };
+                            let done = if c == '-' {
+                                doc.undo()
+                            } else {
+                                doc.redo_from_start()
+                            };
                             if done.is_none() {
                                 break;
                             }
@@ -3676,11 +3720,13 @@ impl Vim {
                 // `d*`: to the next match of the word.
                 '*' | '#' => {
                     let n = self.count.take().unwrap_or(1) * self.op.map_or(1, |o| o.1.max(1));
-                    let m = self.star_search(doc, c == '#', true, n, out).map(|to| Motion {
-                        to,
-                        linewise: false,
-                        inclusive: false,
-                    });
+                    let m = self
+                        .star_search(doc, c == '#', true, n, out)
+                        .map(|to| Motion {
+                            to,
+                            linewise: false,
+                            inclusive: false,
+                        });
                     self.finish_motion(doc, m, host, out);
                 }
                 '\'' | '`' => self.pending = Pending::GotoMark(c == '\''),
@@ -3895,9 +3941,17 @@ impl Vim {
         let word = doc.text().as_str()[w].to_string();
         let pat = format!(
             "{}\\V{}\\m{}",
-            if whole && word.starts_with(is_word) { "\\<" } else { "" },
+            if whole && word.starts_with(is_word) {
+                "\\<"
+            } else {
+                ""
+            },
             word.replace('\\', "\\\\"),
-            if whole && word.ends_with(is_word) { "\\>" } else { "" }
+            if whole && word.ends_with(is_word) {
+                "\\>"
+            } else {
+                ""
+            }
         );
         self.last_search = Some((pat.clone(), back));
         self.search_offset = None;
@@ -4503,7 +4557,8 @@ impl Vim {
             Some('V') => m.linewise = true,
             Some(_) => {
                 let ts = self.options.tabstop.max(1);
-                let ((a0, a1), (b0, b1)) = (display_span(doc, from, ts), display_span(doc, m.to, ts));
+                let ((a0, a1), (b0, b1)) =
+                    (display_span(doc, from, ts), display_span(doc, m.to, ts));
                 let (la, lb) = (line_of(doc, from), line_of(doc, m.to));
                 let target = Target::Block {
                     first: la.min(lb),
@@ -4681,7 +4736,10 @@ impl Vim {
                         .unwrap_or_default();
                     for _ in 1..count {
                         for ch in typed.chars() {
-                            self.replace_key(doc, if ch == '\t' { Key::Tab } else { Key::Char(ch) });
+                            self.replace_key(
+                                doc,
+                                if ch == '\t' { Key::Tab } else { Key::Char(ch) },
+                            );
                         }
                     }
                     if let Some(r) = &mut self.recording {
@@ -4762,7 +4820,11 @@ impl Vim {
                 let s = line_start(doc, line);
                 let target = if c == 'u' {
                     let fnb = first_non_blank(doc, line);
-                    if self.options.autoindent && pos > fnb { fnb } else { s }
+                    if self.options.autoindent && pos > fnb {
+                        fnb
+                    } else {
+                        s
+                    }
                 } else {
                     let mut p = pos;
                     while p > s && char_before(doc, p).is_some_and(|c| c == ' ' || c == '\t') {
@@ -4877,7 +4939,11 @@ impl Vim {
                     .ok()
                     .and_then(|all| all.into_iter().find(|m| m.start == to))
                     .map_or(to, |m| m.end);
-                let last = if end > to { doc.grapheme_before(end).max(to) } else { to };
+                let last = if end > to {
+                    doc.grapheme_before(end).max(to)
+                } else {
+                    to
+                };
                 chars(step_chars(doc, last, k), true)
             }
             Some(SearchOffset::Line(k)) => {

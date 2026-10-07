@@ -97,7 +97,10 @@ fn run(text: &str, keys: &str) -> (String, usize, usize) {
     };
     let mut d = DocumentState::new(text, meta, std::sync::Arc::default());
     // Vim opens a file on the first line's first non-blank ('startofline').
-    let blank = text.bytes().take_while(|b| *b == b' ' || *b == b'\t').count();
+    let blank = text
+        .bytes()
+        .take_while(|b| *b == b' ' || *b == b'\t')
+        .count();
     d.move_cursor(blank, false);
     let mut v = Vim::new();
     // Vim's own keys: no leader (Kalem's is Space).

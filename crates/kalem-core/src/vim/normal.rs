@@ -313,7 +313,11 @@ impl Vim {
         }
         let (s, e) = (line_start(doc, line), line_end(doc, line));
         let now = doc.text().as_str()[s..e].to_string();
-        let here = if line_of(doc, self.cursor) == line { self.cursor - s } else { col };
+        let here = if line_of(doc, self.cursor) == line {
+            self.cursor - s
+        } else {
+            col
+        };
         edit(doc, s..e, &old, s);
         self.line_undo = Some((line, now, here));
         let mut at = (s + col).min(line_end(doc, line));
@@ -536,7 +540,8 @@ impl Vim {
                     if l == last { r.end.min(e) } else { e },
                 ),
                 super::Target::Block { left, right, .. } => {
-                    let r = super::block_part(doc, l, *left, *right, self.options.tabstop.max(1)).range;
+                    let r =
+                        super::block_part(doc, l, *left, *right, self.options.tabstop.max(1)).range;
                     (r.start, r.end)
                 }
                 super::Target::Lines(..) => (s, e),
@@ -547,7 +552,12 @@ impl Vim {
             let step = if progressive { by * (k + 1) } else { by };
             let part = doc.text().as_str()[from..to].to_string();
             if let Some((range, new)) = number_at(&part, 0, step, &self.options.nrformats) {
-                edit(doc, from + range.start..from + range.end, &new, from + range.start);
+                edit(
+                    doc,
+                    from + range.start..from + range.end,
+                    &new,
+                    from + range.start,
+                );
                 k += 1;
             }
         }

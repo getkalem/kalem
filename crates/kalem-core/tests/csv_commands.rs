@@ -112,7 +112,10 @@ fn a_short_records_missing_cell_is_that_cell_alone() {
     // Cut on such a cell copies one cell and pads nothing.
     let mut s = Sheet::new("name,age,city\nAda,36,London\nAlan\nGrace,85,NY\n");
     s.at("C2").key("csv.cellBelow").key("csv.cutCells");
-    assert_eq!(s.text(), "name,age,city\nAda,36,London\nAlan\nGrace,85,NY\n");
+    assert_eq!(
+        s.text(),
+        "name,age,city\nAda,36,London\nAlan\nGrace,85,NY\n"
+    );
     assert_eq!(s.clip.text, "\n");
 }
 
@@ -232,11 +235,16 @@ fn rows_added_to_a_file_of_one_column() {
 fn a_sep_line_is_not_a_record() {
     // Replace in Column replaced in the `sep=` line and in the header.
     let mut s = Sheet::new("sep=;\nname;x\nname;1\n");
-    s.at("A2")
-        .ok("csv.replaceInColumn", json!({"find": "name", "replace": "N"}));
+    s.at("A2").ok(
+        "csv.replaceInColumn",
+        json!({"find": "name", "replace": "N"}),
+    );
     assert_eq!(s.text(), "sep=;\nname;x\nN;1\n");
     let mut s = Sheet::new("sep=;\n1;2\n3;4\n");
-    s.ok("csv.replaceInColumn", json!({"find": "sep", "replace": "X"}));
+    s.ok(
+        "csv.replaceInColumn",
+        json!({"find": "sep", "replace": "X"}),
+    );
     assert_eq!(s.text(), "sep=;\n1;2\n3;4\n");
     // A `sep=` line alone: one empty record the commands work on.
     let mut s = Sheet::new("sep=;\n");
@@ -251,17 +259,35 @@ fn fill_series_continues_as_a_spreadsheet_does() {
         s.at(cell).key("csv.fillSeries");
         s.text().to_string()
     };
-    assert_eq!(series("v\n0.125\n0.250\n\n", "A4"), "v\n0.125\n0.250\n0.375\n");
+    assert_eq!(
+        series("v\n0.125\n0.250\n\n", "A4"),
+        "v\n0.125\n0.250\n0.375\n"
+    );
     assert_eq!(series("v\n1.500\n\n", "A3"), "v\n1.500\n2.500\n");
-    assert_eq!(series("v;w\n1,5;a\n2;b\n;c\n", "A4"), "v;w\n1,5;a\n2;b\n2,5;c\n");
-    assert_eq!(series("v;w\n1,25;a\n1,5;b\n;c\n", "A4"), "v;w\n1,25;a\n1,5;b\n1,75;c\n");
-    assert_eq!(series("d\n2026-01-31\n\n", "A3"), "d\n2026-01-31\n2026-02-01\n");
-    assert_eq!(series("d\n28.02.2026\n\n", "A3"), "d\n28.02.2026\n01.03.2026\n");
+    assert_eq!(
+        series("v;w\n1,5;a\n2;b\n;c\n", "A4"),
+        "v;w\n1,5;a\n2;b\n2,5;c\n"
+    );
+    assert_eq!(
+        series("v;w\n1,25;a\n1,5;b\n;c\n", "A4"),
+        "v;w\n1,25;a\n1,5;b\n1,75;c\n"
+    );
+    assert_eq!(
+        series("d\n2026-01-31\n\n", "A3"),
+        "d\n2026-01-31\n2026-02-01\n"
+    );
+    assert_eq!(
+        series("d\n28.02.2026\n\n", "A3"),
+        "d\n28.02.2026\n01.03.2026\n"
+    );
     assert_eq!(
         series("d\n1/1/2026\n1/8/2026\n\n", "A4"),
         "d\n1/1/2026\n1/8/2026\n1/15/2026\n"
     );
-    assert_eq!(series("v\nItem 2\nItem 1\n\n", "A4"), "v\nItem 2\nItem 1\nItem 0\n");
+    assert_eq!(
+        series("v\nItem 2\nItem 1\n\n", "A4"),
+        "v\nItem 2\nItem 1\nItem 0\n"
+    );
     assert_eq!(
         series("v\n9007199254740993\n\n", "A3"),
         "v\n9007199254740993\n9007199254740994\n"
@@ -287,7 +313,11 @@ fn sum_column() {
     let mut s = Sheet::new("k,n\nx,1\ny,2\nx,4\n");
     s.ok("csv.filter", json!({"text": "x"}));
     s.at("B2").key("csv.sumColumn");
-    assert!(s.messages.iter().any(|m| m.contains('5')), "{:?}", s.messages);
+    assert!(
+        s.messages.iter().any(|m| m.contains('5')),
+        "{:?}",
+        s.messages
+    );
     let status = csv::status(&s.d).unwrap();
     assert!(status.contains("Count: 2"), "{status}");
 }
@@ -297,11 +327,20 @@ fn the_views_columns_follow_theirs() {
     let mut s = Sheet::new("a,b,c,d\n1,2,3,4\n");
     s.at("C1").key("csv.hideColumn");
     s.at("A1").key("csv.insertColumn");
-    assert_eq!(s.d.csv_columns.hidden.iter().copied().collect::<Vec<_>>(), [3]);
+    assert_eq!(
+        s.d.csv_columns.hidden.iter().copied().collect::<Vec<_>>(),
+        [3]
+    );
     s.at("A1").key("csv.deleteColumn");
-    assert_eq!(s.d.csv_columns.hidden.iter().copied().collect::<Vec<_>>(), [2]);
+    assert_eq!(
+        s.d.csv_columns.hidden.iter().copied().collect::<Vec<_>>(),
+        [2]
+    );
     s.at("B1").key("csv.moveColumnRight");
-    assert_eq!(s.d.csv_columns.hidden.iter().copied().collect::<Vec<_>>(), [1]);
+    assert_eq!(
+        s.d.csv_columns.hidden.iter().copied().collect::<Vec<_>>(),
+        [1]
+    );
     assert_eq!(s.cell(), "C1");
     let mut s = Sheet::new("a,b,c\n1,2,3\n");
     s.at("C2").key("csv.sortView");
@@ -365,9 +404,15 @@ fn field_commands() {
 fn sorting_dates_and_amounts() {
     let mut s = Sheet::new("d,p\n12/31/2025,10%\n2/1/2025,9%\n1/15/2026,100%\n");
     s.at("A2").key("csv.sortFile");
-    assert_eq!(s.text(), "d,p\n2/1/2025,9%\n12/31/2025,10%\n1/15/2026,100%\n");
+    assert_eq!(
+        s.text(),
+        "d,p\n2/1/2025,9%\n12/31/2025,10%\n1/15/2026,100%\n"
+    );
     s.at("B2").ok("csv.sortFile", json!({"reverse": true}));
-    assert_eq!(s.text(), "d,p\n1/15/2026,100%\n12/31/2025,10%\n2/1/2025,9%\n");
+    assert_eq!(
+        s.text(),
+        "d,p\n1/15/2026,100%\n12/31/2025,10%\n2/1/2025,9%\n"
+    );
     let mut s = Sheet::new("d\n31.12.2025\n01.02.2026\n15.01.2026\n");
     s.at("A2").key("csv.sortFile");
     assert_eq!(s.text(), "d\n31.12.2025\n15.01.2026\n01.02.2026\n");
@@ -484,7 +529,10 @@ fn enter_after_tabs_goes_back_to_the_column_they_started_from() {
     s.key("csv.cellBelow");
     assert_eq!(s.cell(), "B3");
     // Another move ends the run: Enter keeps the column.
-    s.at("A2").key("csv.nextField").key("csv.cellRight").key("csv.cellBelow");
+    s.at("A2")
+        .key("csv.nextField")
+        .key("csv.cellRight")
+        .key("csv.cellBelow");
     assert_eq!(s.cell(), "C3");
 }
 
@@ -549,7 +597,10 @@ fn a_local_variables_block_is_not_records() {
     let text = "name,age\nVeli,41\nAli,30\n# Local Variables:\n# mode: csv\n# End:\n";
     let mut s = Sheet::new(text);
     let l = csv::layout(&s.d);
-    assert_eq!(l.index.borrow_mut().count(s.d.text().as_str(), &l.dialect), 3);
+    assert_eq!(
+        l.index.borrow_mut().count(s.d.text().as_str(), &l.dialect),
+        3
+    );
     s.at("A2").key("csv.sortFile");
     assert_eq!(
         s.text(),
@@ -567,7 +618,10 @@ fn a_local_variables_block_is_not_records() {
     // Without an `End:` line it is text like any other.
     let s = Sheet::new("a\nb\n# Local Variables:\n");
     let l = csv::layout(&s.d);
-    assert_eq!(l.index.borrow_mut().count(s.d.text().as_str(), &l.dialect), 3);
+    assert_eq!(
+        l.index.borrow_mut().count(s.d.text().as_str(), &l.dialect),
+        3
+    );
 }
 
 #[test]

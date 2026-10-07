@@ -581,8 +581,10 @@ fn org_insert_item(ctx: &mut EditorContext<'_>, above: bool) -> CommandResult {
             text.line_range(text.line_of(pos)).end
         };
         doc.move_cursor(to, false);
-        ctx.requests
-            .push(run("list.insertItem", serde_json::json!({ "checkbox": checkbox })));
+        ctx.requests.push(run(
+            "list.insertItem",
+            serde_json::json!({ "checkbox": checkbox }),
+        ));
     } else {
         let ctx_ = model.parse().context().clone();
         let text = text_of(&model);
@@ -643,7 +645,10 @@ fn choose_priority(ctx: &mut EditorContext<'_>) -> CommandResult {
                 char::from_u32(p).map_or_else(String::new, String::from)
             };
             item(
-                crate::palette::invocation("org.priority.set", &serde_json::json!({ "priority": name })),
+                crate::palette::invocation(
+                    "org.priority.set",
+                    &serde_json::json!({ "priority": name }),
+                ),
                 format!("[#{name}]"),
             )
         })
@@ -3714,15 +3719,18 @@ fn csv_commands() -> Vec<Command> {
                         }
                         // The previous record shown, at its last field that
                         // shows.
-                        Ok((None, previous.map(|r| {
-                            let n = l
-                                .index
-                                .borrow_mut()
-                                .record(text, r, &l.dialect)
-                                .map_or(1, |rec| rec.fields.len());
-                            let c = (0..n).rev().find(|c| !hidden.contains(c));
-                            (r, c.unwrap_or(usize::MAX))
-                        })))
+                        Ok((
+                            None,
+                            previous.map(|r| {
+                                let n = l
+                                    .index
+                                    .borrow_mut()
+                                    .record(text, r, &l.dialect)
+                                    .map_or(1, |rec| rec.fields.len());
+                                let c = (0..n).rev().find(|c| !hidden.contains(c));
+                                (r, c.unwrap_or(usize::MAX))
+                            }),
+                        ))
                     })
                 })
             },
@@ -3788,12 +3796,18 @@ fn csv_commands() -> Vec<Command> {
             csv_edit(ctx, |text, l, row, rec, col| {
                 let top = usize::from(l.dialect.header);
                 // The row shown above (a filter's hidden rows stay).
-                let prev = previous
-                    .filter(|&p| p >= top && row > top)
-                    .and_then(|p| l.index.borrow_mut().record(text, p, &l.dialect).map(|r| (p, r)));
+                let prev = previous.filter(|&p| p >= top && row > top).and_then(|p| {
+                    l.index
+                        .borrow_mut()
+                        .record(text, p, &l.dialect)
+                        .map(|r| (p, r))
+                });
                 let (p, prev) =
                     prev.ok_or_else(|| CommandError::new(crate::tr!("msg-csv-no-row")))?;
-                Ok((Some(crate::csv::swap_rows(text, &prev, rec)), Some((p, col))))
+                Ok((
+                    Some(crate::csv::swap_rows(text, &prev, rec)),
+                    Some((p, col)),
+                ))
             })
         }),
         c(
@@ -3815,7 +3829,10 @@ fn csv_commands() -> Vec<Command> {
                     });
                     let (n, next) =
                         next.ok_or_else(|| CommandError::new(crate::tr!("msg-csv-no-row")))?;
-                    Ok((Some(crate::csv::swap_rows(text, rec, &next)), Some((n, col))))
+                    Ok((
+                        Some(crate::csv::swap_rows(text, rec, &next)),
+                        Some((n, col)),
+                    ))
                 })
             },
         ),
@@ -3999,10 +4016,7 @@ fn csv_commands() -> Vec<Command> {
                         .record(text, row, &l.dialect)
                         .ok_or_else(|| {
                             let (cell, _) = crate::csv_tools::coordinates(row, col);
-                            CommandError::new(crate::tr!(
-                                "msg-csv-bad-cell",
-                                value = cell.as_str()
-                            ))
+                            CommandError::new(crate::tr!("msg-csv-bad-cell", value = cell.as_str()))
                         })?
                 };
                 Ok((

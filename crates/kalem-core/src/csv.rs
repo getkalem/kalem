@@ -1292,7 +1292,10 @@ pub fn sorted_order(text: &str, d: &Dialect, col: usize, reverse: bool) -> Vec<u
     let keys: Vec<SortKey> = records
         .iter()
         .map(|r| {
-            let v = r.fields.get(col).map_or(Cow::Borrowed(""), |f| value(text, f, d));
+            let v = r
+                .fields
+                .get(col)
+                .map_or(Cow::Borrowed(""), |f| value(text, f, d));
             sort_key(&v, d.delimiter == b';', turkish)
         })
         .collect();
@@ -2658,9 +2661,10 @@ impl Frozen {
     /// (with its line ending, or a text replaced around it) goes.
     pub fn map(&mut self, tx: &Transaction) {
         self.records.retain_mut(|(r, _)| {
-            let gone = tx.edits.iter().any(|e| {
-                e.range.start <= r.start && r.end <= e.range.end && e.range != *r
-            });
+            let gone = tx
+                .edits
+                .iter()
+                .any(|e| e.range.start <= r.start && r.end <= e.range.end && e.range != *r);
             if !gone {
                 let start = tx.map(r.start, org_edit::Assoc::Before);
                 let end = tx.map(r.end, org_edit::Assoc::After).max(start);

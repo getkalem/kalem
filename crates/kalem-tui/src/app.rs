@@ -4587,7 +4587,9 @@ impl App {
                 // the last row went to its last field and typing replaced
                 // it).
                 if self.doc.meta.mode == DocumentMode::Csv && !self.editor.source {
-                    return Some(kalem_core::csv::view_vertical(&self.doc, head, d).unwrap_or(head));
+                    return Some(
+                        kalem_core::csv::view_vertical(&self.doc, head, d).unwrap_or(head),
+                    );
                 }
                 self.editor.vertical(&self.doc, &self.caps, d)
             }

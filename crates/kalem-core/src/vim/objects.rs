@@ -5,7 +5,9 @@
 //! results hang on the details (where a sentence at the end of a line
 //! ends, what a count beyond the text does).
 
-use super::{DocumentState, blank_line, char_at, char_before, last_line, line_end, line_of, line_start};
+use super::{
+    DocumentState, blank_line, char_at, char_before, last_line, line_end, line_of, line_start,
+};
 
 /// nroff macros that start a paragraph ('paragraphs') or a section
 /// ('sections'), Vim's defaults.
@@ -110,7 +112,12 @@ fn start_ps(doc: &DocumentState, line: usize) -> bool {
 
 /// Vim's `findsent()`: the start of the sentence `count` on (`)`) or
 /// back (`(`) from `pos`; none when the text ends first.
-pub(super) fn findsent(doc: &DocumentState, pos: usize, forward: bool, count: usize) -> Option<usize> {
+pub(super) fn findsent(
+    doc: &DocumentState,
+    pos: usize,
+    forward: bool,
+    count: usize,
+) -> Option<usize> {
     let step = |p: &mut usize| if forward { incl(doc, p) } else { decl(doc, p) };
     let mut pos = pos;
     let mut noskip = false;
@@ -395,7 +402,12 @@ pub(super) fn current_sent(
 /// from `pos`, at its start, or the last character of the last line
 /// (then the motion is inclusive); none when the text ends first. Only
 /// empty lines part paragraphs here, not blank ones.
-pub(super) fn findpar(doc: &DocumentState, pos: usize, forward: bool, count: usize) -> Option<(usize, bool)> {
+pub(super) fn findpar(
+    doc: &DocumentState,
+    pos: usize,
+    forward: bool,
+    count: usize,
+) -> Option<(usize, bool)> {
     findpar_of(doc, pos, forward, count, None, false)
 }
 

@@ -367,7 +367,10 @@ impl Vim {
                     let ts = self.options.tabstop.max(1);
                     let want = (vcol(doc, head, ts) - 1) / sts * sts;
                     let mut p = head;
-                    while p > s && matches!(text.as_bytes()[p - 1], b' ' | b'\t') && vcol(doc, p, ts) > want {
+                    while p > s
+                        && matches!(text.as_bytes()[p - 1], b' ' | b'\t')
+                        && vcol(doc, p, ts) > want
+                    {
                         p -= 1;
                     }
                     let fill = want.saturating_sub(vcol(doc, p, ts));

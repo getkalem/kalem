@@ -76,7 +76,8 @@ impl T {
     }
 
     fn go(&mut self, cell: &str) {
-        self.app.run_command("csv.goToCell", json!({ "cell": cell }));
+        self.app
+            .run_command("csv.goToCell", json!({ "cell": cell }));
         self.draw();
     }
 
@@ -99,7 +100,8 @@ impl T {
     }
 }
 
-const PEOPLE: &str = "name,age,city\nAlexander,36,London\nAl,41,Wilmslow\n\"Grace, H\",85,\"New\nYork\"\n";
+const PEOPLE: &str =
+    "name,age,city\nAlexander,36,London\nAl,41,Wilmslow\n\"Grace, H\",85,\"New\nYork\"\n";
 
 #[test]
 fn vim_insert_mode_inserts_into_the_cell() {
@@ -119,7 +121,10 @@ fn vim_insert_mode_inserts_into_the_cell() {
     );
     // No Excel mode in the status bar beside Vim's.
     let status = kalem_core::csv::status(&t.app.doc).unwrap_or_default();
-    assert!(!status.contains("Ready") && !status.contains("Enter"), "{status}");
+    assert!(
+        !status.contains("Ready") && !status.contains("Enter"),
+        "{status}"
+    );
 }
 
 #[test]
@@ -136,12 +141,7 @@ fn vim_j_and_k_keep_the_column() {
     assert_eq!(t.cell(), "B4", "no row below");
     t.typ("k");
     assert_eq!(t.cell(), "B3");
-    let mut t = open(
-        "f.csv",
-        "id,tag\n1,x\n2,y\n3,x\n",
-        vim(),
-        (60, 10),
-    );
+    let mut t = open("f.csv", "id,tag\n1,x\n2,y\n3,x\n", vim(), (60, 10));
     t.app.run_command("csv.filter", json!({ "text": "x" }));
     t.go("A2");
     t.typ("j");

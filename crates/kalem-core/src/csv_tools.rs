@@ -107,7 +107,8 @@ pub(crate) fn date(v: &str) -> Option<(jiff::civil::Date, DateForm, bool)> {
         DateForm::Iso => parts[1].len() == 2 && parts[2].len() == 2,
         _ => parts[0].len() == 2 && parts[1].len() == 2,
     };
-    let d = jiff::civil::Date::new(year, i8::try_from(month).ok()?, i8::try_from(day).ok()?).ok()?;
+    let d =
+        jiff::civil::Date::new(year, i8::try_from(month).ok()?, i8::try_from(day).ok()?).ok()?;
     Some((d, form, padded))
 }
 
@@ -498,7 +499,10 @@ pub fn sort_by(text: &str, d: &Dialect, keys: &[(usize, bool)]) -> Transaction {
         .map(|r| {
             keys.iter()
                 .map(|&(col, _)| {
-                    let v = r.fields.get(col).map_or(Default::default(), |f| value(text, f, d));
+                    let v = r
+                        .fields
+                        .get(col)
+                        .map_or(Default::default(), |f| value(text, f, d));
                     crate::csv::sort_key(&v, comma, turkish)
                 })
                 .collect()
@@ -690,7 +694,10 @@ mod tests {
         let d = Dialect::default();
         let text = "a,b,c\n1,\"x\ty\",3\n4,5\n";
         // A tab in a value: in quotes, as a spreadsheet copies it.
-        assert_eq!(rectangle_tsv(text, &d, &[1, 2], (1, 2)), "\"x\ty\"\t3\n5\t\n");
+        assert_eq!(
+            rectangle_tsv(text, &d, &[1, 2], (1, 2)),
+            "\"x\ty\"\t3\n5\t\n"
+        );
         assert_eq!(rectangle_tsv(text, &d, &[0], (0, 0)), "a\n");
         // Copied and pasted as a block elsewhere, the same cells.
         let block = block_rows(&rectangle_tsv(text, &d, &[0, 1, 2], (0, 1)), &d);
@@ -812,10 +819,16 @@ mod tests {
         let keys = parse_sort_keys("B, -A", &[], 2).unwrap();
         assert_eq!(keys, [(1, false), (0, true)]);
         assert_eq!(run(t, &sort_by(t, &d, &keys)), "k,v\nc,1\nb,2\na,2\n");
-        assert_eq!(parse_sort_keys("2 1", &[], 2).unwrap(), [(1, false), (0, false)]);
+        assert_eq!(
+            parse_sort_keys("2 1", &[], 2).unwrap(),
+            [(1, false), (0, false)]
+        );
         // By a header's name, without case; a column past the last is none.
         let names = ["Name".to_string(), "Age".to_string()];
-        assert_eq!(parse_sort_keys("-age name", &names, 2).unwrap(), [(1, true), (0, false)]);
+        assert_eq!(
+            parse_sort_keys("-age name", &names, 2).unwrap(),
+            [(1, true), (0, false)]
+        );
         assert!(parse_sort_keys("city", &names, 2).is_none());
         assert!(parse_sort_keys("C", &names, 2).is_none());
         assert!(parse_sort_keys("?", &[], 2).is_none());

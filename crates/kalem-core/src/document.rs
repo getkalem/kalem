@@ -1777,10 +1777,7 @@ impl DocumentState {
         }
         // The caret where it was in the value, the opening quote gone.
         let head = self.selection.head;
-        let caret = head
-            .saturating_sub(f.range.start + 1)
-            .min(v.len())
-            + f.range.start;
+        let caret = head.saturating_sub(f.range.start + 1).min(v.len()) + f.range.start;
         let mut tx = Transaction::new("Typing");
         tx.edit(f.range.clone(), v);
         let tx = tx.select(Selection::caret(caret));

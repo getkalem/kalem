@@ -501,7 +501,12 @@ impl Vim {
             // out) ends there or sits in the middle; blank lines stay.
             _ if is("ri", "right") || is("ce", "center") => {
                 use unicode_width::UnicodeWidthChar;
-                let width = args.trim().parse::<usize>().ok().filter(|w| *w > 0).unwrap_or(80);
+                let width = args
+                    .trim()
+                    .parse::<usize>()
+                    .ok()
+                    .filter(|w| *w > 0)
+                    .unwrap_or(80);
                 let ts = self.options.tabstop.max(1);
                 let right = name.starts_with('r');
                 for l in a..=b {
@@ -509,12 +514,20 @@ impl Vim {
                     let body = doc.text().as_str()[fnb..e].trim_end_matches([' ', '\t']);
                     let start = super::insert::vcol(doc, fnb, ts);
                     let len = body.chars().fold(start, |col, c| {
-                        if c == '\t' { (col / ts + 1) * ts } else { col + c.width().unwrap_or(0) }
+                        if c == '\t' {
+                            (col / ts + 1) * ts
+                        } else {
+                            col + c.width().unwrap_or(0)
+                        }
                     }) - start;
                     if len == 0 {
                         continue;
                     }
-                    let want = if right { width.saturating_sub(len) } else { width.saturating_sub(len) / 2 };
+                    let want = if right {
+                        width.saturating_sub(len)
+                    } else {
+                        width.saturating_sub(len) / 2
+                    };
                     let ind = super::insert::indent_string(want, ts, self.options.expandtab);
                     let s = line_start(doc, l);
                     if doc.text().as_str()[s..fnb] != ind {
@@ -532,7 +545,12 @@ impl Vim {
             _ if is("ret", "retab") => {
                 use unicode_width::UnicodeWidthChar;
                 let old_ts = self.options.tabstop.max(1);
-                let new_ts = args.trim().parse::<usize>().ok().filter(|n| *n > 0).unwrap_or(old_ts);
+                let new_ts = args
+                    .trim()
+                    .parse::<usize>()
+                    .ok()
+                    .filter(|n| *n > 0)
+                    .unwrap_or(old_ts);
                 let et = self.options.expandtab;
                 let blanks = |from: usize, to: usize| {
                     if et {
@@ -989,9 +1007,8 @@ impl Vim {
         }
         // Undo comes back to the first line changed, as in Vim.
         if !count_only
-            && let Some(l) = (a..=b).find(|&l| {
-                p.is_match(&doc.text().as_str()[line_start(doc, l)..line_end(doc, l)])
-            })
+            && let Some(l) = (a..=b)
+                .find(|&l| p.is_match(&doc.text().as_str()[line_start(doc, l)..line_end(doc, l)]))
         {
             doc.selection = Selection::caret(line_start(doc, l));
         }
@@ -1073,7 +1090,11 @@ impl Vim {
         let limit = line_end(doc, b);
         // The text's last line break is not one between lines.
         let all = doc.text().as_str();
-        let end = if all.ends_with('\n') { all.len() - 1 } else { all.len() };
+        let end = if all.ends_with('\n') {
+            all.len() - 1
+        } else {
+            all.len()
+        };
         let text = all[start..end.max(start)].to_string();
         let mut new = String::with_capacity(text.len());
         let (mut at, mut n) = (0, 0);

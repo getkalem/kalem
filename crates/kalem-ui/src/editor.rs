@@ -2733,7 +2733,9 @@ impl Editor {
                 // in the order the view shows them (a sorted view's too).
                 if self.doc.meta.mode == DocumentMode::Csv && !self.source {
                     let head = self.doc.selection.head;
-                    return Some(kalem_core::csv::view_vertical(&self.doc, head, rows).unwrap_or(head));
+                    return Some(
+                        kalem_core::csv::view_vertical(&self.doc, head, rows).unwrap_or(head),
+                    );
                 }
                 self.vertical(rows)
             }
@@ -4616,9 +4618,12 @@ impl gpui::Render for Editor {
             let header_editor = entity.clone();
             let top = state.logical_scroll_top();
             let pinned = header
-                && visible.iter().position(|&l| l == header_line).is_some_and(|h| {
-                    top.item_ix > h || (top.item_ix == h && top.offset_in_item > px(0.))
-                });
+                && visible
+                    .iter()
+                    .position(|&l| l == header_line)
+                    .is_some_and(|h| {
+                        top.item_ix > h || (top.item_ix == h && top.offset_in_item > px(0.))
+                    });
             // A spreadsheet starts at the pane's top left: its letters bar
             // at the top, its row numbers at the left edge.
             let (top, left) = if sheet.is_some() {
