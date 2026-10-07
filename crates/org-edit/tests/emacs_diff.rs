@@ -27,6 +27,17 @@ fn run(
         "org-move-subtree-down" => move_subtree(text, point, true, ctx),
         "org-move-subtree-up" => move_subtree(text, point, false, ctx),
         "org-cut-subtree" => cut_subtree(text, point, ctx).map(|(t, _)| t),
+        "motion" => {
+            use org_edit::motion::*;
+            let to = match args[0].as_str() {
+                Some("same-level") => Ok(heading_same_level(text, point, args[1].as_i64().unwrap_or(1), ctx)),
+                Some("forward") => forward_element(text, point, ctx),
+                Some("backward") => backward_element(text, point, ctx),
+                Some("up") => up_element(text, point, ctx),
+                _ => down_element(text, point, ctx),
+            };
+            to.map(|p| Transaction::new("motion").select(org_edit::Selection::caret(p)))
+        }
         "toggle-heading" => org_edit::toggle::toggle_heading(text, point, mark, ctx),
         "toggle-item" => org_edit::toggle::toggle_item(text, point, mark, ctx),
         "ts-change" => {

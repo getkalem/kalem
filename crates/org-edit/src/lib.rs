@@ -19,6 +19,7 @@ pub mod headline;
 mod history;
 pub mod insert;
 pub mod list;
+pub mod motion;
 pub mod narrow;
 pub mod property;
 pub mod recalc;

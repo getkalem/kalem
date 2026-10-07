@@ -1681,9 +1681,77 @@ def toggle_cases():
                         out.append(case)
     return out
 
+MOTION_DOCS = [
+    """Before the first heading.
+
+Second paragraph.
+* One
+Para one.
+
+- item a
+  - nested b
+  - nested c
+- item d
+
+| x | y |
+|---+---|
+| 1 | 2 |
+#+begin_quote
+Quoted.
+
+Again.
+#+end_quote
+** One child
+:PROPERTIES:
+:ID: x
+:END:
+:LOGBOOK:
+note
+:END:
+child text
+*************** Inline
+inside
+*************** END
+** Second child
+* Two
+
+text two
+* Three
+last""",
+    """* A
+** B
+*** C
+** D
+* E
+""",
+]
+
+MOTION_FORMS = [
+    ("(org-forward-heading-same-level 1)", ["same-level", 1]),
+    ("(org-forward-heading-same-level -1)", ["same-level", -1]),
+    ("(org-forward-heading-same-level 2)", ["same-level", 2]),
+    ("(org-forward-element)", ["forward"]),
+    ("(org-backward-element)", ["backward"]),
+    ("(org-up-element)", ["up"]),
+    ("(org-down-element)", ["down"]),
+]
+
+
+def motion_cases():
+    """The structure motions of evil-org (`gj', `gk', `gh', `gl') and Doom
+    (`]h', `[h') from each line's start, middle and end."""
+    out = []
+    for d, doc in enumerate(MOTION_DOCS):
+        data = doc.encode()
+        points = sorted({p for s, l in byte_offsets_of_lines(doc) for p in (s, s + len(l) // 2, s + len(l)) if p <= len(data)})
+        for p in points:
+            for form, args in MOTION_FORMS:
+                out.append({"name": f"motion {d}@{p} {form}", "text": doc, "point": p, "mark": None, "form": form, "cmd": "motion", "args": args})
+    return out
+
 if __name__ == "__main__":
     path = os.path.join(ROOT, "tests/edit/cases.json")
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(cases() + todo_dependency_cases() + footnote_cases() + random_footnote_cases() + planning_cases() + drawer_cases() + archive_cases() + heading_cases() + timestamp_cases() + toggle_cases(), f, ensure_ascii=False, indent=1)
+        json.dump(cases() + todo_dependency_cases() + footnote_cases() + random_footnote_cases() + planning_cases() + drawer_cases() + archive_cases() + heading_cases() + timestamp_cases() + toggle_cases() + motion_cases(), f, ensure_ascii=False, indent=1)
         f.write("\n")
     print(f"{len(cases())} cases -> {path}")
