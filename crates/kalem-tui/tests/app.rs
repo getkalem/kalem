@@ -1558,14 +1558,23 @@ fn the_which_key_panel_shows_once_its_delay_has_passed() {
     let config = Config::from_layers(&[(
         Layer::User,
         None,
-        "editor.keymap_profile = \"vim\"\nkeys.hints_delay = 50\n",
+        "editor.keymap_profile = \"vim\"\nkeys.hints_delay = 300\n",
     )]);
+    let delay = std::time::Duration::from_millis(300);
     let mut t = with_config("* A\n", config, (80, 24));
+    let typed = std::time::Instant::now();
     t.typ(" ");
-    assert!(!screen(&mut t).join("\n").contains("+file"));
+    let shown = screen(&mut t).join("\n").contains("+file");
     t.app.tick(std::time::Instant::now());
-    assert!(!t.app.dirty);
-    std::thread::sleep(std::time::Duration::from_millis(60));
+    // Hidden until the delay passes, if it has not on a slow machine
+    // (Windows's on CI took more than 50 ms to get here once).
+    if typed.elapsed() < delay {
+        assert!(!shown);
+        assert!(!t.app.dirty);
+    }
+    std::thread::sleep(
+        delay.saturating_sub(typed.elapsed()) + std::time::Duration::from_millis(10),
+    );
     t.app.tick(std::time::Instant::now());
     assert!(t.app.dirty);
     assert!(screen(&mut t).join("\n").contains("+file"));
