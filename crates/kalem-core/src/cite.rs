@@ -401,39 +401,41 @@ pub fn pasted_bibtex(doc: &crate::DocumentState, text: &str) -> Option<String> {
     if entries.is_empty() {
         return None;
     }
-    let model = doc.latex()?.model();
-    let dir = doc.meta.path.as_deref()?.parent()?;
-    let file = dir.join(model.bibliography.first()?.files.first()?);
-    let old = std::fs::read_to_string(&file).unwrap_or_default();
-    let known: std::collections::HashSet<String> = org_cite::bib::parse_bibtex(&old)
-        .unwrap_or_default()
+    // The first bibliography file, found as LaTeX finds it (from the root
+    // document's folder).
+    let file = doc
+        .latex()?
+        .bibliography_files(doc.meta.path.as_deref())
         .into_iter()
-        .map(|e| e.key)
+        .next()?;
+    // Read as the editors read it, its encoding kept; a file there that
+    // cannot be read is left alone, never replaced.
+    let (old, meta) = match crate::files::read(&file) {
+        Ok((t, m, _)) => (t, Some(m)),
+        Err(_) if file.exists() => return None,
+        Err(_) => (String::new(), None),
+    };
+    // Its keys as the bib mode reads them: an entry with a mistake does
+    // not hide the others.
+    let known: std::collections::HashSet<&str> = crate::bibtex::entries(&old)
+        .iter()
+        .map(|e| &old[e.key.clone()])
         .collect();
-    // Each new entry's own text, cut where the next one starts.
-    let starts: Vec<usize> = text
-        .match_indices('@')
-        .map(|(i, _)| i)
-        .filter(|&i| i == 0 || text[..i].ends_with(['\n', ' ', '\t']))
-        .collect();
+    // Each new entry's own text, as the bib mode cuts it (an `@` in a
+    // value is not an entry).
     let mut add = String::new();
-    for (n, &at) in starts.iter().enumerate() {
-        let end = starts.get(n + 1).copied().unwrap_or(text.len());
-        let chunk = text[at..end].trim();
-        let Some(e) = org_cite::bib::parse_bibtex(chunk)
-            .ok()
-            .and_then(|v| v.into_iter().next())
-        else {
+    let mut seen = std::collections::HashSet::new();
+    for e in crate::bibtex::entries(text) {
+        let key = &text[e.key.clone()];
+        if key.is_empty() || known.contains(key) || !seen.insert(key) {
             continue;
-        };
-        if !known.contains(&e.key) {
-            add.push('\n');
-            add.push_str(chunk);
-            add.push('\n');
         }
+        add.push('\n');
+        add.push_str(text[e.range.clone()].trim());
+        add.push('\n');
     }
     if !add.is_empty() {
-        let mut new = old;
+        let mut new = old.clone();
         if !new.is_empty() && !new.ends_with('\n') {
             new.push('\n');
         }
@@ -441,7 +443,11 @@ pub fn pasted_bibtex(doc: &crate::DocumentState, text: &str) -> Option<String> {
             add.remove(0);
         }
         new.push_str(&add);
-        std::fs::write(&file, new).ok()?;
+        let bytes = match &meta {
+            Some(m) => crate::files::encode(&new, m),
+            None => new.into_bytes(),
+        };
+        std::fs::write(&file, bytes).ok()?;
     }
     let keys: Vec<String> = entries.into_iter().map(|e| e.key).collect();
     Some(format!("\\cite{{{}}}", keys.join(",")))
@@ -507,6 +513,26 @@ mod card_tests {
         // Plain text stays text.
         d.paste("@someone", None, false, now);
         assert!(d.text().as_str().contains("@someone"));
+        // An entry of the file with a mistake hides no key, and an `@` in
+        // a value starts no entry.
+        std::fs::write(&bib, "@book{old, title = {O}}\n@misc{bad title = {B}}\n").unwrap();
+        d.paste(
+            "@book{old, title = {O}}\n@misc{new2, note = {Follow @kalem on the web}, title = {N}}\n",
+            None,
+            false,
+            now,
+        );
+        assert_eq!(
+            std::fs::read_to_string(&bib).unwrap(),
+            "@book{old, title = {O}}\n@misc{bad title = {B}}\n\n@misc{new2, note = {Follow @kalem on the web}, title = {N}}\n"
+        );
+        // A file in Latin-1 keeps its text and its encoding.
+        std::fs::write(&bib, b"@book{old, author = {G\xf6del}}\n").unwrap();
+        d.paste("@misc{new3, title = {N}}\n", None, false, now);
+        assert_eq!(
+            std::fs::read(&bib).unwrap(),
+            b"@book{old, author = {G\xf6del}}\n\n@misc{new3, title = {N}}\n"
+        );
         std::fs::remove_dir_all(&dir).ok();
     }
 }

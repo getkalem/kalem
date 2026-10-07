@@ -331,12 +331,15 @@ Pasting text that starts (after blanks) with =@= into a LaTeX document
 least one entry from it and the document names a bibliography:
 
 1. The target is the first file of the first =\bibliography= or
-   =\addbibresource= command, relative to the document's folder.
-2. The pasted text is cut into entries at each =@= that starts the text
-   or follows a blank or line break. Each entry whose key the target
-   file does not have yet is appended to the file as its own text,
-   unchanged, after a blank line. Entries whose keys the file already
-   has are left out.
+   =\addbibresource= command, found from the root document's folder as
+   LaTeX finds it. It is read in its own encoding (a Latin-1 file stays
+   Latin-1); a file that is there but cannot be read is not written.
+2. The pasted text is cut into entries as the BibTeX mode reads them
+   (an =@= inside a value starts no entry). Each entry whose key the
+   target file does not have yet, as the BibTeX mode reads the file
+   (an entry with a mistake hides no other key), is appended to it as
+   its own text, unchanged, after a blank line. Entries whose keys the
+   file already has are left out.
 3. What is pasted into the document is =\cite{k1,k2,…}= with the keys
    of every pasted entry, known ones included.
 
