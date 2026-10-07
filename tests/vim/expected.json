@@ -2229,6 +2229,1391 @@
   "line": 5,
   "text": "The quick br0wn f0x jumps 0ver the lazy d0g.\n  indented line with (parens [and brackets]) here\nf00_bar baz-qux 42 0x1f -7\n\nlast paragraph, w0rd. An0ther sentence!\n  end\n"
  },
+ "sweep_blank_2_3norm_dw_CR": {
+  "col": 1,
+  "line": 3,
+  "text": "\n  a  \nb\n\n  \n c\n"
+ },
+ "sweep_blank_4jwdis": {
+  "col": 1,
+  "line": 7,
+  "text": "\n\n  a  \n\t\tb\n\n  \n \n"
+ },
+ "sweep_ch_3dd": {
+  "col": 1,
+  "line": 1,
+  "text": "x\n"
+ },
+ "sweep_ch_ddP": {
+  "col": 1,
+  "line": 1,
+  "text": "x\n\n"
+ },
+ "sweep_ch_ddp": {
+  "col": 1,
+  "line": 2,
+  "text": "\nx\n"
+ },
+ "sweep_code_A_C_o_dbx_Esc": {
+  "col": 9,
+  "line": 1,
+  "text": "fn main{x\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_ci_X_Esc": {
+  "col": 9,
+  "line": 1,
+  "text": "fn main(X) {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_ci_X_Esc_2": {
+  "col": 5,
+  "line": 2,
+  "text": "fn main() {\n    X\n}\n"
+ },
+ "sweep_code_cisX_Esc": {
+  "col": 1,
+  "line": 1,
+  "text": "X\n"
+ },
+ "sweep_code_d": {
+  "col": 1,
+  "line": 1,
+  "text": "}\n"
+ },
+ "sweep_code_da": {
+  "col": 10,
+  "line": 1,
+  "text": "fn main() \n"
+ },
+ "sweep_code_daB": {
+  "col": 10,
+  "line": 1,
+  "text": "fn main() \n"
+ },
+ "sweep_code_da_2": {
+  "col": 8,
+  "line": 1,
+  "text": "fn main {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_dab": {
+  "col": 8,
+  "line": 1,
+  "text": "fn main {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_di": {
+  "col": 9,
+  "line": 1,
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_diB": {
+  "col": 1,
+  "line": 2,
+  "text": "fn main() {\n}\n"
+ },
+ "sweep_code_di_2": {
+  "col": 1,
+  "line": 2,
+  "text": "fn main() {\n}\n"
+ },
+ "sweep_code_di_3": {
+  "col": 9,
+  "line": 1,
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_dib": {
+  "col": 9,
+  "line": 1,
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_g_e_d_CR_sync_u": {
+  "col": 5,
+  "line": 2,
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_g_o_d_CR_sync_u": {
+  "col": 5,
+  "line": 2,
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_jd": {
+  "col": 1,
+  "line": 2,
+  "text": "fn main() {\n}\n"
+ },
+ "sweep_code_jj2_x": {
+  "col": 10,
+  "line": 1,
+  "text": "fn main() \n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_s_o_0_g_CR_sync_u": {
+  "col": 1,
+  "line": 2,
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_set_noet_CR_retab_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_va_d": {
+  "col": 8,
+  "line": 1,
+  "text": "fn main {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_ya_P": {
+  "col": 9,
+  "line": 1,
+  "text": "fn main()() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_yi_P": {
+  "col": 9,
+  "line": 1,
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_empty_Vyp": {
+  "col": 1,
+  "line": 2,
+  "text": "\n\n"
+ },
+ "sweep_empty_yyP": {
+  "col": 1,
+  "line": 1,
+  "text": "\n\n"
+ },
+ "sweep_empty_yy_sync_p_sync_u_sync": {
+  "col": 1,
+  "line": 2,
+  "text": "\n\n"
+ },
+ "sweep_empty_yyp": {
+  "col": 1,
+  "line": 2,
+  "text": "\n\n"
+ },
+ "sweep_indent_g_e_1d_CR": {
+  "col": 1,
+  "line": 4,
+  "text": "def f():\n    if x:\n        y = 2\n    return y\n"
+ },
+ "sweep_indent_v_d": {
+  "col": 1,
+  "line": 1,
+  "text": "eturn y\n"
+ },
+ "sweep_indent_v_e_d_CR_sync_u_sync_C_r": {
+  "col": 5,
+  "line": 2,
+  "text": "def f():\n    return y\n"
+ },
+ "sweep_one_2_3g_d_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "single line here\n"
+ },
+ "sweep_one_2_norm_A_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "single line here\n"
+ },
+ "sweep_one_2d3w": {
+  "col": 1,
+  "line": 1,
+  "text": "\n"
+ },
+ "sweep_one_2y3wP": {
+  "col": 16,
+  "line": 1,
+  "text": "single line heresingle line here\n"
+ },
+ "sweep_one_3_x": {
+  "col": 1,
+  "line": 1,
+  "text": "ingle line here\n"
+ },
+ "sweep_one_3dd": {
+  "col": 1,
+  "line": 1,
+  "text": "single line here\n"
+ },
+ "sweep_one_3dd_2": {
+  "col": 1,
+  "line": 1,
+  "text": "single line here\n"
+ },
+ "sweep_one_4": {
+  "col": 1,
+  "line": 1,
+  "text": "single line here\n"
+ },
+ "sweep_one_99dd": {
+  "col": 1,
+  "line": 1,
+  "text": "single line here\n"
+ },
+ "sweep_one_d2w": {
+  "col": 1,
+  "line": 1,
+  "text": "\n"
+ },
+ "sweep_one_ddP": {
+  "col": 1,
+  "line": 1,
+  "text": "single line here\n\n"
+ },
+ "sweep_one_dd_1p_2p": {
+  "col": 1,
+  "line": 2,
+  "text": "\nsingle line here\n"
+ },
+ "sweep_one_ddp": {
+  "col": 1,
+  "line": 2,
+  "text": "\nsingle line here\n"
+ },
+ "sweep_one_ddp_2": {
+  "col": 1,
+  "line": 3,
+  "text": "\nsingle line here\nsingle line here\n"
+ },
+ "sweep_one_keys": {
+  "col": 16,
+  "line": 1,
+  "text": "single line here\n"
+ },
+ "sweep_one_qaxq_2_3norm_a_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "ingle line here\n"
+ },
+ "sweep_paras_norm_dw_CR": {
+  "col": 1,
+  "line": 6,
+  "text": "para line one.\ntwo of it.\n\npara. It has two sentences.\nmore.\n\n"
+ },
+ "sweep_paras_qyy_q": {
+  "col": 1,
+  "line": 1,
+  "text": "First para line one.\nline two of it.\n\n\nSecond para. It has two sentences.\nAnd more.\n\nThird.\n"
+ },
+ "sweep_prose_2_3_d_CR": {
+  "col": 1,
+  "line": 3,
+  "text": "The quick brown fox jumps over the lazy dog.\n    indented line with (parens [and brackets]) here\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_2ka_CR_ad_CR": {
+  "col": 1,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_2m_2_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_A_C_o_dbx_Esc": {
+  "col": 42,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy .x\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_A_Esc_sync_U": {
+  "col": 44,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_C_v_jd_sync_u": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_C_v_jdu": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_Gdis": {
+  "col": 2,
+  "line": 6,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  \n"
+ },
+ "sweep_prose_Vjd_sync_u": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_Vjdu": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_Vjpu": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_ce_30_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\nindented line with (parens [and brackets]) here\n  foo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n             end\n"
+ },
+ "sweep_prose_ce_CR": {
+  "col": 19,
+  "line": 1,
+  "text": "                  The quick brown fox jumps over the lazy dog.\n                indented line with (parens [and brackets]) here\n                           foo_bar baz-qux 42 0x1f -7\n\n              last paragraph, word. Another sentence!  Two spaces.\n                                      end\n"
+ },
+ "sweep_prose_ci_X_Esc": {
+  "col": 23,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (X) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_cvjX_Esc": {
+  "col": 1,
+  "line": 1,
+  "text": "X\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_dVw": {
+  "col": 3,
+  "line": 1,
+  "text": "  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_d_C_v_jj": {
+  "col": 1,
+  "line": 2,
+  "text": "he quick brown fox jumps over the lazy dog.\n indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_d_e_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "er the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_d_o_e_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "wn fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_da": {
+  "col": 22,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with  here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_dab": {
+  "col": 22,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with  here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_dd_sync_U": {
+  "col": 3,
+  "line": 1,
+  "text": "  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_dd_sync_g_sync_x": {
+  "col": 1,
+  "line": 1,
+  "text": " indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_dd_sync_g_x": {
+  "col": 1,
+  "line": 1,
+  "text": " indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_dd_sync_j_sync_dd_sync_u": {
+  "col": 1,
+  "line": 2,
+  "text": "  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_di": {
+  "col": 23,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with () here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_di_2": {
+  "col": 23,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with () here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_dib": {
+  "col": 23,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with () here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_dv": {
+  "col": 1,
+  "line": 1,
+  "text": ".\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_dve": {
+  "col": 1,
+  "line": 1,
+  "text": "e quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_dvj": {
+  "col": 3,
+  "line": 1,
+  "text": "  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_e_e_CR_x": {
+  "col": 3,
+  "line": 6,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  nd\n"
+ },
+ "sweep_prose_g_a_1d_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "last paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_g_a_1d_CR_2": {
+  "col": 1,
+  "line": 3,
+  "text": "The quick brown fox jumps over the lazy dog.\nfoo_bar baz-qux 42 0x1f -7\nlast paragraph, word. Another sentence!  Two spaces.\n"
+ },
+ "sweep_prose_g_e_1d_CR": {
+  "col": 3,
+  "line": 2,
+  "text": "foo_bar baz-qux 42 0x1f -7\n  end\n"
+ },
+ "sweep_prose_g_j": {
+  "col": 1,
+  "line": 2,
+  "text": "tHE QUICK BROWN FOX JUMPS OVER THE LAZY DOG.\n  INDENTED LINE WITH (PARENS [AND BRACKETS]) HERE\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_ia_C_g_ub_Esc_sync_u": {
+  "col": 2,
+  "line": 1,
+  "text": "aThe quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_ia_C_o_xb_Esc_sync_u": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_ix_Esc_sync_U": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_ix_Esc_sync_u_sync_C_r_sync": {
+  "col": 1,
+  "line": 1,
+  "text": "xxThe quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_jf_x": {
+  "col": 30,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_jf_x_2": {
+  "col": 1,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_jfa_x": {
+  "col": 1,
+  "line": 1,
+  "text": "he quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_jfb_x": {
+  "col": 44,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets] here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_jjix_Esc_gg_x": {
+  "col": 1,
+  "line": 3,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_mx": {
+  "col": 1,
+  "line": 1,
+  "text": "he quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_mx_2": {
+  "col": 1,
+  "line": 1,
+  "text": "he quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_norm_dw_CR": {
+  "col": 1,
+  "line": 5,
+  "text": "quick brown fox jumps over the lazy dog.\nindented line with (parens [and brackets]) here\nbaz-qux 42 0x1f -7\nlast paragraph, word. Another sentence!  Two spaces.\n\n"
+ },
+ "sweep_prose_norm_f_l_CR": {
+  "col": 4,
+  "line": 6,
+  "text": "The Quick brown fox jumps over the lazy dog.\n  Indented line with (parens [and brackets]) here\nfoo_bar Baz-qux 42 0x1f -7\n\nlast Paragraph, word. Another sentence!  Two spaces.\n  End\n"
+ },
+ "sweep_prose_o_1_CR_x": {
+  "col": 1,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_o_CR_CR_x": {
+  "col": 18,
+  "line": 1,
+  "text": "The quick brown fx jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_o_b_2_CR_x": {
+  "col": 15,
+  "line": 1,
+  "text": "The quick brow fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_o_e_1_CR_x": {
+  "col": 14,
+  "line": 1,
+  "text": "The quick bron fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_o_s_1_CR_x": {
+  "col": 12,
+  "line": 1,
+  "text": "The quick bown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_qyy_q": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_ri_30_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\nindented line with (parens [and brackets]) here\n    foo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n                           end\n"
+ },
+ "sweep_prose_ri_CR": {
+  "col": 37,
+  "line": 1,
+  "text": "                                    The quick brown fox jumps over the lazy dog.\n                                 indented line with (parens [and brackets]) here\n                                                      foo_bar baz-qux 42 0x1f -7\n\n                            last paragraph, word. Another sentence!  Two spaces.\n                                                                             end\n"
+ },
+ "sweep_prose_s_n_CR": {
+  "col": 172,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.  indented line with (parens [and brackets]) herefoo_bar baz-qux 42 0x1f -7last paragraph, word. Another sentence!  Two spaces.  end\n"
+ },
+ "sweep_prose_s_o_0_g_1d_CR": {
+  "col": 3,
+  "line": 1,
+  "text": "  indented line with (parens [and brackets]) here\nf00_bar baz-qux 42 0x1f -7\n\nlast paragraph, w0rd. An0ther sentence!  Tw0 spaces.\n  end\n"
+ },
+ "sweep_prose_set_noet_CR_retab_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_v_d": {
+  "col": 1,
+  "line": 1,
+  "text": "nd\n"
+ },
+ "sweep_prose_va_d": {
+  "col": 22,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with  here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_vi_d": {
+  "col": 23,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with () here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_vjd_sync_u": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_vjdu": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_x": {
+  "col": 3,
+  "line": 6,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  nd\n"
+ },
+ "sweep_prose_x_e_CR_x": {
+  "col": 19,
+  "line": 1,
+  "text": "The quick brown fo jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_x_sync_g": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_x_sync_x_sync_g_sync_g_sync_g": {
+  "col": 1,
+  "line": 1,
+  "text": "he quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_ya_P": {
+  "col": 44,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets])(parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_yi_P": {
+  "col": 43,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_yvjP": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\nThe quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_yy3_p": {
+  "col": 1,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\nThe quick brown fox jumps over the lazy dog.\nThe quick brown fox jumps over the lazy dog.\nThe quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_yyj_px": {
+  "col": 3,
+  "line": 3,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\n  he quick brown fox jumps over the lazy dog.\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_yyj_px_2": {
+  "col": 3,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n  he quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_quotes_2_4g_d_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "say \"hello \\\"world\\\"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n"
+ },
+ "sweep_quotes_2_4sort_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "say \"hello \\\"world\\\"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n"
+ },
+ "sweep_quotes_2dd3": {
+  "col": 1,
+  "line": 1,
+  "text": "a `tick` b\n"
+ },
+ "sweep_quotes_da": {
+  "col": 5,
+  "line": 1,
+  "text": "say and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n"
+ },
+ "sweep_quotes_dd_sync_dd_sync_dd_sync_1p_sync_sync": {
+  "col": 1,
+  "line": 4,
+  "text": "\na `tick` b\n\"first\" mid \"second\"\nsay \"hello \\\"world\\\"\" and 'it''s' ok\n"
+ },
+ "sweep_quotes_dddddd_3p": {
+  "col": 1,
+  "line": 2,
+  "text": "\nsay \"hello \\\"world\\\"\" and 'it''s' ok\n"
+ },
+ "sweep_quotes_di": {
+  "col": 6,
+  "line": 1,
+  "text": "say \"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n"
+ },
+ "sweep_quotes_qa0xjq_2_4norm_a_CR": {
+  "col": 1,
+  "line": 2,
+  "text": "ay \"hello \\\"world\\\"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n"
+ },
+ "sweep_quotes_qaA_Esc_jq3_a": {
+  "col": 11,
+  "line": 3,
+  "text": "say \"hello \\\"world\\\"\" and 'it''s' ok!\n\"first\" mid \"second\"!\na `tick` b!\n"
+ },
+ "sweep_quotes_va_d": {
+  "col": 5,
+  "line": 1,
+  "text": "say and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n"
+ },
+ "sweep_quotes_vi_d": {
+  "col": 6,
+  "line": 1,
+  "text": "say \"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n"
+ },
+ "sweep_tabs_2_3_d_CR": {
+  "col": 5,
+  "line": 3,
+  "text": "\tone\ttwo\n                  deep\tx\n    four spaces\n"
+ },
+ "sweep_tabs_2ka_CR_ad_CR": {
+  "col": 1,
+  "line": 2,
+  "text": "\tone\ttwo\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_2m_2_CR": {
+  "col": 2,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_3dd": {
+  "col": 5,
+  "line": 1,
+  "text": "    four spaces\n"
+ },
+ "sweep_tabs_A_C_o_dbx_Esc": {
+  "col": 7,
+  "line": 1,
+  "text": "\tone\tox\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_A_Esc_sync_U": {
+  "col": 8,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_C_v_jd_sync_u": {
+  "col": 2,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_C_v_jdu": {
+  "col": 2,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_R_C_w_x_Esc": {
+  "col": 1,
+  "line": 1,
+  "text": "xone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_Rab_Esc_j": {
+  "col": 3,
+  "line": 2,
+  "text": "\tabe\ttwo\n\tabeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_Vj": {
+  "col": 1,
+  "line": 1,
+  "text": "\tONE\tTWO\n\t\tDEEP\tX\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_VjC": {
+  "col": 1,
+  "line": 1,
+  "text": "\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_VjR": {
+  "col": 1,
+  "line": 1,
+  "text": "\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_VjS": {
+  "col": 1,
+  "line": 1,
+  "text": "\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_Vjd_sync_u": {
+  "col": 1,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_Vjdu": {
+  "col": 1,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_Vjpu": {
+  "col": 1,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_ce_30_CR": {
+  "col": 10,
+  "line": 1,
+  "text": "         one\ttwo\n          deep\tx\n         no tab here\n         four spaces\n"
+ },
+ "sweep_tabs_ce_CR": {
+  "col": 35,
+  "line": 1,
+  "text": "                                  one\ttwo\n                                   deep\tx\n                                  no tab here\n                                  four spaces\n"
+ },
+ "sweep_tabs_cisX_Esc": {
+  "col": 1,
+  "line": 1,
+  "text": "X\n"
+ },
+ "sweep_tabs_cvjX_Esc": {
+  "col": 2,
+  "line": 1,
+  "text": "\tX\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_dVw": {
+  "col": 3,
+  "line": 1,
+  "text": "\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_d_e_CR": {
+  "col": 2,
+  "line": 1,
+  "text": "\teep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_d_o_e_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "\t\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_dd_sync_U": {
+  "col": 3,
+  "line": 1,
+  "text": "\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_dd_sync_g_sync_x": {
+  "col": 1,
+  "line": 1,
+  "text": "\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_dd_sync_g_x": {
+  "col": 1,
+  "line": 1,
+  "text": "\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_dd_sync_j_sync_dd_sync_u": {
+  "col": 1,
+  "line": 2,
+  "text": "\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_dv": {
+  "col": 2,
+  "line": 1,
+  "text": "\to\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_dvb": {
+  "col": 1,
+  "line": 1,
+  "text": "ne\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_dve": {
+  "col": 2,
+  "line": 1,
+  "text": "\te\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_dvj": {
+  "col": 2,
+  "line": 1,
+  "text": "\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_dwA_C_r_Esc": {
+  "col": 8,
+  "line": 1,
+  "text": "\ttwoone\t\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_e_e_CR_x": {
+  "col": 14,
+  "line": 4,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spacs\n"
+ },
+ "sweep_tabs_g_a_1d_CR": {
+  "col": 1,
+  "line": 3,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n"
+ },
+ "sweep_tabs_g_e_1d_CR": {
+  "col": 1,
+  "line": 1,
+  "text": ""
+ },
+ "sweep_tabs_g_e_d_CR_sync_u": {
+  "col": 2,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_g_j": {
+  "col": 2,
+  "line": 2,
+  "text": "\tONE\tTWO\n\t\tDEEP\tX\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_g_o_d_CR_sync_u": {
+  "col": 2,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_ia_BS_BS_b_Esc": {
+  "col": 7,
+  "line": 1,
+  "text": "      bone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_ia_C_g_ub_Esc_sync_u": {
+  "col": 3,
+  "line": 1,
+  "text": "\taone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_ia_C_o_xb_Esc_sync_u": {
+  "col": 2,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_ix_Esc_sync_U": {
+  "col": 2,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_ix_Esc_sync_u_sync_C_r_sync": {
+  "col": 2,
+  "line": 1,
+  "text": "\txxone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_j0jjx": {
+  "col": 8,
+  "line": 4,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    fou spaces\n"
+ },
+ "sweep_tabs_jI_BS_x_Esc": {
+  "col": 8,
+  "line": 2,
+  "text": "\tone\ttwo\n\t      xdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_jf_x": {
+  "col": 2,
+  "line": 2,
+  "text": "\tone\ttwo\n\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_jf_x_2": {
+  "col": 2,
+  "line": 2,
+  "text": "\tone\ttwo\n\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_jfa_x": {
+  "col": 2,
+  "line": 1,
+  "text": "\tne\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_jfb_x": {
+  "col": 2,
+  "line": 2,
+  "text": "\tone\ttwo\n\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_ji_BS_BS_x_Esc": {
+  "col": 5,
+  "line": 2,
+  "text": "\tone\ttwo\n    x\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_jjci_X_Esc": {
+  "col": 8,
+  "line": 3,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab ere\n    four spaces\n"
+ },
+ "sweep_tabs_jjda": {
+  "col": 9,
+  "line": 3,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_jjdat": {
+  "col": 9,
+  "line": 3,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_jjdi": {
+  "col": 9,
+  "line": 3,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_jjdit": {
+  "col": 9,
+  "line": 3,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_jjf_da": {
+  "col": 9,
+  "line": 3,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_jjf_di": {
+  "col": 9,
+  "line": 3,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_jjix_Esc_gg_x": {
+  "col": 1,
+  "line": 3,
+  "text": "\tone\ttwo\n\t\tdeep\tx\no tab hxere\n    four spaces\n"
+ },
+ "sweep_tabs_jjjw": {
+  "col": 10,
+  "line": 4,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_jjmAgg_Ax": {
+  "col": 9,
+  "line": 3,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab hre\n    four spaces\n"
+ },
+ "sweep_tabs_majjmb_ax_bx": {
+  "col": 9,
+  "line": 3,
+  "text": "\tne\ttwo\n\t\tdeep\tx\nno tab hre\n    four spaces\n"
+ },
+ "sweep_tabs_mx": {
+  "col": 2,
+  "line": 1,
+  "text": "\tne\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_mx_2": {
+  "col": 2,
+  "line": 1,
+  "text": "\tne\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_norm_3x_CR": {
+  "col": 2,
+  "line": 1,
+  "text": "\t\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_norm_f_l_CR": {
+  "col": 4,
+  "line": 4,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno Tab here\n    four spaces\n"
+ },
+ "sweep_tabs_normal_3x_CR": {
+  "col": 2,
+  "line": 1,
+  "text": "\t\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_o_1_CR_x": {
+  "col": 1,
+  "line": 2,
+  "text": "\tone\ttwo\n\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_o_CR_CR_x": {
+  "col": 2,
+  "line": 3,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nn tab here\n    four spaces\n"
+ },
+ "sweep_tabs_o_s_1_CR_x": {
+  "col": 7,
+  "line": 1,
+  "text": "\tone\tto\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_qa0xjq_a": {
+  "col": 8,
+  "line": 3,
+  "text": "one\ttwo\n\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_qajq_a": {
+  "col": 9,
+  "line": 4,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_qaxjq2_a": {
+  "col": 9,
+  "line": 4,
+  "text": "\tne\ttwo\n\tdeep\tx\nno tab hre\n    four spaces\n"
+ },
+ "sweep_tabs_qqjq_q_q_q": {
+  "col": 9,
+  "line": 4,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_retab_CR": {
+  "col": 9,
+  "line": 1,
+  "text": "        one     two\n                deep    x\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_s_n_CR": {
+  "col": 28,
+  "line": 1,
+  "text": "\tone\ttwo\t\tdeep\txno tab here    four spaces\n"
+ },
+ "sweep_tabs_s_o_0_g_1d_CR": {
+  "col": 3,
+  "line": 1,
+  "text": "\t\tdeep\tx\nn0 tab here\n    f0ur spaces\n"
+ },
+ "sweep_tabs_s_o_0_g_CR_sync_u": {
+  "col": 1,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_s_o_0_g_CR_sync_u_2": {
+  "col": 1,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_vipy": {
+  "col": 1,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_vjC_Esc": {
+  "col": 1,
+  "line": 1,
+  "text": "\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_vjS_Esc": {
+  "col": 1,
+  "line": 1,
+  "text": "\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_vjd_sync_u": {
+  "col": 2,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_vjdu": {
+  "col": 2,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_x": {
+  "col": 5,
+  "line": 4,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    our spaces\n"
+ },
+ "sweep_tabs_x_2": {
+  "col": 2,
+  "line": 1,
+  "text": "\tne\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_x_3": {
+  "col": 2,
+  "line": 1,
+  "text": "\tne\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_x_e_CR_x": {
+  "col": 7,
+  "line": 2,
+  "text": "\tone\ttwo\n\t\tdeep\t\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_x_sync_U": {
+  "col": 2,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_x_sync_U_sync_x": {
+  "col": 2,
+  "line": 1,
+  "text": "\tne\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_x_sync_g": {
+  "col": 2,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_x_sync_j_sync_x_sync_U": {
+  "col": 2,
+  "line": 2,
+  "text": "\tne\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_x_sync_x_sync_U": {
+  "col": 2,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_x_sync_x_sync_U_sync_U": {
+  "col": 2,
+  "line": 1,
+  "text": "\te\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_x_sync_x_sync_g_sync_g_sync_g": {
+  "col": 2,
+  "line": 1,
+  "text": "\tne\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_yvjP": {
+  "col": 2,
+  "line": 1,
+  "text": "\tone\ttwo\n\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_yy3_p": {
+  "col": 9,
+  "line": 2,
+  "text": "\tone\ttwo\n        one\ttwo\n        one\ttwo\n        one\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_yyA_C_r_0_Esc": {
+  "col": 1,
+  "line": 2,
+  "text": "\tone\ttwo one two\n\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_yy_px": {
+  "col": 9,
+  "line": 2,
+  "text": "\tone\ttwo\n        ne\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_yyj_px": {
+  "col": 17,
+  "line": 3,
+  "text": "\tone\ttwo\n\t\tdeep\tx\n                ne\ttwo\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_yyj_px_2": {
+  "col": 17,
+  "line": 2,
+  "text": "\tone\ttwo\n                ne\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tr_2_4g_d_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n"
+ },
+ "sweep_tr_2_4sort_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n"
+ },
+ "sweep_tr_2dd3": {
+  "col": 1,
+  "line": 1,
+  "text": "straße naïve café — end\n"
+ },
+ "sweep_tr_4j_das": {
+  "col": 1,
+  "line": 3,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\n\n"
+ },
+ "sweep_tr_4jwdas": {
+  "col": 1,
+  "line": 3,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\n\n"
+ },
+ "sweep_tr_4jwdis": {
+  "col": 1,
+  "line": 3,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\n\n"
+ },
+ "sweep_tr_Gdis": {
+  "col": 1,
+  "line": 3,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\n\n"
+ },
+ "sweep_tr_d_C_v_jj": {
+  "col": 1,
+  "line": 2,
+  "text": "alışkan öğrenci şu kitabı okudu.\nğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n"
+ },
+ "sweep_tr_dd_sync_dd_sync_dd_sync_1p_sync_sync": {
+  "col": 1,
+  "line": 4,
+  "text": "\nstraße naïve café — end\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nÇalışkan öğrenci şu kitabı okudu.\n"
+ },
+ "sweep_tr_dddddd_3p": {
+  "col": 1,
+  "line": 2,
+  "text": "\nÇalışkan öğrenci şu kitabı okudu.\n"
+ },
+ "sweep_tr_gUU": {
+  "col": 1,
+  "line": 1,
+  "text": "ÇALIŞKAN ÖĞRENCI ŞU KITABI OKUDU.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n"
+ },
+ "sweep_tr_g_a_1d_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "straße naïve café — end\n"
+ },
+ "sweep_tr_g_e_1d_CR": {
+  "col": 1,
+  "line": 2,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nstraße naïve café — end\n"
+ },
+ "sweep_tr_j10": {
+  "col": 12,
+  "line": 2,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\niĞNE ILIK ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n"
+ },
+ "sweep_tr_jA_C_t_x_Esc": {
+  "col": 41,
+  "line": 2,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\n  İğne ılık ğüşöç ÇĞİÖŞÜ.x\nstraße naïve café — end\n"
+ },
+ "sweep_tr_jf": {
+  "col": 31,
+  "line": 2,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞiÖŞÜ.\nstraße naïve café — end\n"
+ },
+ "sweep_tr_jgUU": {
+  "col": 1,
+  "line": 2,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİĞNE ILIK ĞÜŞÖÇ ÇĞİÖŞÜ.\nstraße naïve café — end\n"
+ },
+ "sweep_tr_jguu": {
+  "col": 1,
+  "line": 2,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\niğne ılık ğüşöç çğiöşü.\nstraße naïve café — end\n"
+ },
+ "sweep_tr_jjf": {
+  "col": 7,
+  "line": 3,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n"
+ },
+ "sweep_tr_jjgUU": {
+  "col": 1,
+  "line": 3,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nSTRASSE NAÏVE CAFÉ — END\n"
+ },
+ "sweep_tr_jjgUiw": {
+  "col": 1,
+  "line": 3,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nSTRASSE naïve café — end\n"
+ },
+ "sweep_tr_jjjjdas": {
+  "col": 1,
+  "line": 3,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\n\n"
+ },
+ "sweep_tr_jjjjdis": {
+  "col": 1,
+  "line": 3,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\n\n"
+ },
+ "sweep_tr_keys": {
+  "col": 14,
+  "line": 1,
+  "text": "çALIŞKAN Öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n"
+ },
+ "sweep_tr_o_b_2_CR_x": {
+  "col": 37,
+  "line": 1,
+  "text": "Çalışkan öğrenci şu kitabı okdu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n"
+ },
+ "sweep_tr_o_e_1_CR_x": {
+  "col": 36,
+  "line": 1,
+  "text": "Çalışkan öğrenci şu kitabı oudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n"
+ },
+ "sweep_tr_qa0xjq_2_4norm_a_CR": {
+  "col": 1,
+  "line": 2,
+  "text": "alışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n"
+ },
+ "sweep_tr_qaA_Esc_jq3_a": {
+  "col": 29,
+  "line": 3,
+  "text": "Çalışkan öğrenci şu kitabı okudu.!\nİğne ılık ğüşöç ÇĞİÖŞÜ.!\nstraße naïve café — end!\n"
+ },
+ "sweep_tr_ri_30_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\n       İğne ılık ğüşöç ÇĞİÖŞÜ.\n       straße naïve café — end\n"
+ },
+ "sweep_tr_ri_CR": {
+  "col": 48,
+  "line": 1,
+  "text": "                                               Çalışkan öğrenci şu kitabı okudu.\n                                                         İğne ılık ğüşöç ÇĞİÖŞÜ.\n                                                         straße naïve café — end\n"
+ },
+ "sweep_tr_s_w_U_g_CR": {
+  "col": 1,
+  "line": 3,
+  "text": "ÇALışKAN öğRENCI şU KITABı OKUDU.\nİğNE ıLıK ğüşöç ÇĞİÖŞÜ.\nSTRAßE NAïVE CAFé — END\n"
+ },
+ "sweep_tr_set_noet_CR_retab_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n"
+ },
+ "sweep_tr_vlld1vd": {
+  "col": 1,
+  "line": 1,
+  "text": "an öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n"
+ },
+ "sweep_two_2_3g_d_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "first\nsecond\n"
+ },
+ "sweep_two_2y3wP": {
+  "col": 1,
+  "line": 1,
+  "text": "first\nsecondfirst\nsecond\n"
+ },
+ "sweep_two_dddd_1p_2p": {
+  "col": 1,
+  "line": 3,
+  "text": "\nsecond\nfirst\n"
+ },
+ "sweep_two_qaxq_2_3norm_a_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "irst\nsecond\n"
+ },
  "tilde_cmd": {
   "col": 2,
   "line": 2,

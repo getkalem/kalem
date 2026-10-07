@@ -2553,5 +2553,1390 @@
   "name": "count_insert_esc",
   "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n",
   "keys": "5i<Esc>x"
+ },
+ {
+  "name": "sweep_prose_C_v_jdu",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "<C-v>jdu"
+ },
+ {
+  "name": "sweep_tabs_C_v_jdu",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>jdu"
+ },
+ {
+  "name": "sweep_prose_Vjdu",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "Vjdu"
+ },
+ {
+  "name": "sweep_tabs_Vjdu",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "Vjdu"
+ },
+ {
+  "name": "sweep_prose_jf_x",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "jf[]}x"
+ },
+ {
+  "name": "sweep_tabs_jf_x",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "jf[]}x"
+ },
+ {
+  "name": "sweep_prose_dv",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "dv$"
+ },
+ {
+  "name": "sweep_tabs_dv",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "dv$"
+ },
+ {
+  "name": "sweep_prose_jjix_Esc_gg_x",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "jjix<Esc>gg'.x"
+ },
+ {
+  "name": "sweep_tabs_jjix_Esc_gg_x",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "jjix<Esc>gg'.x"
+ },
+ {
+  "name": "sweep_prose_A_C_o_dbx_Esc",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "A<C-o>dbx<Esc>"
+ },
+ {
+  "name": "sweep_tabs_A_C_o_dbx_Esc",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "A<C-o>dbx<Esc>"
+ },
+ {
+  "name": "sweep_prose_d_C_v_jj",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "d<C-v>jj"
+ },
+ {
+  "name": "sweep_tr_d_C_v_jj",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "d<C-v>jj"
+ },
+ {
+  "name": "sweep_prose_2_3_d_CR",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": ":2,3>|d<CR>"
+ },
+ {
+  "name": "sweep_tabs_2_3_d_CR",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": ":2,3>|d<CR>"
+ },
+ {
+  "name": "sweep_tr_dddddd_3p",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "dddddd\"3p"
+ },
+ {
+  "name": "sweep_quotes_dddddd_3p",
+  "text": "say \"hello \\\"world\\\"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n",
+  "keys": "dddddd\"3p"
+ },
+ {
+  "name": "sweep_prose_mx",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "[mx"
+ },
+ {
+  "name": "sweep_tabs_mx",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "[mx"
+ },
+ {
+  "name": "sweep_prose_mx_2",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "]mx"
+ },
+ {
+  "name": "sweep_tabs_mx_2",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "]mx"
+ },
+ {
+  "name": "sweep_prose_jfa_x",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "jfa[[x"
+ },
+ {
+  "name": "sweep_tabs_jfa_x",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "jfa[[x"
+ },
+ {
+  "name": "sweep_prose_g_a_1d_CR",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": ":g/a/-1d<CR>"
+ },
+ {
+  "name": "sweep_tr_g_a_1d_CR",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": ":g/a/-1d<CR>"
+ },
+ {
+  "name": "sweep_prose_ri_30_CR",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": ":%ri 30<CR>"
+ },
+ {
+  "name": "sweep_tr_ri_30_CR",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": ":%ri 30<CR>"
+ },
+ {
+  "name": "sweep_prose_set_noet_CR_retab_CR",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": ":set noet<CR>:%retab!<CR>"
+ },
+ {
+  "name": "sweep_tr_set_noet_CR_retab_CR",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": ":set noet<CR>:%retab!<CR>"
+ },
+ {
+  "name": "sweep_prose_dve",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "dve"
+ },
+ {
+  "name": "sweep_tabs_dve",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "dve"
+ },
+ {
+  "name": "sweep_prose_yyj_px",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "yyj]px"
+ },
+ {
+  "name": "sweep_tabs_yyj_px",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "yyj]px"
+ },
+ {
+  "name": "sweep_prose_Gdis",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "Gdis"
+ },
+ {
+  "name": "sweep_tr_Gdis",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "Gdis"
+ },
+ {
+  "name": "sweep_prose_Vjpu",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "Vjpu"
+ },
+ {
+  "name": "sweep_tabs_Vjpu",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "Vjpu"
+ },
+ {
+  "name": "sweep_prose_g_a_1d_CR_2",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": ":g/a/+1d<CR>"
+ },
+ {
+  "name": "sweep_tabs_g_a_1d_CR",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": ":g/a/+1d<CR>"
+ },
+ {
+  "name": "sweep_prose_norm_f_l_CR",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": ":%norm f l~<CR>"
+ },
+ {
+  "name": "sweep_tabs_norm_f_l_CR",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": ":%norm f l~<CR>"
+ },
+ {
+  "name": "sweep_prose_va_d",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "va(d"
+ },
+ {
+  "name": "sweep_code_va_d",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "va(d"
+ },
+ {
+  "name": "sweep_prose_ce_30_CR",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": ":%ce 30<CR>"
+ },
+ {
+  "name": "sweep_tabs_ce_30_CR",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": ":%ce 30<CR>"
+ },
+ {
+  "name": "sweep_prose_o_b_2_CR_x",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "/o/b+2<CR>x"
+ },
+ {
+  "name": "sweep_tr_o_b_2_CR_x",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "/o/b+2<CR>x"
+ },
+ {
+  "name": "sweep_tabs_normal_3x_CR",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": ":normal 3x<CR>"
+ },
+ {
+  "name": "sweep_prose_2ka_CR_ad_CR",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": ":2ka<CR>:'ad<CR>"
+ },
+ {
+  "name": "sweep_tabs_2ka_CR_ad_CR",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": ":2ka<CR>:'ad<CR>"
+ },
+ {
+  "name": "sweep_prose_ri_CR",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": ":%ri<CR>"
+ },
+ {
+  "name": "sweep_tr_ri_CR",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": ":%ri<CR>"
+ },
+ {
+  "name": "sweep_prose_qyy_q",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "\"qyy@q"
+ },
+ {
+  "name": "sweep_paras_qyy_q",
+  "text": "First para line one.\nline two of it.\n\n\nSecond para. It has two sentences.\nAnd more.\n\nThird.\n",
+  "keys": "\"qyy@q"
+ },
+ {
+  "name": "sweep_prose_2m_2_CR",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": ":2m-2<CR>"
+ },
+ {
+  "name": "sweep_tabs_2m_2_CR",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": ":2m-2<CR>"
+ },
+ {
+  "name": "sweep_prose_s_o_0_g_1d_CR",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": ":%s/o/0/g|1d<CR>"
+ },
+ {
+  "name": "sweep_tabs_s_o_0_g_1d_CR",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": ":%s/o/0/g|1d<CR>"
+ },
+ {
+  "name": "sweep_prose_o_e_1_CR_x",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "/o/e+1<CR>x"
+ },
+ {
+  "name": "sweep_tr_o_e_1_CR_x",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "/o/e+1<CR>x"
+ },
+ {
+  "name": "sweep_prose_d_o_e_CR",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "d/o/e<CR>"
+ },
+ {
+  "name": "sweep_tabs_d_o_e_CR",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "d/o/e<CR>"
+ },
+ {
+  "name": "sweep_prose_o_CR_CR_x",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "/o<CR>//<CR>x"
+ },
+ {
+  "name": "sweep_tabs_o_CR_CR_x",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "/o<CR>//<CR>x"
+ },
+ {
+  "name": "sweep_tabs_jI_BS_x_Esc",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "jI<BS>x<Esc>"
+ },
+ {
+  "name": "sweep_tabs_jjci_X_Esc",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "jjci{X<Esc>"
+ },
+ {
+  "name": "sweep_tr_jjjjdas",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "jjjjdas"
+ },
+ {
+  "name": "sweep_prose_x",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "]]x"
+ },
+ {
+  "name": "sweep_tabs_x",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "]]x"
+ },
+ {
+  "name": "sweep_prose_di",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "di("
+ },
+ {
+  "name": "sweep_code_di",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "di("
+ },
+ {
+  "name": "sweep_tr_4jwdis",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "4jwdis"
+ },
+ {
+  "name": "sweep_blank_4jwdis",
+  "text": "\n\n  a  \n\t\tb\n\n  \n c\n",
+  "keys": "4jwdis"
+ },
+ {
+  "name": "sweep_tabs_jjda",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "jjda`"
+ },
+ {
+  "name": "sweep_prose_o_1_CR_x",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "/o/+1<CR>x"
+ },
+ {
+  "name": "sweep_tabs_o_1_CR_x",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "/o/+1<CR>x"
+ },
+ {
+  "name": "sweep_prose_jfb_x",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "jfb])x"
+ },
+ {
+  "name": "sweep_tabs_jfb_x",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "jfb])x"
+ },
+ {
+  "name": "sweep_prose_e_e_CR_x",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "?e?e<CR>x"
+ },
+ {
+  "name": "sweep_tabs_e_e_CR_x",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "?e?e<CR>x"
+ },
+ {
+  "name": "sweep_prose_dVw",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "dVw"
+ },
+ {
+  "name": "sweep_tabs_dVw",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "dVw"
+ },
+ {
+  "name": "sweep_tabs_Vj",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "Vj~"
+ },
+ {
+  "name": "sweep_tabs_jjf_da",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "jjf`da`"
+ },
+ {
+  "name": "sweep_prose_yvjP",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "yvjP"
+ },
+ {
+  "name": "sweep_tabs_yvjP",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "yvjP"
+ },
+ {
+  "name": "sweep_prose_jf_x_2",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "jf\"]}x"
+ },
+ {
+  "name": "sweep_tabs_jf_x_2",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "jf\"]}x"
+ },
+ {
+  "name": "sweep_prose_dib",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "dib"
+ },
+ {
+  "name": "sweep_code_dib",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "dib"
+ },
+ {
+  "name": "sweep_quotes_va_d",
+  "text": "say \"hello \\\"world\\\"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n",
+  "keys": "va\"d"
+ },
+ {
+  "name": "sweep_prose_cvjX_Esc",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "cvjX<Esc>"
+ },
+ {
+  "name": "sweep_tabs_cvjX_Esc",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "cvjX<Esc>"
+ },
+ {
+  "name": "sweep_prose_vjdu",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "vjdu"
+ },
+ {
+  "name": "sweep_tabs_vjdu",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "vjdu"
+ },
+ {
+  "name": "sweep_tr_qaA_Esc_jq3_a",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "qaA!<Esc>jq3@a"
+ },
+ {
+  "name": "sweep_quotes_qaA_Esc_jq3_a",
+  "text": "say \"hello \\\"world\\\"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n",
+  "keys": "qaA!<Esc>jq3@a"
+ },
+ {
+  "name": "sweep_tabs_vjS_Esc",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "vjS<Esc>"
+ },
+ {
+  "name": "sweep_code_di_2",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "di{"
+ },
+ {
+  "name": "sweep_tabs_jjdi",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "jjdi`"
+ },
+ {
+  "name": "sweep_prose_dvj",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "dvj"
+ },
+ {
+  "name": "sweep_tabs_dvj",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "dvj"
+ },
+ {
+  "name": "sweep_tabs_dwA_C_r_Esc",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "dwA<C-r>-<Esc>"
+ },
+ {
+  "name": "sweep_prose_di_2",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "di(."
+ },
+ {
+  "name": "sweep_code_di_3",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "di(."
+ },
+ {
+  "name": "sweep_tabs_cisX_Esc",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "cisX<Esc>"
+ },
+ {
+  "name": "sweep_code_cisX_Esc",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "cisX<Esc>"
+ },
+ {
+  "name": "sweep_code_da",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "da{"
+ },
+ {
+  "name": "sweep_prose_yi_P",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "yi(P"
+ },
+ {
+  "name": "sweep_code_yi_P",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "yi(P"
+ },
+ {
+  "name": "sweep_prose_yy3_p",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "yy3]p"
+ },
+ {
+  "name": "sweep_tabs_yy3_p",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "yy3]p"
+ },
+ {
+  "name": "sweep_prose_o_s_1_CR_x",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "/o/s-1<CR>x"
+ },
+ {
+  "name": "sweep_tabs_o_s_1_CR_x",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "/o/s-1<CR>x"
+ },
+ {
+  "name": "sweep_code_daB",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "daB"
+ },
+ {
+  "name": "sweep_prose_ci_X_Esc",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "ci(X<Esc>"
+ },
+ {
+  "name": "sweep_code_ci_X_Esc",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "ci(X<Esc>"
+ },
+ {
+  "name": "sweep_tabs_retab_CR",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": ":%retab<CR>"
+ },
+ {
+  "name": "sweep_prose_ce_CR",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": ":%ce<CR>"
+ },
+ {
+  "name": "sweep_tabs_ce_CR",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": ":%ce<CR>"
+ },
+ {
+  "name": "sweep_tabs_yyA_C_r_0_Esc",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "yyA<C-r>0<Esc>"
+ },
+ {
+  "name": "sweep_tabs_qaxjq2_a",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "qaxjq2@a"
+ },
+ {
+  "name": "sweep_tabs_jjdit",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "jjdit"
+ },
+ {
+  "name": "sweep_tabs_x_2",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "[(x"
+ },
+ {
+  "name": "sweep_code_ci_X_Esc_2",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "ci{X<Esc>"
+ },
+ {
+  "name": "sweep_tr_jjjjdis",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "jjjjdis"
+ },
+ {
+  "name": "sweep_prose_s_n_CR",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": ":%s/\\n//<CR>"
+ },
+ {
+  "name": "sweep_tabs_s_n_CR",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": ":%s/\\n//<CR>"
+ },
+ {
+  "name": "sweep_prose_dab",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "dab"
+ },
+ {
+  "name": "sweep_code_dab",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "dab"
+ },
+ {
+  "name": "sweep_tr_2_4g_d_CR",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": ":2,4g/./d<CR>"
+ },
+ {
+  "name": "sweep_quotes_2_4g_d_CR",
+  "text": "say \"hello \\\"world\\\"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n",
+  "keys": ":2,4g/./d<CR>"
+ },
+ {
+  "name": "sweep_tabs_ji_BS_BS_x_Esc",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "ji<BS><BS>x<Esc>"
+ },
+ {
+  "name": "sweep_tr_4jwdas",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "4jwdas"
+ },
+ {
+  "name": "sweep_blank_2_3norm_dw_CR",
+  "text": "\n\n  a  \n\t\tb\n\n  \n c\n",
+  "keys": ":2,3norm dw<CR>"
+ },
+ {
+  "name": "sweep_prose_da",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "da("
+ },
+ {
+  "name": "sweep_code_da_2",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "da("
+ },
+ {
+  "name": "sweep_tabs_jjjw",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "jjjw"
+ },
+ {
+  "name": "sweep_prose_yyj_px_2",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "yyj[px"
+ },
+ {
+  "name": "sweep_tabs_yyj_px_2",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "yyj[px"
+ },
+ {
+  "name": "sweep_tabs_VjS",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "VjS"
+ },
+ {
+  "name": "sweep_tabs_majjmb_ax_bx",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "majjmb`ax`bx"
+ },
+ {
+  "name": "sweep_tabs_Rab_Esc_j",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "Rab<Esc>j."
+ },
+ {
+  "name": "sweep_tr_2_4sort_CR",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": ":2,4sort<CR>"
+ },
+ {
+  "name": "sweep_quotes_2_4sort_CR",
+  "text": "say \"hello \\\"world\\\"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n",
+  "keys": ":2,4sort<CR>"
+ },
+ {
+  "name": "sweep_prose_ya_P",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "ya(P"
+ },
+ {
+  "name": "sweep_code_ya_P",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "ya(P"
+ },
+ {
+  "name": "sweep_tabs_vipy",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "vipy"
+ },
+ {
+  "name": "sweep_prose_x_e_CR_x",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "/x/e<CR>x"
+ },
+ {
+  "name": "sweep_tabs_x_e_CR_x",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "/x/e<CR>x"
+ },
+ {
+  "name": "sweep_quotes_da",
+  "text": "say \"hello \\\"world\\\"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n",
+  "keys": "da\""
+ },
+ {
+  "name": "sweep_code_diB",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "diB"
+ },
+ {
+  "name": "sweep_tabs_ia_BS_BS_b_Esc",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "ia<BS><BS>b<Esc>"
+ },
+ {
+  "name": "sweep_tabs_jjf_di",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "jjf`di`"
+ },
+ {
+  "name": "sweep_tabs_VjR",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "VjR"
+ },
+ {
+  "name": "sweep_tabs_x_3",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "[{x"
+ },
+ {
+  "name": "sweep_tabs_yy_px",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "yy]px"
+ },
+ {
+  "name": "sweep_tr_qa0xjq_2_4norm_a_CR",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "qa0xjq:2,4norm @a<CR>"
+ },
+ {
+  "name": "sweep_quotes_qa0xjq_2_4norm_a_CR",
+  "text": "say \"hello \\\"world\\\"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n",
+  "keys": "qa0xjq:2,4norm @a<CR>"
+ },
+ {
+  "name": "sweep_prose_vi_d",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "vi(d"
+ },
+ {
+  "name": "sweep_tabs_vjC_Esc",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "vjC<Esc>"
+ },
+ {
+  "name": "sweep_tabs_jjdat",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "jjdat"
+ },
+ {
+  "name": "sweep_quotes_di",
+  "text": "say \"hello \\\"world\\\"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n",
+  "keys": "di\""
+ },
+ {
+  "name": "sweep_quotes_vi_d",
+  "text": "say \"hello \\\"world\\\"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n",
+  "keys": "vi\"d"
+ },
+ {
+  "name": "sweep_tabs_dvb",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "dvb"
+ },
+ {
+  "name": "sweep_tabs_jjmAgg_Ax",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "jjmAgg`Ax"
+ },
+ {
+  "name": "sweep_tabs_VjC",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "VjC"
+ },
+ {
+  "name": "sweep_tabs_R_C_w_x_Esc",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "R<C-w>x<Esc>"
+ },
+ {
+  "name": "sweep_tr_4j_das",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "4j$das"
+ },
+ {
+  "name": "sweep_prose_ia_C_g_ub_Esc_sync_u",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "ia<C-g>ub<Esc><sync>u"
+ },
+ {
+  "name": "sweep_tabs_ia_C_g_ub_Esc_sync_u",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "ia<C-g>ub<Esc><sync>u"
+ },
+ {
+  "name": "sweep_prose_Vjd_sync_u",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "Vjd<sync>u"
+ },
+ {
+  "name": "sweep_tabs_Vjd_sync_u",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "Vjd<sync>u"
+ },
+ {
+  "name": "sweep_tabs_g_o_d_CR_sync_u",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": ":g/o/d<CR><sync>u"
+ },
+ {
+  "name": "sweep_code_g_o_d_CR_sync_u",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": ":g/o/d<CR><sync>u"
+ },
+ {
+  "name": "sweep_prose_vjd_sync_u",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "vjd<sync>u"
+ },
+ {
+  "name": "sweep_tabs_vjd_sync_u",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "vjd<sync>u"
+ },
+ {
+  "name": "sweep_prose_C_v_jd_sync_u",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "<C-v>jd<sync>u"
+ },
+ {
+  "name": "sweep_tabs_C_v_jd_sync_u",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>jd<sync>u"
+ },
+ {
+  "name": "sweep_prose_dd_sync_g_x",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "dd<sync>g;x"
+ },
+ {
+  "name": "sweep_tabs_dd_sync_g_x",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "dd<sync>g;x"
+ },
+ {
+  "name": "sweep_prose_A_Esc_sync_U",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "A!<Esc><sync>U"
+ },
+ {
+  "name": "sweep_tabs_A_Esc_sync_U",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "A!<Esc><sync>U"
+ },
+ {
+  "name": "sweep_prose_x_sync_x_sync_g_sync_g_sync_g",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "x<sync>x<sync>g-<sync>g-<sync>g+"
+ },
+ {
+  "name": "sweep_tabs_x_sync_x_sync_g_sync_g_sync_g",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "x<sync>x<sync>g-<sync>g-<sync>g+"
+ },
+ {
+  "name": "sweep_tabs_s_o_0_g_CR_sync_u",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": ":%s/o/0/g<CR><sync>u"
+ },
+ {
+  "name": "sweep_code_s_o_0_g_CR_sync_u",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": ":%s/o/0/g<CR><sync>u"
+ },
+ {
+  "name": "sweep_tabs_x_sync_U",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "x<sync>U"
+ },
+ {
+  "name": "sweep_prose_x_sync_g",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "x<sync>g-"
+ },
+ {
+  "name": "sweep_tabs_x_sync_g",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "x<sync>g-"
+ },
+ {
+  "name": "sweep_prose_ia_C_o_xb_Esc_sync_u",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "ia<C-o>xb<Esc><sync>u"
+ },
+ {
+  "name": "sweep_tabs_ia_C_o_xb_Esc_sync_u",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "ia<C-o>xb<Esc><sync>u"
+ },
+ {
+  "name": "sweep_prose_ix_Esc_sync_U",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "ix<Esc><sync>U"
+ },
+ {
+  "name": "sweep_tabs_ix_Esc_sync_U",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "ix<Esc><sync>U"
+ },
+ {
+  "name": "sweep_prose_dd_sync_U",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "dd<sync>U"
+ },
+ {
+  "name": "sweep_tabs_dd_sync_U",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "dd<sync>U"
+ },
+ {
+  "name": "sweep_tabs_x_sync_x_sync_U_sync_U",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "x<sync>x<sync>U<sync>U"
+ },
+ {
+  "name": "sweep_prose_ix_Esc_sync_u_sync_C_r_sync",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "ix<Esc><sync>u<sync><C-r><sync>."
+ },
+ {
+  "name": "sweep_tabs_ix_Esc_sync_u_sync_C_r_sync",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "ix<Esc><sync>u<sync><C-r><sync>."
+ },
+ {
+  "name": "sweep_prose_dd_sync_j_sync_dd_sync_u",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "dd<sync>j<sync>dd<sync>u"
+ },
+ {
+  "name": "sweep_tabs_dd_sync_j_sync_dd_sync_u",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "dd<sync>j<sync>dd<sync>u"
+ },
+ {
+  "name": "sweep_tabs_j0jjx",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "j0jjx"
+ },
+ {
+  "name": "sweep_tabs_x_sync_j_sync_x_sync_U",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "x<sync>j<sync>x<sync>U"
+ },
+ {
+  "name": "sweep_tabs_s_o_0_g_CR_sync_u_2",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": ":s/o/0/g<CR><sync>u"
+ },
+ {
+  "name": "sweep_code_A_C_o_dbx_Esc",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "A<C-o>dbx<Esc>"
+ },
+ {
+  "name": "sweep_tabs_x_sync_x_sync_U",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "x<sync>x<sync>U"
+ },
+ {
+  "name": "sweep_code_set_noet_CR_retab_CR",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": ":set noet<CR>:%retab!<CR>"
+ },
+ {
+  "name": "sweep_tabs_x_sync_U_sync_x",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "x<sync>U<sync>x"
+ },
+ {
+  "name": "sweep_one_2_norm_A_CR",
+  "text": "single line here\n",
+  "keys": ":2,$norm A;<CR>"
+ },
+ {
+  "name": "sweep_tr_dd_sync_dd_sync_dd_sync_1p_sync_sync",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "dd<sync>dd<sync>dd<sync>\"1p<sync>.<sync>."
+ },
+ {
+  "name": "sweep_quotes_dd_sync_dd_sync_dd_sync_1p_sync_sync",
+  "text": "say \"hello \\\"world\\\"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n",
+  "keys": "dd<sync>dd<sync>dd<sync>\"1p<sync>.<sync>."
+ },
+ {
+  "name": "sweep_tabs_g_e_d_CR_sync_u",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": ":g/e/d<CR><sync>u"
+ },
+ {
+  "name": "sweep_code_g_e_d_CR_sync_u",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": ":g/e/d<CR><sync>u"
+ },
+ {
+  "name": "sweep_one_ddp",
+  "text": "single line here\n",
+  "keys": "ddp"
+ },
+ {
+  "name": "sweep_ch_ddp",
+  "text": "x\n",
+  "keys": "ddp"
+ },
+ {
+  "name": "sweep_empty_Vyp",
+  "text": "",
+  "keys": "Vyp"
+ },
+ {
+  "name": "sweep_tabs_norm_3x_CR",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": ":norm 3x<CR>"
+ },
+ {
+  "name": "sweep_one_ddP",
+  "text": "single line here\n",
+  "keys": "ddP"
+ },
+ {
+  "name": "sweep_ch_ddP",
+  "text": "x\n",
+  "keys": "ddP"
+ },
+ {
+  "name": "sweep_tr_2dd3",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "2dd3."
+ },
+ {
+  "name": "sweep_quotes_2dd3",
+  "text": "say \"hello \\\"world\\\"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n",
+  "keys": "2dd3."
+ },
+ {
+  "name": "sweep_prose_d_e_CR",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "d/e<CR>."
+ },
+ {
+  "name": "sweep_tabs_d_e_CR",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "d/e<CR>."
+ },
+ {
+  "name": "sweep_prose_norm_dw_CR",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": ":%norm dw<CR>"
+ },
+ {
+  "name": "sweep_paras_norm_dw_CR",
+  "text": "First para line one.\nline two of it.\n\n\nSecond para. It has two sentences.\nAnd more.\n\nThird.\n",
+  "keys": ":%norm dw<CR>"
+ },
+ {
+  "name": "sweep_prose_g_e_1d_CR",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": ":g/e/-1d<CR>"
+ },
+ {
+  "name": "sweep_tabs_g_e_1d_CR",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": ":g/e/-1d<CR>"
+ },
+ {
+  "name": "sweep_one_2y3wP",
+  "text": "single line here\n",
+  "keys": "2y3wP"
+ },
+ {
+  "name": "sweep_two_2y3wP",
+  "text": "first\nsecond\n",
+  "keys": "2y3wP"
+ },
+ {
+  "name": "sweep_one_3dd",
+  "text": "single line here\n",
+  "keys": "3dd"
+ },
+ {
+  "name": "sweep_ch_3dd",
+  "text": "x\n",
+  "keys": "3dd"
+ },
+ {
+  "name": "sweep_one_ddp_2",
+  "text": "single line here\n",
+  "keys": "ddp."
+ },
+ {
+  "name": "sweep_tabs_qajq_a",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "qajq@a@@"
+ },
+ {
+  "name": "sweep_prose_dd_sync_g_sync_x",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "dd<sync>g;<sync>x"
+ },
+ {
+  "name": "sweep_tabs_dd_sync_g_sync_x",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "dd<sync>g;<sync>x"
+ },
+ {
+  "name": "sweep_prose_v_d",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "v]]d"
+ },
+ {
+  "name": "sweep_indent_v_d",
+  "text": "def f():\n    x = 1\n    if x:\n        y = 2\n    return y\n",
+  "keys": "v]]d"
+ },
+ {
+  "name": "sweep_prose_g_j",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "g~~j."
+ },
+ {
+  "name": "sweep_tabs_g_j",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "g~~j."
+ },
+ {
+  "name": "sweep_one_qaxq_2_3norm_a_CR",
+  "text": "single line here\n",
+  "keys": "qaxq:2,3norm @a<CR>"
+ },
+ {
+  "name": "sweep_two_qaxq_2_3norm_a_CR",
+  "text": "first\nsecond\n",
+  "keys": "qaxq:2,3norm @a<CR>"
+ },
+ {
+  "name": "sweep_one_4",
+  "text": "single line here\n",
+  "keys": "4>>"
+ },
+ {
+  "name": "sweep_one_d2w",
+  "text": "single line here\n",
+  "keys": "d2w."
+ },
+ {
+  "name": "sweep_tabs_3dd",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "3dd."
+ },
+ {
+  "name": "sweep_one_3dd_2",
+  "text": "single line here\n",
+  "keys": "3dd."
+ },
+ {
+  "name": "sweep_tr_g_e_1d_CR",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": ":g/e/+1d<CR>"
+ },
+ {
+  "name": "sweep_indent_g_e_1d_CR",
+  "text": "def f():\n    x = 1\n    if x:\n        y = 2\n    return y\n",
+  "keys": ":g/e/+1d<CR>"
+ },
+ {
+  "name": "sweep_one_2_3g_d_CR",
+  "text": "single line here\n",
+  "keys": ":2,3g/./d<CR>"
+ },
+ {
+  "name": "sweep_two_2_3g_d_CR",
+  "text": "first\nsecond\n",
+  "keys": ":2,3g/./d<CR>"
+ },
+ {
+  "name": "sweep_empty_yyP",
+  "text": "",
+  "keys": "yyP"
+ },
+ {
+  "name": "sweep_tabs_qqjq_q_q_q",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "qqjq@q@q@q"
+ },
+ {
+  "name": "sweep_two_dddd_1p_2p",
+  "text": "first\nsecond\n",
+  "keys": "dddd\"1p\"2p"
+ },
+ {
+  "name": "sweep_indent_v_e_d_CR_sync_u_sync_C_r",
+  "text": "def f():\n    x = 1\n    if x:\n        y = 2\n    return y\n",
+  "keys": ":v/e/d<CR><sync>u<sync><C-r>"
+ },
+ {
+  "name": "sweep_one_dd_1p_2p",
+  "text": "single line here\n",
+  "keys": "dd\"1p\"2p"
+ },
+ {
+  "name": "sweep_tabs_qa0xjq_a",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "qa0xjq@a"
+ },
+ {
+  "name": "sweep_one_keys",
+  "text": "single line here\n",
+  "keys": "{"
+ },
+ {
+  "name": "sweep_code_jj2_x",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "jj2[{x"
+ },
+ {
+  "name": "sweep_empty_yy_sync_p_sync_u_sync",
+  "text": "",
+  "keys": "yy<sync>p<sync>u<sync>."
+ },
+ {
+  "name": "sweep_code_jd",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "jd]]"
+ },
+ {
+  "name": "sweep_code_d",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "d]]"
+ },
+ {
+  "name": "sweep_empty_yyp",
+  "text": "",
+  "keys": "yyp"
+ },
+ {
+  "name": "sweep_one_2d3w",
+  "text": "single line here\n",
+  "keys": "2d3w"
+ },
+ {
+  "name": "sweep_one_3_x",
+  "text": "single line here\n",
+  "keys": "3$x"
+ },
+ {
+  "name": "sweep_one_99dd",
+  "text": "single line here\n",
+  "keys": "99dd"
+ },
+ {
+  "name": "sweep_tr_gUU",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "gUU"
+ },
+ {
+  "name": "sweep_tr_vlld1vd",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "vlld1vd"
+ },
+ {
+  "name": "sweep_tr_jA_C_t_x_Esc",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "jA<C-t>x<Esc>"
+ },
+ {
+  "name": "sweep_tr_keys",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "~~~~~~~~~~"
+ },
+ {
+  "name": "sweep_tr_jgUU",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "jgUU"
+ },
+ {
+  "name": "sweep_tr_jguu",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "jguu"
+ },
+ {
+  "name": "sweep_tr_jjgUU",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "jjgUU"
+ },
+ {
+  "name": "sweep_tr_j10",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "j10~"
+ },
+ {
+  "name": "sweep_tr_jjgUiw",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "jjgUiw"
+ },
+ {
+  "name": "sweep_tr_s_w_U_g_CR",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": ":%s/\\w\\+/\\U&/g<CR>"
+ },
+ {
+  "name": "sweep_tr_jf",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "jfİ~"
+ },
+ {
+  "name": "sweep_tr_jjf",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "jjfß~"
  }
 ]
