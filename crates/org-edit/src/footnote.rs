@@ -1074,14 +1074,18 @@ pub fn delete(text: &str, point: usize) -> Result<Transaction, EditError> {
 /// `org-footnote-get-definition`: where `label`'s definition starts (a
 /// definition, or an inline footnote with that label).
 fn definition_start(text: &str, label: &str) -> Option<usize> {
-    let root = root(text);
+    definition_start_in(text, &root(text), label)
+}
+
+/// [`definition_start`] with the parse of `text` at hand.
+fn definition_start_in(text: &str, root: &SyntaxNode, label: &str) -> Option<usize> {
     for (s, e) in label_matches(text, label) {
         let at_bol = s == 0 || text.as_bytes()[s - 1] == b'\n';
         let close = text.as_bytes()[e - 1];
         if !((at_bol && close == b']') || (!at_bol && close == b':')) {
             continue;
         }
-        let ctx = context(&root, e - 1)?;
+        let ctx = context(root, e - 1)?;
         if matches!(ctx.kind(), FOOTNOTE_DEFINITION | FOOTNOTE_REFERENCE) {
             return Some(range(&ctx).start);
         }
@@ -1170,29 +1174,19 @@ pub fn action(
 /// one) and its definition's text on one line (a label's definition, or
 /// an inline footnote's), for previews.
 pub fn preview(text: &str, pos: usize) -> Option<(Option<String>, String)> {
-    let root = root(text);
-    let (label, r) = reference_at(text, &root, pos)?;
-    let def = match label.clone() {
-        None => {
-            let ctx = context(&root, r.start)?;
-            let c = ast::contents_range(&ctx)?;
-            text[usize::from(c.start())..usize::from(c.end())].to_string()
-        }
-        Some(l) => {
-            let start = definition_start(text, &l)?;
-            let ctx = context(&root, start + 1)?;
-            match ctx.kind() {
-                FOOTNOTE_DEFINITION => {
-                    let c = ast::contents_range(&ctx)?;
-                    text[usize::from(c.start())..usize::from(c.end())].to_string()
-                }
-                _ => {
-                    let c = ast::contents_range(&ctx)?;
-                    text[usize::from(c.start())..usize::from(c.end())].to_string()
-                }
-            }
-        }
+    preview_in(text, &root(text), pos)
+}
+
+/// [`preview`] with the parse of `text` at hand (`root`): asked at each
+/// cursor move, it parses nothing.
+pub fn preview_in(text: &str, root: &SyntaxNode, pos: usize) -> Option<(Option<String>, String)> {
+    let (label, r) = reference_at(text, root, pos)?;
+    let ctx = match &label {
+        None => context(root, r.start)?,
+        Some(l) => context(root, definition_start_in(text, root, l)? + 1)?,
     };
+    let c = ast::contents_range(&ctx)?;
+    let def = &text[usize::from(c.start())..usize::from(c.end())];
     let one_line = def.split_whitespace().collect::<Vec<_>>().join(" ");
     (!one_line.is_empty()).then_some((label, one_line))
 }

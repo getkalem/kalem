@@ -158,10 +158,11 @@ pub fn preview(doc: &Document, file: Option<&Path>, pos: usize) -> Option<String
 
 /// What the status bar and a tooltip say about the citation or the
 /// footnote reference at `pos`: the entry cited, or the footnote's text.
-pub fn note_at(doc: &Document, file: Option<&Path>, pos: usize) -> Option<String> {
+/// `text` is the text `doc` was parsed from.
+pub fn note_at(doc: &Document, text: &str, file: Option<&Path>, pos: usize) -> Option<String> {
     preview(doc, file, pos).or_else(|| {
-        let text = doc.parse().syntax().to_string();
-        let (label, body) = org_edit::footnote::preview(&text, pos)?;
+        let root = doc.parse().syntax();
+        let (label, body) = org_edit::footnote::preview_in(text, &root, pos)?;
         Some(crate::tr!(
             "footnote-preview",
             label = label.unwrap_or_default().as_str(),
@@ -188,9 +189,10 @@ impl Preview {
         if self.at.as_ref() != Some(&at) {
             let path = at.0.clone();
             self.at = Some(at);
+            // The model waits for the parse: it is of the text as it is.
             self.text = doc
                 .model()
-                .and_then(|m| note_at(&m, path.as_deref(), head))
+                .and_then(|m| note_at(&m, doc.text().as_str(), path.as_deref(), head))
                 .or_else(|| crate::latex_view::note_at(doc, head))
                 .or_else(|| crate::latex_view::diagnostic_at(doc, head));
         }
