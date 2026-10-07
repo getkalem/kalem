@@ -89,18 +89,26 @@ impl Bibliography {
 /// Windows-1252, the Latin-1 that older BibTeX files are written in.
 fn read_text(file: &Path) -> Result<String, String> {
     let bytes = std::fs::read(file).map_err(|e| e.to_string())?;
-    if let Some((encoding, bom)) = encoding_rs::Encoding::for_bom(&bytes) {
-        return Ok(encoding
+    let text = if let Some((encoding, bom)) = encoding_rs::Encoding::for_bom(&bytes) {
+        encoding
             .decode_without_bom_handling(&bytes[bom..])
             .0
-            .into_owned());
-    }
-    Ok(match String::from_utf8(bytes) {
-        Ok(text) => text,
-        Err(e) => encoding_rs::WINDOWS_1252
-            .decode_without_bom_handling(e.as_bytes())
-            .0
-            .into_owned(),
+            .into_owned()
+    } else {
+        match String::from_utf8(bytes) {
+            Ok(text) => text,
+            Err(e) => encoding_rs::WINDOWS_1252
+                .decode_without_bom_handling(e.as_bytes())
+                .0
+                .into_owned(),
+        }
+    };
+    // Windows' line endings as one, as BibTeX and Emacs read them: a
+    // value over two lines has no carriage return in it.
+    Ok(if text.contains('\r') {
+        text.replace("\r\n", "\n")
+    } else {
+        text
     })
 }
 
@@ -605,6 +613,15 @@ mod tests {
             assert_eq!(e[0].field("title"), Some(title), "{name}");
             assert_eq!(read(&f).unwrap().len(), 1, "{name}");
         }
+        // Windows' line endings: no carriage return in a value.
+        let f = dir.join("crlf.bib");
+        std::fs::write(&f, "@book{c,\r\n  title = {Multi\r\n Line Title}\r\n}\r\n").unwrap();
+        let (e, _) = read_tolerant(&f).unwrap();
+        assert!(
+            !e[0].field("title").unwrap().contains('\r'),
+            "{:?}",
+            e[0].field("title")
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

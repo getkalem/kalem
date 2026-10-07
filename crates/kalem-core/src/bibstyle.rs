@@ -107,6 +107,31 @@ fn lower(word: &str) -> bool {
         .is_some_and(char::is_lowercase)
 }
 
+/// The family names of a BibTeX `author` or `editor` field as a grid or
+/// a citation names them, read as BibTeX reads names: `van den Berg`,
+/// a corporate `{World Health Organization}` whole, `Knuth and Lamport`,
+/// `Knuth et al.` after the first of more, or before `others`.
+pub(crate) fn surnames(field: &str) -> String {
+    let all = names(field);
+    let family = |n: &Name| -> String {
+        let words: Vec<&str> = n.von.iter().chain(&n.last).map(String::as_str).collect();
+        crate::bibtex::plain(&words.join(" "))
+    };
+    let shown: Vec<String> = all
+        .iter()
+        .filter(|n| !n.others)
+        .map(family)
+        .filter(|n| !n.is_empty())
+        .collect();
+    let others = all.iter().any(|n| n.others);
+    match (shown.len(), others) {
+        (0, _) => String::new(),
+        (1, false) => shown[0].clone(),
+        (2, false) => format!("{} and {}", shown[0], shown[1]),
+        _ => format!("{} et al.", shown[0]),
+    }
+}
+
 /// The names of a BibTeX `author` or `editor` field.
 fn names(field: &str) -> Vec<Name> {
     // Compared as bytes: `i` may be inside a character.

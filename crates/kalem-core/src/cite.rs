@@ -83,23 +83,7 @@ pub fn year(e: &Entry) -> Option<String> {
 /// names them: `Knuth`, `Knuth and Lamport`, `Knuth et al.`.
 pub fn short_authors(e: &Entry) -> Option<String> {
     let who = field(e, "author").or_else(|| field(e, "editor"))?;
-    let names: Vec<String> = who
-        .split(" and ")
-        .map(|n| {
-            let n = n.trim();
-            match n.split_once(',') {
-                Some((family, _)) => family.trim().to_string(),
-                None => n.rsplit(' ').next().unwrap_or(n).to_string(),
-            }
-        })
-        .filter(|n| !n.is_empty())
-        .collect();
-    Some(match names.len() {
-        0 => return None,
-        1 => names[0].clone(),
-        2 => format!("{} and {}", names[0], names[1]),
-        _ => format!("{} et al.", names[0]),
-    })
+    Some(crate::bibstyle::surnames(&who)).filter(|s| !s.is_empty())
 }
 
 /// One line about an entry: "Author (Year). Title. Journal."

@@ -271,6 +271,11 @@ pub fn plain(value: &str) -> String {
         match c {
             '{' | '}' => {}
             '~' => out.push(' '),
+            // A formula: its Unicode approximation (`$\alpha$-helix`).
+            '$' => {
+                let formula: String = chars.by_ref().take_while(|&c| c != '$').collect();
+                out.push_str(&crate::math::unicode(&format!("${formula}$")));
+            }
             '\\' => {
                 let Some(&n) = chars.peek() else { break };
                 if crate::latex_view::accent_mark(&n.to_string()).is_some()
@@ -289,18 +294,45 @@ pub fn plain(value: &str) -> String {
                         chars.next();
                     }
                     let Some(mut l) = chars.next() else { break };
-                    // `\'{\i}`: the dotless i carries the accent.
+                    // Accents on an accented letter (Vietnamese
+                    // `Nguy{\~{\^e}}n`): the inner one's marks first.
+                    let mut marks = vec![n];
+                    while l == '\\'
+                        && let Some(&m) = chars.peek()
+                        && m != 'i'
+                        && crate::latex_view::accent_mark(&m.to_string()).is_some()
+                    {
+                        chars.next();
+                        marks.insert(0, m);
+                        while chars.peek() == Some(&'{') {
+                            chars.next();
+                        }
+                        match chars.next() {
+                            Some(next) => l = next,
+                            None => break,
+                        }
+                    }
+                    // `\'{\i}`: the dotless i carries the accent (and TeX
+                    // eats the blanks after `\i`).
                     if l == '\\' && chars.peek() == Some(&'i') {
                         chars.next();
                         l = 'i';
+                        while chars.peek() == Some(&' ') {
+                            chars.next();
+                        }
                     }
-                    out.push(accent(n, l).unwrap_or(l));
+                    out.push_str(&accents(&marks, l));
                 } else if n.is_ascii_alphabetic() {
                     // A command: its name is dropped (`\textit`), the
                     // special letters kept.
                     let mut name = String::new();
                     while chars.peek().is_some_and(char::is_ascii_alphabetic) {
                         name.push(chars.next().unwrap_or(' '));
+                    }
+                    // TeX eats the blanks after a control word
+                    // (`Stra\ss e` is Straße).
+                    while chars.peek() == Some(&' ') {
+                        chars.next();
                     }
                     match name.as_str() {
                         "TeX" | "LaTeX" | "BibTeX" | "LaTeXe" => out.push_str(&name),
@@ -321,33 +353,24 @@ pub fn plain(value: &str) -> String {
     out.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-fn accent(mark: char, letter: char) -> Option<char> {
+/// `letter` with the accents `marks` (innermost first), composed as far
+/// as Unicode has the characters.
+fn accents(marks: &[char], letter: char) -> String {
     use unicode_normalization::UnicodeNormalization;
-    let m = crate::latex_view::accent_mark(&mark.to_string())?;
-    let composed: String = [letter, m].iter().collect::<String>().nfc().collect();
-    let mut chars = composed.chars();
-    let c = chars.next()?;
-    chars.next().is_none().then_some(c)
+    let mut s = String::from(letter);
+    for m in marks {
+        match crate::latex_view::accent_mark(&m.to_string()) {
+            Some(c) => s.push(c),
+            None => return letter.to_string(),
+        }
+    }
+    s.nfc().collect()
 }
 
-/// The authors as a grid shows them: last names, "and" between two, "et
-/// al." after the first of more.
+/// The authors as a grid shows them: family names as BibTeX reads them,
+/// "and" between two, "et al." after the first of more.
 pub fn short_authors(authors: &str) -> String {
-    let names: Vec<String> = authors
-        .split(" and ")
-        .map(str::trim)
-        .filter(|n| !n.is_empty())
-        .map(|n| match n.split_once(',') {
-            Some((last, _)) => last.trim().to_string(),
-            None => n.split_whitespace().last().unwrap_or(n).to_string(),
-        })
-        .collect();
-    match names.len() {
-        0 => String::new(),
-        1 => names[0].clone(),
-        2 => format!("{} and {}", names[0], names[1]),
-        _ => format!("{} et al.", names[0]),
-    }
+    crate::bibstyle::surnames(authors)
 }
 
 /// The fields BibTeX's standard styles require of an entry type: each
@@ -576,9 +599,26 @@ pub fn cells_with(
             .map(|f| plain(&expand(&text[f.value.clone()], strings)))
             .unwrap_or_default()
     };
+    // The names as BibTeX reads them, before their braces go.
+    let raw = |n: &str| {
+        e.field(text, n)
+            .map(|f| {
+                let v = expand(&text[f.value.clone()], strings);
+                let inner = v
+                    .strip_prefix('{')
+                    .and_then(|v| v.strip_suffix('}'))
+                    .or_else(|| v.strip_prefix('"').and_then(|v| v.strip_suffix('"')));
+                inner.map_or_else(|| v.clone(), str::to_string)
+            })
+            .unwrap_or_default()
+    };
     let author = {
-        let a = get("author");
-        if a.is_empty() { get("editor") } else { a }
+        let a = raw("author");
+        if a.trim().is_empty() {
+            raw("editor")
+        } else {
+            a
+        }
     };
     let year = {
         let y = get("year");
@@ -591,7 +631,7 @@ pub fn cells_with(
     [
         text[e.key.clone()].to_string(),
         text[e.kind.clone()].to_ascii_lowercase(),
-        short_authors(&author),
+        crate::bibstyle::surnames(&author),
         get("title"),
         year,
     ]
@@ -1013,6 +1053,20 @@ mod tests {
     }
 
     #[test]
+    fn values_read_as_tex_prints_them() {
+        for (value, shown) in [
+            ("{Nguy{\\~{\\^e}}n}", "Nguyễn"),
+            ("{$\\alpha$-helix}", "α-helix"),
+            ("{Stra\\ss e}", "Straße"),
+            ("{na\\\"\\i ve}", "naïve"),
+            ("{G\\\"{o}del}", "Gödel"),
+            ("{\\c{C}ay}", "Çay"),
+        ] {
+            assert_eq!(plain(value), shown, "{value}");
+        }
+    }
+
+    #[test]
     fn abbreviations_expanded() {
         let st = strings(BIB);
         assert_eq!(st.get("tug").map(String::as_str), Some("TUGboat"));
@@ -1024,6 +1078,23 @@ mod tests {
         // The author column shows family names: `me` expanded to "Kalem
         // Team" is Team.
         assert_eq!(cells(text, &e[0])[2], "Team");
+        // Names as BibTeX reads them: a von part, a corporate name in
+        // braces, `others`, an upper-case `AND`.
+        for (author, shown) in [
+            ("Jan van den Berg", "van den Berg"),
+            ("van den Berg, Jan", "van den Berg"),
+            ("{World Health Organization}", "World Health Organization"),
+            (
+                "{National Aeronautics and Space Administration}",
+                "National Aeronautics and Space Administration",
+            ),
+            ("Knuth, Donald and others", "Knuth et al."),
+            ("Alpha, A. AND Beta, B.", "Alpha and Beta"),
+        ] {
+            let text = format!("@misc{{a,\n  author = {{{author}}}\n}}\n");
+            let e = entries(&text);
+            assert_eq!(cells(&text, &e[0])[2], shown, "{author}");
+        }
     }
 
     #[test]
