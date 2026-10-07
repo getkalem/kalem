@@ -345,7 +345,12 @@ impl Ts {
 /// at `pos` changed by `n` steps (minutes by `step`).
 fn modify_extra(extra: &str, pos: usize, n: i64, step: i64) -> String {
     let b = extra.as_bytes();
-    let digits = |j: usize| b[j.min(b.len())..].iter().take_while(|c| c.is_ascii_digit()).count();
+    let digits = |j: usize| {
+        b[j.min(b.len())..]
+            .iter()
+            .take_while(|c| c.is_ascii_digit())
+            .count()
+    };
     let unit = |j: usize| matches!(b.get(j), Some(b'd' | b'w' | b'm' | b'y'));
     // `\(-\([012][0-9]\):\([0-5][0-9]\)\)?`
     let mut k = 0;
@@ -385,8 +390,10 @@ fn modify_extra(extra: &str, pos: usize, n: i64, step: i64) -> String {
             .to_string()
     };
     let (range, new) = if time.is_some() && within(1, 6) {
-        let (mut hour, mut minute): (i64, i64) =
-            (extra[1..3].parse().unwrap_or(0), extra[4..6].parse().unwrap_or(0));
+        let (mut hour, mut minute): (i64, i64) = (
+            extra[1..3].parse().unwrap_or(0),
+            extra[4..6].parse().unwrap_or(0),
+        );
         if within(1, 3) {
             hour += n;
         } else {
@@ -470,7 +477,10 @@ pub fn timestamp_change(
     let with_hm = s.char_indices().nth(10).is_some_and(|(i, _)| {
         let r = &s.as_bytes()[i..];
         (1..r.len().saturating_sub(2)).any(|k| {
-            r[k] == b':' && r[k - 1].is_ascii_digit() && r[k + 1].is_ascii_digit() && r[k + 2].is_ascii_digit()
+            r[k] == b':'
+                && r[k - 1].is_ascii_digit()
+                && r[k + 1].is_ascii_digit()
+                && r[k + 2].is_ascii_digit()
         })
     });
     let Some(mut t0) = time::parse_time_string(s) else {
@@ -562,7 +572,10 @@ fn update_clock_line(buf: &mut Buf) {
     let Some(a) = ts3_at(&buf.text, t1).filter(|t| t.end <= eol) else {
         return;
     };
-    let dashes = buf.text[a.end..eol].bytes().take_while(|c| *c == b'-').count();
+    let dashes = buf.text[a.end..eol]
+        .bytes()
+        .take_while(|c| *c == b'-')
+        .count();
     if dashes == 0 {
         return;
     }
@@ -575,7 +588,11 @@ fn update_clock_line(buf: &mut Buf) {
         let s = buf.text[ts.start..ts.end].to_string();
         let t = time::parse_time_string(&s)?;
         let with_hm = ts.time.is_some();
-        let (open, close) = if s.starts_with('[') { ('[', ']') } else { ('<', '>') };
+        let (open, close) = if s.starts_with('[') {
+            ('[', ']')
+        } else {
+            ('<', '>')
+        };
         let new = format!("{open}{}{}{close}", time::format(t, with_hm), extra(&s));
         buf.replace(ts.start, ts.end, &new);
         Some(())
@@ -584,7 +601,8 @@ fn update_clock_line(buf: &mut Buf) {
     let old_b_end = b.end;
     let a_len = a.end - a.start;
     rewrite(buf, a.start);
-    let shift_by = ts3_at(&buf.text, a.start).map_or(0, |t| t.end - t.start) as isize - a_len as isize;
+    let shift_by =
+        ts3_at(&buf.text, a.start).map_or(0, |t| t.end - t.start) as isize - a_len as isize;
     rewrite(buf, (b_start as isize + shift_by) as usize);
     let eol = buf.eol(bol);
     let Some(b) = ts3_at(&buf.text, (b_start as isize + shift_by) as usize) else {

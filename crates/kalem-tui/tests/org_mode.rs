@@ -33,7 +33,11 @@ fn open_with(text: &str, settings: &str, at: usize) -> T {
     let _ = std::fs::remove_dir_all(&dir);
     let config_dir = dir.join("config");
     std::fs::create_dir_all(&config_dir).unwrap();
-    std::fs::write(config_dir.join("settings.toml"), "[ui]\nlanguage = \"en\"\n").unwrap();
+    std::fs::write(
+        config_dir.join("settings.toml"),
+        "[ui]\nlanguage = \"en\"\n",
+    )
+    .unwrap();
     kalem_core::kalem_fs::set_trash_dir(Some(dir.join("trash")));
     let path = dir.join("t.org");
     std::fs::write(&path, text).unwrap();
@@ -156,13 +160,17 @@ fn links_into_the_document_itself_have_no_file() {
     let mut t = open(text, text.find("Second").unwrap());
     t.app.run_command("link.store", serde_json::json!({}));
     t.app.doc.move_cursor(8, false);
-    t.app.run_command("org.link.insertStored", serde_json::json!({}));
+    t.app
+        .run_command("org.link.insertStored", serde_json::json!({}));
     assert_eq!(t.text(), "* First\n[[*Second][Second]]\n* Second\n");
     t.app.run_command(
         "org.insert.link",
         serde_json::json!({ "link": "file:t.org::*First", "description": "up" }),
     );
-    assert_eq!(t.text(), "* First\n[[*Second][Second]][[*First][up]]\n* Second\n");
+    assert_eq!(
+        t.text(),
+        "* First\n[[*Second][Second]][[*First][up]]\n* Second\n"
+    );
 }
 
 #[test]
@@ -174,13 +182,16 @@ fn alt_enter_inserts_a_heading() {
     t.key(KeyCode::Enter, KeyModifiers::ALT);
     assert_eq!(t.text(), "* One\n** Two \n** words\nBody.\n- item\n");
     assert_eq!(t.app.doc.selection.head, "* One\n** Two \n** words".len());
-    t.app.doc.move_cursor(t.text().find("item").unwrap() + 4, false);
+    t.app
+        .doc
+        .move_cursor(t.text().find("item").unwrap() + 4, false);
     t.key(KeyCode::Enter, KeyModifiers::ALT);
     assert_eq!(t.text(), "* One\n** Two \n** words\nBody.\n- item\n- \n");
     // After the subtree, from anywhere in it.
     let text = "* A\n** a1\ntext\n* B\n";
     let mut t = open(text, 2);
-    t.app.run_command("org.headline.insertAfterSubtree", serde_json::json!({}));
+    t.app
+        .run_command("org.headline.insertAfterSubtree", serde_json::json!({}));
     assert_eq!(t.text(), "* A\n** a1\ntext\n* \n* B\n");
     t.typ("New");
     assert_eq!(t.text(), "* A\n** a1\ntext\n* New\n* B\n");
@@ -194,19 +205,39 @@ fn shift_arrows_on_a_timestamp() {
     let text = "* TODO Call <2026-10-05 Mon 10:03>\nSCHEDULED: <2026-10-31 Sat>\nplain\n";
     let mut t = open(text, text.find("10-05").unwrap() + 1);
     t.key(KeyCode::Up, KeyModifiers::SHIFT);
-    assert!(t.text().starts_with("* TODO Call <2026-11-05 Thu 10:03>"), "{}", t.text());
-    t.app.doc.move_cursor(t.text().find("10:03").unwrap() + 4, false);
+    assert!(
+        t.text().starts_with("* TODO Call <2026-11-05 Thu 10:03>"),
+        "{}",
+        t.text()
+    );
+    t.app
+        .doc
+        .move_cursor(t.text().find("10:03").unwrap() + 4, false);
     t.key(KeyCode::Up, KeyModifiers::SHIFT);
-    assert!(t.text().starts_with("* TODO Call <2026-11-05 Thu 10:05>"), "{}", t.text());
+    assert!(
+        t.text().starts_with("* TODO Call <2026-11-05 Thu 10:05>"),
+        "{}",
+        t.text()
+    );
     let s = t.text().find("<2026-10-31").unwrap() + 3;
     t.app.doc.move_cursor(s, false);
     t.key(KeyCode::Right, KeyModifiers::SHIFT);
-    assert!(t.text().contains("SCHEDULED: <2026-11-01 Sun>"), "{}", t.text());
+    assert!(
+        t.text().contains("SCHEDULED: <2026-11-01 Sun>"),
+        "{}",
+        t.text()
+    );
     t.key(KeyCode::Left, KeyModifiers::SHIFT);
     t.key(KeyCode::Left, KeyModifiers::SHIFT);
-    assert!(t.text().contains("SCHEDULED: <2026-10-30 Fri>"), "{}", t.text());
+    assert!(
+        t.text().contains("SCHEDULED: <2026-10-30 Fri>"),
+        "{}",
+        t.text()
+    );
     // Away from timestamps the keys are what they were.
-    t.app.doc.move_cursor(t.text().find("plain").unwrap(), false);
+    t.app
+        .doc
+        .move_cursor(t.text().find("plain").unwrap(), false);
     t.key(KeyCode::Right, KeyModifiers::SHIFT);
     assert_eq!(t.app.doc.selected_text(), Some("p"));
     t.app.doc.move_cursor(3, false);
@@ -217,7 +248,11 @@ fn shift_arrows_on_a_timestamp() {
 #[test]
 fn vim_z_keys_fold_as_in_doom() {
     let text = "* A\ntext\n** B\nmore\n* C\n";
-    let mut t = open_with(text, "editor.keymap_profile = \"vim\"\n", text.find("more").unwrap());
+    let mut t = open_with(
+        text,
+        "editor.keymap_profile = \"vim\"\n",
+        text.find("more").unwrap(),
+    );
     // `zc` in B's body closes B, the cursor on its heading.
     t.typ("zc");
     assert_eq!(t.row(2), " ** B …");
@@ -261,7 +296,9 @@ fn vim_keys_of_evil_org_and_doom() {
     assert!(t.text().starts_with("* DONE Task\n"), "{}", t.text());
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert!(t.text().starts_with("* TODO Task\n"), "{}", t.text());
-    t.app.doc.move_cursor(t.text().find("plain").unwrap(), false);
+    t.app
+        .doc
+        .move_cursor(t.text().find("plain").unwrap(), false);
     let before = t.text();
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(t.text(), before);
@@ -272,9 +309,11 @@ fn toggle_heading_toggle_item_and_remove_link() {
     // Text to a heading under the entry, and back.
     let text = "* A\nsome text\n";
     let mut t = open(text, 6);
-    t.app.run_command("org.headline.toggle", serde_json::json!({}));
+    t.app
+        .run_command("org.headline.toggle", serde_json::json!({}));
     assert_eq!(t.text(), "* A\n** some text\n");
-    t.app.run_command("org.headline.toggle", serde_json::json!({}));
+    t.app
+        .run_command("org.headline.toggle", serde_json::json!({}));
     assert_eq!(t.text(), "* A\nsome text\n");
     // A TODO heading to an item with a checkbox; the item back to text.
     let text = "* TODO Buy milk :home:\n";

@@ -2026,7 +2026,12 @@ mod tests {
         let t = "* A\ntext\n** B\nmore\n* C\n";
         let p = org_syntax::parse(t);
         let b = blocks(&p.syntax(), p.context());
-        let shown = |f: &Folds| f.visible(&b).iter().map(|b| b.range.start).collect::<Vec<_>>();
+        let shown = |f: &Folds| {
+            f.visible(&b)
+                .iter()
+                .map(|b| b.range.start)
+                .collect::<Vec<_>>()
+        };
         let mut f = Folds::default();
         let all = shown(&f);
         // `zc` in the body of B closes B and takes the cursor to it.

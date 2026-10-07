@@ -342,11 +342,23 @@ mod tests {
     #[test]
     fn the_selection_stays_on_its_text() {
         // Bold, then bold again: the word is plain again.
-        assert_eq!(selection_after("a word here\n", 2, 6, Emphasis::Bold), (3, 7));
-        assert_eq!(selection_after("a *word* here\n", 3, 7, Emphasis::Bold), (2, 6));
-        assert_eq!(selection_after("a *word* here\n", 2, 8, Emphasis::Bold), (2, 6));
+        assert_eq!(
+            selection_after("a word here\n", 2, 6, Emphasis::Bold),
+            (3, 7)
+        );
+        assert_eq!(
+            selection_after("a *word* here\n", 3, 7, Emphasis::Bold),
+            (2, 6)
+        );
+        assert_eq!(
+            selection_after("a *word* here\n", 2, 8, Emphasis::Bold),
+            (2, 6)
+        );
         // A space put before the marker moves the text one more.
-        assert_eq!(selection_after("aword here\n", 1, 5, Emphasis::Bold), (3, 7));
+        assert_eq!(
+            selection_after("aword here\n", 1, 5, Emphasis::Bold),
+            (3, 7)
+        );
     }
 
     fn at_caret(text: &str, point: usize, k: Emphasis) -> (String, usize) {
@@ -358,8 +370,14 @@ mod tests {
     #[test]
     fn keys_without_a_selection() {
         // A pair, then the same key in the empty pair takes it away.
-        assert_eq!(at_caret("Say \n", 4, Emphasis::Bold), ("Say **\n".into(), 5));
-        assert_eq!(at_caret("Say **\n", 5, Emphasis::Bold), ("Say \n".into(), 4));
+        assert_eq!(
+            at_caret("Say \n", 4, Emphasis::Bold),
+            ("Say **\n".into(), 5)
+        );
+        assert_eq!(
+            at_caret("Say **\n", 5, Emphasis::Bold),
+            ("Say \n".into(), 4)
+        );
         // At the end of the bold text the cursor leaves it.
         assert_eq!(
             at_caret("Say *bold*\n", 9, Emphasis::Bold),
@@ -370,7 +388,10 @@ mod tests {
             ("Say /it/ x\n".into(), 8)
         );
         // Inside other emphasis, a pair as org-emphasize inserts it.
-        assert_eq!(at_caret("Say *bold*\n", 9, Emphasis::Italic).0, "Say *bold // *\n");
+        assert_eq!(
+            at_caret("Say *bold*\n", 9, Emphasis::Italic).0,
+            "Say *bold // *\n"
+        );
         // A heading's stars are not a pair.
         assert_eq!(at_caret("** H\n", 1, Emphasis::Bold).0, "* ** * H\n");
     }

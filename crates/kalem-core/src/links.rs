@@ -273,7 +273,10 @@ mod tests {
         assert_eq!(same_file_link("file:a.org::*Intro", doc), "*Intro");
         assert_eq!(same_file_link("file:./a.org::#id", doc), "#id");
         assert_eq!(same_file_link("file:/w/notes/a.org::x", doc), "x");
-        assert_eq!(same_file_link("file:b.org::*Intro", doc), "file:b.org::*Intro");
+        assert_eq!(
+            same_file_link("file:b.org::*Intro", doc),
+            "file:b.org::*Intro"
+        );
         assert_eq!(same_file_link("file:a.org", doc), "file:a.org");
         assert_eq!(same_file_link("https://a.org::x", doc), "https://a.org::x");
     }

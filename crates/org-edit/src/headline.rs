@@ -885,7 +885,10 @@ fn insert_heading_in(buf: &mut Buf, place: HeadingPlace, level: Option<usize>, c
             let split = buf.text[buf.point..te].to_string();
             buf.delete(buf.point, te);
             let eol = buf.eol(buf.point);
-            if buf.text[buf.point..eol].trim_matches([' ', '\t']).is_empty() {
+            if buf.text[buf.point..eol]
+                .trim_matches([' ', '\t'])
+                .is_empty()
+            {
                 buf.delete(buf.point, eol);
             } else {
                 align_tags(buf, bol);

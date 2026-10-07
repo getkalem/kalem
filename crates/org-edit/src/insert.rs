@@ -51,9 +51,11 @@ pub fn link_unescape(s: &str) -> String {
     out
 }
 
-/// The bracket link (`org-link-bracket-re`) starting at `i`: its end, the
-/// range of its target and of its description.
-fn bracket_link_at(text: &str, i: usize) -> Option<(usize, (usize, usize), Option<(usize, usize)>)> {
+/// A bracket link's end, the range of its target and of its description.
+type BracketLink = (usize, (usize, usize), Option<(usize, usize)>);
+
+/// The bracket link (`org-link-bracket-re`) starting at `i`.
+fn bracket_link_at(text: &str, i: usize) -> Option<BracketLink> {
     let b = text.as_bytes();
     if !text[i..].starts_with("[[") {
         return None;

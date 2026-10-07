@@ -39,7 +39,12 @@ fn contents_end(n: &SyntaxNode, text: &str) -> Option<usize> {
         let e = end(n);
         let s = start(n);
         let q = s + text[s..e].trim_end_matches([' ', '\r', '\t', '\n']).len();
-        return Some(text[q..].find('\n').map_or(text.len(), |i| q + i + 1).min(e));
+        return Some(
+            text[q..]
+                .find('\n')
+                .map_or(text.len(), |i| q + i + 1)
+                .min(e),
+        );
     }
     org_syntax::ast::contents_range(n).map(|r| usize::from(r.end()))
 }
@@ -53,7 +58,9 @@ pub fn heading_same_level(text: &str, pos: usize, n: i64, ctx: &ParseContext) ->
         return if n < 0 {
             0
         } else {
-            headings(text, limit).first().map_or(text.len(), |(s, _)| *s)
+            headings(text, limit)
+                .first()
+                .map_or(text.len(), |(s, _)| *s)
         };
     };
     // Every heading, inlinetasks too, stops the search at a higher level.
@@ -210,7 +217,9 @@ pub fn down_element(text: &str, pos: usize, ctx: &ParseContext) -> Result<usize,
     };
     let contents = || org_syntax::ast::contents_range(&el).map(|r| usize::from(r.start()));
     match el.kind() {
-        PLAIN_LIST | TABLE => contents().map_or_else(|| user_error("No content for this element"), |c| Ok(c + 1)),
+        PLAIN_LIST | TABLE => {
+            contents().map_or_else(|| user_error("No content for this element"), |c| Ok(c + 1))
+        }
         HEADLINE | INLINETASK | PROPERTY_DRAWER | DRAWER | ITEM | CENTER_BLOCK | QUOTE_BLOCK
         | SPECIAL_BLOCK | DYNAMIC_BLOCK | FOOTNOTE_DEFINITION => {
             contents().map_or_else(|| user_error("No content for this element"), Ok)

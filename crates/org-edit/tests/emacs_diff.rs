@@ -30,7 +30,12 @@ fn run(
         "motion" => {
             use org_edit::motion::*;
             let to = match args[0].as_str() {
-                Some("same-level") => Ok(heading_same_level(text, point, args[1].as_i64().unwrap_or(1), ctx)),
+                Some("same-level") => Ok(heading_same_level(
+                    text,
+                    point,
+                    args[1].as_i64().unwrap_or(1),
+                    ctx,
+                )),
                 Some("forward") => forward_element(text, point, ctx),
                 Some("backward") => backward_element(text, point, ctx),
                 Some("up") => up_element(text, point, ctx),
@@ -564,7 +569,10 @@ fn commands_match_emacs() {
         failures.len(),
         known.len()
     );
-    for f in failures.iter().take(std::env::var("DIFF_ALL").map_or(40, |_| 100_000)) {
+    for f in failures
+        .iter()
+        .take(std::env::var("DIFF_ALL").map_or(40, |_| 100_000))
+    {
         eprintln!("{f}");
     }
     assert!(

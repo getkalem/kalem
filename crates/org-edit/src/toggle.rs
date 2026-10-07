@@ -158,7 +158,10 @@ pub fn toggle_heading(
         let inside = point >= first && point <= buf.marker(end);
         while p < buf.marker(end) {
             if let Some(after) = item_at(&buf.text, p, ctx) {
-                let ind = column_at(&buf.text, p + buf.text[p..].len() - buf.text[p..].trim_start_matches([' ', '\t']).len());
+                let ind = column_at(
+                    &buf.text,
+                    p + buf.text[p..].len() - buf.text[p..].trim_start_matches([' ', '\t']).len(),
+                );
                 while indents.last().is_some_and(|&i| i >= ind) && indents.len() > 1 {
                     indents.pop();
                 }
@@ -174,7 +177,11 @@ pub fn toggle_heading(
                     None => rest.to_string(),
                 };
                 let oddeven = level + depth - 1;
-                let stars = "*".repeat(if ctx.odd_levels_only { 2 * oddeven - 1 } else { oddeven });
+                let stars = "*".repeat(if ctx.odd_levels_only {
+                    2 * oddeven - 1
+                } else {
+                    oddeven
+                });
                 buf.replace(p, eol, &format!("{stars} {keyword}{rest}"));
             }
             p = next_line(&buf.text, p);
@@ -185,7 +192,11 @@ pub fn toggle_heading(
     } else {
         let level = current_level(&buf.text, p, ctx);
         let stars = "*".repeat(level);
-        let add = if level == 0 || !ctx.odd_levels_only { "*" } else { "**" };
+        let add = if level == 0 || !ctx.odd_levels_only {
+            "*"
+        } else {
+            "**"
+        };
         let rpl = format!("{stars}{add} ");
         while p < buf.marker(end) {
             let eol = buf.text[p..].find('\n').map_or(buf.text.len(), |i| p + i);
@@ -262,7 +273,10 @@ pub fn toggle_item(
             let eol = buf.text[p..].find('\n').map_or(buf.text.len(), |i| p + i);
             let line = buf.text[p..eol].to_string();
             let c = org_model::complex_heading(&line, ctx);
-            let keyword = c.as_ref().and_then(|c| c.todo.clone()).map(|r| line[r].to_string());
+            let keyword = c
+                .as_ref()
+                .and_then(|c| c.todo.clone())
+                .map(|r| line[r].to_string());
             // `org-todo-line-regexp`'s group 3: the title, from the first
             // word after the stars and the keyword.
             let after_kw = c
@@ -325,15 +339,22 @@ fn delete_metadata(buf: &mut Buf, h: usize, ctx: &ParseContext) {
         return;
     }
     let mut p = next;
-    let line_at = |t: &str, p: usize| t[p..t[p..].find('\n').map_or(t.len(), |i| p + i)].to_string();
+    let line_at =
+        |t: &str, p: usize| t[p..t[p..].find('\n').map_or(t.len(), |i| p + i)].to_string();
     let planning = |l: &str| {
         let t = l.trim_start_matches([' ', '\t']);
-        ["CLOSED:", "DEADLINE:", "SCHEDULED:"].iter().any(|k| t.starts_with(k))
+        ["CLOSED:", "DEADLINE:", "SCHEDULED:"]
+            .iter()
+            .any(|k| t.starts_with(k))
     };
     if p < buf.text.len() && planning(&line_at(&buf.text, p)) {
         p = next_line(&buf.text, p);
     }
-    if p < buf.text.len() && line_at(&buf.text, p).trim().eq_ignore_ascii_case(":PROPERTIES:") {
+    if p < buf.text.len()
+        && line_at(&buf.text, p)
+            .trim()
+            .eq_ignore_ascii_case(":PROPERTIES:")
+    {
         let mut q = next_line(&buf.text, p);
         while q < buf.text.len() {
             let l = line_at(&buf.text, q);

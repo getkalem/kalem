@@ -552,11 +552,15 @@ fn checkbox_on_line(text: &str, pos: usize) -> bool {
         .strip_prefix(['-', '+', '*'])
         .or_else(|| {
             let n = rest.bytes().take_while(u8::is_ascii_alphanumeric).count();
-            (n > 0).then(|| rest[n..].strip_prefix(['.', ')'])).flatten()
+            (n > 0)
+                .then(|| rest[n..].strip_prefix(['.', ')']))
+                .flatten()
         })
         .unwrap_or("");
     let after = after.trim_start_matches([' ', '\t']);
-    ["[ ]", "[X]", "[x]", "[-]"].iter().any(|c| after.starts_with(c))
+    ["[ ]", "[X]", "[x]", "[-]"]
+        .iter()
+        .any(|c| after.starts_with(c))
 }
 
 /// `org-timestamp-change` at the cursor by `n` of `what`, or of the part
@@ -8338,18 +8342,38 @@ fn plain_commands() -> Vec<Command> {
             None,
             |ctx, _| request(ctx, Request::FoldOp(crate::view::FoldOp::OpenSubtree)),
         ),
-        cmd("view.foldClose", "Close Fold", "View", &[], None, |ctx, _| {
-            request(ctx, Request::FoldOp(crate::view::FoldOp::Close))
-        }),
-        cmd("view.foldToggle", "Toggle Fold", "View", &[], None, |ctx, _| {
-            request(ctx, Request::FoldOp(crate::view::FoldOp::Toggle))
-        }),
-        cmd("view.foldCloseAll", "Close All Folds", "View", &[], None, |ctx, _| {
-            request(ctx, Request::FoldOp(crate::view::FoldOp::CloseAll))
-        }),
-        cmd("view.foldOpenAll", "Open All Folds", "View", &[], None, |ctx, _| {
-            request(ctx, Request::FoldOp(crate::view::FoldOp::OpenAll))
-        }),
+        cmd(
+            "view.foldClose",
+            "Close Fold",
+            "View",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::FoldOp(crate::view::FoldOp::Close)),
+        ),
+        cmd(
+            "view.foldToggle",
+            "Toggle Fold",
+            "View",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::FoldOp(crate::view::FoldOp::Toggle)),
+        ),
+        cmd(
+            "view.foldCloseAll",
+            "Close All Folds",
+            "View",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::FoldOp(crate::view::FoldOp::CloseAll)),
+        ),
+        cmd(
+            "view.foldOpenAll",
+            "Open All Folds",
+            "View",
+            &[],
+            None,
+            |ctx, _| request(ctx, Request::FoldOp(crate::view::FoldOp::OpenAll)),
+        ),
         cmd("edit.undo", "Undo", "Edit", &["ctrl+z"], None, |ctx, _| {
             ctx.doc()?
                 .undo()
@@ -8440,7 +8464,8 @@ fn plain_commands() -> Vec<Command> {
             Some(ORG),
             |ctx, _| {
                 ctx.org(|d, p, m| {
-                    let t = org_edit::toggle::toggle_heading(&text_of(d), p, m, d.parse().context())?;
+                    let t =
+                        org_edit::toggle::toggle_heading(&text_of(d), p, m, d.parse().context())?;
                     if t.is_empty() {
                         return Err(org_edit::EditError {
                             message: crate::tr!("msg-cannot-toggle-heading"),
@@ -8459,7 +8484,9 @@ fn plain_commands() -> Vec<Command> {
             &[],
             Some(ORG),
             |ctx, _| {
-                ctx.org(|d, p, m| org_edit::toggle::toggle_item(&text_of(d), p, m, d.parse().context()))
+                ctx.org(|d, p, m| {
+                    org_edit::toggle::toggle_item(&text_of(d), p, m, d.parse().context())
+                })
             },
         ),
         // `org-insert-heading` (M-RET): in a list Alt+Enter is Insert Item.
