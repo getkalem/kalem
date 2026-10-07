@@ -2136,8 +2136,12 @@ impl DocumentState {
                     // the last.
                     let r = a.text_range();
                     let (s, e) = (usize::from(r.start()), usize::from(r.end()));
-                    let first = text[s..e].find('\n').map_or(e, |i| s + i);
-                    let body = &text[s..e];
+                    // The parse may be of the text before the last edits
+                    // (a reparse running): its ranges sliced with care.
+                    let Some(body) = text.get(s..e) else {
+                        return base;
+                    };
+                    let first = body.find('\n').map_or(e, |i| s + i);
                     let end_line = body.trim_end().rfind('\n').map_or(e, |i| s + i + 1);
                     if pos <= first || pos >= end_line {
                         return base;

@@ -1408,7 +1408,7 @@ pub struct Block {
     pub headline: Option<usize>,
 }
 
-fn kind_of(n: &SyntaxNode) -> BlockKind {
+pub(crate) fn kind_of(n: &SyntaxNode) -> BlockKind {
     match n.kind() {
         PARAGRAPH => BlockKind::Paragraph,
         TABLE => BlockKind::Table,

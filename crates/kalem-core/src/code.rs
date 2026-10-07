@@ -14,6 +14,35 @@ pub fn indent_text(doc: &crate::DocumentState) -> String {
     }
 }
 
+/// The language of the source or export block whose contents hold `pos`
+/// (between its first and last lines), from the cursor's token up: asked
+/// at every key press (Toggle Comment's context), it walks no more than
+/// the cursor's ancestors. The parse may be of the text before the last
+/// edits (a reparse running): its ranges are sliced with care.
+fn block_language(root: &org_syntax::SyntaxNode, text: &str, pos: usize) -> Option<String> {
+    use org_syntax::SyntaxKind as K;
+    let len = usize::from(root.text_range().end());
+    if len == 0 {
+        return None;
+    }
+    let offset = org_syntax::TextSize::try_from(pos.min(len - 1)).ok()?;
+    let token = root.token_at_offset(offset).right_biased()?;
+    let block = token
+        .parent_ancestors()
+        .find(|a| matches!(a.kind(), K::SRC_BLOCK | K::EXPORT_BLOCK))?;
+    let r = block.text_range();
+    let (s, e) = (usize::from(r.start()), usize::from(r.end()));
+    let body = text.get(s..e)?;
+    let first_end = body.find('\n').map_or(e, |i| s + i);
+    let last_start = body.trim_end().rfind('\n').map_or(e, |i| s + i + 1);
+    if pos <= first_end || pos >= last_start {
+        return None;
+    }
+    crate::view::kind_of(&block)
+        .highlight_language()
+        .map(str::to_string)
+}
+
 /// The language of the code at the cursor of `doc`: a plain text file's
 /// (`rs`), a source block's in an Org document, or `org` elsewhere in
 /// one.
@@ -24,19 +53,7 @@ pub fn language_at(doc: &crate::DocumentState) -> Option<String> {
         crate::DocumentMode::Latex => Some("latex".into()),
         crate::DocumentMode::Org => {
             let (p, _) = doc.parse()?;
-            let pos = doc.selection.head;
-            let blocks = crate::view::blocks(&p.syntax(), p.context());
-            let lang = blocks
-                .iter()
-                .find(|b| b.range.start < pos && pos <= b.content_end)
-                .filter(|b| {
-                    // Inside the block's contents, not on its first line.
-                    let first_end = doc.text().as_str()[b.range.start..]
-                        .find('\n')
-                        .map_or(b.range.end, |i| b.range.start + i);
-                    pos > first_end
-                })
-                .and_then(|b| b.kind.highlight_language().map(str::to_string));
+            let lang = block_language(&p.syntax(), doc.text().as_str(), doc.selection.head);
             Some(lang.unwrap_or_else(|| "org".into()))
         }
         _ => None,
@@ -383,6 +400,25 @@ mod tests {
         assert_eq!(comment_style("rs"), Some(CommentStyle::Line("//")));
         assert_eq!(comment_style("Python"), Some(CommentStyle::Line("#")));
         assert_eq!(comment_style("nope"), None);
+    }
+
+    #[test]
+    fn the_language_of_a_block_at_the_cursor() {
+        let t = "* H\n#+begin_src python\nx = 1\n#+end_src\n- item\n  #+begin_src rust\n  let y;\n  #+end_src\n#+begin_export html\n<p>\n#+end_export\n";
+        let root = org_syntax::parse(t).syntax();
+        let at = |s: &str| t.find(s).unwrap();
+        let lang = |p: usize| block_language(&root, t, p);
+        assert_eq!(lang(at("x = 1")).as_deref(), Some("python"));
+        // Not on the first or the last line.
+        assert_eq!(lang(at("#+begin_src python") + 3), None);
+        assert_eq!(lang(at("#+end_src") + 2), None);
+        // In a list item too.
+        assert_eq!(lang(at("let y")).as_deref(), Some("rust"));
+        assert_eq!(lang(at("<p>")).as_deref(), Some("html"));
+        assert_eq!(lang(at("item")), None);
+        // A parse of a longer text than the one at hand: no slicing past
+        // its end.
+        assert_eq!(block_language(&root, &t[..30], at("let y")), None);
     }
 
     #[test]

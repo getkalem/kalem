@@ -1737,8 +1737,15 @@ pub fn diagnostics(path: &Path) -> Vec<Diagnostic> {
 }
 
 /// The language plugin of `doc` has a formatter command (`commands.format`).
+/// Asked at every key press (the `hasFormatter` context): it looks for no
+/// root folder, unlike [`format_command`].
 pub fn has_format_command(doc: &DocumentState) -> bool {
-    format_command(doc).is_some()
+    let Some(path) = code_file(doc) else {
+        return false;
+    };
+    let first = doc.text().as_str().lines().next();
+    languages::for_path(path, first)
+        .is_some_and(|(plugin, _)| plugin.commands.get("format").is_some_and(|c| !c.is_empty()))
 }
 
 /// The formatter command of `doc`'s language plugin with `{file}` filled
