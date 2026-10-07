@@ -3549,13 +3549,21 @@ fn csv_commands() -> Vec<Command> {
         }),
         c("csv.firstCell", "First Cell", &[], |ctx, _| {
             let d = ctx.doc()?;
+            // In Edit mode, the start of the cell's text, as in Excel.
+            if csv_in_cell(d, |stops, _| stops.first().copied()) {
+                return Ok(());
+            }
             d.csv_edit = None;
             d.go_to_csv_cell(0, 0);
             Ok(())
         }),
         c("csv.lastCell", "Last Cell", &[], |ctx, _| {
-            // The last row's cell in the last column, as Excel's Ctrl+End.
+            // The last row's cell in the last column, as Excel's Ctrl+End;
+            // in Edit mode, the end of the cell's text.
             let d = ctx.doc()?;
+            if csv_in_cell(d, |stops, _| stops.last().copied()) {
+                return Ok(());
+            }
             let (layout, _, _, _) = csv_cell(d)?;
             let text = d.text().as_str();
             let n = layout.index.borrow_mut().count(text, &layout.dialect);

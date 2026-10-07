@@ -487,3 +487,17 @@ fn enter_after_tabs_goes_back_to_the_column_they_started_from() {
     s.at("A2").key("csv.nextField").key("csv.cellRight").key("csv.cellBelow");
     assert_eq!(s.cell(), "C3");
 }
+
+#[test]
+fn ctrl_home_and_end_in_edit_mode_stay_in_the_cell() {
+    let mut s = Sheet::new("a,b\nhello,2\n3,4\n");
+    s.at("A2").key("csv.editCell");
+    s.key("csv.firstCell");
+    assert_eq!((s.cell(), s.d.selection.head), ("A2".to_string(), 4));
+    s.key("csv.lastCell");
+    assert_eq!((s.cell(), s.d.selection.head), ("A2".to_string(), 9));
+    assert_eq!(s.d.csv_mode(), Some(kalem_core::CellMode::Edit));
+    // In Ready mode, the first and the last cell.
+    s.key("csv.cancelEdit").key("csv.lastCell");
+    assert_eq!(s.cell(), "B3");
+}
