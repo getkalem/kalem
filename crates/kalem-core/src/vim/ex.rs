@@ -50,6 +50,20 @@ fn split_unescaped(s: &str, delim: char) -> (String, Option<&str>) {
 /// Expands a `:s` replacement for one match: `&` and `\0` the match, `\1`
 /// to `\9` its groups, `\r` and `\n` a line break, `\t` a tab, `\u`,
 /// `\l`, `\U`, `\L`, `\e` and `\E` the case of what follows.
+/// `s` with its case folded a character for a character, as Vim's
+/// `:sort i` compares (a letter whose lower case is two, `İ`, stays).
+fn fold_case(s: &str) -> String {
+    s.chars()
+        .map(|c| {
+            let mut l = c.to_lowercase();
+            match (l.next(), l.next()) {
+                (Some(one), None) => one,
+                _ => c,
+            }
+        })
+        .collect()
+}
+
 /// Where a `|` not after a backslash ends the command in `s`, if one does.
 fn bar_at(s: &str) -> Option<usize> {
     let b = s.as_bytes();
@@ -475,7 +489,8 @@ impl Vim {
                 for l in (a..=b).rev() {
                     let (s, fnb) = (line_start(doc, l), first_non_blank(doc, l));
                     let ind = super::insert::indent_string(indent, ts, self.options.expandtab);
-                    if line_end(doc, l) > fnb || indent == 0 {
+                    // Blank lines too, as in Vim.
+                    if doc.text().as_str()[s..fnb] != ind {
                         edit(doc, s..fnb, &ind, s);
                     }
                 }
@@ -753,7 +768,7 @@ impl Vim {
                 }
                 None => l.to_string(),
             };
-            if fold { k.to_lowercase() } else { k }
+            if fold { fold_case(&k) } else { k }
         };
         let number = |k: &str| -> Option<i64> {
             let start = k.find(|c: char| c.is_ascii_digit())?;
@@ -777,7 +792,7 @@ impl Vim {
         if unique {
             sorted.dedup_by(|x, y| {
                 if fold {
-                    x.to_lowercase() == y.to_lowercase()
+                    fold_case(x) == fold_case(y)
                 } else {
                     x == y
                 }
