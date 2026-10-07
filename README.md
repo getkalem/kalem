@@ -12,7 +12,7 @@
 
 Kalem (Turkish for "pen") opens a Markdown, Org, LaTeX or CSV file as what it is: a document or a grid. Bold text reads as bold, a formula is typeset, a table is a table. Under it the file stays plain text, byte for byte. PDF files, pictures and Excel workbooks open in viewers, next to your documents. Every other text file opens as code. A format Kalem does not know yet is a plugin away, written in Rust: you read and edit it here too, in the same editor.
 
-**Status: alpha.** It works every day, and it has rough edges. The current release installs [below](#install). An [issue](https://github.com/getkalem/kalem/issues) with the file that went wrong, when you can share it, helps most.
+**Status: alpha.** It is in daily use, and it has rough edges. The current release installs [below](#install). An [issue](https://github.com/getkalem/kalem/issues) with the file that went wrong, when you can share it, helps most.
 
 ## Why Kalem
 
