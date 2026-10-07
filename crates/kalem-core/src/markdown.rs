@@ -1185,6 +1185,20 @@ pub fn table_view(doc: &crate::DocumentState, pos: usize) -> Option<crate::view:
     if align.is_empty() {
         return None;
     }
+    // A row with more cells than the delimiter row: its cells shown too,
+    // left aligned, rather than its text hidden (or the grids, which size
+    // columns by `align`, indexed past it).
+    let widest = rows
+        .iter()
+        .map(|r| match r {
+            TableRow::Data { cells, .. } => cells.len(),
+            _ => 0,
+        })
+        .max()
+        .unwrap_or(0);
+    if widest > align.len() {
+        align.resize(widest, 'l');
+    }
     Some(TableView {
         range: table,
         rows,
@@ -3751,6 +3765,17 @@ mod tests {
         assert_eq!(shown(&v.rows[2]), ["-", "-"]);
         let row = line_view(&d, d.text().line_range(2), None).display();
         assert!(row.contains('-') && !row.contains('─'), "{row:?}");
+        // A row wider than the delimiter row: its cells shown, the grids
+        // (which size columns by `align`) indexed within it.
+        let text = "| a | b |\n|:-:|---|\n| 1 | 2 | 3 |\n";
+        let d = crate::DocumentState::new(
+            text,
+            meta,
+            std::sync::Arc::new(org_model::Settings::default()),
+        );
+        let v = table_view(&d, 0).unwrap();
+        assert_eq!(v.align, ['c', 'l', 'l']);
+        assert_eq!(shown(&v.rows[2]), ["1", "2", "3"]);
     }
 
     #[test]
@@ -3766,7 +3791,7 @@ mod tests {
         };
         let d = crate::DocumentState::new(
             text,
-            meta,
+            meta.clone(),
             std::sync::Arc::new(org_model::Settings::default()),
         );
         let shown =
