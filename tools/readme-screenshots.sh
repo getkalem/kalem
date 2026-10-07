@@ -228,7 +228,7 @@ AS
   # that Terminal closes the window without asking.
   local tty
   tty=$(osascript -e 'tell application "Terminal" to tty of selected tab of front window' 2>/dev/null)
-  [ -n "$tty" ] && pkill -9 -t "${tty#/dev/}" 2>/dev/null || true
+  [ -n "$tty" ] && ps -o pid= -t "${tty#/dev/}" | xargs kill -9 2>/dev/null || true
   sleep 1
   osascript -e 'tell application "Terminal" to close front window' >/dev/null 2>&1 || true
   echo "$out  ($command, Terminal window at $bounds)"
