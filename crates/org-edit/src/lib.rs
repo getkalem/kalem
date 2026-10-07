@@ -28,6 +28,7 @@ pub mod table;
 pub mod tags;
 pub mod timestamp;
 pub mod todo;
+pub mod toggle;
 mod transaction;
 pub mod typing;
 

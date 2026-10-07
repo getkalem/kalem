@@ -27,6 +27,8 @@ fn run(
         "org-move-subtree-down" => move_subtree(text, point, true, ctx),
         "org-move-subtree-up" => move_subtree(text, point, false, ctx),
         "org-cut-subtree" => cut_subtree(text, point, ctx).map(|(t, _)| t),
+        "toggle-heading" => org_edit::toggle::toggle_heading(text, point, mark, ctx),
+        "toggle-item" => org_edit::toggle::toggle_item(text, point, mark, ctx),
         "ts-change" => {
             use org_edit::timestamp::{TsField, timestamp_change};
             let n = args[0].as_i64().unwrap_or(1);
@@ -551,7 +553,7 @@ fn commands_match_emacs() {
         failures.len(),
         known.len()
     );
-    for f in failures.iter().take(40) {
+    for f in failures.iter().take(std::env::var("DIFF_ALL").map_or(40, |_| 100_000)) {
         eprintln!("{f}");
     }
     assert!(

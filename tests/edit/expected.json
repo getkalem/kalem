@@ -116206,5 +116206,1601 @@
     "text": "<2026-10-05 Mon 10:00 +1d/3d> at start\nend <2026-03-28 Sat>",
     "point": 59,
     "error": null
+  },
+  {
+    "name": "toggle-heading 0@0",
+    "text": "* Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@0",
+    "text": "- Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@3",
+    "text": "* Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 5,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@3",
+    "text": "- Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 5,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@11",
+    "text": "Intro line\n* indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@11",
+    "text": "Intro line\n  - indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 11,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@14",
+    "text": "Intro line\n* indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 14,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@14",
+    "text": "Intro line\n  - indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 16,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@28",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 28,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@28",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 28,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@29",
+    "text": "Intro line\n  indented intro\n\nTODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@29",
+    "text": "Intro line\n  indented intro\n\n- [ ] Head\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@32",
+    "text": "Intro line\n  indented intro\n\nTODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 30,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@32",
+    "text": "Intro line\n  indented intro\n\n- [ ] Head\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@45",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\n** SCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 45,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@45",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\n- SCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 45,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@48",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\n** SCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 51,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@48",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\n- SCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 50,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@73",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n** :PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 73,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@73",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n- :PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 73,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@76",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n** :PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 79,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@76",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n- :PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 78,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@86",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n** :ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 86,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@86",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n- :ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 86,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@89",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n** :ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 92,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@89",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n- :ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 91,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@93",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n** :END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 93,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@93",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n- :END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 93,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@96",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n** :END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 99,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@96",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n- :END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 98,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@99",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 99,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@99",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 99,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@100",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\n** Body text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 100,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@100",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\n- Body text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 100,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@103",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\n** Body text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 106,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@103",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\n- Body text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 105,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@110",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n** more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 110,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@110",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  - more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 110,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@113",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n** more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 114,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@113",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  - more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 115,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@122",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\nDONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 122,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@122",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n- [X] [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 122,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@125",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\nDONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 122,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@125",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n- [X] [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 122,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@144",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\n*** sub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 144,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@144",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\n- sub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 144,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@147",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\n*** sub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 151,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@147",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\n- sub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 149,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@153",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\nPlain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 153,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@153",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n- Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 153,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@156",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\nPlain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 153,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@156",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n- Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 153,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@166",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 166,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@166",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n- # comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 166,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@169",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 169,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@169",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n- # comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 171,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@176",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n*** item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 176,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@176",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\nitem one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 176,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@179",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n*** item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 176,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@179",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\nitem one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 177,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@187",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n*** DONE done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 187,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@187",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n[X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 187,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@190",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n*** DONE done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 187,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@190",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n[X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 188,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@203",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n*** nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 203,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@203",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 203,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@206",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n*** nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 203,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@206",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 205,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@214",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n*** TODO open\n1. first\n2) second\n* Last\nlast body",
+    "point": 214,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@214",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n[ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 214,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@217",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n*** TODO open\n1. first\n2) second\n* Last\nlast body",
+    "point": 214,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@217",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n[ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 215,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@225",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n*** first\n2) second\n* Last\nlast body",
+    "point": 225,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@225",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\nfirst\n2) second\n* Last\nlast body",
+    "point": 225,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@228",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n*** first\n2) second\n* Last\nlast body",
+    "point": 225,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@228",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\nfirst\n2) second\n* Last\nlast body",
+    "point": 225,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@234",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n** second\n* Last\nlast body",
+    "point": 234,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@234",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\nsecond\n* Last\nlast body",
+    "point": 234,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@237",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n** second\n* Last\nlast body",
+    "point": 234,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@237",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\nsecond\n* Last\nlast body",
+    "point": 234,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@244",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\nLast\nlast body",
+    "point": 244,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@244",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n- Last\nlast body",
+    "point": 244,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@247",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\nLast\nlast body",
+    "point": 245,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@247",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n- Last\nlast body",
+    "point": 247,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@251",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\n** last body",
+    "point": 251,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@251",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\n- last body",
+    "point": 251,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0@254",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\n** last body",
+    "point": 257,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0@254",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\n- last body",
+    "point": 256,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 0-11",
+    "text": "* Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 0-11",
+    "text": "- Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 13,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 0-28",
+    "text": "* Intro line\n* indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 30,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 0-28",
+    "text": "- Intro line\n  - indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 32,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 0-45",
+    "text": "* Intro line\n* indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 47,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 0-45",
+    "text": "- Intro line\n  - indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 49,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 11-28",
+    "text": "Intro line\n* indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 28,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 11-28",
+    "text": "Intro line\n  - indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 30,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 11-29",
+    "text": "Intro line\n* indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 11-29",
+    "text": "Intro line\n  - indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 31,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 11-73",
+    "text": "Intro line\n* indented intro\n\n* TODO Head :t:\n* SCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 75,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 11-73",
+    "text": "Intro line\n  - indented intro\n\n* TODO Head :t:\n- SCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 77,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 28-29",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 28-29",
+    "text": "Intro line\n  indented intro\n\n* TODO Head\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 29,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 28-45",
+    "text": "Intro line\n  indented intro\n\nTODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 43,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 28-45",
+    "text": "Intro line\n  indented intro\n\n- [ ] Head\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 40,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 28-86",
+    "text": "Intro line\n  indented intro\n\nTODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 84,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 28-86",
+    "text": "Intro line\n  indented intro\n\n- [ ] Head\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 40,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 29-45",
+    "text": "Intro line\n  indented intro\n\nTODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 43,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 29-45",
+    "text": "Intro line\n  indented intro\n\n- [ ] Head\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 40,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 29-73",
+    "text": "Intro line\n  indented intro\n\nTODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 71,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 29-73",
+    "text": "Intro line\n  indented intro\n\n- [ ] Head\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 40,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 29-93",
+    "text": "Intro line\n  indented intro\n\nTODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 91,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 29-93",
+    "text": "Intro line\n  indented intro\n\n- [ ] Head\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 40,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 45-73",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\n** SCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 76,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 45-73",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\n- SCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 75,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 45-86",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\n** SCHEDULED: <2026-10-05 Mon>\n** :PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 92,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 45-86",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\n- SCHEDULED: <2026-10-05 Mon>\n- :PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 90,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 45-99",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\n** SCHEDULED: <2026-10-05 Mon>\n** :PROPERTIES:\n** :ID: 1\n** :END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 111,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 45-99",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\n- SCHEDULED: <2026-10-05 Mon>\n- :PROPERTIES:\n- :ID: 1\n- :END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 107,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 73-86",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n** :PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 89,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 73-86",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n- :PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 88,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 73-93",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n** :PROPERTIES:\n** :ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 99,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 73-93",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n- :PROPERTIES:\n- :ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 97,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 73-100",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n** :PROPERTIES:\n** :ID: 1\n** :END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 109,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 73-100",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n- :PROPERTIES:\n- :ID: 1\n- :END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 106,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 86-93",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n** :ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 96,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 86-93",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n- :ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 95,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 86-99",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n** :ID: 1\n** :END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 105,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 86-99",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n- :ID: 1\n- :END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 103,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 86-110",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n** :ID: 1\n** :END:\n\n** Body text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 119,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 86-110",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n- :ID: 1\n- :END:\n\n- Body text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 116,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 93-99",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n** :END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 102,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 93-99",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n- :END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 101,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 93-100",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n** :END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 103,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 93-100",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n- :END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 102,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 93-122",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n** :END:\n\n** Body text\n** more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 129,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 93-122",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n- :END:\n\n- Body text\n  - more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 128,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 99-100",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 100,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 99-100",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 100,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 99-110",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\n** Body text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 113,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 99-110",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\n- Body text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 112,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 99-144",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\n** Body text\n** more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 148,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 99-144",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\n- Body text\n  - more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 148,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 100-110",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\n** Body text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 113,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 100-110",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\n- Body text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 112,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 100-122",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\n** Body text\n** more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 126,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 100-122",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\n- Body text\n  - more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 126,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 100-153",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\n** Body text\n** more body\n** DONE [#A] Sub task\n** sub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 160,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 100-153",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\n- Body text\n  - more body\n** DONE [#A] Sub task\n- sub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 159,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 110-122",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n** more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 123,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 110-122",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  - more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 124,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 110-144",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n** more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 145,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 110-144",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  - more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 146,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 110-166",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n** more body\n** DONE [#A] Sub task\n** sub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 170,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 110-166",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  - more body\n** DONE [#A] Sub task\n- sub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 170,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 122-144",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\nDONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 141,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 122-144",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n- [X] [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 142,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 122-153",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\nDONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 150,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 122-153",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n- [X] [#A] Sub task\n  sub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 153,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 122-176",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\nDONE [#A] Sub task\nsub body\nPlain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 170,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 122-176",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n- [X] [#A] Sub task\n  sub body\n- Plain sub\n  # comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 177,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 144-153",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\n*** sub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 157,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 144-153",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\n- sub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 155,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 144-166",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\n*** sub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 170,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 144-166",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\n- sub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 168,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 144-187",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\n*** sub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 191,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 144-187",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\n- sub body\n** Plain sub\n- # comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 191,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 153-166",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\nPlain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 163,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 153-166",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n- Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 165,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 153-176",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\nPlain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 173,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 153-176",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n- Plain sub\n  # comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 177,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 153-203",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\nPlain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 200,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 153-203",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n- Plain sub\n  # comment\n  - item one\n  - [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 208,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 166-176",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 176,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 166-176",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n- # comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 178,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 166-187",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n*** item one\n*** \n [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 176,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 166-187",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n- # comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 189,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 166-214",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n*** item one\n*** DONE done item\n**** nested\n*** \n [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 176,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 166-214",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n- # comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 216,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 176-187",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n*** item one\n*** \n [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 176,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 176-187",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\nitem one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 185,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 176-203",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n*** item one\n*** DONE done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 176,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 176-203",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\nitem one\n[X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 199,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 176-225",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n*** item one\n*** DONE done item\n**** nested\n*** TODO open\n1. first\n2) second\n* Last\nlast body",
+    "point": 176,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 176-225",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\nitem one\n[X] done item\n  nested\n[ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 217,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 187-203",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n*** DONE done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 187,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 187-203",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n[X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 201,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 187-214",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n*** DONE done item\n**** nested\n*** \n [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 187,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 187-214",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n[X] done item\n  nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 210,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 187-234",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n*** DONE done item\n**** nested\n*** TODO open\n*** first\n2) second\n* Last\nlast body",
+    "point": 187,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 187-234",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n[X] done item\n  nested\n[ ] open\nfirst\n2) second\n* Last\nlast body",
+    "point": 225,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 203-214",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n*** nested\n*** \n [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 203,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 203-214",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 212,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 203-225",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n*** nested\n*** TODO open\n1. first\n2) second\n* Last\nlast body",
+    "point": 203,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 203-225",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  nested\n[ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 221,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 203-244",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n** nested\n** TODO open\n** first\n** second\n* Last\nlast body",
+    "point": 203,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 203-244",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  nested\n[ ] open\nfirst\nsecond\n* Last\nlast body",
+    "point": 234,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 214-225",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n*** TODO open\n1. first\n2) second\n* Last\nlast body",
+    "point": 214,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 214-225",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n[ ] open\n1. first\n2) second\n* Last\nlast body",
+    "point": 223,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 214-234",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n*** TODO open\n*** first\n2) second\n* Last\nlast body",
+    "point": 214,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 214-234",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n[ ] open\nfirst\n2) second\n* Last\nlast body",
+    "point": 229,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 214-251",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n** TODO open\n** first\n** second\n* Last\nlast body",
+    "point": 253,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 214-251",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n[ ] open\nfirst\nsecond\n* Last\nlast body",
+    "point": 243,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 225-234",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n*** first\n2) second\n* Last\nlast body",
+    "point": 225,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 225-234",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\nfirst\n2) second\n* Last\nlast body",
+    "point": 231,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 225-244",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n** first\n** second\n* Last\nlast body",
+    "point": 225,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 225-244",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\nfirst\nsecond\n* Last\nlast body",
+    "point": 238,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 234-244",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n** second\n* Last\nlast body",
+    "point": 234,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 234-244",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\nsecond\n* Last\nlast body",
+    "point": 241,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 234-251",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n** second\n* Last\nlast body",
+    "point": 251,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 234-251",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\nsecond\n* Last\nlast body",
+    "point": 248,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 0 region 244-251",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\nLast\nlast body",
+    "point": 249,
+    "error": null
+  },
+  {
+    "name": "toggle-item 0 region 244-251",
+    "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n- Last\nlast body",
+    "point": 251,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1@0",
+    "text": "* #+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1@0",
+    "text": "- #+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 0,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1@3",
+    "text": "* #+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 5,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1@3",
+    "text": "- #+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 5,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1@24",
+    "text": "#+TODO: NEXT | FINISHED\nNEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 24,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1@24",
+    "text": "#+TODO: NEXT | FINISHED\n- [ ] Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 24,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1@27",
+    "text": "#+TODO: NEXT | FINISHED\nNEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 25,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1@27",
+    "text": "#+TODO: NEXT | FINISHED\n- [ ] Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 24,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1@37",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\n** text\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 37,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1@37",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\n- text\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 37,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1@40",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\n** text\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 43,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1@40",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\n- text\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1@42",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\nFINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1@42",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n- [X] Beta\n* Gamma\n- term :: description\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1@45",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\nFINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 43,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1@45",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n- [X] Beta\n* Gamma\n- term :: description\n",
+    "point": 42,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1@58",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\nGamma\n- term :: description\n",
+    "point": 58,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1@58",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n- Gamma\n- term :: description\n",
+    "point": 58,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1@61",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\nGamma\n- term :: description\n",
+    "point": 59,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1@61",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n- Gamma\n- term :: description\n",
+    "point": 61,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1@66",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n**  term description\n",
+    "point": 66,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1@66",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\nterm :: description\n",
+    "point": 66,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1@69",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n**  term description\n",
+    "point": 66,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1@69",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\nterm :: description\n",
+    "point": 67,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1@88",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 88,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1@88",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 88,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1 region 0-24",
+    "text": "* #+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 26,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1 region 0-24",
+    "text": "- #+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 26,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1 region 0-37",
+    "text": "* #+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 39,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1 region 0-37",
+    "text": "- #+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 39,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1 region 0-58",
+    "text": "* #+TODO: NEXT | FINISHED\n* NEXT Alpha\n* text\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 62,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1 region 0-58",
+    "text": "- #+TODO: NEXT | FINISHED\n* NEXT Alpha\n- text\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 62,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1 region 24-37",
+    "text": "#+TODO: NEXT | FINISHED\nNEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 35,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1 region 24-37",
+    "text": "#+TODO: NEXT | FINISHED\n- [ ] Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 36,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1 region 24-42",
+    "text": "#+TODO: NEXT | FINISHED\nNEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 40,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1 region 24-42",
+    "text": "#+TODO: NEXT | FINISHED\n- [ ] Alpha\n  text\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 43,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1 region 24-66",
+    "text": "#+TODO: NEXT | FINISHED\nNEXT Alpha\ntext\nFINISHED Beta\nGamma\n- term :: description\n",
+    "point": 60,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1 region 24-66",
+    "text": "#+TODO: NEXT | FINISHED\n- [ ] Alpha\n  text\n- [X] Beta\n- Gamma\n- term :: description\n",
+    "point": 62,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1 region 37-42",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\n** text\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 45,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1 region 37-42",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\n- text\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 44,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1 region 37-58",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\n** text\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 61,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1 region 37-58",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\n- text\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 60,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1 region 37-88",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\n** text\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 91,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1 region 37-88",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\n- text\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 90,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1 region 42-58",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\nFINISHED Beta\n* Gamma\n- term :: description\n",
+    "point": 56,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1 region 42-58",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n- [X] Beta\n* Gamma\n- term :: description\n",
+    "point": 53,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1 region 42-66",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\nFINISHED Beta\nGamma\n- term :: description\n",
+    "point": 62,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1 region 42-66",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n- [X] Beta\n- Gamma\n- term :: description\n",
+    "point": 61,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1 region 58-66",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\nGamma\n- term :: description\n",
+    "point": 64,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1 region 58-66",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n- Gamma\n- term :: description\n",
+    "point": 66,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1 region 58-88",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\nGamma\n- term :: description\n",
+    "point": 86,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1 region 58-88",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n- Gamma\n  - term :: description\n",
+    "point": 90,
+    "error": null
+  },
+  {
+    "name": "toggle-heading 1 region 66-88",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n**  term description\n",
+    "point": 66,
+    "error": null
+  },
+  {
+    "name": "toggle-item 1 region 66-88",
+    "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\nterm :: description\n",
+    "point": 86,
+    "error": null
   }
 ]

@@ -125,6 +125,12 @@ The differential tests list these cases with the reason
   original position, which is before the table, and aligns from the line
   above the table. Kalem creates the table at the start of the new line,
   indented like the broken line, with the rule after its first row.
+- ~org-toggle-heading~ on a region that starts at an item narrows the
+  buffer to the region and the first character of the next line before
+  it converts the list, so the bullet of the next item can become an
+  empty heading and the levels depend on where the region ends. Kalem
+  turns each item of the region into a heading one level below the entry,
+  a nested item one level deeper, a checkbox into a TODO or DONE keyword.
 
 
 Footnotes (=org-footnote.el=, 14 of the random cases in =tests/edit=):

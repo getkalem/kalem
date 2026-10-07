@@ -245022,5 +245022,2419 @@
    "day",
    true
   ]
+ },
+ {
+  "name": "toggle-heading 0@0",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 0,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@0",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 0,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@3",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 3,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@3",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 3,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@11",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 11,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@11",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 11,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@14",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 14,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@14",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 14,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@28",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 28,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@28",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 28,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@29",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 29,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@29",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 29,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@32",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 32,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@32",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 32,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@45",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 45,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@45",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 45,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@48",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 48,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@48",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 48,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@73",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 73,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@73",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 73,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@76",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 76,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@76",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 76,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@86",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 86,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@86",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 86,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@89",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 89,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@89",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 89,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@93",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 93,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@93",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 93,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@96",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 96,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@96",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 96,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@99",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 99,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@99",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 99,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@100",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 100,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@100",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 100,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@103",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 103,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@103",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 103,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@110",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 110,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@110",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 110,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@113",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 113,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@113",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 113,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@122",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 122,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@122",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 122,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@125",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 125,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@125",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 125,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@144",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 144,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@144",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 144,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@147",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 147,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@147",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 147,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@153",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 153,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@153",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 153,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@156",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 156,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@156",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 156,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@166",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 166,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@166",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 166,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@169",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 169,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@169",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 169,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@176",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 176,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@176",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 176,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@179",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 179,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@179",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 179,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@187",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 187,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@187",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 187,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@190",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 190,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@190",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 190,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@203",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 203,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@203",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 203,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@206",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 206,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@206",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 206,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@214",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 214,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@214",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 214,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@217",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 217,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@217",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 217,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@225",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 225,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@225",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 225,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@228",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 228,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@228",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 228,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@234",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 234,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@234",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 234,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@237",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 237,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@237",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 237,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@244",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 244,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@244",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 244,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@247",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 247,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@247",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 247,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@251",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 251,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@251",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 251,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0@254",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 254,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0@254",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 254,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 0-11",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 11,
+  "mark": 0,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 0-11",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 11,
+  "mark": 0,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 0-28",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 28,
+  "mark": 0,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 0-28",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 28,
+  "mark": 0,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 0-45",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 45,
+  "mark": 0,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 0-45",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 45,
+  "mark": 0,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 11-28",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 28,
+  "mark": 11,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 11-28",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 28,
+  "mark": 11,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 11-29",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 29,
+  "mark": 11,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 11-29",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 29,
+  "mark": 11,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 11-73",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 73,
+  "mark": 11,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 11-73",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 73,
+  "mark": 11,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 28-29",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 29,
+  "mark": 28,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 28-29",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 29,
+  "mark": 28,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 28-45",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 45,
+  "mark": 28,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 28-45",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 45,
+  "mark": 28,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 28-86",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 86,
+  "mark": 28,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 28-86",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 86,
+  "mark": 28,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 29-45",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 45,
+  "mark": 29,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 29-45",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 45,
+  "mark": 29,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 29-73",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 73,
+  "mark": 29,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 29-73",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 73,
+  "mark": 29,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 29-93",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 93,
+  "mark": 29,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 29-93",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 93,
+  "mark": 29,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 45-73",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 73,
+  "mark": 45,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 45-73",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 73,
+  "mark": 45,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 45-86",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 86,
+  "mark": 45,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 45-86",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 86,
+  "mark": 45,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 45-99",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 99,
+  "mark": 45,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 45-99",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 99,
+  "mark": 45,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 73-86",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 86,
+  "mark": 73,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 73-86",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 86,
+  "mark": 73,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 73-93",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 93,
+  "mark": 73,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 73-93",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 93,
+  "mark": 73,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 73-100",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 100,
+  "mark": 73,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 73-100",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 100,
+  "mark": 73,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 86-93",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 93,
+  "mark": 86,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 86-93",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 93,
+  "mark": 86,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 86-99",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 99,
+  "mark": 86,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 86-99",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 99,
+  "mark": 86,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 86-110",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 110,
+  "mark": 86,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 86-110",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 110,
+  "mark": 86,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 93-99",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 99,
+  "mark": 93,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 93-99",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 99,
+  "mark": 93,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 93-100",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 100,
+  "mark": 93,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 93-100",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 100,
+  "mark": 93,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 93-122",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 122,
+  "mark": 93,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 93-122",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 122,
+  "mark": 93,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 99-100",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 100,
+  "mark": 99,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 99-100",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 100,
+  "mark": 99,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 99-110",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 110,
+  "mark": 99,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 99-110",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 110,
+  "mark": 99,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 99-144",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 144,
+  "mark": 99,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 99-144",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 144,
+  "mark": 99,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 100-110",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 110,
+  "mark": 100,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 100-110",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 110,
+  "mark": 100,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 100-122",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 122,
+  "mark": 100,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 100-122",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 122,
+  "mark": 100,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 100-153",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 153,
+  "mark": 100,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 100-153",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 153,
+  "mark": 100,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 110-122",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 122,
+  "mark": 110,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 110-122",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 122,
+  "mark": 110,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 110-144",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 144,
+  "mark": 110,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 110-144",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 144,
+  "mark": 110,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 110-166",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 166,
+  "mark": 110,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 110-166",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 166,
+  "mark": 110,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 122-144",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 144,
+  "mark": 122,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 122-144",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 144,
+  "mark": 122,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 122-153",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 153,
+  "mark": 122,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 122-153",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 153,
+  "mark": 122,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 122-176",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 176,
+  "mark": 122,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 122-176",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 176,
+  "mark": 122,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 144-153",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 153,
+  "mark": 144,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 144-153",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 153,
+  "mark": 144,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 144-166",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 166,
+  "mark": 144,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 144-166",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 166,
+  "mark": 144,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 144-187",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 187,
+  "mark": 144,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 144-187",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 187,
+  "mark": 144,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 153-166",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 166,
+  "mark": 153,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 153-166",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 166,
+  "mark": 153,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 153-176",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 176,
+  "mark": 153,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 153-176",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 176,
+  "mark": 153,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 153-203",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 203,
+  "mark": 153,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 153-203",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 203,
+  "mark": 153,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 166-176",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 176,
+  "mark": 166,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 166-176",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 176,
+  "mark": 166,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 166-187",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 187,
+  "mark": 166,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 166-187",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 187,
+  "mark": 166,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 166-214",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 214,
+  "mark": 166,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 166-214",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 214,
+  "mark": 166,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 176-187",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 187,
+  "mark": 176,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 176-187",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 187,
+  "mark": 176,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 176-203",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 203,
+  "mark": 176,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 176-203",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 203,
+  "mark": 176,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 176-225",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 225,
+  "mark": 176,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 176-225",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 225,
+  "mark": 176,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 187-203",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 203,
+  "mark": 187,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 187-203",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 203,
+  "mark": 187,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 187-214",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 214,
+  "mark": 187,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 187-214",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 214,
+  "mark": 187,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 187-234",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 234,
+  "mark": 187,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 187-234",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 234,
+  "mark": 187,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 203-214",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 214,
+  "mark": 203,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 203-214",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 214,
+  "mark": 203,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 203-225",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 225,
+  "mark": 203,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 203-225",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 225,
+  "mark": 203,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 203-244",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 244,
+  "mark": 203,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 203-244",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 244,
+  "mark": 203,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 214-225",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 225,
+  "mark": 214,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 214-225",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 225,
+  "mark": 214,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 214-234",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 234,
+  "mark": 214,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 214-234",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 234,
+  "mark": 214,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 214-251",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 251,
+  "mark": 214,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 214-251",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 251,
+  "mark": 214,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 225-234",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 234,
+  "mark": 225,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 225-234",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 234,
+  "mark": 225,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 225-244",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 244,
+  "mark": 225,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 225-244",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 244,
+  "mark": 225,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 234-244",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 244,
+  "mark": 234,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 234-244",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 244,
+  "mark": 234,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 234-251",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 251,
+  "mark": 234,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 0 region 234-251",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 251,
+  "mark": 234,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 0 region 244-251",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 251,
+  "mark": 244,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 0 region 244-251",
+  "text": "Intro line\n  indented intro\n\n* TODO Head :t:\nSCHEDULED: <2026-10-05 Mon>\n:PROPERTIES:\n:ID: 1\n:END:\n\nBody text\n  more body\n** DONE [#A] Sub task\nsub body\n** Plain sub\n# comment\n- item one\n- [X] done item\n  - nested\n- [ ] open\n1. first\n2) second\n* Last\nlast body",
+  "point": 251,
+  "mark": 244,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1@0",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1@0",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 0,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1@3",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 3,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1@3",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 3,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1@24",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 24,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1@24",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 24,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1@27",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 27,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1@27",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 27,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1@37",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 37,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1@37",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 37,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1@40",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 40,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1@40",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 40,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1@42",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 42,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1@42",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 42,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1@45",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 45,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1@45",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 45,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1@58",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 58,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1@58",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 58,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1@61",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 61,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1@61",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 61,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1@66",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 66,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1@66",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 66,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1@69",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 69,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1@69",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 69,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1@88",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 88,
+  "mark": null,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1@88",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 88,
+  "mark": null,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1 region 0-24",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 24,
+  "mark": 0,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1 region 0-24",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 24,
+  "mark": 0,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1 region 0-37",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 37,
+  "mark": 0,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1 region 0-37",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 37,
+  "mark": 0,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1 region 0-58",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 58,
+  "mark": 0,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1 region 0-58",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 58,
+  "mark": 0,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1 region 24-37",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 37,
+  "mark": 24,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1 region 24-37",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 37,
+  "mark": 24,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1 region 24-42",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 42,
+  "mark": 24,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1 region 24-42",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 42,
+  "mark": 24,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1 region 24-66",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 66,
+  "mark": 24,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1 region 24-66",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 66,
+  "mark": 24,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1 region 37-42",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 42,
+  "mark": 37,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1 region 37-42",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 42,
+  "mark": 37,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1 region 37-58",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 58,
+  "mark": 37,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1 region 37-58",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 58,
+  "mark": 37,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1 region 37-88",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 88,
+  "mark": 37,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1 region 37-88",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 88,
+  "mark": 37,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1 region 42-58",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 58,
+  "mark": 42,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1 region 42-58",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 58,
+  "mark": 42,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1 region 42-66",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 66,
+  "mark": 42,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1 region 42-66",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 66,
+  "mark": 42,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1 region 58-66",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 66,
+  "mark": 58,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1 region 58-66",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 66,
+  "mark": 58,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1 region 58-88",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 88,
+  "mark": 58,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": []
+ },
+ {
+  "name": "toggle-item 1 region 58-88",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 88,
+  "mark": 58,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
+ },
+ {
+  "name": "toggle-heading 1 region 66-88",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 88,
+  "mark": 66,
+  "form": "(org-toggle-heading)",
+  "cmd": "toggle-heading",
+  "args": [],
+  "known": "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+ },
+ {
+  "name": "toggle-item 1 region 66-88",
+  "text": "#+TODO: NEXT | FINISHED\n* NEXT Alpha\ntext\n* FINISHED Beta\n* Gamma\n- term :: description\n",
+  "point": 88,
+  "mark": 66,
+  "form": "(org-toggle-item nil)",
+  "cmd": "toggle-item",
+  "args": []
  }
 ]

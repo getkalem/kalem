@@ -1609,9 +1609,81 @@ def timestamp_cases():
                 out.append({"name": f"timestamp {d}@{p} {form}", "text": doc, "point": p, "mark": None, "form": form, "cmd": "ts-change", "args": args})
     return out
 
+TOGGLE_DOCS = [
+    """Intro line
+  indented intro
+
+* TODO Head :t:
+SCHEDULED: <2026-10-05 Mon>
+:PROPERTIES:
+:ID: 1
+:END:
+
+Body text
+  more body
+** DONE [#A] Sub task
+sub body
+** Plain sub
+# comment
+- item one
+- [X] done item
+  - nested
+- [ ] open
+1. first
+2) second
+* Last
+last body""",
+    """#+TODO: NEXT | FINISHED
+* NEXT Alpha
+text
+* FINISHED Beta
+* Gamma
+- term :: description
+""",
+]
+
+ITEM_LINE = re.compile(rb"^[ \t]*([-+]|[0-9]+[.)])( |$)")
+
+# `org-toggle-heading` on a region starting at an item narrows the
+# buffer to the region and its next line's start, so the levels and the
+# headings it writes depend on where the region ends (an empty heading
+# from the bullet of the next item); Kalem turns each item of the region
+# into a heading one level below the entry, nested items deeper.
+TOGGLE_HEADING_ITEMS = "org-toggle-heading over a region of items narrows to it (book/part-2/org-known-differences.org)"
+
+TOGGLE_FORMS = [
+    ("(org-toggle-heading)", "toggle-heading"),
+    ("(org-toggle-item nil)", "toggle-item"),
+]
+
+
+def toggle_cases():
+    """`org-toggle-heading' and `org-toggle-item' on each line, and over
+    regions of a few lines."""
+    out = []
+    for d, doc in enumerate(TOGGLE_DOCS):
+        lines = byte_offsets_of_lines(doc)
+        points = sorted({p for s, l in lines for p in (s, s + min(len(l), 3))})
+        starts = [s for s, _ in lines]
+        for p in points:
+            for form, cmd in TOGGLE_FORMS:
+                out.append({"name": f"{cmd} {d}@{p}", "text": doc, "point": p, "mark": None, "form": form, "cmd": cmd, "args": []})
+        for i in range(len(starts)):
+            for j in (i + 1, i + 2, i + 4):
+                if j < len(starts):
+                    for form, cmd in TOGGLE_FORMS:
+                        case = {"name": f"{cmd} {d} region {starts[i]}-{starts[j]}", "text": doc, "point": starts[j], "mark": starts[i], "form": form, "cmd": cmd, "args": []}
+                        k = i
+                        while k < len(lines) and (lines[k][1].strip() == b"" or lines[k][1].lstrip().startswith(b"# ")):
+                            k += 1
+                        if cmd == "toggle-heading" and k < len(lines) and ITEM_LINE.match(lines[k][1]):
+                            case["known"] = TOGGLE_HEADING_ITEMS
+                        out.append(case)
+    return out
+
 if __name__ == "__main__":
     path = os.path.join(ROOT, "tests/edit/cases.json")
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(cases() + todo_dependency_cases() + footnote_cases() + random_footnote_cases() + planning_cases() + drawer_cases() + archive_cases() + heading_cases() + timestamp_cases(), f, ensure_ascii=False, indent=1)
+        json.dump(cases() + todo_dependency_cases() + footnote_cases() + random_footnote_cases() + planning_cases() + drawer_cases() + archive_cases() + heading_cases() + timestamp_cases() + toggle_cases(), f, ensure_ascii=False, indent=1)
         f.write("\n")
     print(f"{len(cases())} cases -> {path}")
