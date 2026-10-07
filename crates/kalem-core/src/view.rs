@@ -1918,8 +1918,7 @@ impl Folds {
                 let min = blocks.iter().filter_map(heading_level).min().unwrap_or(1);
                 return blocks
                     .iter()
-                    .filter(|b| heading_level(b) == Some(min) && b.range.start <= cursor)
-                    .next_back()
+                    .rfind(|b| heading_level(b) == Some(min) && b.range.start <= cursor)
                     .map_or(cursor, |b| {
                         if cursor < b.content_end {
                             cursor
