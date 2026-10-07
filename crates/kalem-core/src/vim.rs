@@ -4324,6 +4324,11 @@ impl Vim {
             if matches!(self.mode, Mode::Insert | Mode::Replace) {
                 break;
             }
+            // A search the change used (`d/pat<CR>`) is typed again.
+            if self.command_line.is_some() {
+                self.command_line_key(doc, k, host, out);
+                continue;
+            }
             self.keys.push(k);
             self.command(doc, k, host, out);
             if self.idle() {
@@ -4536,6 +4541,12 @@ impl Vim {
                 if kind == ":" {
                     self.ex(doc, rest, host, out);
                 } else {
+                    // A search after an operator is part of the change `.`
+                    // repeats.
+                    if self.op.is_some() && !self.replaying {
+                        self.keys.extend(rest.chars().map(Key::Char));
+                        self.keys.push(Key::Enter);
+                    }
                     self.search(doc, rest, kind == "?", host, out);
                 }
             }
