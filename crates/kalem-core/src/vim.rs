@@ -643,6 +643,72 @@ fn display_col(doc: &DocumentState, pos: usize, ts: usize) -> usize {
     })
 }
 
+/// The columns `pos` shows in: its first and last (a tab to the next
+/// stop of `ts`); a line's end shows in one.
+fn display_span(doc: &DocumentState, pos: usize, ts: usize) -> (usize, usize) {
+    use unicode_width::UnicodeWidthChar;
+    let first = display_col(doc, pos, ts);
+    let width = match char_at(doc, pos) {
+        Some('\t') => (first / ts + 1) * ts - first,
+        Some(c) if c != '\n' => c.width().unwrap_or(0).max(1),
+        _ => 1,
+    };
+    (first, first + width - 1)
+}
+
+/// What a block of the columns `left..right` covers on `line` (Vim's
+/// `block_prep()`): the characters at least partly in it, and how many
+/// columns of a tab or wide character at its left and right edges lie
+/// outside it (`pre`, `post`), which become spaces when it goes.
+#[derive(Debug, Clone)]
+struct BlockPart {
+    range: Range<usize>,
+    pre: usize,
+    post: usize,
+}
+
+fn block_part(doc: &DocumentState, line: usize, left: usize, right: usize, ts: usize) -> BlockPart {
+    use unicode_width::UnicodeWidthChar;
+    let (s, e) = (line_start(doc, line), line_end(doc, line));
+    let mut col = 0;
+    let mut start = None;
+    let (mut pre, mut post, mut end) = (0, 0, e);
+    for (i, c) in doc.text().as_str()[s..e].char_indices() {
+        let next = if c == '\t' { (col / ts + 1) * ts } else { col + c.width().unwrap_or(0) };
+        if start.is_none() && col >= right {
+            break;
+        }
+        if start.is_none() && next > left {
+            start = Some(s + i);
+            pre = left.saturating_sub(col);
+        }
+        if start.is_some() {
+            if col >= right && next > col {
+                end = s + i;
+                break;
+            }
+            if next > right {
+                post = next - right;
+                end = s + i + c.len_utf8();
+                break;
+            }
+        }
+        col = next;
+    }
+    match start {
+        Some(a) => BlockPart {
+            range: a..end.max(a),
+            pre,
+            post,
+        },
+        None => BlockPart {
+            range: e..e,
+            pre: 0,
+            post: 0,
+        },
+    }
+}
+
 /// The character of `line` that shows in column `want` (a tab or wide
 /// character covering it), or the line's end when it is shorter (Vim's
 /// `coladvance()`).
@@ -1646,15 +1712,17 @@ impl Vim {
 
     /// The block's lines and columns (left inclusive, right exclusive).
     fn block(&self, doc: &DocumentState) -> (usize, usize, usize, usize) {
+        // In the columns the text shows in (a tab is as wide as it shows).
+        let ts = self.options.tabstop.max(1);
         let (a, c) = (self.anchor, self.cursor);
         let (la, lc) = (line_of(doc, a), line_of(doc, c));
-        let (ca, cc) = (column(doc, a), column(doc, c));
+        let ((a0, a1), (c0, c1)) = (display_span(doc, a, ts), display_span(doc, c, ts));
         let right = if self.block_end {
             usize::MAX
         } else {
-            ca.max(cc) + 1
+            a1.max(c1) + 1
         };
-        (la.min(lc), la.max(lc), ca.min(cc), right)
+        (la.min(lc), la.max(lc), a0.min(c0), right)
     }
 
     /// The keys that select what the visual selection covers, from the
@@ -1718,9 +1786,10 @@ impl Vim {
             return None;
         }
         let (first, last, left, right) = self.block(doc);
+        let ts = self.options.tabstop.max(1);
         Some(
             (first..=last.min(last_line(doc)))
-                .map(|l| at_column(doc, l, left)..at_column(doc, l, right))
+                .map(|l| block_part(doc, l, left, right, ts).range)
                 .collect(),
         )
     }
@@ -2286,9 +2355,10 @@ impl Vim {
             // The typed text again on the block's other lines.
             let typed = doc.text().as_str()[at..head].to_string();
             let mut tx = Transaction::new("Vim");
+            let ts = self.options.tabstop.max(1);
             for l in lines.filter(|l| *l <= last_line(doc)) {
                 let e = line_end(doc, l);
-                let width = doc.text().as_str()[line_start(doc, l)..e].chars().count();
+                let width = display_col(doc, e, ts);
                 if col == usize::MAX {
                     let _ = tx.insert(e, typed.clone());
                     continue;
@@ -2300,7 +2370,7 @@ impl Vim {
                     }
                     continue;
                 }
-                let _ = tx.insert(at_column(doc, l, col), typed.clone());
+                let _ = tx.insert(block_part(doc, l, col, usize::MAX, ts).range.start, typed.clone());
             }
             let tx = tx.select(Selection::caret(head));
             doc.apply(&tx, ChangeKind::Command, Instant::now());
@@ -2368,10 +2438,13 @@ impl Vim {
                 last,
                 left,
                 right,
-            } => (
-                at_column(doc, *first, *left),
-                at_column(doc, (*last).min(last_line(doc)), right.saturating_sub(1)),
-            ),
+            } => {
+                let ts = self.options.tabstop.max(1);
+                (
+                    at_display_col(doc, *first, *left, ts),
+                    at_display_col(doc, (*last).min(last_line(doc)), right.saturating_sub(1), ts),
+                )
+            }
         };
         doc.marks.named.insert('[', a);
         doc.marks.named.insert(']', b);
@@ -2447,13 +2520,39 @@ impl Vim {
                 right,
             } => {
                 let last = last.min(last_line(doc));
-                let ranges: Vec<Range<usize>> = (first..=last)
-                    .map(|l| at_column(doc, l, left)..at_column(doc, l, right))
-                    .collect();
-                let top = ranges[0].start;
-                let text: Vec<&str> = ranges
+                let ts = self.options.tabstop.max(1);
+                let parts: Vec<BlockPart> =
+                    (first..=last).map(|l| block_part(doc, l, left, right, ts)).collect();
+                let ranges: Vec<Range<usize>> = parts.iter().map(|p| p.range.clone()).collect();
+                let top = ranges[0].start + parts[0].pre;
+                // What is in the block: a tab at an edge as the spaces of it
+                // inside.
+                let text: Vec<String> = parts
                     .iter()
-                    .map(|r| &doc.text().as_str()[r.clone()])
+                    .map(|p| {
+                        let t = &doc.text().as_str()[p.range.clone()];
+                        if p.pre == 0 && p.post == 0 {
+                            return t.to_string();
+                        }
+                        let width = |c: char, col: usize| {
+                            use unicode_width::UnicodeWidthChar;
+                            if c == '\t' { (col / ts + 1) * ts - col } else { c.width().unwrap_or(0) }
+                        };
+                        let mut col = display_col(doc, p.range.start, ts);
+                        let n = t.chars().count();
+                        let mut out = String::new();
+                        for (i, c) in t.chars().enumerate() {
+                            let w = width(c, col);
+                            let cut = if i == 0 { p.pre } else { 0 } + if i + 1 == n { p.post } else { 0 };
+                            if (i == 0 && p.pre > 0) || (i + 1 == n && p.post > 0) {
+                                out.push_str(&" ".repeat(w.saturating_sub(cut)));
+                            } else {
+                                out.push(c);
+                            }
+                            col += w;
+                        }
+                        out
+                    })
                     .collect();
                 let text = text.join("\n");
                 self.storing_block = true;
@@ -2464,9 +2563,10 @@ impl Vim {
                     }
                     Op::Delete | Op::Change => {
                         self.store(text, false, op == Op::Yank, host);
+                        // A tab at an edge leaves the spaces of it outside.
                         let mut tx = Transaction::new("Vim");
-                        for r in &ranges {
-                            let _ = tx.delete(r.clone());
+                        for p in &parts {
+                            let _ = tx.edit(p.range.clone(), " ".repeat(p.pre + p.post));
                         }
                         let tx = tx.select(Selection::caret(top));
                         doc.apply(&tx, ChangeKind::Command, Instant::now());
@@ -2938,7 +3038,9 @@ impl Vim {
                             left,
                             right,
                         } => (first..=last.min(last_line(doc)))
-                            .map(|l| at_column(doc, l, left)..at_column(doc, l, right))
+                            .map(|l| {
+                                block_part(doc, l, left, right, self.options.tabstop.max(1)).range
+                            })
                             .collect(),
                     };
                     let top = ranges.first().map_or(self.cursor, |r| r.start);
@@ -3919,7 +4021,9 @@ impl Vim {
         let start = match &target {
             Target::Chars(r) => r.start,
             Target::Lines(a, _) => line_start(doc, *a),
-            Target::Block { first, left, .. } => at_column(doc, *first, *left),
+            Target::Block { first, left, .. } => {
+                at_display_col(doc, *first, *left, self.options.tabstop.max(1))
+            }
         };
         // In a block, `I` and `A` type on every line; `c` and `s` change it.
         if let Target::Block {
@@ -3937,14 +4041,11 @@ impl Vim {
                     } else {
                         (right, right != usize::MAX)
                     };
-                    self.block_corner = Some(at_column(doc, first, left));
-                    let width = |l: usize| {
-                        doc.text().as_str()[line_start(doc, l)..line_end(doc, l)]
-                            .chars()
-                            .count()
-                    };
+                    let ts = self.options.tabstop.max(1);
+                    self.block_corner = Some(at_display_col(doc, first, left, ts));
+                    let width = |l: usize| display_col(doc, line_end(doc, l), ts);
                     self.begin_change();
-                    let mut at = at_column(doc, first, col);
+                    let mut at = block_part(doc, first, col, usize::MAX, ts).range.start;
                     if col == usize::MAX {
                         at = line_end(doc, first);
                     } else if pad && width(first) < col {
@@ -4280,13 +4381,14 @@ impl Vim {
             }
             Some('V') => m.linewise = true,
             Some(_) => {
-                let (ca, cb) = (column(doc, from), column(doc, m.to));
+                let ts = self.options.tabstop.max(1);
+                let ((a0, a1), (b0, b1)) = (display_span(doc, from, ts), display_span(doc, m.to, ts));
                 let (la, lb) = (line_of(doc, from), line_of(doc, m.to));
                 let target = Target::Block {
                     first: la.min(lb),
                     last: la.max(lb),
-                    left: ca.min(cb),
-                    right: ca.max(cb) + 1,
+                    left: a0.min(b0),
+                    right: a1.max(b1) + 1,
                 };
                 self.op_start = Some(from.min(m.to));
                 self.begin_change_if(op);

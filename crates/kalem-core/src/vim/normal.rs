@@ -520,7 +520,9 @@ impl Vim {
         let start = match &target {
             super::Target::Chars(r) => r.start,
             super::Target::Lines(a, _) => line_start(doc, *a),
-            super::Target::Block { first, left, .. } => at_column(doc, *first, *left),
+            super::Target::Block { first, left, .. } => {
+                super::at_display_col(doc, *first, *left, self.options.tabstop.max(1))
+            }
         };
         self.begin_change();
         let mut k = 0;
@@ -534,7 +536,8 @@ impl Vim {
                     if l == last { r.end.min(e) } else { e },
                 ),
                 super::Target::Block { left, right, .. } => {
-                    (at_column(doc, l, *left), at_column(doc, l, *right))
+                    let r = super::block_part(doc, l, *left, *right, self.options.tabstop.max(1)).range;
+                    (r.start, r.end)
                 }
                 super::Target::Lines(..) => (s, e),
             };
