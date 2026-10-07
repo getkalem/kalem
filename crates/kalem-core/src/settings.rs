@@ -1126,13 +1126,20 @@ pub fn save_setting(path: &Path, key: &str, value: &Value) -> Result<(), String>
     if !value.is_null() {
         check(s.kind, value).map_err(|e| format!("`{key}` {e}"))?;
     }
+    let parts: Vec<&str> = key.split('.').collect();
+    save_at(path, &parts, value)
+}
+
+/// Writes `value` at the key of `parts` in the settings file `path`
+/// (removed for `null`), unchecked: a plugin's setting, under
+/// `["plugins", ID, …]`, which Kalem does not know the type of.
+pub fn save_at(path: &Path, parts: &[&str], value: &Value) -> Result<(), String> {
     let text = match std::fs::read_to_string(path) {
         Ok(t) => t,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
         Err(e) => return Err(format!("Cannot read {}: {e}", path.display())),
     };
-    let parts: Vec<&str> = key.split('.').collect();
-    let new = set_in_toml(&text, &parts, value)?;
+    let new = set_in_toml(&text, parts, value)?;
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)
             .map_err(|e| format!("Cannot create {}: {e}", dir.display()))?;

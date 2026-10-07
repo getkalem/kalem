@@ -1164,10 +1164,17 @@ fn pick_release_asset(
 /// The plugins in `CONFIG/plugins`, with what `plugins.toml` says of
 /// those Kalem installed.
 pub fn installed() -> Vec<Installed> {
-    let Some(root) = plugins_dir() else {
-        return Vec::new();
-    };
-    let rec = load_record();
+    crate::settings::config_dir().map_or_else(Vec::new, |d| installed_in(&d))
+}
+
+/// [`installed`] in the settings folder `config` (a test's, a frontend's
+/// own).
+pub fn installed_in(config: &std::path::Path) -> Vec<Installed> {
+    let root = config.join("plugins");
+    let rec: toml_edit::DocumentMut = std::fs::read_to_string(config.join("plugins.toml"))
+        .ok()
+        .and_then(|t| t.parse().ok())
+        .unwrap_or_default();
     let Ok(rd) = std::fs::read_dir(&root) else {
         return Vec::new();
     };
