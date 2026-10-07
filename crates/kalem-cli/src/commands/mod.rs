@@ -89,19 +89,27 @@ pub(crate) fn complete(place: &str) -> Result<ExitCode> {
         line.parse().map_err(|_| format!("{place}: bad line"))?,
         col.parse().map_err(|_| format!("{place}: bad column"))?,
     );
-    let path = Path::new(file);
+    // From its folder whole, as the editors open it: a picture's or an
+    // included file's path is found from there.
+    let path = std::path::absolute(Path::new(file)).unwrap_or_else(|_| Path::new(file).into());
+    let path = path.as_path();
     let mut doc = kalem_core::DocumentState::open(
         path,
         std::sync::Arc::new(org_model::Settings::default()),
         &org_syntax::ParseContext::default(),
     )
     .map_err(|e| format!("{}: {e}", path.display()))?;
+    // A LaTeX file's project (its root, the other chapters' labels, the
+    // bibliography), as the editors have it once it is read.
+    doc.wait_for_latex_project();
     let text = doc.text();
     let l = line.max(1) - 1;
     if l >= text.line_count() {
         return Err(format!("{place}: past the end of the file"));
     }
     let r = text.line_range(l);
+    // Not past a CRLF line's carriage return.
+    let r = r.start..r.end - usize::from(text.as_str()[r.clone()].ends_with('\r'));
     let pos = text.as_str()[r.clone()]
         .char_indices()
         .nth(col.max(1) - 1)

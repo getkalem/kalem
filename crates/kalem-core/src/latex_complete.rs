@@ -179,11 +179,16 @@ const ENVIRONMENTS: &[&str] = &[
     "table*",
     "tabular",
     "tabularx",
+    "array",
+    "tabbing",
+    "flalign",
+    "alignat",
     "center",
     "flushleft",
     "flushright",
     "quote",
     "quotation",
+    "verse",
     "abstract",
     "verbatim",
     "lstlisting",
@@ -203,6 +208,49 @@ const ENVIRONMENTS: &[&str] = &[
     "columns",
     "column",
 ];
+
+/// The environments `text` declares with packages' commands, which the
+/// model does not read: xparse's, listings', tcolorbox's, enumitem's,
+/// fancyvrb's, mdframed's.
+fn declared_environments(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for command in [
+        "\\NewDocumentEnvironment",
+        "\\RenewDocumentEnvironment",
+        "\\ProvideDocumentEnvironment",
+        "\\DeclareDocumentEnvironment",
+        "\\lstnewenvironment",
+        "\\newtcolorbox",
+        "\\DeclareTColorBox",
+        "\\newtcblisting",
+        "\\newtcbtheorem",
+        "\\newlist",
+        "\\DefineVerbatimEnvironment",
+        "\\newmdenv",
+        "\\surroundwithmdframed",
+    ] {
+        let mut rest = text;
+        while let Some(i) = rest.find(command) {
+            rest = &rest[i + command.len()..];
+            // A letter after it: another command (`\newlistof`).
+            if rest.starts_with(|c: char| c.is_ascii_alphabetic()) {
+                continue;
+            }
+            let mut after = rest.trim_start();
+            // Options before the name (`\newtcolorbox[auto counter]{…}`).
+            if let Some(o) = after.strip_prefix('[') {
+                after = o.find(']').map_or("", |c| o[c + 1..].trim_start());
+            }
+            if let Some((name, _)) = after.strip_prefix('{').and_then(|r| r.split_once('}')) {
+                let name = name.trim();
+                if !name.is_empty() && !name.contains(['\\', '#']) {
+                    out.push(name.to_string());
+                }
+            }
+        }
+    }
+    out
+}
 
 /// The options of common packages and of the standard classes, offered
 /// in `\usepackage[…]` and `\documentclass[…]`.
@@ -839,6 +887,9 @@ impl LatexCompleter {
                 .collect();
         }
         let mut names: Vec<String> = ENVIRONMENTS.iter().map(|s| s.to_string()).collect();
+        if let Some(d) = doc {
+            names.extend(declared_environments(d.text().as_str()));
+        }
         if let Some(l) = doc.and_then(DocumentState::latex) {
             let m = l.model();
             names.extend(m.environments.iter().map(|e| e.name.clone()));
@@ -869,6 +920,21 @@ impl LatexCompleter {
                     } else {
                         ""
                     };
+                    // The arguments the environment requires, the cursor
+                    // in the first.
+                    let args = match n.trim_end_matches('*') {
+                        "tabular" | "array" | "longtable" | "minipage" | "alignat" => "{}",
+                        "tabularx" | "tabulary" => "{\\linewidth}{}",
+                        _ => "",
+                    };
+                    if !args.is_empty() {
+                        let insert = format!("{n}}}{args}\n{indent}  \n{indent}\\end{{{n}}}");
+                        let at = n.len() + 1 + args.find("{}").map_or(0, |i| i + 1);
+                        let mut it = Item::new(n, insert, start..ctx.point, Kind::Snippet);
+                        it.cursor = at;
+                        it.source = "latex";
+                        return it;
+                    }
                     let body = format!("{n}}}\n{indent}  {item}");
                     if crate::latex_edit::is_grid(&n) {
                         // Two rows of two cells, Tab going from cell to
@@ -950,21 +1016,45 @@ impl LatexCompleter {
             .collect()
     }
 
-    fn files(&self, ctx: &Context, root: Option<&Path>, command: &str, arg: &str) -> Vec<Item> {
+    fn files(
+        &self,
+        ctx: &Context,
+        root: Option<&Path>,
+        command: &str,
+        arg: &str,
+        graphics_paths: &[String],
+        own_pdf: Option<&str>,
+    ) -> Vec<Item> {
         let Some(base) = root.or_else(|| ctx.path.as_deref().and_then(Path::parent)) else {
             return Vec::new();
         };
         let (dir, name) = arg.rsplit_once('/').map_or(("", arg), |(d, n)| (d, n));
         let start = ctx.point - name.len();
-        let Ok(entries) = std::fs::read_dir(base.join(dir)) else {
-            return Vec::new();
-        };
         let pictures = command == "includegraphics";
+        // A picture is found in the `\graphicspath` folders too, named
+        // from there.
+        let folders: Vec<std::path::PathBuf> = std::iter::once(base.join(dir))
+            .chain(
+                graphics_paths
+                    .iter()
+                    .filter(|_| pictures)
+                    .map(|g| base.join(g).join(dir)),
+            )
+            .collect();
+        let entries: Vec<std::fs::DirEntry> = folders
+            .iter()
+            .filter_map(|f| std::fs::read_dir(f).ok())
+            .flat_map(|r| r.filter_map(Result::ok))
+            .collect();
         let mut out: Vec<Item> = entries
-            .filter_map(Result::ok)
+            .into_iter()
             .filter_map(|e| {
                 let file = e.file_name().to_string_lossy().into_owned();
                 if file.starts_with('.') || !file.starts_with(name) {
+                    return None;
+                }
+                // Not the document's own PDF, which its build writes.
+                if pictures && dir.is_empty() && own_pdf == Some(file.as_str()) {
                     return None;
                 }
                 let is_dir = e.path().is_dir();
@@ -973,8 +1063,9 @@ impl LatexCompleter {
                     .and_then(|x| x.to_str())
                     .unwrap_or("")
                     .to_lowercase();
+                // What pdfLaTeX and its kin include (an SVG they do not).
                 let wanted = if pictures {
-                    matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "pdf" | "eps" | "svg")
+                    matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "pdf" | "eps" | "mps")
                 } else {
                     ext == "tex"
                 };
@@ -995,6 +1086,7 @@ impl LatexCompleter {
             })
             .collect();
         out.sort_by(|a, b| a.label.cmp(&b.label));
+        out.dedup_by(|a, b| a.label == b.label);
         out
     }
 }
@@ -1027,10 +1119,26 @@ impl Completer for LatexCompleter {
                 "end" => self.environments(ctx, doc, arg, false),
                 "input" | "include" | "includegraphics" | "subfile" => {
                     // From the root document's folder, where LaTeX runs.
-                    let root = doc
-                        .and_then(DocumentState::latex)
-                        .and_then(|l| l.root_dir());
-                    self.files(ctx, root.as_deref(), command, arg)
+                    let latex = doc.and_then(DocumentState::latex);
+                    let root = latex.and_then(|l| l.root_dir());
+                    let graphics_paths = latex
+                        .map(|l| l.model().graphics_paths.clone())
+                        .unwrap_or_default();
+                    let own_pdf = latex
+                        .and_then(|l| l.root_path())
+                        .or_else(|| ctx.path.clone())
+                        .and_then(|p| {
+                            p.file_stem()
+                                .map(|s| format!("{}.pdf", s.to_string_lossy()))
+                        });
+                    self.files(
+                        ctx,
+                        root.as_deref(),
+                        command,
+                        arg,
+                        &graphics_paths,
+                        own_pdf.as_deref(),
+                    )
                 }
                 "usepackage" | "RequirePackage" => {
                     let name = arg.rsplit(',').next().unwrap_or("").trim_start();
