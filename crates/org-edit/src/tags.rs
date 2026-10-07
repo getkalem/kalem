@@ -89,6 +89,14 @@ fn heading(doc: &Document, point: usize) -> Result<(String, usize), EditError> {
     }
 }
 
+/// The local tags of the headline at `point`, which the prompt of
+/// `org-set-tags-command` starts with; none before the first headline.
+pub fn current_tags(doc: &Document, point: usize) -> Vec<String> {
+    heading(doc, point)
+        .map(|(text, h)| local_tags(&text, h, doc.parse().context()))
+        .unwrap_or_default()
+}
+
 /// `org-set-tags` on the headline at `point`: replaces its tags.
 pub fn set_tags(doc: &Document, point: usize, tags: &[String]) -> Result<Transaction, EditError> {
     let (text, h) = heading(doc, point)?;

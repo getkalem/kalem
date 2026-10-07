@@ -778,6 +778,20 @@ pub fn argument_default_with(
             return v;
         }
     }
+    // The heading's tags, as `org-set-tags-command` offers them to edit:
+    // what is typed replaces them.
+    if (id, name) == ("org.tags.set", "tags") {
+        let pos = doc.selection.head;
+        let tags = doc
+            .model()
+            .map(|m| org_edit::tags::current_tags(&m, pos))
+            .unwrap_or_default();
+        return if tags.is_empty() {
+            String::new()
+        } else {
+            format!(":{}:", tags.join(":"))
+        };
+    }
     // The caption or name of the element at the cursor.
     let key = match (id, name) {
         ("org.caption.set", "caption") => Some("CAPTION"),
