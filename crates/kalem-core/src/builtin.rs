@@ -182,6 +182,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("file.reveal", object(&[("project", "boolean", false)])),
         ("settings.set", object(&[("key", "string", true)])),
         (
+            "settings.item",
+            object(&[("key", "string", true), ("at", "integer", false)]),
+        ),
+        (
             "project.shellCommand",
             object(&[("command", "string", true)]),
         ),
@@ -8235,6 +8239,28 @@ fn plain_commands() -> Vec<Command> {
             |ctx, args| {
                 let key = arg_str(args, "key")?.to_string();
                 let value = args.get("value").cloned().unwrap_or(Value::Null);
+                set_setting(ctx, &key, value)
+            },
+        ),
+        // A list's or a table's item typed in the settings panel: in place
+        // of item `at`, else added (a table's as `path = mode`).
+        cmd(
+            "settings.item",
+            "Set a Setting's Item",
+            "View",
+            &[],
+            None,
+            |ctx, args| {
+                let key = arg_str(args, "key")?.to_string();
+                let spec = crate::settings::spec(&key)
+                    .ok_or_else(|| CommandError::new(format!("Unknown setting `{key}`")))?;
+                let at = args
+                    .get("at")
+                    .and_then(Value::as_u64)
+                    .and_then(|n| usize::try_from(n).ok());
+                let text = arg_str(args, "value")?;
+                let value = crate::settings_list::put(ctx.config, spec, at, text)
+                    .map_err(CommandError::new)?;
                 set_setting(ctx, &key, value)
             },
         ),

@@ -38,6 +38,7 @@ cmd-file-next = Sonraki Belge
 cmd-edit-trimTrailingBlankLines = Sondaki Boş Satırları Sil
 cmd-edit-formatDocument = Belgeyi Biçimlendir
 cmd-settings-set = Ayar Değiştir
+cmd-settings-item = Ayarın Öğesini Değiştir
 cmd-help-theme = Tema Seç
 cmd-help-mode = Bu Belgeyi Tanımla
 cmd-help-char = Karakteri Tanımla
@@ -511,6 +512,16 @@ settings-default = Varsayılan: { $value }
 settings-in-file = settings.toml dosyasında düzenlenir (e açar)
 settings-filter = Süz
 settings-hints = j k seç  h l değiştir  Enter düzenle  / süz  d varsayılan  e dosya  q kapat
+settings-items = { $count ->
+    [one] 1 öğe: Enter gösterir
+   *[other] { $count } öğe: Enter gösterir
+}
+settings-items-choices = j k seç  Boşluk ekle/çıkar  Esc geri
+settings-items-texts = j k seç  Enter düzenle  a ekle  x sil  J K taşı  Esc geri
+settings-items-table = j k seç  Enter düzenle  a ekle  x sil  h l mod  Esc geri
+settings-item-new = Yeni öğe
+settings-item-empty = Öğe boş olamaz
+settings-item-table = Bir yol, = ve bir mod yazın: notlar/*.txt = markdown
 
 ## Tarih seçici.
 

@@ -39,6 +39,7 @@ cmd-file-next = Next Document
 cmd-edit-trimTrailingBlankLines = Delete Trailing Blank Lines
 cmd-edit-formatDocument = Format Document
 cmd-settings-set = Set a Setting
+cmd-settings-item = Set a Setting's Item
 cmd-help-theme = Choose the Theme
 cmd-help-mode = Describe This Document
 cmd-help-char = Describe the Character
@@ -531,6 +532,16 @@ settings-default = Default: { $value }
 settings-in-file = Edited in settings.toml (e opens it)
 settings-filter = Filter
 settings-hints = j k choose  h l change  Enter edit  / filter  d default  e file  q close
+settings-items = { $count ->
+    [one] 1 item: Enter shows it
+   *[other] { $count } items: Enter shows them
+}
+settings-items-choices = j k choose  Space in or out  Esc back
+settings-items-texts = j k choose  Enter edit  a add  x remove  J K move  Esc back
+settings-items-table = j k choose  Enter edit  a add  x remove  h l mode  Esc back
+settings-item-new = New item
+settings-item-empty = An item cannot be empty
+settings-item-table = Type a path, = and a mode, such as notes/*.txt = markdown
 
 ## The date picker.
 

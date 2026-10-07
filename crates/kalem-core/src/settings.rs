@@ -533,11 +533,13 @@ pub fn find_workspace_settings(dir: &Path) -> Option<PathBuf> {
         .find(|p| p.is_file())
 }
 
-fn spec(key: &str) -> Option<&'static Spec> {
+/// The known setting `key`.
+pub fn spec(key: &str) -> Option<&'static Spec> {
     SPECS.iter().find(|s| s.key == key)
 }
 
-fn check(kind: Kind, v: &Value) -> Result<(), String> {
+/// Whether `v` is a value of a setting of `kind`, and why not.
+pub(crate) fn check(kind: Kind, v: &Value) -> Result<(), String> {
     let list = |allowed: Option<&[&str]>| -> Result<(), String> {
         let Some(items) = v.as_array() else {
             return Err("must be a list of strings".into());

@@ -3,7 +3,8 @@
 //! key for each change). The settings are grouped by their table
 //! (`editor`, `ui`, `projects`…), filtered by typed text, and changed in
 //! place: a switch flipped, the next choice, a number up or down. Text
-//! is typed; lists and tables are edited in `settings.toml`.
+//! is typed; a list's or a table's items are shown and changed one by one
+//! ([`items`]), so that no setting needs `settings.toml` opened.
 
 use serde_json::Value;
 
@@ -26,8 +27,8 @@ pub enum Edit {
     Step,
     /// Typed: text.
     Type,
-    /// In the settings file: lists and tables.
-    File,
+    /// Item by item ([`items`]): lists and tables.
+    Items,
 }
 
 /// The table of `key`: `editor` for `editor.vim.leader`.
@@ -72,8 +73,224 @@ pub fn edit(spec: &Spec) -> Edit {
     match spec.kind {
         Kind::Bool | Kind::Enum(_) | Kind::Int(..) => Edit::Step,
         Kind::Str => Edit::Type,
-        Kind::List(_) | Kind::Modes(_) => Edit::File,
+        Kind::List(_) | Kind::Modes(_) => Edit::Items,
     }
+}
+
+/// How the items of a list or a table setting are changed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Items {
+    /// A list of some of known choices (`editor.vim.modes`): each choice
+    /// is in or out.
+    Choices(&'static [&'static str]),
+    /// A list of texts (`org.todo_keywords`): added, edited, removed and
+    /// moved.
+    Texts,
+    /// A table from paths to modes (`files.modes`): entries typed as
+    /// `path = mode`, their modes stepped.
+    Table(&'static [&'static str]),
+}
+
+/// An item as the list shows it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Item {
+    /// The choice, the text, or the entry as `path = mode`.
+    pub text: String,
+    /// For a list of choices: whether the choice is in it.
+    pub on: Option<bool>,
+}
+
+/// How `spec`'s items are changed, for a list or a table.
+pub fn items_kind(spec: &Spec) -> Option<Items> {
+    match spec.kind {
+        Kind::List(Some(choices)) => Some(Items::Choices(choices)),
+        Kind::List(None) => Some(Items::Texts),
+        Kind::Modes(modes) => Some(Items::Table(modes)),
+        _ => None,
+    }
+}
+
+/// The strings of the list `spec` holds in `config`.
+fn texts(config: &Config, spec: &Spec) -> Vec<String> {
+    config
+        .get(spec.key)
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The entries of the table `spec` holds in `config`, in its order.
+fn entries(config: &Config, spec: &Spec) -> Vec<(String, String)> {
+    config
+        .get(spec.key)
+        .and_then(Value::as_object)
+        .map(|t| {
+            t.iter()
+                .map(|(k, v)| (k.clone(), v.as_str().unwrap_or_default().to_string()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn list(items: impl IntoIterator<Item = String>) -> Value {
+    Value::Array(items.into_iter().map(Value::String).collect())
+}
+
+fn table(entries: impl IntoIterator<Item = (String, String)>) -> Value {
+    Value::Object(
+        entries
+            .into_iter()
+            .map(|(k, v)| (k, Value::String(v)))
+            .collect(),
+    )
+}
+
+/// The items of `spec` in `config`: every choice of a list of choices,
+/// marked in or out; a list's texts; a table's entries.
+pub fn items(config: &Config, spec: &Spec) -> Vec<Item> {
+    match items_kind(spec) {
+        Some(Items::Choices(choices)) => {
+            let on = texts(config, spec);
+            choices
+                .iter()
+                .map(|c| Item {
+                    text: (*c).to_string(),
+                    on: Some(on.iter().any(|o| o == c)),
+                })
+                .collect()
+        }
+        Some(Items::Texts) => texts(config, spec)
+            .into_iter()
+            .map(|text| Item { text, on: None })
+            .collect(),
+        Some(Items::Table(_)) => entries(config, spec)
+            .into_iter()
+            .map(|(k, v)| Item {
+                text: format!("{k} = {v}"),
+                on: None,
+            })
+            .collect(),
+        None => Vec::new(),
+    }
+}
+
+/// The list of choices with choice `i` put in or taken out; the choices
+/// in, in their order.
+pub fn toggle(config: &Config, spec: &Spec, i: usize) -> Option<Value> {
+    let Some(Items::Choices(choices)) = items_kind(spec) else {
+        return None;
+    };
+    let mut on = texts(config, spec);
+    let c = choices.get(i)?;
+    match on.iter().position(|o| o == c) {
+        Some(at) => {
+            on.remove(at);
+        }
+        None => on.push((*c).to_string()),
+    }
+    Some(list(
+        choices
+            .iter()
+            .filter(|c| on.iter().any(|o| o == *c))
+            .map(|c| (*c).to_string()),
+    ))
+}
+
+/// The list or the table without its item `i`.
+pub fn remove(config: &Config, spec: &Spec, i: usize) -> Option<Value> {
+    match items_kind(spec)? {
+        Items::Texts => {
+            let mut t = texts(config, spec);
+            (i < t.len()).then(|| {
+                t.remove(i);
+                list(t)
+            })
+        }
+        Items::Table(_) => {
+            let mut e = entries(config, spec);
+            (i < e.len()).then(|| {
+                e.remove(i);
+                table(e)
+            })
+        }
+        Items::Choices(_) => None,
+    }
+}
+
+/// The list with its text `i` moved a place up or down, and the place
+/// it has then.
+pub fn shift(config: &Config, spec: &Spec, i: usize, up: bool) -> Option<(Value, usize)> {
+    let Some(Items::Texts) = items_kind(spec) else {
+        return None;
+    };
+    let mut t = texts(config, spec);
+    let to = if up { i.checked_sub(1)? } else { i + 1 };
+    if to >= t.len() || i >= t.len() {
+        return None;
+    }
+    t.swap(i, to);
+    Some((list(t), to))
+}
+
+/// The table with the mode of its entry `i` the next or the previous
+/// known mode (from a language, the first).
+pub fn cycle(config: &Config, spec: &Spec, i: usize, forward: bool) -> Option<Value> {
+    let Some(Items::Table(modes)) = items_kind(spec) else {
+        return None;
+    };
+    let mut e = entries(config, spec);
+    let (_, mode) = e.get_mut(i)?;
+    let n = modes.len();
+    let to = match modes.iter().position(|m| m == mode) {
+        Some(at) if forward => (at + 1) % n,
+        Some(at) => (at + n - 1) % n,
+        None => 0,
+    };
+    *mode = modes.get(to)?.to_string();
+    Some(table(e))
+}
+
+/// The list or the table with `text` in place of item `at`, or added at
+/// the end; a table's entry is typed `path = mode`. The value is checked
+/// as the settings file's would be.
+pub fn put(config: &Config, spec: &Spec, at: Option<usize>, text: &str) -> Result<Value, String> {
+    let text = text.trim();
+    if text.is_empty() {
+        return Err(tr("settings-item-empty"));
+    }
+    let value = match items_kind(spec) {
+        Some(Items::Texts) => {
+            let mut t = texts(config, spec);
+            match at.filter(|&i| i < t.len()) {
+                Some(i) => t[i] = text.to_string(),
+                None => t.push(text.to_string()),
+            }
+            list(t)
+        }
+        Some(Items::Table(_)) => {
+            let Some((path, mode)) = text
+                .split_once('=')
+                .map(|(p, m)| (p.trim(), m.trim()))
+                .filter(|(p, m)| !p.is_empty() && !m.is_empty())
+            else {
+                return Err(tr("settings-item-table"));
+            };
+            let mut e = entries(config, spec);
+            if let Some(i) = at.filter(|&i| i < e.len()) {
+                e.remove(i);
+            }
+            e.retain(|(p, _)| p != path);
+            e.push((path.to_string(), mode.to_string()));
+            table(e)
+        }
+        _ => return Err(tr("settings-item-empty")),
+    };
+    crate::settings::check(spec.kind, &value).map_err(|e| format!("`{}` {e}", spec.key))?;
+    Ok(value)
 }
 
 /// `spec`'s default value.
@@ -164,9 +381,28 @@ pub struct Browser {
     pub filtering: bool,
     /// The chosen setting, among those shown.
     pub selected: usize,
+    /// The chosen setting's items shown (a list or a table), and the item
+    /// chosen among them.
+    pub item: Option<usize>,
 }
 
 impl Browser {
+    /// Shows the chosen setting's items, if it has some to show.
+    pub fn open_items(&mut self) -> bool {
+        let open = self.current().is_some_and(|s| items_kind(s).is_some());
+        if open {
+            self.item = Some(0);
+        }
+        open
+    }
+
+    /// Moves the chosen item by `by`, kept among `count` items.
+    pub fn move_item(&mut self, by: isize, count: usize) {
+        if let Some(i) = &mut self.item {
+            *i = i.saturating_add_signed(by).min(count.saturating_sub(1));
+        }
+    }
+
     /// The lines shown.
     pub fn lines(&self) -> Vec<Line> {
         lines(&self.filter)
@@ -291,7 +527,7 @@ mod tests {
         // Text is typed, lists edited in the file.
         assert_eq!(edit(spec("latex.engine")), Edit::Type);
         assert_eq!(step(&config, spec("latex.engine"), true), None);
-        assert_eq!(edit(spec("plugins.sources")), Edit::File);
+        assert_eq!(edit(spec("plugins.sources")), Edit::Items);
         assert_eq!(
             shown(&config, spec("plugins.sources")),
             tr("settings-empty")
@@ -309,6 +545,65 @@ mod tests {
         assert!(changed(&config, spec("projects.auto_add")));
         assert_eq!(shown(&config, spec("projects.auto_add")), tr("settings-on"));
         assert_eq!(shown_default(spec("projects.auto_add")), tr("settings-off"));
+    }
+
+    #[test]
+    fn items_of_lists_and_tables_change_one_by_one() {
+        let config = Config::default();
+        // A list of choices: each one in or out, in the choices' order.
+        let modes = spec("editor.vim.modes");
+        assert!(matches!(items_kind(modes), Some(Items::Choices(_))));
+        let all = items(&config, modes);
+        assert!(all.iter().all(|i| i.on == Some(false)));
+        let csv = all.iter().position(|i| i.text == "csv").unwrap();
+        let org = all.iter().position(|i| i.text == "org").unwrap();
+        let v = toggle(&config, modes, csv).unwrap();
+        let config = with("editor.vim.modes", &v);
+        let v = toggle(&config, modes, org).unwrap();
+        assert_eq!(v, serde_json::json!(["org", "csv"]));
+        let config = with("editor.vim.modes", &v);
+        assert_eq!(
+            toggle(&config, modes, org),
+            Some(serde_json::json!(["csv"]))
+        );
+        // A list of texts: added, edited, moved, removed.
+        let todo = spec("org.todo_keywords");
+        assert_eq!(items(&config, todo).len(), 3);
+        let v = put(&config, todo, None, " WAIT ").unwrap();
+        let config = with("org.todo_keywords", &v);
+        assert_eq!(texts(&config, todo), ["TODO", "|", "DONE", "WAIT"]);
+        let (v, to) = shift(&config, todo, 3, true).unwrap();
+        assert_eq!(to, 2);
+        let config = with("org.todo_keywords", &v);
+        assert_eq!(texts(&config, todo), ["TODO", "|", "WAIT", "DONE"]);
+        assert!(shift(&config, todo, 0, true).is_none());
+        let v = put(&config, todo, Some(2), "NEXT").unwrap();
+        let config = with("org.todo_keywords", &v);
+        let v = remove(&config, todo, 1).unwrap();
+        assert_eq!(v, serde_json::json!(["TODO", "NEXT", "DONE"]));
+        assert!(put(&config, todo, None, "  ").is_err());
+        // A table: `path = mode` typed, its mode stepped, an entry gone.
+        let files = spec("files.modes");
+        assert!(put(&config, files, None, "notes.txt").is_err());
+        assert!(put(&config, files, None, " = markdown").is_err());
+        let v = put(&config, files, None, "notes.txt = markdown").unwrap();
+        let config = with("files.modes", &v);
+        assert_eq!(items(&config, files)[0].text, "notes.txt = markdown");
+        let v = cycle(&config, files, 0, true).unwrap();
+        assert_ne!(v["notes.txt"], "markdown");
+        let v = put(&config, files, Some(0), "b.rs = rust").unwrap();
+        assert_eq!(v, serde_json::json!({"b.rs": "rust"}));
+        let config = with("files.modes", &v);
+        assert_eq!(remove(&config, files, 0), Some(serde_json::json!({})));
+        // A list of choices has no texts to type.
+        assert!(put(&config, modes, None, "org").is_err());
+    }
+
+    /// The settings with only `key` set by the user, to `value`.
+    fn with(key: &str, value: &Value) -> Config {
+        let parts: Vec<&str> = key.split('.').collect();
+        let text = crate::settings::set_in_toml("", &parts, value).unwrap();
+        Config::from_layers(&[(crate::settings::Layer::User, None, &text)])
     }
 
     #[test]
