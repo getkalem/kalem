@@ -16,6 +16,7 @@ cmd-edit-selectAll = Select All
 cmd-link-store = Store Link
 cmd-org-link-insertStored = Insert Stored Link
 cmd-org-link-open = Open Link
+cmd-org-dwim = Act at Cursor
 cmd-edit-enter = New Line or Item
 cmd-edit-newline = Line Break
 cmd-view-palette = Command Palette

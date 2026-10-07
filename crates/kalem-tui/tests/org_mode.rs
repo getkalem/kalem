@@ -235,3 +235,34 @@ fn vim_z_keys_fold_as_in_doom() {
     t.typ("zz");
     assert_eq!(t.text(), text);
 }
+
+#[test]
+fn vim_keys_of_evil_org_and_doom() {
+    let vim = "editor.keymap_profile = \"vim\"\n";
+    // M-l and M-h demote and promote a heading; M-j moves its subtree.
+    let text = "* A\n* B\n- [ ] x\n- [ ] y\n";
+    let mut t = open_with(text, vim, 2);
+    t.key(KeyCode::Char('l'), KeyModifiers::ALT);
+    assert_eq!(t.text(), "** A\n* B\n- [ ] x\n- [ ] y\n");
+    t.key(KeyCode::Char('h'), KeyModifiers::ALT);
+    t.key(KeyCode::Char('j'), KeyModifiers::ALT);
+    assert_eq!(t.text(), "* B\n- [ ] x\n- [ ] y\n* A\n");
+    // On an item, M-j moves the item; Enter toggles its checkbox.
+    let mut t = open_with(text, vim, text.find("x").unwrap());
+    t.key(KeyCode::Char('j'), KeyModifiers::ALT);
+    assert_eq!(t.text(), "* A\n* B\n- [ ] y\n- [ ] x\n");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(t.text(), "* A\n* B\n- [ ] y\n- [X] x\n");
+    // Enter on a heading with a TODO keyword: done, then not done again;
+    // on a plain line it does nothing (it does not move either).
+    let text = "* TODO Task\nplain\n";
+    let mut t = open_with(text, vim, 3);
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(t.text().starts_with("* DONE Task\n"), "{}", t.text());
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(t.text().starts_with("* TODO Task\n"), "{}", t.text());
+    t.app.doc.move_cursor(t.text().find("plain").unwrap(), false);
+    let before = t.text();
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(t.text(), before);
+}

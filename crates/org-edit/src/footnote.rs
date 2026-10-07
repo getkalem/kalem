@@ -1093,6 +1093,17 @@ fn definition_start_in(text: &str, root: &SyntaxNode, label: &str) -> Option<usi
     None
 }
 
+/// Whether `point` is on a footnote reference or on a definition's label,
+/// where [`action`] goes to the other end instead of making a footnote.
+pub fn at_footnote(text: &str, point: usize) -> bool {
+    let root = root(text);
+    let Some(c) = context(&root, point) else {
+        return false;
+    };
+    let end = skip_back(text, range(&c).end, b" \t");
+    point <= end && matches!(c.kind(), FOOTNOTE_REFERENCE | FOOTNOTE_DEFINITION)
+}
+
 /// `org-footnote-action`: from a reference to its definition, from a
 /// definition to its closest reference, elsewhere a new footnote.
 pub fn action(

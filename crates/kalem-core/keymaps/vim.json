@@ -391,5 +391,33 @@
   { "keys": "ctrl+x ctrl+q", "command": "dired.editNames" },
   { "keys": "leader f shift+d", "command": "dired.delete", "when": "vimCommand && editorMode == directory" },
   { "keys": "leader f shift+r", "command": "dired.move", "when": "vimCommand && editorMode == directory" },
-  { "keys": "leader f shift+c", "command": "dired.copy", "when": "vimCommand && editorMode == directory" }
+  { "keys": "leader f shift+c", "command": "dired.copy", "when": "vimCommand && editorMode == directory" },
+  // Org outside the leader, as evil-org's keys and Doom Emacs's Org module
+  // have them in Normal mode: M-h and M-l promote and demote a heading,
+  // outdent and indent an item, move a table column; M-k and M-j move a
+  // subtree, an item or a table row; with Shift (M-H, M-L, M-K, M-J) the
+  // subtree, the item with its children, or a column or row deleted or
+  // inserted (`org-metaleft` and the others). Enter acts on what is at
+  // the cursor (`+org/dwim-at-point`).
+  { "keys": "alt+h", "command": "org.headline.promote", "when": "vimCommand && editorMode == org && onHeadline" },
+  { "keys": "alt+h", "command": "list.outdent", "when": "vimCommand && editorMode == org && inList && !onHeadline" },
+  { "keys": "alt+h", "command": "table.moveColumnLeft", "when": "vimCommand && editorMode == org && inTable" },
+  { "keys": "alt+l", "command": "org.headline.demote", "when": "vimCommand && editorMode == org && onHeadline" },
+  { "keys": "alt+l", "command": "list.indent", "when": "vimCommand && editorMode == org && inList && !onHeadline" },
+  { "keys": "alt+l", "command": "table.moveColumnRight", "when": "vimCommand && editorMode == org && inTable" },
+  { "keys": "alt+k", "command": "org.headline.moveSubtreeUp", "when": "vimCommand && editorMode == org && onHeadline" },
+  { "keys": "alt+k", "command": "list.moveUp", "when": "vimCommand && editorMode == org && inList && !onHeadline" },
+  { "keys": "alt+k", "command": "table.moveRowUp", "when": "vimCommand && editorMode == org && inTable" },
+  { "keys": "alt+j", "command": "org.headline.moveSubtreeDown", "when": "vimCommand && editorMode == org && onHeadline" },
+  { "keys": "alt+j", "command": "list.moveDown", "when": "vimCommand && editorMode == org && inList && !onHeadline" },
+  { "keys": "alt+j", "command": "table.moveRowDown", "when": "vimCommand && editorMode == org && inTable" },
+  { "keys": "alt+shift+h", "command": "org.headline.promoteSubtree", "when": "vimCommand && editorMode == org && onHeadline" },
+  { "keys": "alt+shift+h", "command": "list.outdentTree", "when": "vimCommand && editorMode == org && inList && !onHeadline" },
+  { "keys": "alt+shift+h", "command": "table.deleteColumn", "when": "vimCommand && editorMode == org && inTable" },
+  { "keys": "alt+shift+l", "command": "org.headline.demoteSubtree", "when": "vimCommand && editorMode == org && onHeadline" },
+  { "keys": "alt+shift+l", "command": "list.indentTree", "when": "vimCommand && editorMode == org && inList && !onHeadline" },
+  { "keys": "alt+shift+l", "command": "table.insertColumn", "when": "vimCommand && editorMode == org && inTable" },
+  { "keys": "alt+shift+k", "command": "table.killRow", "when": "vimCommand && editorMode == org && inTable" },
+  { "keys": "alt+shift+j", "command": "table.insertRow", "when": "vimCommand && editorMode == org && inTable" },
+  { "keys": "enter", "command": "org.dwim", "when": "vimCommand && editorMode == org" }
 ]

@@ -15,6 +15,7 @@ cmd-edit-selectAll = Tümünü Seç
 cmd-link-store = Bağlantıyı Sakla
 cmd-org-link-insertStored = Saklanan Bağlantıyı Ekle
 cmd-org-link-open = Bağlantıyı Aç
+cmd-org-dwim = İmleçteki Şeye Göre Davran
 cmd-edit-enter = Yeni Satır veya Öğe
 cmd-edit-newline = Satır Sonu
 cmd-view-palette = Komut Paleti

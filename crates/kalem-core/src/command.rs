@@ -151,6 +151,14 @@ pub enum Request {
     },
     /// Open or close folds: Vim's `z` keys.
     FoldOp(crate::view::FoldOp),
+    /// Run another command, chosen by a command that acts on what is at
+    /// the cursor (Act at Cursor).
+    Run {
+        /// The command's ID.
+        command: String,
+        /// Its arguments.
+        args: serde_json::Value,
+    },
     /// Open a file in the window: `path`, or ask for one.
     Open {
         /// The file.

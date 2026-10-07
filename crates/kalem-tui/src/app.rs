@@ -2013,6 +2013,7 @@ impl App {
             }
             Request::Fold { global } => self.fold(global),
             Request::FoldOp(op) => self.fold_op(op),
+            Request::Run { command, args } => self.run_command(&command, args),
             Request::OpenLink(action) => self.open_link(action),
             Request::Palette => self.open_palette(),
             Request::Menus => {

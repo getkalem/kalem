@@ -492,6 +492,73 @@ const TABLE: &str = "editorMode == org && inTable";
 const LIST: &str = "editorMode == org && inList";
 const ON_TIMESTAMP: &str = "editorMode == org && onTimestamp && !hasSelection";
 
+/// What Enter does in Vim's Normal mode in an Org document, as Doom
+/// Emacs's `+org/dwim-at-point`: on a link it opens it, on a footnote it
+/// goes to the other end, on a heading with a TODO keyword it marks it
+/// done (or not done again), on an item with a checkbox it toggles it,
+/// in a table it recalculates it; elsewhere nothing.
+fn org_dwim(ctx: &mut EditorContext<'_>) -> CommandResult {
+    let doc = ctx.doc()?;
+    let model = doc
+        .model()
+        .ok_or_else(|| CommandError::new(crate::tr!("msg-not-org")))?;
+    let pos = doc.selection.head;
+    let when = doc.when_context();
+    let on = |k: &str| matches!(when.get(k), Some(crate::when::Value::Bool(true)));
+    let text = model.parse().syntax().to_string();
+    let run = |id: &str, args: Value| Request::Run {
+        command: id.to_string(),
+        args,
+    };
+    let chosen = if crate::input::link_at(&model, pos).is_some() {
+        Some(run("org.link.open", serde_json::json!({})))
+    } else if org_edit::footnote::at_footnote(&text, pos) {
+        Some(run("org.footnote.action", serde_json::json!({})))
+    } else if on("onHeadline") {
+        let bol = text[..pos].rfind('\n').map_or(0, |i| i + 1);
+        let line = text[bol..].split('\n').next().unwrap_or("");
+        let ctx_ = model.parse().context();
+        org_model::complex_heading(line, ctx_)
+            .and_then(|c| c.todo)
+            .map(|r| {
+                let kw = &line[r];
+                if ctx_.done_keywords.iter().any(|d| d == kw) {
+                    let first = ctx_.todo_keywords.first().cloned().unwrap_or_default();
+                    run("org.todo.set", serde_json::json!({ "state": first }))
+                } else {
+                    run("org.todo.done", serde_json::json!({}))
+                }
+            })
+    } else if on("inTable") {
+        Some(run("table.recalculate", serde_json::json!({})))
+    } else if on("inList") && checkbox_on_line(&text, pos) {
+        Some(run("list.toggleCheckbox", serde_json::json!({})))
+    } else {
+        None
+    };
+    match chosen {
+        Some(r) => request(ctx, r),
+        None => Ok(()),
+    }
+}
+
+/// Whether the line at `pos` is an item with a checkbox.
+fn checkbox_on_line(text: &str, pos: usize) -> bool {
+    let bol = text[..pos.min(text.len())].rfind('\n').map_or(0, |i| i + 1);
+    let line = &text[bol..];
+    let line = line.split('\n').next().unwrap_or("");
+    let rest = line.trim_start();
+    let after = rest
+        .strip_prefix(['-', '+', '*'])
+        .or_else(|| {
+            let n = rest.bytes().take_while(u8::is_ascii_alphanumeric).count();
+            (n > 0).then(|| rest[n..].strip_prefix(['.', ')'])).flatten()
+        })
+        .unwrap_or("");
+    let after = after.trim_start_matches([' ', '\t']);
+    ["[ ]", "[X]", "[x]", "[-]"].iter().any(|c| after.starts_with(c))
+}
+
 /// `org-timestamp-change` at the cursor by `n` of `what`, or of the part
 /// of the timestamp the cursor is in.
 fn timestamp_change(
@@ -6486,6 +6553,15 @@ fn plain_commands() -> Vec<Command> {
                 };
                 Ok(())
             },
+        ),
+        // Doom Emacs's `+org/dwim-at-point`, Enter in Vim's Normal mode.
+        cmd(
+            "org.dwim",
+            "Act at Cursor",
+            "Edit",
+            &[],
+            Some(ORG),
+            |ctx, _| org_dwim(ctx),
         ),
         cmd(
             "org.link.open",
