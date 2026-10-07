@@ -51,9 +51,17 @@ fn same_file(a: &Path, b: &Path) -> bool {
 /// parser closed or skipped, deprecated commands and chktex's rules, with
 /// their fixes. The editor shows these as the text changes.
 pub fn text_diagnostics(parse: &latex_syntax::Parse) -> Vec<Diagnostic> {
+    let root = parse.syntax();
     let mut out: Vec<Diagnostic> = parse
         .diagnostics()
         .iter()
+        // An environment a definition opens and another closes
+        // (`\newcommand{\be}{\begin{equation}}`) is not a mistake.
+        .filter(|d| {
+            !((d.message.ends_with("is not closed") || d.message.contains("without \\begin"))
+                && latex_syntax::token_at(&root, d.range.start)
+                    .is_some_and(|t| t.parent_ancestors().any(|a| is_definition(&a))))
+        })
         .map(|d| Diagnostic {
             range: d.range.clone(),
             severity: Severity::Warning,
@@ -62,9 +70,58 @@ pub fn text_diagnostics(parse: &latex_syntax::Parse) -> Vec<Diagnostic> {
             fix: None,
         })
         .collect();
-    out.extend(style_diagnostics(&parse.syntax()));
+    out.extend(style_diagnostics(&root));
     out.sort_by_key(|d| (d.range.start, d.range.end));
     out
+}
+
+/// The lists enumitem's `\newlist{name}{type}{depth}` declares.
+fn newlists(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut rest = text;
+    while let Some(i) = rest.find("\\newlist") {
+        rest = &rest[i + "\\newlist".len()..];
+        if let Some(name) = rest
+            .trim_start()
+            .strip_prefix('{')
+            .and_then(|r| r.split_once('}'))
+            .map(|(n, _)| n.trim().to_string())
+        {
+            out.push(name);
+        }
+    }
+    out
+}
+
+/// Whether `n` is a command defining a macro or an environment, whose
+/// arguments are a template (used in text or in math, an environment
+/// opened by one and closed by another).
+fn is_definition(n: &latex_syntax::SyntaxNode) -> bool {
+    n.kind() == K::COMMAND
+        && latex_syntax::name(n).is_some_and(|n| {
+            matches!(
+                n.as_str(),
+                "newcommand"
+                    | "renewcommand"
+                    | "providecommand"
+                    | "DeclareRobustCommand"
+                    | "newcommandtwoopt"
+                    | "renewcommandtwoopt"
+                    | "providecommandtwoopt"
+                    | "NewDocumentCommand"
+                    | "RenewDocumentCommand"
+                    | "ProvideDocumentCommand"
+                    | "DeclareDocumentCommand"
+                    | "NewDocumentEnvironment"
+                    | "RenewDocumentEnvironment"
+                    | "newenvironment"
+                    | "renewenvironment"
+                    | "def"
+                    | "gdef"
+                    | "edef"
+                    | "xdef"
+            )
+        })
 }
 
 /// The fix of the diagnostic at the cursor of `sel`, or else of the first
@@ -108,8 +165,18 @@ fn style_diagnostics(root_node: &latex_syntax::SyntaxNode) -> Vec<Diagnostic> {
                         || latex_syntax::signatures::is_verbatim(&n)
                 }))
     };
+    // Pictures drawn in TeX (TikZ's `{1,...,5}`, `to["label"]` are not
+    // prose), and the bodies of definitions (used in text or in math: a
+    // font command's fix could be either).
+    let is_picture = |a: &latex_syntax::SyntaxNode| {
+        a.kind() == K::ENVIRONMENT
+            && latex_syntax::name(a).is_some_and(|n| crate::latex_view::tex_picture(&n))
+    };
     let mut math_depth = 0usize;
+    let mut picture_depth = 0usize;
+    let mut definition_depth = 0usize;
     let mut shorthand: Option<bool> = None;
+    let source = std::cell::OnceCell::new();
     for event in root_node.preorder_with_tokens() {
         let t = match event {
             latex_syntax::WalkEvent::Enter(e) => {
@@ -117,6 +184,8 @@ fn style_diagnostics(root_node: &latex_syntax::SyntaxNode) -> Vec<Diagnostic> {
                     if is_math_node(n) {
                         math_depth += 1;
                     }
+                    picture_depth += usize::from(is_picture(n));
+                    definition_depth += usize::from(is_definition(n));
                     continue;
                 }
                 match e.into_token() {
@@ -125,10 +194,12 @@ fn style_diagnostics(root_node: &latex_syntax::SyntaxNode) -> Vec<Diagnostic> {
                 }
             }
             latex_syntax::WalkEvent::Leave(e) => {
-                if let Some(n) = e.as_node()
-                    && is_math_node(n)
-                {
-                    math_depth -= 1;
+                if let Some(n) = e.as_node() {
+                    if is_math_node(n) {
+                        math_depth -= 1;
+                    }
+                    picture_depth -= usize::from(is_picture(n));
+                    definition_depth -= usize::from(is_definition(n));
                 }
                 continue;
             }
@@ -175,6 +246,11 @@ fn style_diagnostics(root_node: &latex_syntax::SyntaxNode) -> Vec<Diagnostic> {
                             None,
                         ),
                         (true, None) => (crate::tr!("latex-deprecated-font", command = name), None),
+                        // In a definition: no fix, the command may be used
+                        // in math.
+                        (false, _) if definition_depth > 0 => {
+                            (crate::tr!("latex-deprecated-font", command = name), None)
+                        }
                         (false, _) => (
                             crate::tr!("latex-deprecated-font", command = name),
                             modern.map(|m| (range.clone(), m.to_string())),
@@ -222,9 +298,17 @@ fn style_diagnostics(root_node: &latex_syntax::SyntaxNode) -> Vec<Diagnostic> {
                 });
                 out.push(d);
             }
-            K::TEXT if !in_math => {
+            K::TEXT if !in_math && picture_depth == 0 => {
                 let s = t.text();
-                if let Some(i) = s.find("...") {
+                // pgffor's `\foreach \x in {1,...,5}`, outside pictures too.
+                let foreach = || {
+                    let text: &String = source.get_or_init(|| root_node.text().to_string());
+                    let line = text[..range.start].rfind('\n').map_or(0, |i| i + 1);
+                    text[line..range.start].contains("\\foreach")
+                };
+                if let Some(i) = s.find("...")
+                    && !foreach()
+                {
                     let mut d = info("latex-ellipsis", "latex-ellipsis");
                     let at = range.start + i;
                     d.range = at..at + 3;
@@ -513,7 +597,16 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
             }
         }
     }
-    for r in model.references.iter().filter(|r| r.file == this) {
+    // xr's `\externaldocument`: labels of other documents count too.
+    let external = model
+        .packages
+        .iter()
+        .any(|p| p.name == "xr" || p.name == "xr-hyper");
+    for r in model
+        .references
+        .iter()
+        .filter(|r| r.file == this && !external)
+    {
         for k in &r.keys {
             if !counts.contains_key(k.as_str()) {
                 out.push(Diagnostic {
@@ -544,11 +637,19 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
         }
     }
     // Citations, when the document names its bibliography.
+    // `\jobname` is the root document's name (a bibliography written by
+    // `filecontents`); a name another macro makes is not known here.
+    let jobname = root
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
     let files: Vec<PathBuf> = model
         .bibliography
         .iter()
         .flat_map(|b| b.files.iter())
-        .map(|f| crate::latex_view::find_bib(&root_dir, f))
+        .map(|f| f.replace("\\jobname", &jobname))
+        .filter(|f| !f.contains(['\\', '#']))
+        .map(|f| crate::latex_view::find_bib(&root_dir, &f))
         .collect();
     if !files.is_empty() {
         let (bib, errors) = org_cite::Bibliography::load(&files);
@@ -644,10 +745,13 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
             }
         }
     }
+    // A name made by a macro (`\chapdir/intro`, a definition's `#1`) is
+    // not known here: not reported.
+    let made = |name: &str| name.contains(['\\', '#']);
     for i in model
         .includes
         .iter()
-        .filter(|i| i.file == this && i.resolved.is_none())
+        .filter(|i| i.file == this && i.resolved.is_none() && !made(&i.target))
     {
         out.push(Diagnostic {
             range: i.range.clone(),
@@ -664,6 +768,29 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
     let body = model.body.clone().unwrap_or(0..text.len());
     // Four of one kind (`enumerate`, `itemize`), six in all.
     let mut open: Vec<String> = Vec::new();
+    // Lists the document makes its own way: environments and macros
+    // around a list (`\newenvironment{tight}{\begin{itemize}…}`, `\bi`
+    // for `\begin{itemize}`), enumitem's `\newlist`. An `\item` in them
+    // is in a list.
+    let opens_list = |code: &str| {
+        [
+            "\\begin{itemize",
+            "\\begin{enumerate",
+            "\\begin{description",
+            "\\list",
+            "\\trivlist",
+        ]
+        .iter()
+        .any(|l| code.contains(l))
+    };
+    let own_lists: Vec<String> = model
+        .environments
+        .iter()
+        .filter(|e| opens_list(&e.begin))
+        .map(|e| e.name.clone())
+        .chain(newlists(text))
+        .collect();
+    let list_macros = model.macros.iter().any(|m| opens_list(&m.body));
     for event in root_node.preorder() {
         match event {
             latex_syntax::WalkEvent::Enter(n) => {
@@ -672,6 +799,30 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
                     .flatten()
                     .filter(|x| crate::latex_view::is_list(x));
                 let depth = open.len();
+                // A list with no item: LaTeX stops at its `\end` (not one
+                // a definition opens, whose items come where it is used).
+                if list.is_some()
+                    && n.children().any(|c| c.kind() == K::END)
+                    && !n.ancestors().any(|a| is_definition(&a))
+                    && let Some(b) = n.children().find(|c| c.kind() == K::BODY)
+                    && b.descendants_with_tokens().all(|e| {
+                        e.as_token().is_none_or(|t| {
+                            matches!(
+                                t.kind(),
+                                K::WHITESPACE | K::NEWLINE | K::PAR_BREAK | K::COMMENT
+                            )
+                        })
+                    })
+                {
+                    let s = usize::from(n.text_range().start());
+                    out.push(Diagnostic {
+                        range: s..s + text[s..].find('}').map_or(0, |i| i + 1),
+                        severity: Severity::Warning,
+                        code: "latex-empty-list",
+                        message: crate::l10n::tr("latex-empty-list"),
+                        fix: None,
+                    });
+                }
                 if let Some(kind) = list {
                     open.push(kind.clone());
                     let same = open.iter().filter(|k| **k == kind).count();
@@ -689,6 +840,7 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
                 if n.kind() == K::COMMAND
                     && depth == 0
                     && open.is_empty()
+                    && !list_macros
                     && body.contains(&usize::from(n.text_range().start()))
                     && latex_syntax::name(&n).as_deref() == Some("item")
                     && !n.ancestors().any(|a| {
@@ -696,8 +848,13 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
                             && latex_syntax::name(&a).is_some_and(|x| {
                                 matches!(
                                     x.as_str(),
-                                    "thebibliography" | "itemize" | "enumerate" | "description"
+                                    "thebibliography"
+                                        | "itemize"
+                                        | "enumerate"
+                                        | "description"
+                                        | "theindex"
                                 ) || x.contains("list")
+                                    || own_lists.contains(&x)
                             })
                     })
                 {
@@ -720,6 +877,29 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
             }
         }
     }
+    // A blank line in a math environment: TeX ends the paragraph there,
+    // and the formula with an error. (`\[` and `$$` end at it in the
+    // parse, as in TeX, and are reported as not closed.)
+    for t in root_node
+        .descendants_with_tokens()
+        .filter_map(|e| e.into_token())
+        .filter(|t| t.kind() == K::PAR_BREAK)
+    {
+        let in_math = t.parent_ancestors().any(|a| {
+            a.kind() == K::ENVIRONMENT
+                && latex_syntax::name(&a).is_some_and(|x| latex_syntax::signatures::is_math(&x))
+        });
+        if in_math {
+            let r = usize::from(t.text_range().start())..usize::from(t.text_range().end());
+            out.push(Diagnostic {
+                range: r,
+                severity: Severity::Warning,
+                code: "latex-blank-line-in-math",
+                message: crate::l10n::tr("latex-blank-line-in-math"),
+                fix: None,
+            });
+        }
+    }
     for n in root_node.descendants().filter(|n| n.kind() == K::COMMAND) {
         let range = usize::from(n.text_range().start())..usize::from(n.text_range().end());
         if latex_syntax::name(&n).as_deref() == Some("includegraphics")
@@ -731,6 +911,9 @@ pub fn check(path: &Path, text: &str) -> Vec<Diagnostic> {
                 .trim_end_matches('}')
                 .trim()
                 .to_string();
+            if made(&name) {
+                continue;
+            }
             // From the root document's folder, where LaTeX runs: a picture
             // found only beside a chapter in a subfolder is not found by
             // the build.
@@ -1173,6 +1356,63 @@ mod tests {
             Some("1")
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// What pdflatex compiles cleanly gives no warning, and no fix that
+    /// would break it.
+    #[test]
+    fn valid_latex_is_not_flagged() {
+        let dir = std::env::temp_dir().join(format!("kalem-valid-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("fig.v2.pdf"), "").unwrap();
+        std::fs::write(
+            dir.join("valid.bib"),
+            "@book{k, title = {T}, year = 1984}\n",
+        )
+        .unwrap();
+        let text = "\\documentclass{article}\n\\usepackage{amsmath,amsthm,graphicx,tikz,hyperref,listings,xr}\n\\externaldocument{other}\n\\newcommand{\\vect}[1]{{\\bf #1}}\n\\newcommand{\\be}{\\begin{equation}}\n\\newcommand{\\ee}{\\end{equation}}\n\\newenvironment{sketch}{\\begin{proof}[Sketch]}{\\end{proof}}\n\\newenvironment{tight}{\\begin{itemize}}{\\end{itemize}}\n\\newcommand{\\pic}[1]{\\includegraphics{#1}}\n\\begin{document}\n\\section{A}\\label{a}\nSee~\\ref*{a} and~\\ref{elsewhere}.\n\\be x \\ee\n\\begin{tight}\n\\item one\n\\end{tight}\n\\begin{tikzpicture}\n\\foreach \\x in {1,...,5} \\node at (\\x,0) {\\x};\n\\draw (0,0) to[\"edge\"] (1,1);\n\\end{tikzpicture}\n\\includegraphics{fig.v2}\n\\begin{lstlisting}[caption=Loop, label=lst:loop]\nx\n\\end{lstlisting}\nListing~\\ref{lst:loop}~\\cite{k}.\n\\bibliography{\\jobname}\n\\end{document}\n";
+        let path = dir.join("valid.tex");
+        std::fs::write(&path, text).unwrap();
+        let d = check(&path, text);
+        // The font command in a definition: noted, with no fix.
+        let flagged: Vec<(&str, bool)> = d.iter().map(|d| (d.code, d.fix.is_some())).collect();
+        assert_eq!(flagged, [("latex-deprecated", false)], "{d:#?}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn empty_lists_and_blank_lines_in_formulas() {
+        let codes = |t: &str| -> Vec<&'static str> {
+            let p = std::env::temp_dir().join(format!("kalem-blank-{}.tex", std::process::id()));
+            check(&p, t)
+                .into_iter()
+                .map(|d| d.code)
+                .filter(|c| *c == "latex-empty-list" || *c == "latex-blank-line-in-math")
+                .collect()
+        };
+        let doc = |body: &str| format!("\\begin{{document}}\n{body}\n\\end{{document}}\n");
+        // What pdflatex stops at.
+        assert_eq!(
+            codes(&doc("\\begin{itemize}\n  % none yet\n\\end{itemize}")),
+            ["latex-empty-list"]
+        );
+        assert_eq!(
+            codes(&doc("\\begin{align}\n\n  a &= b\n\\end{align}")),
+            ["latex-blank-line-in-math"]
+        );
+        assert_eq!(
+            codes(&doc("\\begin{equation*}\n  a\n  \n  b\n\\end{equation*}")),
+            ["latex-blank-line-in-math"]
+        );
+        // What it does not.
+        assert!(
+            codes(&doc(
+                "\\begin{itemize}\n\\item x\n\n\\item y\n\\end{itemize}"
+            ))
+            .is_empty()
+        );
+        assert!(codes(&doc("\\begin{equation}\n  a % note\n  b\n\\end{equation}")).is_empty());
+        assert!(codes(&doc("\\begin{figure}\n\n x\n\n\\end{figure}")).is_empty());
     }
 
     #[test]
