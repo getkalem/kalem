@@ -295,20 +295,22 @@ fn highlight_line(
 /// The parser's state at a line start.
 type LineState = (ParseState, ScopeStack);
 
-/// The previous highlighting while updating: states, lines, how many lines
-/// were added, and the last changed line.
-type Old = (Vec<LineState>, Vec<Vec<Span>>, isize, usize);
-
-/// A highlighted text kept up to date through edits (plain text mode):
-/// the parser's state at each line start is kept, so after an edit only
-/// the changed lines are highlighted again, and the lines after them until
-/// the state is what it was.
+/// A highlighted text kept up to date through edits (plain text mode),
+/// colored from the top only as far as its lines are asked for: opening a
+/// long file colors the lines shown, not the whole file (a 10 KB Markdown
+/// file took 220 ms). The parser's state at each line start is kept, so
+/// after an edit only the changed lines are highlighted again, and the
+/// lines after them until the state is what it was.
 #[derive(Debug, Clone)]
 pub struct Highlighter {
     language: Language,
     text: String,
-    /// The state before each line.
-    states: Vec<(ParseState, ScopeStack)>,
+    /// Where each line starts.
+    starts: Vec<usize>,
+    /// The state before each line colored and before the line after them:
+    /// one more than `lines`.
+    states: Vec<LineState>,
+    /// The spans of the lines colored, from the first.
     lines: Vec<Vec<Span>>,
 }
 
@@ -318,17 +320,57 @@ fn line_starts(text: &str) -> Vec<usize> {
         .collect()
 }
 
+/// How many bytes `a` and `b` start with in common.
+fn common_prefix(a: &[u8], b: &[u8]) -> usize {
+    let n = a.len().min(b.len());
+    let mut i = 0;
+    // Whole chunks first: compared as slices, they are compared fast.
+    while i + 64 <= n && a[i..i + 64] == b[i..i + 64] {
+        i += 64;
+    }
+    i + a[i..n]
+        .iter()
+        .zip(&b[i..n])
+        .take_while(|(x, y)| x == y)
+        .count()
+}
+
+/// How many bytes `a` and `b` end with in common, at most `max`.
+fn common_suffix(a: &[u8], b: &[u8], max: usize) -> usize {
+    let (mut x, mut y) = (a.len(), b.len());
+    let mut n = 0;
+    while n + 64 <= max && a[x - 64..x] == b[y - 64..y] {
+        (x, y, n) = (x - 64, y - 64, n + 64);
+    }
+    n + a[..x]
+        .iter()
+        .rev()
+        .zip(b[..y].iter().rev())
+        .take(max - n)
+        .take_while(|(x, y)| x == y)
+        .count()
+}
+
+fn line_feeds(bytes: &[u8]) -> usize {
+    bytes.iter().filter(|&&b| b == b'\n').count()
+}
+
 impl Highlighter {
-    /// Highlights `text` in `language`.
+    /// How many lines an edit colors again at most, looking for the state
+    /// as it was before a line it left as it was; the lines after are
+    /// colored again when they are shown (a comment opened at the top of a
+    /// long file).
+    const REDO: usize = 1000;
+
+    /// Highlights `text` in `language` (lines are colored when asked for).
     pub fn new(language: Language, text: &str) -> Highlighter {
-        let mut h = Highlighter {
+        Highlighter {
             language,
-            text: String::new(),
-            states: Vec::new(),
+            text: text.to_string(),
+            starts: line_starts(text),
+            states: vec![(ParseState::new(language.syntax), ScopeStack::new())],
             lines: Vec::new(),
-        };
-        h.run(text, 0, None, None);
-        h
+        }
     }
 
     /// The language.
@@ -336,48 +378,35 @@ impl Highlighter {
         self.language
     }
 
-    /// The spans of line `i` (bytes from the line's start).
-    pub fn line(&self, i: usize) -> &[Span] {
+    /// The spans of line `i` (bytes from the line's start), coloring the
+    /// lines before it first if they are not yet.
+    pub fn line(&mut self, i: usize) -> &[Span] {
+        self.color_to(i.saturating_add(1));
         self.lines.get(i).map_or(&[], Vec::as_slice)
     }
 
-    /// Highlights from line `first` of `text` on; with `old` (the previous
-    /// states and lines, shifted by `delta` lines after `last`, the last
-    /// changed line), it stops where the state is as before.
-    fn run(
-        &mut self,
-        text: &str,
-        first: usize,
-        start: Option<(ParseState, ScopeStack)>,
-        old: Option<Old>,
-    ) {
-        let starts = line_starts(text);
-        let mut state =
-            start.unwrap_or_else(|| (ParseState::new(self.language.syntax), ScopeStack::new()));
-        self.states.truncate(first);
-        self.lines.truncate(first);
-        for (i, &s) in starts.iter().enumerate().skip(first) {
-            if let Some((old_states, old_lines, delta, last)) = &old {
-                let j = i as isize - delta;
-                if i > *last
-                    && j >= 0
-                    && (j as usize) < old_states.len()
-                    && old_states[j as usize] == state
-                {
-                    // As before from here: the old lines, moved.
-                    self.states.extend_from_slice(&old_states[j as usize..]);
-                    self.lines.extend_from_slice(&old_lines[j as usize..]);
-                    break;
-                }
-            }
-            let e = starts.get(i + 1).copied().unwrap_or(text.len());
-            self.states.push(state.clone());
-            let spans = highlight_line(self.language.set, &mut state.0, &mut state.1, &text[s..e]);
-            self.lines.push(spans);
+    /// Colors the lines before line `end` not colored yet.
+    fn color_to(&mut self, end: usize) {
+        let end = end.min(self.starts.len());
+        while self.lines.len() < end {
+            self.color_next();
         }
-        self.states.truncate(starts.len());
-        self.lines.truncate(starts.len());
-        self.text = text.to_string();
+    }
+
+    /// Colors the line after the last colored.
+    fn color_next(&mut self) {
+        let i = self.lines.len();
+        let s = self.starts[i];
+        let e = self.starts.get(i + 1).copied().unwrap_or(self.text.len());
+        let mut state = self.states[i].clone();
+        let spans = highlight_line(
+            self.language.set,
+            &mut state.0,
+            &mut state.1,
+            &self.text[s..e],
+        );
+        self.lines.push(spans);
+        self.states.push(state);
     }
 
     /// Brings the highlighting up to date with `text` (the whole new
@@ -387,29 +416,48 @@ impl Highlighter {
             return;
         }
         let (a, b) = (self.text.as_bytes(), text.as_bytes());
-        let pre = a.iter().zip(b).take_while(|(x, y)| x == y).count();
-        let max = a.len().min(b.len()) - pre;
-        let suf = a
-            .iter()
-            .rev()
-            .zip(b.iter().rev())
-            .take(max)
-            .take_while(|(x, y)| x == y)
-            .count();
-        let first = self.text[..pre].matches('\n').count();
-        let last = text[..b.len() - suf].matches('\n').count();
-        let delta = line_starts(text).len() as isize - line_starts(&self.text).len() as isize;
-        let old = (
-            std::mem::take(&mut self.states),
-            std::mem::take(&mut self.lines),
-            delta,
-            last,
-        );
-        let first = first.min(old.0.len());
-        let start = old.0.get(first).cloned();
-        self.states = old.0[..first].to_vec();
-        self.lines = old.1[..first.min(old.1.len())].to_vec();
-        self.run(text, first, start, Some(old));
+        let pre = common_prefix(a, b);
+        let suf = common_suffix(a, b, a.len().min(b.len()) - pre);
+        let added = line_feeds(&b[pre..b.len() - suf]);
+        let delta = added as isize - line_feeds(&a[pre..a.len() - suf]) as isize;
+        // The first line changed, and the last in the new text.
+        let first = line_feeds(&a[..pre]);
+        let last = first + added;
+        let colored = self.lines.len();
+        self.text.clear();
+        self.text.push_str(text);
+        self.starts = line_starts(text);
+        if first >= colored {
+            // Only lines not colored yet changed.
+            return;
+        }
+        // From `first` on, colored again until the state before a line the
+        // edit left is what it was: the old lines after it are moved.
+        let old_states = self.states.split_off(first + 1);
+        let old_lines = self.lines.split_off(first);
+        // How far lines were colored, in the new text's lines.
+        let end = (colored as isize + delta).max(0) as usize;
+        while self.lines.len() < self.starts.len() {
+            let i = self.lines.len();
+            if i > last {
+                // Line `i` was line `j`; the states kept are those before
+                // lines `first + 1` to `colored`.
+                let j = (i as isize - delta) as usize;
+                let k = j.wrapping_sub(first + 1);
+                if old_states.get(k) == Some(&self.states[i]) {
+                    self.lines.extend(old_lines.into_iter().skip(k + 1));
+                    self.states.extend(old_states.into_iter().skip(k + 1));
+                    return;
+                }
+                if i >= end {
+                    break;
+                }
+            }
+            if i - first >= Self::REDO {
+                break;
+            }
+            self.color_next();
+        }
     }
 }
 
@@ -502,49 +550,12 @@ pub fn highlight_block(language: Language, text: &str) -> std::sync::Arc<Vec<Vec
 /// Highlights `text` line by line; the spans of each line are in order
 /// and do not overlap. Lines are split at `\n`.
 pub fn highlight(language: Language, text: &str) -> Vec<Vec<Span>> {
-    let set = language.set;
     let mut state = ParseState::new(language.syntax);
     let mut stack = ScopeStack::new();
-    let mut out = Vec::new();
-    for line in text.split_inclusive('\n') {
-        // Too long to color: plain, the state as it came.
-        if line.len() > MAX_LINE {
-            out.push(Vec::new());
-            continue;
-        }
-        let ops = state.parse_line(line, set).unwrap_or_default();
-        let mut spans: Vec<Span> = Vec::new();
-        let mut at = 0;
-        let push = |spans: &mut Vec<Span>, stack: &ScopeStack, from: usize, to: usize| {
-            if from >= to {
-                return;
-            }
-            if let Some(k) = kind(stack) {
-                match spans.last_mut() {
-                    Some(last) if last.kind == k && last.range.end == from => last.range.end = to,
-                    _ => spans.push(Span {
-                        range: from..to,
-                        kind: k,
-                    }),
-                }
-            }
-        };
-        for (pos, op) in ops {
-            push(&mut spans, &stack, at, pos);
-            at = pos;
-            if matches!(op, ScopeStackOp::Noop) {
-                continue;
-            }
-            let _ = stack.apply(&op);
-        }
-        let end = line.trim_end_matches('\n').len();
-        push(&mut spans, &stack, at, end);
-        spans.retain(|s| s.range.start < end);
-        for s in &mut spans {
-            s.range.end = s.range.end.min(end);
-        }
-        out.push(spans);
-    }
+    let mut out: Vec<Vec<Span>> = text
+        .split_inclusive('\n')
+        .map(|line| highlight_line(language.set, &mut state, &mut stack, line))
+        .collect();
     if text.is_empty() || text.ends_with('\n') {
         out.push(Vec::new());
     }
@@ -564,9 +575,10 @@ mod window_tests {
         let text = format!("var x = \"s\";\n{long}\nvar y = 2;\n");
         // The syntaxes loaded first: their loading is not what is timed
         // (over a second on CI's debug build).
-        let _ = Highlighter::new(lang, "var z = 1;\n");
+        let _ = Highlighter::new(lang, "var z = 1;\n").line(0);
         let started = std::time::Instant::now();
-        let h = Highlighter::new(lang, &text);
+        let mut h = Highlighter::new(lang, &text);
+        h.color_to(usize::MAX);
         assert!(started.elapsed() < std::time::Duration::from_secs(1));
         assert!(!h.line(0).is_empty());
         assert!(h.line(1).is_empty());
@@ -633,6 +645,9 @@ mod tests {
         let rust = Language::find("rs").unwrap();
         let text = "fn a() {}\n/* x\ny */\nlet s = \"q\";\n";
         let mut h = Highlighter::new(rust, text);
+        // Nothing is colored before it is asked for.
+        assert!(h.lines.is_empty());
+        h.color_to(usize::MAX);
         assert_eq!(h.lines, highlight(rust, text));
         // Edits: in a line, lines added, a comment opened that runs on.
         for new in [
@@ -644,8 +659,45 @@ mod tests {
             "",
         ] {
             h.update(new);
+            h.color_to(usize::MAX);
             assert_eq!(h.lines, highlight(rust, new), "{new:?}");
         }
+    }
+
+    #[test]
+    fn colored_as_far_as_asked() {
+        let rust = Language::find("rs").unwrap();
+        let line = "let s = \"q\"; // é\n";
+        let text = line.repeat(3000);
+        let whole = highlight(rust, &text);
+        let mut h = Highlighter::new(rust, &text);
+        assert_eq!(h.line(10), whole[10].as_slice());
+        assert_eq!(h.lines.len(), 11);
+        // An edit below the lines colored colors nothing.
+        let below = format!("{}x{}", &text[..text.len() - 5], &text[text.len() - 5..]);
+        h.update(&below);
+        assert_eq!(h.lines.len(), 11);
+        // An edit above them colors the line again, and the old lines
+        // after it are kept.
+        let above = format!("{}\n{}", &below[..40], &below[40..]);
+        h.update(&above);
+        assert_eq!(h.lines.len(), 12);
+        h.color_to(usize::MAX);
+        assert_eq!(h.lines, highlight(rust, &above));
+        // A comment opened at the top colors at most `REDO` lines again;
+        // the others when they are shown, as they are now.
+        let opened = format!("/*{above}");
+        h.update(&opened);
+        assert!(h.lines.len() <= Highlighter::REDO + 1);
+        let now = highlight(rust, &opened);
+        assert_eq!(h.line(2500), now[2500].as_slice());
+        h.color_to(usize::MAX);
+        assert_eq!(h.lines, now);
+        // Several bytes of a letter changed: line counts in bytes.
+        let changed = opened.replacen('é', "ü", 1);
+        h.update(&changed);
+        h.color_to(usize::MAX);
+        assert_eq!(h.lines, highlight(rust, &changed));
     }
 
     #[test]

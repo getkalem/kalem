@@ -1260,7 +1260,7 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
         && editor.doc.dired.is_none()
         && as_source
     {
-        let spans = match editor.plain.borrow().as_ref() {
+        let spans = match editor.plain.borrow_mut().as_mut() {
             Some((_, Some(h), _)) => Some(h.line(line).to_vec()),
             _ => None,
         };

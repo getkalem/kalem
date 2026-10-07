@@ -1612,10 +1612,11 @@ impl<'a> Layout<'a> {
             }
             return;
         }
-        let p = self.plain.borrow();
-        let Some((_, h, step)) = p.as_ref() else {
+        let mut p = self.plain.borrow_mut();
+        let Some((_, h, step)) = p.as_mut() else {
             return;
         };
+        let step = *step;
         // A very large file: a window of lines.
         let windowed = h.is_none().then(|| {
             let mut w = self.windowed.borrow_mut();
@@ -1648,7 +1649,7 @@ impl<'a> Layout<'a> {
             }
         }
         // A guide at each indentation step of the leading blanks.
-        if *step > 1 && !self.caps.ascii {
+        if step > 1 && !self.caps.ascii {
             for (col, g) in glyphs.iter_mut().enumerate() {
                 if g.text != " " {
                     break;
