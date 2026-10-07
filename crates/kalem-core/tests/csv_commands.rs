@@ -471,3 +471,19 @@ fn undo_after_escape_does_not_bring_the_entry_back() {
     let _ = s.d.undo();
     assert_eq!(s.text(), "a,b,c\n1,2,3\n");
 }
+
+#[test]
+fn enter_after_tabs_goes_back_to_the_column_they_started_from() {
+    // As in Excel: B2, Tab, Tab, Enter is B3 (it was D3).
+    let mut s = Sheet::new("a,b,c,d\n1,2,3,4\n5,6,7,8\n");
+    s.at("B2");
+    s.key("csv.nextField");
+    s.typ("x");
+    s.key("csv.nextField");
+    assert_eq!(s.cell(), "D2");
+    s.key("csv.cellBelow");
+    assert_eq!(s.cell(), "B3");
+    // Another move ends the run: Enter keeps the column.
+    s.at("A2").key("csv.nextField").key("csv.cellRight").key("csv.cellBelow");
+    assert_eq!(s.cell(), "C3");
+}

@@ -209,6 +209,10 @@ pub struct DocumentState {
     /// anchor, the version of the text and the column (the selection's
     /// rectangle reached column A).
     pub csv_virtual_anchor: Option<(usize, u64, usize)>,
+    /// A run of Tabs (and Shift+Tabs) along a CSV row: the cell it got to
+    /// (row and column) and the column it started from, where Enter goes
+    /// back to on the row below, as in Excel.
+    pub csv_tab_run: Option<(usize, usize, usize)>,
     /// The CSV grid's cell being typed into or edited, as Excel's Enter
     /// and Edit modes; none in its Ready mode, where the cursor is a cell
     /// (`csv_mode`).
@@ -370,6 +374,7 @@ impl DocumentState {
             csv_paste_block: false,
             csv_virtual: None,
             csv_virtual_anchor: None,
+            csv_tab_run: None,
             csv_edit: None,
             csv_vim: false,
             bib_sort: None,
@@ -1187,6 +1192,7 @@ impl DocumentState {
             }
         } else {
             self.csv_virtual_anchor = None;
+            self.csv_tab_run = None;
             Selection::caret(p)
         };
         self.break_undo_group();

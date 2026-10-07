@@ -1445,6 +1445,29 @@ fn csv_in_cell_extending(
     true
 }
 
+/// Tab or Shift+Tab (`step`) as part of a run along a row: the column the
+/// run started from is kept for Enter to go back to on the row below
+/// (`DocumentState::csv_tab_run`); a step to another row ends it.
+fn csv_tab(
+    ctx: &mut EditorContext<'_>,
+    step: impl FnOnce(&mut EditorContext<'_>) -> CommandResult,
+) -> CommandResult {
+    let d = ctx.doc()?;
+    let here = crate::csv::cell_at(d).map(|(_, r, _, c)| (r, c));
+    let start = match (d.csv_tab_run, here) {
+        (Some((r, c, s)), Some(h)) if (r, c) == h => Some(s),
+        _ => here.map(|(_, c)| c),
+    };
+    step(ctx)?;
+    let d = ctx.doc()?;
+    let there = crate::csv::cell_at(d).map(|(_, r, _, c)| (r, c));
+    d.csv_tab_run = match (here, there, start) {
+        (Some((r0, _)), Some((r1, c1)), Some(s)) if r0 == r1 => Some((r1, c1, s)),
+        _ => None,
+    };
+    Ok(())
+}
+
 /// An arrow in the grid: in Edit mode Left and Right within the cell;
 /// else the cell `rows` down and `cols` right (the entry, in Enter mode,
 /// ended), or with `extend` the selection's corner moved there.
@@ -1463,6 +1486,7 @@ fn csv_step(ctx: &mut EditorContext<'_>, rows: isize, cols: isize, extend: bool)
         return Ok(());
     }
     let (layout, row, rec, col) = csv_cell(d)?;
+    d.csv_tab_run = None;
     // Up and down in the order the view shows the records (its filter and
     // sort); at either end, where it is.
     let to_row = if rows == 0 {
@@ -3448,18 +3472,21 @@ fn csv_commands() -> Vec<Command> {
     };
     vec![
         c("csv.nextField", "Next Field", &["tab"], |ctx, _| {
-            let (_, next) = csv_neighbours(ctx);
-            let hidden = ctx.doc()?.csv_columns.hidden.clone();
-            csv_edit(ctx, |text, l, row, rec, col| {
-                // The next column that shows (Tab went into hidden ones).
-                let last = rec.fields.len().max(l.widths.len());
-                if let Some(c) = (col + 1..last).find(|c| !hidden.contains(c)) {
-                    return Ok((None, Some((row, c))));
-                }
-                // Past the last field: the next record shown, or a new
-                // one, as Tab in an Org table.
-                let first = (0..last).find(|c| !hidden.contains(c)).unwrap_or(0);
-                Ok(csv_down(text, l, row, rec, next, first))
+            csv_tab(ctx, |ctx| {
+                let (_, next) = csv_neighbours(ctx);
+                let hidden = ctx.doc()?.csv_columns.hidden.clone();
+                csv_edit(ctx, |text, l, row, rec, col| {
+                    // The next column that shows (Tab went into hidden
+                    // ones).
+                    let last = rec.fields.len().max(l.widths.len());
+                    if let Some(c) = (col + 1..last).find(|c| !hidden.contains(c)) {
+                        return Ok((None, Some((row, c))));
+                    }
+                    // Past the last field: the next record shown, or a new
+                    // one, as Tab in an Org table.
+                    let first = (0..last).find(|c| !hidden.contains(c)).unwrap_or(0);
+                    Ok(csv_down(text, l, row, rec, next, first))
+                })
             })
         }),
         // Excel's keys in the grid (bound with `!sourceView` in the
@@ -3647,8 +3674,16 @@ fn csv_commands() -> Vec<Command> {
         // Enter adds one, as Tab does.
         c("csv.cellBelow", "Cell Below", &[], |ctx, _| {
             let (_, next) = csv_neighbours(ctx);
+            // After a run of Tabs along the row, the column it started
+            // from, as in Excel.
+            let d = ctx.doc()?;
+            let start = d
+                .csv_tab_run
+                .take()
+                .filter(|&(r, c, _)| csv_cell(d).is_ok_and(|(_, row, _, col)| (row, col) == (r, c)))
+                .map(|(_, _, s)| s);
             csv_edit(ctx, |text, l, row, rec, col| {
-                Ok(csv_down(text, l, row, rec, next, col))
+                Ok(csv_down(text, l, row, rec, next, start.unwrap_or(col)))
             })
         }),
         c("csv.cellAbove", "Cell Above", &[], |ctx, _| {
@@ -3662,23 +3697,25 @@ fn csv_commands() -> Vec<Command> {
             "Previous Field",
             &["shift+tab"],
             |ctx, _| {
-                let (previous, _) = csv_neighbours(ctx);
-                let hidden = ctx.doc()?.csv_columns.hidden.clone();
-                csv_edit(ctx, |text, l, row, _, col| {
-                    if let Some(c) = (0..col).rev().find(|c| !hidden.contains(c)) {
-                        return Ok((None, Some((row, c))));
-                    }
-                    // The previous record shown, at its last field that
-                    // shows.
-                    Ok((None, previous.map(|r| {
-                        let n = l
-                            .index
-                            .borrow_mut()
-                            .record(text, r, &l.dialect)
-                            .map_or(1, |rec| rec.fields.len());
-                        let c = (0..n).rev().find(|c| !hidden.contains(c));
-                        (r, c.unwrap_or(usize::MAX))
-                    })))
+                csv_tab(ctx, |ctx| {
+                    let (previous, _) = csv_neighbours(ctx);
+                    let hidden = ctx.doc()?.csv_columns.hidden.clone();
+                    csv_edit(ctx, |text, l, row, _, col| {
+                        if let Some(c) = (0..col).rev().find(|c| !hidden.contains(c)) {
+                            return Ok((None, Some((row, c))));
+                        }
+                        // The previous record shown, at its last field that
+                        // shows.
+                        Ok((None, previous.map(|r| {
+                            let n = l
+                                .index
+                                .borrow_mut()
+                                .record(text, r, &l.dialect)
+                                .map_or(1, |rec| rec.fields.len());
+                            let c = (0..n).rev().find(|c| !hidden.contains(c));
+                            (r, c.unwrap_or(usize::MAX))
+                        })))
+                    })
                 })
             },
         ),
