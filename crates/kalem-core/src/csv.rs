@@ -1809,8 +1809,10 @@ const MAX_WIDTH: usize = 40;
 /// of several lines took the width of them all side by side).
 fn field_width(s: &str) -> usize {
     use unicode_width::UnicodeWidthStr;
+    // A tab one blank wide, as the grid draws it.
     s.split('\n')
-        .map(|l| l.strip_suffix('\r').unwrap_or(l).width())
+        .map(|l| l.strip_suffix('\r').unwrap_or(l))
+        .map(|l| l.replace('\t', " ").width())
         .max()
         .unwrap_or(0)
 }
@@ -2135,9 +2137,9 @@ pub fn line_view(
             .columns
             .widths
             .get(&j)
-            .filter(|&&w| !spans && s.width() > w && !at_cursor(f))
-            .map(|&w| truncate(s, w));
-        let s_width = cut.as_ref().map_or(s.width(), |c| c.width());
+            .filter(|&&w| !spans && field_width(s) > w && !at_cursor(f))
+            .map(|&w| truncate(&s.replace('\t', " "), w));
+        let s_width = cut.as_ref().map_or(field_width(s), |c| c.width());
         if view.coordinates && !view.sheet {
             // The column's letters on the first row, the same width of
             // blanks below them.
@@ -2171,13 +2173,30 @@ pub fn line_view(
                 widget: None,
             }));
         } else if let Some(p) = part.clone().filter(|_| !s.is_empty()) {
-            runs.push(mark(Run {
-                src: p,
-                text: s.to_string(),
-                verbatim: true,
-                style: style_of(j),
-                widget: None,
-            }));
+            // A tab in a value one blank wide (drawn to the next tab stop,
+            // it pushed the row's bars out of line), the rest as it is.
+            let mut at = 0;
+            for (i, _) in s.match_indices('\t').chain(std::iter::once((s.len(), ""))) {
+                if i > at {
+                    runs.push(mark(Run {
+                        src: p.start + at..p.start + i,
+                        text: s[at..i].to_string(),
+                        verbatim: true,
+                        style: style_of(j),
+                        widget: None,
+                    }));
+                }
+                if i < s.len() {
+                    runs.push(mark(Run {
+                        src: p.start + i..p.start + i + 1,
+                        text: " ".into(),
+                        verbatim: false,
+                        style: style_of(j),
+                        widget: None,
+                    }));
+                }
+                at = i + 1;
+            }
         } else if on && pad == 0 {
             runs.push(mark(deco(f_start, " ".into(), false)));
         }

@@ -221,3 +221,34 @@ fn the_header_pinned_after_a_sep_line() {
     assert!(top.iter().any(|r| r.contains("name")), "{top:?}");
     assert!(!top.iter().any(|r| r.contains("sep=")), "{top:?}");
 }
+
+#[test]
+fn a_tab_in_a_value_keeps_the_bars_in_line() {
+    // Drawn to the next tab stop, it pushed the row's bars out of line.
+    let text = "id,note,n\n1,\"a\tb\",5\n22,xyz,6\n";
+    let mut t = open("t.csv", text, Config::default(), (60, 8));
+    t.go("A1");
+    let bars = |row: &str| -> Vec<usize> {
+        row.chars()
+            .enumerate()
+            .filter(|(_, c)| *c == '│')
+            .map(|(i, _)| i)
+            .collect()
+    };
+    let (r2, r3) = (t.row(2), t.row(3));
+    assert!(r2.contains("a b"), "{r2}");
+    assert_eq!(bars(&r2), bars(&r3), "{r2}\n{r3}");
+}
+
+#[test]
+fn a_header_of_two_lines_is_pinned_whole() {
+    let mut text = String::from("id,\"first\nsecond\"\n");
+    for i in 0..30 {
+        text.push_str(&format!("{i},v{i}\n"));
+    }
+    let mut t = open("h.csv", &text, Config::default(), (40, 12));
+    t.go("A25");
+    let top: Vec<String> = (0..4).map(|y| t.row(y)).collect();
+    assert!(top.iter().any(|r| r.contains("first")), "{top:?}");
+    assert!(top.iter().any(|r| r.contains("second")), "{top:?}");
+}

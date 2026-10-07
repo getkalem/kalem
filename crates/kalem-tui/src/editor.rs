@@ -2178,13 +2178,32 @@ impl EditorView {
             }
         }
         // A CSV file's header row stays on the first row when its rows
-        // scroll: the rows below get one row less.
+        // scroll: the rows below get as many rows less as it has lines
+        // (a header of two lines showed its first).
         let header = doc.meta.mode == kalem_core::DocumentMode::Csv
             && !self.source
             && area.height > 2
             && kalem_core::csv::layout(doc).dialect.header;
+        let header_rows: u16 = if header {
+            let layout = kalem_core::csv::layout(doc);
+            let t = doc.text();
+            let lines = layout
+                .index
+                .borrow_mut()
+                .record(t.as_str(), 0, &layout.dialect)
+                .map_or(1, |r| t.line_of(r.range.end) - t.line_of(r.range.start) + 1);
+            u16::try_from(lines)
+                .unwrap_or(u16::MAX)
+                .clamp(1, (area.height / 3).max(1))
+        } else {
+            1
+        };
         if self.follow {
-            let height = if header { area.height - 1 } else { area.height };
+            let height = if header {
+                area.height - header_rows
+            } else {
+                area.height
+            };
             self.viewport
                 .scroll_to(&l, doc.selection.head, width, height);
             self.follow = false;
@@ -2199,11 +2218,20 @@ impl EditorView {
         let pinned = header
             && (self.viewport.top > header_at
                 || (self.viewport.top == header_at && self.viewport.top_row > 0));
-        let header_area = Rect { height: 1, ..area };
+        let header_area = Rect {
+            height: header_rows,
+            ..area
+        };
+        // Its last row, underlined.
+        let header_line = |r: Rect| Rect {
+            y: r.y + r.height.saturating_sub(1),
+            height: 1,
+            ..r
+        };
         let area = if pinned {
             Rect {
-                y: area.y + 1,
-                height: area.height - 1,
+                y: area.y + header_rows,
+                height: area.height - header_rows,
                 ..area
             }
         } else {
@@ -2321,7 +2349,7 @@ impl EditorView {
             }
             if pinned {
                 buf.set_style(
-                    narrow(header_area),
+                    narrow(header_line(header_area)),
                     ratatui::style::Style::default().add_modifier(Modifier::UNDERLINED),
                 );
             }
@@ -2338,7 +2366,7 @@ impl EditorView {
             };
             tui_rich_text::draw(&l, &top, buf, header_area, &plain);
             buf.set_style(
-                header_area,
+                header_line(header_area),
                 ratatui::style::Style::default().add_modifier(Modifier::UNDERLINED),
             );
         }

@@ -1113,9 +1113,9 @@ impl Editor {
     fn reveal_item(&mut self, i: usize) {
         self.list.scroll_to_reveal_item(i);
         // The header record's place in the list (after a `sep=` or mode
-        // line, which is not it).
-        let text = self.doc.text();
-        let header_line = text.line_of(kalem_core::csv::preamble(text.as_str()));
+        // line, which is not it), and its lines.
+        let header = self.csv_header_lines();
+        let (header_line, rows) = (*header.start(), header.end() - header.start() + 1);
         let pinned = self.doc.meta.mode == DocumentMode::Csv
             && !self.source
             && self
@@ -1126,13 +1126,31 @@ impl Editor {
             && kalem_core::csv::layout(&self.doc).dialect.header;
         if pinned {
             let top = self.list.logical_scroll_top();
-            if top.item_ix >= i || (top.item_ix + 1 == i && top.offset_in_item > px(0.)) {
+            let under = i.saturating_sub(rows);
+            if top.item_ix > under || (top.item_ix == under && top.offset_in_item > px(0.)) {
                 self.list.scroll_to(gpui::ListOffset {
-                    item_ix: i - 1,
+                    item_ix: under,
                     offset_in_item: px(0.),
                 });
             }
         }
+    }
+
+    /// The lines of a CSV document's header record: after a `sep=` or
+    /// mode line, as many as its quoted line breaks make.
+    fn csv_header_lines(&self) -> std::ops::RangeInclusive<usize> {
+        let text = self.doc.text();
+        let first = text.line_of(kalem_core::csv::preamble(text.as_str()));
+        if self.doc.meta.mode != DocumentMode::Csv {
+            return first..=first;
+        }
+        let layout = kalem_core::csv::layout(&self.doc);
+        let last = layout
+            .index
+            .borrow_mut()
+            .record(text.as_str(), 0, &layout.dialect)
+            .map_or(first, |r| text.line_of(r.range.end).max(first));
+        first..=last
     }
 
     /// Unfolds the headlines that hide the cursor.
@@ -4529,10 +4547,8 @@ impl gpui::Render for Editor {
         let header = self.doc.meta.mode == DocumentMode::Csv
             && !self.source
             && kalem_core::csv::layout(&self.doc).dialect.header;
-        let header_line = self
-            .doc
-            .text()
-            .line_of(kalem_core::csv::preamble(self.doc.text().as_str()));
+        let header_lines = self.csv_header_lines();
+        let header_line = *header_lines.start();
         let background = theme.background;
         let foreground = theme.foreground;
         let border = theme.border;
@@ -4855,11 +4871,13 @@ impl gpui::Render for Editor {
                         .bg(background)
                         .border_b_1()
                         .border_color(border)
-                        .child(crate::line::LineElement {
-                            editor: header_editor,
-                            line: header_line,
+                        // Every line of a header of several (it showed the
+                        // first).
+                        .children(header_lines.clone().map(|line| crate::line::LineElement {
+                            editor: header_editor.clone(),
+                            line,
                             other,
-                        })
+                        }))
                 })),
             )
         };
