@@ -380,6 +380,29 @@ goal = 1000
 read the settings again), and =settings::watch= hears a change, whether
 the user edited the file or the plugin set it.
 
+A manifest describes its settings under ="settings"=, as VS Code's
+extensions describe theirs, so that the settings panel lists them on
+the plugin's page and changes them without typing where it can:
+
+#+begin_src json
+"settings": {
+  "goal":  { "type": "integer", "minimum": 0, "maximum": 100000,
+             "default": 1000, "description": "Words a day" },
+  "show":  { "type": "boolean", "default": true },
+  "style": { "type": "string", "enum": ["plain", "bars"], "default": "plain" },
+  "folder": { "type": "string", "examples": ["notes", "journal"] },
+  "kinds": { "type": "array", "items": { "enum": ["org", "markdown"] } },
+  "skip":  { "type": "array", "default": [] }
+}
+#+end_src
+
+A =boolean= is a switch, an =integer= steps in its range, a =string=
+with an =enum= steps through its choices and one with =examples=
+through them (anything may be typed), an =array= with an =enum= in
+=items= is a list of choices each in or out, another =array= a list of
+texts, and any other type is typed as JSON. A key the user's table
+holds that the manifest does not describe is typed as JSON.
+
 Files and the network are not a plugin's unless its manifest asks for
 them, with the permissions of §11.6:
 
