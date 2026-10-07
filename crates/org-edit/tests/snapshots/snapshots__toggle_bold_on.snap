@@ -5,4 +5,4 @@ expression: "format!(\"{marked}\\n----\\n{out}\")"
 a ⁁word‸ b
 
 ----
-a *word*‸ b
+a *word‸* b
