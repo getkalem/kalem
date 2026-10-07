@@ -176,11 +176,13 @@ impl SettingsPanel {
             })
             .unwrap_or(0);
         let first = (at + 1).saturating_sub(room);
+        // The names' column as wide as the longest name with a value
+        // beside it, within half the frame.
         let names = rows
             .iter()
             .filter_map(|r| match r {
-                Row::Entry(e) => Some(e.name().width()),
-                Row::Heading(_) => None,
+                Row::Entry(e) if !e.value(config).is_empty() => Some(e.name().width()),
+                _ => None,
             })
             .max()
             .unwrap_or(0)
@@ -207,7 +209,15 @@ impl SettingsPanel {
                     for x in x0 + 1..x0 + w - 1 {
                         buf[(x, y)].set_style(style);
                     }
-                    buf.set_stringn(x0 + 4, y, e.name(), names, style);
+                    // An entry without a value (an action) has the whole
+                    // row for its name.
+                    let value = e.value(config);
+                    let room_name = if value.is_empty() {
+                        inner.saturating_sub(2)
+                    } else {
+                        names
+                    };
+                    buf.set_stringn(x0 + 4, y, e.name(), room_name, style);
                     let vx = x0 + 4 + names as u16 + 2;
                     let room = (x0 + w - 2).saturating_sub(vx) as usize;
                     let value_style = if e.changed(config) {
@@ -215,7 +225,7 @@ impl SettingsPanel {
                     } else {
                         style
                     };
-                    buf.set_stringn(vx, y, e.value(config), room, value_style);
+                    buf.set_stringn(vx, y, value, room, value_style);
                     self.spots.borrow_mut().push((y, x0 + 1, x0 + w - 1, n));
                     n += 1;
                 }

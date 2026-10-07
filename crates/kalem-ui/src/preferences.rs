@@ -787,6 +787,18 @@ impl Editor {
                 .iter()
                 .filter(|r| matches!(r, Row::Entry(_)))
                 .count();
+            // The names' column as wide as the page's longest name with a
+            // value beside it (`settings.elixirLS.dialyzerEnabled`), within
+            // half the panel; an average letter is some 0.6 of the size.
+            let longest = rows
+                .iter()
+                .filter_map(|r| match r {
+                    Row::Entry(e) if !e.value(config).is_empty() => Some(e.name().chars().count()),
+                    _ => None,
+                })
+                .max()
+                .unwrap_or(0);
+            let name_width = px((longest.max(12) as f32 * size * 0.62).min(320.));
             for r in rows.iter().skip(first).take(ROOM) {
                 let e = match r {
                     Row::Heading(name) => {
@@ -801,14 +813,18 @@ impl Editor {
                     Entry::Plugin(p) => format!("settings-plugin-{}", p.id),
                     Entry::Action { command, .. } => format!("settings-action-{command}"),
                 };
-                let r = row(SharedString::from(id), n == selected).child(
-                    div()
-                        .w(px(size * 15.))
-                        .flex_none()
-                        .truncate()
-                        .text_color(theme.foreground)
-                        .child(SharedString::from(e.name())),
-                );
+                // An entry without a value (an action) has the whole row
+                // for its name.
+                let name = div()
+                    .truncate()
+                    .text_color(theme.foreground)
+                    .child(SharedString::from(e.name()));
+                let name = if e.value(config).is_empty() {
+                    name.flex_1()
+                } else {
+                    name.w(name_width).flex_none()
+                };
+                let r = row(SharedString::from(id), n == selected).child(name);
                 let typing = s
                     .typing
                     .as_ref()
