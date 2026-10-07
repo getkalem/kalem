@@ -10304,8 +10304,10 @@ mod tests {
             panic!("asked first");
         };
         assert_eq!(items[0].title, "Create it and open a.txt");
+        // The folder as the system writes paths: `\new` on Windows.
+        let missing = format!("{}new does not exist", std::path::MAIN_SEPARATOR);
         assert!(
-            items[0].category.ends_with("/new does not exist"),
+            items[0].category.ends_with(&missing),
             "{}",
             items[0].category
         );
