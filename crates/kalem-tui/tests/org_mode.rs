@@ -164,3 +164,24 @@ fn links_into_the_document_itself_have_no_file() {
     );
     assert_eq!(t.text(), "* First\n[[*Second][Second]][[*First][up]]\n* Second\n");
 }
+
+#[test]
+fn alt_enter_inserts_a_heading() {
+    // M-RET: in a heading's title the rest of it goes to a new heading of
+    // its level; in a list Alt+Enter stays Insert Item.
+    let text = "* One\n** Two words\nBody.\n- item\n";
+    let mut t = open(text, text.find("words").unwrap());
+    t.key(KeyCode::Enter, KeyModifiers::ALT);
+    assert_eq!(t.text(), "* One\n** Two \n** words\nBody.\n- item\n");
+    assert_eq!(t.app.doc.selection.head, "* One\n** Two \n** words".len());
+    t.app.doc.move_cursor(t.text().find("item").unwrap() + 4, false);
+    t.key(KeyCode::Enter, KeyModifiers::ALT);
+    assert_eq!(t.text(), "* One\n** Two \n** words\nBody.\n- item\n- \n");
+    // After the subtree, from anywhere in it.
+    let text = "* A\n** a1\ntext\n* B\n";
+    let mut t = open(text, 2);
+    t.app.run_command("org.headline.insertAfterSubtree", serde_json::json!({}));
+    assert_eq!(t.text(), "* A\n** a1\ntext\n* \n* B\n");
+    t.typ("New");
+    assert_eq!(t.text(), "* A\n** a1\ntext\n* New\n* B\n");
+}

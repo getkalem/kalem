@@ -120,6 +120,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
                 ("withCase", "boolean", false),
             ]),
         ),
+        (
+            "org.headline.insertTodo",
+            object(&[("afterSubtree", "boolean", false)]),
+        ),
         ("org.todo.set", object(&[("state", "string", true)])),
         ("org.priority.set", object(&[("priority", "string", true)])),
         (
@@ -8264,6 +8268,60 @@ fn plain_commands() -> Vec<Command> {
                     CommandError::new(crate::tr!("msg-missing-argument", name = "level"))
                 })?;
                 ctx.org(|d, p, _| h::set_level(&text_of(d), p, level as usize, d.parse().context()))
+            },
+        ),
+        // `org-insert-heading` (M-RET): in a list Alt+Enter is Insert Item.
+        cmd(
+            "org.headline.insert",
+            "Insert Heading",
+            "Headlines",
+            &["alt+enter"],
+            Some("editorMode == org && !inList && !inTable && !inBlock"),
+            |ctx, _| {
+                ctx.org(|d, p, _| {
+                    h::insert_heading(&text_of(d), p, h::HeadingPlace::Here, d.parse().context())
+                })
+            },
+        ),
+        cmd(
+            "org.headline.insertAfterSubtree",
+            "Insert Heading After Subtree",
+            "Headlines",
+            &[],
+            Some(ORG),
+            |ctx, _| {
+                ctx.org(|d, p, _| {
+                    let place = h::HeadingPlace::AfterSubtree;
+                    h::insert_heading(&text_of(d), p, place, d.parse().context())
+                })
+            },
+        ),
+        cmd(
+            "org.headline.insertSubheading",
+            "Insert Subheading",
+            "Headlines",
+            &[],
+            Some(ORG),
+            |ctx, _| ctx.org(|d, p, _| h::insert_subheading(&text_of(d), p, d.parse().context())),
+        ),
+        // `org-insert-todo-heading` (M-S-RET): in a list, an item with a
+        // checkbox.
+        cmd(
+            "org.headline.insertTodo",
+            "Insert TODO Heading",
+            "Headlines",
+            &[],
+            Some("editorMode == org && !inTable && !inBlock"),
+            |ctx, args| {
+                let place = if arg_bool(args, "afterSubtree") {
+                    h::HeadingPlace::AfterSubtree
+                } else {
+                    h::HeadingPlace::Here
+                };
+                ctx.org(|d, p, _| match l::insert_item(d, p, true) {
+                    Some(t) if place == h::HeadingPlace::Here => Ok(t),
+                    _ => h::insert_todo_heading(&text_of(d), p, place, false, d.parse().context()),
+                })
             },
         ),
         cmd(

@@ -12,9 +12,13 @@ and are not offered in an Org file.
 
 A line that starts with stars is a heading: =* Chapter=, =** Section=.
 Ctrl+1 to Ctrl+6 make the current line a heading of that level, Ctrl+0
-makes it plain text again. Alt+Left and Alt+Right promote and demote a
-heading, with Shift its whole subtree; Alt+Up and Alt+Down move a
-subtree past its neighbors. Tab on a heading folds and unfolds it;
+makes it plain text again. Alt+Enter inserts a new heading of the same
+level, as =M-RET= does in Emacs: on a heading's title the rest of the
+title moves to it, at the start of a heading it goes above. /Insert
+Heading After Subtree/ (Emacs's =C-RET=), /Insert Subheading/ and
+/Insert TODO Heading/ are in the palette. Alt+Left and Alt+Right
+promote and demote a heading, with Shift its whole subtree; Alt+Up and
+Alt+Down move a subtree past its neighbors. Tab on a heading folds and unfolds it;
 Shift+Tab cycles the whole document between overview, contents and
 everything.
 
