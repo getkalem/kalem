@@ -170,6 +170,9 @@ pub struct DocumentState {
     /// A CSV document's filter (view state): only the rows with a field
     /// holding this text show (`crate::csv::filtered`).
     pub csv_filter: Option<String>,
+    /// The filter matches the whole value of this column (a Frequency
+    /// Table's choice), not text in any field.
+    pub csv_filter_column: Option<usize>,
     /// A CSV document's view sorted by a column (view state), descending
     /// when `true`: the file keeps its order (`crate::csv::shown_lines`).
     pub csv_sort: Option<(usize, bool)>,
@@ -195,10 +198,20 @@ pub struct DocumentState {
     /// column. It holds while neither moves (`csv_virtual_col`); typing
     /// there adds the fields up to it.
     pub csv_virtual: Option<(usize, u64, usize)>,
+    /// The column of a selection's anchor in a CSV grid when it is such a
+    /// cell past its record's end (Shift with an arrow from one): the
+    /// anchor, the version of the text and the column (the selection's
+    /// rectangle reached column A).
+    pub csv_virtual_anchor: Option<(usize, u64, usize)>,
     /// The CSV grid's cell being typed into or edited, as Excel's Enter
     /// and Edit modes; none in its Ready mode, where the cursor is a cell
     /// (`csv_mode`).
     pub csv_edit: Option<CellEdit>,
+    /// Vim's keys edit this document (the editor's Vim layer is on): a
+    /// CSV grid has no Excel modes then, typing inserts at the cursor as
+    /// Vim's insert mode does (a delimiter or a quote still going into
+    /// the value) and the cursor shows in the cell.
+    pub csv_vim: bool,
     /// A BibTeX grid's sort: the column (`bibtex::COLUMNS`) and whether
     /// descending; the file keeps its order.
     pub bib_sort: Option<(usize, bool)>,
@@ -341,6 +354,7 @@ impl DocumentState {
             dired: None,
             viewer: None,
             csv_filter: None,
+            csv_filter_column: None,
             csv_sort: None,
             csv_dialect: std::cell::Cell::new(None),
             csv_dialect_provisional: std::cell::Cell::new(false),
@@ -348,7 +362,9 @@ impl DocumentState {
             csv_columns: crate::csv::Columns::default(),
             csv_paste_block: false,
             csv_virtual: None,
+            csv_virtual_anchor: None,
             csv_edit: None,
+            csv_vim: false,
             bib_sort: None,
         }
     }
@@ -873,7 +889,16 @@ impl DocumentState {
     /// while the cursor and the text stay as they were (`csv_virtual`).
     pub fn csv_virtual_col(&self) -> Option<usize> {
         let (head, version, col) = self.csv_virtual?;
-        (self.selection.anchor == head && self.selection.head == head && self.version == version)
+        (self.selection.head == head && self.version == version).then_some(col)
+    }
+
+    /// The column of the selection's anchor when it is a CSV cell past its
+    /// record's end (`csv_virtual_anchor`).
+    pub fn csv_virtual_anchor_col(&self) -> Option<usize> {
+        let (anchor, version, col) = self.csv_virtual_anchor?;
+        (self.selection.anchor == anchor
+            && self.selection.head != anchor
+            && self.version == version)
             .then_some(col)
     }
 
@@ -898,9 +923,10 @@ impl DocumentState {
         ((row, col) == (e.row, e.col)).then_some(e)
     }
 
-    /// The CSV grid's mode: Ready, Enter or Edit; `None` outside CSV.
+    /// The CSV grid's mode: Ready, Enter or Edit; `None` outside CSV and
+    /// with Vim's keys (`csv_vim`), which edit the cells' text.
     pub fn csv_mode(&self) -> Option<CellMode> {
-        if self.meta.mode != DocumentMode::Csv {
+        if self.meta.mode != DocumentMode::Csv || self.csv_vim {
             return None;
         }
         Some(match self.csv_editing() {
@@ -1138,6 +1164,7 @@ impl DocumentState {
                 head: p,
             }
         } else {
+            self.csv_virtual_anchor = None;
             Selection::caret(p)
         };
         self.break_undo_group();
@@ -1188,10 +1215,11 @@ impl DocumentState {
             && let Some((layout, row, _, col)) = crate::csv::cell_at(self)
         {
             let block = crate::csv_tools::block_rows(&text, &layout.dialect);
+            let rows = crate::csv::view_rows_from(self, row, block.len());
             if let Some(tx) = crate::csv_tools::paste_block(
                 self.text().as_str(),
                 &layout.dialect,
-                row,
+                &rows,
                 col,
                 &block,
             ) {
@@ -1455,17 +1483,18 @@ impl DocumentState {
             return false;
         }
         // Over a selection: within one cell its text goes; over several
-        // cells the text goes into the cursor's cell, as a spreadsheet
-        // types into the active cell (it replaced the text between them,
-        // merging cells and rows).
+        // cells the text goes into the cell the selection started from,
+        // as a spreadsheet types into the active cell (it replaced the
+        // text between them, merging cells and rows; then it went into
+        // the cell the selection was extended to).
         let s = self.selection;
         if s.anchor != s.head {
-            let one = crate::csv::cell_at_offset(self, s.anchor).map(|(_, r, _, c)| (r, c))
-                == crate::csv::cell_at(self).map(|(_, r, _, c)| (r, c));
-            if one {
+            let anchor = crate::csv::anchor_cell(self);
+            if anchor == crate::csv::cell_at(self).map(|(_, r, _, c)| (r, c)) {
                 self.delete_in_grid(false, now);
-            } else {
-                self.selection = Selection::caret(s.head);
+            } else if let Some((row, col)) = anchor {
+                self.selection = Selection::caret(s.anchor);
+                self.go_to_csv_cell(row, col);
             }
         }
         let Some((layout, _, rec, col)) = crate::csv::cell_at(self) else {
@@ -1473,18 +1502,29 @@ impl DocumentState {
         };
         // Ready mode: the text replaces the cell (past the record's end,
         // the fields up to it first), and typing into it goes on, as in
-        // Excel.
-        if self.csv_editing().is_none() {
-            let record = self.text.as_str()[rec.range.clone()].to_string();
+        // Excel; a new entry, a new undo step (the entries of a row made
+        // with Tab were one). Vim's insert mode inserts (it replaced the
+        // cell). A cell past the record's end gets the fields up to it in
+        // every mode (after F2 the text went into the field before).
+        let entry = self.csv_editing().cloned();
+        let past = col >= rec.fields.len();
+        if (entry.is_none() && !self.csv_vim) || past {
+            let record = match &entry {
+                Some(e) => e.record.clone(),
+                None => self.text.as_str()[rec.range.clone()].to_string(),
+            };
             let tx = crate::csv::set_cell(self.text.as_str(), &rec, col, text, &layout.dialect);
             self.csv_virtual = None;
+            if entry.is_none() {
+                self.break_undo_group();
+            }
             self.apply(&tx, ChangeKind::Typing, now);
             if let Some((_, row, _, col)) = crate::csv::cell_at(self) {
                 self.csv_edit = Some(CellEdit {
                     row,
                     col,
                     record,
-                    edit: false,
+                    edit: entry.is_some_and(|e| e.edit),
                 });
             }
             return true;
@@ -1538,21 +1578,37 @@ impl DocumentState {
         // Paste as Block asked for: this is it.
         self.csv_paste_block = false;
         let s = self.selection;
+        let editing = self.csv_editing().is_some();
+        // Typing into a cell (Enter or Edit mode): into it at the caret,
+        // line breaks and tabs too, as a spreadsheet pastes into a cell
+        // being edited (rows of it overwrote the cells below).
+        if s.anchor == s.head && editing {
+            if !self.type_in_grid(text, now) {
+                self.insert_text(text, now);
+            }
+            return true;
+        }
         let (row0, col0) = if s.anchor == s.head {
             (row, col)
         } else {
-            let Some((_, r, _, c)) = crate::csv::cell_at_offset(self, s.anchor) else {
+            let Some(cell) = crate::csv::anchor_cell(self) else {
                 return false;
             };
-            (r, c)
+            cell
         };
-        let (top, left) = (row0.min(row), col0.min(col));
+        // The selection's top row as the grid shows it.
+        let top = crate::csv::rows_between(self, row0, row)
+            .first()
+            .copied()
+            .unwrap_or(row0.min(row));
+        let left = col0.min(col);
         if text.contains(['\n', '\t']) {
             let block = crate::csv_tools::block_rows(text, &layout.dialect);
+            let rows = crate::csv::view_rows_from(self, top, block.len());
             let Some(tx) = crate::csv_tools::paste_block(
                 self.text.as_str(),
                 &layout.dialect,
-                top,
+                &rows,
                 left,
                 &block,
             ) else {
@@ -1590,6 +1646,12 @@ impl DocumentState {
         if !self.type_in_grid(text, now) {
             self.insert_text(text, now);
         }
+        // The cell pasted into stays selected, as in a spreadsheet: Escape
+        // no longer takes the paste back, and the next typing replaces it.
+        if !editing {
+            self.csv_edit = None;
+            self.break_undo_group();
+        }
         true
     }
 
@@ -1607,7 +1669,7 @@ impl DocumentState {
         };
         let s = self.selection;
         if s.anchor != s.head {
-            let Some((_, row0, _, col0)) = crate::csv::cell_at_offset(self, s.anchor) else {
+            let Some((row0, col0)) = crate::csv::anchor_cell(self) else {
                 return false;
             };
             if (row0, col0) == (row, col) {
@@ -1631,9 +1693,11 @@ impl DocumentState {
                 }
                 return true;
             }
-            let rows = (row0.min(row), row0.max(row));
+            // The cells the grid shows selected (with a filter or a sorted
+            // view on, not the file's rows between the corners).
+            let rows = crate::csv::rows_between(self, row0, row);
             let cols = (col0.min(col), col0.max(col));
-            if let Some(tx) = crate::csv::clear_cells(self.text.as_str(), &layout, rows, cols) {
+            if let Some(tx) = crate::csv::clear_cells(self.text.as_str(), &layout, &rows, cols) {
                 self.apply(&tx, ChangeKind::Command, now);
             }
             return true;

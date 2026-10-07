@@ -903,6 +903,7 @@ cmd-csv-rowEnd = Row End
 cmd-csv-firstCell = First Cell
 cmd-csv-lastCell = Last Cell
 cmd-csv-editCell = Edit Cell
+cmd-csv-lineBreak = Line Break in Cell
 cmd-csv-cancelEdit = Cancel Entry
 cmd-csv-clearCells = Clear Contents
 cmd-csv-backspaceCell = Clear and Type
@@ -945,13 +946,19 @@ msg-csv-duplicates = { $count ->
    *[other] { $count } duplicate rows removed
 }
 msg-csv-nothing-to-split = No value in this column holds “{ $separator }”
-msg-csv-bad-columns = Not columns: { $value } (letters or numbers, a - before one to sort it descending: B, -A)
+msg-csv-bad-columns = Not columns: { $value } (header names, letters or numbers, a - before one to sort it descending: B, -A)
 msg-csv-no-numbers = No numbers in this column
 msg-csv-sum = Sum: { $sum } (copied)
 msg-csv-cell = Cell { $cell } ({ $org })
 msg-csv-cell-named = Cell { $cell } ({ $org }), column “{ $column }”
 msg-csv-bad-cell = Not a cell: { $value } (B3, @3$2 or 3,2)
 msg-csv-no-series = This value does not continue as a series
+msg-csv-quote-delimiter = The delimiter and the quote character must differ
+msg-csv-nothing-above = No cell above to fill from
+msg-csv-sorted-view = The view is sorted by a column: choose File Order to move rows
+msg-csv-in-header = Not in the header row
+msg-csv-nothing-to-yank = Nothing killed or copied to yank
+msg-csv-no-next-column = No column after this one to join
 cmd-csv-fillDown = Fill Down
 cmd-csv-fillSeries = Fill Series
 cmd-csv-removeDuplicates = Remove Duplicate Rows
@@ -1219,7 +1226,10 @@ category-preview = Preview: choose to apply
 msg-csv-last-column = The last column that shows cannot be hidden
 msg-csv-bad-width = A width is a number from 2 to 500
 csv-column = Column { $n }
-msg-replaced-count = { $count } fields changed
+msg-replaced-count = { $count ->
+    [one] One field changed
+   *[other] { $count } fields changed
+}
 cmd-markdown-insert-image = Insert Image
 cmd-file-removeUnusedImages = Remove Unused Images
 cmd-pane-closeOrQuit = Close Pane or Quit

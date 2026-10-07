@@ -4110,7 +4110,10 @@ fn csv_letters_and_row_numbers_select() {
     );
     assert_eq!(
         kalem_core::csv::cell_rectangle(&t.app.doc),
-        Some(((0, 2), (1, 1)))
+        Some(kalem_core::csv::Rectangle {
+            rows: vec![0, 1, 2],
+            cols: (1, 1)
+        })
     );
     // Row 2's number.
     let y = (0..8)
@@ -4126,7 +4129,10 @@ fn csv_letters_and_row_numbers_select() {
     );
     assert_eq!(
         kalem_core::csv::cell_rectangle(&t.app.doc),
-        Some(((1, 1), (0, 2)))
+        Some(kalem_core::csv::Rectangle {
+            rows: vec![1],
+            cols: (0, 2)
+        })
     );
 }
 

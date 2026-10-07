@@ -214,10 +214,7 @@ pub struct Problem {
 /// quote inside an unquoted field. At most `limit` problems.
 pub fn problems(text: &str, d: &Dialect, limit: usize) -> Vec<Problem> {
     let mut out = Vec::new();
-    let mut at = match sep_line(text) {
-        Some((_, skip)) => skip,
-        None => 0,
-    };
+    let mut at = preamble(text);
     while at < text.len() && out.len() < limit {
         let r = scan(text, at, d);
         out.extend(record_problems(text, &r, d));
@@ -441,20 +438,21 @@ pub fn column_at_bars(
     Some((rec, col))
 }
 
-/// Clears the cells of rows `rows` and columns `cols` (both inclusive):
-/// their values emptied, the delimiters kept; the cursor at the first.
+/// Clears the cells of rows `rows` (the first one's first) and columns
+/// `cols` (both inclusive): their values emptied, the delimiters kept;
+/// the cursor at the first.
 pub fn clear_cells(
     text: &str,
     layout: &Layout,
-    rows: (usize, usize),
+    rows: &[usize],
     cols: (usize, usize),
 ) -> Option<Transaction> {
     let mut idx = layout.index.borrow_mut();
     let mut tx = Transaction::new("Clear Cells");
     let mut first = None;
-    for row in rows.0..=rows.1 {
+    for &row in rows {
         let Some(rec) = idx.record(text, row, &layout.dialect) else {
-            break;
+            continue;
         };
         for f in rec.fields.iter().take(cols.1 + 1).skip(cols.0) {
             first.get_or_insert(f.range.start);
@@ -468,13 +466,36 @@ pub fn clear_cells(
     Some(tx.select(Selection::caret(caret)))
 }
 
+/// The bytes of a first line that is not a record: Excel's `sep=;`, or an
+/// Emacs mode line (`# -*- mode: csv -*-`, which made a file of any name
+/// CSV and was read as its header), with its line ending; 0 without.
+pub fn preamble(text: &str) -> usize {
+    match mode_line(text) {
+        0 => sep_line(text).map_or(0, |(_, n)| n),
+        n => n,
+    }
+}
+
+/// The bytes of an Emacs mode line first (`-*- … -*-`), with its line
+/// ending; 0 without.
+fn mode_line(text: &str) -> usize {
+    let end = text.find('\n').map_or(text.len(), |i| i + 1);
+    let line = &text[..end];
+    match line.find("-*-") {
+        Some(i) if line[i + 3..].contains("-*-") => end,
+        _ => 0,
+    }
+}
+
 /// Excel's first line naming the delimiter, `sep=;`: the delimiter and
 /// the line's length with its line ending. A delimiter is one ASCII
 /// character; `sep=` with any other is not such a line.
 pub fn sep_line(text: &str) -> Option<(u8, usize)> {
     let rest = text.strip_prefix("sep=")?;
     let d = *rest.as_bytes().first()?;
-    if !d.is_ascii() {
+    // `sep=` and the line's end: no delimiter (it took the carriage
+    // return).
+    if !d.is_ascii() || d == b'\r' || d == b'\n' {
         return None;
     }
     let after = &rest[1..];
@@ -507,7 +528,7 @@ fn numeric(s: &str) -> bool {
 /// What `kalem check` reports as the round trip of a CSV file.
 pub fn roundtrip(text: &str, d: &Dialect) -> bool {
     let b = text.as_bytes();
-    let mut at = sep_line(text).map_or(0, |(_, skip)| skip);
+    let mut at = preamble(text);
     while at < text.len() {
         let r = scan(text, at, d);
         let mut expect = r.range.start;
@@ -561,6 +582,8 @@ pub fn settled(text: &str) -> bool {
 }
 
 pub fn detect(text: &str) -> Dialect {
+    // An Emacs mode line first is no record (it was the header).
+    let text = &text[mode_line(text)..];
     if let Some((delimiter, skip)) = sep_line(text) {
         let mut d = Dialect {
             delimiter,
@@ -732,7 +755,14 @@ fn looks_like_header(text: &str, d: &Dialect) -> bool {
     let names: Vec<Cow<'_, str>> = first.fields.iter().map(|f| value(text, f, d)).collect();
     // The reader of the statistics and of sorting.
     let number = |s: &str| number(s, d.delimiter == b';').is_some();
-    if names.iter().any(|n| number(n)) {
+    // Years name columns too (`name,2024,2025`), beside a name that is
+    // text; a first record of numbers alone is data.
+    let year = |s: &str| {
+        let t = s.trim();
+        t.len() == 4 && t.parse::<u32>().is_ok_and(|y| (1800..2200).contains(&y))
+    };
+    let text_name = names.iter().any(|n| !number(n) && !n.trim().is_empty());
+    if names.iter().any(|n| number(n) && !(year(n) && text_name)) {
         return false;
     }
     // Later records with numbers where the first has text: a header.
@@ -766,7 +796,7 @@ impl Index {
     /// An index of `text`, nothing scanned yet; Excel's `sep=;` first
     /// line is not a record.
     pub fn new(text: &str) -> Index {
-        let skip = sep_line(text).map_or(0, |(_, n)| n);
+        let skip = preamble(text);
         Index {
             starts: vec![skip],
             complete: skip >= text.len(),
@@ -803,7 +833,9 @@ impl Index {
     pub fn record(&mut self, text: &str, row: usize, d: &Dialect) -> Option<Record> {
         self.ensure(text, row, d);
         let at = *self.starts.get(row)?;
-        (at < text.len() || (row == 0 && text.is_empty())).then(|| scan(text, at, d))
+        // An empty text, or one of a `sep=` line alone, has one empty
+        // record (it had none, and no command applied).
+        (at < text.len() || row == 0).then(|| scan(text, at, d))
     }
 
     /// The record holding byte `pos`, and its row.
@@ -872,7 +904,15 @@ pub fn insert_row(text: &str, rec: &Record, columns: usize, d: &Dialect) -> Tran
     } else {
         "\n"
     };
-    tx.edit(at..at, format!("{nl}{blank}"));
+    // An empty record of one field ending the text needs a line ending of
+    // its own: a final line feed alone starts no record (the row was not
+    // added, and typing went into the last one).
+    let end = if blank.is_empty() && at >= text.len() {
+        nl
+    } else {
+        ""
+    };
+    tx.edit(at..at, format!("{nl}{blank}{end}"));
     tx.select(Selection::caret(at + nl.len()))
 }
 
@@ -898,7 +938,15 @@ pub fn delete_row(text: &str, rec: &Record) -> Transaction {
 /// line endings with them, as [`delete_row`] deletes one.
 pub fn delete_rows(text: &str, a: &Record, b: &Record) -> Transaction {
     let mut tx = Transaction::new("Delete Rows");
-    let r = if b.next > b.range.end || a.range.start == 0 {
+    let r = rows_range(text, a, b);
+    tx.edit(r.clone(), "");
+    tx.select(Selection::caret(r.start.min(text.len() - r.len())))
+}
+
+/// The bytes the records from `a` to `b` take with their line endings,
+/// as [`delete_rows`] deletes them.
+fn rows_range(text: &str, a: &Record, b: &Record) -> Range<usize> {
+    if b.next > b.range.end || a.range.start == 0 {
         a.range.start..b.next
     } else {
         // Down to the last record: the line ending before them goes.
@@ -908,9 +956,29 @@ pub fn delete_rows(text: &str, a: &Record, b: &Record) -> Transaction {
             1
         };
         a.range.start.saturating_sub(before)..b.range.end
-    };
-    tx.edit(r.clone(), "");
-    tx.select(Selection::caret(r.start.min(text.len() - r.len())))
+    }
+}
+
+/// Deletes the records `rows` (in any order, each once), each with its
+/// line ending, as [`delete_rows`] deletes the ones next to each other.
+pub fn delete_row_list(text: &str, d: &Dialect, rows: &[usize]) -> Transaction {
+    let mut tx = Transaction::new("Delete Rows");
+    let mut rows = rows.to_vec();
+    rows.sort_unstable();
+    rows.dedup();
+    let mut idx = Index::new(text);
+    let mut i = 0;
+    while i < rows.len() {
+        let mut j = i;
+        while j + 1 < rows.len() && rows[j + 1] == rows[j] + 1 {
+            j += 1;
+        }
+        if let (Some(a), Some(b)) = (idx.record(text, rows[i], d), idx.record(text, rows[j], d)) {
+            let _ = tx.replace(rows_range(text, &a, &b), "");
+        }
+        i = j + 1;
+    }
+    tx
 }
 
 /// Swaps two records, `a` before `b`, keeping each one's bytes.
@@ -934,8 +1002,8 @@ pub fn insert_column(text: &str, d: &Dialect, col: usize) -> Transaction {
         let Some(r) = idx.record(text, i, d) else {
             continue;
         };
-        // A blank line stays blank.
-        if r.range.is_empty() {
+        // A blank line stays blank (but the one record of an empty file).
+        if r.range.is_empty() && n > 1 {
             continue;
         }
         match r.fields.get(col) {
@@ -1028,19 +1096,93 @@ pub fn swap_columns(text: &str, d: &Dialect, a: usize) -> Transaction {
 /// The order of two values in a column: numbers (read as the column
 /// statistics read them) before text, numbers by value, text without
 /// case. A total order, as sorting needs, whatever the column mixes.
+/// Dates (`2026-09-29`, `29.09.2026`, `9/29/2026`) come after the numbers
+/// and before the text, by date; amounts with a percent sign or a currency
+/// symbol (`10%`, `$20`, `₺5`) are numbers, the percent hundredths (they
+/// sorted as text: `12/31/2025` before `2/1/2025`, `10%` before `9%`).
 pub(crate) fn compare(a: &str, b: &str, comma_decimal: bool) -> std::cmp::Ordering {
-    use std::cmp::Ordering;
-    match (number(a, comma_decimal), number(b, comma_decimal)) {
-        (Some(x), Some(y)) => x.total_cmp(&y),
-        (Some(_), None) => Ordering::Less,
-        (None, Some(_)) => Ordering::Greater,
-        (None, None) => {
-            let turkish = crate::l10n::language() == "tr";
-            text_key(a, turkish)
-                .cmp(&text_key(b, turkish))
-                .then_with(|| a.cmp(b))
+    let turkish = crate::l10n::language() == "tr";
+    sort_key(a, comma_decimal, turkish).cmp(&sort_key(b, comma_decimal, turkish))
+}
+
+/// What a value sorts by, worked out once a value (a sort read every
+/// value again at each comparison): as [`compare`] orders them.
+#[derive(Debug, Clone)]
+pub(crate) enum SortKey {
+    Number(f64),
+    Date(jiff::civil::Date),
+    Text(Vec<u32>, String),
+}
+
+impl SortKey {
+    fn rank(&self) -> u8 {
+        match self {
+            SortKey::Number(_) => 0,
+            SortKey::Date(_) => 1,
+            SortKey::Text(..) => 2,
         }
     }
+}
+
+impl PartialEq for SortKey {
+    fn eq(&self, other: &SortKey) -> bool {
+        self.cmp(other) == std::cmp::Ordering::Equal
+    }
+}
+
+impl Eq for SortKey {}
+
+impl PartialOrd for SortKey {
+    fn partial_cmp(&self, other: &SortKey) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for SortKey {
+    fn cmp(&self, other: &SortKey) -> std::cmp::Ordering {
+        match (self, other) {
+            (SortKey::Number(x), SortKey::Number(y)) => x.total_cmp(y),
+            (SortKey::Date(x), SortKey::Date(y)) => x.cmp(y),
+            (SortKey::Text(k, a), SortKey::Text(l, b)) => k.cmp(l).then_with(|| a.cmp(b)),
+            _ => self.rank().cmp(&other.rank()),
+        }
+    }
+}
+
+/// The sort key of value `v` (`turkish`: `I` lowercases to `ı`).
+pub(crate) fn sort_key(v: &str, comma_decimal: bool, turkish: bool) -> SortKey {
+    if let Some(x) = number(v, comma_decimal).or_else(|| amount(v, comma_decimal)) {
+        return SortKey::Number(x);
+    }
+    if let Some((d, ..)) = crate::csv_tools::date(v) {
+        return SortKey::Date(d);
+    }
+    SortKey::Text(text_key(v, turkish), v.to_string())
+}
+
+/// A number with a percent sign after it (in hundredths), a currency
+/// symbol before or after it, or in parentheses (negative), for sorting.
+fn amount(v: &str, comma_decimal: bool) -> Option<f64> {
+    let t = v.trim();
+    // Accounting's negative amounts: `(5)`, `($5)`.
+    if let Some(inner) = t.strip_prefix('(').and_then(|r| r.strip_suffix(')')) {
+        return number(inner, comma_decimal)
+            .or_else(|| amount(inner, comma_decimal))
+            .map(|x| -x);
+    }
+    if let Some(p) = t.strip_suffix('%') {
+        return number(p, comma_decimal).map(|x| x / 100.0);
+    }
+    const SYMBOLS: [char; 6] = ['$', '€', '£', '¥', '₺', '₹'];
+    let (sign, rest) = match t.strip_prefix('-') {
+        Some(r) => (-1.0, r.trim_start()),
+        None => (1.0, t),
+    };
+    let bare = rest
+        .strip_prefix(SYMBOLS)
+        .or_else(|| rest.strip_suffix(SYMBOLS))
+        .or_else(|| rest.strip_suffix(" TL"))?;
+    number(bare.trim(), comma_decimal).map(|x| sign * x)
 }
 
 /// `s` for a search without case: lower case, the Turkish `İ`, `I` and
@@ -1086,15 +1228,25 @@ fn text_key(s: &str, turkish: bool) -> Vec<u32> {
 /// `col` (`reverse`: descending), for a view that sorts without changing
 /// the file.
 pub fn sorted_order(text: &str, d: &Dialect, col: usize, reverse: bool) -> Vec<usize> {
-    let rows = rows(text, d);
-    let first = usize::from(d.header);
+    // The column's field of each record only, its key worked out once (a
+    // sorted view did it again at every keystroke, for every field).
+    let mut idx = Index::new(text);
+    let n = idx.count(text, d);
+    let records: Vec<Record> = (0..n).filter_map(|i| idx.record(text, i, d)).collect();
+    let first = usize::from(d.header).min(records.len());
+    let turkish = crate::l10n::language() == "tr";
+    let keys: Vec<SortKey> = records
+        .iter()
+        .map(|r| {
+            let v = r.fields.get(col).map_or(Cow::Borrowed(""), |f| value(text, f, d));
+            sort_key(&v, d.delimiter == b';', turkish)
+        })
+        .collect();
     // Blank lines go last, in file order, whichever the direction.
-    let blank = |i: usize| rows[i].len() == 1 && rows[i][0].is_empty();
     let (mut order, blanks): (Vec<usize>, Vec<usize>) =
-        (first..rows.len()).partition(|&i| !blank(i));
-    let key = |i: usize| rows[i].get(col).map_or("", String::as_str);
+        (first..records.len()).partition(|&i| !records[i].range.is_empty());
     order.sort_by(|&a, &b| {
-        let o = compare(key(a), key(b), d.delimiter == b';');
+        let o = keys[a].cmp(&keys[b]);
         if reverse { o.reverse() } else { o }
     });
     let mut out: Vec<usize> = (0..first).collect();
@@ -1119,8 +1271,19 @@ pub fn sort_file(text: &str, d: &Dialect, col: usize, reverse: bool) -> Transact
     let start = recs.first().map_or(0, |r| r.range.start);
     let end = recs.last().map_or(0, |r| r.range.end);
     let mut tx = Transaction::new("Sort File");
-    tx.edit(start..end, body.join(nl));
+    tx.edit(start..end, records_text(&body, nl, end >= text.len()));
     tx
+}
+
+/// Records' texts joined with line ending `nl`, as the end of a text
+/// (`at_end`) too: a blank record last there gets a line ending of its own,
+/// as a final line feed alone is no record (it was lost).
+pub(crate) fn records_text(body: &[&str], nl: &str, at_end: bool) -> String {
+    let mut out = body.join(nl);
+    if at_end && body.len() > 1 && body.last().is_some_and(|r| r.is_empty()) {
+        out.push_str(nl);
+    }
+    out
 }
 
 /// Rows as tab-separated values, the way spreadsheets copy them.
@@ -1239,12 +1402,26 @@ pub(crate) fn number(v: &str, comma_decimal: bool) -> Option<f64> {
 }
 
 pub fn column_stats(text: &str, d: &Dialect, col: usize) -> Option<(usize, f64, f64, f64, f64)> {
+    column_stats_of(text, d, col, None)
+}
+
+/// [`column_stats`] of the records `kept` keeps (a filter's,
+/// [`kept_rows`]), or all.
+pub fn column_stats_of(
+    text: &str,
+    d: &Dialect,
+    col: usize,
+    kept: Option<&[bool]>,
+) -> Option<(usize, f64, f64, f64, f64)> {
     // Record by record, only the column's field read: the status bar asks
     // at every keystroke (publish_todo 3.5).
     let mut idx = Index::new(text);
     let n = idx.count(text, d);
     let (mut count, mut sum, mut min, mut max) = (0usize, 0.0, f64::INFINITY, f64::NEG_INFINITY);
     for i in usize::from(d.header)..n {
+        if kept.is_some_and(|k| !k.get(i).copied().unwrap_or(true)) {
+            continue;
+        }
         let Some(r) = idx.record(text, i, d) else {
             continue;
         };
@@ -1405,6 +1582,10 @@ fn round_width(w: f64) -> f64 {
 /// noise of floating point.
 pub fn bin_label(b: &Bin) -> String {
     let f = |v: f64| {
+        // Small values in their digits (ten decimals read them as 0).
+        if v != 0.0 && v.abs() < 1e-4 {
+            return format!("{v:e}");
+        }
         let s = format!("{:.10}", v);
         let s = s.trim_end_matches('0').trim_end_matches('.');
         if s == "-0" {
@@ -1441,7 +1622,8 @@ pub fn replace_in_column(
     if find.is_empty() {
         return (tx, 0);
     }
-    let mut at = 0;
+    // After a `sep=` line, which is not a record.
+    let mut at = preamble(text);
     let mut first = true;
     while at < text.len() {
         let rec = scan(text, at, d);
@@ -1567,6 +1749,16 @@ fn numeric_value(v: &str, comma_decimal: bool) -> bool {
 /// The widest a column is laid out.
 const MAX_WIDTH: usize = 40;
 
+/// The width a field's text takes in the grid: its widest line (a value
+/// of several lines took the width of them all side by side).
+fn field_width(s: &str) -> usize {
+    use unicode_width::UnicodeWidthStr;
+    s.split('\n')
+        .map(|l| l.strip_suffix('\r').unwrap_or(l).width())
+        .max()
+        .unwrap_or(0)
+}
+
 impl Layout {
     /// The layout of `text`, its dialect detected.
     pub fn new(text: &str) -> Layout {
@@ -1586,7 +1778,6 @@ impl Layout {
     /// The layout of `text` in `dialect`, shown as `view` and `columns`
     /// say.
     pub fn with_columns(text: &str, dialect: Dialect, view: View, columns: Columns) -> Layout {
-        use unicode_width::UnicodeWidthStr;
         let mut index = Index::new(text);
         let mut widths: Vec<usize> = Vec::new();
         // Per column: numeric and non-empty data values.
@@ -1597,7 +1788,7 @@ impl Layout {
                 break;
             };
             for (j, f) in r.fields.iter().enumerate() {
-                let w = text[f.range.clone()].width().min(MAX_WIDTH);
+                let w = field_width(&text[f.range.clone()]).min(MAX_WIDTH);
                 if j >= widths.len() {
                     widths.push(w);
                     counts.push((0, 0));
@@ -1660,6 +1851,9 @@ fn memchr_count(text: &str) -> usize {
 /// A memo's key: the document (its serial: two documents both start at
 /// version 0), its version, a length or column, and the dialect.
 type Key = (u64, u64, usize, Dialect);
+
+/// The status bar numbers' memo key: the column's, and the filter.
+type StatsKey = (Key, Option<(String, Option<usize>)>);
 
 /// The layout last computed, with what it was computed for.
 type LayoutMemo = ((Key, View, Columns), std::rc::Rc<Layout>);
@@ -1995,7 +2189,6 @@ fn truncate(s: &str, w: usize) -> String {
 /// The widest value of each column, uncut, over the first ten thousand
 /// records: what Autosize sets.
 pub fn natural_widths(text: &str, d: &Dialect) -> Vec<usize> {
-    use unicode_width::UnicodeWidthStr;
     let mut index = Index::new(text);
     let mut widths: Vec<usize> = Vec::new();
     for i in 0..10_000 {
@@ -2003,7 +2196,7 @@ pub fn natural_widths(text: &str, d: &Dialect) -> Vec<usize> {
             break;
         };
         for (j, f) in r.fields.iter().enumerate() {
-            let w = text[f.range.clone()].width();
+            let w = field_width(&text[f.range.clone()]);
             if j >= widths.len() {
                 widths.resize(j + 1, 0);
             }
@@ -2055,20 +2248,69 @@ pub fn cell_at(doc: &crate::DocumentState) -> Option<(std::rc::Rc<Layout>, usize
     Some((layout, row, rec, col))
 }
 
-/// Rows and columns of a rectangle of cells, each as first and last.
-pub type Rectangle = ((usize, usize), (usize, usize));
+/// A rectangle of cells: its rows, top to bottom as the grid shows them
+/// ([`rows_between`]), and its first and last columns.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Rectangle {
+    /// The rows, in the view's order.
+    pub rows: Vec<usize>,
+    /// The first and the last column.
+    pub cols: (usize, usize),
+}
 
-/// The rows and columns of the rectangle of cells a selection spans in a
-/// CSV document: from the anchor's cell to the cursor's, when they are
-/// different cells (a selection within one cell stays text).
+/// The cell of the selection's anchor: its row and column, a cell past
+/// its record's end too (`DocumentState::csv_virtual_anchor`).
+pub fn anchor_cell(doc: &crate::DocumentState) -> Option<(usize, usize)> {
+    let (_, row, rec, col) = cell_at_offset(doc, doc.selection.anchor)?;
+    let col = match doc.csv_virtual_anchor_col() {
+        Some(c) if c >= rec.fields.len() && doc.selection.anchor == rec.range.end => c,
+        _ => col,
+    };
+    Some((row, col))
+}
+
+/// The rows from row `a` to row `b` (either first) as the grid shows them,
+/// top to bottom: with a filter or a sorted view on, the rows shown
+/// between the two in the view's order (commands on a selection changed
+/// the rows a filter hides between them, and in a sorted view rows shown
+/// elsewhere); else `a` to `b` in the file.
+pub fn rows_between(doc: &crate::DocumentState, a: usize, b: usize) -> Vec<usize> {
+    let (lo, hi) = (a.min(b), a.max(b));
+    let Some((shown, _, _)) = shown(doc) else {
+        return (lo..=hi).collect();
+    };
+    let cursor = cell_at(doc).map(|(_, r, _, _)| r);
+    let visible: Vec<usize> = shown
+        .order
+        .iter()
+        .copied()
+        .filter(|&r| {
+            r == a || r == b || Some(r) == cursor || shown.kept.get(r).copied().unwrap_or(true)
+        })
+        .collect();
+    let (Some(i), Some(j)) = (
+        visible.iter().position(|&r| r == a),
+        visible.iter().position(|&r| r == b),
+    ) else {
+        return (lo..=hi).collect();
+    };
+    visible[i.min(j)..=i.max(j)].to_vec()
+}
+
+/// The rectangle of cells a selection spans in a CSV document: from the
+/// anchor's cell to the cursor's, when they are different cells (a
+/// selection within one cell stays text).
 pub fn cell_rectangle(doc: &crate::DocumentState) -> Option<Rectangle> {
     let sel = doc.selection;
     if sel.anchor == sel.head || !doc.extra.is_empty() {
         return None;
     }
     let (_, r1, _, c1) = cell_at(doc)?;
-    let (_, r0, _, c0) = cell_at_offset(doc, sel.anchor)?;
-    ((r0, c0) != (r1, c1)).then_some(((r0.min(r1), r0.max(r1)), (c0.min(c1), c0.max(c1))))
+    let (r0, c0) = anchor_cell(doc)?;
+    ((r0, c0) != (r1, c1)).then(|| Rectangle {
+        rows: rows_between(doc, r0, r1),
+        cols: (c0.min(c1), c0.max(c1)),
+    })
 }
 
 /// Whether Copy and Cut in the grid of the CSV document `doc` take cells
@@ -2085,14 +2327,17 @@ pub fn copies_cells(doc: &crate::DocumentState) -> bool {
 /// its first column's field to its last (shorter rows to their end), to
 /// paint as selected.
 pub fn rectangle_ranges(doc: &crate::DocumentState) -> Option<Vec<Range<usize>>> {
-    let ((r0, r1), (c0, c1)) = cell_rectangle(doc)?;
+    let Rectangle {
+        rows,
+        cols: (c0, c1),
+    } = cell_rectangle(doc)?;
     let layout = layout(doc);
     let text = doc.text().as_str();
     let mut idx = layout.index.borrow_mut();
     let mut out = Vec::new();
-    for row in r0..=r1 {
+    for row in rows {
         let Some(rec) = idx.record(text, row, &layout.dialect) else {
-            break;
+            continue;
         };
         let (Some(first), Some(last)) =
             (rec.fields.get(c0), rec.fields.get(c1).or(rec.fields.last()))
@@ -2172,7 +2417,7 @@ pub fn cell_at_offset(
 }
 
 thread_local! {
-    static STATS: std::cell::RefCell<Option<(Key, Option<String>)>> =
+    static STATS: std::cell::RefCell<Option<(StatsKey, Option<String>)>> =
         const { std::cell::RefCell::new(None) };
 }
 
@@ -2187,10 +2432,24 @@ pub fn filter_rows(
     needle: &str,
     cursor: usize,
 ) -> (Vec<Range<usize>>, usize, usize) {
+    filter_rows_in(text, d, needle, None, cursor)
+}
+
+/// [`filter_rows`], with `column` the records whose value in that column
+/// is `needle` (case ignored), an empty one too: a Frequency Table's
+/// choice (it showed the records holding the text in any field, and an
+/// empty value showed them all).
+pub fn filter_rows_in(
+    text: &str,
+    d: &Dialect,
+    needle: &str,
+    column: Option<usize>,
+    cursor: usize,
+) -> (Vec<Range<usize>>, usize, usize) {
     let needle = fold(needle);
     let mut out: Vec<Range<usize>> = Vec::new();
     let (mut matched, mut total) = (0, 0);
-    let mut start = sep_line(text).map_or(0, |(_, n)| n);
+    let mut start = preamble(text);
     let mut row = 0;
     while start < text.len() {
         let rec = scan(text, start, d);
@@ -2204,10 +2463,18 @@ pub fn filter_rows(
         let blank = rec.range.is_empty();
         let hit = !header
             && !blank
-            && rec
-                .fields
-                .iter()
-                .any(|f| fold(&value(text, f, d)).contains(&needle));
+            && match column {
+                Some(c) => {
+                    rec.fields
+                        .get(c)
+                        .map_or(String::new(), |f| fold(&value(text, f, d)))
+                        == needle
+                }
+                None => rec
+                    .fields
+                    .iter()
+                    .any(|f| fold(&value(text, f, d)).contains(&needle)),
+            };
         if !header && !blank {
             total += 1;
             matched += usize::from(hit);
@@ -2231,9 +2498,10 @@ pub fn filter_rows(
     (out, matched, total)
 }
 
-/// What a filter's memo is for: the text's version, the filter, the
-/// cursor's line.
-type FilterKey = (u64, u64, String);
+/// A filter's memo key: the document, its version, the filter and the
+/// dialect (setting the header or the delimiter by hand changes no
+/// version, and the filter kept the old reading).
+type FilterKey = (u64, u64, String, Option<usize>, Dialect);
 
 /// What a CSV document's filter keeps.
 #[derive(Debug)]
@@ -2254,7 +2522,11 @@ thread_local! {
 /// The rows a CSV document's filter keeps ([`filter_rows`] for its text,
 /// filter and cursor), memoized; `None` without a filter.
 pub fn filtered(doc: &crate::DocumentState) -> Option<std::rc::Rc<Filtered>> {
-    let needle = doc.csv_filter.as_deref().filter(|f| !f.is_empty())?;
+    let column = doc.csv_filter_column;
+    let needle = doc
+        .csv_filter
+        .as_deref()
+        .filter(|f| !f.is_empty() || column.is_some())?;
     if doc.meta.mode != crate::DocumentMode::Csv {
         return None;
     }
@@ -2262,7 +2534,13 @@ pub fn filtered(doc: &crate::DocumentState) -> Option<std::rc::Rc<Filtered>> {
     // Without the cursor: the record at the cursor stays shown, which
     // `shown_lines` adds, so a step of the cursor reads the file again no
     // more (publish_todo 3.5).
-    let key = (doc.serial(), doc.version(), needle.to_string());
+    let key = (
+        doc.serial(),
+        doc.version(),
+        needle.to_string(),
+        column,
+        layout(doc).dialect,
+    );
     FILTERED.with(|m| {
         if let Some((k, v)) = &*m.borrow()
             && *k == key
@@ -2270,7 +2548,8 @@ pub fn filtered(doc: &crate::DocumentState) -> Option<std::rc::Rc<Filtered>> {
             return Some(v.clone());
         }
         let layout = layout(doc);
-        let (ranges, matched, total) = filter_rows(text, &layout.dialect, needle, usize::MAX);
+        let (ranges, matched, total) =
+            filter_rows_in(text, &layout.dialect, needle, column, usize::MAX);
         let v = std::rc::Rc::new(Filtered {
             ranges,
             matched,
@@ -2283,7 +2562,13 @@ pub fn filtered(doc: &crate::DocumentState) -> Option<std::rc::Rc<Filtered>> {
 
 /// What a shown-lines memo is for: the document, the version, the
 /// filter, the sort.
-type ShownKey = (u64, u64, Option<String>, Option<(usize, bool)>);
+type ShownKey = (
+    u64,
+    u64,
+    Option<(String, Option<usize>)>,
+    Option<(usize, bool)>,
+    Dialect,
+);
 
 /// The lines shown with the cursor's record added, by the view and that
 /// record.
@@ -2396,6 +2681,102 @@ pub fn view_step(doc: &crate::DocumentState, row: usize, step: isize) -> Option<
         .and_then(|i| visible.get(i).copied())
 }
 
+/// The view's state of columns after an edit moved them: the hidden
+/// columns, the widths set by hand and the sorted view's column follow
+/// their column (`to` gives its new place, `None` when it went); they
+/// stayed by number, on another column.
+pub fn remap_columns(doc: &mut crate::DocumentState, to: impl Fn(usize) -> Option<usize>) {
+    let c = &mut doc.csv_columns;
+    c.hidden = c.hidden.iter().filter_map(|&j| to(j)).collect();
+    c.widths = c
+        .widths
+        .iter()
+        .filter_map(|(&j, &w)| to(j).map(|k| (k, w)))
+        .collect();
+    doc.csv_sort = doc.csv_sort.and_then(|(j, r)| to(j).map(|k| (k, r)));
+}
+
+/// Which records a CSV document's filter keeps, in file order; `None`
+/// without a filter. The status bar's numbers and Sum Column count those,
+/// as a spreadsheet sums a filtered range (they counted the hidden rows).
+pub fn kept_rows(doc: &crate::DocumentState) -> Option<Vec<bool>> {
+    let (shown, _, unfiltered) = shown(doc)?;
+    (!unfiltered).then(|| shown.kept.clone())
+}
+
+/// Up to `n` rows from row `row` down, as the grid shows them (its filter
+/// and its sort applied, [`view_step`]): where a block pastes.
+pub fn view_rows_from(doc: &crate::DocumentState, row: usize, n: usize) -> Vec<usize> {
+    let Some((shown, _, _)) = shown(doc) else {
+        let layout = layout(doc);
+        let count = layout
+            .index
+            .borrow_mut()
+            .count(doc.text().as_str(), &layout.dialect);
+        return (row..count.max(row + 1)).take(n.max(1)).collect();
+    };
+    let visible = shown
+        .order
+        .iter()
+        .copied()
+        .filter(|&r| r == row || shown.kept.get(r).copied().unwrap_or(true));
+    let mut out: Vec<usize> = visible.skip_while(|&r| r != row).take(n.max(1)).collect();
+    if out.is_empty() {
+        out.push(row);
+    }
+    out
+}
+
+/// Where a cursor at `from` goes `delta` rows down (up when negative)
+/// through the rows the CSV grid shows, its filter and its sort applied
+/// ([`view_step`]), stopping at the first and the last: the same column,
+/// at the same character of the cell as far as the cell is long. `None`
+/// outside a CSV document or with no row to go to (Vim's `j` and `k`
+/// fail there).
+pub fn view_vertical(doc: &crate::DocumentState, from: usize, delta: isize) -> Option<usize> {
+    // The cursor's own cell is the one past its record's end when it is
+    // there (Up from a short record's missing cell went to column A).
+    let (layout, row, rec, col) = if from == doc.selection.head {
+        cell_at(doc)?
+    } else {
+        cell_at_offset(doc, from)?
+    };
+    let text = doc.text().as_str();
+    let mut to = row;
+    for _ in 0..delta.unsigned_abs() {
+        match view_step(doc, to, delta.signum()) {
+            Some(r) => to = r,
+            None => break,
+        }
+    }
+    if to == row {
+        return None;
+    }
+    let target = layout
+        .index
+        .borrow_mut()
+        .record(text, to, &layout.dialect)?;
+    Some(same_place(text, &rec, col, from, &target))
+}
+
+/// The place in record `to` at column `col` (its last field when it is
+/// shorter) as far into the cell as `head` is into record `from`'s, in
+/// characters (a byte count lands inside a character of another cell).
+fn same_place(text: &str, from: &Record, col: usize, head: usize, to: &Record) -> usize {
+    let chars = from.fields.get(col).map_or(0, |f| {
+        text[f.range.start..head.clamp(f.range.start, f.range.end)]
+            .chars()
+            .count()
+    });
+    match to.fields.get(col).or(to.fields.last()) {
+        Some(f) => text[f.range.clone()]
+            .char_indices()
+            .nth(chars)
+            .map_or(f.range.end, |(i, _)| f.range.start + i),
+        None => to.range.start,
+    }
+}
+
 /// The view's order of a CSV document with a filter or a sort on, worked
 /// out once a version, with its key and whether no filter is on.
 fn shown(doc: &crate::DocumentState) -> Option<(std::rc::Rc<Shown>, ShownKey, bool)> {
@@ -2411,8 +2792,9 @@ fn shown(doc: &crate::DocumentState) -> Option<(std::rc::Rc<Shown>, ShownKey, bo
     let key = (
         doc.serial(),
         doc.version(),
-        doc.csv_filter.clone(),
+        doc.csv_filter.clone().map(|f| (f, doc.csv_filter_column)),
         doc.csv_sort,
+        layout(doc).dialect,
     );
     let cached = SHOWN.with(|m| {
         m.borrow()
@@ -2478,16 +2860,20 @@ fn shown(doc: &crate::DocumentState) -> Option<(std::rc::Rc<Shown>, ShownKey, bo
 /// document: count, sum, average, smallest and largest; after a filter,
 /// how many rows it keeps.
 pub fn status(doc: &crate::DocumentState) -> Option<String> {
-    // The mode first, as Excel's status bar shows it.
-    let mode = match doc.csv_mode()? {
+    if doc.meta.mode != crate::DocumentMode::Csv {
+        return None;
+    }
+    // The mode first, as Excel's status bar shows it (Vim's keys have
+    // their own).
+    let mode = doc.csv_mode().map(|m| match m {
         crate::CellMode::Ready => crate::tr!("status-csv-ready"),
         crate::CellMode::Enter => crate::tr!("status-csv-enter"),
         crate::CellMode::Edit => crate::tr!("status-csv-edit"),
-    };
-    Some(match status_rest(doc) {
-        Some(rest) => format!("{mode}   {rest}"),
-        None => mode,
-    })
+    });
+    match (mode, status_rest(doc)) {
+        (Some(mode), Some(rest)) => Some(format!("{mode}   {rest}")),
+        (mode, rest) => mode.or(rest),
+    }
 }
 
 fn status_rest(doc: &crate::DocumentState) -> Option<String> {
@@ -2503,7 +2889,7 @@ fn status_rest(doc: &crate::DocumentState) -> Option<String> {
     };
     let filter = crate::tr!(
         "status-csv-filter",
-        filter = doc.csv_filter.clone().unwrap_or_default(),
+        filter = filter_label(doc),
         matched = f.matched,
         total = f.total
     );
@@ -2513,18 +2899,41 @@ fn status_rest(doc: &crate::DocumentState) -> Option<String> {
     })
 }
 
+/// The filter as the status bar names it: its text, or for a column's
+/// value `B = value`.
+fn filter_label(doc: &crate::DocumentState) -> String {
+    let text = doc.csv_filter.clone().unwrap_or_default();
+    match doc.csv_filter_column {
+        Some(c) => format!("{} = {text}", crate::csv_tools::column_letters(c)),
+        None => text,
+    }
+}
+
 fn column_status(doc: &crate::DocumentState) -> Option<String> {
     let (layout, _, _, col) = cell_at(doc)?;
-    let key = (doc.serial(), doc.version(), col, layout.dialect);
+    let key = (
+        (doc.serial(), doc.version(), col, layout.dialect),
+        doc.csv_filter.clone().map(|f| (f, doc.csv_filter_column)),
+    );
     STATS.with(|s| {
         if let Some((k, v)) = &*s.borrow()
             && *k == key
         {
             return v.clone();
         }
-        let v = column_stats(doc.text().as_str(), &layout.dialect, col).map(
+        // With a filter on, the rows it shows.
+        let kept = kept_rows(doc);
+        let v = column_stats_of(doc.text().as_str(), &layout.dialect, col, kept.as_deref()).map(
             |(n, sum, avg, min, max)| {
-                let f = |x: f64| crate::formulas::number(x);
+                // Very large sums in powers of ten (written out, 1e300
+                // took three hundred digits).
+                let f = |x: f64| {
+                    if !x.is_finite() || x.abs() >= 1e15 {
+                        format!("{x:e}")
+                    } else {
+                        crate::formulas::number(x)
+                    }
+                };
                 format!(
                     "{}   {}",
                     crate::tr!("status-table-count", count = n),

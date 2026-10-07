@@ -30,6 +30,10 @@
   // above (in its source view they break the line).
   { "keys": "enter", "command": "csv.cellBelow", "when": "editorMode == csv && !sourceView" },
   { "keys": "shift+enter", "command": "csv.cellAbove", "when": "editorMode == csv && !sourceView", "terminalKeys": "alt+enter" },
+  // A line break into the cell's value, as Excel's Alt+Enter (Ctrl+J in
+  // a terminal, where Alt+Enter is Shift+Enter's).
+  { "keys": "alt+enter", "command": "csv.lineBreak", "when": "editorMode == csv && !sourceView && !terminal" },
+  { "keys": "ctrl+j", "command": "csv.lineBreak", "when": "editorMode == csv && !sourceView && terminal" },
   // Excel's keys in a CSV grid: the arrows from cell to cell (in Edit
   // mode, after F2, Left and Right in the cell), Ctrl with them to the
   // data's edge, Shift to extend; Escape cancels an entry, Delete clears

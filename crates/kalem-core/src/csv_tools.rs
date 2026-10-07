@@ -27,34 +27,152 @@ fn blank(r: &Record) -> bool {
     r.range.is_empty()
 }
 
-/// The value after `v` in a series stepping by `step`: a number (decimals
-/// kept as the first value writes them), or text ending in a number
-/// (`Item 9` → `Item 10`).
+/// How `v` writes a number's fraction: its decimal separator and the
+/// digits after it; `None` for an integer, or a separator that groups
+/// thousands (`1,234`; `1.234` in a file `;` delimits), as [`number`]
+/// reads them (three digits after it were always taken for a group:
+/// `0.125` went on as `0`).
+fn fraction(v: &str, comma_decimal: bool) -> Option<(char, usize)> {
+    let t = v.trim();
+    let i = t.rfind(['.', ','])?;
+    let sep = if t.as_bytes()[i] == b',' { ',' } else { '.' };
+    let digits = &t[i + 1..];
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let x = number(t, comma_decimal)?;
+    // A separator that groups thousands reads the same without it.
+    let joined = format!("{}{digits}", &t[..i]);
+    (number(&joined, comma_decimal) != Some(x)).then_some((sep, digits.len()))
+}
+
+/// An integer written as digits alone, a sign before them (without f64's
+/// rounding: `9007199254740993` went on as `…992`).
+fn integer(v: &str) -> Option<i128> {
+    let t = v.trim();
+    let digits = t.strip_prefix(['-', '+']).unwrap_or(t);
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    if digits.len() > 1 && digits.starts_with('0') {
+        return None;
+    }
+    t.parse().ok()
+}
+
+/// How a date is written, to write the next one so.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DateForm {
+    /// `2026-09-29`.
+    Iso,
+    /// `29.09.2026`, day first.
+    Dotted,
+    /// `9/29/2026`, month first.
+    MonthFirst,
+    /// `29/9/2026`, day first (the day past 12).
+    DayFirst,
+}
+
+/// A date as spreadsheets write one in a CSV file: `2026-09-29`,
+/// `29.09.2026`, `9/29/2026` (`29/9/2026`, day first, when the first part
+/// is past 12), with whether its day and month have two digits.
+pub(crate) fn date(v: &str) -> Option<(jiff::civil::Date, DateForm, bool)> {
+    let t = v.trim();
+    let (sep, form) = if t.contains('-') {
+        ('-', DateForm::Iso)
+    } else if t.contains('.') {
+        ('.', DateForm::Dotted)
+    } else {
+        ('/', DateForm::MonthFirst)
+    };
+    let parts: Vec<&str> = t.split(sep).collect();
+    if parts.len() != 3
+        || parts
+            .iter()
+            .any(|p| p.is_empty() || p.len() > 4 || !p.bytes().all(|b| b.is_ascii_digit()))
+    {
+        return None;
+    }
+    let n = |i: usize| parts[i].parse::<i16>().ok();
+    let (year, month, day, form) = match form {
+        DateForm::Iso if parts[0].len() == 4 => (n(0)?, n(1)?, n(2)?, form),
+        DateForm::Dotted if parts[2].len() == 4 => (n(2)?, n(1)?, n(0)?, form),
+        DateForm::MonthFirst if parts[2].len() == 4 && n(0)? > 12 => {
+            (n(2)?, n(1)?, n(0)?, DateForm::DayFirst)
+        }
+        DateForm::MonthFirst if parts[2].len() == 4 => (n(2)?, n(0)?, n(1)?, form),
+        _ => return None,
+    };
+    let padded = match form {
+        DateForm::Iso => parts[1].len() == 2 && parts[2].len() == 2,
+        _ => parts[0].len() == 2 && parts[1].len() == 2,
+    };
+    let d = jiff::civil::Date::new(year, i8::try_from(month).ok()?, i8::try_from(day).ok()?).ok()?;
+    Some((d, form, padded))
+}
+
+fn write_date(d: jiff::civil::Date, form: DateForm, padded: bool) -> String {
+    let (y, m, day) = (d.year(), d.month(), d.day());
+    let two = |x: i8| {
+        if padded {
+            format!("{x:02}")
+        } else {
+            x.to_string()
+        }
+    };
+    match form {
+        DateForm::Iso => format!("{y:04}-{}-{}", two(m), two(day)),
+        DateForm::Dotted => format!("{}.{}.{y:04}", two(day), two(m)),
+        DateForm::MonthFirst => format!("{}/{}/{y:04}", two(m), two(day)),
+        DateForm::DayFirst => format!("{}/{}/{y:04}", two(day), two(m)),
+    }
+}
+
+/// Text ending in a number, as its text before the number and the number
+/// (`Item 9`, `007`).
+fn counted(v: &str) -> Option<(&str, i64, usize)> {
+    let digits = v.len() - v.trim_end_matches(|c: char| c.is_ascii_digit()).len();
+    if digits == 0 {
+        return None;
+    }
+    let (head, tail) = v.split_at(v.len() - digits);
+    Some((head, tail.parse().ok()?, digits))
+}
+
+/// The value after `v` in a series stepping by `step`: a number (as many
+/// decimals as it or the step has, its decimal separator kept), a date
+/// (`step` days on), or text ending in a number (`Item 9` → `Item 10`).
 pub fn next_in_series(v: &str, step: f64, comma_decimal: bool) -> Option<String> {
     // Leading zeros make an identifier, continued as text below.
     let t = v.trim();
     let zero_padded = t.len() > 1 && t.starts_with('0') && t.bytes().all(|b| b.is_ascii_digit());
-    if let Some(x) = number(v, comma_decimal).filter(|_| !zero_padded) {
-        let decimals = v
-            .trim()
-            .rsplit_once(['.', ','])
-            .filter(|(_, frac)| frac.len() != 3 || !frac.bytes().all(|b| b.is_ascii_digit()))
-            .map_or(0, |(_, frac)| frac.len());
-        let y = x + step;
-        let s = format!("{y:.decimals$}");
-        return Some(if comma_decimal && decimals > 0 {
-            s.replace('.', ",")
-        } else {
-            s
-        });
+    let whole = step.fract() == 0.0 && step.abs() < 9e15;
+    if let (Some(n), true) = (integer(v), whole) {
+        return Some((n + step as i128).to_string());
     }
-    let digits = v.len() - v.trim_end_matches(|c: char| c.is_ascii_digit()).len();
-    if digits == 0 || step.fract() != 0.0 {
+    if let Some(x) = number(v, comma_decimal).filter(|_| !zero_padded) {
+        let own = fraction(v, comma_decimal);
+        // The step's decimals, as its shortest form writes them.
+        let step_decimals = format!("{step}")
+            .split_once('.')
+            .map_or(0, |(_, f)| f.len());
+        let decimals = own.map_or(0, |(_, n)| n).max(step_decimals);
+        let sep = own.map_or(if comma_decimal { ',' } else { '.' }, |(c, _)| c);
+        let s = format!("{:.decimals$}", x + step);
+        return Some(if sep == ',' { s.replace('.', ",") } else { s });
+    }
+    if let Some((d, form, padded)) = date(v) {
+        if !whole {
+            return None;
+        }
+        let next = d.checked_add(jiff::Span::new().days(step as i64)).ok()?;
+        return Some(write_date(next, form, padded));
+    }
+    let (head, n, digits) = counted(v)?;
+    if !whole {
         return None;
     }
-    let (head, tail) = v.split_at(v.len() - digits);
-    let n: i64 = tail.parse().ok()?;
-    let m = n + step as i64;
+    let m = n.checked_add(step as i64)?;
     if m < 0 {
         return None;
     }
@@ -63,23 +181,29 @@ pub fn next_in_series(v: &str, step: f64, comma_decimal: bool) -> Option<String>
 }
 
 /// Fills columns `cols` (first and last, inclusive) of the records
-/// `first + 1 ..= last` from record `first`: each column's value copied
-/// (fill down), or a series continuing it by `step` (fill series). `None`
-/// when a series cannot continue a value, or record `first` has none of
-/// the columns.
+/// `rows[1..]` from record `rows[0]` (the rows the grid shows, in its
+/// order): each column's value copied (fill down; a cell the first record
+/// lacks empties them), or a series continuing it by `step` (fill
+/// series). `None` when a series cannot continue a value, or record
+/// `rows[0]` has none of the columns.
 pub fn fill(
     text: &str,
     d: &Dialect,
     cols: (usize, usize),
-    first: usize,
-    last: usize,
+    rows: &[usize],
     series: Option<f64>,
 ) -> Option<Transaction> {
     let recs = records(text, d);
-    let top = recs.get(first)?;
-    // Each column's first value; a column the top record lacks stays.
+    let top = recs.get(*rows.first()?)?;
+    // Each column's first value; a column the top record lacks stays in a
+    // series, and empties the cells below in a fill.
     let starts: Vec<Option<String>> = (cols.0..=cols.1)
-        .map(|c| top.fields.get(c).map(|f| value(text, f, d).into_owned()))
+        .map(|c| {
+            top.fields
+                .get(c)
+                .map(|f| value(text, f, d).into_owned())
+                .or_else(|| series.is_none().then(String::new))
+        })
         .collect();
     if starts.iter().all(Option::is_none) {
         return None;
@@ -91,7 +215,7 @@ pub fn fill(
         "Fill Down"
     });
     let mut values = starts;
-    for rec in recs.iter().take(last + 1).skip(first + 1) {
+    for rec in rows[1..].iter().filter_map(|&r| recs.get(r)) {
         if let Some(step) = series {
             for v in values.iter_mut().flatten() {
                 *v = next_in_series(v, step, comma)?;
@@ -108,6 +232,7 @@ pub fn fill(
                 (Some(f), Some(v)) => {
                     let _ = tx.replace(f.range.clone(), encode(v, d));
                 }
+                (None, Some(v)) if v.is_empty() => {}
                 (None, v) => {
                     for _ in added..col + 1 - rec.fields.len() {
                         tail.push(delim);
@@ -128,13 +253,28 @@ pub fn fill(
 }
 
 /// The step of a series from the two values above a cell: their
-/// difference when both are numbers, else 1.
+/// difference when both are numbers (rounded to their decimals), days
+/// when both are dates, the difference of their numbers when both are the
+/// same text ending in one (`Item 2`, `Item 1` count down); else 1.
 pub fn series_step(above2: Option<&str>, above: &str, comma_decimal: bool) -> f64 {
-    match (
-        above2.and_then(|s| number(s, comma_decimal)),
-        number(above, comma_decimal),
-    ) {
-        (Some(a), Some(b)) => b - a,
+    let Some(above2) = above2 else {
+        return 1.0;
+    };
+    if let (Some(a), Some(b)) = (integer(above2), integer(above)) {
+        return (b - a) as f64;
+    }
+    if let (Some(a), Some(b)) = (number(above2, comma_decimal), number(above, comma_decimal)) {
+        let decimals = fraction(above2, comma_decimal)
+            .map_or(0, |(_, n)| n)
+            .max(fraction(above, comma_decimal).map_or(0, |(_, n)| n));
+        let scale = 10f64.powi(i32::try_from(decimals).unwrap_or(15).min(15));
+        return ((b - a) * scale).round() / scale;
+    }
+    if let (Some((a, ..)), Some((b, ..))) = (date(above2), date(above)) {
+        return (b - a).get_days() as f64;
+    }
+    match (counted(above2), counted(above)) {
+        (Some((h1, a, _)), Some((h2, b, _))) if h1 == h2 => (b - a) as f64,
         _ => 1.0,
     }
 }
@@ -151,8 +291,15 @@ pub fn remove_duplicates(text: &str, d: &Dialect) -> (Transaction, usize) {
             continue;
         }
         if !seen.insert(values(text, r, d)) && i > 0 {
-            // The record with the line ending before it.
-            let _ = tx.replace(recs[i - 1].range.end..r.range.end, "");
+            // The record with the line ending before it; the last record,
+            // after a blank line, without (that line ending is the blank
+            // line's, which went with it).
+            let start = if blank(&recs[i - 1]) && r.next <= r.range.end {
+                r.range.start
+            } else {
+                recs[i - 1].range.end
+            };
+            let _ = tx.replace(start..r.range.end, "");
             removed += 1;
         }
     }
@@ -246,9 +393,12 @@ pub fn join_columns(text: &str, d: &Dialect, col: usize, sep: &str) -> Option<Tr
     any.then_some(tx)
 }
 
-/// Sort keys from text: columns by letter (`B`) or number (`2`), a `-`
-/// before one for descending: `B, -A` or `2 -1`.
-pub fn parse_sort_keys(s: &str) -> Option<Vec<(usize, bool)>> {
+/// Sort keys from text: columns by a header's name (`names`, without
+/// case), by letter (`B`) or by number (`2`), a `-` before one for
+/// descending: `B, -A`, `2 -1` or `city -age`. `None` when one names no
+/// column of the `columns` there are (a word was read as letters far
+/// past the last column, and the file sorted by nothing).
+pub fn parse_sort_keys(s: &str, names: &[String], columns: usize) -> Option<Vec<(usize, bool)>> {
     let keys: Vec<(usize, bool)> = s
         .split([',', ' ', ';'])
         .filter(|t| !t.is_empty())
@@ -257,7 +407,11 @@ pub fn parse_sort_keys(s: &str) -> Option<Vec<(usize, bool)>> {
                 Some(t) => (true, t),
                 None => (false, t),
             };
-            Some((column_index(t)?, rev))
+            let named = names
+                .iter()
+                .position(|n| crate::csv::fold(n.trim()) == crate::csv::fold(t));
+            let col = named.or_else(|| column_index(t))?;
+            (col < columns).then_some((col, rev))
         })
         .collect::<Option<_>>()?;
     (!keys.is_empty()).then_some(keys)
@@ -333,15 +487,26 @@ pub fn parse_cell(s: &str) -> Option<(usize, usize)> {
 /// bytes kept.
 pub fn sort_by(text: &str, d: &Dialect, keys: &[(usize, bool)]) -> Transaction {
     let recs = records(text, d);
-    let rows: Vec<Vec<String>> = recs.iter().map(|r| values(text, r, d)).collect();
-    let first = usize::from(d.header);
+    let first = usize::from(d.header).min(recs.len());
     let (mut order, blanks): (Vec<usize>, Vec<usize>) =
         (first..recs.len()).partition(|&i| !blank(&recs[i]));
     let comma = d.delimiter == b';';
+    let turkish = crate::l10n::language() == "tr";
+    // Each record's keys, worked out once.
+    let sort_keys: Vec<Vec<crate::csv::SortKey>> = recs
+        .iter()
+        .map(|r| {
+            keys.iter()
+                .map(|&(col, _)| {
+                    let v = r.fields.get(col).map_or(Default::default(), |f| value(text, f, d));
+                    crate::csv::sort_key(&v, comma, turkish)
+                })
+                .collect()
+        })
+        .collect();
     order.sort_by(|&a, &b| {
-        for &(col, rev) in keys {
-            let key = |i: usize| rows[i].get(col).map_or("", String::as_str);
-            let o = crate::csv::compare(key(a), key(b), comma);
+        for (k, &(_, rev)) in keys.iter().enumerate() {
+            let o = sort_keys[a][k].cmp(&sort_keys[b][k]);
             let o = if rev { o.reverse() } else { o };
             if o != std::cmp::Ordering::Equal {
                 return o;
@@ -356,13 +521,22 @@ pub fn sort_by(text: &str, d: &Dialect, keys: &[(usize, bool)]) -> Transaction {
     let start = recs.first().map_or(0, |r| r.range.start);
     let end = recs.last().map_or(0, |r| r.range.end);
     let mut tx = Transaction::new("Sort File");
-    let _ = tx.replace(start..end, body.join(d.line_ending()));
+    let _ = tx.replace(
+        start..end,
+        crate::csv::records_text(&body, d.line_ending(), end >= text.len()),
+    );
     tx
 }
 
 /// The sum of column `col`'s numbers, the header and the record `skip`
-/// left out.
-pub fn column_sum(text: &str, d: &Dialect, col: usize, skip: Option<usize>) -> Option<f64> {
+/// left out, and with `kept` (a filter's) the records it leaves out.
+pub fn column_sum(
+    text: &str,
+    d: &Dialect,
+    col: usize,
+    skip: Option<usize>,
+    kept: Option<&[bool]>,
+) -> Option<f64> {
     let recs = records(text, d);
     let comma = d.delimiter == b';';
     let nums: Vec<f64> = recs
@@ -370,6 +544,7 @@ pub fn column_sum(text: &str, d: &Dialect, col: usize, skip: Option<usize>) -> O
         .enumerate()
         .skip(usize::from(d.header))
         .filter(|(i, _)| Some(*i) != skip)
+        .filter(|(i, _)| kept.is_none_or(|k| k.get(*i).copied().unwrap_or(true)))
         .filter_map(|(_, r)| number(&value(text, r.fields.get(col)?, d), comma))
         .collect();
     (!nums.is_empty()).then(|| nums.iter().sum())
@@ -392,31 +567,47 @@ pub fn block_rows(block: &str, d: &Dialect) -> Vec<Vec<String>> {
         };
         crate::csv::rows(block, &tsv)
     } else if !block.contains('\n') {
-        vec![vec![block.to_string()]]
+        // A cell copied alone, in quotes for a leading quote of its own.
+        let tsv = Dialect {
+            delimiter: b'\t',
+            ..Dialect::default()
+        };
+        let quoted = block.len() > 1 && block.starts_with('"') && block.ends_with('"');
+        match crate::csv::rows(block, &tsv).as_slice() {
+            [one] if quoted && one.len() == 1 && crate::csv::encode(&one[0], &tsv) == block => {
+                vec![one.clone()]
+            }
+            _ => vec![vec![block.to_string()]],
+        }
     } else {
         crate::csv::rows(block, d)
     }
 }
 
-/// The cells of rows `rows` and columns `cols` (both inclusive, in any
-/// order) as TSV, as spreadsheets copy a range: a tab between fields, a
-/// line feed after each row, tabs and line breaks inside a value as
-/// spaces. Cells past a short row are empty.
-pub fn rectangle_tsv(
-    text: &str,
-    d: &Dialect,
-    rows: (usize, usize),
-    cols: (usize, usize),
-) -> String {
-    let (r0, r1) = (rows.0.min(rows.1), rows.0.max(rows.1));
+/// The cells of rows `rows` (in that order) and columns `cols` (both
+/// inclusive, in any order) as TSV, as spreadsheets copy a range: a tab
+/// between fields, a line feed after each row, a value with a tab or a
+/// line break, or starting with a quote, in quotes (they went as spaces,
+/// and a leading quote was lost on the way back). Cells past a short row
+/// are empty.
+pub fn rectangle_tsv(text: &str, d: &Dialect, rows: &[usize], cols: (usize, usize)) -> String {
     let (c0, c1) = (cols.0.min(cols.1), cols.0.max(cols.1));
+    let mut idx = Index::new(text);
     let mut out = String::new();
-    for row in crate::csv::rows(text, d).iter().take(r1 + 1).skip(r0) {
+    for &r in rows {
+        let row = idx
+            .record(text, r, d)
+            .map(|rec| values(text, &rec, d))
+            .unwrap_or_default();
         let cells: Vec<String> = (c0..=c1)
             .map(|c| {
-                row.get(c)
-                    .map(|v| v.replace("\r\n", " ").replace(['\t', '\n', '\r'], " "))
-                    .unwrap_or_default()
+                row.get(c).map_or(String::new(), |v| {
+                    if v.contains(['\t', '\n', '\r']) || v.starts_with('"') {
+                        format!("\"{}\"", v.replace('"', "\"\""))
+                    } else {
+                        v.clone()
+                    }
+                })
             })
             .collect();
         out.push_str(&cells.join("\t"));
@@ -425,14 +616,15 @@ pub fn rectangle_tsv(
     out
 }
 
-/// Paste as Block: the clipboard's rows written over the cells from row
-/// `row`, column `col` down and to the right, as a spreadsheet pastes a
-/// range; rows past the end are added. Only the cells the block covers
-/// change.
+/// Paste as Block: the clipboard's rows written over the cells of rows
+/// `rows` (the rows the grid shows from the first down,
+/// `csv::view_rows_from`) from column `col` to the right, as a
+/// spreadsheet pastes a range; rows past the last are added. Only the
+/// cells the block covers change.
 pub fn paste_block(
     text: &str,
     d: &Dialect,
-    row: usize,
+    rows: &[usize],
     col: usize,
     block: &[Vec<String>],
 ) -> Option<Transaction> {
@@ -445,7 +637,7 @@ pub fn paste_block(
     let mut added = String::new();
     let nl = if d.crlf { "\r\n" } else { "\n" };
     for (i, cells) in block.iter().enumerate() {
-        match index.record(text, row + i, d) {
+        match rows.get(i).and_then(|&r| index.record(text, r, d)) {
             Some(rec) => {
                 // Each cell of the block, then any missing fields before it.
                 let mut extra = String::new();
@@ -494,11 +686,22 @@ mod tests {
     fn a_rectangle_of_cells_as_tsv() {
         let d = Dialect::default();
         let text = "a,b,c\n1,\"x\ty\",3\n4,5\n";
-        assert_eq!(rectangle_tsv(text, &d, (2, 1), (1, 2)), "x y\t3\n5\t\n");
-        assert_eq!(rectangle_tsv(text, &d, (0, 0), (0, 0)), "a\n");
+        // A tab in a value: in quotes, as a spreadsheet copies it.
+        assert_eq!(rectangle_tsv(text, &d, &[1, 2], (1, 2)), "\"x\ty\"\t3\n5\t\n");
+        assert_eq!(rectangle_tsv(text, &d, &[0], (0, 0)), "a\n");
         // Copied and pasted as a block elsewhere, the same cells.
-        let block = block_rows(&rectangle_tsv(text, &d, (0, 2), (0, 1)), &d);
-        assert_eq!(block, [["a", "b"], ["1", "x y"], ["4", "5"]]);
+        let block = block_rows(&rectangle_tsv(text, &d, &[0, 1, 2], (0, 1)), &d);
+        assert_eq!(block, [["a", "b"], ["1", "x\ty"], ["4", "5"]]);
+        // Line breaks and a leading quote come back as they were (they
+        // came back as spaces, and without the quote).
+        let text = "a,b\n\"\"\"hi\"\" there\",1\n\"x\ny\",2\n";
+        let tsv = rectangle_tsv(text, &d, &[1, 2], (0, 1));
+        assert_eq!(tsv, "\"\"\"hi\"\" there\"\t1\n\"x\ny\"\t2\n");
+        assert_eq!(block_rows(&tsv, &d), [["\"hi\" there", "1"], ["x\ny", "2"]]);
+        // One cell alone.
+        let one = rectangle_tsv(text, &d, &[1], (0, 0));
+        assert_eq!(block_rows(&one, &d), [["\"hi\" there"]]);
+        assert_eq!(block_rows("\"Hello\"", &d), [["\"Hello\""]]);
     }
 
     #[test]
@@ -507,13 +710,13 @@ mod tests {
         let t = "a,b,c\n1,2,3\n4,5,6\n";
         let block = block_rows("x\ty\nz\tw\n", &d);
         assert_eq!(block, vec![vec!["x", "y"], vec!["z", "w"]]);
-        let tx = paste_block(t, &d, 1, 1, &block).unwrap();
+        let tx = paste_block(t, &d, &[1, 2], 1, &block).unwrap();
         assert_eq!(tx.apply(t), "a,b,c\n1,x,y\n4,z,w\n");
         // Past the last column and the last row.
-        let tx = paste_block(t, &d, 2, 2, &block).unwrap();
+        let tx = paste_block(t, &d, &[2], 2, &block).unwrap();
         assert_eq!(tx.apply(t), "a,b,c\n1,2,3\n4,5,x,y\n,,z,w\n");
         // A value that needs quotes gets them.
-        let tx = paste_block(t, &d, 0, 0, &[vec!["p, q".into()]]).unwrap();
+        let tx = paste_block(t, &d, &[0], 0, &[vec!["p, q".into()]]).unwrap();
         assert_eq!(tx.apply(t), "\"p, q\",b,c\n1,2,3\n4,5,6\n");
         // CSV on the clipboard, lines without tabs.
         assert_eq!(
@@ -548,16 +751,16 @@ mod tests {
     fn fill_down_and_series() {
         let t = "name,n\na,1\nb,\nc,\n";
         let d = detect(t);
-        let tx = fill(t, &d, (1, 1), 1, 3, None).unwrap();
+        let tx = fill(t, &d, (1, 1), &[1, 2, 3], None).unwrap();
         assert_eq!(run(t, &tx), "name,n\na,1\nb,1\nc,1\n");
-        let tx = fill(t, &d, (1, 1), 1, 3, Some(1.0)).unwrap();
+        let tx = fill(t, &d, (1, 1), &[1, 2, 3], Some(1.0)).unwrap();
         assert_eq!(run(t, &tx), "name,n\na,1\nb,2\nc,3\n");
         assert_eq!(only_cells(&tx), ["2", "3"]);
         // Several columns: each from its own first value, short records
         // padded (it filled only the cursor's column).
         let t = "a,b,c\nx,\"1,5\",z\n,,\n\n";
         let d = detect(t);
-        let tx = fill(t, &d, (0, 2), 1, 3, None).unwrap();
+        let tx = fill(t, &d, (0, 2), &[1, 2, 3], None).unwrap();
         assert_eq!(
             run(t, &tx),
             "a,b,c\nx,\"1,5\",z\nx,\"1,5\",z\nx,\"1,5\",z\n"
@@ -603,11 +806,16 @@ mod tests {
     fn sorting_by_several_columns() {
         let t = "k,v\nb,2\na,2\nc,1\n";
         let d = detect(t);
-        let keys = parse_sort_keys("B, -A").unwrap();
+        let keys = parse_sort_keys("B, -A", &[], 2).unwrap();
         assert_eq!(keys, [(1, false), (0, true)]);
         assert_eq!(run(t, &sort_by(t, &d, &keys)), "k,v\nc,1\nb,2\na,2\n");
-        assert_eq!(parse_sort_keys("2 1").unwrap(), [(1, false), (0, false)]);
-        assert!(parse_sort_keys("?").is_none());
+        assert_eq!(parse_sort_keys("2 1", &[], 2).unwrap(), [(1, false), (0, false)]);
+        // By a header's name, without case; a column past the last is none.
+        let names = ["Name".to_string(), "Age".to_string()];
+        assert_eq!(parse_sort_keys("-age name", &names, 2).unwrap(), [(1, true), (0, false)]);
+        assert!(parse_sort_keys("city", &names, 2).is_none());
+        assert!(parse_sort_keys("C", &names, 2).is_none());
+        assert!(parse_sort_keys("?", &[], 2).is_none());
     }
 
     #[test]
@@ -629,7 +837,7 @@ mod tests {
     fn sums() {
         let t = "n\n1\n2.5\nx\n";
         let d = detect(t);
-        assert_eq!(column_sum(t, &d, 0, None), Some(3.5));
-        assert_eq!(column_sum(t, &d, 0, Some(1)), Some(2.5));
+        assert_eq!(column_sum(t, &d, 0, None, None), Some(3.5));
+        assert_eq!(column_sum(t, &d, 0, Some(1), None), Some(2.5));
     }
 }
