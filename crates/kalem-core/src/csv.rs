@@ -215,7 +215,8 @@ pub struct Problem {
 pub fn problems(text: &str, d: &Dialect, limit: usize) -> Vec<Problem> {
     let mut out = Vec::new();
     let mut at = preamble(text);
-    while at < text.len() && out.len() < limit {
+    let end = body_end(text);
+    while at < end && out.len() < limit {
         let r = scan(text, at, d);
         out.extend(record_problems(text, &r, d));
         if r.next <= at {
@@ -476,6 +477,25 @@ pub fn preamble(text: &str) -> usize {
     }
 }
 
+/// Where the records end: before an Emacs `Local Variables:` block that
+/// ends the text (its lines from the one naming it to one with `End:`, in
+/// the last 3000 bytes, where Emacs looks), which is not records (it was
+/// read as records, and sorting moved its lines); else the text's end.
+pub fn body_end(text: &str) -> usize {
+    let mut from = text.len().saturating_sub(3000);
+    while !text.is_char_boundary(from) {
+        from += 1;
+    }
+    let Some(i) = text[from..].rfind("Local Variables:") else {
+        return text.len();
+    };
+    let at = from + i;
+    if !text[at..].lines().skip(1).any(|l| l.contains("End:")) {
+        return text.len();
+    }
+    text[..at].rfind('\n').map_or(0, |j| j + 1)
+}
+
 /// The bytes of an Emacs mode line first (`-*- … -*-`), with its line
 /// ending; 0 without.
 fn mode_line(text: &str) -> usize {
@@ -529,7 +549,8 @@ fn numeric(s: &str) -> bool {
 pub fn roundtrip(text: &str, d: &Dialect) -> bool {
     let b = text.as_bytes();
     let mut at = preamble(text);
-    while at < text.len() {
+    let end = body_end(text);
+    while at < end {
         let r = scan(text, at, d);
         let mut expect = r.range.start;
         if expect != at {
@@ -582,6 +603,7 @@ pub fn settled(text: &str) -> bool {
 }
 
 pub fn detect(text: &str) -> Dialect {
+    let text = &text[..body_end(text)];
     // An Emacs mode line first is no record (it was the header).
     let text = &text[mode_line(text)..];
     if let Some((delimiter, skip)) = sep_line(text) {
@@ -790,6 +812,8 @@ pub struct Index {
     starts: Vec<usize>,
     complete: bool,
     len: usize,
+    /// Where the records end ([`body_end`]).
+    end: usize,
 }
 
 impl Index {
@@ -797,10 +821,12 @@ impl Index {
     /// line is not a record.
     pub fn new(text: &str) -> Index {
         let skip = preamble(text);
+        let end = body_end(text).max(skip);
         Index {
             starts: vec![skip],
-            complete: skip >= text.len(),
+            complete: skip >= end,
             len: text.len(),
+            end,
         }
     }
 
@@ -811,10 +837,10 @@ impl Index {
                 break;
             };
             let r = scan(text, at, d);
-            if r.next >= text.len() || r.next == at {
+            if r.next >= self.end || r.next == at {
                 self.complete = true;
                 // A final line feed does not start an empty record.
-                if r.next > at && r.next < text.len() {
+                if r.next > at && r.next < self.end {
                     self.starts.push(r.next);
                 }
             } else {
@@ -835,7 +861,7 @@ impl Index {
         let at = *self.starts.get(row)?;
         // An empty text, or one of a `sep=` line alone, has one empty
         // record (it had none, and no command applied).
-        (at < text.len() || row == 0).then(|| scan(text, at, d))
+        (at < self.end || row == 0).then(|| scan(text, at, d))
     }
 
     /// The record holding byte `pos`, and its row.
@@ -1642,10 +1668,12 @@ pub fn replace_in_column(
     if find.is_empty() {
         return (tx, 0);
     }
-    // After a `sep=` line, which is not a record.
+    // After a `sep=` line, which is not a record, and before a Local
+    // Variables block.
     let mut at = preamble(text);
+    let end = body_end(text);
     let mut first = true;
-    while at < text.len() {
+    while at < end {
         let rec = scan(text, at, d);
         let header = first && d.header;
         first = false;
@@ -2428,11 +2456,14 @@ pub fn filter_rows_in(
     let mut out: Vec<Range<usize>> = Vec::new();
     let (mut matched, mut total) = (0, 0);
     let mut start = preamble(text);
+    let end = body_end(text);
     let mut row = 0;
-    while start < text.len() {
+    while start < end {
         let rec = scan(text, start, d);
-        let next = if rec.next < text.len() {
+        let next = if rec.next < end {
             rec.next
+        } else if end < text.len() {
+            end
         } else {
             text.len() + 1
         };

@@ -542,3 +542,30 @@ fn quotes_an_entry_no_longer_needs_go() {
     s.key("csv.backspaceCell");
     assert_eq!(s.text(), "a,b\n\"\",2\n");
 }
+
+#[test]
+fn a_local_variables_block_is_not_records() {
+    // Sorting moved the block's lines among the records.
+    let text = "name,age\nVeli,41\nAli,30\n# Local Variables:\n# mode: csv\n# End:\n";
+    let mut s = Sheet::new(text);
+    let l = csv::layout(&s.d);
+    assert_eq!(l.index.borrow_mut().count(s.d.text().as_str(), &l.dialect), 3);
+    s.at("A2").key("csv.sortFile");
+    assert_eq!(
+        s.text(),
+        "name,age\nAli,30\nVeli,41\n# Local Variables:\n# mode: csv\n# End:\n"
+    );
+    // Rows pasted past the last go before it.
+    s.at("A3");
+    s.clip.text = "x\t1\ny\t2\n".into();
+    s.d.csv_paste_block = true;
+    s.d.paste("x\t1\ny\t2\n", None, false, std::time::Instant::now());
+    assert_eq!(
+        s.text(),
+        "name,age\nAli,30\nx,1\ny,2\n# Local Variables:\n# mode: csv\n# End:\n"
+    );
+    // Without an `End:` line it is text like any other.
+    let s = Sheet::new("a\nb\n# Local Variables:\n");
+    let l = csv::layout(&s.d);
+    assert_eq!(l.index.borrow_mut().count(s.d.text().as_str(), &l.dialect), 3);
+}

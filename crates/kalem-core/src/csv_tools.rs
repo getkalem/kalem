@@ -673,7 +673,10 @@ pub fn paste_block(
         }
     }
     if !added.is_empty() {
-        let end = text.trim_end_matches(['\n', '\r']).len();
+        // After the last record, before a Local Variables block.
+        let end = text[..crate::csv::body_end(text)]
+            .trim_end_matches(['\n', '\r'])
+            .len();
         tx.replace(end..end, added).ok()?;
     }
     Some(tx)
