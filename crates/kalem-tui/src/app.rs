@@ -166,6 +166,8 @@ pub struct App {
     pending: Vec<KeyChord>,
     /// When the half-typed sequence began, for the which-key delay.
     pending_at: Option<Instant>,
+    /// Whether the last frame showed the which-key panel.
+    hints_drawn: bool,
     status: Option<Status>,
     prompt: Option<Prompt>,
     debouncer: ChangeDebouncer,
@@ -516,6 +518,7 @@ impl App {
             caps,
             pending: Vec::new(),
             pending_at: None,
+            hints_drawn: false,
             last_picker: None,
             resume_input: None,
             mark_picker: false,
@@ -4942,6 +4945,14 @@ impl App {
         if self.words.due(&self.doc) {
             self.dirty = true;
         }
+        // The which-key panel once its delay has passed.
+        if !self.pending.is_empty()
+            && !self.hints_drawn
+            && kalem_core::keymap::hints_due(&self.config, self.pending_at, now)
+                .is_some_and(|d| d.is_zero())
+        {
+            self.dirty = true;
+        }
         self.bus.dispatch_queued();
         let changed: Vec<PathBuf> = self.changed_files.borrow_mut().drain(..).collect();
         for b in self.docs.iter_mut().flatten() {
@@ -5370,7 +5381,8 @@ impl App {
             s.draw(f.buffer_mut(), over, &self.config, &self.caps);
         }
         let due = kalem_core::keymap::hints_due(&self.config, self.pending_at, Instant::now());
-        if !self.pending.is_empty() && due.is_some_and(|d| d.is_zero()) {
+        self.hints_drawn = !self.pending.is_empty() && due.is_some_and(|d| d.is_zero());
+        if self.hints_drawn {
             let seq = KeySequence(self.pending.clone());
             let items = self.keymap.which_key(&self.registry, &seq, &self.context());
             crate::panels::draw_which_key(f.buffer_mut(), text_area, &items, &self.caps);

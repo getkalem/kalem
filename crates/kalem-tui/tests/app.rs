@@ -1550,6 +1550,29 @@ fn documents_and_projects_in_the_terminal() {
 }
 
 #[test]
+fn the_which_key_panel_shows_once_its_delay_has_passed() {
+    // The loop draws only when something changed: the delay passing is
+    // such a change.
+    let config = Config::from_layers(&[(
+        Layer::User,
+        None,
+        "editor.keymap_profile = \"vim\"\nkeys.hints_delay = 50\n",
+    )]);
+    let mut t = with_config("* A\n", config, (80, 24));
+    t.typ(" ");
+    assert!(!screen(&mut t).join("\n").contains("+file"));
+    t.app.tick(std::time::Instant::now());
+    assert!(!t.app.dirty);
+    std::thread::sleep(std::time::Duration::from_millis(60));
+    t.app.tick(std::time::Instant::now());
+    assert!(t.app.dirty);
+    assert!(screen(&mut t).join("\n").contains("+file"));
+    // Shown: not drawn again for it.
+    t.app.tick(std::time::Instant::now());
+    assert!(!t.app.dirty);
+}
+
+#[test]
 fn doom_keys_in_the_terminal() {
     let config = Config::from_layers(&[(
         Layer::User,
