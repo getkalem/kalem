@@ -84,7 +84,8 @@ fn parse_keys(keys: &str) -> Vec<Key> {
     out
 }
 
-/// The text and the cursor (line and byte column, from 1) after `keys`.
+/// The text and the cursor (line and byte column, from 1) after `keys`,
+/// from the first line's first non-blank as Vim starts.
 fn run(text: &str, keys: &str) -> (String, usize, usize) {
     let meta = Metadata {
         path: None,
@@ -95,6 +96,9 @@ fn run(text: &str, keys: &str) -> (String, usize, usize) {
         lossy: false,
     };
     let mut d = DocumentState::new(text, meta, std::sync::Arc::default());
+    // Vim opens a file on the first line's first non-blank ('startofline').
+    let blank = text.bytes().take_while(|b| *b == b' ' || *b == b'\t').count();
+    d.move_cursor(blank, false);
     let mut v = Vim::new();
     // Vim's own keys: no leader (Kalem's is Space).
     v.leader = None;
@@ -124,8 +128,13 @@ fn run(text: &str, keys: &str) -> (String, usize, usize) {
     (t, line, head - line_start + 1)
 }
 
+/// The cases' folder: `tests/vim`, or `KALEM_VIM_CASES` (another
+/// `cases.json` and `expected.json`, to try new cases before they join).
 fn root() -> std::path::PathBuf {
-    std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/vim"))
+    std::env::var_os("KALEM_VIM_CASES").map_or_else(
+        || std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/vim")),
+        std::path::PathBuf::from,
+    )
 }
 
 #[test]

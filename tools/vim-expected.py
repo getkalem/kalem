@@ -3,7 +3,8 @@
 tests/vim/expected.json).
 
 Each case is a text and keys in Vim's notation (`<Esc>`, `<CR>`, `<BS>`,
-`<Tab>`, `<C-w>`, `<lt>`); the cursor starts on the first character.
+`<Tab>`, `<C-w>`, `<lt>`); the cursor starts on the first line's first
+non-blank, where Vim opens a file ('startofline').
 `<sync>` ends an undo step: Vim reading keys from a script makes one undo
 step of them all, where typed keys make one per command. Vim
 runs without a vimrc (`vim -Nu NONE`), so with its own defaults, typing the
