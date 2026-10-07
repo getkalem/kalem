@@ -26,6 +26,8 @@ pub(super) enum InsertPending {
     Literal(String),
     /// `CTRL-K`: the two characters of a digraph.
     Digraph(Option<char>),
+    /// `CTRL-G`: `u` begins a new undo step.
+    CtrlG,
 }
 
 /// Keyword completion (`CTRL-N`, `CTRL-P`) in progress.
@@ -116,6 +118,14 @@ impl Vim {
                 return true;
             }
             InsertPending::Literal(digits) => return self.literal(doc, key, digits),
+            // `CTRL-G u`: what is typed from here is undone apart.
+            InsertPending::CtrlG => {
+                if key == Key::Char('u') {
+                    doc.break_undo_group();
+                    doc.begin_undo_join();
+                }
+                return true;
+            }
             InsertPending::Digraph(first) => {
                 let Key::Char(c) = key else {
                     return true;
@@ -185,6 +195,7 @@ impl Vim {
                 }
             }
             Key::Ctrl('r') => self.insert_pending = InsertPending::Register,
+            Key::Ctrl('g') => self.insert_pending = InsertPending::CtrlG,
             Key::Ctrl('v' | 'q') => self.insert_pending = InsertPending::Literal(String::new()),
             Key::Ctrl('k') => self.insert_pending = InsertPending::Digraph(None),
             Key::Ctrl('o') => {
