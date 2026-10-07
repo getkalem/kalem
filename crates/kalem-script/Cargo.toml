@@ -12,7 +12,7 @@ authors.workspace = true
 # D28, decided on the spike of T3.1.0: wasmtime with Cranelift, the
 # component model, nothing of WASI.
 wasmtime = { version = "49", default-features = false, features = ["runtime", "component-model", "cranelift", "parallel-compilation", "std", "anyhow"] }
-sha2 = "0.10"
+sha2 = "0.11"
 # The user's time zone, for a viewer's `clock`.
 jiff = { version = "0.2", default-features = false, features = ["std", "tz-system"] }
 # The Rust contract a component viewer is offered to Kalem as.
