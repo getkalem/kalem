@@ -4264,6 +4264,7 @@ dependencies = [
  "encoding_rs",
  "flate2",
  "fluent-bundle",
+ "fontdb",
  "hayro-svg",
  "image",
  "jiff",

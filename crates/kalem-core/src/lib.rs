@@ -29,6 +29,7 @@ pub mod extensions;
 pub mod files;
 pub mod find;
 pub mod flash_fill;
+pub mod fonts;
 pub mod formula_edit;
 pub mod formulas;
 pub mod front_matter;
