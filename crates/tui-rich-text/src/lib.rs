@@ -136,23 +136,33 @@ pub fn justify<D>(rows: &mut [Vec<Glyph<D>>], width: u16) {
 
 /// The row a cursor at `cursor` is on, and its column.
 pub fn cursor_in<D>(rows: &[Vec<Glyph<D>>], cursor: usize) -> (usize, u16) {
+    // Right after the source glyph that ends at the cursor, the caret
+    // stays there rather than going past the decorations after it (a
+    // grid's padding put a caret at a value's end at its cell's edge).
+    let mut after = None;
     for (ri, row) in rows.iter().enumerate() {
         let mut x = 0;
+        after = None;
         for g in row {
             if g.is_source() && g.src >= cursor {
-                return (ri, x);
+                return (ri, after.filter(|_| g.src == cursor).unwrap_or(x));
             }
             if g.is_source() && g.src < cursor && cursor < g.src_end && g.data.is_none() {
                 return (ri, x);
             }
             x += g.width;
+            if g.is_source() {
+                after = (g.src_end == cursor).then_some(x);
+            }
         }
     }
     let last = rows.len().saturating_sub(1);
     (
         last,
-        rows.get(last)
-            .map_or(0, |r| r.iter().map(|g| g.width).sum()),
+        after.unwrap_or_else(|| {
+            rows.get(last)
+                .map_or(0, |r| r.iter().map(|g| g.width).sum())
+        }),
     )
 }
 
@@ -588,6 +598,35 @@ pub fn draw<L: Lines>(
 mod tests {
     use super::*;
     use ratatui::buffer::Buffer;
+
+    #[test]
+    fn a_caret_stays_after_the_text_it_follows() {
+        // `Ada` in a cell of eight, padded, then the delimiter `,` drawn
+        // as a bar: at the value's end the caret is after `a`, not at the
+        // cell's edge.
+        let src = |c: &str, at: usize| Glyph::<()> {
+            text: c.into(),
+            width: 1,
+            style: Style::default(),
+            src: at,
+            src_end: at + 1,
+            link: None,
+            data: None,
+        };
+        let mut row: Vec<Glyph> = vec![src("A", 0), src("d", 1), src("a", 2)];
+        row.extend((0..5).map(|_| Glyph::decoration(" ", Style::default(), 3)));
+        row.push(Glyph {
+            src_end: 4,
+            ..Glyph::decoration("│", Style::default(), 3)
+        });
+        row.push(src("3", 4));
+        let rows = vec![row];
+        assert_eq!(cursor_in(&rows, 3), (0, 3));
+        assert_eq!(cursor_in(&rows, 4), (0, 9));
+        // The last value: its end, not the row's.
+        let rows = vec![rows[0][..8].to_vec()];
+        assert_eq!(cursor_in(&rows, 3), (0, 3));
+    }
 
     #[test]
     fn justified_rows() {
