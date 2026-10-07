@@ -403,12 +403,19 @@ impl LatexState {
         let base = root
             .as_deref()
             .or_else(|| path.and_then(std::path::Path::parent));
+        // `\jobname`: the root document's name.
+        let jobname = self
+            .root_path()
+            .or_else(|| path.map(std::path::Path::to_path_buf))
+            .and_then(|p| p.file_stem().map(|s| s.to_string_lossy().into_owned()))
+            .unwrap_or_default();
         self.model()
             .bibliography
             .iter()
             .flat_map(|b| b.files.iter())
+            .map(|f| f.replace("\\jobname", &jobname))
             .map(|f| match base {
-                Some(d) => find_bib(d, f),
+                Some(d) => find_bib(d, &f),
                 None => std::path::PathBuf::from(f),
             })
             .collect()
@@ -610,6 +617,10 @@ impl LatexState {
                     .filter(|p| !p.is_empty())
                     .collect();
                 if parts.is_empty() {
+                    // `\date{}`: no date, not today's.
+                    if i == 2 {
+                        v[2] = Some(String::new());
+                    }
                     continue;
                 }
                 let joined = parts.join(", ");
@@ -660,6 +671,10 @@ fn verb_code(text: &str, verb: &SyntaxNode) -> Option<Range<usize>> {
     }
     if src[start..].starts_with('[') {
         start += src[start..].find(']')? + 1;
+    }
+    // minted's `\mintinline{lang}`: the language before the code.
+    if latex_syntax::name(verb).as_deref() == Some("mintinline") && src[start..].starts_with('{') {
+        start += src[start..].find('}')? + 1;
     }
     let open = src[start..].chars().next()?;
     let close = if open == '{' { '}' } else { open };
@@ -856,6 +871,40 @@ fn enum_label(n: i64, depth: usize, pattern: Option<&str>) -> String {
 }
 
 /// `key=value` among a list's options (enumitem).
+/// The enumerate package's label, `\begin{enumerate}[(a)]` (enumitem's
+/// with `shortlabels`): `a`, `A`, `i`, `I` or `1` the counter, text in
+/// braces as it is; as a `label=` pattern (`(\alph*)`). Not a list of
+/// options (`[noitemsep]`).
+fn short_label(env: &SyntaxNode) -> Option<String> {
+    let begin = env.children().find(|c| c.kind() == K::BEGIN)?;
+    let opt = begin.children().find(|c| c.kind() == K::OPT_ARG)?;
+    let s = opt.text().to_string();
+    let s = s.strip_prefix('[')?.strip_suffix(']')?;
+    let mut out = String::new();
+    let mut counter = false;
+    let mut depth = 0;
+    for c in s.chars() {
+        match c {
+            '{' => depth += 1,
+            '}' => depth -= 1,
+            _ if depth > 0 => out.push(c),
+            'a' | 'A' | 'i' | 'I' | '1' if !counter => {
+                counter = true;
+                out.push_str(match c {
+                    'a' => "\\alph*",
+                    'A' => "\\Alph*",
+                    'i' => "\\roman*",
+                    'I' => "\\Roman*",
+                    _ => "\\arabic*",
+                });
+            }
+            c if c.is_alphanumeric() || c == '=' || c == '\\' => return None,
+            c => out.push(c),
+        }
+    }
+    counter.then_some(out)
+}
+
 fn list_option(env: &SyntaxNode, key: &str) -> Option<String> {
     let begin = env.children().find(|c| c.kind() == K::BEGIN)?;
     let opt = begin.children().find(|c| c.kind() == K::OPT_ARG)?;
@@ -896,7 +945,7 @@ fn list_items(env: &SyntaxNode) -> Items {
     let around = lists_around(env);
     let name = around.first().map(|(_, n)| n.clone()).unwrap_or_default();
     let depth_of = |kind: &str| around.iter().filter(|(_, n)| n == kind).count();
-    let label = list_option(env, "label");
+    let label = list_option(env, "label").or_else(|| short_label(env));
     let mut n: i64 = list_option(env, "start")
         .and_then(|s| s.parse().ok())
         .map_or(0, |s: i64| s - 1);
@@ -936,7 +985,8 @@ fn list_items(env: &SyntaxNode) -> Items {
             t[1..t.len() - usize::from(t.ends_with(']'))].to_string()
         });
         let shown = match (own, name.as_str()) {
-            (Some(l), _) => l,
+            // `\item[$\alpha$-term]`: as TeX prints it.
+            (Some(l), _) => crate::bibtex::plain(&format!("{{{l}}}")),
             (None, "enumerate") => {
                 n += 1;
                 enum_label(n, depth_of("enumerate"), label.as_deref())
@@ -966,20 +1016,67 @@ fn same(a: &latex_syntax::GreenNode, b: &latex_syntax::GreenNode) -> bool {
 /// The words of a title or an author list: the commands' names, braces
 /// and the notes, affiliations and addresses inside left out; `\and` and
 /// `\\` as NUL, the separator between names.
+/// Today as LaTeX's `\today` prints it in English: `October 7, 2026`.
+fn today() -> String {
+    let today = jiff::Zoned::now().date();
+    let month = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    ][usize::from(today.month().unsigned_abs()) - 1];
+    format!("{month} {}, {}", today.day(), today.year())
+}
+
 fn front_text(g: &SyntaxNode) -> String {
     let mut out = String::new();
-    let mut skip: Option<Range<usize>> = None;
+    // What was read up to: an accent's letter, a formula, a skipped
+    // command's arguments.
+    let mut done = node_span(g).start;
+    let source = std::cell::OnceCell::new();
+    let src = || -> &String {
+        source.get_or_init(|| {
+            g.ancestors()
+                .last()
+                .map_or_else(String::new, |r| r.text().to_string())
+        })
+    };
+    let limit = node_span(g).end;
     for e in g.descendants_with_tokens() {
         let r = match (e.as_node(), e.as_token()) {
             (Some(n), _) => node_span(n),
             (_, Some(t)) => span(t),
             _ => continue,
         };
-        if skip.as_ref().is_some_and(|k| r.start < k.end) {
+        if r.end <= done {
+            continue;
+        }
+        // A token cut by an accent's letter: the rest of its text.
+        if r.start < done {
+            if let Some(t) = e.as_token()
+                && matches!(t.kind(), K::TEXT | K::WHITESPACE)
+            {
+                out.push_str(&src()[done..r.end]);
+                done = r.end;
+            }
             continue;
         }
         match (e.as_node(), e.as_token()) {
             (Some(n), _) => {
+                // A formula: its Unicode approximation.
+                if matches!(n.kind(), K::INLINE_MATH) {
+                    out.push_str(&crate::math::unicode(&n.text().to_string()));
+                    done = r.end;
+                    continue;
+                }
                 if n.kind() == K::COMMAND
                     && latex_syntax::name(n).is_some_and(|name| {
                         matches!(
@@ -1009,18 +1106,30 @@ fn front_text(g: &SyntaxNode) -> String {
                         end = node_span(&g).end;
                         next = g.next_sibling();
                     }
-                    skip = Some(r.start..end);
+                    done = end;
                 }
             }
-            (_, Some(t)) => match t.kind() {
-                K::TEXT | K::WHITESPACE | K::NEWLINE => out.push_str(t.text()),
-                K::TILDE => out.push(' '),
-                K::CONTROL_SYMBOL if t.text() == "\\\\" => out.push('\u{0}'),
-                K::CONTROL_SYMBOL => out.push_str(symbol(t.text()).unwrap_or("")),
-                K::CONTROL_WORD if t.text() == "\\and" => out.push('\u{0}'),
-                K::CONTROL_WORD => out.push_str(word(&t.text()[1..]).unwrap_or("")),
-                _ => {}
-            },
+            (_, Some(t)) => {
+                // An accent: the letter after it with its mark (`Ren\'e`).
+                if matches!(t.kind(), K::CONTROL_SYMBOL | K::CONTROL_WORD)
+                    && let Some(name) = t.text().strip_prefix('\\')
+                    && let Some((end, letter)) = accented(src(), name, r.end, limit)
+                {
+                    out.push_str(&letter);
+                    done = end;
+                    continue;
+                }
+                match t.kind() {
+                    K::TEXT | K::WHITESPACE | K::NEWLINE => out.push_str(t.text()),
+                    K::TILDE => out.push(' '),
+                    K::CONTROL_SYMBOL if t.text() == "\\\\" => out.push('\u{0}'),
+                    K::CONTROL_SYMBOL => out.push_str(symbol(t.text()).unwrap_or("")),
+                    K::CONTROL_WORD if t.text() == "\\and" => out.push('\u{0}'),
+                    K::CONTROL_WORD if t.text() == "\\today" => out.push_str(&today()),
+                    K::CONTROL_WORD => out.push_str(word(&t.text()[1..]).unwrap_or("")),
+                    _ => {}
+                }
+            }
             _ => {}
         }
     }
@@ -3906,6 +4015,36 @@ fn unflagged_line_view(
                         || model.class.as_ref().is_some_and(|c| {
                             matches!(c.name.as_str(), "amsart" | "amsbook" | "amsproc")
                         });
+                    let plain = Style {
+                        italic: proof,
+                        ..Style::default()
+                    };
+                    // The note in the optional argument, on this line: drawn
+                    // as text is (its references, citations, formulas and
+                    // accents), only the brackets made parentheses.
+                    if let Some(o) = edge.children().find(|c| c.kind() == K::OPT_ARG)
+                        && node_span(&o).end <= line.end
+                    {
+                        let os = node_span(&o);
+                        if proof {
+                            b.replace(es.start..os.start + 1, "", plain);
+                            replaced.push((os.end - 1..os.end, ". ", plain));
+                        } else {
+                            b.replace(es.start..es.start, &head, bold);
+                            b.replace(es.start..os.start + 1, " (", Style::default());
+                            replaced.push((
+                                os.end - 1..os.end,
+                                if amsthm { "). " } else { ") " },
+                                Style::default(),
+                            ));
+                        }
+                        while let Some(n) = &tok
+                            && span(n).start < os.start + 1
+                        {
+                            tok = n.next_token();
+                        }
+                        continue;
+                    }
                     b.replace(es.start..es.start, &head, bold);
                     // The note: an optional argument, or `[…]` right after.
                     let mut end = es.end;
@@ -3920,10 +4059,6 @@ fn unflagged_line_view(
                     let tail = match &note {
                         Some(n) => format!(" ({n}){stop} "),
                         None => format!("{stop} "),
-                    };
-                    let plain = Style {
-                        italic: proof,
-                        ..Style::default()
                     };
                     b.replace(es.start..end, &tail, plain);
                     end
@@ -4243,7 +4378,7 @@ fn unflagged_line_view(
                     }
                 }
                 // A caption: `Figure 1: ` for the command and its brace.
-                "\\caption" => {
+                "\\caption" | "\\captionabove" | "\\captionbelow" => {
                     let model = state.model();
                     let found = model.floats.iter().find_map(|f| {
                         let c = f
@@ -4272,7 +4407,10 @@ fn unflagged_line_view(
                         // (algorithm2e has one).
                         let colon = kind != "algorithm"
                             || model.packages.iter().any(|p| p.name == "algorithm2e");
+                        let starred = cmd.children_with_tokens().any(|e| e.kind() == K::STAR);
                         let label = match number {
+                            // `\caption*`: the text alone.
+                            None if starred => String::new(),
                             // In `subfigure`: `(a) `.
                             Some(n) if sub => format!("({n}) "),
                             Some(n) if !colon => format!("{name} {n} "),
@@ -4304,6 +4442,25 @@ fn unflagged_line_view(
             && ms.start >= line.start
             && ms.end <= line.end
             && !near(&ms)
+            // Not in a heading's short title, which the heading hides.
+            && !m.ancestors().any(|a| {
+                a.kind() == K::OPT_ARG
+                    && a.parent().is_some_and(|c| {
+                        c.kind() == K::COMMAND
+                            && latex_syntax::name(&c).is_some_and(|n| {
+                                matches!(
+                                    n.as_str(),
+                                    "part"
+                                        | "chapter"
+                                        | "section"
+                                        | "subsection"
+                                        | "subsubsection"
+                                        | "paragraph"
+                                        | "subparagraph"
+                                )
+                            })
+                    })
+            })
             && let Some(source) = math_source(doc, ms.clone())
         {
             let display = m.kind() != K::INLINE_MATH;
@@ -4877,29 +5034,30 @@ fn unflagged_line_view(
                     }
                     // `\today`: the date LaTeX prints, in English.
                     ("today", _) => {
-                        let today = jiff::Zoned::now().date();
-                        let month = [
-                            "January",
-                            "February",
-                            "March",
-                            "April",
-                            "May",
-                            "June",
-                            "July",
-                            "August",
-                            "September",
-                            "October",
-                            "November",
-                            "December",
-                        ][usize::from(today.month().unsigned_abs()) - 1];
-                        b.replace(
-                            r,
-                            &format!("{month} {}, {}", today.day(), today.year()),
-                            c.style,
-                        );
+                        b.replace(r, &today(), c.style);
                     }
                     ("maketitle", _) if !untitled => {
                         let [title, author, date] = &*state.titles();
+                        // Without `\date`, the standard classes print
+                        // today's.
+                        let standard = state.model().class.as_ref().is_some_and(|c| {
+                            matches!(
+                                c.name.as_str(),
+                                "article"
+                                    | "report"
+                                    | "book"
+                                    | "scrartcl"
+                                    | "scrreprt"
+                                    | "scrbook"
+                                    | "extarticle"
+                                    | "extreport"
+                                    | "extbook"
+                            )
+                        });
+                        let date = match date {
+                            None if standard => Some(today()),
+                            d => d.clone(),
+                        };
                         let title_style = Style {
                             title: true,
                             ..Style::default()
@@ -4913,8 +5071,11 @@ fn unflagged_line_view(
                             title.as_deref().unwrap_or(""),
                             title_style,
                         );
-                        let rest: Vec<&str> =
-                            [author, date].iter().filter_map(|x| x.as_deref()).collect();
+                        let rest: Vec<&str> = [author, &date]
+                            .iter()
+                            .filter_map(|x| x.as_deref())
+                            .filter(|x| !x.is_empty())
+                            .collect();
                         let rest = if rest.is_empty() {
                             String::new()
                         } else {
@@ -5221,14 +5382,24 @@ fn target_name(
     command: &str,
 ) -> String {
     use latex_model::Target;
-    let appendix = number
-        .chars()
-        .next()
-        .is_some_and(|c| c.is_ascii_uppercase());
+    // A section of the appendix: lettered, after `\appendix` (not one
+    // numbered in Roman by `\thesection`).
+    let appendix = model.appendix
+        && number
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_uppercase())
+        && !number.chars().all(|c| "IVXLCDM.".contains(c));
+    // The appendix's top level: chapters, or sections of an article.
+    let chapters = model
+        .class
+        .as_ref()
+        .is_some_and(|c| latex_model::has_chapters(&c.name));
+    let top = if chapters { 0 } else { 1 };
     if command == "autoref" {
         let counter: Option<String> = match target {
             Target::Section(-1) => Some("part".into()),
-            Target::Section(0) if appendix => Some("appendix".into()),
+            Target::Section(l) if appendix && *l == top => Some("appendix".into()),
             Target::Section(l) => {
                 let names = [
                     "chapter",
@@ -6412,14 +6583,19 @@ pub(crate) fn find_picture(
     let has_ext = std::path::Path::new(name).extension().is_some();
     for d in dirs {
         let stem = format!("{d}{name}");
-        let tries: Vec<String> = if has_ext {
-            vec![stem]
-        } else {
-            ["png", "jpg", "jpeg", "pdf", "svg", "eps"]
+        // A dot in a name is not always an extension (`fig.v2` is
+        // `fig.v2.pdf`): the extensions are tried after it too.
+        let tries: Vec<String> = has_ext
+            .then(|| stem.clone())
+            .into_iter()
+            .chain(
+                [
+                    "png", "jpg", "jpeg", "pdf", "svg", "eps", "mps", "PNG", "JPG", "JPEG", "PDF",
+                ]
                 .iter()
-                .map(|e| format!("{stem}.{e}"))
-                .collect()
-        };
+                .map(|e| format!("{stem}.{e}")),
+            )
+            .collect();
         for t in tries {
             let full = base.map_or_else(|| std::path::PathBuf::from(&t), |b| b.join(&t));
             if full.is_file() {
@@ -6781,6 +6957,158 @@ const PACKAGE_MACROS: &[(&str, &[&str])] = &[
         ],
     ),
 ];
+
+/// A formula's one-line Unicode approximation ([`crate::math::unicode`])
+/// with the document's own macros put in: `\R` shows as ℝ when the
+/// preamble defines it as `\mathbb{R}`.
+pub fn formula_unicode(doc: &crate::DocumentState, source: &str) -> String {
+    match doc.latex() {
+        Some(state) => crate::math::unicode(&own_macros_in(&state.model().macros, source)),
+        None => crate::math::unicode(source),
+    }
+}
+
+/// `v` with the document's own macros put into its formulas' sources,
+/// for the editors' text approximation of them, which knows no
+/// definitions (a picture of a formula takes [`math_definitions`]).
+pub fn formulas_with_own_macros(doc: &crate::DocumentState, mut v: LineView) -> LineView {
+    let Some(state) = doc.latex() else {
+        return v;
+    };
+    if !v
+        .runs
+        .iter()
+        .any(|r| matches!(r.widget, Some(crate::view::Widget::Math { .. })))
+    {
+        return v;
+    }
+    let model = state.model();
+    for r in &mut v.runs {
+        if let Some(crate::view::Widget::Math { source, .. }) = &mut r.widget {
+            *source = own_macros_in(&model.macros, source);
+        }
+    }
+    v
+}
+
+/// `src` with the uses of `macros` replaced by their definitions, their
+/// arguments put in (a few rounds, for definitions that use others).
+fn own_macros_in(macros: &[latex_model::Macro], src: &str) -> String {
+    if macros.is_empty() || !src.contains('\\') {
+        return src.to_string();
+    }
+    // The argument starting at `at` (blanks skipped): a group's inside or
+    // one token, and where it ends.
+    fn argument(s: &str, at: usize) -> Option<(String, usize)> {
+        let t = at + (s[at..].len() - s[at..].trim_start().len());
+        let rest = &s[t..];
+        if let Some(inner) = rest.strip_prefix('{') {
+            let close = matching_brace(inner)?;
+            return Some((inner[..close].to_string(), t + 1 + close + 1));
+        }
+        if let Some(r) = rest.strip_prefix('\\') {
+            let n = r.len()
+                - r.trim_start_matches(|c: char| c.is_ascii_alphabetic())
+                    .len();
+            let n = if n == 0 {
+                r.chars().next()?.len_utf8()
+            } else {
+                n
+            };
+            return Some((rest[..1 + n].to_string(), t + 1 + n));
+        }
+        let c = rest.chars().next()?;
+        Some((c.to_string(), t + c.len_utf8()))
+    }
+    let mut s = src.to_string();
+    for _ in 0..8 {
+        let mut changed = false;
+        let mut out = String::with_capacity(s.len());
+        let mut i = 0;
+        while i < s.len() {
+            let Some(k) = s[i..].find('\\') else {
+                out.push_str(&s[i..]);
+                break;
+            };
+            out.push_str(&s[i..i + k]);
+            i += k;
+            let n = s[i + 1..].len()
+                - s[i + 1..]
+                    .trim_start_matches(|c: char| c.is_ascii_alphabetic())
+                    .len();
+            if n == 0 {
+                // A control symbol: as it is.
+                let len = 1 + s[i + 1..].chars().next().map_or(0, char::len_utf8);
+                out.push_str(&s[i..i + len]);
+                i += len;
+                continue;
+            }
+            let name = &s[i..i + 1 + n];
+            let Some(m) = macros.iter().rev().find(|m| m.name == name) else {
+                out.push_str(name);
+                i += 1 + n;
+                continue;
+            };
+            let mut at = i + 1 + n;
+            let mut args = Vec::new();
+            for k in 0..m.args {
+                let t = at + (s[at..].len() - s[at..].trim_start().len());
+                if k == 0
+                    && let Some(d) = &m.default
+                {
+                    match s[t..].strip_prefix('[').and_then(|r| r.find(']')) {
+                        Some(close) => {
+                            args.push(s[t + 1..t + 1 + close].to_string());
+                            at = t + 1 + close + 1;
+                        }
+                        None => args.push(d.clone()),
+                    }
+                    continue;
+                }
+                match argument(&s, at) {
+                    Some((a, end)) => {
+                        args.push(a);
+                        at = end;
+                    }
+                    None => break,
+                }
+            }
+            if args.len() < m.args {
+                out.push_str(name);
+                i += 1 + n;
+                continue;
+            }
+            let body = if m.command.starts_with("DeclareMathOperator") {
+                format!("\\operatorname{{{}}}", m.body)
+            } else {
+                m.body.clone()
+            };
+            let mut put = String::new();
+            let mut chars = body.chars().peekable();
+            while let Some(c) = chars.next() {
+                if c == '#'
+                    && let Some(d) = chars.peek().and_then(|d| d.to_digit(10))
+                    && let Some(a) = args.get((d as usize).wrapping_sub(1))
+                {
+                    chars.next();
+                    put.push_str(a);
+                } else {
+                    put.push(c);
+                }
+            }
+            out.push('{');
+            out.push_str(&put);
+            out.push('}');
+            i = at;
+            changed = true;
+        }
+        s = out;
+        if !changed {
+            break;
+        }
+    }
+    s
+}
 
 /// The definitions the formula renderer takes for a LaTeX document: those
 /// of the packages it loads that the renderer lacks, then the document's

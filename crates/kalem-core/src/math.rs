@@ -89,6 +89,12 @@ const SYMBOLS: &[(&str, &str)] = &[
     ("hbar", "ℏ"),
     ("ell", "ℓ"),
     ("langle", "⟨"),
+    ("lVert", "‖"),
+    ("rVert", "‖"),
+    ("Vert", "‖"),
+    ("lvert", "|"),
+    ("rvert", "|"),
+    ("vert", "|"),
     ("rangle", "⟩"),
     ("mid", "∣"),
     ("circ", "∘"),
@@ -112,6 +118,11 @@ const SYMBOLS: &[(&str, &str)] = &[
     ("!", ""),
     ("{", "{"),
     ("}", "}"),
+    ("&", "&"),
+    ("%", "%"),
+    ("#", "#"),
+    ("$", "$"),
+    ("_", "_"),
     ("left", ""),
     ("right", ""),
 ];
@@ -291,7 +302,24 @@ fn unicode_inner(s: &str) -> String {
                         };
                         out.push_str(d);
                     }
-                    "tag" => out.push_str(&format!(" ({})", arg(s, &mut i))),
+                    "tag" => {
+                        out.truncate(out.trim_end().len());
+                        out.push_str(&format!(" ({})", arg(s, &mut i)));
+                    }
+                    // A row's end in an alignment or a matrix: the rows
+                    // side by side (`\\[2pt]`'s space left out).
+                    "\\" => {
+                        if s[i..].starts_with('[')
+                            && let Some(close) = s[i..].find(']')
+                        {
+                            i += close + 1;
+                        }
+                        out.truncate(out.trim_end().len());
+                        out.push_str(" ; ");
+                        while s[i..].starts_with([' ', '\t', '\n']) {
+                            i += 1;
+                        }
+                    }
                     "label" => {
                         let _ = arg(s, &mut i);
                     }
@@ -351,7 +379,8 @@ fn unicode_inner(s: &str) -> String {
                 let x = arg(s, &mut i);
                 out.push_str(&script(&x, SUB, '_'));
             }
-            b'{' | b'}' => i += 1,
+            // An alignment point.
+            b'{' | b'}' | b'&' => i += 1,
             _ => {
                 let Some(c) = s[i..].chars().next() else {
                     break;
@@ -392,6 +421,12 @@ mod tests {
         assert_eq!(unicode("$x \\intertext{and} y$"), "x  and  y");
         assert_eq!(unicode("$f = \\begin{cases} 1 \\end{cases}$"), "f = { 1 ");
         assert_eq!(unicode("$\\left( x \\right.$"), "( x ");
+        // Rows and alignment points.
+        assert_eq!(
+            unicode("\\begin{align*}a &= b \\tag{1}\\\\[2pt]\n c &= d\\end{align*}"),
+            "a = b (1) ; c = d"
+        );
+        assert_eq!(unicode("$a \\& b$"), "a & b");
     }
 }
 

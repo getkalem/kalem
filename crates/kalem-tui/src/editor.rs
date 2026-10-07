@@ -1384,6 +1384,12 @@ impl<'a> Layout<'a> {
                         )
                     }
                 };
+                // A formula's text with the document's own macros put in.
+                let v = if latex && !self.raw_math {
+                    kalem_core::latex_view::formulas_with_own_macros(self.doc, v)
+                } else {
+                    v
+                };
                 let empty = org_syntax::parse("");
                 let mut lg = render::glyphs(
                     &v,
@@ -1477,7 +1483,10 @@ impl<'a> Layout<'a> {
         // Alignment points go; rows are separated by semicolons.
         let body = body.replace("\\\\", " ; ").replace('&', "");
         let body = body.split_whitespace().collect::<Vec<_>>().join(" ");
-        let mut out = format!("  {}", kalem_core::math::unicode(&body));
+        let mut out = format!(
+            "  {}",
+            kalem_core::latex_view::formula_unicode(self.doc, &body)
+        );
         for t in tags {
             out.push_str(&format!("   ({t})"));
         }

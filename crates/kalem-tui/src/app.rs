@@ -3833,7 +3833,13 @@ impl App {
             && let Some(f) = kalem_core::latex_view::formula_at(&self.doc, self.doc.selection.head)
         {
             // LaTeX: the formula the cursor is in shows its source there.
-            vec![(format!("= {}", kalem_core::math::unicode(&f)), false)]
+            vec![(
+                format!(
+                    "= {}",
+                    kalem_core::latex_view::formula_unicode(&self.doc, &f)
+                ),
+                false,
+            )]
         } else {
             return;
         };
