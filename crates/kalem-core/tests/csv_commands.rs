@@ -501,3 +501,22 @@ fn ctrl_home_and_end_in_edit_mode_stay_in_the_cell() {
     s.key("csv.cancelEdit").key("csv.lastCell");
     assert_eq!(s.cell(), "B3");
 }
+
+#[test]
+fn insert_as_many_rows_and_columns_as_selected() {
+    // B2:C3 selected: two rows after row 3, two columns before B.
+    let mut s = Sheet::new("a,b,c\n1,2,3\n4,5,6\n7,8,9\n");
+    s.at("B2").key("csv.extendDown").key("csv.extendRight");
+    s.key("csv.insertRow");
+    assert_eq!(s.text(), "a,b,c\n1,2,3\n4,5,6\n,,\n,,\n7,8,9\n");
+    assert_eq!(s.cell(), "B4");
+    let mut s = Sheet::new("a,b,c\n1,2,3\n4\n");
+    s.at("B2").key("csv.extendDown").key("csv.extendRight");
+    s.key("csv.insertColumn");
+    assert_eq!(s.text(), "a,,,b,c\n1,,,2,3\n4,,\n");
+    assert_eq!(s.cell(), "B2");
+    // Without a selection, one.
+    let mut s = Sheet::new("a,b\n1,2\n");
+    s.at("A2").key("csv.insertRow").key("csv.insertColumn");
+    assert_eq!(s.text(), ",a,b\n,1,2\n,,\n");
+}

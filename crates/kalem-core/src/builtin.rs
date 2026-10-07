@@ -3732,11 +3732,32 @@ fn csv_commands() -> Vec<Command> {
             "Insert Row",
             &["alt+shift+down"],
             |ctx, _| {
-                csv_edit(ctx, |text, l, row, rec, col| {
+                // As many rows as the selection covers, after its last (as
+                // the grid shows them), as Excel inserts; else one after the
+                // cursor's.
+                let rect = rectangle_or_cell(ctx.doc()?)?;
+                let (rows, first_col) = (rect.rows, rect.cols.0);
+                let after = rows.last().copied();
+                csv_edit(ctx, |text, l, row, rec, _| {
+                    let after = after.unwrap_or(row);
+                    let rec = if after == row {
+                        rec.clone()
+                    } else {
+                        l.index
+                            .borrow_mut()
+                            .record(text, after, &l.dialect)
+                            .ok_or_else(|| CommandError::new(crate::tr!("msg-csv-no-row")))?
+                    };
                     let columns = l.widths.len().max(rec.fields.len());
                     Ok((
-                        Some(crate::csv::insert_row(text, rec, columns, &l.dialect)),
-                        Some((row + 1, col)),
+                        Some(crate::csv::insert_rows(
+                            text,
+                            &rec,
+                            columns,
+                            &l.dialect,
+                            rows.len(),
+                        )),
+                        Some((after + 1, first_col)),
                     ))
                 })
             },
@@ -3803,16 +3824,21 @@ fn csv_commands() -> Vec<Command> {
             "Insert Column",
             &["alt+shift+right"],
             |ctx, _| {
-                let col = csv_cell(ctx.doc()?)?.3;
-                csv_edit(ctx, |text, l, row, _, col| {
+                // As many columns as the selection covers, before its first,
+                // as Excel inserts; else one at the cursor's.
+                let rect = rectangle_or_cell(ctx.doc()?)?;
+                let (col, last) = rect.cols;
+                let n = last - col + 1;
+                let top = rect.rows.first().copied();
+                csv_edit(ctx, |text, l, row, _, _| {
                     Ok((
-                        Some(crate::csv::insert_column(text, &l.dialect, col)),
-                        Some((row, col)),
+                        Some(crate::csv::insert_columns(text, &l.dialect, col, n)),
+                        Some((top.unwrap_or(row), col)),
                     ))
                 })?;
                 // Hidden columns, widths and the sorted view's column follow
                 // theirs.
-                crate::csv::remap_columns(ctx.doc()?, |j| Some(if j >= col { j + 1 } else { j }));
+                crate::csv::remap_columns(ctx.doc()?, |j| Some(if j >= col { j + n } else { j }));
                 Ok(())
             },
         ),

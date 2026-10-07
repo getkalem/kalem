@@ -893,6 +893,18 @@ pub fn set_cell(_text: &str, rec: &Record, col: usize, v: &str, d: &Dialect) -> 
 
 /// A new empty record of `columns` fields after the record `rec`.
 pub fn insert_row(text: &str, rec: &Record, columns: usize, d: &Dialect) -> Transaction {
+    insert_rows(text, rec, columns, d, 1)
+}
+
+/// `count` new empty records of `columns` fields after the record `rec`,
+/// the cursor on the first.
+pub fn insert_rows(
+    text: &str,
+    rec: &Record,
+    columns: usize,
+    d: &Dialect,
+    count: usize,
+) -> Transaction {
     let blank = d
         .delimiter_char()
         .to_string()
@@ -912,7 +924,8 @@ pub fn insert_row(text: &str, rec: &Record, columns: usize, d: &Dialect) -> Tran
     } else {
         ""
     };
-    tx.edit(at..at, format!("{nl}{blank}{end}"));
+    let rows = format!("{nl}{blank}").repeat(count.max(1));
+    tx.edit(at..at, format!("{rows}{end}"));
     tx.select(Selection::caret(at + nl.len()))
 }
 
@@ -994,8 +1007,15 @@ pub fn swap_rows(text: &str, a: &Record, b: &Record) -> Transaction {
 /// Inserts an empty column before column `col` in every record (`col`
 /// past the last: after it).
 pub fn insert_column(text: &str, d: &Dialect, col: usize) -> Transaction {
+    insert_columns(text, d, col, 1)
+}
+
+/// Inserts `count` empty columns before column `col` in every record, as
+/// [`insert_column`] inserts one.
+pub fn insert_columns(text: &str, d: &Dialect, col: usize, count: usize) -> Transaction {
     let mut tx = Transaction::new("Insert Column");
-    let delim = d.delimiter_char().to_string();
+    let delim = d.delimiter_char().to_string().repeat(count.max(1));
+    let one = d.delimiter_char().to_string();
     let mut idx = Index::new(text);
     let n = idx.count(text, d);
     for i in 0..n {
@@ -1013,7 +1033,7 @@ pub fn insert_column(text: &str, d: &Dialect, col: usize) -> Transaction {
             None => {
                 let _ = tx.replace(
                     r.range.end..r.range.end,
-                    delim.repeat(col + 1 - r.fields.len()),
+                    one.repeat(col + count.max(1) - r.fields.len()),
                 );
             }
         }
