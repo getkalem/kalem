@@ -28,7 +28,14 @@ fn component(name: &str) -> Option<Vec<u8>> {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/plugins")
         .join(name);
-    let out = std::env::temp_dir().join(format!("kalem-cli-{name}-{}", std::process::id()));
+    // One folder in the target directory for every test process and run,
+    // not one per process left in the temporary folder (some 150 MB
+    // each); a process builds and wraps under its lock, so none reads
+    // what another is writing.
+    let out = Path::new(env!("CARGO_TARGET_TMPDIR")).join("kalem-cli-plugins");
+    std::fs::create_dir_all(&out).ok()?;
+    let lock = std::fs::File::create(out.join("lock")).ok()?;
+    lock.lock().ok()?;
     let ok = Command::new(env!("CARGO"))
         .args([
             "build",
