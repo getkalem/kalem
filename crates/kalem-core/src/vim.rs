@@ -3322,6 +3322,17 @@ impl Vim {
                     return self.reset();
                 };
                 if self.visual() {
+                    // `vi"` again: the quotes too.
+                    if matches!(c, '"' | '\'' | '`')
+                        && let Target::Chars(r) = &t
+                        && self.anchor.min(self.cursor) == r.start
+                        && doc.grapheme_after(self.anchor.max(self.cursor)) == r.end
+                        && let Some(with) = objects::current_quote(doc, self.cursor, c, false, 2)
+                    {
+                        self.anchor = with.start;
+                        self.cursor = doc.grapheme_before(with.end).max(with.start);
+                        return;
+                    }
                     // A selection already: the next object adds on.
                     if self.anchor != self.cursor
                         && self.cursor > self.anchor
