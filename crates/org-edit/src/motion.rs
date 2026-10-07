@@ -227,3 +227,55 @@ pub fn down_element(text: &str, pos: usize, ctx: &ParseContext) -> Result<usize,
         _ => user_error("No inner element"),
     }
 }
+
+/// `org-next-link` (`backward`: `org-previous-link`), Doom's `]l` and
+/// `[l`: the start of the next (previous) link outside the one at `pos`;
+/// none when there is no further link.
+pub fn next_link(text: &str, pos: usize, backward: bool, ctx: &ParseContext) -> Option<usize> {
+    let parse = org_syntax::parse_with(text, ctx);
+    let mut ranges: Vec<(usize, usize)> = parse
+        .syntax()
+        .descendants()
+        .filter(|n| n.kind() == SyntaxKind::LINK)
+        .map(|n| (start(&n), end(&n)))
+        .collect();
+    ranges.sort_unstable();
+    let inside = |(s, e): (usize, usize)| s <= pos && pos < e;
+    if backward {
+        let from = ranges.iter().find(|r| inside(**r)).map_or(pos, |r| r.0);
+        ranges.into_iter().rev().find(|r| r.0 < from).map(|r| r.0)
+    } else {
+        let from = ranges
+            .iter()
+            .find(|r| inside(**r))
+            .map_or(pos, |r| r.1.saturating_sub(1));
+        ranges.into_iter().find(|r| r.0 > from).map(|r| r.0)
+    }
+}
+
+/// `org-babel-next-src-block` (`backward`: the previous one), Doom's `]c`
+/// and `[c`: the first line of the next source block starting after the
+/// line at `pos` (of the previous one ending before it), past its
+/// `#+NAME:` and other affiliated keywords.
+pub fn next_src_block(text: &str, pos: usize, backward: bool, ctx: &ParseContext) -> Option<usize> {
+    let parse = org_syntax::parse_with(text, ctx);
+    let bol = text[..pos].rfind('\n').map_or(0, |i| i + 1);
+    let eol = text[pos..].find('\n').map_or(text.len(), |i| pos + i);
+    // Each block's first line and the end of its `#+end_src`: searching
+    // back, Emacs's regular expression must end before the line at `pos`.
+    let mut blocks: Vec<(usize, usize)> = parse
+        .syntax()
+        .descendants()
+        .filter(|n| n.kind() == SyntaxKind::SRC_BLOCK)
+        .map(|n| {
+            let e = text[..end(&n)].trim_end().len();
+            (usize::from(org_syntax::ast::post_affiliated(&n)), e)
+        })
+        .collect();
+    blocks.sort_unstable();
+    if backward {
+        blocks.into_iter().rev().find(|b| b.1 <= bol).map(|b| b.0)
+    } else {
+        blocks.into_iter().find(|b| b.0 > eol).map(|b| b.0)
+    }
+}

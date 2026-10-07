@@ -3167,6 +3167,26 @@ impl Vim {
                         self.jumping = m.is_some();
                         self.finish_motion(doc, m, host, out);
                     }
+                    // `]l` and `[l`, `]c` and `[c` in Org: the next or
+                    // previous link, or source block, as Doom has them.
+                    (_, 'l' | 'c') if doc.meta.mode == crate::DocumentMode::Org => {
+                        let m =
+                            org::next_motion(doc, self.cursor, c, forward, n).map(|to| Motion {
+                                to,
+                                linewise: false,
+                                inclusive: false,
+                            });
+                        if m.is_none() {
+                            let what = if c == 'l' {
+                                "link found"
+                            } else {
+                                "code blocks"
+                            };
+                            out.message = Some((format!("No further {what}"), false));
+                        }
+                        self.jumping = m.is_some();
+                        self.finish_motion(doc, m, host, out);
+                    }
                     // `]p`: put after with this line's indent; `[p`, `[P`,
                     // `]P` before.
                     (_, 'p' | 'P') if self.op.is_none() && !self.visual() => {

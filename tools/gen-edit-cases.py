@@ -1734,14 +1734,31 @@ MOTION_FORMS = [
     ("(org-backward-element)", ["backward"]),
     ("(org-up-element)", ["up"]),
     ("(org-down-element)", ["down"]),
+    ("(org-next-link)", ["link", False]),
+    ("(org-previous-link)", ["link", True]),
+    ("(org-babel-next-src-block)", ["src", False]),
+    ("(org-babel-previous-src-block)", ["src", True]),
 ]
+
+LINK_DOC = """Intro [[https://a.org][one]] and https://b.org plain.
+* H [[#x][two]]
+<https://c.org> then [[file:d.org]] and
+#+NAME: blk
+#+begin_src sh
+echo [[e]]
+#+end_src
+text [[f]]
+#+begin_src python
+x = 1
+#+end_src
+end"""
 
 
 def motion_cases():
     """The structure motions of evil-org (`gj', `gk', `gh', `gl') and Doom
     (`]h', `[h') from each line's start, middle and end."""
     out = []
-    for d, doc in enumerate(MOTION_DOCS):
+    for d, doc in enumerate(MOTION_DOCS + [LINK_DOC]):
         data = doc.encode()
         points = sorted({p for s, l in byte_offsets_of_lines(doc) for p in (s, s + len(l) // 2, s + len(l)) if p <= len(data)})
         for p in points:

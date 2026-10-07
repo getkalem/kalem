@@ -49,3 +49,26 @@ pub(super) fn heading_motion(
         model.parse().context(),
     ))
 }
+
+/// Where `]l` and `[l` (links) or `]c` and `[c` (source blocks) go,
+/// `n` times, as Doom Emacs has them in Org.
+pub(super) fn next_motion(
+    doc: &mut DocumentState,
+    from: usize,
+    what: char,
+    forward: bool,
+    n: usize,
+) -> Option<usize> {
+    let model = doc.model()?;
+    let text = model.parse().syntax().to_string();
+    let ctx = model.parse().context();
+    let mut pos = from.min(text.len());
+    for _ in 0..n.max(1) {
+        pos = if what == 'l' {
+            org_edit::motion::next_link(&text, pos, !forward, ctx)?
+        } else {
+            org_edit::motion::next_src_block(&text, pos, !forward, ctx)?
+        };
+    }
+    Some(pos)
+}

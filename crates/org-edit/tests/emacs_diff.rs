@@ -39,6 +39,19 @@ fn run(
                 Some("forward") => forward_element(text, point, ctx),
                 Some("backward") => backward_element(text, point, ctx),
                 Some("up") => up_element(text, point, ctx),
+                Some(w @ ("link" | "src")) => {
+                    let back = args[1].as_bool().unwrap_or(false);
+                    // No further link is a message in Emacs, no further
+                    // block an error.
+                    if w == "link" {
+                        Ok(next_link(text, point, back, ctx).unwrap_or(point))
+                    } else {
+                        next_src_block(text, point, back, ctx).ok_or_else(|| EditError {
+                            message: "No further code blocks".into(),
+                            point: None,
+                        })
+                    }
+                }
                 _ => down_element(text, point, ctx),
             };
             to.map(|p| Transaction::new("motion").select(org_edit::Selection::caret(p)))

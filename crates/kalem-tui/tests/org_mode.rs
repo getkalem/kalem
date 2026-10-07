@@ -414,3 +414,18 @@ fn set_todo_state_and_priority_offer_their_choices() {
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert!(t.text().contains("* CANCELLED [#B] Task"), "{}", t.text());
 }
+
+#[test]
+fn vim_link_and_source_block_motions() {
+    let vim = "editor.keymap_profile = \"vim\"\n";
+    let text = "See [[a][A]] and [[b]].\n#+begin_src sh\nls\n#+end_src\ntext\n";
+    let mut t = open_with(text, vim, 0);
+    t.typ("]l");
+    assert_eq!(t.app.doc.selection.head, text.find("[[a]").unwrap());
+    t.typ("]l");
+    assert_eq!(t.app.doc.selection.head, text.find("[[b]").unwrap());
+    t.typ("[l");
+    assert_eq!(t.app.doc.selection.head, text.find("[[a]").unwrap());
+    t.typ("]c");
+    assert_eq!(t.app.doc.selection.head, text.find("#+begin_src").unwrap());
+}
