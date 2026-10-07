@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.3;
+package kalem:plugin@0.2.4;
 
 /// The editor's commands, keys and events (design §11.2 to §11.4): what a
 /// plugin adds to the palette, menus and keymap, and what it hears.
@@ -229,6 +229,7 @@ interface plugin {
     use kalem.{event, reply};
     use ui.{answer, panel-event};
     use http.{response};
+    use process.{exit};
 
     /// Called once when the plugin is loaded: it registers its commands,
     /// keys and subscriptions.
@@ -257,6 +258,10 @@ interface plugin {
 
     /// The response to the plugin's request `request` (`net.fetch`).
     on-response: func(request: u64, response: result<response, string>);
+
+    /// How the plugin's run `run` ended (`process.run`), or why its
+    /// program could not start (API 0.2.4).
+    on-process: func(run: u64, outcome: result<exit, string>);
 }
 
 /// A plugin extending the editor: commands, keys and events, and what it
@@ -269,6 +274,7 @@ world extension {
     import settings;
     import fs;
     import net;
+    import process;
     import editor;
     export plugin;
 }

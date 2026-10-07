@@ -12,6 +12,10 @@
 //! command runs right after it, in the same context; one asked for by an
 //! event's handler runs at the editor's next tick ([`take_runs`]).
 //!
+//! The programs a plugin runs (`process`, API 0.2.4) run here too
+//! ([`start_run`]): a thread each, their ends handed to the plugin
+//! ([`process_done`]) as a fetch's response is.
+//!
 //! What a plugin shows lands here too: its questions become the editors'
 //! own requests ([`take_requests`]: a line asked for in the palette, a
 //! choice offered as a list), answered through the command
@@ -54,7 +58,45 @@ pub trait Extensions: Send {
 
     /// Hands the response to request `id` to the plugin that sent it.
     fn respond(&mut self, id: u64, response: Result<HttpResponse, String>);
+
+    /// Hands how run `run` ended to the plugin that started it.
+    fn process_done(&mut self, run: u64, result: Result<ProcessExit, String>);
 }
+
+/// A program a plugin runs (`process`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProcessRequest {
+    /// The program, found already.
+    pub program: std::path::PathBuf,
+    /// Its arguments.
+    pub args: Vec<String>,
+    /// Its folder.
+    pub cwd: std::path::PathBuf,
+    /// What it reads on its standard input.
+    pub stdin: Option<Vec<u8>>,
+    /// Variables added to the environment.
+    pub env: Vec<(String, String)>,
+}
+
+/// How a plugin's program ended.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ProcessExit {
+    /// Its exit status; none when a signal stopped it, or it was killed.
+    pub status: Option<i32>,
+    /// Its standard output, at most [`MAX_OUTPUT`] bytes.
+    pub stdout: Vec<u8>,
+    /// Its standard error, as much.
+    pub stderr: Vec<u8>,
+    /// Output past [`MAX_OUTPUT`] was dropped.
+    pub truncated: bool,
+}
+
+/// The most of each output of a plugin's program kept (16 MB, as a file
+/// read or a response).
+pub const MAX_OUTPUT: usize = 16 << 20;
+
+/// How long a plugin's program runs before it is killed.
+pub const RUN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(600);
 
 /// An HTTP response for a plugin (`kalem.net`).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -524,6 +566,156 @@ pub fn workspace() -> Vec<std::path::PathBuf> {
         .into_iter()
         .map(|p| p.root)
         .collect()
+}
+
+/// The runs going, by number: the flag that stops each.
+static RUNS: Mutex<BTreeMap<u64, std::sync::Arc<std::sync::atomic::AtomicBool>>> =
+    Mutex::new(BTreeMap::new());
+
+/// Runs `request` as run `run` on a thread of its own; how it ends goes to
+/// the plugin ([`process_done`]).
+pub fn start_run(run: u64, request: ProcessRequest) {
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    RUNS.lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(run, stop.clone());
+    let started = std::thread::Builder::new()
+        .name("kalem-plugin-process".into())
+        .spawn(move || {
+            let result = run_program(&request, &stop, RUN_TIMEOUT);
+            RUNS.lock().unwrap_or_else(|e| e.into_inner()).remove(&run);
+            process_done(run, result);
+        });
+    if let Err(e) = started {
+        RUNS.lock().unwrap_or_else(|e| e.into_inner()).remove(&run);
+        fail_run(run, e.to_string());
+    }
+}
+
+/// Tells the plugin that run `run` could not start, from a thread of its
+/// own: the plugin's call that asked for it holds the plugins.
+pub fn fail_run(run: u64, error: String) {
+    let _ = std::thread::Builder::new()
+        .name("kalem-plugin-process".into())
+        .spawn(move || process_done(run, Err(error)));
+}
+
+/// Stops run `run`; its end is still handed over, without a status.
+pub fn kill_run(run: u64) {
+    if let Some(stop) = RUNS.lock().unwrap_or_else(|e| e.into_inner()).get(&run) {
+        stop.store(true, Ordering::Relaxed);
+    }
+}
+
+/// Runs a program and waits for it: its standard input written on a
+/// thread of its own and each output read on one (so that a program
+/// writing before it has read everything blocks neither side), each kept
+/// up to [`MAX_OUTPUT`]; killed when `stop` is set or `timeout` passes.
+/// Without a console window on Windows.
+pub fn run_program(
+    request: &ProcessRequest,
+    stop: &std::sync::atomic::AtomicBool,
+    timeout: std::time::Duration,
+) -> Result<ProcessExit, String> {
+    use std::io::{Read, Write};
+    use std::process::Stdio;
+    let mut command = std::process::Command::new(&request.program);
+    command
+        .args(&request.args)
+        .current_dir(&request.cwd)
+        .envs(request.env.iter().cloned())
+        .stdin(if request.stdin.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    let mut child = command
+        .spawn()
+        .map_err(|e| format!("{}: {e}", request.program.display()))?;
+    if let (Some(mut pipe), Some(bytes)) = (child.stdin.take(), request.stdin.clone()) {
+        std::thread::spawn(move || {
+            let _ = pipe.write_all(&bytes);
+        });
+    }
+    fn reader(
+        pipe: Option<impl Read + Send + 'static>,
+    ) -> std::thread::JoinHandle<(Vec<u8>, bool)> {
+        std::thread::spawn(move || {
+            let mut kept = Vec::new();
+            let mut cut = false;
+            let Some(mut pipe) = pipe else {
+                return (kept, cut);
+            };
+            let mut buf = [0u8; 64 * 1024];
+            loop {
+                match pipe.read(&mut buf) {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => {
+                        let room = MAX_OUTPUT.saturating_sub(kept.len());
+                        kept.extend_from_slice(&buf[..n.min(room)]);
+                        cut |= n > room;
+                    }
+                }
+            }
+            (kept, cut)
+        })
+    }
+    let out = reader(child.stdout.take());
+    let err = reader(child.stderr.take());
+    let started = std::time::Instant::now();
+    let mut pause = std::time::Duration::from_millis(1);
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status.code(),
+            Ok(None) => {}
+            Err(e) => return Err(e.to_string()),
+        }
+        if stop.load(Ordering::Relaxed) || started.elapsed() > timeout {
+            let _ = child.kill();
+            let _ = child.wait();
+            break None;
+        }
+        std::thread::sleep(pause);
+        pause = (pause * 2).min(std::time::Duration::from_millis(20));
+    };
+    let (stdout, cut_out) = out.join().unwrap_or_default();
+    let (stderr, cut_err) = err.join().unwrap_or_default();
+    Ok(ProcessExit {
+        status,
+        stdout,
+        stderr,
+        truncated: cut_out || cut_err,
+    })
+}
+
+/// The program `name` a plugin's manifest grants (`subprocess:NAME`), for
+/// a run in `cwd`: where the user's setting `programs.NAME` in the
+/// plugin's table says (`~` expanded), else found as the language server
+/// client finds a server, on the `PATH`.
+pub fn find_program(plugin: &str, name: &str, cwd: &std::path::Path) -> Option<std::path::PathBuf> {
+    let set = setting(&["plugins", plugin, "programs", name])
+        .and_then(|v| v.as_str().map(str::to_string))
+        .filter(|p| !p.trim().is_empty());
+    match set {
+        Some(path) => kalem_lsp::find_program(path.trim(), Some(cwd), &[]),
+        None => kalem_lsp::find_program(name, Some(cwd), &[]),
+    }
+}
+
+/// Hands how run `run` ended to its plugin (from the thread that ran it).
+pub fn process_done(run: u64, result: Result<ProcessExit, String>) {
+    let mut installed = INSTALLED.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(x) = installed.as_mut() {
+        x.process_done(run, result);
+    }
 }
 
 /// Hands the response to request `id` to its plugin (from the thread
@@ -1048,5 +1240,104 @@ mod tests {
         p.widgets[2].kind = item("List", Some(false));
         assert_eq!(p.lines(), [(1, 0), (2, 0), (5, 0)]);
         assert_eq!(widget_text(&p.widgets[2]), "▸ List");
+    }
+}
+
+#[cfg(all(test, unix))]
+mod process_tests {
+    use super::*;
+    use std::sync::atomic::AtomicBool;
+    use std::time::{Duration, Instant};
+
+    fn sh(script: &str, stdin: Option<&str>) -> ProcessRequest {
+        ProcessRequest {
+            program: "/bin/sh".into(),
+            args: vec!["-c".into(), script.into()],
+            cwd: std::env::temp_dir(),
+            stdin: stdin.map(|s| s.as_bytes().to_vec()),
+            env: vec![("KALEM_TEST_VAR".into(), "set".into())],
+        }
+    }
+
+    #[test]
+    fn a_program_reads_its_input_and_ends_with_its_status() {
+        let stop = AtomicBool::new(false);
+        let e = run_program(
+            &sh(
+                "cat; echo \"$KALEM_TEST_VAR\" >&2; pwd >&2; exit 3",
+                Some("hello"),
+            ),
+            &stop,
+            RUN_TIMEOUT,
+        )
+        .unwrap();
+        assert_eq!(e.status, Some(3));
+        assert_eq!(e.stdout, b"hello");
+        let err = String::from_utf8(e.stderr).unwrap();
+        let dir = std::env::temp_dir().canonicalize().unwrap();
+        assert_eq!(err, format!("set\n{}\n", dir.display()));
+        assert!(!e.truncated);
+    }
+
+    #[test]
+    fn output_past_the_limit_is_cut_and_the_program_still_ends() {
+        let stop = AtomicBool::new(false);
+        let script = format!("head -c {} /dev/zero", MAX_OUTPUT + 1000);
+        let e = run_program(&sh(&script, None), &stop, RUN_TIMEOUT).unwrap();
+        assert_eq!(e.status, Some(0));
+        assert_eq!(e.stdout.len(), MAX_OUTPUT);
+        assert!(e.truncated);
+    }
+
+    #[test]
+    fn a_program_is_killed_when_asked_or_late() {
+        let stop = std::sync::Arc::new(AtomicBool::new(false));
+        let s = stop.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            s.store(true, Ordering::Relaxed);
+        });
+        let started = Instant::now();
+        let e = run_program(&sh("exec sleep 30", None), &stop, RUN_TIMEOUT).unwrap();
+        assert_eq!(e.status, None);
+        assert!(started.elapsed() < Duration::from_secs(10));
+        let started = Instant::now();
+        let never = AtomicBool::new(false);
+        let e = run_program(
+            &sh("exec sleep 30", None),
+            &never,
+            Duration::from_millis(100),
+        )
+        .unwrap();
+        assert_eq!(e.status, None);
+        assert!(started.elapsed() < Duration::from_secs(10));
+    }
+
+    #[test]
+    fn a_missing_program_is_an_error() {
+        let stop = AtomicBool::new(false);
+        let mut r = sh("", None);
+        r.program = "/nonexistent/kalem-no-such-program".into();
+        assert!(run_program(&r, &stop, RUN_TIMEOUT).is_err());
+    }
+
+    #[test]
+    fn programs_are_found_on_the_path_or_where_the_setting_says() {
+        let dir = std::env::temp_dir();
+        assert!(find_program("org.example.none", "sh", &dir).is_some());
+        assert_eq!(
+            find_program("org.example.none", "kalem-no-such-program", &dir),
+            None
+        );
+        let config = crate::settings::Config::from_layers(&[(
+            crate::settings::Layer::User,
+            None,
+            "[plugins.\"org.example.find\".programs]\nkalemgit = \"/bin/sh\"\n",
+        )]);
+        set_config(&config);
+        assert_eq!(
+            find_program("org.example.find", "kalemgit", &dir),
+            Some(std::path::PathBuf::from("/bin/sh"))
+        );
     }
 }

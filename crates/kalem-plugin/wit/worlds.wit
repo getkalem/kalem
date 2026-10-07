@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.3;
+package kalem:plugin@0.2.4;
 
 // The worlds of the viewer plugins. They are kept apart from the
 // interfaces: a released interface never changes (the Book, Part III,

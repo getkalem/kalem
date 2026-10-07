@@ -823,18 +823,29 @@ pub fn summary(p: &Prepared) -> Vec<String> {
     } else if p.component {
         out.push(crate::tr!("plugin-adds"));
     }
-    if p.permissions.iter().any(|x| x == "subprocess") || !p.servers.is_empty() {
-        let programs = if p.servers.is_empty() {
-            crate::tr!("plugin-its-servers")
-        } else {
-            p.servers.join(", ")
-        };
-        out.push(crate::tr!("plugin-runs", list = programs));
+    // `subprocess` runs a language plugin's servers; `subprocess:NAME`, the
+    // program NAME through the `process` interface (API 0.2.4).
+    let named: Vec<&str> = p
+        .permissions
+        .iter()
+        .filter_map(|x| x.strip_prefix("subprocess:"))
+        .collect();
+    let servers = p.permissions.iter().any(|x| x == "subprocess") || !p.servers.is_empty();
+    if servers || !named.is_empty() {
+        let mut programs: Vec<String> = named.iter().map(|n| n.to_string()).collect();
+        if servers {
+            programs.push(if p.servers.is_empty() {
+                crate::tr!("plugin-its-servers")
+            } else {
+                p.servers.join(", ")
+            });
+        }
+        out.push(crate::tr!("plugin-runs", list = programs.join(", ")));
     }
     let other: Vec<&String> = p
         .permissions
         .iter()
-        .filter(|x| *x != "subprocess")
+        .filter(|x| *x != "subprocess" && !x.starts_with("subprocess:"))
         .collect();
     if !other.is_empty() {
         let list = other
@@ -1730,6 +1741,25 @@ mod tests {
         );
         assert!(summary(&p).iter().any(|l| l.starts_with("Adds commands")));
         let _ = std::fs::remove_dir_all(&p.staging);
+        // A program named by its permission is listed as one it runs, and
+        // not again among the other permissions.
+        let git = Prepared {
+            permissions: vec!["subprocess:git".into(), "net:fetch:github.com".into()],
+            ..p.clone()
+        };
+        let lines = summary(&git);
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.starts_with("Runs programs on this computer: git ")),
+            "{lines:?}"
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|l| l == "Permissions: net:fetch:github.com"),
+            "{lines:?}"
+        );
 
         // The manifest at the release must be the entry's version.
         std::fs::write(&at, index("0.1.0", &sha)).unwrap();

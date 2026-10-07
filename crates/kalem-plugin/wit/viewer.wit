@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.3;
+package kalem:plugin@0.2.4;
 
 /// A plugin that opens files that are not text (design §11.13, D54):
 /// the `document-viewer` contract, and the `document-editor` half on top

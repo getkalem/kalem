@@ -11,11 +11,11 @@ use std::time::Duration;
 
 mod common;
 
-use kalem_script::extension::http;
 use kalem_script::extension::{
     Answer, CommandSpec, Editor, Event, EventKind, Extension, Grants, Level, PanelEvent, PanelSpec,
     Question, Reply, StatusOptions, VERSION, WidgetKind, WidgetTree, api,
 };
+use kalem_script::extension::{http, process};
 use kalem_script::{Error, Host, Limits};
 
 /// What the fake editor holds.
@@ -31,6 +31,8 @@ struct State {
     own: BTreeMap<String, String>,
     workspace: Vec<std::path::PathBuf>,
     fetched: Vec<(u64, String)>,
+    spawned: Vec<(u64, String, Vec<String>, std::path::PathBuf)>,
+    killed: Vec<u64>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -38,7 +40,10 @@ struct Fake(Arc<Mutex<State>>);
 
 impl Editor for Fake {
     fn add_command(&mut self, plugin: &str, spec: &CommandSpec) -> Result<(), String> {
-        assert!(plugin == "counter" || plugin == "reach", "{plugin}");
+        assert!(
+            plugin == "counter" || plugin == "reach" || plugin == "run",
+            "{plugin}"
+        );
         let mut s = self.0.lock().unwrap();
         if s.commands.contains_key(&spec.id) {
             return Err("taken".into());
@@ -135,6 +140,24 @@ impl Editor for Fake {
 
     fn fetch(&mut self, _plugin: &str, id: u64, request: http::Request) {
         self.0.lock().unwrap().fetched.push((id, request.url));
+    }
+
+    fn spawn(
+        &mut self,
+        _plugin: &str,
+        run: u64,
+        cwd: std::path::PathBuf,
+        command: process::Command,
+    ) {
+        self.0
+            .lock()
+            .unwrap()
+            .spawned
+            .push((run, command.program, command.args, cwd));
+    }
+
+    fn kill(&mut self, run: u64) {
+        self.0.lock().unwrap().killed.push(run);
     }
 }
 
@@ -615,4 +638,181 @@ fn grants_read_from_permissions() {
     assert!(g.allows_url("http://example.com:8080/x"));
     assert!(!Grants::default().fs() && !Grants::default().net());
     assert!(Grants::from_permissions(&["net:fetch:*"]).allows_url("https://any.where/"));
+}
+
+/// The run plugin instantiated with `permissions`, its workspace `root`.
+fn runner(
+    permissions: &[&str],
+    root: &std::path::Path,
+) -> Option<Result<(Extension, Fake), Error>> {
+    let bytes = common::component("run")?;
+    let host = Host::new(None).unwrap();
+    let plugin = host.load(&bytes).unwrap();
+    let fake = Fake::default();
+    fake.0.lock().unwrap().workspace = vec![root.to_path_buf()];
+    let ext = Extension::new(
+        &host,
+        &plugin,
+        "run",
+        Box::new(fake.clone()),
+        Grants::from_permissions(permissions),
+        Limits::default(),
+    );
+    Some(ext.map(|mut e| {
+        e.activate().unwrap().unwrap();
+        (e, fake)
+    }))
+}
+
+fn exit(status: i32, stdout: &str) -> process::Exit {
+    process::Exit {
+        status: Some(status),
+        stdout: stdout.as_bytes().to_vec(),
+        stderr: b"warn".to_vec(),
+        truncated: false,
+    }
+}
+
+#[test]
+fn programs_run_only_as_granted_and_end_later() {
+    let dir = std::env::temp_dir().join(format!("kalem-run-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let root = dir.join("project");
+    std::fs::create_dir_all(root.join("sub")).unwrap();
+    let root = root.canonicalize().unwrap();
+    let dir = dir.canonicalize().unwrap();
+    let p = |path: &std::path::Path| path.to_string_lossy().into_owned();
+
+    // No permission: the component imports `process`, which is not
+    // granted; a bare `subprocess` (a language plugin's) grants nothing.
+    for none in [&[][..], &["subprocess"][..]] {
+        match runner(none, &root) {
+            None => return,
+            Some(Err(Error::NotGranted(names))) => {
+                assert!(names.iter().any(|n| n.contains("process")), "{names:?}")
+            }
+            Some(other) => panic!("{:?}", other.map(|_| ())),
+        }
+    }
+    let (mut ext, fake) = runner(&["subprocess:git"], &root).unwrap().unwrap();
+    let start = |ext: &mut Extension, args: serde_json::Value| call(ext, "run.start", args);
+    let id: u64 = start(
+        &mut ext,
+        serde_json::json!({ "program": "git", "args": ["status", "-z"], "cwd": p(&root.join("sub")) }),
+    )
+    .unwrap()
+    .parse()
+    .unwrap();
+    // Without a folder, the first project's.
+    let id2: u64 = start(&mut ext, serde_json::json!({ "program": "git" }))
+        .unwrap()
+        .parse()
+        .unwrap();
+    {
+        let s = fake.0.lock().unwrap();
+        assert_eq!(
+            s.spawned,
+            [
+                (
+                    id,
+                    "git".to_string(),
+                    vec!["status".to_string(), "-z".to_string()],
+                    root.join("sub")
+                ),
+                (id2, "git".to_string(), vec![], root.clone()),
+            ]
+        );
+    }
+    for (args, why) in [
+        (serde_json::json!({ "program": "rm" }), "not a program"),
+        (
+            serde_json::json!({ "program": "/usr/bin/git" }),
+            "not a program",
+        ),
+        (
+            serde_json::json!({ "program": "git", "cwd": p(&dir) }),
+            "outside the projects",
+        ),
+        (
+            serde_json::json!({ "program": "git", "cwd": "sub" }),
+            "absolute",
+        ),
+        (
+            serde_json::json!({ "program": "git", "cwd": p(&root.join("missing")) }),
+            "not a folder",
+        ),
+    ] {
+        let e = start(&mut ext, args.clone()).unwrap_err();
+        assert!(e.contains(why), "{args}: {e}");
+    }
+    assert_eq!(
+        fake.0.lock().unwrap().spawned.len(),
+        2,
+        "refused runs never start"
+    );
+    // The end arrives later, once.
+    assert_eq!(
+        call(&mut ext, "run.last", serde_json::Value::Null),
+        Ok(String::new())
+    );
+    assert!(ext.process_done(id, Ok(exit(0, "clean"))).unwrap());
+    assert!(
+        !ext.process_done(id, Ok(exit(0, "again"))).unwrap(),
+        "delivered once"
+    );
+    assert!(!ext.process_done(999, Ok(exit(0, "stranger"))).unwrap());
+    assert_eq!(
+        call(&mut ext, "run.last", serde_json::Value::Null),
+        Ok("0 clean|warn".into())
+    );
+    assert!(ext.process_done(id2, Err("git: not found".into())).unwrap());
+    assert_eq!(
+        call(&mut ext, "run.last", serde_json::Value::Null),
+        Ok("error git: not found".into())
+    );
+    assert!(ext.running().is_empty());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn runs_are_limited_and_stop_with_their_plugin() {
+    let root = std::env::temp_dir().canonicalize().unwrap();
+    let (mut ext, fake) = match runner(&["subprocess:git"], &root) {
+        None => return,
+        Some(r) => r.unwrap(),
+    };
+    let start =
+        |ext: &mut Extension| call(ext, "run.start", serde_json::json!({ "program": "git" }));
+    for _ in 0..kalem_script::extension::MAX_RUNS {
+        start(&mut ext).unwrap();
+    }
+    assert!(start(&mut ext).unwrap_err().contains("running already"));
+    // A kill asked by the plugin reaches the editor; the run still ends.
+    let first = *ext.running().iter().next().unwrap();
+    call(&mut ext, "run.kill", serde_json::json!({ "run": first })).unwrap();
+    assert_eq!(fake.0.lock().unwrap().killed, [first]);
+    ext.process_done(first, Ok(exit(-1, ""))).unwrap();
+    start(&mut ext).unwrap();
+    // Deactivated, its programs are killed and their ends dropped.
+    let running = ext.running();
+    assert_eq!(running.len(), kalem_script::extension::MAX_RUNS);
+    ext.deactivate().unwrap();
+    let killed = fake.0.lock().unwrap().killed.clone();
+    assert!(running.iter().all(|r| killed.contains(r)));
+    assert!(ext.running().is_empty());
+}
+
+#[test]
+fn programs_are_granted_by_name() {
+    let g = Grants::from_permissions(&[
+        "subprocess:git",
+        "subprocess",
+        "subprocess:/bin/sh",
+        "subprocess:",
+        "subprocess:..",
+        "subprocess:git-lfs",
+    ]);
+    assert_eq!(g.programs, ["git", "git-lfs"]);
+    assert!(g.process() && !g.fs() && !g.net());
+    assert!(!Grants::from_permissions(&["subprocess"]).process());
 }

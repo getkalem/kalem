@@ -1,0 +1,22 @@
+[package]
+name = "kalem-plugin-run"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "An extension plugin for tests: commands running programs through the `process` interface (API 0.2.4), their arguments as JSON, so that the host's grants decide what runs"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+kalem-plugin = { path = "../../../crates/kalem-plugin" }
+serde_json = "1"
+
+[profile.release]
+opt-level = "s"
+panic = "abort"
+strip = "symbols"
+
+# Built for wasm32-unknown-unknown by `kalem-script`'s tests, apart from
+# the workspace.
+[workspace]

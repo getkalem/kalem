@@ -89,5 +89,6 @@ pub mod editor;
 pub mod fs;
 pub mod kalem;
 pub mod net;
+pub mod process;
 pub mod settings;
 pub mod ui;

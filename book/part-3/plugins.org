@@ -24,8 +24,9 @@ each listed with its task in =crates/kalem-plugin/coverage.toml=.
   ships no runtime for other languages and no scripting engine.
 - *Permissions* are declared in the manifest, approved when the plugin
   is installed and recorded in =plugins.toml=: =fs:read:workspace=,
-  =fs:write:workspace=, =fs:read:all=, =net:fetch:DOMAIN=, and
-  =subprocess= with a separate warning.
+  =fs:write:workspace=, =fs:read:all=, =net:fetch:DOMAIN=, and, with a
+  separate warning, =subprocess= (a language plugin's servers) and
+  =subprocess:PROGRAM= (one program a component runs).
 - *Out of process* for what cannot be a component: language servers
   and external tools talk JSON-RPC over standard input and output.
   From phase 4, a power user may compile plugins into their own Kalem
@@ -51,8 +52,8 @@ the same files (wasmtime). It holds three worlds:
   cells (below).
 - =extension=: a plugin that adds to the editor rather than opening
   files. It imports =kalem=, =editor=, =ui=, =settings=, =diagnostics=,
-  and =fs= and =net= when its permissions grant them, and exports
-  =plugin= (below).
+  and =fs=, =net= and =process= when its permissions grant them, and
+  exports =plugin= (below).
 
 =crates/kalem-plugin/coverage.toml= lists every extension point of the
 design (§11.10 to §11.13) with the WIT interface that defines it or the
@@ -204,7 +205,7 @@ million cells.
 * Versions of the plugin API
 
 The plugin API is the WIT package =kalem:plugin= (=crates/kalem-plugin/wit=),
-version 0.2.3; a component's manifest names the version it was built
+version 0.2.4; a component's manifest names the version it was built
 against (="api": "^0.2.1"=), and Kalem tries it when its own API is of
 the same 0.MINOR and no earlier. The rules, so that a plugin built once
 keeps working:
@@ -240,6 +241,13 @@ keeps working:
   host holds no code of a plugin's formats: Save As, Open as Workbook
   and New Workbook go through the plugin. =kalem-plugin='s adapter
   exports it from the contract, whose defaults refuse.
+- 0.2.4 added the import =process= and the =extension= world's export
+  =on-process=: an extension plugin runs the programs its manifest
+  names (=subprocess:git=), its runs answered later as its fetches are
+  (=kalem_plugin::process=). The git plugin of =getkalem/plugins= is the
+  first to use it. The =extension= world was not released before, so
+  its =plugin= interface gained the export; =process= is frozen with the
+  first plugin released against it.
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 
@@ -408,8 +416,8 @@ typed as JSON. For a language plugin the page also has its server and
 each server's program and environment (=servers.KEY.command=,
 =servers.KEY.env=).
 
-Files and the network are not a plugin's unless its manifest asks for
-them, with the permissions of §11.6:
+Files, the network and programs are not a plugin's unless its manifest
+asks for them, with the permissions of §11.6:
 
 | Permission | Reaches |
 |-
@@ -417,13 +425,36 @@ them, with the permissions of §11.6:
 | =fs:write:workspace= | reading and writing there |
 | =fs:read:all= | reading any file |
 | =net:fetch:DOMAIN= | HTTP to that domain and its subdomains; =*= for any |
+| =subprocess:PROGRAM= | running the program PROGRAM (a bare name: =git=) in a project's folder |
 
-Without one, the plugin is not given the =fs= or =net= interface at
-all, and a component that imports it is refused, the interface named
-(D28). Paths are absolute, =..= is refused, and links are followed
-before the check, so one cannot lead out of a project. A fetch does not
-make the editor wait: =net::fetch= returns at once, and the response
-reaches a closure later, fetched on a thread of its own.
+Without one, the plugin is not given the =fs=, =net= or =process=
+interface at all, and a component that imports it is refused, the
+interface named (D28). Paths are absolute, =..= is refused, and links
+are followed before the check, so one cannot lead out of a project. A
+fetch does not make the editor wait: =net::fetch= returns at once, and
+the response reaches a closure later, fetched on a thread of its own.
+
+=process::run= (API 0.2.4) is the same for programs: it returns the
+run's number at once, and how the program ended (its status, its two
+outputs, each kept to 16 MB) reaches a closure later. The program is
+the one the permission names, found as a language server is, on the
+=PATH=, or where the user's setting =programs.PROGRAM= of the plugin
+says; it runs without a shell (its arguments are a list, never quoted)
+and without a terminal, in a project's folder (the first project's
+when none is given), at most 16 at a time for a plugin, killed after
+ten minutes, with =process::kill=, or when the plugin stops. The
+installer's question names it: "Runs programs on this computer: git".
+
+#+begin_src rust
+use kalem_plugin::process::{self, Command};
+
+let status = Command::new("git").args(["status", "--porcelain=v2", "-z"]).cwd(root);
+process::run(&status, |result| match result {
+    Ok(exit) if exit.status == Some(0) => { /* read exit.stdout */ }
+    Ok(exit) => { /* exit.stderr says why */ }
+    Err(e) => { /* the program could not start: e */ }
+})?;
+#+end_src
 
 * What a plugin shows
 

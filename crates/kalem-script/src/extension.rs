@@ -30,7 +30,7 @@ mod bindings {
 pub use api::{CommandSpec, Event, EventKind, Reply, Scope};
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
-pub use bindings::kalem::plugin::{diagnostics, editor, fs, http, net, settings};
+pub use bindings::kalem::plugin::{diagnostics, editor, fs, http, net, process, settings};
 
 /// An edit a plugin asked for, applied when its command returns, its
 /// places those of the document as the command found it.
@@ -143,9 +143,10 @@ pub const MAX_BYTES: usize = 16 << 20;
 
 /// What a plugin's manifest permits (§11.6), from its `permissions`:
 /// `fs:read:workspace`, `fs:write:workspace`, `fs:read:all`,
-/// `net:fetch:DOMAIN` (`*` for any). The `fs` and `net` interfaces are
-/// granted only with one of theirs; others (`subprocess`) are not the
-/// host's.
+/// `net:fetch:DOMAIN` (`*` for any), `subprocess:PROGRAM` (a bare name).
+/// The `fs`, `net` and `process` interfaces are granted only with one of
+/// theirs. A bare `subprocess` is a language plugin's: the core runs its
+/// servers, and it grants no interface.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Grants {
     /// Read in the projects' folders.
@@ -156,6 +157,20 @@ pub struct Grants {
     pub read_all: bool,
     /// The domains fetched from.
     pub domains: Vec<String>,
+    /// The programs run, by name (`subprocess:git`).
+    pub programs: Vec<String>,
+}
+
+/// The most runs of `process` a plugin has at a time.
+pub const MAX_RUNS: usize = 16;
+
+/// Whether `name` may be a granted program's: a bare name, no path.
+pub fn program_name(name: &str) -> bool {
+    !name.is_empty()
+        && !name.starts_with('.')
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
 }
 
 impl Grants {
@@ -172,6 +187,10 @@ impl Grants {
                         && !d.is_empty()
                     {
                         g.domains.push(d.to_ascii_lowercase());
+                    } else if let Some(name) = p.strip_prefix("subprocess:")
+                        && program_name(name)
+                    {
+                        g.programs.push(name.to_string());
                     }
                 }
             }
@@ -187,6 +206,11 @@ impl Grants {
     /// Whether the `net` interface is granted.
     pub fn net(&self) -> bool {
         !self.domains.is_empty()
+    }
+
+    /// Whether the `process` interface is granted.
+    pub fn process(&self) -> bool {
+        !self.programs.is_empty()
     }
 
     /// Whether `url` (`http` or `https`) is on a granted domain or under
@@ -348,6 +372,14 @@ pub trait Editor: Send + 'static {
     /// goes to [`Extension::respond`] with `id`.
     fn fetch(&mut self, plugin: &str, id: u64, request: http::Request);
 
+    /// Starts `command` for plugin `plugin` (its program granted, `cwd`
+    /// checked to be in a project); how it ends goes to
+    /// [`Extension::process_done`] with `run`.
+    fn spawn(&mut self, plugin: &str, run: u64, cwd: std::path::PathBuf, command: process::Command);
+
+    /// Stops run `run`, started by [`Editor::spawn`].
+    fn kill(&mut self, run: u64);
+
     /// The document the plugin's command runs in; `None` outside one.
     fn document(&mut self) -> Option<Box<dyn DocumentAccess + '_>>;
 }
@@ -382,6 +414,8 @@ pub struct Session {
     grants: Grants,
     /// The requests not yet answered.
     fetching: BTreeSet<u64>,
+    /// The runs not yet ended.
+    running: BTreeSet<u64>,
 }
 
 impl std::fmt::Debug for Session {
@@ -697,6 +731,55 @@ impl net::Host for Session {
         self.fetching.insert(id);
         self.editor.fetch(&self.plugin, id, request);
         Ok(id)
+    }
+}
+
+impl process::Host for Session {
+    fn run(&mut self, command: process::Command) -> Result<u64, String> {
+        if !self.grants.programs.contains(&command.program) {
+            return Err(format!(
+                "`{}` is not a program the plugin may run",
+                command.program
+            ));
+        }
+        if self.running.len() >= MAX_RUNS {
+            return Err(format!(
+                "{MAX_RUNS} programs of the plugin are running already"
+            ));
+        }
+        let roots: Vec<std::path::PathBuf> = self
+            .editor
+            .workspace()
+            .iter()
+            .filter_map(|r| r.canonicalize().ok())
+            .collect();
+        let cwd = match &command.cwd {
+            Some(c) => {
+                let real = real_path(c)?;
+                if !real.is_dir() {
+                    return Err(format!("`{c}` is not a folder"));
+                }
+                if !roots.iter().any(|r| real.starts_with(r)) {
+                    return Err(format!("`{c}` is outside the projects"));
+                }
+                real
+            }
+            None => roots
+                .first()
+                .cloned()
+                .ok_or("No project: a program runs in a project's folder")?,
+        };
+        self.next += 1;
+        let run = self.next;
+        self.running.insert(run);
+        self.editor.spawn(&self.plugin, run, cwd, command);
+        Ok(run)
+    }
+
+    fn kill(&mut self, run: u64) {
+        if self.running.contains(&run) {
+            self.editor.kill(run);
+        }
     }
 }
 
@@ -1078,8 +1161,8 @@ impl std::fmt::Debug for Extension {
 
 impl Extension {
     /// Instantiates `plugin`, known as `id`, granted the `kalem`, `ui` and
-    /// `settings` interfaces over `editor`, and `fs` and `net` when
-    /// `grants` permit; a plugin importing what it was not granted is
+    /// `settings` interfaces over `editor`, and `fs`, `net` and `process`
+    /// when `grants` permit; a plugin importing what it was not granted is
     /// refused, the interface named.
     pub fn new(
         host: &crate::Host,
@@ -1127,6 +1210,13 @@ impl Extension {
             )
             .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
         }
+        if grants.process() {
+            process::add_to_linker::<_, HasSelf<Session>>(
+                &mut linker,
+                |d: &mut crate::Data<Session>| &mut d.user,
+            )
+            .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        }
         let session = Session {
             plugin: id.to_string(),
             editor,
@@ -1136,6 +1226,7 @@ impl Extension {
             asked: BTreeSet::new(),
             grants,
             fetching: BTreeSet::new(),
+            running: BTreeSet::new(),
         };
         let mut instance = plugin.instantiate(host, &linker, session, limits)?;
         let api = instance.bindings(|store, i| bindings::Extension::new(store, i))?;
@@ -1161,6 +1252,10 @@ impl Extension {
         }
         for request in std::mem::take(&mut session.asked) {
             session.editor.withdraw(request);
+        }
+        // Its programs stop with it; their ends are not delivered.
+        for run in std::mem::take(&mut session.running) {
+            session.editor.kill(run);
         }
         out
     }
@@ -1278,6 +1373,27 @@ impl Extension {
         self.instance
             .run(|s| p.call_on_response(s, id, response.as_ref().map_err(String::as_str)))?;
         Ok(true)
+    }
+
+    /// Hands how run `run` ended to the plugin; `false` when it did not
+    /// start it, or its end was delivered.
+    pub fn process_done(
+        &mut self,
+        run: u64,
+        result: Result<process::Exit, String>,
+    ) -> crate::Result<bool> {
+        if !self.instance.data_mut().running.remove(&run) {
+            return Ok(false);
+        }
+        let p = self.api.kalem_plugin_plugin();
+        self.instance
+            .run(|s| p.call_on_process(s, run, result.as_ref().map_err(String::as_str)))?;
+        Ok(true)
+    }
+
+    /// The runs started and not ended.
+    pub fn running(&self) -> BTreeSet<u64> {
+        self.instance.data().running.clone()
     }
 
     /// The IDs of the commands the plugin registered.

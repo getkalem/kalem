@@ -1190,6 +1190,7 @@ pub mod kalem {
     pub mod settings { pub fn get<T>(key: &str) -> T; pub fn set(key: &str, value: Value); pub fn on_change(key: &str, f: impl Fn()) -> Disposable; }
     pub mod fs  { pub fn read(path: &Path) -> Future<String>; pub fn write(path: &Path, text: &str) -> Future<()>; pub fn list(dir: &Path) -> Future<Vec<PathBuf>>; } // permission required
     pub mod net { pub fn fetch(request: Request) -> Future<Response>; }                          // permission required
+    pub mod process { pub fn run(command: Command) -> Future<Exit>; pub fn kill(run: u64); }      // permission required: `subprocess:<program>` (API 0.2.4)
     pub mod babel { pub fn register_language(name: &str, runner: impl BabelRunner) -> Disposable; }
     pub mod exporter { pub fn register_backend(name: &str, backend: impl ExportBackend) -> Disposable; pub fn add_filter(stage: Stage, f: impl ExportFilter) -> Disposable; }
     pub mod tables { pub fn register_function(name: &str, f: impl Fn(&[Number]) -> Number) -> Disposable; }
@@ -1286,7 +1287,7 @@ Manifest `plugin.json`:
 ### 11.6 Security and resource limits
 
 - **Sandbox:** every plugin is a WebAssembly component (D28). It sees only the imports the WIT API grants, no file system, network or clock unless a permission below adds them (one exception, decided by the owner on 2026-10-04: viewers get the `clock` interface, the time, the user's time zone and random bits, so that a workbook's `NOW()`, `TODAY()` and `RAND()` compute as in the program the file comes from; it tells the plugin nothing of the user's files); its memory is its own linear memory; it never touches the document text, only ranges and edits (11.11).
-- **Permissions** are declared in the manifest, shown to the user on first run and approved. Scopes: `fs:read:workspace`, `fs:write:workspace`, `fs:read:all`, `net:fetch:<domain>`, `subprocess` (separate, explicit warning).
+- **Permissions** are declared in the manifest, shown to the user on first run and approved. Scopes: `fs:read:workspace`, `fs:write:workspace`, `fs:read:all`, `net:fetch:<domain>`, `subprocess` (a language plugin's servers, which the core runs) and `subprocess:<program>` (one program an extension plugin runs through the `process` interface, a bare name such as `git`; API 0.2.4), both with a separate, explicit warning.
 - **Time limit:** fuel metering; a synchronous call exceeding its budget (100 ms by default) is cancelled with a warning, and a parse that misses it drops the file to plain text (11.11). Long work uses async APIs and further instances on other threads.
 - **Memory limit:** per instance, 64 MB by default, enforced by the engine.
 - A plugin error never crashes the application; it is shown in the plugin console; a plugin that fails repeatedly is disabled.

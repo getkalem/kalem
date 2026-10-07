@@ -184,6 +184,34 @@ impl Editor for Bridge {
                 kalem_core::extensions::respond(id, response);
             });
     }
+
+    fn spawn(&mut self, _plugin: &str, run: u64, cwd: PathBuf, command: x::process::Command) {
+        use kalem_core::extensions as e;
+        let Some(program) = e::find_program(&self.id, &command.program, &cwd) else {
+            return e::fail_run(
+                run,
+                format!(
+                    "{name} was not found: install it, or give its path as the setting \
+                     programs.{name} of the plugin",
+                    name = command.program
+                ),
+            );
+        };
+        e::start_run(
+            run,
+            e::ProcessRequest {
+                program,
+                args: command.args,
+                cwd,
+                stdin: command.stdin,
+                env: command.env,
+            },
+        );
+    }
+
+    fn kill(&mut self, run: u64) {
+        kalem_core::extensions::kill_run(run);
+    }
 }
 
 /// The document of the plugin's command running on this thread
@@ -607,6 +635,30 @@ impl kalem_core::extensions::Extensions for Plugins {
                 continue;
             };
             match ext.respond(id, response.clone()) {
+                Ok(true) => return,
+                Ok(false) => {}
+                Err(e) => return self.fail(i, &e),
+            }
+        }
+    }
+
+    fn process_done(
+        &mut self,
+        run: u64,
+        result: Result<kalem_core::extensions::ProcessExit, String>,
+    ) {
+        let result = result.map(|r| x::process::Exit {
+            status: r.status,
+            stdout: r.stdout,
+            stderr: r.stderr,
+            truncated: r.truncated,
+        });
+        for i in 0..self.list.len() {
+            PLUGIN.with(|p| p.set(i as u64 + 1));
+            let Some(ext) = self.list[i].extension.as_mut() else {
+                continue;
+            };
+            match ext.process_done(run, result.clone()) {
                 Ok(true) => return,
                 Ok(false) => {}
                 Err(e) => return self.fail(i, &e),

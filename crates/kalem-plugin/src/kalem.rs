@@ -44,6 +44,7 @@ pub(crate) type AnswerFn = Box<dyn FnOnce(Answer)>;
 pub(crate) type PanelFn = Box<dyn FnMut(&str, &PanelEvent)>;
 pub(crate) type SettingFn = Box<dyn FnMut(&str)>;
 pub(crate) type ResponseFn = Box<dyn FnOnce(Result<Response, String>)>;
+pub(crate) type ProcessFn = Box<dyn FnOnce(Result<crate::process::Exit, String>)>;
 
 /// The plugin's handlers, by command, subscription, question and panel.
 #[derive(Default)]
@@ -56,6 +57,7 @@ pub(crate) struct Handlers {
     /// handler, by the watch's ID.
     pub(crate) watches: HashMap<u64, (String, bool, Option<SettingFn>)>,
     pub(crate) responses: HashMap<u64, ResponseFn>,
+    pub(crate) processes: HashMap<u64, ProcessFn>,
 }
 
 thread_local! {
@@ -301,6 +303,16 @@ pub fn dispatch_response(request: u64, response: Result<Response, String>) {
     }
 }
 
+/// Hands how run `run` ended to its handler, once (the host's
+/// `on-process`).
+#[doc(hidden)]
+pub fn dispatch_process(run: u64, result: Result<crate::process::Exit, String>) {
+    let taken = HANDLERS.with(|h| h.borrow_mut().processes.remove(&run));
+    if let Some(f) = taken {
+        f(result);
+    }
+}
+
 /// Forgets every handler (after `deactivate`).
 #[doc(hidden)]
 pub fn clear() {
@@ -374,6 +386,13 @@ macro_rules! export_plugin {
                 response: ::std::result::Result<$crate::net::Response, ::std::string::String>,
             ) {
                 $crate::kalem::dispatch_response(request, response)
+            }
+
+            fn on_process(
+                run: u64,
+                result: ::std::result::Result<$crate::process::Exit, ::std::string::String>,
+            ) {
+                $crate::kalem::dispatch_process(run, result)
             }
         }
 

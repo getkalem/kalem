@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- The plugin API is 0.2.4: an extension plugin may run the programs its manifest names (`subprocess:git`) through the `process` interface, without a shell or a terminal, in a project's folder, the run answered later as a fetch is; the user's setting `programs.NAME` of the plugin says where a program is when it is not on the PATH, and the installer names the programs ("Runs programs on this computer: git"). For the git plugin of getkalem/plugins.
+
 ### Fixed
 - Workbooks on the dark theme: a cell's automatic text color, which Excel writes as black, was drawn black on the dark background and could not be read. Black text on an unfilled cell is drawn in the theme's foreground (white text on the light theme likewise); the terminal editor leaves it the terminal's own color, as it does the borders.
 - Opening a new file in a folder that does not exist (`SPC .`, `SPC f f` or Open File with a typed path, from the file manager too: `new/a.txt`) offers to make the folder, as Doom Emacs does; the file opened, and saving it then failed with "No such file or directory".

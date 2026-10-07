@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.3;
+package kalem:plugin@0.2.4;
 
 /// Files of other formats (API 0.2.3): a document written as another of
 /// the formats its plugin writes (a workbook as `.ods`, a macro-enabled

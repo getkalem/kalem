@@ -1,0 +1,48 @@
+package kalem:plugin@0.2.4;
+
+/// Programs (design §11.6's `subprocess`): a plugin runs a program its
+/// manifest names (`subprocess:git`), never a shell, in a folder of a
+/// project Kalem knows, and hears how it ended at its `on-process`. The
+/// host finds the program as the language server client finds a server
+/// (on the PATH, or where the user's `programs.NAME` setting of the plugin
+/// says), and starts it without a terminal. A run does not wait: the call
+/// returns the run's number, as `net.fetch` returns a request's.
+interface process {
+    /// A program to run.
+    record command {
+        /// Its name, as the manifest's `subprocess:NAME` gives it; refused
+        /// at once otherwise.
+        program: string,
+        /// Its arguments, as given: no shell, no quoting.
+        args: list<string>,
+        /// Its folder, absolute, inside a project Kalem knows; the first
+        /// project's when none.
+        cwd: option<string>,
+        /// Written to its standard input, which is then closed.
+        stdin: option<list<u8>>,
+        /// Added to the user's environment.
+        env: list<tuple<string, string>>,
+    }
+
+    /// How a run ended.
+    record exit {
+        /// Its exit status; none when a signal stopped it, or it was
+        /// killed.
+        status: option<s32>,
+        /// What it wrote to its standard output.
+        stdout: list<u8>,
+        /// What it wrote to its standard error.
+        stderr: list<u8>,
+        /// One of the two passed 16 MB, and what followed was dropped.
+        truncated: bool,
+    }
+
+    /// Starts `command`; how it ends arrives at the plugin's `on-process`
+    /// with the number returned. Refused at once for a program the
+    /// manifest does not name, a folder outside the projects, or more
+    /// than 16 runs of the plugin at a time.
+    run: func(command: command) -> result<u64, string>;
+
+    /// Stops run `run`; its end still arrives, without a status.
+    kill: func(run: u64);
+}
