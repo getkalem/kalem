@@ -4231,7 +4231,10 @@ impl Vim {
         }
         let jumping = std::mem::take(&mut self.jumping);
         let Some((op, _)) = self.op.take() else {
-            if jumping {
+            // `G` and `gg` to the line the cursor is on leave the jump list
+            // as it was (Vim's `checkpcmark()`); searches always add.
+            let to_line = matches!(self.keys.last(), Some(Key::Char('G' | 'g')));
+            if jumping && !(to_line && line_of(doc, m.to) == line_of(doc, self.cursor)) {
                 self.jump(doc);
             }
             doc.selection = Selection::caret(m.to);
