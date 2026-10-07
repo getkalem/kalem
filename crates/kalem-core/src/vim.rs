@@ -1218,18 +1218,20 @@ fn object_n(doc: &DocumentState, pos: usize, c: char, inner: bool, n: usize) -> 
             Some(Target::Chars(r))
         }
         (_, Target::Chars(mut r)) if "()b[]{}B<>t".contains(c) => {
-            // Outward, a pair at a time.
+            // Outward, a pair at a time; fewer pairs than the count around
+            // the cursor: the object fails, as in Vim.
             for _ in 1..n {
-                let outer = object(doc, r.start, c, false)?;
-                let Target::Chars(o) = outer else { break };
-                let start = if r.start > 0 { r.start - 1 } else { break };
+                let Target::Chars(o) = object(doc, r.start, c, false)? else {
+                    return None;
+                };
+                let start = r.start.checked_sub(1)?;
                 let Some(Target::Chars(next)) =
                     object(doc, start.min(o.start.saturating_sub(1)), c, inner)
                 else {
-                    break;
+                    return None;
                 };
                 if next.start >= r.start {
-                    break;
+                    return None;
                 }
                 r = next;
             }
