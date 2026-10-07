@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use serde_json::Value;
 
-use crate::position::{Encoding, Position, byte_range};
+use crate::position::{Encoding, Lines, Position};
 
 /// How serious a diagnostic is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -39,11 +39,12 @@ pub struct Diagnostic {
 
 /// Reads published diagnostics against the document's text.
 pub fn diagnostics(text: &str, list: &[Value], enc: Encoding) -> Vec<Diagnostic> {
+    let lines = Lines::new(text);
     let mut out: Vec<Diagnostic> = list
         .iter()
         .filter_map(|d| {
             Some(Diagnostic {
-                range: byte_range(text, d.get("range")?, enc)?,
+                range: lines.byte_range(d.get("range")?, enc)?,
                 severity: match d["severity"].as_u64() {
                     Some(2) => Severity::Warning,
                     Some(3) => Severity::Information,
@@ -465,11 +466,12 @@ pub fn text_edits(
         Value::Null => &empty,
         v => v.as_array()?,
     };
+    let lines = Lines::new(text);
     let mut edits: Vec<(Range<usize>, String)> = list
         .iter()
         .filter_map(|e| {
             Some((
-                byte_range(text, e.get("range")?, enc)?,
+                lines.byte_range(e.get("range")?, enc)?,
                 e["newText"].as_str()?.to_string(),
             ))
         })

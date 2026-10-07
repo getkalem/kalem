@@ -97,17 +97,56 @@ pub fn offset(text: &str, pos: Position, enc: Encoding) -> usize {
             None => return text.len(),
         }
     }
+    offset_in_line(text, start, pos.character, enc)
+}
+
+/// The byte offset of `character` on the line starting at `start`.
+fn offset_in_line(text: &str, start: usize, character: u32, enc: Encoding) -> usize {
     let line_end = text[start..].find('\n').map_or(text.len(), |i| start + i);
     let line = text[start..line_end].trim_end_matches('\r');
     let mut count = 0;
     for (i, c) in line.char_indices() {
         let w = enc.width(c);
-        if count + w > pos.character {
+        if count + w > character {
             return start + i;
         }
         count += w;
     }
     start + line.len()
+}
+
+/// A text with where its lines start, for many positions in it at once
+/// (a list of diagnostics, a formatter's edits): [`offset`] alone looks
+/// for its line from the start of the text each time.
+#[derive(Debug)]
+pub struct Lines<'a> {
+    text: &'a str,
+    starts: Vec<usize>,
+}
+
+impl<'a> Lines<'a> {
+    /// The lines of `text`.
+    pub fn new(text: &'a str) -> Lines<'a> {
+        let starts = std::iter::once(0)
+            .chain(text.match_indices('\n').map(|(i, _)| i + 1))
+            .collect();
+        Lines { text, starts }
+    }
+
+    /// [`offset`] of `pos`.
+    pub fn offset(&self, pos: Position, enc: Encoding) -> usize {
+        match self.starts.get(pos.line as usize) {
+            Some(&start) => offset_in_line(self.text, start, pos.character, enc),
+            None => self.text.len(),
+        }
+    }
+
+    /// [`byte_range`] of `range`.
+    pub fn byte_range(&self, range: &Value, enc: Encoding) -> Option<Range<usize>> {
+        let start = self.offset(Position::from_json(range.get("start")?)?, enc);
+        let end = self.offset(Position::from_json(range.get("end")?)?, enc);
+        Some(start.min(end)..end.max(start))
+    }
 }
 
 /// A protocol range for bytes `range` of `text`.
@@ -265,6 +304,19 @@ mod tests {
                 } else {
                     prop_assert_eq!(back, b);
                 }
+            }
+        }
+
+        #[test]
+        fn lines_as_offset(
+            text in "(a|é|😀|\n|\r\n| ){0,40}",
+            line in 0u32..12,
+            character in 0u32..12,
+        ) {
+            let lines = Lines::new(&text);
+            let pos = Position { line, character };
+            for enc in [Encoding::Utf8, Encoding::Utf16, Encoding::Utf32] {
+                prop_assert_eq!(lines.offset(pos, enc), offset(&text, pos, enc));
             }
         }
     }
