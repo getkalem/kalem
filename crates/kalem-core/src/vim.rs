@@ -1977,6 +1977,11 @@ impl Vim {
                 for i in 0..n {
                     p = word_forward(doc, p, big, i + 1 == n && self.op.is_some());
                 }
+                // An operator past the last word: to the end of the last
+                // line, not over its line break.
+                if self.op.is_some() && p >= doc.text().len() {
+                    p = line_end(doc, last);
+                }
                 // Past the last word: its last character.
                 if self.op.is_none() {
                     let (s, e) = (line_start(doc, last), line_end(doc, last));
@@ -4058,6 +4063,12 @@ impl Vim {
                 self.op = None;
                 let n = self.count.take().unwrap_or(1) * oc.max(1);
                 let l1 = line_of(doc, self.cursor);
+                // A count on the last line has no line to go down to: the
+                // command fails (`3dd` there), as in Vim.
+                if n > 1 && l1 >= last_line(doc) {
+                    self.failed = true;
+                    return self.reset();
+                }
                 let l2 = (l1 + n - 1).min(last_line(doc));
                 // Vim goes to the first non-blank as the motion, and works
                 // from whichever of that and the cursor comes first.
