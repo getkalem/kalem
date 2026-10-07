@@ -280,13 +280,18 @@ fn what_the_keys_do(t: &mut T) {
     assert!(ORG[r.clone()].starts_with("Some text"), "{:?}", &ORG[r]);
     t.press("space b -");
     assert_eq!(t.app.doc.narrowing, None);
-    // SPC m n stores a link to the heading, SPC m l S inserts it.
+    // SPC m n stores a link to the heading, SPC m l S inserts it: without
+    // the file in the same document, as Emacs writes it.
     t.fresh(ORG, "org", ORG.find("Second").unwrap());
     t.press("space m n");
     t.app.doc.move_cursor(ORG.find("More.").unwrap(), false);
     t.press("space m l shift+s");
     assert!(
-        t.app.doc.text().as_str().contains("*Second][Second]]More."),
+        t.app
+            .doc
+            .text()
+            .as_str()
+            .contains("\n[[*Second][Second]]More."),
         "{}",
         t.app.doc.text().as_str()
     );
