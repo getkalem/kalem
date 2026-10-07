@@ -300,9 +300,6 @@ fn squeeze(s: &str) -> String {
     out
 }
 
-/// The entries of a BibTeX or BibLaTeX text. Text outside entries is a
-/// comment; `@comment` and `@preamble` are skipped, `@string` defines
-/// abbreviations.
 /// [`parse_bibtex`] going on after a malformed entry, from the next `@`
 /// at the start of a line: the entries read and the errors met.
 pub fn parse_bibtex_tolerant(text: &str) -> (Vec<Entry>, Vec<String>) {
@@ -311,12 +308,10 @@ pub fn parse_bibtex_tolerant(text: &str) -> (Vec<Entry>, Vec<String>) {
     let mut strings = HashMap::new();
     let mut at = 0;
     while at < text.len() {
-        // The next entry, and where the one after starts.
-        let next = text[at + 1..]
-            .match_indices("\n@")
-            .map(|(i, _)| at + 1 + i + 1)
-            .next()
-            .unwrap_or(text.len());
+        // The next entry, and where the one after starts: past the line
+        // feed, so always after `at` (which may start a letter of several
+        // bytes, before the first entry).
+        let next = text[at..].find("\n@").map_or(text.len(), |i| at + i + 1);
         let chunk = &text[at..next];
         match parse_bibtex_with(chunk, &mut strings) {
             Ok(e) => entries.extend(e),
@@ -371,6 +366,9 @@ pub fn parse_yaml(text: &str) -> Result<Vec<Entry>, String> {
         .collect())
 }
 
+/// The entries of a BibTeX or BibLaTeX text. Text outside entries is a
+/// comment; `@comment` and `@preamble` are skipped, `@string` defines
+/// abbreviations.
 pub fn parse_bibtex(text: &str) -> Result<Vec<Entry>, String> {
     parse_bibtex_with(text, &mut HashMap::new())
 }
@@ -568,6 +566,10 @@ mod tests {
         let (e, _) =
             parse_bibtex_tolerant("@string{ae = {Addison-Wesley}}\n@book{a, publisher = ae}\n");
         assert_eq!(e[0].field("publisher"), Some("Addison-Wesley"));
+        // Text before the first entry starting with a letter of several
+        // bytes (it was sliced inside the letter).
+        let (e, _) = parse_bibtex_tolerant("Önemli kaynaklar\n@book{a, title = {A}}\n");
+        assert_eq!(e[0].key, "a");
         // hayagriva's YAML.
         let y = parse_yaml(
             "knuth:\n  type: book\n  title: The TeXbook\n  author: Knuth, Donald\n  date: 1984\n",
