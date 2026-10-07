@@ -1648,14 +1648,11 @@ fn plain_text_view(cx: &mut TestAppContext) {
     let e = editor.unwrap();
     // Monospace lines with numbers, highlighting and a four-space step.
     let (numbers, mono, colored, step) = e.read_with(cx, |e, _| {
-        let p = e.plain.borrow();
-        let (_, h, step) = p.as_ref().expect("plain text state");
-        (
-            e.line_numbers(),
-            e.line_view(0).mono,
-            h.as_ref().is_some_and(|h| !h.line(0).is_empty()),
-            *step,
-        )
+        let mut p = e.plain.borrow_mut();
+        let (_, h, step) = p.as_mut().expect("plain text state");
+        let (colored, step) = (h.as_mut().is_some_and(|h| !h.line(0).is_empty()), *step);
+        drop(p);
+        (e.line_numbers(), e.line_view(0).mono, colored, step)
     });
     assert!(numbers && mono && colored);
     assert_eq!(step, 4);
