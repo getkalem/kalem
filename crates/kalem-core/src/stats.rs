@@ -307,9 +307,15 @@ const PAUSE: std::time::Duration = std::time::Duration::from_millis(300);
 
 impl WordCounts {
     /// Whether the counts are behind the text and due: the frontend
-    /// should draw the status bar again.
+    /// should draw the status bar again. Never for a document [`get`]
+    /// does not count (one without an Org parse: Markdown, code), which
+    /// would otherwise be drawn again at every tick.
+    ///
+    /// [`get`]: WordCounts::get
     pub fn due(&self, doc: &crate::DocumentState) -> bool {
-        self.version != Some(doc.version()) && self.counted.is_none_or(|t| t.elapsed() >= PAUSE)
+        doc.parse().is_some()
+            && self.version != Some(doc.version())
+            && self.counted.is_none_or(|t| t.elapsed() >= PAUSE)
     }
 
     /// The words of `doc` and of the section holding its cursor, counted
@@ -399,6 +405,38 @@ mod tests {
         // About 5 ms in a release build.
         assert!(took < std::time::Duration::from_secs(2), "{took:?}");
         assert!(n > 0);
+    }
+
+    #[test]
+    fn documents_not_counted_are_never_due() {
+        // A Markdown file was drawn again at every tick, for ever.
+        let meta = |mode| crate::Metadata {
+            path: None,
+            mode,
+            line_ending: crate::LineEnding::Lf,
+            bom: false,
+            encoding: crate::encoding_rs::UTF_8,
+            lossy: false,
+        };
+        let settings = std::sync::Arc::new(org_model::Settings::default());
+        let md = crate::DocumentState::new(
+            "# Title\n\nSome words.\n",
+            meta(crate::DocumentMode::Markdown),
+            settings.clone(),
+        );
+        let mut counts = WordCounts::default();
+        assert!(!counts.due(&md));
+        assert_eq!(counts.get(&md), None);
+        assert!(!counts.due(&md));
+        let org = crate::DocumentState::new(
+            "* Title\nSome words.\n",
+            meta(crate::DocumentMode::Org),
+            settings,
+        );
+        let mut counts = WordCounts::default();
+        assert!(counts.due(&org));
+        assert!(counts.get(&org).is_some());
+        assert!(!counts.due(&org));
     }
 
     #[test]
