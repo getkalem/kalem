@@ -804,6 +804,18 @@ impl Editor {
         if self.cell_entry_key(k, window, cx) {
             return true;
         }
+        // Paste (Cmd+V, Ctrl+V elsewhere): the clipboard's text where the
+        // typed text is. The palette takes every key while it is open, so
+        // nothing else would paste there (a GitHub link, a path).
+        let primary = if cfg!(target_os = "macos") {
+            k.modifiers.platform
+        } else {
+            k.modifiers.control
+        };
+        if self.palette.is_some() && primary && !k.modifiers.alt && k.key == "v" {
+            self.paste_into_palette(cx.read_from_clipboard(), cx);
+            return true;
+        }
         let Some(p) = &mut self.palette else {
             return false;
         };
@@ -901,6 +913,22 @@ impl Editor {
         }
         self.preview_line(cx);
         cx.notify();
+        true
+    }
+
+    /// Pastes `item`'s text into the palette's typed text, its final line
+    /// break left out; `false` when no palette is open.
+    pub fn paste_into_palette(
+        &mut self,
+        item: Option<gpui::ClipboardItem>,
+        cx: &mut Context<'_, Self>,
+    ) -> bool {
+        if self.palette.is_none() {
+            return false;
+        }
+        if let Some(text) = item.and_then(|i| i.text()) {
+            self.panel_input(text.trim_end_matches(['\r', '\n']), cx);
+        }
         true
     }
 
@@ -1137,6 +1165,7 @@ impl Editor {
         } else {
             format!("{before}▏{after}").replace('\n', "↵")
         };
+        let mut label: Option<String> = None;
         let prompt = match (&p.arg, &p.pick, &p.search) {
             _ if p.lines.is_some() => {
                 let n = p.lines.as_ref().map_or(0, |l| l.hits.len());
@@ -1149,7 +1178,11 @@ impl Editor {
                 } else if p.paths.is_some() {
                     note = kalem_core::l10n::tr("prompt-path-keys");
                 }
-                format!("{}  {typed}", a.label)
+                // The label on a line of its own, above what is typed: a
+                // long one (Install from a GitHub link's) pushed the typed
+                // text and the cursor out of the box.
+                label = Some(a.label.clone());
+                typed.clone()
             }
             (_, Some(k), _) => {
                 if k.partial {
@@ -1269,6 +1302,7 @@ impl Editor {
                 .child(
                     div()
                         .id("palette")
+                        .debug_selector(|| "palette".into())
                         .occlude()
                         .w(px(if p.search.is_some() || p.pick.is_some() {
                             720.
@@ -1290,24 +1324,50 @@ impl Editor {
                                 .border_b_1()
                                 .border_color(theme.border)
                                 .flex()
-                                .flex_row()
-                                .justify_between()
+                                .flex_col()
+                                .gap(px(2.))
+                                .children(label.map(|l| {
+                                    div()
+                                        .debug_selector(|| "palette-label".into())
+                                        .text_color(theme.muted)
+                                        .child(SharedString::from(l))
+                                }))
                                 .child(
                                     div()
                                         .flex()
                                         .flex_row()
-                                        .child(SharedString::from(prompt))
+                                        .justify_between()
+                                        .gap(px(8.))
+                                        .child(
+                                            // Wraps rather than run past the
+                                            // box: a long link stays in it,
+                                            // its cursor in sight.
+                                            div()
+                                                .debug_selector(|| "palette-input".into())
+                                                .flex_1()
+                                                .min_w_0()
+                                                .flex()
+                                                .flex_row()
+                                                .flex_wrap()
+                                                .child(
+                                                    div()
+                                                        .min_w_0()
+                                                        .child(SharedString::from(prompt)),
+                                                )
+                                                .child(
+                                                    div()
+                                                        .debug_selector(|| "palette-offer".into())
+                                                        .min_w_0()
+                                                        .text_color(theme.muted)
+                                                        .child(SharedString::from(rest)),
+                                                ),
+                                        )
                                         .child(
                                             div()
-                                                .debug_selector(|| "palette-offer".into())
+                                                .flex_none()
                                                 .text_color(theme.muted)
-                                                .child(SharedString::from(rest)),
+                                                .child(SharedString::from(note)),
                                         ),
-                                )
-                                .child(
-                                    div()
-                                        .text_color(theme.muted)
-                                        .child(SharedString::from(note)),
                                 ),
                         )
                         .children(rows),

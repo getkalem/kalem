@@ -1414,6 +1414,12 @@ impl Editor {
             }
             Request::Paste { plain } => {
                 let item = cx.read_from_clipboard();
+                // Paste from the Edit menu while the palette is open: into
+                // what is typed there, not the document behind it.
+                if self.palette.is_some() {
+                    self.paste_into_palette(item, cx);
+                    return;
+                }
                 // A spreadsheet takes the text as rows of cells.
                 if self.doc.viewer.as_deref().is_some_and(|v| v.is_grid()) {
                     let text = item

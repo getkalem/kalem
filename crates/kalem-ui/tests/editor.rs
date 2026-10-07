@@ -740,6 +740,40 @@ fn outline_sidebar(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn a_long_prompt_stays_in_the_palette_and_takes_a_paste(cx: &mut TestAppContext) {
+    // Install from a GitHub link's label is longer than the palette is
+    // wide: it stands on its own line and wraps, so the typed text and its
+    // cursor stay in the box; the primary key with V pastes the link there,
+    // not into the document.
+    let (e, cx) = open("* A\n", cx);
+    e.update_in(cx, |e, window, cx| {
+        e.run_command("plugin.installGitHub", serde_json::json!({}), window, cx)
+    });
+    cx.run_until_parked();
+    let link = "https://github.com/getkalem/plugins/tree/main/plugins/git";
+    cx.write_to_clipboard(gpui::ClipboardItem::new_string(format!("{link}\n")));
+    cx.simulate_keystrokes(&format!("{}-v", primary()));
+    cx.run_until_parked();
+    let typed = e.read_with(cx, |e, _| e.palette.as_ref().map(|p| p.input.clone()));
+    assert_eq!(typed.as_deref(), Some(link));
+    assert_eq!(text(&e, cx), "* A\n", "nothing pasted into the document");
+    let palette = cx.debug_bounds("palette").expect("the palette");
+    let label = cx.debug_bounds("palette-label").expect("the label");
+    let input = cx.debug_bounds("palette-input").expect("the typed text");
+    for (what, b) in [("label", label), ("typed text", input)] {
+        assert!(
+            b.right() <= palette.right() && b.left() >= palette.left(),
+            "the {what} {b:?} runs out of the palette {palette:?}"
+        );
+    }
+    assert!(
+        input.top() >= label.bottom(),
+        "the typed text under the label"
+    );
+    cx.simulate_keystrokes("escape");
+}
+
+#[gpui::test]
 fn install_from_github_asks_for_a_link(cx: &mut TestAppContext) {
     // Install Plugin from GitHub: the palette says what it asks for, and
     // a link that is not GitHub's is refused with why.
