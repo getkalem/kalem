@@ -899,11 +899,13 @@ impl Md {
     }
 }
 
-/// The last parse, with the text version and length it is for, and the
-/// text, for the next edit's reparse.
-/// The last parse: the document (serial), its version and length; the
-/// parse; the text it parsed.
+/// A document's last parse: the document (serial), its version and
+/// length; the parse; the text it parsed, for the next edit's reparse.
 type Memo = ((u64, u64, usize), Rc<Md>, Rc<str>);
+
+/// How many documents' last parses are kept: two documents side by side
+/// took each other's place at every frame, each parsed again whole.
+const MEMOS: usize = 4;
 
 /// Whether line `l` may be a link reference definition or a footnote's
 /// (`[label]: …`, `[^label]: …`), past the markers of the quotes and list
@@ -974,30 +976,44 @@ fn shifted(mut n: MdNode, by: isize, parent: impl Fn(u32) -> u32) -> MdNode {
 }
 
 thread_local! {
-    static PARSED: std::cell::RefCell<Option<Memo>> =
-        const { std::cell::RefCell::new(None) };
+    /// The last parses, the one used last first.
+    static PARSED: std::cell::RefCell<Vec<Memo>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// The memo of document `serial`, taken out of `memos`.
+fn take_memo(memos: &mut Vec<Memo>, serial: u64) -> Option<Memo> {
+    let i = memos.iter().position(|m| m.0.0 == serial)?;
+    Some(memos.remove(i))
+}
+
+/// Keeps `memo` as the one used last.
+fn keep_memo(memos: &mut Vec<Memo>, memo: Memo) {
+    memos.insert(0, memo);
+    memos.truncate(MEMOS);
 }
 
 /// The parse of `doc`, for its text version.
 pub fn parsed(doc: &crate::DocumentState) -> Rc<Md> {
     let key = (doc.serial(), doc.version(), doc.text().len());
     PARSED.with(|p| {
-        if let Some((k, md, _)) = &*p.borrow()
-            && *k == key
-        {
-            return md.clone();
+        let mut memos = p.borrow_mut();
+        let last = take_memo(&mut memos, key.0);
+        if let Some(memo) = last.as_ref().filter(|m| m.0 == key) {
+            let md = memo.1.clone();
+            keep_memo(&mut memos, memo.clone());
+            return md;
         }
         let text = doc.text().as_str();
-        let last = p.borrow_mut().take();
         let md = Rc::new(match last {
-            // The last parse reused when nothing else holds it.
+            // The document's last parse reused when nothing else holds it.
             Some((_, old, old_text)) => {
                 let old = Rc::try_unwrap(old).unwrap_or_else(|rc| (*rc).clone());
                 old.reparse_owned(&old_text, text)
             }
             None => Md::parse(text),
         });
-        *p.borrow_mut() = Some((key, md.clone(), Rc::from(text)));
+        keep_memo(&mut memos, (key, md.clone(), Rc::from(text)));
         md
     })
 }
@@ -1049,11 +1065,14 @@ pub fn ready(doc: &crate::DocumentState) -> Option<Rc<Md>> {
     }
     let key = (doc.serial(), doc.version(), text.len());
     let near = PARSED.with(|p| {
-        p.borrow().as_ref().map(|(k, md, old)| {
-            (*k == key)
-                .then(|| md.clone())
-                .ok_or_else(|| small_edit(old, text))
-        })
+        p.borrow()
+            .iter()
+            .find(|m| m.0.0 == key.0)
+            .map(|(k, md, old)| {
+                (*k == key)
+                    .then(|| md.clone())
+                    .ok_or_else(|| small_edit(old, text))
+            })
     });
     match near {
         Some(Ok(md)) => return Some(md),
@@ -1066,8 +1085,15 @@ pub fn ready(doc: &crate::DocumentState) -> Option<Rc<Md>> {
     match bg.take() {
         // Done: reparsed to the text as it is now.
         Some((then, Some(md))) if small_edit(&then, text) => {
+            // Kept as this document's, of an older version: reparsed to
+            // the text as it is now.
             PARSED.with(|p| {
-                *p.borrow_mut() = Some(((u64::MAX, u64::MAX, 0), Rc::new(md), Rc::from(&*then)));
+                let mut memos = p.borrow_mut();
+                let _ = take_memo(&mut memos, key.0);
+                keep_memo(
+                    &mut memos,
+                    ((key.0, u64::MAX, 0), Rc::new(md), Rc::from(&*then)),
+                );
             });
             drop(bg);
             Some(parsed(doc))
