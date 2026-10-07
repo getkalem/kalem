@@ -935,10 +935,13 @@ fn word_end_back(doc: &DocumentState, pos: usize, big: bool) -> usize {
 /// to blanks takes whole lines (`:help o_v`'s exception for `d`).
 fn char_target(doc: &DocumentState, op: Op, s: usize, e: usize, inclusive: bool) -> Target {
     let mut e = e;
-    // An inclusive end at a line's end (the text's last) takes no line
-    // break.
+    // An inclusive end at a line's end takes no line break; the motion
+    // ends in that line.
+    let mut end_line = None;
     if inclusive {
-        if char_at(doc, e) != Some('\n') {
+        if char_at(doc, e) == Some('\n') {
+            end_line = Some(line_of(doc, e));
+        } else {
             e = doc.grapheme_after(e).max(e);
         }
     } else if e > s && line_of(doc, e) > line_of(doc, s) && e == line_start(doc, line_of(doc, e)) {
@@ -949,7 +952,8 @@ fn char_target(doc: &DocumentState, op: Op, s: usize, e: usize, inclusive: bool)
         e = line_end(doc, l2).max(s);
     }
     if op == Op::Delete && e > s {
-        let (l1, l2) = (line_of(doc, s), line_of(doc, e.saturating_sub(1).max(s)));
+        let l1 = line_of(doc, s);
+        let l2 = end_line.unwrap_or_else(|| line_of(doc, e.saturating_sub(1).max(s)));
         let rest = &doc.text().as_str()[e.min(line_end(doc, l2))..line_end(doc, l2)];
         if l2 > l1 && rest.trim().is_empty() && s <= first_non_blank(doc, l1) {
             return Target::Lines(l1, l2);
@@ -1982,7 +1986,11 @@ impl Vim {
                 let l = (line + n - 1).min(last);
                 let (s, e) = (line_start(doc, l), line_end(doc, l));
                 // In visual mode the selection takes the line break too.
-                if self.op.is_some() || (self.visual() && self.mode != Mode::VisualBlock) {
+                if self.op.is_some() && l > line && e == s {
+                    // To an empty line: its end, included (`2d$` there takes
+                    // the lines).
+                    inclusive(e)
+                } else if self.op.is_some() || (self.visual() && self.mode != Mode::VisualBlock) {
                     charwise(e)
                 } else {
                     inclusive(if e > s { doc.grapheme_before(e) } else { e })
