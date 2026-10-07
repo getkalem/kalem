@@ -2289,10 +2289,20 @@
   "line": 2,
   "text": "\nx\n"
  },
+ "sweep_code_A_C_o_bx_Esc": {
+  "col": 8,
+  "line": 1,
+  "text": "fn mainx() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
  "sweep_code_A_C_o_dbx_Esc": {
   "col": 9,
   "line": 1,
   "text": "fn main{x\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_A_C_o_hx_Esc": {
+  "col": 10,
+  "line": 1,
+  "text": "fn main()x {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
  },
  "sweep_code_C_v_jjlg_C_a": {
   "col": 1,
@@ -2383,6 +2393,21 @@
   "col": 1,
   "line": 2,
   "text": "fn main() {\n}\n"
+ },
+ "sweep_code_jf_2di": {
+  "col": 16,
+  "line": 2,
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_jfb2da": {
+  "col": 21,
+  "line": 2,
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_jfb2di": {
+  "col": 21,
+  "line": 2,
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
  },
  "sweep_code_jj2_x": {
   "col": 10,
@@ -2754,6 +2779,11 @@
   "line": 6,
   "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  nd\n"
  },
+ "sweep_prose_g": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
  "sweep_prose_g_a_1d_CR": {
   "col": 1,
   "line": 1,
@@ -2794,6 +2824,11 @@
   "line": 1,
   "text": "xxThe quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
  },
+ "sweep_prose_jf_2di": {
+  "col": 22,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
  "sweep_prose_jf_x": {
   "col": 30,
   "line": 2,
@@ -2808,6 +2843,16 @@
   "col": 1,
   "line": 1,
   "text": "he quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_jfb2da": {
+  "col": 35,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
+ "sweep_prose_jfb2di": {
+  "col": 35,
+  "line": 2,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
  },
  "sweep_prose_jfb_x": {
   "col": 44,
@@ -3059,6 +3104,11 @@
   "line": 1,
   "text": "\tone\tox\n\t\tdeep\tx\nno tab here\n    four spaces\n"
  },
+ "sweep_tabs_A_C_o_hx_Esc": {
+  "col": 7,
+  "line": 1,
+  "text": "\tone\ttxwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
  "sweep_tabs_A_Esc_sync_U": {
   "col": 8,
   "line": 1,
@@ -3289,6 +3339,11 @@
   "line": 4,
   "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spacs\n"
  },
+ "sweep_tabs_g": {
+  "col": 2,
+  "line": 1,
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
  "sweep_tabs_g_a_1d_CR": {
   "col": 1,
   "line": 3,
@@ -3464,10 +3519,25 @@
   "line": 3,
   "text": "\tone\ttwo\n\t\tdeep\tx\nn tab here\n    four spaces\n"
  },
+ "sweep_tabs_o_b_1_CR_x": {
+  "col": 1,
+  "line": 1,
+  "text": "one\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_o_s_1_CR_nx": {
+  "col": 1,
+  "line": 2,
+  "text": "\tone\ttwo\n\tdeep\tx\nno tab here\n    four spaces\n"
+ },
  "sweep_tabs_o_s_1_CR_x": {
   "col": 7,
   "line": 1,
   "text": "\tone\tto\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_o_s_2_CR_x": {
+  "col": 4,
+  "line": 1,
+  "text": "\ton\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
  },
  "sweep_tabs_qa0xjq_a": {
   "col": 8,
@@ -3633,6 +3703,16 @@
   "col": 1,
   "line": 1,
   "text": "div>\n"
+ },
+ "sweep_tags_d2at": {
+  "col": 1,
+  "line": 1,
+  "text": "<div class=\"a\">\n  <p>one <b>two</b> three</p>\n  <br/>\n</div>\n"
+ },
+ "sweep_tags_d2it": {
+  "col": 1,
+  "line": 1,
+  "text": "<div class=\"a\">\n  <p>one <b>two</b> three</p>\n  <br/>\n</div>\n"
  },
  "sweep_tags_d_2": {
   "col": 1,

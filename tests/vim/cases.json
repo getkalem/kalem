@@ -4158,5 +4158,85 @@
   "name": "sweep_tabs_C_v_jlld_sync_u_sync_C_r",
   "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
   "keys": "<C-v>jlld<sync>u<sync><C-r>"
+ },
+ {
+  "name": "sweep_prose_g",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "g&"
+ },
+ {
+  "name": "sweep_tabs_g",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "g&"
+ },
+ {
+  "name": "sweep_tags_d2at",
+  "text": "<div class=\"a\">\n  <p>one <b>two</b> three</p>\n  <br/>\n</div>\n",
+  "keys": "d2at"
+ },
+ {
+  "name": "sweep_prose_jf_2di",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "jf(2di("
+ },
+ {
+  "name": "sweep_code_jf_2di",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "jf(2di("
+ },
+ {
+  "name": "sweep_prose_jfb2di",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "jfb2di["
+ },
+ {
+  "name": "sweep_code_jfb2di",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "jfb2di["
+ },
+ {
+  "name": "sweep_prose_jfb2da",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "jfb2da("
+ },
+ {
+  "name": "sweep_code_jfb2da",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "jfb2da("
+ },
+ {
+  "name": "sweep_tags_d2it",
+  "text": "<div class=\"a\">\n  <p>one <b>two</b> three</p>\n  <br/>\n</div>\n",
+  "keys": "d2it"
+ },
+ {
+  "name": "sweep_tabs_A_C_o_hx_Esc",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "A<C-o>hx<Esc>"
+ },
+ {
+  "name": "sweep_code_A_C_o_hx_Esc",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "A<C-o>hx<Esc>"
+ },
+ {
+  "name": "sweep_tabs_o_s_1_CR_nx",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "/o/s+1<CR>nx"
+ },
+ {
+  "name": "sweep_code_A_C_o_bx_Esc",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "A<C-o>bx<Esc>"
+ },
+ {
+  "name": "sweep_tabs_o_b_1_CR_x",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "?o?b-1<CR>x"
+ },
+ {
+  "name": "sweep_tabs_o_s_2_CR_x",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "/o/s+2<CR>x"
  }
 ]
