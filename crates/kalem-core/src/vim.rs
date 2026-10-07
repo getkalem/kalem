@@ -1975,6 +1975,10 @@ impl Vim {
             Key::Char('0') => charwise(line_start(doc, line)),
             Key::Char('^') => charwise(first_non_blank(doc, line)),
             Key::Char('$') => {
+                // A count on the last line has no line to go down to.
+                if n > 1 && line >= last {
+                    return Some(None);
+                }
                 let l = (line + n - 1).min(last);
                 let (s, e) = (line_start(doc, l), line_end(doc, l));
                 // In visual mode the selection takes the line break too.
@@ -2757,6 +2761,12 @@ impl Vim {
                 t.push('\n');
             }
             let t = t.repeat(count);
+            // Above the one empty line of an empty text: it stays below.
+            if before && doc.text().is_empty() {
+                edit(doc, 0..0, &format!("{t}\n"), 0);
+                doc.selection = Selection::caret(first_non_blank(doc, 0));
+                return (0, t.len());
+            }
             let at = if before {
                 line_start(doc, line)
             } else if line + 1 < doc.text().line_count() {

@@ -443,7 +443,9 @@ pub(super) fn findpar_of(
         }
         curr += 1;
     }
-    if forward && curr == last && what != Some('}') {
+    // The last line (a single line too, even going back): its last
+    // character, the motion inclusive, as Vim does.
+    if curr == last && what != Some('}') {
         let (s, e) = (line_start(doc, curr), line_end(doc, curr));
         if e > s {
             return Some((e - char_before(doc, e).map_or(1, char::len_utf8), true));
