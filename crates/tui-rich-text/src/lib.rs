@@ -515,9 +515,14 @@ pub fn draw<L: Lines>(
             let mut x = x0;
             let mut col = 0u16;
             for g in &row {
-                // Scrolled out at the left.
+                // Scrolled out at the left; a wide glyph the edge cuts
+                // leaves its cell in view blank, so the glyphs after it
+                // keep their columns (the cursor and clicks count them).
                 if col < opt.hscroll {
                     col = col.saturating_add(g.width);
+                    if col > opt.hscroll {
+                        x = (x + col - opt.hscroll).min(area.right());
+                    }
                     continue;
                 }
                 if x + g.width > area.right() {
@@ -648,7 +653,7 @@ mod tests {
                 .char_indices()
                 .map(|(i, c)| Glyph {
                     text: c.to_string(),
-                    width: 1,
+                    width: unicode_width::UnicodeWidthChar::width(c).unwrap_or(1) as u16,
                     style: Style::default(),
                     src: s + i,
                     src_end: s + i + c.len_utf8(),
@@ -658,6 +663,29 @@ mod tests {
                 .collect();
             wrap(glyphs, 0, width)
         }
+    }
+
+    #[test]
+    fn a_wide_glyph_cut_by_the_left_edge() {
+        // `a界bc` scrolled two columns: the right half of `界` blank, `b`
+        // in its own column, where the cursor and clicks find it.
+        let doc = Plain("a界bc".into());
+        let v = Viewport::default();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 8, 1));
+        let opt = Options {
+            hscroll: 2,
+            cursor: 4,
+            selection: 0..0,
+            marks: &[],
+            mark_style: Style::default(),
+            margin: 0,
+        };
+        let d = draw(&doc, &v, &mut buf, Rect::new(0, 0, 8, 1), &opt);
+        assert_eq!(buf[(0, 0)].symbol(), " ");
+        assert_eq!(buf[(1, 0)].symbol(), "b");
+        assert_eq!(buf[(2, 0)].symbol(), "c");
+        assert_eq!(d.cursor, Some((1, 0)));
+        assert_eq!(d.hit(&doc, 1, 0), Some((4, None)));
     }
 
     #[test]
