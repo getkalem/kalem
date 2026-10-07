@@ -73,6 +73,9 @@ impl Table {
     /// Sets field `col` of line `line`, adding empty fields before it if
     /// needed.
     pub fn set_field(&mut self, line: usize, col: usize, value: String) {
+        if col == 0 {
+            return;
+        }
         if let Some(Row::Data(f)) = self.rows.get_mut(line) {
             while f.len() < col {
                 f.push(String::new());

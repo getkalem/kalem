@@ -93,7 +93,7 @@ pub fn first_last(s: &str, a: &Analysis) -> Result<String, Error> {
         let b = s.as_bytes();
         let Some(i) = (start..b.len()).find(|&i| {
             (matches!(b[i], b'@' | b'$') && matches!(b.get(i + 1), Some(b'<' | b'>')))
-                || s[i..].starts_with("remote(")
+                || b[i..].starts_with(b"remote(")
         }) else {
             return Ok(s);
         };
@@ -668,7 +668,7 @@ impl Evaluator<'_> {
             let b = new.as_bytes();
             let found = (start..b.len()).find(|&i| {
                 (b[i] == b'$' && b.get(i + 1).is_some_and(u8::is_ascii_alphabetic))
-                    || (new[i..].starts_with("remote(")
+                    || (b[i..].starts_with(b"remote(")
                         && (i == 0
                             || !new[..i]
                                 .chars()

@@ -533,6 +533,19 @@ fn iipow(a: &Num, n: &BigInt, prec: &Prec) -> Result<Num, Reject> {
     if n.bits() > 32 && !matches!(a, Num::Int(x) if x.abs().is_one() || x.is_zero()) {
         return Err(Reject::Range);
     }
+    // Nor exact results this long (`9^99999999` held the editor for good):
+    // at most some 40,000 digits, as `fact` stops at 10,000!.
+    let exact = match a {
+        Num::Int(x) => x.bits(),
+        Num::Frac(p, q) => p.bits().max(q.bits()),
+        Num::Float(..) => 0,
+    };
+    if exact > 1
+        && n.to_u64()
+            .is_none_or(|n| (exact - 1).saturating_mul(n) > 1 << 17)
+    {
+        return Err(Reject::Range);
+    }
     let sq = mul(a, a, prec);
     let half = n / 2;
     if n.is_even() {
@@ -799,6 +812,12 @@ mod tests {
             show(&ipow(&n("2"), &big(100), &pr).unwrap()),
             "1267650600228229401496703205376"
         );
+        // Exact powers of some 40,000 digits at most; floats and ones as
+        // large as they come.
+        assert!(ipow(&n("9"), &big(99_999_999), &pr).is_err());
+        assert!(ipow(&n("2"), &big(100_000), &pr).is_ok());
+        assert!(ipow(&n("9.5"), &big(99_999_999), &pr).is_ok());
+        assert_eq!(show(&ipow(&n("-1"), &big(99_999_999), &pr).unwrap()), "-1");
         assert_eq!(show(&modulo(&n("-7"), &n("3"), &pr).unwrap()), "2");
         assert_eq!(show(&modulo(&n("7.5"), &n("2"), &pr).unwrap()), "1.5");
         assert_eq!(show(&round(&n("2.5"), &pr)), "3");

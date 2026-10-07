@@ -111,6 +111,7 @@ fn plan(ev: &Evaluator<'_>, equations: &[Equation]) -> Result<Plan, Error> {
             first_last(old, &ev.analysis)?
         };
         match column_number(&lhs) {
+            Some(0) => return err(format!("Invalid column number in {}", eq.lhs)),
             Some(c) => p.columns.push((c, rhs, eq.lhs.clone())),
             None => fields.push((lhs, rhs, eq.lhs.clone())),
         }
@@ -142,7 +143,7 @@ fn plan(ev: &Evaluator<'_>, equations: &[Equation]) -> Result<Plan, Error> {
         rule.and_then(|r| (r + 1..rows).find(|&l| data(l)))
             .unwrap_or(0)
     };
-    let mut seen: Vec<String> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
     for (name, _, _) in &p.fields {
         let location = ev.analysis.named_fields.iter().find(|(n, _, _)| n == name);
         let reference = match location {
@@ -152,12 +153,11 @@ fn plan(ev: &Evaluator<'_>, equations: &[Equation]) -> Result<Plan, Error> {
             }
             None => name.clone(),
         };
-        if seen.contains(&reference) {
+        if !seen.insert(reference.clone()) {
             return err(format!(
                 "Several field/range formulas try to set {reference}"
             ));
         }
-        seen.push(reference);
         p.untouchable.insert(ev.goto_field(name)?);
     }
     Ok(p)
@@ -217,13 +217,20 @@ pub fn recalculate(
             }
         }
     }
-    for (reference, rhs, _) in &p.fields {
-        let (line, col) = ev.goto_field(reference)?;
-        let width = ev.table.rows.iter().filter_map(|r| match r {
+    // Setting a field never widens the table past its widest row.
+    let width = ev
+        .table
+        .rows
+        .iter()
+        .filter_map(|r| match r {
             Row::Data(f) => Some(f.len()),
             Row::Rule => None,
-        });
-        if col > width.max().unwrap_or(0) {
+        })
+        .max()
+        .unwrap_or(0);
+    for (reference, rhs, _) in &p.fields {
+        let (line, col) = ev.goto_field(reference)?;
+        if col > width {
             return err("Missing columns in the table.  Aborting");
         }
         match ev.eval(line, col, rhs)? {
@@ -415,5 +422,24 @@ mod tests {
         let a = formula_at(&t2, &eqs, &env, 3, 3).unwrap().unwrap();
         assert_eq!(t2.field(3, 3), "#ERROR");
         assert!(a.error.is_some(), "{a:?}");
+    }
+
+    #[test]
+    fn letters_beyond_ascii_and_column_zero() {
+        let t = Table::parse("| a | b |\n|---+---|\n| 1 |   |\n");
+        let none = |_: &str| None;
+        let env = env(&none);
+        // Byte offsets inside `ş` and `€` were sliced.
+        for f in ["$2=\"ş\"", "$2=$1*2;%.1f €", "@>$2=\"ğ\"+remote(x,@1$1)"] {
+            let eqs = tblfm::parse(f).equations;
+            let _ = recalculate(&t, &eqs, &env);
+            let _ = formula_at(&t, &eqs, &env, 2, 2);
+        }
+        let eqs = tblfm::parse("$2=$1*2;%.1f €").equations;
+        let (t2, _) = recalculate(&t, &eqs, &env).unwrap();
+        assert_eq!(t2.field(2, 2), "2.0 €");
+        // `$0` is no column to set.
+        let eqs = tblfm::parse("$0=1").equations;
+        assert!(recalculate(&t, &eqs, &env).is_err());
     }
 }
