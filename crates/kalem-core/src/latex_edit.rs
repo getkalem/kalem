@@ -48,13 +48,34 @@ fn list_at(root: &SyntaxNode, pos: usize) -> Option<(SyntaxNode, String)> {
         let name = (a.kind() == K::ENVIRONMENT)
             .then(|| latex_syntax::name(&a))
             .flatten()?;
-        is_list(&name).then_some((a, name))
+        item_command(&name).is_some().then_some((a, name))
     })
+}
+
+/// How many entries (`command`s) list `env` has, not counting those of
+/// the lists inside it.
+fn entries(env: &SyntaxNode, command: &str) -> usize {
+    fn count(n: &SyntaxNode, command: &str) -> usize {
+        n.children()
+            .map(|c| match c.kind() {
+                K::ENVIRONMENT => 0,
+                K::COMMAND => {
+                    usize::from(latex_syntax::name(&c).as_deref() == command.strip_prefix('\\'))
+                }
+                _ => count(&c, command),
+            })
+            .sum()
+    }
+    env.children()
+        .find(|c| c.kind() == K::BODY)
+        .map_or(0, |b| count(&b, command))
 }
 
 /// Enter on a list item: a new `\item` with the item's indentation (the
 /// rest of the line going to it); on an empty item, the item goes and the
-/// cursor moves past the end of the list.
+/// cursor moves past the end of the list. A list's only item stays, empty:
+/// LaTeX rejects a list without one. In a bibliography the same with
+/// `\bibitem{}`, the cursor in its braces.
 pub fn enter(text: &str, sel: Selection, root: &SyntaxNode) -> Option<Transaction> {
     if sel.anchor != sel.head {
         return None;
@@ -63,23 +84,51 @@ pub fn enter(text: &str, sel: Selection, root: &SyntaxNode) -> Option<Transactio
     let lr = line_range(text, pos);
     let line = &text[lr.clone()];
     let trimmed = line.trim_start();
-    if !trimmed.starts_with("\\item") {
+    let command = ["\\bibitem", "\\item"]
+        .into_iter()
+        .find(|c| trimmed.starts_with(c));
+    let Some(command) = command else {
         return first_item(text, pos, root).or_else(|| new_row(text, pos, root));
+    };
+    let (env, name) = list_at(root, pos)?;
+    if item_command(&name) != Some(command) {
+        return None;
     }
-    let (env, _) = list_at(root, pos)?;
     // Only an item of this list, not a word starting with `\item`.
-    if trimmed["\\item".len()..].starts_with(|c: char| c.is_ascii_alphabetic()) {
+    if trimmed[command.len()..].starts_with(|c: char| c.is_ascii_alphabetic()) {
         return None;
     }
     let indent = indent_of(line).to_string();
-    let after_item = trimmed["\\item".len()..].trim_start();
+    let after_item = trimmed[command.len()..].trim_start();
     let label_end = if after_item.starts_with('[') {
         after_item.find(']').map_or(0, |i| i + 1)
     } else {
         0
     };
-    let empty = after_item[label_end..].trim().is_empty();
-    if empty && pos >= lr.start + indent.len() + "\\item".len() {
+    // A bibliography's entry: its key, then its text.
+    let (key, text_start) = match after_item[label_end..].strip_prefix('{') {
+        Some(k) if command == "\\bibitem" => match k.find('}') {
+            Some(close) => (Some(&k[..close]), label_end + close + 2),
+            None => return None,
+        },
+        _ => (None, label_end),
+    };
+    let head = lr.end - after_item.len() + text_start;
+    if command == "\\bibitem" && pos < head {
+        // In the command or its key: a line break.
+        return None;
+    }
+    let empty = after_item[text_start..].trim().is_empty();
+    if empty && key.is_some_and(|k| !k.trim().is_empty()) {
+        // `\bibitem{key}` alone: its text goes on the next line.
+        return None;
+    }
+    if empty && pos >= lr.start + indent.len() + command.len() {
+        if entries(&env, command) <= 1 {
+            // The list's only item: it stays, the cursor at its end.
+            let tx = Transaction::new("New Item");
+            return Some(tx.select(Selection::caret(lr.end)));
+        }
         // Out of the list: the empty item goes, the cursor after `\end`.
         let end = span(&env).end;
         let end_line = line_range(text, end.saturating_sub(1).max(lr.end));
@@ -92,11 +141,15 @@ pub fn enter(text: &str, sel: Selection, root: &SyntaxNode) -> Option<Transactio
         let caret = end_line.end - remove.len() + 1 + outer.len();
         return Some(tx.select(Selection::caret(caret)));
     }
-    let insert = format!("\n{indent}\\item ");
+    let (insert, back) = if command == "\\bibitem" {
+        (format!("\n{indent}\\bibitem{{}} "), 2)
+    } else {
+        (format!("\n{indent}\\item "), 0)
+    };
     let mut tx = Transaction::new("New Item");
     // The blanks before the cursor stay on this line.
     tx.replace(pos..pos, insert.clone()).ok()?;
-    Some(tx.select(Selection::caret(pos + insert.len())))
+    Some(tx.select(Selection::caret(pos + insert.len() - back)))
 }
 
 /// Enter at the end of a list's `\begin` line: its first item begun (no
@@ -217,7 +270,15 @@ pub fn complete_begin(text: &str, pos: usize, parse: &latex_syntax::Parse) -> Op
     }
     let lr = line_range(text, open);
     let indent = indent_of(&text[lr.clone()]).to_string();
-    let inner = format!("{indent}{}", if is_list(name) { "  \\item " } else { "  " });
+    // The document's own step (read without this `\begin`, which has no
+    // body yet); none for the document's body.
+    let step = if name == "document" {
+        String::new()
+    } else {
+        Style::infer(&format!("{}{}", &text[..open], &text[pos..])).step
+    };
+    let item = if is_list(name) { "\\item " } else { "" };
+    let inner = format!("{indent}{step}{item}");
     let insert = format!("\n{inner}\n{indent}\\end{{{name}}}");
     let mut tx = Transaction::new("Environment");
     tx.replace(pos..pos, insert).ok()?;
@@ -227,6 +288,11 @@ pub fn complete_begin(text: &str, pos: usize, parse: &latex_syntax::Parse) -> Op
 /// For an edit of `range` inside the name of a closed environment's
 /// `\begin` or `\end`: the same place in the name at the other end.
 pub fn mirror(root: &SyntaxNode, range: Range<usize>) -> Option<Range<usize>> {
+    if range.is_empty()
+        && let Some(m) = mirror_empty(root, range.start)
+    {
+        return Some(m);
+    }
     // At a boundary, the name on either side.
     let t = [
         latex_syntax::token_at(root, range.start),
@@ -258,6 +324,52 @@ pub fn mirror(root: &SyntaxNode, range: Range<usize>) -> Option<Range<usize>> {
     }
     let o = usize::from(other_name.text_range().start());
     Some(o + (range.start - name.start)..o + (range.end - name.start))
+}
+
+/// For typing at `pos` in an empty name, `\begin{}` or `\end{}` (the
+/// whole name deleted to type another): the empty name at the other end,
+/// the `\begin`s and `\end`s between them paired. No environment holds
+/// such a pair, so [`mirror`] alone would lose it.
+fn mirror_empty(root: &SyntaxNode, pos: usize) -> Option<Range<usize>> {
+    let open = latex_syntax::token_before(root, pos)?;
+    if open.kind() != K::L_BRACE || usize::from(open.text_range().end()) != pos {
+        return None;
+    }
+    // `\begin{}` or `\end{}`: the word, `{` and `}`.
+    let empty = |word: &latex_syntax::SyntaxToken| {
+        let o = word.next_token().filter(|t| t.kind() == K::L_BRACE)?;
+        o.next_token()
+            .filter(|t| t.kind() == K::R_BRACE)
+            .map(|_| usize::from(o.text_range().end()))
+    };
+    let word = open.prev_token()?;
+    if word.kind() != K::CONTROL_WORD || empty(&word) != Some(pos) {
+        return None;
+    }
+    let edges: Vec<latex_syntax::SyntaxToken> = root
+        .descendants_with_tokens()
+        .filter_map(|e| e.into_token())
+        .filter(|t| t.kind() == K::CONTROL_WORD && matches!(t.text(), "\\begin" | "\\end"))
+        .collect();
+    let at = edges.iter().position(|t| *t == word)?;
+    let begin = word.text() == "\\begin";
+    let mut depth = 0usize;
+    let others: Box<dyn Iterator<Item = &latex_syntax::SyntaxToken>> = if begin {
+        Box::new(edges[at + 1..].iter())
+    } else {
+        Box::new(edges[..at].iter().rev())
+    };
+    for t in others {
+        // An edge of the same kind opens one more level.
+        if (t.text() == "\\begin") == begin {
+            depth += 1;
+        } else if depth > 0 {
+            depth -= 1;
+        } else {
+            return empty(t).map(|p| p..p);
+        }
+    }
+    None
 }
 
 /// Toggles the formatting command `command` (`textbf`, `emph`, …): off
@@ -753,7 +865,7 @@ pub fn indent_item(text: &str, pos: usize, root: &SyntaxNode, deeper: bool) -> O
     if !line.trim_start().starts_with("\\item") {
         return None;
     }
-    let (env, name) = list_at(root, pos)?;
+    let (env, name) = list_at(root, pos).filter(|(_, n)| is_list(n))?;
     let indent = indent_of(line).to_string();
     let item_line = format!("{}\n", line.trim_start());
     let full = lr.start..(lr.end + 1).min(text.len());
@@ -1104,6 +1216,25 @@ pub fn typed(text: &str, sel: Selection, root: &SyntaxNode, typed: &str) -> Opti
         }
         "(" if escaped => insert("(\\)", 1),
         "[" if escaped => insert("[\\]", 1),
+        // The closing `\)` or `\]` typed where the one `\(` or `\[` put
+        // is: stepped over, as `$` is.
+        ")" | "]" if escaped && text[pos..].starts_with(&format!("\\{typed}")) => {
+            let mut tx = Transaction::new("Typing");
+            tx.replace(pos - 1..pos, "").ok()?;
+            Some(tx.select(Selection::caret(pos + 1)))
+        }
+        // `\right)` typed before the one `\left(` put: stepped over.
+        ")" | "]" | "." | "|"
+            if before.ends_with("\\right")
+                && text[pos..]
+                    .trim_start_matches(' ')
+                    .starts_with(&format!("\\right{typed}")) =>
+        {
+            let blanks = text[pos..].len() - text[pos..].trim_start_matches(' ').len();
+            let mut tx = Transaction::new("Typing");
+            tx.replace(pos - "\\right".len()..pos + blanks, "").ok()?;
+            Some(tx.select(Selection::caret(pos + typed.len())))
+        }
         "(" | "[" | "." | "|" if before.ends_with("\\left") => {
             let close = match typed {
                 "(" => ")",
@@ -1380,6 +1511,36 @@ mod tests {
         );
         assert_eq!(c2, s2.find("\n\nAfter").unwrap() + 1);
         assert!(enter(t, Selection::caret(t.len() - 2), &root(t)).is_none());
+        // A list's only item stays when empty: a list without one does
+        // not compile (Enter as one types it after `\begin{itemize}`).
+        let t = "\\begin{itemize}\n  \\item \n\\end{itemize}\n";
+        let at = t.find("\\item ").unwrap() + 6;
+        let tx = enter(t, Selection::caret(at), &root(t)).unwrap();
+        assert_eq!(apply(t, &tx), (t.to_string(), at));
+        // In a bibliography, `\bibitem{}` with the cursor in its braces;
+        // a key alone keeps its text for the next line; an empty one ends
+        // the bibliography.
+        let t = "\\begin{thebibliography}{9}\n\\bibitem{a} A.\n\\end{thebibliography}\n";
+        let at = t.find("A.").unwrap() + 2;
+        let tx = enter(t, Selection::caret(at), &root(t)).unwrap();
+        let (s, c) = apply(t, &tx);
+        assert_eq!(
+            s,
+            "\\begin{thebibliography}{9}\n\\bibitem{a} A.\n\\bibitem{} \n\\end{thebibliography}\n"
+        );
+        assert_eq!(
+            &s[..c],
+            "\\begin{thebibliography}{9}\n\\bibitem{a} A.\n\\bibitem{"
+        );
+        let tx = enter(&s, Selection::caret(c + 2), &root(&s)).unwrap();
+        assert_eq!(
+            apply(&s, &tx).0,
+            "\\begin{thebibliography}{9}\n\\bibitem{a} A.\n\\end{thebibliography}\n\n"
+        );
+        let t = "\\begin{thebibliography}{9}\n\\bibitem{a}\n\\end{thebibliography}\n";
+        let at = t.find("{a}").unwrap() + 3;
+        assert!(enter(t, Selection::caret(at), &root(t)).is_none());
+        assert!(enter(t, Selection::caret(at - 1), &root(t)).is_none());
     }
 
     #[test]
@@ -1399,6 +1560,21 @@ mod tests {
         let m = mirror(&root(t), at..at + 3).unwrap();
         assert_eq!(&t[m.clone()], "ize");
         assert!(m.start > t.find("\\end").unwrap());
+        // The whole name deleted, the new one typed: still both ends, past
+        // the environments, comments and verbatim between them.
+        let t = "\\begin{}\n\\begin{x}\\end{x} % \\end{}\n\\verb|\\end{}|\n\\end{}\n";
+        let end = t.rfind("\\end{}").unwrap() + 5;
+        assert_eq!(mirror(&root(t), 7..7), Some(end..end));
+        assert_eq!(mirror(&root(t), end..end), Some(7..7));
+        let t = "\\begin{}\n\\end{y}\n";
+        assert_eq!(mirror(&root(t), 7..7), None);
+        // The document's own indentation, none for its body.
+        let t = "\\begin{center}\n\\begin{tabular}{l}\nx\n\\end{tabular}\n\\end{center}\n\\begin{quote}";
+        let tx = complete_begin(t, t.len(), &latex_syntax::parse(t)).unwrap();
+        assert_eq!(apply(t, &tx).0, format!("{t}\n\n\\end{{quote}}"));
+        let t = "\\documentclass{article}\n\\begin{document}";
+        let tx = complete_begin(t, t.len(), &latex_syntax::parse(t)).unwrap();
+        assert_eq!(apply(t, &tx).0, format!("{t}\n\n\\end{{document}}"));
     }
 
     #[test]
@@ -1556,6 +1732,20 @@ mod tests {
         let s = "$\\left$";
         let tx = typed(s, Selection::caret(6), &root(s), "(").unwrap();
         assert_eq!(apply(s, &tx).0, "$\\left( \\right)$");
+        // The closing pairs typed over the ones put there.
+        let s = "a \\(x\\\\)";
+        let tx = typed(s, Selection::caret(6), &root(s), ")").unwrap();
+        assert_eq!(apply(s, &tx), ("a \\(x\\)".to_string(), 7));
+        let s = "\\[x\\\\]";
+        let tx = typed(s, Selection::caret(4), &root(s), "]").unwrap();
+        assert_eq!(apply(s, &tx), ("\\[x\\]".to_string(), 5));
+        let s = "$\\left( x \\right \\right)$";
+        let at = s.find(" \\right)").unwrap();
+        let tx = typed(s, Selection::caret(at), &root(s), ")").unwrap();
+        assert_eq!(apply(s, &tx), ("$\\left( x \\right)$".to_string(), at + 1));
+        // A line break's `\\` before a parenthesis: typed as it is.
+        let s = "a \\\\\\)";
+        assert!(typed(s, Selection::caret(4), &root(s), ")").is_none());
         // Tab stops.
         let s = "$\\frac{a}{}$";
         let tx = next_stop(s, 7, &root(s)).unwrap();
