@@ -1492,9 +1492,83 @@ def archive_cases():
                 out.append({"name": f"refile {d}@{p}->{t}", "text": doc, "point": p, "mark": None, "form": form, "cmd": "refile", "args": [t]})
     return out
 
+HEADING_DOCS = [
+    """#+TITLE: H
+Intro text.
+* TODO First :a:
+Body one.
+** Child
+* DONE Second   :b:c:
+Body two.
+* Third""",
+    """* Spaced
+
+Body.
+
+* Next
+
+** Sub
+
+* Last
+""",
+    """Text only, no heading.
+More text.
+""",
+    """Before.
+
+* A
+text
+""",
+    """#+TODO: NEXT WAIT | DONE CANCELLED
+* NEXT [#A] Task title here :x:
+** WAIT Sub task
+** Plain sub
+*** Deep
+* CANCELLED Gone
+""",
+    """* Task
+*************** TODO Inline
+inside
+*************** END
+after inline
+""",
+    """* A
+- item
+- [ ] box
+* B""",
+]
+
+HEADING_FORMS = [
+    ("(org-insert-heading)", ["here"]),
+    ("(org-insert-heading '(4))", ["after"]),
+    ("(org-insert-heading '(16))", ["parent"]),
+    ("(org-insert-subheading nil)", ["sub"]),
+    ("(org-insert-todo-heading nil)", ["todo", "here", False]),
+    ("(org-insert-todo-heading '(4))", ["todo", "here", True]),
+    ("(org-insert-todo-heading-respect-content)", ["todo", "after", False]),
+]
+
+
+def heading_cases():
+    """`org-insert-heading' (M-RET, C-RET), `org-insert-subheading' and
+    `org-insert-todo-heading' at the start, middle and end of each line."""
+    out = []
+    for d, doc in enumerate(HEADING_DOCS):
+        data = doc.encode()
+        points = set()
+        for s, l in byte_offsets_of_lines(doc):
+            for k in (0, 1, 2, 4, 7, len(l) // 2, len(l) - 4, len(l)):
+                if 0 <= k <= len(l):
+                    points.add(s + k)
+        points = sorted(p for p in points if p <= len(data) and (p == len(data) or (data[p] & 0xC0) != 0x80))
+        for p in points:
+            for form, args in HEADING_FORMS:
+                out.append({"name": f"heading {d}@{p} {form}", "text": doc, "point": p, "mark": None, "form": form, "cmd": "insert-heading", "args": args})
+    return out
+
 if __name__ == "__main__":
     path = os.path.join(ROOT, "tests/edit/cases.json")
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(cases() + todo_dependency_cases() + footnote_cases() + random_footnote_cases() + planning_cases() + drawer_cases() + archive_cases(), f, ensure_ascii=False, indent=1)
+        json.dump(cases() + todo_dependency_cases() + footnote_cases() + random_footnote_cases() + planning_cases() + drawer_cases() + archive_cases() + heading_cases(), f, ensure_ascii=False, indent=1)
         f.write("\n")
     print(f"{len(cases())} cases -> {path}")

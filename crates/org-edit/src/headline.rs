@@ -33,7 +33,7 @@ pub(crate) fn headings(text: &str, limit: Option<usize>) -> Vec<(usize, usize)> 
 }
 
 /// `org-back-to-heading`: the heading line at or before `pos`.
-fn back_to_heading(
+pub(crate) fn back_to_heading(
     text: &str,
     pos: usize,
     limit: Option<usize>,
@@ -347,7 +347,7 @@ pub fn demote_subtree(
 
 /// The end of the subtree of the headline at `bol`: the next heading of
 /// the same or a higher level (inlinetasks are not headings), or the end.
-fn subtree_end(text: &str, bol: usize, level: usize, limit: Option<usize>) -> usize {
+pub(crate) fn subtree_end(text: &str, bol: usize, level: usize, limit: Option<usize>) -> usize {
     headings(text, limit)
         .into_iter()
         .find(|(s, l)| *s > bol && *l <= level)
@@ -681,6 +681,327 @@ pub fn move_subtree_to(
         to - r.len() + sep.len()
     };
     Ok(tx.select(Selection::caret(point)))
+}
+
+/// Where [`insert_heading`] puts the new heading: `org-insert-heading`
+/// without a prefix, with `C-u` (`org-insert-heading-respect-content`),
+/// or with `C-u C-u`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HeadingPlace {
+    /// At point: above the heading at its start, splitting its title in
+    /// it, or after its line.
+    Here,
+    /// After the subtree at point.
+    AfterSubtree,
+    /// After the subtree of the parent of the heading at point.
+    AfterParent,
+}
+
+/// `org-before-first-heading-p` (with limited levels) at `pos`.
+fn before_first_heading(text: &str, pos: usize, limit: Option<usize>) -> bool {
+    let bol = text[..pos].rfind('\n').map_or(0, |i| i + 1);
+    !headings(text, limit).iter().any(|(s, _)| *s <= bol)
+}
+
+/// `outline-next-heading` from `pos`: the next heading line's start after
+/// it.
+fn next_heading(text: &str, pos: usize, limit: Option<usize>) -> Option<usize> {
+    headings(text, limit)
+        .into_iter()
+        .map(|(s, _)| s)
+        .find(|s| *s > pos)
+}
+
+/// The start of the line `n` lines away from the line at `pos` (Emacs's
+/// `forward-line`, stopping at the ends).
+fn forward_line(text: &str, pos: usize, n: isize) -> usize {
+    let mut b = text[..pos].rfind('\n').map_or(0, |i| i + 1);
+    if n < 0 {
+        for _ in 0..n.unsigned_abs() {
+            if b == 0 {
+                break;
+            }
+            b = text[..b - 1].rfind('\n').map_or(0, |i| i + 1);
+        }
+    } else {
+        for _ in 0..n {
+            match text[b..].find('\n') {
+                Some(i) => b += i + 1,
+                None => break,
+            }
+        }
+    }
+    b
+}
+
+/// `org--line-empty-p`: whether the line `n` lines away from the one at
+/// `pos` is blank (never at the start of the text).
+fn line_empty(text: &str, pos: usize, n: isize) -> bool {
+    if pos == 0 {
+        return false;
+    }
+    let b = forward_line(text, pos, n);
+    let e = text[b..].find('\n').map_or(text.len(), |i| b + i);
+    text[b..e].trim_matches([' ', '\t']).is_empty()
+}
+
+/// `org--blank-before-heading-p` with `org-blank-before-new-entry`'s
+/// default (`auto`): a new heading gets a blank line before it when the
+/// heading at point (its parent with `parent`) has one.
+fn blank_before_heading(text: &str, point: usize, parent: bool, limit: Option<usize>) -> bool {
+    let mut p = point;
+    if before_first_heading(text, p, limit) {
+        match next_heading(text, p, limit) {
+            Some(s) => p = s,
+            None => return false,
+        }
+    }
+    let Ok((h, level)) = back_to_heading(text, p, limit) else {
+        return false;
+    };
+    p = h;
+    if parent
+        && let Some(&(s, _)) = headings(text, limit)
+            .iter()
+            .rev()
+            .find(|(s, l)| *s < h && *l < level)
+    {
+        p = s;
+    }
+    if p != 0 {
+        return line_empty(text, p, -1);
+    }
+    if let Some(n) = next_heading(text, p, limit) {
+        return line_empty(text, n, -1);
+    }
+    let end = text.trim_end_matches([' ', '\t']).len();
+    let bolp = end == 0 || text.as_bytes()[end - 1] == b'\n';
+    bolp && line_empty(text, end, -1)
+}
+
+/// `org-N-empty-lines-before-current`: exactly `n` blank lines before the
+/// line at point, the column kept.
+fn n_empty_lines_before_current(buf: &mut Buf, n: usize) {
+    let col = column_at(&buf.text, buf.point);
+    let bol = buf.bol(buf.point);
+    buf.point = bol;
+    if bol > 0 {
+        let q = buf.text[..bol]
+            .trim_end_matches([' ', '\r', '\t', '\n'])
+            .len();
+        let start = buf.eol(q);
+        let prev_end = bol - 1;
+        if start < prev_end {
+            buf.delete(start, prev_end);
+        }
+    }
+    buf.insert_at_point(&"\n".repeat(n));
+    let bol = buf.bol(buf.point);
+    buf.point = crate::buffer::move_to_column(&buf.text, bol, col);
+}
+
+/// The lambda `maybe-add-blank-after` of `org-insert-heading`: a blank
+/// line between the new heading and a heading right after it.
+fn blank_after(buf: &mut Buf, blank: bool) {
+    let e = buf.eol(buf.point);
+    if blank && e < buf.text.len() && stars_at(&buf.text, e + 1).is_some() {
+        buf.insert_before_point(e + 1, "\n");
+    }
+}
+
+/// `org-insert-heading` in `buf` with the default settings
+/// (`org-M-RET-may-split-line` and `org-blank-before-new-entry`), at
+/// `level` when given. Point ends after the new heading's stars.
+fn insert_heading_in(buf: &mut Buf, place: HeadingPlace, level: Option<usize>, ctx: &ParseContext) {
+    let limit = ctx.inlinetask_min_level;
+    let blank = blank_before_heading(
+        &buf.text,
+        buf.point,
+        place == HeadingPlace::AfterParent,
+        limit,
+    );
+    let current = (!before_first_heading(&buf.text, buf.point, limit))
+        .then(|| back_to_heading(&buf.text, buf.point, limit).ok())
+        .flatten()
+        .map(|(_, l)| l);
+    let stars = "*".repeat(level.or(current).unwrap_or(1));
+    let bolp = |b: &Buf| b.point == b.bol(b.point);
+    if place != HeadingPlace::Here {
+        match current {
+            None => buf.point = next_heading(&buf.text, buf.point, limit).unwrap_or(buf.text.len()),
+            Some(_) => {
+                let (mut h, mut l) = back_to_heading(&buf.text, buf.point, limit).unwrap_or((0, 1));
+                if place == HeadingPlace::AfterParent
+                    && let Some(&(s, pl)) = headings(&buf.text, limit)
+                        .iter()
+                        .rev()
+                        .find(|(s, pl)| *s < h && *pl < l)
+                {
+                    (h, l) = (s, pl);
+                }
+                buf.point = subtree_end(&buf.text, h, l, limit);
+            }
+        }
+        if !bolp(buf) {
+            buf.insert_at_point("\n");
+        }
+        if blank && buf.point > 0 && before_first_heading(&buf.text, buf.point - 1, limit) {
+            buf.insert_at_point("\n");
+            buf.point -= 1;
+        }
+        if current.is_none() && buf.point < buf.text.len() && buf.point > 0 {
+            if stars_at(&buf.text, buf.bol(buf.point)).is_some() {
+                buf.insert_at_point("\n");
+            }
+            buf.point -= 1;
+        }
+        if !(blank && line_empty(&buf.text, buf.point, -1)) {
+            n_empty_lines_before_current(buf, usize::from(blank));
+        }
+        buf.insert_at_point(&format!("{stars} \n"));
+        buf.point -= 1;
+        blank_after(buf, blank);
+        return;
+    }
+    let bol = buf.bol(buf.point);
+    if stars_at(&buf.text, bol).is_some() {
+        if bolp(buf) {
+            let p = buf.point;
+            if blank {
+                buf.insert_before_point(p, "\n");
+            }
+            buf.insert_before_point(p, &format!("{stars} \n"));
+            if !(blank && line_empty(&buf.text, buf.point, -1)) {
+                n_empty_lines_before_current(buf, usize::from(blank));
+            }
+            buf.point = buf.eol(buf.point);
+            return;
+        }
+        let eol = buf.eol(bol);
+        let title = org_model::complex_heading(&buf.text[bol..eol], ctx)
+            .and_then(|c| c.title)
+            .map(|r| (bol + r.start, bol + r.end));
+        if let Some((_, te)) = title.filter(|(ts, te)| (*ts..=*te).contains(&buf.point)) {
+            let split = buf.text[buf.point..te].to_string();
+            buf.delete(buf.point, te);
+            let eol = buf.eol(buf.point);
+            if buf.text[buf.point..eol].trim_matches([' ', '\t']).is_empty() {
+                buf.delete(buf.point, eol);
+            } else {
+                align_tags(buf, bol);
+            }
+            buf.point = buf.eol(buf.point);
+            if blank {
+                buf.insert_at_point("\n");
+            }
+            buf.insert_at_point(&format!("\n{stars} "));
+            blank_after(buf, blank);
+            if !split.trim().is_empty() {
+                buf.insert_at_point(&split);
+            }
+            return;
+        }
+        buf.point = buf.eol(buf.point);
+        if blank {
+            buf.insert_at_point("\n");
+        }
+        buf.insert_at_point(&format!("\n{stars} "));
+        blank_after(buf, blank);
+        return;
+    }
+    if bolp(buf) {
+        buf.insert_at_point(&format!("{stars} "));
+    } else {
+        buf.insert_at_point(&format!("\n{stars} "));
+    }
+    if !(blank && line_empty(&buf.text, buf.point, -1)) {
+        n_empty_lines_before_current(buf, usize::from(blank));
+    }
+    blank_after(buf, blank);
+}
+
+/// `org-insert-heading` (M-RET on a heading): a new heading at the level
+/// of the one at point. At the start of a heading it goes above it; in
+/// its title the rest of the title moves to it; elsewhere on a heading it
+/// follows the heading's line; on a line of text it turns the text after
+/// point into the heading. [`HeadingPlace::AfterSubtree`] is
+/// `org-insert-heading-respect-content` (C-RET).
+pub fn insert_heading(
+    text: &str,
+    point: usize,
+    place: HeadingPlace,
+    ctx: &ParseContext,
+) -> Result<Transaction, EditError> {
+    run(text, point, "Insert heading", |buf| {
+        insert_heading_in(buf, place, None, ctx);
+        Ok(())
+    })
+}
+
+/// `org-insert-subheading`: a heading one level below the one at point,
+/// after its line (even at its start).
+pub fn insert_subheading(
+    text: &str,
+    point: usize,
+    ctx: &ParseContext,
+) -> Result<Transaction, EditError> {
+    run(text, point, "Insert subheading", |buf| {
+        let p = buf.point;
+        if p == buf.bol(p) && p < buf.text.len() && buf.text.as_bytes()[p] != b'\n' {
+            buf.point += buf.text[p..].chars().next().map_or(1, char::len_utf8);
+        }
+        insert_heading_in(buf, HeadingPlace::Here, None, ctx);
+        let bol = buf.bol(buf.point);
+        if let Some(stars) = stars_at(&buf.text, bol) {
+            change_level(buf, bol, stars, 1, ctx)?;
+            fix_position(buf, ctx);
+        }
+        Ok(())
+    })
+}
+
+/// `org-insert-todo-heading` on a heading (lists are
+/// [`crate::list::insert_item`]'s): [`insert_heading`], with the TODO
+/// keyword of the previous heading of its level, or the first keyword
+/// when that one has none or is done, or with `first`.
+pub fn insert_todo_heading(
+    text: &str,
+    point: usize,
+    place: HeadingPlace,
+    first: bool,
+    ctx: &ParseContext,
+) -> Result<Transaction, EditError> {
+    run(text, point, "Insert TODO heading", |buf| {
+        insert_heading_in(buf, place, None, ctx);
+        let bol = buf.bol(buf.point);
+        let Some(level) = stars_at(&buf.text, bol) else {
+            return Ok(());
+        };
+        // `org-forward-heading-same-level -1`: the previous heading of
+        // this level, not past a higher one.
+        let previous = headings(&buf.text, ctx.inlinetask_min_level)
+            .into_iter()
+            .rev()
+            .filter(|(s, _)| *s < bol)
+            .take_while(|(_, l)| *l >= level)
+            .find(|(_, l)| *l == level)
+            .map_or(bol, |(s, _)| s);
+        let line = &buf.text[previous..buf.eol(previous)];
+        let keyword = org_model::complex_heading(line, ctx)
+            .and_then(|c| c.todo)
+            .map(|r| line[r].to_string());
+        let mark = match keyword {
+            Some(k) if !first && !ctx.done_keywords.contains(&k) => k,
+            _ => match ctx.todo_keywords.first() {
+                Some(k) => k.clone(),
+                None => return Ok(()),
+            },
+        };
+        let at = bol + level + 1;
+        buf.insert_before_point(at, &format!("{mark} "));
+        buf.point = at + mark.len() + 1;
+        Ok(())
+    })
 }
 
 #[cfg(test)]

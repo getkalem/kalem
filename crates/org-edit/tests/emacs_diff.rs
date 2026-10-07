@@ -27,6 +27,35 @@ fn run(
         "org-move-subtree-down" => move_subtree(text, point, true, ctx),
         "org-move-subtree-up" => move_subtree(text, point, false, ctx),
         "org-cut-subtree" => cut_subtree(text, point, ctx).map(|(t, _)| t),
+        "insert-heading" => {
+            let place = |a: &Value| match a.as_str() {
+                Some("after") => HeadingPlace::AfterSubtree,
+                Some("parent") => HeadingPlace::AfterParent,
+                _ => HeadingPlace::Here,
+            };
+            match args[0].as_str() {
+                Some("sub") => insert_subheading(text, point, ctx),
+                Some("todo") => {
+                    // In a list `org-insert-todo-heading` inserts an item,
+                    // unless it is told to insert a heading.
+                    let doc = org_model::Document::new(org_syntax::parse(text));
+                    let item = (args[1] != "after")
+                        .then(|| org_edit::list::insert_item(&doc, point, true))
+                        .flatten();
+                    match item {
+                        Some(t) => Ok(t),
+                        None => insert_todo_heading(
+                            text,
+                            point,
+                            place(&args[1]),
+                            args[2].as_bool().unwrap_or(false),
+                            ctx,
+                        ),
+                    }
+                }
+                _ => insert_heading(text, point, place(&args[0]), ctx),
+            }
+        }
         "copy-paste" => {
             copy_subtree(text, point, ctx).and_then(|clip| paste_subtree(text, arg(0), &clip, ctx))
         }
