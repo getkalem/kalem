@@ -12,6 +12,12 @@ keys from a script (`-s`); the result is the text and the cursor's line and
 column (bytes, from 1) after a final Escape. DEFAULTS are Kalem's own
 settings, set first.
 
+Record with the Vim CI checks against (Ubuntu's, 9.1), or one at least
+as new as 9.0.2188: macOS's /usr/bin/vim (9.0) is older, and its `{` on
+a one-line text goes to the line's end. In a container:
+`docker run --rm -v "$PWD":/k -w /k ubuntu:24.04 sh -c 'apt-get update &&
+apt-get install -y vim python3 && python3 tools/vim-expected.py'`.
+
     tools/vim-expected.py            # every case
     tools/vim-expected.py --check    # fail if the recorded results differ
 """
