@@ -131,6 +131,25 @@ fn folding_with_tab(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn shift_tab_cycles_overview_contents_everything(cx: &mut TestAppContext) {
+    // Org's global cycle, going on from `#+STARTUP: overview`: the
+    // contents (every heading), then everything, then the overview.
+    let (e, cx) = open("#+STARTUP: overview\n* A\n** B\ntext\n* C\n", cx);
+    at(&e, 21, cx);
+    let visible = |cx: &mut gpui::VisualTestContext| {
+        cx.run_until_parked();
+        e.read_with(cx, |e, _| e.visible.clone())
+    };
+    assert_eq!(visible(cx), vec![0, 1, 4, 5]);
+    cx.simulate_keystrokes("shift-tab");
+    assert_eq!(visible(cx), vec![0, 1, 2, 4, 5]);
+    cx.simulate_keystrokes("shift-tab");
+    assert_eq!(visible(cx), vec![0, 1, 2, 3, 4, 5]);
+    cx.simulate_keystrokes("shift-tab");
+    assert_eq!(visible(cx), vec![0, 1, 4, 5]);
+}
+
+#[gpui::test]
 fn tables_keep_columns(cx: &mut TestAppContext) {
     let (e, cx) = open("| ab   | c |\n", cx);
     at(&e, 4, cx);

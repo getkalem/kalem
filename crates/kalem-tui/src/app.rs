@@ -634,6 +634,10 @@ impl App {
         if let Some(o) = option {
             let blocks = self.editor.all_blocks(&self.doc);
             self.editor.folds = kalem_core::view::Folds::startup(&blocks, &o);
+            // Shift+Tab goes on from the startup visibility, as
+            // `org-cycle-global-status` does: from an overview to the
+            // contents.
+            self.global_fold = kalem_core::view::startup_visibility(&o);
         }
     }
 
@@ -2410,11 +2414,7 @@ impl App {
     fn fold(&mut self, global: bool) {
         if global {
             let blocks = self.editor.all_blocks(&self.doc);
-            let (next, option) = match self.global_fold {
-                Visibility::Subtree => (Visibility::Folded, "overview"),
-                Visibility::Folded => (Visibility::Children, "content"),
-                Visibility::Children => (Visibility::Subtree, "showall"),
-            };
+            let (next, option) = kalem_core::view::next_global(self.global_fold);
             self.global_fold = next;
             self.editor.folds = kalem_core::view::Folds::startup(&blocks, option);
             self.message(

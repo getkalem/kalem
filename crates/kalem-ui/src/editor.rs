@@ -311,6 +311,8 @@ pub struct Editor {
     line_count: usize,
     /// Folded headlines.
     pub folds: Folds,
+    /// Where Shift+Tab's global cycle is: overview, contents or everything.
+    global_fold: view::Visibility,
     blocks: Option<(u64, Arc<Vec<Block>>)>,
     /// Blocks shown as their first line away from the cursor.
     pub folded_blocks: HashSet<usize>,
@@ -502,6 +504,7 @@ impl Editor {
             visible: Vec::new(),
             line_count: 0,
             folds: Folds::default(),
+            global_fold: view::Visibility::Subtree,
             blocks: None,
             folded_blocks: HashSet::new(),
             theme,
@@ -683,6 +686,7 @@ impl Editor {
         if let Some(o) = option {
             let blocks = self.blocks();
             self.folds = Folds::startup(&blocks, &o);
+            self.global_fold = view::startup_visibility(&o);
         }
     }
 
@@ -1867,8 +1871,18 @@ impl Editor {
     fn fold(&mut self, global: bool, cx: &mut Context<'_, Self>) {
         let blocks = self.blocks();
         if global {
-            let any = self.folds.visible(&blocks).len() < blocks.len();
-            self.folds = Folds::startup(&blocks, if any { "showall" } else { "overview" });
+            // Org's global cycle: overview, contents, everything.
+            let (next, option) = view::next_global(self.global_fold);
+            self.global_fold = next;
+            self.folds = Folds::startup(&blocks, option);
+            self.message(
+                tr!(match next {
+                    view::Visibility::Folded => "msg-visibility-overview",
+                    view::Visibility::Children => "msg-visibility-contents",
+                    view::Visibility::Subtree => "msg-visibility-all",
+                }),
+                false,
+            );
         } else {
             let c = self.doc.selection.head;
             if let Some(i) = blocks.iter().position(|b| {
@@ -2063,6 +2077,7 @@ impl Editor {
     fn mode_changed(&mut self, cx: &mut Context<'_, Self>) {
         self.blocks = None;
         self.folds = Folds::default();
+        self.global_fold = view::Visibility::Subtree;
         self.refresh_vim();
         self.list.reset(0);
         self.visible.clear();

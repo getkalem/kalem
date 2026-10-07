@@ -1885,6 +1885,26 @@ impl Folds {
     }
 }
 
+/// The global visibility `#+STARTUP: OPTION` leaves the document in, from
+/// which Shift+Tab's cycle goes on (`org-cycle-global-status`).
+pub fn startup_visibility(option: &str) -> Visibility {
+    match option {
+        "overview" | "fold" => Visibility::Folded,
+        "content" => Visibility::Children,
+        _ => Visibility::Subtree,
+    }
+}
+
+/// Shift+Tab's global visibility after `current`, with the `#+STARTUP`
+/// option that shows it: overview, then the contents, then everything.
+pub fn next_global(current: Visibility) -> (Visibility, &'static str) {
+    match current {
+        Visibility::Subtree => (Visibility::Folded, "overview"),
+        Visibility::Folded => (Visibility::Children, "content"),
+        Visibility::Children => (Visibility::Subtree, "showall"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

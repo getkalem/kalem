@@ -103,3 +103,19 @@ fn set_tags_starts_with_the_headings_tags() {
     assert!(t.text().starts_with("* TODO Task "), "{}", t.text());
     assert!(t.text().trim_end().ends_with(":old:new:"), "{}", t.text());
 }
+
+#[test]
+fn shift_tab_goes_on_from_the_startup_overview() {
+    // `#+STARTUP: overview` is where the global cycle is: the first
+    // Shift+Tab shows the contents, as in Emacs.
+    let text = "#+STARTUP: overview\n* A\n** B\ntext\n* C\n";
+    let mut t = open(text, text.find("* A").unwrap());
+    assert_eq!(t.row(1), " * A …");
+    t.key(KeyCode::BackTab, KeyModifiers::SHIFT);
+    assert_eq!(t.row(2), "   ○ B …");
+    assert!(t.status().ends_with("Contents"), "{}", t.status());
+    t.key(KeyCode::BackTab, KeyModifiers::SHIFT);
+    assert_eq!(t.row(3), "     text");
+    t.key(KeyCode::BackTab, KeyModifiers::SHIFT);
+    assert!(t.status().ends_with("Overview"), "{}", t.status());
+}
