@@ -46,6 +46,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Org: with `#+STARTUP: overview` the first Shift+Tab left the overview as it was instead of showing the contents; the graphical editor's Shift+Tab had no contents step at all.
 - Org: Ctrl+B and the other emphasis keys dropped the selection, so a second press inserted a pair of markers instead of taking the bold away, and Ctrl+B, a word, Ctrl+B left the cursor inside the markers; they work as a word processor's now.
 - Org: a stored link to a heading of the same document was inserted with its file (`[[file:notes.org::*Top][Top]]`); as in Emacs it is `[[*Top][Top]]`.
+- Recent files that no longer exist leave the list when Kalem saves it, as Doom's recentf cleans up: temporary files that the editors' tests wrote into the user's list before 0.1.0 fixed that filled most of it.
 
 ## [0.1.0] - 2026-10-06
 

@@ -249,9 +249,10 @@ impl Projects {
     /// Writes the list to its file (through a temporary file, so that it
     /// is never half written), with what another Kalem wrote there since
     /// this one read it: its projects stay unless this one removed them,
-    /// and its recent files follow this one's. A file that cannot be read
-    /// is left alone (the error); one that is not a project list is kept
-    /// beside it as `projects.toml.broken` before it is written over.
+    /// and its recent files follow this one's; recent files that no longer
+    /// exist are left out. A file that cannot be read is left alone (the
+    /// error); one that is not a project list is kept beside it as
+    /// `projects.toml.broken` before it is written over.
     pub fn save(&self) -> io::Result<()> {
         let Some(file) = &self.file else {
             return Ok(());
@@ -274,9 +275,21 @@ impl Projects {
             Err(e) if e.kind() == io::ErrorKind::NotFound => {}
             Err(e) => return Err(e),
         }
+        out.forget_missing();
         let tmp = file.with_extension("toml.tmp");
         std::fs::write(&tmp, out.to_toml())?;
         std::fs::rename(&tmp, file)
+    }
+
+    /// Leaves the recent files that no longer exist out of the lists, in
+    /// all and per project, as Doom's recentf cleans its list up: a deleted
+    /// file, or the temporary files tests wrote into the user's list before
+    /// kalem ba6414b, stayed there, each save keeping them.
+    fn forget_missing(&mut self) {
+        self.recent.retain(|f| f.exists());
+        for p in &mut self.list {
+            p.recent.retain(|f| f.exists());
+        }
     }
 
     /// `disk`'s projects this list lacks and did not remove, and its recent
@@ -463,6 +476,30 @@ mod tests {
             "{roots:?}"
         );
         assert!(!roots.contains(&c_dir), "{roots:?}");
+    }
+
+    /// Recent files that are gone leave the list when it is saved, those
+    /// on disk read from it too (a test's temporary files stayed in the
+    /// user's list for good).
+    #[test]
+    fn files_that_are_gone_leave_the_recent_files() {
+        let dir = temp("gone");
+        let (kept, gone) = (dir.join("kept.org"), dir.join("gone.org"));
+        std::fs::write(&kept, "x").unwrap();
+        std::fs::write(&gone, "x").unwrap();
+        let file = dir.join("projects.toml");
+        let mut p = Projects::load(Some(file.clone()));
+        p.add(&dir).unwrap();
+        p.opened(&kept);
+        p.opened(&gone);
+        p.save().unwrap();
+        std::fs::remove_file(&gone).unwrap();
+        // Another Kalem saves, its list without them: those on disk were
+        // merged back.
+        Projects::load(Some(file.clone())).save().unwrap();
+        let q = Projects::load(Some(file));
+        assert_eq!(q.recent, vec![kept.clone()]);
+        assert_eq!(q.get(&dir).unwrap().recent, vec![kept]);
     }
 
     /// A file that is not a project list is kept aside, not lost.
