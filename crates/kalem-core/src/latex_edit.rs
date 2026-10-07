@@ -107,10 +107,10 @@ pub fn enter(text: &str, sel: Selection, root: &SyntaxNode) -> Option<Transactio
     };
     // A bibliography's entry: its key, then its text.
     let (key, text_start) = match after_item[label_end..].strip_prefix('{') {
-        Some(k) if command == "\\bibitem" => match k.find('}') {
-            Some(close) => (Some(&k[..close]), label_end + close + 2),
-            None => return None,
-        },
+        Some(k) if command == "\\bibitem" => {
+            let close = k.find('}')?;
+            (Some(&k[..close]), label_end + close + 2)
+        }
         _ => (None, label_end),
     };
     let head = lr.end - after_item.len() + text_start;

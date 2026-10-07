@@ -29,6 +29,9 @@ pub enum CsvHeader {
     Row(usize),
 }
 
+/// A CSV and a BibTeX document's sorts: the column, and whether reversed.
+type Sorts = (Option<(usize, bool)>, Option<(usize, bool)>);
+
 /// The editor view's state, kept across frames.
 #[derive(Debug, Default)]
 pub struct EditorView {
@@ -61,7 +64,7 @@ pub struct EditorView {
     pub area: Rect,
     /// The CSV and BibTeX sorts of the last frame: a view sorted anew
     /// starts at its first row.
-    sort_seen: (Option<(usize, bool)>, Option<(usize, bool)>),
+    sort_seen: Sorts,
     /// Focus mode: only the section holding the cursor shows.
     pub focus: bool,
     /// The text column's width in characters; 0 for the whole window.

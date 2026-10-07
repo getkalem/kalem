@@ -2980,7 +2980,8 @@ fn latex_structural_editing() {
     t.at(at);
     t.key(KeyCode::Char('b'), KeyModifiers::CONTROL);
     assert!(t.app.doc.text().as_str().contains("some \\textbf{words}"));
-    // `\begin{…}` gets its `\end{…}`.
+    // `\begin{…}` gets its `\end{…}`, the body indented as the
+    // document's are (not at all here).
     let end = t.app.doc.text().len();
     t.at(end);
     t.typ("\\begin{center}");
@@ -2989,7 +2990,7 @@ fn latex_structural_editing() {
             .doc
             .text()
             .as_str()
-            .ends_with("\\begin{center}\n  \n\\end{center}"),
+            .ends_with("\\begin{center}\n\n\\end{center}"),
         "{}",
         t.app.doc.text().as_str()
     );
@@ -3002,7 +3003,7 @@ fn latex_structural_editing() {
             .doc
             .text()
             .as_str()
-            .ends_with("\\begin{centXer}\n  \n\\end{centXer}")
+            .ends_with("\\begin{centXer}\n\n\\end{centXer}")
     );
     // A heading level from the palette.
     t.at(t.app.doc.text().as_str().find("some").unwrap());

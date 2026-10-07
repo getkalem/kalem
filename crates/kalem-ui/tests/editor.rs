@@ -3375,7 +3375,8 @@ fn latex_structural_editing(cx: &mut TestAppContext) {
     let end = text_of(&e, cx).len();
     at(&e, end, cx);
     cx.simulate_input("\\begin{center}");
-    assert!(text_of(&e, cx).ends_with("\\begin{center}\n  \n\\end{center}"));
+    // The body indented as the document's are (not at all here).
+    assert!(text_of(&e, cx).ends_with("\\begin{center}\n\n\\end{center}"));
     at(&e, text_of(&e, cx).find("some").unwrap(), cx);
     cx.simulate_keystrokes(&format!("{p}-1", p = primary()));
     assert!(text_of(&e, cx).contains("\\section{some \\textbf{words}}"));
