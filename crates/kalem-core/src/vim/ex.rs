@@ -360,6 +360,9 @@ impl Vim {
                 self.register = reg;
                 let text = lines_text(doc, a, b);
                 self.store(text, true, false, host);
+                // Vim goes to the first non-blank first: undo comes back
+                // there.
+                doc.selection = Selection::caret(first_non_blank(doc, a));
                 let span = line_span(doc, a, b);
                 edit(doc, span.clone(), "", span.start);
                 self.goto_line(doc, a.min(last_line(doc)));
@@ -420,6 +423,7 @@ impl Vim {
                 let rest = args.trim_start_matches(name.chars().next().unwrap_or('>'));
                 let (_, count) = reg_count(rest);
                 let (a, b) = count.map_or((a, b), |n| (b, (b + n - 1).min(last)));
+                doc.selection = Selection::caret(first_non_blank(doc, a));
                 for _ in 0..depth {
                     self.shift_lines(doc, a, b, name == ">", out);
                 }
@@ -427,15 +431,16 @@ impl Vim {
             }
             _ if is("norm", "normal") => {
                 let keys: Vec<Key> = args.trim_start().chars().map(Key::Char).collect();
-                let lines: Vec<usize> = match range {
-                    Some((a, b)) => (a..=b).collect(),
-                    None => vec![cur],
+                let lines: Vec<Option<usize>> = match range {
+                    Some((a, b)) => (a..=b).map(Some).collect(),
+                    // Without a range: from the cursor where it is.
+                    None => vec![None],
                 };
                 // Line by line number, as Vim goes: a line the keys
                 // delete moves the next up past it, and past the end the
                 // last line takes the rest.
                 for &l in &lines {
-                    let p = line_start(doc, l.min(last_line(doc)));
+                    let p = l.map_or(self.cursor, |l| line_start(doc, l.min(last_line(doc))));
                     doc.selection = Selection::caret(p);
                     self.cursor = p;
                     self.mode = Mode::Normal;
