@@ -3784,7 +3784,7 @@ mod tests {
         };
         let d = crate::DocumentState::new(
             text,
-            meta,
+            meta.clone(),
             std::sync::Arc::new(org_model::Settings::default()),
         );
         let v = table_view(&d, 0).unwrap();
@@ -3817,7 +3817,7 @@ mod tests {
         };
         let d = crate::DocumentState::new(
             text,
-            meta.clone(),
+            meta,
             std::sync::Arc::new(org_model::Settings::default()),
         );
         let shown =
