@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A test presses every leader key the Doom tables bind, in the terminal editor in a project, and checks that it runs its command and that the command applies there.
 - CSV: Line Break in Cell (Alt+Enter, as in Excel; Ctrl+J in a terminal) puts a line break into a cell's value, which no key did; the Frequency Table's choice filters on that column's value (an empty one too); Sort File by Columns takes the header's names.
 - Markdown: Next Row (`markdown.table.nextRow`) aligns the table and goes to the same column a row down, adding a row past the last, as Enter in an Org table; it has no key (Enter stays a line break for typing rows), and `keymap.json` can bind it to Enter in tables.
+- Org: Insert Heading (Alt+Enter outside lists, tables and blocks: Emacs's `M-RET`), Insert Heading After Subtree (`C-RET`), Insert Subheading and Insert TODO Heading, which Kalem did not have: Alt+Enter on a heading broke its line. 350 cases compare them with Emacs.
+- Org: Shift with the arrows changes the date under the cursor, as `org-shiftup` and the others: Shift+Up and Shift+Down the year, month, day, hour, the minutes by five, a repeater's number or unit, and on a bracket active and inactive; Shift+Right and Shift+Left a day. A `CLOCK:` line's duration follows; with a selection Shift extends it. 1,965 cases compare them with Emacs.
+- Org: Toggle Heading, Toggle Item (Emacs's `org-toggle-heading` and `org-toggle-item`) and Remove Link (Doom's `+org/remove-link`), on Doom's `SPC m h`, `SPC m i` and `SPC m l d`.
+- Vim keys in Org, as Doom Emacs and evil-org have them: `za`, `zc`, `zo`, `zO`, `zM`, `zR` and `zA` fold; `M-h`, `M-l`, `M-k` and `M-j` promote, demote and move a heading, an item or a table column or row, with Shift the subtree; Enter in Normal mode acts on what is at the cursor (`+org/dwim-at-point`: a TODO done, a checkbox, a link, a footnote, a table); `]h`, `[h`, `gj`, `gk`, `gh` and `gl` move by headings and elements.
 
 ### Changed
 - Projects are added by hand by default: opening a file in a folder under version control no longer adds that folder to the project list. Toggle Adding Projects Automatically (Project menu) or the settings panel turns it back on (`projects.auto_add`).
@@ -38,6 +42,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Markdown: a code span's one space each side (``` `` `x` `` ```) is no longer shown as its text.
 - `kalem export FILE.md --to html` titles the page with the front matter's `title` and typesets formulas with MathJax, as the Org export does.
 - Word completion no longer offers the word the cursor is typing into (typing `mid` before `2` offered `mid2`, which made `mid22`).
+- Org: Set Tags started empty and replaced the heading's tags with what was typed; it starts with them, as in Emacs.
+- Org: with `#+STARTUP: overview` the first Shift+Tab left the overview as it was instead of showing the contents; the graphical editor's Shift+Tab had no contents step at all.
+- Org: Ctrl+B and the other emphasis keys dropped the selection, so a second press inserted a pair of markers instead of taking the bold away, and Ctrl+B, a word, Ctrl+B left the cursor inside the markers; they work as a word processor's now.
+- Org: a stored link to a heading of the same document was inserted with its file (`[[file:notes.org::*Top][Top]]`); as in Emacs it is `[[*Top][Top]]`.
 
 ## [0.1.0] - 2026-10-06
 
