@@ -50,6 +50,12 @@ fn split_unescaped(s: &str, delim: char) -> (String, Option<&str>) {
 /// Expands a `:s` replacement for one match: `&` and `\0` the match, `\1`
 /// to `\9` its groups, `\r` and `\n` a line break, `\t` a tab, `\u`,
 /// `\l`, `\U`, `\L`, `\e` and `\E` the case of what follows.
+/// Where a `|` not after a backslash ends the command in `s`, if one does.
+fn bar_at(s: &str) -> Option<usize> {
+    let b = s.as_bytes();
+    (0..b.len()).find(|&i| b[i] == b'|' && (i == 0 || b[i - 1] != b'\\'))
+}
+
 fn expand(rep: &str, caps: &regex::Captures<'_>) -> String {
     #[derive(Clone, Copy, PartialEq)]
     enum Case {
@@ -62,15 +68,14 @@ fn expand(rep: &str, caps: &regex::Captures<'_>) -> String {
     let mut all = Case::None;
     let push = |out: &mut String, s: &str, one: &mut Case, all: Case| {
         for c in s.chars() {
-            let c: String = match (*one, all) {
-                (Case::Upper, _) => c.to_uppercase().collect(),
-                (Case::Lower, _) => c.to_lowercase().collect(),
-                (_, Case::Upper) => c.to_uppercase().collect(),
-                (_, Case::Lower) => c.to_lowercase().collect(),
-                _ => c.to_string(),
+            // A character for a character, as Vim changes case.
+            let c = match (*one, all) {
+                (Case::Upper, _) | (_, Case::Upper) => super::upper_char(c),
+                (Case::Lower, _) | (_, Case::Lower) => super::lower_char(c),
+                _ => c,
             };
             *one = Case::None;
-            out.push_str(&c);
+            out.push(c);
         }
     };
     let whole = caps
@@ -282,6 +287,20 @@ impl Vim {
             rest.chars().take_while(char::is_ascii_alphabetic).count()
         };
         let name = &rest[..name_len];
+        // `|` ends a command and begins the next, but for those that take
+        // it in their argument (`:g`, `:normal`, `:!`).
+        let takes_bar = name == "!"
+            || (!name.is_empty() && ("global".starts_with(name) || "vglobal".starts_with(name)))
+            || (name.len() >= 4 && "normal".starts_with(name));
+        if !takes_bar && let Some(i) = bar_at(&rest[name_len..]) {
+            let cut = line.len() - rest.len() + name_len + i;
+            let (first, next) = (line[..cut].to_string(), line[cut + 1..].to_string());
+            self.run_ex(doc, &first, host, out);
+            if !out.message.as_ref().is_some_and(|m| m.1) {
+                self.run_ex(doc, &next, host, out);
+            }
+            return;
+        }
         let mut args = &rest[name_len..];
         let bang = args.starts_with('!') && !matches!(name, "!" | "s" | "g");
         if bang {
@@ -404,22 +423,30 @@ impl Vim {
                     self.cursor = p;
                     self.mode = Mode::Normal;
                     self.reset();
+                    // A command that fails stops this line's keys only.
                     self.macro_depth += 1;
+                    self.failed = false;
                     self.feed(doc, &keys, host, out);
                     // An unfinished command or insert ends there.
+                    self.failed = false;
                     self.feed(doc, &[Key::Esc], host, out);
+                    self.failed = false;
                     self.macro_depth -= 1;
                 }
                 doc.marks.held.truncate(base);
             }
             _ if is("sor", "sort") => self.sort(doc, args, range.unwrap_or((0, last)), bang),
             "k" => self.set_mark(doc, args, b),
+            // `:ka`: `k` takes its mark right after it (not `:ke…`).
+            _ if name.len() == 2 && name.starts_with('k') && !name.starts_with("ke") => {
+                self.set_mark(doc, &name[1..], b)
+            }
             _ if is("ma", "mark") => self.set_mark(doc, args, b),
             _ if is("u", "undo") => {
                 let _ = doc.undo();
             }
             _ if is("red", "redo") => {
-                let _ = doc.redo();
+                let _ = doc.redo_from_start();
             }
             _ if is("le", "left") => {
                 let indent: usize = args.trim().parse().unwrap_or(0);
@@ -433,16 +460,96 @@ impl Vim {
                 }
                 self.goto_line(doc, a);
             }
-            _ if is("ret", "retab") => {
+            // `:right` and `:center` in `width` columns (80 when not
+            // given): the indent set so the text (its blanks around left
+            // out) ends there or sits in the middle; blank lines stay.
+            _ if is("ri", "right") || is("ce", "center") => {
+                use unicode_width::UnicodeWidthChar;
+                let width = args.trim().parse::<usize>().ok().filter(|w| *w > 0).unwrap_or(80);
                 let ts = self.options.tabstop.max(1);
-                for l in (a..=b).rev() {
-                    let (s, fnb) = (line_start(doc, l), first_non_blank(doc, l));
-                    let width = super::insert::vcol(doc, fnb, ts);
-                    let ind = super::insert::indent_string(width, ts, self.options.expandtab);
+                let right = name.starts_with('r');
+                for l in a..=b {
+                    let (fnb, e) = (first_non_blank(doc, l), line_end(doc, l));
+                    let body = doc.text().as_str()[fnb..e].trim_end_matches([' ', '\t']);
+                    let start = super::insert::vcol(doc, fnb, ts);
+                    let len = body.chars().fold(start, |col, c| {
+                        if c == '\t' { (col / ts + 1) * ts } else { col + c.width().unwrap_or(0) }
+                    }) - start;
+                    if len == 0 {
+                        continue;
+                    }
+                    let want = if right { width.saturating_sub(len) } else { width.saturating_sub(len) / 2 };
+                    let ind = super::insert::indent_string(want, ts, self.options.expandtab);
+                    let s = line_start(doc, l);
                     if doc.text().as_str()[s..fnb] != ind {
                         edit(doc, s..fnb, &ind, s);
                     }
                 }
+                let line = cur.min(last_line(doc));
+                let at = first_non_blank(doc, line);
+                doc.selection = Selection::caret(at);
+                self.cursor = at;
+            }
+            // Every run of blanks with a tab in it (with `!` any run)
+            // made again for the new 'tabstop' (`:retab 4`), all spaces
+            // with 'expandtab'; where the text shows stays the same.
+            _ if is("ret", "retab") => {
+                use unicode_width::UnicodeWidthChar;
+                let old_ts = self.options.tabstop.max(1);
+                let new_ts = args.trim().parse::<usize>().ok().filter(|n| *n > 0).unwrap_or(old_ts);
+                let et = self.options.expandtab;
+                let blanks = |from: usize, to: usize| {
+                    if et {
+                        return " ".repeat(to - from);
+                    }
+                    let mut v = from;
+                    let mut w = String::new();
+                    while (v / new_ts + 1) * new_ts <= to {
+                        w.push('\t');
+                        v = (v / new_ts + 1) * new_ts;
+                    }
+                    w.push_str(&" ".repeat(to - v));
+                    w
+                };
+                // The whole text without a range.
+                let (a, b) = if range.is_some() { (a, b) } else { (0, last) };
+                for l in (a..=b).rev() {
+                    let (s, e) = (line_start(doc, l), line_end(doc, l));
+                    let text = doc.text().as_str()[s..e].to_string();
+                    let chars: Vec<char> = text.chars().collect();
+                    let mut new = String::with_capacity(text.len());
+                    let (mut i, mut vcol) = (0, 0);
+                    while i < chars.len() {
+                        if !matches!(chars[i], ' ' | '\t') {
+                            vcol += chars[i].width().unwrap_or(0);
+                            new.push(chars[i]);
+                            i += 1;
+                            continue;
+                        }
+                        let (from, mut j, mut tab) = (vcol, i, false);
+                        while j < chars.len() && matches!(chars[j], ' ' | '\t') {
+                            if chars[j] == '\t' {
+                                tab = true;
+                                vcol = (vcol / old_ts + 1) * old_ts;
+                            } else {
+                                vcol += 1;
+                            }
+                            j += 1;
+                        }
+                        // With `!` a run of spaces too, where it gets shorter.
+                        let made = blanks(from, vcol);
+                        if (tab || (bang && j - i > 1)) && (tab || et || made.len() < j - i) {
+                            new.push_str(&made);
+                        } else {
+                            new.extend(&chars[i..j]);
+                        }
+                        i = j;
+                    }
+                    if new != text {
+                        edit(doc, s..e, &new, s);
+                    }
+                }
+                self.options.tabstop = new_ts;
                 self.goto_line(doc, cur);
             }
             "=" => {
@@ -695,20 +802,25 @@ impl Vim {
         };
         let cmd = cmd.unwrap_or("").trim().to_string();
         let cmd = if cmd.is_empty() { "p".to_string() } else { cmd };
+        // Each line found held by its start and the start of the next:
+        // they meet when the command deletes it.
         let base = doc.marks.held.len();
+        let len = doc.text().len();
         for l in a..=b.min(last_line(doc)) {
             let t = &doc.text().as_str()[line_start(doc, l)..line_end(doc, l)];
             if p.is_match(t) != invert {
-                let s = line_start(doc, l);
-                doc.marks.held.push(s);
+                doc.marks.held.push(line_start(doc, l));
+                doc.marks.held.push((line_end(doc, l) + 1).min(len));
             }
         }
-        let count = doc.marks.held.len() - base;
+        let count = (doc.marks.held.len() - base) / 2;
         for i in 0..count {
-            let pos = doc.marks.held[base + i].min(doc.text().len());
-            // A line deleted already is not run on again.
+            let pos = doc.marks.held[base + 2 * i].min(doc.text().len());
+            let next = doc.marks.held[base + 2 * i + 1].min(doc.text().len());
+            // A line deleted (or joined to another) already is not run on
+            // again.
             let start = line_start(doc, line_of(doc, pos));
-            if start != pos {
+            if start != pos || next <= pos {
                 continue;
             }
             doc.selection = Selection::caret(pos);
@@ -832,6 +944,21 @@ impl Vim {
         };
         let global = flags.matches('g').count() % 2 == 1;
         let count_only = flags.contains('n');
+        let b = b.min(last_line(doc));
+        // A pattern over line breaks (`\n`, `\_s`): matched in the text
+        // from the first line on, each starting in the range.
+        if pattern.contains("\\n") || pattern.contains("\\_") {
+            let m = (&p, pattern.as_str(), replacement.as_str());
+            return self.substitute_lines(doc, m, (a, b), (global, count_only), out);
+        }
+        // Undo comes back to the first line changed, as in Vim.
+        if !count_only
+            && let Some(l) = (a..=b).find(|&l| {
+                p.is_match(&doc.text().as_str()[line_start(doc, l)..line_end(doc, l)])
+            })
+        {
+            doc.selection = Selection::caret(line_start(doc, l));
+        }
         let mut n = 0;
         let mut last_line_done = None;
         // Line breaks the replacements made, all and in the last line.
@@ -893,6 +1020,67 @@ impl Vim {
                 self.note_change(doc, p);
             }
         }
+    }
+
+    /// `:s` with a pattern that matches line breaks: over the text from
+    /// line `a`, each match starting in lines `a..=b` (the first of each
+    /// line without `g`); the cursor at the last replacement.
+    fn substitute_lines(
+        &mut self,
+        doc: &mut DocumentState,
+        (p, pattern, replacement): (&Pattern, &str, &str),
+        (a, b): (usize, usize),
+        (global, count_only): (bool, bool),
+        out: &mut Outcome,
+    ) {
+        let start = line_start(doc, a);
+        let limit = line_end(doc, b);
+        // The text's last line break is not one between lines.
+        let all = doc.text().as_str();
+        let end = if all.ends_with('\n') { all.len() - 1 } else { all.len() };
+        let text = all[start..end.max(start)].to_string();
+        let mut new = String::with_capacity(text.len());
+        let (mut at, mut n) = (0, 0);
+        let mut last_start = 0;
+        let mut first_line = None;
+        let mut line_done = None;
+        for caps in p.regex().captures_iter(&text) {
+            let Some(m) = caps.name("m").or_else(|| caps.get(0)) else {
+                continue;
+            };
+            if start + m.start() > limit {
+                break;
+            }
+            if m.start() < at {
+                continue;
+            }
+            let l = line_of(doc, start + m.start());
+            if !global && line_done == Some(l) {
+                continue;
+            }
+            line_done = Some(l);
+            first_line.get_or_insert(l);
+            new.push_str(&text[at..m.start()]);
+            last_start = new.len();
+            new.push_str(&expand(replacement, &caps));
+            at = m.end();
+            n += 1;
+        }
+        let Some(first) = first_line else {
+            out.message = Some((format!("E486: Pattern not found: {pattern}"), true));
+            return;
+        };
+        if count_only {
+            out.message = Some((format!("{n} matches"), false));
+            return;
+        }
+        new.push_str(&text[at..]);
+        doc.selection = Selection::caret(line_start(doc, first));
+        edit(doc, start..end.max(start), &new, start + last_start);
+        let p = (start + last_start).min(doc.text().len());
+        doc.selection = Selection::caret(p);
+        self.cursor = p;
+        self.note_change(doc, p);
     }
 
     /// `:set`: options by name, `no` and `inv` before a flag, `!` after,

@@ -195,7 +195,7 @@ impl Vim {
                 self.leave_insert_for_command(doc);
                 self.ctrl_o = Some(super::CtrlO {
                     eol,
-                    at: doc.selection.head,
+                    line: line_of(doc, doc.selection.head),
                 });
             }
             Key::Ctrl('n' | 'p') => self.complete(doc, key == Key::Ctrl('n')),
@@ -241,8 +241,29 @@ impl Vim {
                 self.fetch(host).map(|r| r.text)
             }
         };
+        // As if typed: a line break opens a line (with 'autoindent'), a
+        // tab is a Tab (with 'expandtab' and 'softtabstop'); the small
+        // delete register `-` is put as it is (Vim's `do_put()`).
+        if c == '-'
+            && let Some(t) = &text
+        {
+            self.type_text(doc, t);
+            return;
+        }
         if let Some(t) = text {
-            self.type_text(doc, &t);
+            for (i, part) in t.split('\n').enumerate() {
+                if i > 0 {
+                    self.newline(doc);
+                }
+                for (j, run) in part.split('\t').enumerate() {
+                    if j > 0 {
+                        self.tab(doc);
+                    }
+                    if !run.is_empty() {
+                        self.type_text(doc, run);
+                    }
+                }
+            }
         }
     }
 
@@ -328,16 +349,25 @@ impl Vim {
         let start = self.insert_at.filter(|a| *a >= s && *a < head);
         let mut to = match what {
             Erase::Char => {
-                // Spaces back to the soft tab stop before.
+                // Blanks back to the soft tab stop before; a tab the stop
+                // is inside of becomes spaces up to it ('softtabstop').
                 let sts = self.soft_tab();
-                let before = &text[s..head];
-                if sts > 0 && before.ends_with(' ') {
-                    let ts = self.options.tabstop;
-                    let col = vcol(doc, head, ts);
-                    let want = (col - 1) / sts * sts;
+                if sts > 0 && matches!(char_before(doc, head), Some(' ' | '\t')) {
+                    let ts = self.options.tabstop.max(1);
+                    let want = (vcol(doc, head, ts) - 1) / sts * sts;
                     let mut p = head;
-                    while p > s && text.as_bytes()[p - 1] == b' ' && vcol(doc, p - 1, ts) >= want {
+                    while p > s && matches!(text.as_bytes()[p - 1], b' ' | b'\t') && vcol(doc, p, ts) > want {
                         p -= 1;
+                    }
+                    let fill = want.saturating_sub(vcol(doc, p, ts));
+                    if fill > 0 {
+                        edit(doc, p..head, &" ".repeat(fill), p + fill);
+                        if let Some(a) = self.insert_at
+                            && a > p
+                        {
+                            self.insert_at = Some(p);
+                        }
+                        return;
                     }
                     p.min(doc.grapheme_before(head))
                 } else {
@@ -392,7 +422,7 @@ impl Vim {
 
     /// The width of a soft tab: 'softtabstop', or 'shiftwidth' when it is
     /// negative; 0 for none.
-    fn soft_tab(&self) -> usize {
+    pub(super) fn soft_tab(&self) -> usize {
         match self.options.softtabstop {
             n if n < 0 => self.shiftwidth(),
             n => n as usize,
@@ -407,6 +437,14 @@ impl Vim {
         }
     }
 
+    /// An indent as wide as the text before `upto` on its line, made
+    /// with tabs or spaces as 'expandtab' says (as Vim builds the indent
+    /// 'autoindent' copies).
+    pub(super) fn indent_like(&self, doc: &DocumentState, upto: usize) -> String {
+        let ts = self.options.tabstop.max(1);
+        indent_string(vcol(doc, upto, ts), ts, self.options.expandtab)
+    }
+
     /// Enter: a new line, indented as this one with 'autoindent' (the
     /// blanks after the cursor go); an indent nothing was typed after
     /// goes away.
@@ -417,7 +455,7 @@ impl Vim {
         let text = doc.text().as_str();
         let indent_end = first_non_blank(doc, line);
         let mut indent = if self.options.autoindent {
-            text[s..indent_end.min(head)].to_string()
+            self.indent_like(doc, indent_end.min(head))
         } else {
             String::new()
         };
@@ -503,10 +541,15 @@ impl Vim {
         if self.ai_line == Some(s) && line_end(doc, line) > s {
             self.ai_line = Some(s);
         }
+        // Where the insert began moves with the text after the indent.
         if let Some(a) = self.insert_at
             && a > s
         {
-            self.insert_at = Some(a.min(caret).max(s));
+            self.insert_at = Some(if a >= fnb {
+                a - (fnb - s) + indent.len()
+            } else {
+                a.min(s + indent.len())
+            });
         }
     }
 
@@ -592,7 +635,7 @@ impl Vim {
         {
             self.last_inserted = Some(doc.text().as_str()[at..head].to_string());
         }
-        doc.break_undo_group();
+        // The command is part of the insert's undo step, as in Vim.
         self.mode = Mode::Normal;
         self.insert_at = None;
         self.ai_line = None;

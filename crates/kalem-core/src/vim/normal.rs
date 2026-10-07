@@ -230,6 +230,9 @@ impl Vim {
         self.macro_depth += 1;
         for _ in 0..count.max(1) {
             self.feed(doc, &keys, host, out);
+            if self.failed {
+                break;
+            }
         }
         self.macro_depth -= 1;
     }
@@ -243,7 +246,14 @@ impl Vim {
         host: &mut dyn Host,
         out: &mut Outcome,
     ) {
+        if self.macro_depth == 0 {
+            self.failed = false;
+        }
         for &k in keys {
+            // A command that failed stops the keys, as in Vim.
+            if self.failed {
+                break;
+            }
             let o = self.key(doc, k, host);
             out.commands.extend(o.commands);
             if o.message.is_some() {
@@ -292,9 +302,10 @@ impl Vim {
     }
 
     /// `U`: the last changed line as it was before its changes (itself
-    /// a change, which `U` takes back).
+    /// a change, which `U` takes back), the cursor in the column it was
+    /// in then (Vim's `u_undoline()`).
     pub(super) fn line_undo(&mut self, doc: &mut DocumentState) {
-        let Some((line, old)) = self.line_undo.clone() else {
+        let Some((line, old, col)) = self.line_undo.clone() else {
             return;
         };
         if line > last_line(doc) {
@@ -302,10 +313,15 @@ impl Vim {
         }
         let (s, e) = (line_start(doc, line), line_end(doc, line));
         let now = doc.text().as_str()[s..e].to_string();
+        let here = if line_of(doc, self.cursor) == line { self.cursor - s } else { col };
         edit(doc, s..e, &old, s);
-        self.line_undo = Some((line, now));
-        doc.selection = Selection::caret(s);
-        self.cursor = s;
+        self.line_undo = Some((line, now, here));
+        let mut at = (s + col).min(line_end(doc, line));
+        while !doc.text().as_str().is_char_boundary(at) {
+            at -= 1;
+        }
+        doc.selection = Selection::caret(at);
+        self.cursor = at;
     }
 
     /// `z` commands that scroll: `zt`, `zz`, `zb` and `z<CR>`, `z.`, `z-`
