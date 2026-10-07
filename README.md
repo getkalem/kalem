@@ -6,9 +6,7 @@
 
 <p align="center">One fast editor for all the files of your work, instead of one program per format. Written in Rust. In a window and in a terminal.</p>
 
-<!-- The GIF of the same file in both editors (docs/todo.md T1.8.7), made by tools/readme-screenshots.sh, goes here once it is recorded:
-<p align="center"><img src="assets/kalem.gif" width="800" alt="Kalem: an Org file in a window, then the same file in a terminal"></p>
--->
+<p align="center"><img src="assets/kalem.gif" width="800" alt="Kalem: an Org file in a window, the same file in a terminal, then Markdown, LaTeX, CSV, a workbook, a PDF, the file manager, the projects and the settings"></p>
 
 Kalem (Turkish for "pen") shows a file the way it reads and never touches what you did not edit. A Markdown, Org, LaTeX or CSV file opens as what it is, a document or a grid, and under it the file stays plain text, byte for byte. PDF files, pictures and Excel workbooks open in viewers next to your documents; every other text file opens as code. A format Kalem does not know yet is a plugin away, written in Rust: you read and edit it here too, in the same editor.
 
@@ -25,6 +23,13 @@ Kalem (Turkish for "pen") shows a file the way it reads and never touches what y
 - **Menus and the mouse, if you do not.** You are not tied to shortcuts: a menu bar, a toolbar, right-click menus, a command palette and the mouse reach every command, in the terminal too (F10 lists the menu items there).
 - **Plugins in Rust, not JavaScript.** A plugin is compiled Rust, run as a WebAssembly component with its own memory, a time budget and only the permissions it declares. Plugins run fast, and a plugin cannot freeze the editor or take it down.
 
+<table>
+  <tr>
+    <td><img src="assets/screenshot-terminal.png" alt="The same Org file in the terminal editor, the project's folder tree beside it"></td>
+    <td><img src="assets/screenshot-settings.png" alt="The settings panel: every setting grouped by its table, changed in place with lazygit-like keys"></td>
+  </tr>
+</table>
+
 ## Documents
 
 Five formats are built into the core. Each has a chapter in the Book's [Part II](book/part-2/overview.org) that says exactly what Kalem reads, shows, edits and writes, and against what it is tested: Org is compared with Emacs command by command and export by export; a LaTeX file parses back to its own bytes after tens of thousands of edits, its numbering is checked against pdflatex and its structure against pandoc.
@@ -40,18 +45,16 @@ Five formats are built into the core. Each has a chapter in the Book's [Part II]
 
 Around them: a file manager, projects, find in files, a command palette, an outline, split views, themes, and the interface in English and Turkish.
 
-<!-- One picture per format, the graphical editor on a corpus file, made by tools/readme-screenshots.sh on a Mac with the Screen Recording permission (docs/todo.md T2.10.13). Take this comment away once the files exist:
 <table>
   <tr>
-    <td><img src="assets/screenshot-markdown.png" alt="A Markdown note in Kalem: headings, a task list and links, the markers hidden"></td>
-    <td><img src="assets/screenshot-org.png" alt="The Org Compact Guide in Kalem: headings, lists and tables"></td>
+    <td><img src="assets/screenshot-markdown.png" alt="A Markdown note in Kalem: headings and links, the markers hidden"></td>
+    <td><img src="assets/screenshot-org.png" alt="The Org Compact Guide in Kalem: its headings folded"></td>
   </tr>
   <tr>
-    <td><img src="assets/screenshot-latex.png" alt="An arXiv paper in Kalem: sections and equations typeset, the rest as source"></td>
-    <td><img src="assets/screenshot-csv.png" alt="A CSV file in Kalem: a grid with column statistics"></td>
+    <td><img src="assets/screenshot-latex.png" alt="A LaTeX article in Kalem: the title, sections, references and equations typeset, the preamble as source"></td>
+    <td><img src="assets/screenshot-csv.png" alt="A CSV file in Kalem: a grid, a two-line cell shown as it is"></td>
   </tr>
 </table>
--->
 
 ## Viewers and plugins
 
@@ -63,14 +66,12 @@ Three viewers are built into the binary as plugins, so you do not leave the edit
 | Pictures | PNG, JPEG, GIF, WebP, TIFF and a dozen more: fit, zoom, rotate, next and previous in the folder. In the terminal too, where the terminal draws pictures (kitty, Ghostty, WezTerm, iTerm2, Sixel). An SVG file, being text, opens as its XML; it shows as a picture where a document links it. |
 | `.xlsx`, `.xlsm`, `.xltx`, `.xltm` | Sheets as grids with their formulas, styles, charts and pivot tables, edited and saved as the same file; a save asks Excel to recalculate when it opens the file. An `.ods`, `.xls` or `.xlsb` workbook is converted as it opens: saving it back in its own format asks first, and Save As `.xlsx` leaves the original alone. |
 
-<!-- Two more pictures from tools/readme-screenshots.sh; take this comment away once the files exist:
 <table>
   <tr>
-    <td><img src="assets/screenshot-pdf.png" alt="A PDF file in Kalem's viewer, its outline beside the page"></td>
-    <td><img src="assets/screenshot-xlsx.png" alt="An Excel workbook in Kalem: a sheet as a grid, with its formulas"></td>
+    <td><img src="assets/screenshot-pdf.png" alt="The PDF built from the LaTeX article, in Kalem's viewer"></td>
+    <td><img src="assets/screenshot-xlsx.png" alt="An Excel workbook in Kalem: a sheet as a grid, its totals from formulas, its chart drawn"></td>
   </tr>
 </table>
--->
 
 Programming languages come as plugins too: the syntax, and a language server for diagnostics, completion, hover, rename, code actions and formatting. Today there is one, for Elixir (with Expert or ElixirLS); more follow.
 
@@ -88,6 +89,13 @@ Kalem's author used Emacs for many years. The parts of the Emacs world that work
 - **Projects**, as Projectile has them: a project list, find a file in the project (Ctrl+P), search in the project (Ctrl+Shift+F), switch project.
 - **A file manager**, as Dired: Ctrl+Alt+D lists the document's folder with the cursor on its file; marks, and renaming by editing the listing, as wdired does.
 - **Leader keys** with the Vim keys, in Doom Emacs's layout: Space is the leader, `SPC p p` switches the project, `SPC SPC` finds a file in it, and a panel shows what can follow a prefix, as which-key does.
+
+<table>
+  <tr>
+    <td><img src="assets/screenshot-files.png" alt="The file manager: a folder listed with permissions, sizes and dates, as Dired lists it"></td>
+    <td><img src="assets/screenshot-projects.png" alt="The projects view in the terminal editor: three projects listed as if in one folder"></td>
+  </tr>
+</table>
 
 You do not need to be an Emacs user, and nothing has to be learned first. The interface most people know is there: a menu bar, tabs, a folder tree, a command palette, right-click menus, Ctrl+S. What Kalem leaves out is Elisp: there is no scripting engine; configuration is data in `settings.toml` and `keymap.json`, and every key can be changed. The Book's [Kalem and Emacs](book/part-4/kalem-and-emacs.org) says what is taken, what is left out, and why.
 

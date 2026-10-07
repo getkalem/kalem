@@ -1,20 +1,24 @@
 #!/usr/bin/env bash
 # The README's pictures (docs/todo.md T2.10.13 and T1.8.7): the graphical
-# editor opened on one file per format, its window captured to
-# assets/screenshot-FORMAT.png; the terminal editor on the Org file, run in
-# a Terminal window and captured to assets/screenshot-terminal.png; and
+# editor opened on one file per format and on a folder (the file
+# manager), its window captured to assets/screenshot-NAME.png; the
+# terminal editor on the Org file, on the projects view and on the
+# settings panel, run in a Terminal window and captured; and
 # assets/kalem.gif, the captures one after another, the Org file in the
-# window first and in the terminal second. The README keeps the image
-# lines in comments under its tables; take the comment markers away once
-# the files exist.
+# window first and in the terminal second. With the Accessibility
+# permission as well, the projects view and the settings panel are
+# captured in the graphical editor instead, the keys sent by System
+# Events. The README keeps the image lines in comments under its tables;
+# take the comment markers away once the files exist.
 #
 # macOS only. A window is captured from the screen, which needs the Screen
 # Recording permission (System Settings > Privacy & Security > Screen
 # Recording) for the program that runs this script: the terminal, or the
 # app the terminal runs in. Without it macOS hands back the wallpaper and
 # hides window titles; the script notices the hidden title and stops. The
-# terminal picture drives Terminal.app through AppleScript, which asks for
-# the Automation permission the first time.
+# terminal pictures drive Terminal.app through AppleScript, which asks for
+# the Automation permission the first time, and run the editor under
+# expect to press its keys.
 #
 # Two sample files are not in the repository and are made on the way: a
 # workbook by Python's openpyxl and a one-page PDF by pdflatex. Where
@@ -34,7 +38,22 @@ KALEM=$(cd "$(dirname "$KALEM")" && pwd)/$(basename "$KALEM")
 tmp=$(mktemp -d /tmp/kalem-shots.XXXXXX)
 trap 'rm -rf "$tmp"' EXIT
 export KALEM_CONFIG_DIR="$tmp/config" KALEM_STATE_DIR="$tmp/state"
-mkdir -p assets
+mkdir -p assets "$KALEM_CONFIG_DIR"
+printf '[editor]\ntheme = "dark"\n' >"$KALEM_CONFIG_DIR/settings.toml"
+# Three projects for the projects view, all inside the repository.
+cat >"$KALEM_CONFIG_DIR/projects.toml" <<EOF
+[[project]]
+name = "kalem"
+path = "$(pwd)"
+
+[[project]]
+name = "book"
+path = "$(pwd)/examples/book"
+
+[[project]]
+name = "notes"
+path = "$(pwd)/tests/corpus/markdown/vault/foam-docs"
+EOF
 
 # The workbook: a budget with formulas and a chart.
 workbook="$tmp/budget.xlsx"
@@ -65,21 +84,59 @@ if command -v pdflatex >/dev/null; then
 \usepackage{amsmath}
 \title{A note on plain text}
 \author{Kalem}
-\date{}
+\date{October 2026}
 \begin{document}
 \maketitle
+
+\begin{abstract}
+A document is a text file. An editor that keeps it one can show it as it reads and still write back only what changed. We state the rule, give the one equation it rests on, and list what it costs.
+\end{abstract}
+
 \section{Introduction}
-A document is a text file. An editor that keeps it one can show it as it reads and still write back only what changed:
-\begin{equation}
+\label{sec:intro}
+Every format Kalem opens is read into \emph{ranges} of the file's text, never into a tree that is written back. An edit replaces only the characters it changes, so the rest of the file stays byte for byte as it was, including spacing, comments and line endings~\cite{knuth}. Section~\ref{sec:method} gives the rule; equation~\eqref{eq:gauss} is the example every reader knows.
+
+\section{Method}
+\label{sec:method}
+Let $f$ be the parse of a file $x$ and $g$ the text it gives back. The rule is $g(f(x)) = x$ for every $x$, whatever the input. An incremental reparse after an edit must equal a full parse of the new text:
+\begin{equation}\label{eq:gauss}
   \int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2}.
 \end{equation}
-\section{Method}
-The parse reads the file into ranges; an edit replaces only the characters it changes, so the rest of the file stays byte for byte as it was.
-\subsection{Numbering}
-Sections, equations and floats carry the numbers \LaTeX{} prints, checked against the \texttt{.aux} files it writes.
+The numbers of sections, equations and floats are the ones \LaTeX{} prints, checked against the \texttt{.aux} files it writes:
+\begin{align}
+  \sum_{k=1}^{n} k &= \frac{n(n+1)}{2}, \\
+  \sum_{k=1}^{n} k^2 &= \frac{n(n+1)(2n+1)}{6}.
+\end{align}
+
+\subsection{What it costs}
+\begin{itemize}
+  \item A keystroke reparses the paragraph it is in, not the file.
+  \item What the parser does not understand stays visible as source.
+  \item No command is added to the language: the file is standard \LaTeX{}.
+\end{itemize}
+
+\begin{table}[htbp]
+  \centering
+  \begin{tabular}{lrr}
+    \hline
+    Corpus & Files & Edits \\
+    \hline
+    Real projects & 1,669 & 50,010 \\
+    arXiv papers & 925 & 96,900 \\
+    \hline
+  \end{tabular}
+  \caption{The round trip, byte for byte, after random edits.}\label{tab:corpus}
+\end{table}
+
+\section{Conclusion}
+Table~\ref{tab:corpus} is the whole argument: the file is yours before and after.
+
+\begin{thebibliography}{1}
+\bibitem{knuth} D.~E. Knuth, \emph{The \TeX book}, Addison-Wesley, 1984.
+\end{thebibliography}
 \end{document}
 TEX
-  (cd "$tmp" && pdflatex -interaction=nonstopmode -halt-on-error sample.tex >sample.log 2>&1) \
+  (cd "$tmp" && pdflatex -interaction=nonstopmode -halt-on-error sample.tex >sample.log 2>&1 && pdflatex -interaction=nonstopmode -halt-on-error sample.tex >>sample.log 2>&1) \
     || { echo "pdflatex failed ($tmp/sample.log): the PDF picture is skipped" >&2; pdf=""; }
 else
   echo "no pdflatex: the PDF picture is skipped" >&2; pdf=""
@@ -89,15 +146,16 @@ fi
 shots=(
   "markdown|tests/corpus/markdown/vault/foam-docs/principles.md"
   "org|tests/corpus/org-mode/org-guide.org"
-  "latex|tests/corpus/latex/arxiv/computer-science/2401.00632/main.tex"
+  "latex|$tmp/sample.tex"
   "csv|tests/csv/libreoffice.csv"
   "pdf|$pdf"
   "xlsx|$workbook"
+  "files|."
 )
 
-# The screen rectangle, as X,Y,W,H, of the first window of the process
-# (by PID) or of the application (by owner name), once it is up (30 s at
-# most). Prints "no-permission" when macOS hides the title, which it does
+# The first window of the process (by PID) or of the application (by
+# owner name), once it is up (30 s at most), as X,Y,W,H,NUMBER: its
+# screen rectangle and its window number for screencapture -l. Prints "no-permission" when macOS hides the title, which it does
 # without the Screen Recording permission.
 window_bounds() {
   python3 - "$1" "$2" <<'PY'
@@ -113,7 +171,7 @@ for _ in range(60):
             if "kCGWindowName" not in w:
                 print("no-permission"); sys.exit(0)
             b = w["kCGWindowBounds"]
-            print(f"{int(b['X'])},{int(b['Y'])},{int(b['Width'])},{int(b['Height'])}"); sys.exit(0)
+            print(f"{int(b['X'])},{int(b['Y'])},{int(b['Width'])},{int(b['Height'])},{w['kCGWindowNumber']}"); sys.exit(0)
     time.sleep(0.5)
 print("no-window")
 PY
@@ -138,41 +196,100 @@ for shot in "${shots[@]}"; do
       exit 1 ;;
   esac
   sleep 3   # the first draw, and the file's own parse
-  screencapture -x -R "$bounds" "$out"
+  screencapture -x -o -l "${bounds##*,}" "$out"
   kill "$pid" 2>/dev/null || true
   wait "$pid" 2>/dev/null || true
   echo "$out  ($file, window at $bounds)"
 done
 
-# The terminal editor on the Org file, in a Terminal window of 140 by 42.
-org_file=$(pwd)/tests/corpus/org-mode/org-guide.org
-out=assets/screenshot-terminal.png
-command="KALEM_CONFIG_DIR='$KALEM_CONFIG_DIR' KALEM_STATE_DIR='$KALEM_STATE_DIR' '$KALEM' tui '$org_file'"
-osascript - "$command" <<'AS' >/dev/null
+# A Terminal window of 140 by 42 running COMMAND, captured to OUT once the
+# editor has drawn; then the editor is ended and the window closed.
+terminal_shot() {
+  local command=$1 out=$2
+  osascript - "$command" <<'AS' >/dev/null
 on run argv
   tell application "Terminal"
     activate
     set t to do script (item 1 of argv)
     set number of columns of t to 140
     set number of rows of t to 42
+    set position of front window to {80, 80}
   end tell
 end run
 AS
-bounds=$(window_bounds name Terminal)
-case "$bounds" in
-  no-permission|no-window) echo "Terminal: $bounds" >&2; exit 1 ;;
-esac
-sleep 4   # the terminal's resize, the editor's start and its first draw
-screencapture -x -R "$bounds" "$out"
-pkill -f "kalem.* tui .*org-guide.org" 2>/dev/null || true
-sleep 1
-osascript -e 'tell application "Terminal" to close front window' >/dev/null 2>&1 || true
-echo "$out  (kalem tui, Terminal window at $bounds)"
+  local bounds
+  bounds=$(window_bounds name Terminal)
+  case "$bounds" in
+    no-permission|no-window) echo "Terminal: $bounds" >&2; exit 1 ;;
+  esac
+  sleep 7   # the terminal's resize, the editor's start, the keys and the draw
+  screencapture -x -o -l "${bounds##*,}" "$out"
+  # The window's shell and everything under it (expect, the editor), so
+  # that Terminal closes the window without asking.
+  local tty
+  tty=$(osascript -e 'tell application "Terminal" to tty of selected tab of front window' 2>/dev/null)
+  [ -n "$tty" ] && pkill -9 -t "${tty#/dev/}" 2>/dev/null || true
+  sleep 1
+  osascript -e 'tell application "Terminal" to close front window' >/dev/null 2>&1 || true
+  echo "$out  ($command, Terminal window at $bounds)"
+}
+
+# The editor's keys are pressed by expect: FILE, then the KEYS sent
+# after three seconds of quiet. The terminal is connected to the editor
+# from the start (interact), so that its answers to the editor's
+# questions (colors, capabilities) reach it as answers and not, late, as
+# typed keys.
+expect_script() {
+  local file=$1 keys=$2 name=$3
+  cat >"$tmp/$name.exp" <<EOF
+set sent 0
+spawn env KALEM_CONFIG_DIR=$KALEM_CONFIG_DIR KALEM_STATE_DIR=$KALEM_STATE_DIR $KALEM tui $file
+interact {
+  timeout 3 { if {!\$sent} { set sent 1; send "$keys" } }
+}
+EOF
+  echo "expect $tmp/$name.exp"
+}
+
+org_file=$(pwd)/tests/corpus/org-mode/org-guide.org
+terminal_shot "$(expect_script "$org_file" "" org)" assets/screenshot-terminal.png
+
+# The projects view and the settings panel: in the graphical editor when
+# System Events may press its keys (the Accessibility permission), else
+# in the terminal editor.
+if python3 -c 'import sys; from ApplicationServices import AXIsProcessTrusted; sys.exit(0 if AXIsProcessTrusted() else 1)' 2>/dev/null; then
+  gui_key_shot() {   # FILE KEYSTROKE-APPLESCRIPT OUT
+    local file=$1 keystroke=$2 out=$3
+    "$KALEM" "$file" >"$tmp/keys.log" 2>&1 &
+    local pid=$!
+    local bounds
+    bounds=$(window_bounds pid "$pid")
+    case "$bounds" in
+      no-permission|no-window) kill "$pid" 2>/dev/null || true; echo "$file: $bounds" >&2; exit 1 ;;
+    esac
+    sleep 3
+    osascript -e "tell application \"System Events\"
+      set frontmost of (first process whose unix id is $pid) to true
+      delay 0.5
+      $keystroke
+    end tell"
+    sleep 2
+    screencapture -x -o -l "${bounds##*,}" "$out"
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    echo "$out  ($file, $keystroke)"
+  }
+  gui_key_shot . 'keystroke "d" using {control down, option down, shift down}' assets/screenshot-projects.png
+  gui_key_shot "$org_file" 'keystroke "," using {command down}' assets/screenshot-settings.png
+else
+  terminal_shot "$(expect_script "$(pwd)" "P" projects)" assets/screenshot-projects.png
+  terminal_shot "$(expect_script "$org_file" '\033,' settings)" assets/screenshot-settings.png
+fi
 
 # The GIF: the Org file in the window, then in the terminal, then the
 # other formats, three seconds each, 1000 pixels wide.
 frames=(assets/screenshot-org.png assets/screenshot-terminal.png)
-for f in markdown latex csv xlsx pdf; do
+for f in markdown latex csv xlsx pdf files projects settings; do
   [ -f "assets/screenshot-$f.png" ] && frames+=("assets/screenshot-$f.png")
 done
 if command -v magick >/dev/null; then
