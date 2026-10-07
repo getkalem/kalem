@@ -396,3 +396,21 @@ fn doom_insert_item_below_and_above() {
     t.typ("mid");
     assert_eq!(t.text(), "- [ ] one\n- [ ] mid\n- [ ] two\n");
 }
+
+#[test]
+fn set_todo_state_and_priority_offer_their_choices() {
+    // As Doom's SPC m t and Org's fast selection: the keywords to pick.
+    let text = "#+TODO: TODO NEXT | DONE CANCELLED\n* TODO Task\n";
+    let mut t = open(text, text.find("Task").unwrap());
+    t.app.run_command("org.todo.set", serde_json::json!({}));
+    t.draw();
+    let shown: Vec<String> = (2..7).map(|y| t.row(y).trim().to_string()).collect();
+    assert_eq!(shown, ["TODO", "NEXT", "DONE", "CANCELLED", "(no keyword)"]);
+    t.typ("canc");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(t.text().contains("* CANCELLED Task"), "{}", t.text());
+    t.app.run_command("org.priority.set", serde_json::json!({}));
+    t.typ("#b");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(t.text().contains("* CANCELLED [#B] Task"), "{}", t.text());
+}

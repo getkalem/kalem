@@ -203,11 +203,14 @@ impl Palette {
                 }
                 (None, None, _) => {
                     let it = matches[n];
-                    (
-                        format!("{}: {}", it.category, it.title),
-                        String::new(),
-                        it.keys.clone(),
-                    )
+                    // A choice without a category (a TODO keyword, a
+                    // refile target) shows alone.
+                    let label = if it.category.is_empty() {
+                        it.title.clone()
+                    } else {
+                        format!("{}: {}", it.category, it.title)
+                    };
+                    (label, String::new(), it.keys.clone())
                 }
             }
         };

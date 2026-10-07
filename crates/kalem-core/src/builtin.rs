@@ -124,8 +124,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
             "org.headline.insertTodo",
             object(&[("afterSubtree", "boolean", false)]),
         ),
-        ("org.todo.set", object(&[("state", "string", true)])),
-        ("org.priority.set", object(&[("priority", "string", true)])),
+        // Without an argument they offer the document's keywords and
+        // priorities to choose from.
+        ("org.todo.set", object(&[("state", "string", false)])),
+        ("org.priority.set", object(&[("priority", "string", false)])),
         (
             "org.property.set",
             object(&[("key", "string", true), ("value", "string", true)]),
@@ -585,6 +587,67 @@ fn org_insert_item(ctx: &mut EditorContext<'_>, above: bool) -> CommandResult {
     }
     ctx.requests.push(Request::VimInsert);
     Ok(())
+}
+
+/// The document's TODO keywords to choose from, and none, as
+/// `org-todo`'s fast selection offers them (Doom's `SPC m t`).
+fn choose_todo_state(ctx: &mut EditorContext<'_>) -> CommandResult {
+    let model = ctx
+        .doc()?
+        .model()
+        .ok_or_else(|| CommandError::new(crate::tr!("msg-not-org")))?;
+    let c = model.parse().context();
+    let item = |state: &str, title: String| crate::palette::PaletteItem {
+        id: crate::palette::invocation("org.todo.set", &serde_json::json!({ "state": state })),
+        title,
+        category: String::new(),
+        keys: String::new(),
+        also: String::new(),
+    };
+    let mut items: Vec<_> = c
+        .todo_keywords
+        .iter()
+        .chain(&c.done_keywords)
+        .map(|k| item(k, k.clone()))
+        .collect();
+    items.push(item("", crate::tr!("choice-no-keyword")));
+    request(ctx, Request::Choose(items))
+}
+
+/// The document's priorities to choose from, and none.
+fn choose_priority(ctx: &mut EditorContext<'_>) -> CommandResult {
+    let model = ctx
+        .doc()?
+        .model()
+        .ok_or_else(|| CommandError::new(crate::tr!("msg-not-org")))?;
+    let pr = &model.info().priorities;
+    let (highest, lowest) = (pr.highest, pr.lowest);
+    let numeric = lowest < 65;
+    let item = |id: String, title: String| crate::palette::PaletteItem {
+        id,
+        title,
+        category: String::new(),
+        keys: String::new(),
+        also: String::new(),
+    };
+    let mut items: Vec<_> = (highest.min(lowest)..=lowest.max(highest))
+        .map(|p| {
+            let name = if numeric {
+                p.to_string()
+            } else {
+                char::from_u32(p).map_or_else(String::new, String::from)
+            };
+            item(
+                crate::palette::invocation("org.priority.set", &serde_json::json!({ "priority": name })),
+                format!("[#{name}]"),
+            )
+        })
+        .collect();
+    items.push(item(
+        "org.priority.remove".to_string(),
+        crate::tr!("choice-no-priority"),
+    ));
+    request(ctx, Request::Choose(items))
 }
 
 /// Whether the line at `pos` is an item with a checkbox.
@@ -8703,6 +8766,9 @@ fn plain_commands() -> Vec<Command> {
             &[],
             Some(ORG),
             |ctx, args| {
+                if args.get("state").is_none() {
+                    return choose_todo_state(ctx);
+                }
                 let s = arg_str(args, "state")?.to_string();
                 todo(ctx, TodoArg::State(s))
             },
@@ -8789,6 +8855,9 @@ fn plain_commands() -> Vec<Command> {
             &[],
             Some(ORG),
             |ctx, args| {
+                if args.get("priority").is_none() {
+                    return choose_priority(ctx);
+                }
                 let c = arg_str(args, "priority")?
                     .chars()
                     .next()
@@ -10355,7 +10424,9 @@ mod tests {
             .execute("org.todo.set", &mut ctx, &json!({"state": "NOPE"}))
             .unwrap_err();
         assert!(err.message.contains("not valid"));
-        assert!(reg.execute("org.todo.set", &mut ctx, &json!({})).is_err());
+        // Without a state, the keywords to choose from.
+        reg.execute("org.todo.set", &mut ctx, &json!({})).unwrap();
+        assert!(matches!(ctx.requests.last(), Some(Request::Choose(_))));
         drop(ctx);
         assert!(d.text().as_str().starts_with("* B\n* TODO A"));
         d.undo();

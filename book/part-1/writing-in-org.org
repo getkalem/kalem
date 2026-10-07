@@ -196,7 +196,8 @@ where the terminal draws images.
 Ctrl+Enter cycles a heading through its TODO states (=TODO=, =DONE=, or
 the states of the document's =#+TODO= line); Shift+Left and Shift+Right
 step through them, Shift+Up and Shift+Down change the priority. In the
-palette: /Set TODO State/, /Mark Done/, /Next Keyword Set/ and
+palette: /Set TODO State/ (a list of the document's keywords to choose
+from, as =SPC m t= in Doom), /Mark Done/, /Next Keyword Set/ and
 /Previous Keyword Set/ (when =#+TODO= lines give several), /Set
 Priority/ and /Remove Priority/, /Set Tags/ and /Toggle Tag/ (a colon
 at the end of a heading offers the tags too), /Align All Tags/, /Set
