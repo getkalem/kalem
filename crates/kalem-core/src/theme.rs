@@ -269,6 +269,24 @@ pub fn wants_dark(setting: &str, system_dark: bool) -> bool {
     }
 }
 
+/// The color a grid cell's text is drawn in under a theme, given the
+/// cell's own `color` and whether the cell has a fill: `None` is the
+/// theme's foreground. A workbook's automatic text color ("Text 1",
+/// which Excel writes as black) has to read on the dark theme, and an
+/// explicit white one on the light theme: black text on no fill under
+/// the dark theme, and white on no fill under the light theme, are drawn
+/// in the foreground. A filled cell keeps its color, chosen against its
+/// fill.
+pub fn cell_text_color(color: Option<[u8; 3]>, filled: bool, dark: bool) -> Option<[u8; 3]> {
+    let [r, g, b] = color?;
+    let blackish = r < 0x20 && g < 0x20 && b < 0x20;
+    let whitish = r > 0xdf && g > 0xdf && b > 0xdf;
+    if !filled && ((dark && blackish) || (!dark && whitish)) {
+        return None;
+    }
+    Some([r, g, b])
+}
+
 /// The user's theme directory: `themes` in the settings directory.
 pub fn user_dir() -> Option<std::path::PathBuf> {
     crate::settings::config_dir().map(|d| d.join("themes"))
@@ -297,6 +315,19 @@ mod tests {
         assert_eq!(t.link, light.link);
         assert_eq!(issues.len(), 2, "{issues:?}");
         assert!(wants_dark("system", true) && !wants_dark("light", true));
+        // A workbook's automatic (black) text reads on the dark theme, white on the light one.
+        let (black, white, red) = (
+            Some([0, 0, 0]),
+            Some([0xff, 0xff, 0xff]),
+            Some([0xc0, 0, 0]),
+        );
+        assert_eq!(cell_text_color(black, false, true), None);
+        assert_eq!(cell_text_color(black, false, false), black);
+        assert_eq!(cell_text_color(black, true, true), black);
+        assert_eq!(cell_text_color(white, false, false), None);
+        assert_eq!(cell_text_color(white, false, true), white);
+        assert_eq!(cell_text_color(red, false, true), red);
+        assert_eq!(cell_text_color(None, false, true), None);
         assert_eq!(Color(0xff000080).over(Color(0x0000ffff)), Color(0x80007fff));
         let dir = std::env::temp_dir().join(format!("kalem-themes-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();

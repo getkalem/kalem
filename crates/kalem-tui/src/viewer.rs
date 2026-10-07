@@ -580,7 +580,13 @@ fn draw_grid(v: &mut ViewerState, caps: &Caps, buf: &mut Buffer, area: Rect) {
                         style = style.add_modifier(Modifier::CROSSED_OUT);
                     }
                     if !caps.no_color {
-                        if let Some([r, g, b]) = cell.color {
+                        // Automatic (black) text on no fill keeps the terminal's own
+                        // color, as the borders do, so it reads on a dark terminal.
+                        let filled = cell.fill.is_some() || cell.fill_pattern.is_some();
+                        let dark = caps.dark_background().unwrap_or(true);
+                        if let Some([r, g, b]) =
+                            kalem_core::theme::cell_text_color(cell.color, filled, dark)
+                        {
                             style = style.fg(ratatui::style::Color::Rgb(r, g, b));
                         }
                         if let Some([r, g, b]) = cell.fill {

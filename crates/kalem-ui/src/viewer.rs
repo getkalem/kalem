@@ -1478,7 +1478,11 @@ impl Editor {
                     } else if matches!(cell.align, kalem_viewer::Align::Center) {
                         d = d.justify_center();
                     }
-                    if let Some(c) = cell.color {
+                    if let Some(c) = kalem_core::theme::cell_text_color(
+                        cell.color,
+                        cell.fill.is_some() || cell.fill_pattern.is_some(),
+                        theme.dark,
+                    ) {
                         d = d.text_color(rgb(c));
                     }
                     if cell.bold {
@@ -1741,7 +1745,11 @@ impl Editor {
                                 .child(SharedString::from(glyph.clone())),
                         );
                     }
-                    if let Some(c) = cell.color {
+                    if let Some(c) = kalem_core::theme::cell_text_color(
+                        cell.color,
+                        cell.fill.is_some() || cell.fill_pattern.is_some(),
+                        theme.dark,
+                    ) {
                         d = d.text_color(rgb(c));
                     }
                     if cell.bold {
@@ -1982,7 +1990,11 @@ impl Editor {
                 if centered {
                     d = d.justify_center();
                 }
-                if let Some(c) = cell.color {
+                if let Some(c) = kalem_core::theme::cell_text_color(
+                    cell.color,
+                    cell.fill.is_some() || cell.fill_pattern.is_some(),
+                    theme.dark,
+                ) {
                     d = d.text_color(rgb(c));
                 }
                 if cell.bold {
