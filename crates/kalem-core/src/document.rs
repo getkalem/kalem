@@ -173,6 +173,9 @@ pub struct DocumentState {
     /// The filter matches the whole value of this column (a Frequency
     /// Table's choice), not text in any field.
     pub csv_filter_column: Option<usize>,
+    /// A CSV document's filtered or sorted view as last worked out, kept
+    /// through the edits since (`crate::csv::Frozen`).
+    pub csv_frozen: std::cell::RefCell<Option<crate::csv::Frozen>>,
     /// A CSV document's view sorted by a column (view state), descending
     /// when `true`: the file keeps its order (`crate::csv::shown_lines`).
     pub csv_sort: Option<(usize, bool)>,
@@ -355,6 +358,7 @@ impl DocumentState {
             viewer: None,
             csv_filter: None,
             csv_filter_column: None,
+            csv_frozen: std::cell::RefCell::new(None),
             csv_sort: None,
             csv_dialect: std::cell::Cell::new(None),
             csv_dialect_provisional: std::cell::Cell::new(false),
@@ -1989,6 +1993,9 @@ impl DocumentState {
         }
         self.changes.push(tx.clone());
         self.marks.map(tx);
+        if let Some(f) = self.csv_frozen.get_mut() {
+            f.map(tx);
+        }
         let edit = tx.covering_edit(self.text.as_str());
         if let Some(r) = &self.narrowing {
             self.narrowing = Some(

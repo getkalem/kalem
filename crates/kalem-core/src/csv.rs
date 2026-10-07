@@ -2545,6 +2545,101 @@ struct Shown {
     kept: Vec<bool>,
     /// The lines shown when the cursor is on a record the filter keeps.
     base: std::rc::Rc<Vec<usize>>,
+    /// The data rows the filter keeps, and all of them (the header and
+    /// blank lines left out), for the status bar.
+    matched: usize,
+    total: usize,
+}
+
+/// What a frozen view was worked out for: the filter and its column, the
+/// sort, the dialect.
+type FrozenKey = (
+    Option<(String, Option<usize>)>,
+    Option<(usize, bool)>,
+    Dialect,
+);
+
+/// A filtered or sorted view as Filter Rows or Sort View last worked it
+/// out, kept through the edits since (`DocumentState::csv_frozen`), as a
+/// spreadsheet keeps a sort and a filter until they are applied again:
+/// a row whose sorted value is typed into stays where it shows, one that
+/// no longer matches stays shown, and a row inserted shows after the one
+/// it follows in the file. (The view was worked out again at every
+/// keystroke, every value read: the row jumped away or vanished, an
+/// inserted one went to the top.)
+#[derive(Debug, Clone)]
+pub struct Frozen {
+    key: FrozenKey,
+    /// The records in the view's order: their bytes, moved through each
+    /// change since, and whether the filter keeps them.
+    records: Vec<(Range<usize>, bool)>,
+}
+
+impl Frozen {
+    /// Moves the records through `tx`: a record an edit takes away whole
+    /// (with its line ending, or a text replaced around it) goes.
+    pub fn map(&mut self, tx: &Transaction) {
+        self.records.retain_mut(|(r, _)| {
+            let gone = tx.edits.iter().any(|e| {
+                e.range.start <= r.start && r.end <= e.range.end && e.range != *r
+            });
+            if !gone {
+                let start = tx.map(r.start, org_edit::Assoc::Before);
+                let end = tx.map(r.end, org_edit::Assoc::After).max(start);
+                *r = start..end;
+            }
+            !gone
+        });
+    }
+
+    /// The view's order and what it keeps for the records `starts` of the
+    /// text now (in file order): the frozen records where they were, the
+    /// others after the record before them in the file, kept. `None` when
+    /// less than half the records are the frozen ones (a sort of the file,
+    /// a transpose): the view is worked out again.
+    fn place(&self, starts: &[usize]) -> Option<(Vec<usize>, Vec<bool>)> {
+        let n = starts.len();
+        let mut placed = vec![false; n];
+        let mut kept = vec![true; n];
+        let mut order = Vec::with_capacity(n);
+        for (r, k) in &self.records {
+            if let Ok(i) = starts.binary_search(&r.start)
+                && !placed[i]
+            {
+                placed[i] = true;
+                kept[i] = *k;
+                order.push(i);
+            }
+        }
+        if order.len() * 2 < n {
+            return None;
+        }
+        // The new records, each after the one before it in the file.
+        let mut after: std::collections::HashMap<usize, Vec<usize>> = Default::default();
+        let mut first = Vec::new();
+        let mut last_placed = None;
+        for i in 0..n {
+            if placed[i] {
+                last_placed = Some(i);
+            } else {
+                match last_placed {
+                    Some(p) => after.entry(p).or_default().push(i),
+                    None => first.push(i),
+                }
+            }
+        }
+        if after.is_empty() && first.is_empty() {
+            return Some((order, kept));
+        }
+        let mut out = first;
+        for i in order {
+            out.push(i);
+            if let Some(more) = after.remove(&i) {
+                out.extend(more);
+            }
+        }
+        Some((out, kept))
+    }
 }
 
 impl Shown {
@@ -2735,14 +2830,26 @@ fn same_place(text: &str, from: &Record, col: usize, head: usize, to: &Record) -
     }
 }
 
+/// Works the filtered or sorted view of `doc` out again at its next use,
+/// the edits since the last time counted (Filter Rows and Sort View do,
+/// as a spreadsheet's Reapply).
+pub fn view_again(doc: &mut crate::DocumentState) {
+    *doc.csv_frozen.get_mut() = None;
+    SHOWN.with(|m| *m.borrow_mut() = None);
+    WITH_CURSOR.with(|m| *m.borrow_mut() = None);
+}
+
 /// The view's order of a CSV document with a filter or a sort on, worked
 /// out once a version, with its key and whether no filter is on.
 fn shown(doc: &crate::DocumentState) -> Option<(std::rc::Rc<Shown>, ShownKey, bool)> {
     if doc.meta.mode != crate::DocumentMode::Csv {
         return None;
     }
-    let filter = filtered(doc);
-    if filter.is_none() && doc.csv_sort.is_none() {
+    let filtering = doc
+        .csv_filter
+        .as_deref()
+        .is_some_and(|f| !f.is_empty() || doc.csv_filter_column.is_some());
+    if !filtering && doc.csv_sort.is_none() {
         return None;
     }
     let t = doc.text();
@@ -2778,40 +2885,69 @@ fn shown(doc: &crate::DocumentState) -> Option<(std::rc::Rc<Shown>, ShownKey, bo
                     )
                 })
                 .collect();
-            // The filter's ranges and the records, both in file order.
-            let kept = match &filter {
-                None => vec![true; records.len()],
-                Some(f) => {
-                    let mut k = 0;
-                    starts
-                        .iter()
-                        .map(|&s| {
-                            while k < f.ranges.len() && f.ranges[k].end <= s {
-                                k += 1;
-                            }
-                            f.ranges.get(k).is_some_and(|x| x.start <= s && s < x.end)
-                        })
-                        .collect()
+            // The view as last worked out, kept through the edits since;
+            // else worked out now, and kept.
+            let frozen_key: FrozenKey = (key.2.clone(), key.3, key.4);
+            let frozen = doc
+                .csv_frozen
+                .borrow()
+                .as_ref()
+                .filter(|f| f.key == frozen_key)
+                .and_then(|f| f.place(&starts));
+            let (order, kept) = match frozen {
+                Some(v) => v,
+                None => {
+                    // The filter's ranges and the records, both in file
+                    // order.
+                    let kept = match filtered(doc) {
+                        None => vec![true; records.len()],
+                        Some(f) => {
+                            let mut k = 0;
+                            starts
+                                .iter()
+                                .map(|&s| {
+                                    while k < f.ranges.len() && f.ranges[k].end <= s {
+                                        k += 1;
+                                    }
+                                    f.ranges.get(k).is_some_and(|x| x.start <= s && s < x.end)
+                                })
+                                .collect()
+                        }
+                    };
+                    let order: Vec<usize> = match doc.csv_sort {
+                        Some((col, reverse)) => sorted_order(text, d, col, reverse),
+                        None => (0..records.len()).collect(),
+                    };
+                    *doc.csv_frozen.borrow_mut() = Some(Frozen {
+                        key: frozen_key,
+                        records: order
+                            .iter()
+                            .map(|&i| (records[i].range.clone(), kept[i]))
+                            .collect(),
+                    });
+                    (order, kept)
                 }
             };
-            let order = match doc.csv_sort {
-                Some((col, reverse)) => sorted_order(text, d, col, reverse),
-                None => (0..records.len()).collect(),
-            };
+            // The data rows: the header and blank lines left out.
+            let data = |i: usize| !(i == 0 && d.header) && !records[i].range.is_empty();
+            let total = (0..records.len()).filter(|&i| data(i)).count();
+            let matched = (0..records.len()).filter(|&i| data(i) && kept[i]).count();
             let mut shown = Shown {
                 starts,
                 lines,
                 order,
                 kept,
                 base: std::rc::Rc::new(Vec::new()),
+                matched,
+                total,
             };
-            shown.base = std::rc::Rc::new(shown.lines_with(None, t, filter.is_none()));
+            shown.base = std::rc::Rc::new(shown.lines_with(None, t, !filtering));
             let shown = std::rc::Rc::new(shown);
             SHOWN.with(|m| *m.borrow_mut() = Some((key.clone(), shown.clone())));
             shown
         }
     };
-    Some((shown, key, filter.is_none()))
+    Some((shown, key, !filtering))
 }
 
 /// The status bar's numbers for the column at the cursor of a CSV
@@ -2842,14 +2978,15 @@ fn status_rest(doc: &crate::DocumentState) -> Option<String> {
         return Some(p.message.clone());
     }
     let numbers = column_status(doc);
-    let Some(f) = filtered(doc) else {
+    // The rows the view keeps, as last filtered and edited since.
+    let Some((shown, _, false)) = shown(doc) else {
         return numbers;
     };
     let filter = crate::tr!(
         "status-csv-filter",
         filter = filter_label(doc),
-        matched = f.matched,
-        total = f.total
+        matched = shown.matched,
+        total = shown.total
     );
     Some(match numbers {
         Some(n) => format!("{filter}   {n}"),

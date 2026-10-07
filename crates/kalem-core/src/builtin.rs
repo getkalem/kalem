@@ -4072,6 +4072,9 @@ fn csv_commands() -> Vec<Command> {
             }
             d.csv_filter = (!text.is_empty() || column.is_some()).then_some(text);
             d.csv_filter_column = column;
+            // Filtered again, the edits since too (the view keeps rows
+            // edited out of the filter until then).
+            crate::csv::view_again(d);
             Ok(())
         }),
         c("csv.sortView", "Sort View by Column", &[], |ctx, args| {
@@ -4083,6 +4086,8 @@ fn csv_commands() -> Vec<Command> {
                 .ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))?;
             let reverse = reverse || d.csv_sort == Some((col, false));
             d.csv_sort = Some((col, reverse));
+            // Sorted again, the edits since too.
+            crate::csv::view_again(d);
             Ok(())
         }),
         scoped(

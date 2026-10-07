@@ -361,3 +361,70 @@ fn sorting_dates_and_amounts() {
     s.at("A2").key("csv.sortFile");
     assert_eq!(s.text(), "d\n31.12.2025\n15.01.2026\n01.02.2026\n");
 }
+
+/// The rows of the view in its order, by their first field.
+fn view_ids(s: &Sheet) -> Vec<String> {
+    let t = s.d.text();
+    csv::shown_lines(&s.d)
+        .unwrap()
+        .iter()
+        .map(|&l| {
+            let line = &t.as_str()[t.line_range(l)];
+            line.split(',').next().unwrap_or("").to_string()
+        })
+        .filter(|f| !f.is_empty())
+        .collect()
+}
+
+#[test]
+fn a_sorted_view_keeps_its_order_through_edits() {
+    // Sorted by name: Ada, Bob, Cem, Dan. Bob renamed Zed stays where it
+    // shows (it jumped to the end at the keystroke); sorting again moves
+    // it.
+    let mut s = Sheet::new(SCORES);
+    s.at("B2").key("csv.sortView");
+    assert_eq!(view_ids(&s), ["id", "4", "2", "3", "1"]);
+    s.at("B3").ok("csv.setField", json!({"value": "Zed"}));
+    assert_eq!(view_ids(&s), ["id", "4", "2", "3", "1"]);
+    // A row inserted shows below the one it was inserted after.
+    s.at("B3").key("csv.insertRow");
+    assert_eq!(s.cell(), "B4");
+    s.ok("csv.setField", json!({"value": "Abe"}));
+    s.ok("csv.setField", json!({"value": "5", "column": 0}));
+    let ids = view_ids(&s);
+    assert_eq!(ids.len(), 6);
+    assert_eq!(&ids[..3], ["id", "4", "2"], "{ids:?}");
+    // Sorted again: the edits count.
+    s.at("B2").ok("csv.sortView", json!({"reverse": false}));
+    s.at("B2").ok("csv.sortView", json!({"reverse": false}));
+    let t = s.text().to_string();
+    let names: Vec<&str> = view_ids(&s)
+        .iter()
+        .filter_map(|id| {
+            t.lines()
+                .find(|l| l.starts_with(&format!("{id},")))
+                .and_then(|l| l.split(',').nth(1))
+        })
+        .collect();
+    assert_eq!(names, ["name", "Abe", "Ada", "Cem", "Dan", "Zed"]);
+}
+
+#[test]
+fn a_filter_keeps_a_row_edited_out_of_it() {
+    let mut s = Sheet::new(TAGS);
+    s.ok("csv.filter", json!({"text": "x"}));
+    assert_eq!(view_ids(&s), ["id", "1", "3", "5"]);
+    // Cem's tag made `y`: still shown, counted, until filtered again.
+    s.at("C4").ok("csv.setField", json!({"value": "y"}));
+    s.at("A2");
+    assert_eq!(view_ids(&s), ["id", "1", "3", "5"]);
+    let status = csv::status(&s.d).unwrap();
+    assert!(status.contains("3 of 5"), "{status}");
+    s.ok("csv.filter", json!({"text": "x"}));
+    assert_eq!(view_ids(&s), ["id", "1", "5"]);
+    // A row inserted under a filter stays shown when the cursor leaves.
+    s.at("A2").key("csv.insertRow");
+    s.ok("csv.setField", json!({"value": "9"}));
+    s.at("A1");
+    assert_eq!(view_ids(&s), ["id", "1", "9", "5"]);
+}
