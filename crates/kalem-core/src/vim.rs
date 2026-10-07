@@ -124,6 +124,13 @@ pub trait Host {
     fn scroll_to(&mut self, line: usize, at: u8) {
         let _ = (line, at);
     }
+    /// The closed fold `line` is in, its first and last line: a folded
+    /// Org heading with the lines it hides. `j` and `k` take it as one
+    /// line, and a linewise operator takes it whole, as Vim does.
+    fn closed_fold(&self, line: usize) -> Option<(usize, usize)> {
+        let _ = line;
+        None
+    }
     /// The screen's width in columns, for `gm`.
     fn columns(&self) -> usize {
         80
@@ -1965,7 +1972,8 @@ impl Vim {
             Key::Char('j' | 'k') | Key::Down | Key::Up | Key::Ctrl('n' | 'p') => {
                 let down = matches!(key, Key::Char('j') | Key::Down | Key::Ctrl('n'));
                 // Nowhere to go: the motion fails (and its operator).
-                if (down && line >= last) || (!down && line == 0) {
+                let fold_end = host.closed_fold(line).map_or(line, |f| f.1);
+                if (down && fold_end >= last) || (!down && line == 0) {
                     return Some(None);
                 }
                 // The column on screen is kept (tabs and wide characters
@@ -1980,11 +1988,24 @@ impl Vim {
                         col
                     }
                 });
-                let l = if down {
-                    (line + n).min(last)
-                } else {
-                    line.saturating_sub(n)
-                };
+                // A closed fold counts as one line, entered at its first.
+                let mut l = line;
+                for _ in 0..n {
+                    if down {
+                        let end = host.closed_fold(l).map_or(l, |f| f.1);
+                        if end >= last {
+                            break;
+                        }
+                        l = end + 1;
+                    } else if l == 0 {
+                        break;
+                    } else {
+                        l -= 1;
+                    }
+                    if let Some((s, _)) = host.closed_fold(l) {
+                        l = s;
+                    }
+                }
                 to_line(l, Some(goal))
             }
             Key::Ctrl('d' | 'u' | 'f' | 'b') => {
@@ -2429,6 +2450,14 @@ impl Vim {
         out: &mut Outcome,
     ) {
         let len = doc.text().len();
+        // Closed folds are taken whole by linewise operators (`dd`, `yy`).
+        let target = match target {
+            Target::Lines(l1, l2) => Target::Lines(
+                host.closed_fold(l1).map_or(l1, |f| f.0),
+                host.closed_fold(l2).map_or(l2, |f| f.1),
+            ),
+            t => t,
+        };
         // `'[` and `']`: the text operated on (moving with the edit).
         let (a, b) = match &target {
             Target::Lines(l1, l2) => (line_start(doc, *l1), line_end(doc, *l2)),

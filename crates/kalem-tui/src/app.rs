@@ -300,9 +300,18 @@ struct TuiHost<'a> {
     top: usize,
     /// A new first line asked for (CTRL-E, `zt`).
     scroll: Option<usize>,
+    /// The folded headings, as Vim's closed folds.
+    folds: Vec<(usize, usize)>,
 }
 
 impl kalem_core::vim::Host for TuiHost<'_> {
+    fn closed_fold(&self, line: usize) -> Option<(usize, usize)> {
+        self.folds
+            .iter()
+            .find(|(a, b)| *a <= line && line <= *b)
+            .copied()
+    }
+
     fn clipboard(&mut self) -> Option<String> {
         (!self.clip.is_empty()).then(|| self.clip.clone())
     }
@@ -4138,6 +4147,15 @@ impl App {
             .doc
             .text()
             .line_of(self.editor.viewport.top.min(self.doc.text().len()));
+        let folds = if self.editor.folds == kalem_core::view::Folds::default() {
+            Vec::new()
+        } else {
+            let blocks = self.editor.all_blocks(&self.doc);
+            let text = self.doc.text();
+            kalem_core::view::closed_folds(&self.editor.folds, &blocks, text.len(), |p| {
+                text.line_of(p)
+            })
+        };
         let (out, scroll) = {
             let mut host = TuiHost {
                 clip: &mut self.clipboard.text,
@@ -4146,6 +4164,7 @@ impl App {
                 rich: !self.editor.source,
                 top,
                 scroll: None,
+                folds,
             };
             let out = v.key(&mut self.doc, key, &mut host);
             (out, host.scroll)

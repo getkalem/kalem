@@ -27,7 +27,9 @@ unfolds it; Shift+Tab cycles the whole document between overview,
 contents and everything. With Vim keys the =z= keys fold as in Doom
 Emacs: =za= toggles the heading the cursor is under, =zo= and =zc=
 open and close it, =zO= opens everything under it, =zM= shows the
-overview, =zR= everything, and =zA= is Shift+Tab. In Normal mode
+overview, =zR= everything, and =zA= is Shift+Tab; as Vim's closed
+folds, a folded heading is one line for =j= and =k=, and =dd= or =yy=
+takes it whole. In Normal mode
 =M-h= and =M-l= promote and demote a heading (outdent and indent an
 item, move a table column), =M-k= and =M-j= move it, and with Shift
 (=M-H=, =M-L=) the whole subtree, as evil-org has them; Enter marks a

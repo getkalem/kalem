@@ -1970,6 +1970,33 @@ impl Folds {
     }
 }
 
+/// The lines folded away under headings, as Vim's closed folds: for each
+/// folded heading that shows, its line and the last line it hides.
+/// `line_of` gives a position's line.
+pub fn closed_folds(
+    folds: &Folds,
+    blocks: &[Block],
+    len: usize,
+    line_of: impl Fn(usize) -> usize,
+) -> Vec<(usize, usize)> {
+    if folds.folds.is_empty() {
+        return Vec::new();
+    }
+    let visible = folds.visible(blocks);
+    let mut out = Vec::new();
+    for (i, b) in visible.iter().enumerate() {
+        if heading_level(b).is_none() || folds.get(b.range.start).is_none() {
+            continue;
+        }
+        let next = visible.get(i + 1).map_or(len, |n| n.range.start);
+        if next > b.range.end {
+            let last = line_of(next.saturating_sub(1).max(b.range.start));
+            out.push((line_of(b.range.start), last));
+        }
+    }
+    out
+}
+
 /// The global visibility `#+STARTUP: OPTION` leaves the document in, from
 /// which Shift+Tab's cycle goes on (`org-cycle-global-status`).
 pub fn startup_visibility(option: &str) -> Visibility {

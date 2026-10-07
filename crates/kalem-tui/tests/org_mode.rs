@@ -350,3 +350,20 @@ fn vim_structure_motions() {
     // In other documents `gj` is Vim's own (a screen line down).
     assert_eq!(t.text(), text);
 }
+
+#[test]
+fn vim_takes_a_folded_heading_as_one_line() {
+    // As Vim's closed folds: `j` goes over it, `dd` and `yy` take it whole.
+    let vim = "editor.keymap_profile = \"vim\"\n";
+    let text = "* A\n** child\ntext\n* B\n* C\n";
+    let mut t = open_with(text, vim, 0);
+    t.key(KeyCode::Tab, KeyModifiers::NONE);
+    t.typ("j");
+    assert_eq!(t.app.doc.selection.head, text.find("* B").unwrap());
+    t.typ("k");
+    assert_eq!(t.app.doc.selection.head, 0);
+    t.typ("yyGp");
+    assert_eq!(t.text(), "* A\n** child\ntext\n* B\n* C\n* A\n** child\ntext\n");
+    t.typ("ggdd");
+    assert_eq!(t.text(), "* B\n* C\n* A\n** child\ntext\n");
+}

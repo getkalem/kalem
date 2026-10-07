@@ -55,9 +55,18 @@ struct GuiHost<'a, 'b> {
     top: usize,
     /// A new first line asked for (CTRL-E, `zt`).
     scroll: Option<usize>,
+    /// The folded headings, as Vim's closed folds.
+    folds: Vec<(usize, usize)>,
 }
 
 impl Host for GuiHost<'_, '_> {
+    fn closed_fold(&self, line: usize) -> Option<(usize, usize)> {
+        self.folds
+            .iter()
+            .find(|(a, b)| *a <= line && line <= *b)
+            .copied()
+    }
+
     fn clipboard(&mut self) -> Option<String> {
         self.cx.read_from_clipboard().and_then(|i| i.text())
     }
@@ -139,6 +148,13 @@ impl Editor {
             .get(self.list.logical_scroll_top().item_ix)
             .copied()
             .unwrap_or(0);
+        let folds = if self.folds == kalem_core::view::Folds::default() {
+            Vec::new()
+        } else {
+            let blocks = self.blocks();
+            let text = self.doc.text();
+            kalem_core::view::closed_folds(&self.folds, &blocks, text.len(), |p| text.line_of(p))
+        };
         let (out, scroll) = {
             let rich = !self.source;
             let mut host = GuiHost {
@@ -147,6 +163,7 @@ impl Editor {
                 rich,
                 top,
                 scroll: None,
+                folds,
             };
             let out = v.key(&mut self.doc, k, &mut host);
             (out, host.scroll)
