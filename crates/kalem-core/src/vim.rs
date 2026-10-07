@@ -3266,6 +3266,11 @@ impl Vim {
                                 Some((format!("<{ch}> {n}, Hex {n:02x}, Oct {n:03o}"), false));
                         }
                     }
+                    Key::Char('&') if self.op.is_none() && self.last_sub.is_none() => {
+                        self.count = None;
+                        self.failed = true;
+                        out.message = Some(("E35: No previous regular expression".into(), true));
+                    }
                     Key::Char('&') if self.op.is_none() => {
                         self.count = None;
                         self.begin_change();
