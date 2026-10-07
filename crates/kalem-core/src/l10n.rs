@@ -258,6 +258,9 @@ mod tests {
             let k = command_key(&c.id);
             assert!(en.contains(&k), "{k}");
             assert_eq!(tr_in("en", &k, &[]), c.title, "{k}");
+            // And a category the palette names (`category-tasks` showed).
+            let cat = format!("category-{}", c.category.to_lowercase());
+            assert!(en.contains(&cat), "{cat} ({})", c.id);
         }
         // No message is defined twice (Fluent keeps the first).
         for lang in ["en", "tr"] {

@@ -271,6 +271,11 @@ category-tags = Etiketler
 category-view = Görünüm
 category-code = Kod
 category-plugins = Eklentiler
+category-help = Yardım
+category-search = Ara
+category-tasks = Planlama
+category-window = Pencere
+category-workspace = Çalışma alanı
 
 ## Menüler.
 

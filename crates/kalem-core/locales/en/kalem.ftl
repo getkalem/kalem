@@ -275,6 +275,11 @@ category-tags = Tags
 category-view = View
 category-code = Code
 category-plugins = Plugins
+category-help = Help
+category-search = Search
+category-tasks = Tasks
+category-window = Window
+category-workspace = Workspace
 
 ## Menus.
 

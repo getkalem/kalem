@@ -686,10 +686,17 @@ impl Command {
         }
     }
 
-    /// The category in the interface language.
+    /// The category in the interface language (its English name where
+    /// the messages lack it, not the message's ID).
     pub fn display_category(&self) -> String {
         if self.source == CommandSource::Builtin {
-            crate::l10n::tr(&format!("category-{}", self.category.to_lowercase()))
+            let id = format!("category-{}", self.category.to_lowercase());
+            let shown = crate::l10n::tr(&id);
+            if shown == id {
+                self.category.clone()
+            } else {
+                shown
+            }
         } else {
             self.category.clone()
         }
