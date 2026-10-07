@@ -27,6 +27,12 @@ fn run(
         "org-move-subtree-down" => move_subtree(text, point, true, ctx),
         "org-move-subtree-up" => move_subtree(text, point, false, ctx),
         "org-cut-subtree" => cut_subtree(text, point, ctx).map(|(t, _)| t),
+        "ts-change" => {
+            use org_edit::timestamp::{TsField, timestamp_change};
+            let n = args[0].as_i64().unwrap_or(1);
+            let what = (args[1] == "day").then_some(TsField::Day);
+            timestamp_change(text, point, n, what, args[2].as_bool().unwrap_or(false))
+        }
         "insert-heading" => {
             let place = |a: &Value| match a.as_str() {
                 Some("after") => HeadingPlace::AfterSubtree,

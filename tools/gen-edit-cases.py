@@ -4,7 +4,7 @@
 Each case is a document, a cursor position and an Emacs form. Run
 `tools/edit-expected.sh` afterwards to compute the Emacs results.
 """
-import json, os
+import json, os, re
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -1566,9 +1566,52 @@ def heading_cases():
                 out.append({"name": f"heading {d}@{p} {form}", "text": doc, "point": p, "mark": None, "form": form, "cmd": "insert-heading", "args": args})
     return out
 
+TIMESTAMP_DOCS = [
+    """* TODO Meet <2026-10-05 Mon 10:00> :w:
+SCHEDULED: <2026-10-05 Mon 09:57 +1w -2d> DEADLINE: <2026-10-30 Fri .+2d>
+Range <2026-10-05 Mon 10:00-11:30> and [2026-01-31 Sat 23:59] then <2026-12-31 Thu ++1m --3d>.
+Plain <2026-02-28> date, two <2026-10-01 Thu>--<2026-10-03 Sat 08:05>.
+""",
+    """* Work
+:LOGBOOK:
+CLOCK: [2026-10-05 Mon 09:00]--[2026-10-05 Mon 10:30] =>  1:30
+CLOCK: [2026-10-05 Mon 23:50]--[2026-10-06 Tue 00:10]
+  CLOCK: [2026-10-06 Tue 08:00]--[2026-10-06 Tue 08:00] =>  0:00 trailing
+:END:
+""",
+    """<2026-10-05 Mon 10:00 +1d/3d> at start
+end <2026-03-29 Sun>""",
+]
+
+TS_RE = re.compile(rb"[<\[][0-9]{4}-[0-9]{2}-[0-9]{2}[^]>\n]*[]>]")
+
+TIMESTAMP_FORMS = [
+    ("(org-timestamp-up)", [1, None, True]),
+    ("(org-timestamp-down)", [-1, None, True]),
+    ("(org-timestamp-up 3)", [3, None, True]),
+    ("(org-timestamp-up-day)", [1, "day", True]),
+    ("(org-timestamp-down-day)", [-1, "day", True]),
+]
+
+
+def timestamp_cases():
+    """`org-timestamp-up', `org-timestamp-down' and the day variants
+    (S-up, S-down, S-right, S-left on a timestamp) at every position of
+    every timestamp, its brackets and the place after it included."""
+    out = []
+    for d, doc in enumerate(TIMESTAMP_DOCS):
+        data = doc.encode()
+        points = set()
+        for m in TS_RE.finditer(data):
+            points.update(range(m.start(), m.end() + 1))
+        for p in sorted(points):
+            for form, args in TIMESTAMP_FORMS:
+                out.append({"name": f"timestamp {d}@{p} {form}", "text": doc, "point": p, "mark": None, "form": form, "cmd": "ts-change", "args": args})
+    return out
+
 if __name__ == "__main__":
     path = os.path.join(ROOT, "tests/edit/cases.json")
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(cases() + todo_dependency_cases() + footnote_cases() + random_footnote_cases() + planning_cases() + drawer_cases() + archive_cases() + heading_cases(), f, ensure_ascii=False, indent=1)
+        json.dump(cases() + todo_dependency_cases() + footnote_cases() + random_footnote_cases() + planning_cases() + drawer_cases() + archive_cases() + heading_cases() + timestamp_cases(), f, ensure_ascii=False, indent=1)
         f.write("\n")
     print(f"{len(cases())} cases -> {path}")
