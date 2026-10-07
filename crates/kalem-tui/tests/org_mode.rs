@@ -119,3 +119,31 @@ fn shift_tab_goes_on_from_the_startup_overview() {
     t.key(KeyCode::BackTab, KeyModifiers::SHIFT);
     assert!(t.status().ends_with("Overview"), "{}", t.status());
 }
+
+#[test]
+fn bold_as_a_word_processor_does() {
+    // Ctrl+B, the word, Ctrl+B: the word is bold and the rest plain.
+    let mut t = open("Say \n", 4);
+    t.key(KeyCode::Char('b'), KeyModifiers::CONTROL);
+    t.typ("bold");
+    t.key(KeyCode::Char('b'), KeyModifiers::CONTROL);
+    t.typ(" text");
+    assert_eq!(t.text(), "Say *bold* text\n");
+    // Ctrl+B twice on a selection: bold, then plain again.
+    t.key(KeyCode::End, KeyModifiers::NONE);
+    for _ in 0..4 {
+        t.key(KeyCode::Left, KeyModifiers::SHIFT);
+    }
+    t.key(KeyCode::Char('b'), KeyModifiers::CONTROL);
+    assert_eq!(t.text(), "Say *bold* *text*\n");
+    assert_eq!(t.app.doc.selected_text(), Some("text"));
+    t.key(KeyCode::Char('b'), KeyModifiers::CONTROL);
+    assert_eq!(t.text(), "Say *bold* text\n");
+    assert_eq!(t.app.doc.selected_text(), Some("text"));
+    // In the pair Ctrl+B inserted, Ctrl+B takes it away.
+    let mut t = open("x \n", 2);
+    t.key(KeyCode::Char('b'), KeyModifiers::CONTROL);
+    assert_eq!(t.text(), "x **\n");
+    t.key(KeyCode::Char('b'), KeyModifiers::CONTROL);
+    assert_eq!(t.text(), "x \n");
+}

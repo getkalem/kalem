@@ -7,7 +7,7 @@ use org_model::Document;
 use org_syntax::{SyntaxKind, SyntaxNode};
 
 use crate::buffer::{Buf, EditError};
-use crate::transaction::Transaction;
+use crate::transaction::{Selection, Transaction};
 
 /// The emphasis markers of `org-emphasis-alist`.
 pub const MARKERS: &[char] = &['*', '/', '_', '=', '~', '+'];
@@ -179,7 +179,13 @@ pub fn toggle_emphasis(
         let mut buf = Buf::new(&text, end);
         buf.delete(e - 1, e);
         buf.delete(s, s + 1);
-        return Ok(buf.transaction("Remove emphasis"));
+        // The selection stays on its text, so the key puts the formatting
+        // back.
+        let at = |p: usize| p - usize::from(p > s) - usize::from(p >= e);
+        return Ok(buf.transaction("Remove emphasis").select(Selection {
+            anchor: at(start),
+            head: at(end),
+        }));
     }
     // No formatting inside code or verbatim.
     if objects.iter().any(|n| {
@@ -236,7 +242,55 @@ pub fn toggle_emphasis(
     if !ok {
         return Err(EditError::new("The selection cannot be formatted here"));
     }
-    Ok(t)
+    // The formatted text stays selected, as in a word processor: the key
+    // again takes the formatting away.
+    let shift = 1 + usize::from(!pre_ok);
+    Ok(t.select(Selection {
+        anchor: s + shift,
+        head: e + shift,
+    }))
+}
+
+/// Bold, italic and the other emphasis without a selection, as a word
+/// processor's keys: at the end of the text of that emphasis
+/// (`*bold|*`), the cursor leaves it, so what is typed next is plain; in
+/// an empty pair of its markers (`*|*`, which the key had inserted), the
+/// pair goes; anywhere else a pair is inserted around the cursor as
+/// `org-emphasize` does.
+pub fn toggle_at_caret(
+    doc: &Document,
+    point: usize,
+    kind: Emphasis,
+) -> Result<Transaction, EditError> {
+    let text = doc.parse().syntax().to_string();
+    let m = kind.marker();
+    let before = text[..point].chars().next_back();
+    let after = text[point..].chars().next();
+    if before == Some(m) && after == Some(m) {
+        let open = point - m.len_utf8();
+        let close = point + m.len_utf8();
+        let bol = text[..open].rfind('\n').map_or(0, |i| i + 1);
+        // `** Title` is a heading's stars, not a pair.
+        let heading = m == '*'
+            && text[bol..open].bytes().all(|b| b == b'*')
+            && text[close..].starts_with([' ', '\t']);
+        if !heading {
+            let mut buf = Buf::new(&text, point);
+            buf.delete(open, close);
+            return Ok(buf.transaction("Remove emphasis"));
+        }
+    }
+    let end_of_contents = doc
+        .parse()
+        .syntax()
+        .descendants()
+        .filter(|n| n.kind() == kind.kind())
+        .any(|n| spans(&n).1.1 == point);
+    if end_of_contents {
+        let past = point + m.len_utf8();
+        return Ok(Transaction::new("Leave emphasis").select(Selection::caret(past)));
+    }
+    emphasize(doc, point, None, Some(m))
 }
 
 #[cfg(test)]
@@ -274,5 +328,50 @@ mod tests {
         );
         assert!(toggle("a *bold word* x\n", 5, 15, Emphasis::Italic).is_err());
         assert!(toggle("a ~code here~ x\n", 5, 9, Emphasis::Bold).is_err());
+    }
+
+    fn selection_after(text: &str, s: usize, e: usize, k: Emphasis) -> (usize, usize) {
+        let doc = Document::new(org_syntax::parse(text));
+        let sel = toggle_emphasis(&doc, s, e, k)
+            .unwrap()
+            .selection_after
+            .unwrap();
+        (sel.anchor, sel.head)
+    }
+
+    #[test]
+    fn the_selection_stays_on_its_text() {
+        // Bold, then bold again: the word is plain again.
+        assert_eq!(selection_after("a word here\n", 2, 6, Emphasis::Bold), (3, 7));
+        assert_eq!(selection_after("a *word* here\n", 3, 7, Emphasis::Bold), (2, 6));
+        assert_eq!(selection_after("a *word* here\n", 2, 8, Emphasis::Bold), (2, 6));
+        // A space put before the marker moves the text one more.
+        assert_eq!(selection_after("aword here\n", 1, 5, Emphasis::Bold), (3, 7));
+    }
+
+    fn at_caret(text: &str, point: usize, k: Emphasis) -> (String, usize) {
+        let doc = Document::new(org_syntax::parse(text));
+        let t = toggle_at_caret(&doc, point, k).unwrap();
+        (t.apply(text), t.selection_after.unwrap().head)
+    }
+
+    #[test]
+    fn keys_without_a_selection() {
+        // A pair, then the same key in the empty pair takes it away.
+        assert_eq!(at_caret("Say \n", 4, Emphasis::Bold), ("Say **\n".into(), 5));
+        assert_eq!(at_caret("Say **\n", 5, Emphasis::Bold), ("Say \n".into(), 4));
+        // At the end of the bold text the cursor leaves it.
+        assert_eq!(
+            at_caret("Say *bold*\n", 9, Emphasis::Bold),
+            ("Say *bold*\n".into(), 10)
+        );
+        assert_eq!(
+            at_caret("Say /it/ x\n", 7, Emphasis::Italic),
+            ("Say /it/ x\n".into(), 8)
+        );
+        // Inside other emphasis, a pair as org-emphasize inserts it.
+        assert_eq!(at_caret("Say *bold*\n", 9, Emphasis::Italic).0, "Say *bold // *\n");
+        // A heading's stars are not a pair.
+        assert_eq!(at_caret("** H\n", 1, Emphasis::Bold).0, "* ** * H\n");
     }
 }
