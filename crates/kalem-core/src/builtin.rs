@@ -8259,7 +8259,8 @@ fn plain_commands() -> Vec<Command> {
                     .and_then(Value::as_u64)
                     .and_then(|n| usize::try_from(n).ok());
                 let text = arg_str(args, "value")?;
-                let value = crate::settings_list::put(ctx.config, spec, at, text)
+                let field = crate::settings_list::Field::of(spec);
+                let value = crate::settings_list::put(ctx.config, &field, at, text)
                     .map_err(CommandError::new)?;
                 set_setting(ctx, &key, value)
             },

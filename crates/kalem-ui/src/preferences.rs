@@ -1,8 +1,10 @@
 //! The settings panel (T1.5.19), lazygit's way as the terminal editor's:
 //! every setting in a list grouped by its table, the chosen one's
 //! description below, a key for each change (`j` and `k` choose, `h` and
-//! `l` change in place, Enter edits, `/` filters, `d` goes back to the
-//! default), a list's or a table's items in the same panel
+//! `l` change in place, a text stepping through its usual values, Enter
+//! edits or opens, `/` filters, `d` goes back to the default), a list's
+//! or a table's items in the same panel, and the installed plugins with
+//! each one's settings as pages of their own
 //! ([`kalem_core::settings_list`]). A change is written to the user's
 //! `settings.toml` (comments kept) and applies to every window at once.
 
@@ -15,8 +17,8 @@ use gpui::{
 };
 use kalem_core::l10n::tr;
 use kalem_core::line_edit;
-use kalem_core::settings::{self, Config, Layer, SPECS};
-use kalem_core::settings_list::{self, Browser, Edit, Items, Line};
+use kalem_core::settings::{self, Config, Layer};
+use kalem_core::settings_list::{self, Browser, Edit, Entry, Field, FieldKind, Row};
 use serde_json::Value;
 
 use crate::editor::{Editor, Shared};
@@ -26,15 +28,8 @@ use crate::workspace::Workspace;
 /// How many lines of settings (or items) the panel shows at once.
 const ROOM: usize = 16;
 
-/// What text typed in the settings panel sets.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Target {
-    /// The text of setting `key`.
-    Value(&'static str),
-    /// An item of the list or table `key`: in place of item `at`, else a
-    /// new one.
-    Item(&'static str, Option<usize>),
-}
+/// How many usual values the panel offers under a text being typed.
+const OFFERED: usize = 8;
 
 /// Text being typed in the settings panel.
 #[derive(Debug, Clone)]
@@ -43,10 +38,20 @@ pub struct Typing {
     pub text: String,
     /// The cursor, as characters after it ([`line_edit`]).
     pub back: usize,
-    /// What it sets.
-    pub target: Target,
-    /// The font offered chosen with the arrows (`editor.font_family`).
+    /// The setting it sets.
+    pub field: Field,
+    /// With its items shown: item `at` typed, or a new one; else its
+    /// value.
+    pub at: Option<Option<usize>>,
+    /// The usual value offered chosen with the arrows.
     chosen: Option<usize>,
+}
+
+impl Typing {
+    /// Whether item `n` of `field` is typed.
+    fn types_item(&self, field: &Field, n: Option<usize>) -> bool {
+        self.field.key == field.key && self.at == Some(n)
+    }
 }
 
 /// The open settings panel.
@@ -56,35 +61,26 @@ pub struct SettingsPanel {
     pub list: Browser,
     /// A value or an item being typed.
     pub typing: Option<Typing>,
-    fonts: Vec<String>,
 }
 
 impl SettingsPanel {
-    /// The fonts holding `typed` (in any case), the system font first,
-    /// for `editor.font_family`.
-    pub fn fonts(&self, typed: &str) -> Vec<&str> {
-        let f = typed.trim().to_lowercase();
-        let mut out = vec![""];
-        out.extend(
-            self.fonts
-                .iter()
-                .map(String::as_str)
-                .filter(|n| n.to_lowercase().contains(&f)),
-        );
-        out.truncate(9);
+    /// The usual values of the text typed holding what is typed (in any
+    /// case): the fonts installed, the TeX engines…
+    fn offered(&self) -> Vec<String> {
+        let Some(t) = self.typing.as_ref().filter(|t| t.at.is_none()) else {
+            return Vec::new();
+        };
+        let typed = t.text.trim().to_lowercase();
+        let mut out: Vec<String> = settings_list::candidates(&t.field)
+            .into_iter()
+            .filter(|c| c.to_lowercase().contains(&typed))
+            .collect();
+        out.truncate(OFFERED);
         out
-    }
-
-    /// The fonts offered while `editor.font_family` is typed.
-    fn offered(&self) -> Vec<&str> {
-        match &self.typing {
-            Some(t) if t.target == Target::Value("editor.font_family") => self.fonts(&t.text),
-            _ => Vec::new(),
-        }
     }
 }
 
-/// What a key does in the list of settings.
+/// What a key does in a page.
 enum Act {
     Move(isize),
     First,
@@ -93,12 +89,14 @@ enum Act {
     Edit,
     Reset,
     File,
+    Back,
     Close,
 }
 
 /// What a key does among a list's or a table's items.
 enum ItemAct {
     Back,
+    Close,
     Move(isize),
     First,
     Last,
@@ -125,17 +123,23 @@ pub fn rebuild(old: &Shared, config: Config) -> Shared {
 
 impl Editor {
     /// Opens the settings panel.
-    pub fn open_settings(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) {
-        let mut fonts = window.text_system().all_font_names();
-        fonts.sort();
-        fonts.dedup();
-        fonts.retain(|f| !f.starts_with('.'));
+    pub fn open_settings(&mut self, _window: &mut Window, cx: &mut Context<'_, Self>) {
         self.palette = None;
         self.completion = None;
-        self.settings = Some(SettingsPanel {
-            fonts,
-            ..SettingsPanel::default()
-        });
+        let mut panel = SettingsPanel::default();
+        // The plugins of the settings folder this editor uses.
+        if let Some(dir) = self
+            .shared
+            .settings_path
+            .as_deref()
+            .and_then(std::path::Path::parent)
+        {
+            panel
+                .list
+                .set_plugins(kalem_core::plugin_settings::installed_in(dir));
+        }
+        kalem_core::fonts::prefetch();
+        self.settings = Some(panel);
         cx.notify();
     }
 
@@ -161,7 +165,7 @@ impl Editor {
     pub fn settings_key(
         &mut self,
         k: &Keystroke,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<'_, Self>,
     ) -> bool {
         let Some(s) = &mut self.settings else {
@@ -190,6 +194,8 @@ impl Editor {
         if s.typing.is_some() {
             return self.settings_typing_key(k, plain, special, cx);
         }
+        let shared = self.shared.clone();
+        let config = &shared.config;
         if s.list.filtering {
             match k.key.as_str() {
                 "escape" => {
@@ -204,8 +210,8 @@ impl Editor {
                     }
                     s.list.set_filter(&f);
                 }
-                "up" => s.list.move_by(-1),
-                "down" => s.list.move_by(1),
+                "up" => s.list.move_by(-1, config),
+                "down" => s.list.move_by(1, config),
                 // A viewer's file takes no typed text: the keys give it.
                 _ if plain && !special && self.doc.viewer.is_some() => {
                     let Some(text) = k.key_char.clone() else {
@@ -223,7 +229,7 @@ impl Editor {
         }
         let ctrl = m.control;
         let act = match (k.key.as_str(), typed) {
-            ("escape", _) | (_, Some("q")) if !s.list.filter.is_empty() => {
+            ("escape", _) if !s.list.filter.is_empty() => {
                 s.list.set_filter("");
                 cx.notify();
                 return true;
@@ -233,7 +239,8 @@ impl Editor {
                 cx.notify();
                 return true;
             }
-            ("escape", _) | (_, Some("q")) => Act::Close,
+            ("escape", _) => Act::Back,
+            (_, Some("q")) => Act::Close,
             ("g", _) if ctrl => Act::Close,
             ("p", _) if ctrl => Act::Move(-1),
             ("n", _) if ctrl => Act::Move(1),
@@ -255,17 +262,22 @@ impl Editor {
             _ => return false,
         };
         match act {
-            Act::Move(by) => s.list.move_by(by),
+            Act::Move(by) => s.list.move_by(by, config),
             Act::First => s.list.selected = 0,
-            Act::Last => s.list.last(),
-            Act::Step(forward) => self.settings_step(forward, cx),
-            Act::Edit => self.settings_edit(cx),
+            Act::Last => s.list.last(config),
+            Act::Step(forward) => self.settings_step(forward, window, cx),
+            Act::Edit => self.settings_edit(window, cx),
             Act::Reset => {
-                if let Some(spec) = s.list.current() {
-                    self.set_setting(spec.key, Value::Null, cx);
+                if let Some(f) = s.list.current_field(config) {
+                    self.set_field(&f, Value::Null, cx);
                 }
             }
             Act::File => self.settings_file(cx),
+            Act::Back => {
+                if !s.list.back() {
+                    self.settings = None;
+                }
+            }
             Act::Close => self.settings = None,
         }
         cx.notify();
@@ -273,8 +285,8 @@ impl Editor {
     }
 
     /// Keys while a value or an item is typed: Enter sets it, Escape
-    /// leaves it, Tab completes a font, the arrows choose among the fonts
-    /// offered; the rest edits the line.
+    /// leaves it, Tab completes to a usual value, the arrows choose among
+    /// those offered; the rest edits the line.
     fn settings_typing_key(
         &mut self,
         k: &Keystroke,
@@ -285,7 +297,7 @@ impl Editor {
         let Some(s) = &mut self.settings else {
             return false;
         };
-        let offered: Vec<String> = s.offered().into_iter().map(str::to_string).collect();
+        let offered = s.offered();
         let Some(t) = &mut s.typing else {
             return false;
         };
@@ -300,7 +312,7 @@ impl Editor {
             "escape" => s.typing = None,
             "enter" => self.settings_commit(cx),
             "tab" if !offered.is_empty() => {
-                let pick = t.chosen.unwrap_or(1).min(offered.len() - 1);
+                let pick = t.chosen.unwrap_or(0).min(offered.len() - 1);
                 t.text = offered[pick].clone();
                 t.back = 0;
                 t.chosen = None;
@@ -340,45 +352,47 @@ impl Editor {
         typed: Option<&str>,
         cx: &mut Context<'_, Self>,
     ) -> bool {
+        let shared = self.shared.clone();
+        let config = &shared.config;
         let Some(s) = &mut self.settings else {
             return false;
         };
-        let Some((spec, kind)) = s
-            .list
-            .current()
-            .and_then(|spec| Some((spec, settings_list::items_kind(spec)?)))
-        else {
+        let Some(field) = s.list.current_field(config) else {
             s.list.item = None;
             return true;
         };
-        let shared = self.shared.clone();
-        let config = &shared.config;
-        let count = settings_list::items(config, spec).len();
+        let count = settings_list::items(config, &field).len();
         let i = s.list.item.unwrap_or(0).min(count.saturating_sub(1));
-        let texts = matches!(kind, Items::Texts | Items::Table(_));
-        let act = match (k.key.as_str(), typed, kind) {
-            ("escape" | "backspace", ..) | (_, Some("q"), _) => ItemAct::Back,
-            ("up", ..) | (_, Some("k"), _) => ItemAct::Move(-1),
-            ("down", ..) | (_, Some("j"), _) => ItemAct::Move(1),
-            ("home", ..) | (_, Some("g"), _) => ItemAct::First,
-            ("end", ..) | (_, Some("G"), _) => ItemAct::Last,
-            ("enter" | "left" | "right", _, Items::Choices(_))
-            | (_, Some(" " | "h" | "l"), Items::Choices(_)) => ItemAct::Toggle,
-            ("enter", ..) if count > 0 => ItemAct::Edit,
-            ("enter", ..) | (_, Some("a" | "o"), _) if texts => ItemAct::Add,
-            ("delete", ..) | (_, Some("x" | "d"), _) if texts => ItemAct::Remove,
-            (_, Some("K"), Items::Texts) => ItemAct::Shift(true),
-            (_, Some("J"), Items::Texts) => ItemAct::Shift(false),
-            ("right", _, Items::Table(_)) | (_, Some(" " | "l"), Items::Table(_)) => {
-                ItemAct::Cycle(true)
+        let texts = matches!(field.kind, FieldKind::Texts | FieldKind::Table(_));
+        let choices = matches!(field.kind, FieldKind::Choices(_));
+        let table = matches!(field.kind, FieldKind::Table(_));
+        let act = match (k.key.as_str(), typed) {
+            ("escape" | "backspace", _) => ItemAct::Back,
+            (_, Some("q")) => ItemAct::Close,
+            ("up", _) | (_, Some("k")) => ItemAct::Move(-1),
+            ("down", _) | (_, Some("j")) => ItemAct::Move(1),
+            ("home", _) | (_, Some("g")) => ItemAct::First,
+            ("end", _) | (_, Some("G")) => ItemAct::Last,
+            ("enter" | "left" | "right", _) | (_, Some(" " | "h" | "l")) if choices => {
+                ItemAct::Toggle
             }
-            ("left", _, Items::Table(_)) | (_, Some("h"), Items::Table(_)) => ItemAct::Cycle(false),
-            (_, Some(_), _) => return true,
+            ("enter", _) if count > 0 => ItemAct::Edit,
+            ("enter", _) | (_, Some("a" | "o")) if texts => ItemAct::Add,
+            ("delete", _) | (_, Some("x" | "d")) if texts => ItemAct::Remove,
+            (_, Some("K")) if field.kind == FieldKind::Texts => ItemAct::Shift(true),
+            (_, Some("J")) if field.kind == FieldKind::Texts => ItemAct::Shift(false),
+            ("right", _) | (_, Some(" " | "l")) if table => ItemAct::Cycle(true),
+            ("left", _) | (_, Some("h")) if table => ItemAct::Cycle(false),
+            (_, Some(_)) => return true,
             _ => return false,
         };
         let value = match act {
             ItemAct::Back => {
                 s.list.item = None;
+                None
+            }
+            ItemAct::Close => {
+                self.settings = None;
                 None
             }
             ItemAct::Move(by) => {
@@ -393,16 +407,17 @@ impl Editor {
                 s.list.item = Some(count.saturating_sub(1));
                 None
             }
-            ItemAct::Toggle => settings_list::toggle(config, spec, i),
+            ItemAct::Toggle => settings_list::toggle(config, &field, i),
             ItemAct::Edit => {
-                let text = settings_list::items(config, spec)
+                let text = settings_list::items(config, &field)
                     .get(i)
                     .map(|it| it.text.clone())
                     .unwrap_or_default();
                 s.typing = Some(Typing {
                     text,
                     back: 0,
-                    target: Target::Item(spec.key, Some(i)),
+                    field: field.clone(),
+                    at: Some(Some(i)),
                     chosen: None,
                 });
                 None
@@ -411,73 +426,95 @@ impl Editor {
                 s.typing = Some(Typing {
                     text: String::new(),
                     back: 0,
-                    target: Target::Item(spec.key, None),
+                    field: field.clone(),
+                    at: Some(None),
                     chosen: None,
                 });
                 None
             }
-            ItemAct::Remove => settings_list::remove(config, spec, i),
-            ItemAct::Shift(up) => settings_list::shift(config, spec, i, up).map(|(v, to)| {
+            ItemAct::Remove => settings_list::remove(config, &field, i),
+            ItemAct::Shift(up) => settings_list::shift(config, &field, i, up).map(|(v, to)| {
                 s.list.item = Some(to);
                 v
             }),
-            ItemAct::Cycle(forward) => settings_list::cycle(config, spec, i, forward),
+            ItemAct::Cycle(forward) => settings_list::cycle(config, &field, i, forward),
         };
         if let Some(v) = value {
-            self.set_setting(spec.key, v, cx);
+            self.set_field(&field, v, cx);
         }
         cx.notify();
         true
     }
 
-    /// The chosen setting a step forward or back: a switch flipped, the
-    /// next choice, a number up or down; text is typed and a list's items
-    /// shown instead.
-    fn settings_step(&mut self, forward: bool, cx: &mut Context<'_, Self>) {
-        let Some(spec) = self.settings.as_ref().and_then(|s| s.list.current()) else {
+    /// The chosen entry a step forward or back: a switch flipped, the
+    /// next choice or usual text, a number up or down; a page or a list's
+    /// items opened instead, and a text without usual values typed.
+    fn settings_step(&mut self, forward: bool, window: &mut Window, cx: &mut Context<'_, Self>) {
+        let shared = self.shared.clone();
+        let Some(s) = &self.settings else {
             return;
         };
-        match settings_list::edit(spec) {
-            Edit::Step => {
-                if let Some(v) = settings_list::step(&self.shared.config, spec, forward) {
-                    self.set_setting(spec.key, v, cx);
+        match s.list.current(&shared.config) {
+            Some(Entry::Field(f)) => match settings_list::step(&shared.config, &f, forward) {
+                Some(v) => self.set_field(&f, v, cx),
+                None if forward && settings_list::edit(&f) != Edit::Step => {
+                    self.settings_edit(window, cx);
                 }
+                None => {}
+            },
+            Some(Entry::Plugins(_) | Entry::Plugin(_)) if forward => {
+                self.settings_edit(window, cx);
             }
-            Edit::Type | Edit::Items if forward => self.settings_edit(cx),
             _ => {}
         }
     }
 
-    /// Edits the chosen setting: stepped forward, its text typed (the
-    /// current text offered), or its items shown.
-    fn settings_edit(&mut self, cx: &mut Context<'_, Self>) {
+    /// Edits or opens the chosen entry: a setting stepped forward, its
+    /// text typed (the current text offered) or its items shown; the
+    /// installed plugins' or a plugin's page; an action run.
+    fn settings_edit(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) {
         let shared = self.shared.clone();
+        let config = &shared.config;
         let Some(s) = &mut self.settings else {
             return;
         };
-        let Some(spec) = s.list.current() else {
+        let Some(entry) = s.list.current(config) else {
             return;
         };
-        match settings_list::edit(spec) {
-            Edit::Step => self.settings_step(true, cx),
-            Edit::Type => {
-                let text = shared.config.str(spec.key).to_string();
-                s.typing = Some(Typing {
-                    text,
-                    back: 0,
-                    target: Target::Value(spec.key),
-                    chosen: None,
-                });
+        match entry {
+            Entry::Field(f) => match settings_list::edit(&f) {
+                Edit::Step => self.settings_step(true, window, cx),
+                Edit::Type => {
+                    let text = match settings_list::value(config, &f) {
+                        Value::String(t) => t,
+                        Value::Null => String::new(),
+                        v => v.to_string(),
+                    };
+                    s.typing = Some(Typing {
+                        text,
+                        back: 0,
+                        field: f,
+                        at: None,
+                        chosen: None,
+                    });
+                }
+                Edit::Items => {
+                    s.list.open(config);
+                }
+            },
+            Entry::Plugins(_) | Entry::Plugin(_) => {
+                s.list.open(config);
             }
-            Edit::Items => {
-                s.list.open_items();
+            Entry::Action { command, args, .. } => {
+                self.settings = None;
+                self.run_command(&command, args, window, cx);
             }
         }
         cx.notify();
     }
 
-    /// Sets what was typed: the text of a setting (a font offered chosen
-    /// with the arrows taken instead), or a list's or a table's item.
+    /// Sets what was typed: a setting's text (a usual value chosen with
+    /// the arrows taken instead), or a list's or a table's item.
     fn settings_commit(&mut self, cx: &mut Context<'_, Self>) {
         let Some(s) = &mut self.settings else {
             return;
@@ -486,27 +523,20 @@ impl Editor {
             .typing
             .as_ref()
             .and_then(|t| t.chosen)
-            .and_then(|c| s.offered().get(c).map(|f| f.to_string()));
+            .and_then(|c| s.offered().get(c).cloned());
         let Some(t) = s.typing.take() else {
             return;
         };
-        match t.target {
-            Target::Value(key) => {
-                let text = chosen.unwrap_or(t.text);
-                self.set_setting(key, Value::String(text), cx);
-            }
-            Target::Item(key, at) => {
-                let put = settings::spec(key)
-                    .ok_or_else(|| format!("Unknown setting `{key}`"))
-                    .and_then(|spec| settings_list::put(&self.shared.config, spec, at, &t.text));
-                match put {
-                    Ok(v) => self.set_setting(key, v, cx),
-                    Err(e) => {
-                        self.status = Some((e, true));
-                        if let Some(s) = &mut self.settings {
-                            s.typing = Some(t);
-                        }
-                    }
+        let value = match t.at {
+            Some(at) => settings_list::put(&self.shared.config, &t.field, at, &t.text),
+            None => settings_list::typed(&t.field, chosen.as_deref().unwrap_or(&t.text)),
+        };
+        match value {
+            Ok(v) => self.set_field(&t.field, v, cx),
+            Err(e) => {
+                self.status = Some((e, true));
+                if let Some(s) = &mut self.settings {
+                    s.typing = Some(t);
                 }
             }
         }
@@ -523,15 +553,15 @@ impl Editor {
         cx.emit(crate::editor::DocEvent::Open { path, at: None });
     }
 
-    /// A click on setting `n` (among those shown): chosen, or edited when
-    /// chosen already.
-    fn settings_click(&mut self, n: usize, cx: &mut Context<'_, Self>) {
+    /// A click on entry `n` (among those shown): chosen, or edited or
+    /// opened when chosen already.
+    fn settings_click(&mut self, n: usize, window: &mut Window, cx: &mut Context<'_, Self>) {
         let Some(s) = &mut self.settings else {
             return;
         };
         s.typing = None;
         if s.list.selected == n {
-            self.settings_edit(cx);
+            self.settings_edit(window, cx);
         } else {
             s.list.selected = n;
         }
@@ -541,13 +571,13 @@ impl Editor {
     /// A click on item `n` of the setting shown: chosen, or changed as
     /// Enter changes it when chosen already.
     fn settings_item_click(&mut self, n: usize, cx: &mut Context<'_, Self>) {
+        let shared = self.shared.clone();
         let Some(s) = &mut self.settings else {
             return;
         };
-        let key = s.list.current().map(|spec| spec.key);
         // The item being typed stays so.
-        if let (Some(t), Some(key)) = (&s.typing, key)
-            && t.target == Target::Item(key, Some(n))
+        if let (Some(t), Some(f)) = (&s.typing, s.list.current_field(&shared.config))
+            && t.types_item(&f, Some(n))
         {
             return;
         }
@@ -565,11 +595,21 @@ impl Editor {
     /// Saves `key` in the user's settings and applies the settings to
     /// every window.
     pub fn set_setting(&mut self, key: &str, value: Value, cx: &mut Context<'_, Self>) {
+        match settings::spec(key) {
+            Some(spec) => self.set_field(&Field::of(spec), value, cx),
+            None => self.status = Some((format!("Unknown setting `{key}`"), true)),
+        }
+    }
+
+    /// [`Editor::set_setting`] for a setting of the settings panel: one
+    /// of Kalem's, or a plugin's under `[plugins."ID"]` (`null` takes it
+    /// out, back to its default).
+    pub fn set_field(&mut self, field: &Field, value: Value, cx: &mut Context<'_, Self>) {
         let Some(path) = self.shared.settings_path.clone() else {
             self.status = Some((tr("msg-no-settings-dir"), true));
             return;
         };
-        if let Err(e) = settings::save_setting(&path, key, &value) {
+        if let Err(e) = settings_list::save(&path, field, &value) {
             self.status = Some((e, true));
             return;
         }
@@ -581,8 +621,16 @@ impl Editor {
             .find(|(l, _)| *l == Layer::Workspace)
             .and_then(|(_, p)| p.clone());
         let config = Config::load(Some(&path), workspace.as_deref());
+        let key = field.key.as_str();
+        let message = if !value.is_null() && settings_list::value(&config, field) != value {
+            (kalem_core::tr!("msg-setting-overridden", key = key), true)
+        } else if value.is_null() {
+            (kalem_core::tr!("msg-setting-reset", key = key), false)
+        } else {
+            (kalem_core::tr!("msg-setting-saved", key = key), false)
+        };
         let shared = Rc::new(rebuild(&self.shared, config));
-        self.status = Some((kalem_core::tr!("msg-setting-saved", key = key), false));
+        self.status = Some(message);
         // After this update: every window, this one too.
         cx.defer(move |cx| apply(shared, cx));
     }
@@ -604,22 +652,24 @@ impl Editor {
         cx.defer(move |cx| apply(shared, cx));
     }
 
-    /// The settings panel, when open: the list of settings (or the chosen
-    /// one's items) around the choice, then the chosen setting's key,
-    /// default and description, and the keys.
+    /// The settings panel, when open: the page's entries (or the chosen
+    /// setting's items) around the choice, the usual values offered while
+    /// a text is typed, then the chosen entry's heading and description,
+    /// and the keys.
     pub fn settings_view(&self, cx: &mut Context<'_, Self>) -> Option<gpui::AnyElement> {
         let s = self.settings.as_ref()?;
         let theme = &self.theme;
         let config = &self.shared.config;
         let list = &s.list;
-        let lines = list.lines();
-        let shown = list.shown();
-        let selected = list.selected.min(shown.len().saturating_sub(1));
-        let current = shown.get(selected).map(|&i| &SPECS[i]);
+        let rows = list.rows(config);
+        let count = rows.iter().filter(|r| matches!(r, Row::Entry(_))).count();
+        let selected = list.selected.min(count.saturating_sub(1));
+        let current = list.current(config);
         let items_of = list
             .item
-            .and(current)
-            .and_then(|spec| Some((spec, settings_list::items_kind(spec)?)));
+            .and(current.as_ref())
+            .and_then(Entry::field)
+            .filter(|f| settings_list::has_items(f));
         let size = theme.size.min(18.) * 0.85;
         let row = |id: SharedString, on: bool| {
             div()
@@ -657,30 +707,28 @@ impl Editor {
                 .whitespace_nowrap()
                 .child(SharedString::from(format!("{before}▏{after}")))
         };
+        let empty = || {
+            div()
+                .px(px(10.))
+                .text_color(theme.muted)
+                .child(tr("settings-empty"))
+                .into_any_element()
+        };
         let mut body: Vec<gpui::AnyElement> = Vec::new();
-        if let Some((spec, kind)) = items_of {
-            body.push(heading(spec.key.to_string()).into_any_element());
-            let items = settings_list::items(config, spec);
+        if let Some(field) = items_of {
+            body.push(heading(field.key.clone()).into_any_element());
+            let items = settings_list::items(config, field);
             let chosen = list.item.unwrap_or(0).min(items.len().saturating_sub(1));
             let first = (chosen + 1).saturating_sub(ROOM);
-            let editing = s
-                .typing
-                .as_ref()
-                .filter(|t| matches!(t.target, Target::Item(..)));
+            let editing = s.typing.as_ref().filter(|t| t.at.is_some());
             if items.is_empty() && editing.is_none() {
-                body.push(
-                    div()
-                        .px(px(10.))
-                        .text_color(theme.muted)
-                        .child(tr("settings-empty"))
-                        .into_any_element(),
-                );
+                body.push(empty());
             }
             for (n, item) in items.iter().enumerate().skip(first).take(ROOM) {
                 let id = SharedString::from(format!("settings-item-{n}"));
                 let r = row(id, n == chosen);
                 let r = match editing {
-                    Some(t) if t.target == Target::Item(spec.key, Some(n)) => r.child(input(t)),
+                    Some(t) if t.types_item(field, Some(n)) => r.child(input(t)),
                     _ => {
                         let text = match item.on {
                             Some(true) => format!("☑ {}", item.text),
@@ -700,7 +748,7 @@ impl Editor {
                         .into_any_element(),
                 );
             }
-            if let Some(t) = editing.filter(|t| t.target == Target::Item(spec.key, None)) {
+            if let Some(t) = editing.filter(|t| t.types_item(field, None)) {
                 body.push(
                     row("settings-item-new".into(), true)
                         .child(div().text_color(theme.muted).child(tr("settings-item-new")))
@@ -708,7 +756,6 @@ impl Editor {
                         .into_any_element(),
                 );
             }
-            let _ = kind;
         } else {
             if list.filtering || !list.filter.is_empty() {
                 let caret = if list.filtering { "▏" } else { "" };
@@ -721,109 +768,107 @@ impl Editor {
                         .into_any_element(),
                 );
             }
-            if lines.is_empty() {
-                body.push(
-                    div()
-                        .px(px(10.))
-                        .text_color(theme.muted)
-                        .child(tr("settings-empty"))
-                        .into_any_element(),
-                );
+            if rows.is_empty() {
+                body.push(empty());
             }
-            let at = lines
+            // The line of the chosen entry, and the first line shown.
+            let mut n = 0;
+            let at = rows
                 .iter()
-                .position(|l| matches!(l, Line::Setting(i) if shown.get(selected) == Some(i)))
+                .position(|r| {
+                    let entry = matches!(r, Row::Entry(_));
+                    let found = entry && n == selected;
+                    n += usize::from(entry);
+                    found
+                })
                 .unwrap_or(0);
             let first = (at + 1).saturating_sub(ROOM);
-            // The settings above the first line shown.
-            let mut n = lines[..first]
+            let mut n = rows[..first]
                 .iter()
-                .filter(|l| matches!(l, Line::Setting(_)))
+                .filter(|r| matches!(r, Row::Entry(_)))
                 .count();
-            for line in lines.iter().skip(first).take(ROOM) {
-                match line {
-                    Line::Section(name) => {
-                        body.push(heading((*name).to_string()).into_any_element());
+            for r in rows.iter().skip(first).take(ROOM) {
+                let e = match r {
+                    Row::Heading(name) => {
+                        body.push(heading(name.clone()).into_any_element());
+                        continue;
                     }
-                    Line::Setting(i) => {
-                        let spec = &SPECS[*i];
-                        let id = SharedString::from(format!("settings-row-{}", spec.key));
-                        let r = row(id, n == selected).child(
+                    Row::Entry(e) => e,
+                };
+                let id = match e {
+                    Entry::Field(f) => format!("settings-row-{}", f.key),
+                    Entry::Plugins(_) => "settings-plugins".to_string(),
+                    Entry::Plugin(p) => format!("settings-plugin-{}", p.id),
+                    Entry::Action { command, .. } => format!("settings-action-{command}"),
+                };
+                let r = row(SharedString::from(id), n == selected).child(
+                    div()
+                        .w(px(size * 15.))
+                        .flex_none()
+                        .truncate()
+                        .text_color(theme.foreground)
+                        .child(SharedString::from(e.name())),
+                );
+                let typing = s
+                    .typing
+                    .as_ref()
+                    .filter(|t| t.at.is_none() && e.field().is_some_and(|f| f.key == t.field.key));
+                let r = match typing {
+                    Some(t) => r.child(input(t)),
+                    None => {
+                        let changed = e.changed(config);
+                        r.child(
                             div()
-                                .w(px(size * 15.))
-                                .flex_none()
+                                .flex_1()
                                 .truncate()
-                                .text_color(theme.foreground)
-                                .child(settings_list::name(spec.key)),
-                        );
-                        let r = match &s.typing {
-                            Some(t) if t.target == Target::Value(spec.key) => r.child(input(t)),
-                            _ => {
-                                let changed = settings_list::changed(config, spec);
-                                r.child(
-                                    div()
-                                        .flex_1()
-                                        .truncate()
-                                        .text_color(if changed {
-                                            theme.link
-                                        } else {
-                                            theme.foreground
-                                        })
-                                        .when(changed, |d| d.font_weight(gpui::FontWeight::BOLD))
-                                        .child(SharedString::from(settings_list::shown(
-                                            config, spec,
-                                        ))),
-                                )
-                            }
-                        };
-                        let at = n;
-                        body.push(
-                            r.on_click(
-                                cx.listener(move |this, _, _, cx| this.settings_click(at, cx)),
-                            )
-                            .into_any_element(),
-                        );
-                        n += 1;
+                                .text_color(if changed {
+                                    theme.link
+                                } else {
+                                    theme.foreground
+                                })
+                                .when(changed, |d| d.font_weight(gpui::FontWeight::BOLD))
+                                .child(SharedString::from(e.value(config))),
+                        )
                     }
-                }
+                };
+                let at = n;
+                body.push(
+                    r.on_click(
+                        cx.listener(move |this, _, window, cx| this.settings_click(at, window, cx)),
+                    )
+                    .into_any_element(),
+                );
+                n += 1;
             }
         }
-        // The fonts offered while the font is typed.
-        let fonts = s.offered().into_iter().enumerate().map(|(i, f)| {
-            let name = f.to_string();
-            let label = if name.is_empty() {
-                tr("settings-system-font")
-            } else {
-                name.clone()
+        // The usual values offered while a text is typed.
+        let chosen = s.typing.as_ref().and_then(|t| t.chosen);
+        let offered = s.offered().into_iter().enumerate().map(|(i, v)| {
+            let label = match (&s.typing, v.is_empty()) {
+                (Some(t), true) if t.field.key.ends_with("font_family") => {
+                    tr("settings-system-font")
+                }
+                (_, true) => tr("settings-empty"),
+                _ => v.clone(),
             };
-            let chosen = s.typing.as_ref().and_then(|t| t.chosen) == Some(i);
             div()
-                .id(("settings-font", i))
-                .debug_selector(move || format!("settings-font-{i}"))
+                .id(("settings-offered", i))
+                .debug_selector(move || format!("settings-offered-{i}"))
                 .px(px(10.))
                 .rounded(px(3.))
                 .cursor_pointer()
-                .when(chosen, |d| d.bg(theme.selection))
+                .when(chosen == Some(i), |d| d.bg(theme.selection))
                 .child(SharedString::from(label))
                 .on_click(cx.listener(move |this, _, _, cx| {
-                    if let Some(s) = &mut this.settings {
-                        s.typing = None;
-                    }
-                    this.set_setting("editor.font_family", Value::from(name.clone()), cx);
+                    let Some(t) = this.settings.as_mut().and_then(|s| s.typing.take()) else {
+                        return;
+                    };
+                    this.set_field(&t.field, Value::from(v.clone()), cx);
                 }))
         });
-        // The chosen setting: its key, default (or items) and description.
-        let about = current.map(|spec| {
-            let note = match settings_list::edit(spec) {
-                Edit::Items => kalem_core::tr!(
-                    "settings-items",
-                    count = settings_list::items(config, spec).len()
-                ),
-                _ => kalem_core::tr!(
-                    "settings-default",
-                    value = settings_list::shown_default(spec)
-                ),
-            };
+        // The chosen entry: its heading and description.
+        let about = current.as_ref().map(|e| {
+            let (head, about) = e.about(config);
             div()
                 .flex()
                 .flex_col()
@@ -831,24 +876,20 @@ impl Editor {
                 .pt(px(6.))
                 .border_t_1()
                 .border_color(theme.border)
-                .child(
-                    div()
-                        .text_color(theme.link)
-                        .child(SharedString::from(format!("{}  {note}", spec.key))),
-                )
+                .child(div().text_color(theme.link).child(SharedString::from(head)))
                 .child(
                     div()
                         .text_color(theme.foreground)
-                        .child(SharedString::from(spec.description)),
+                        .child(SharedString::from(about)),
                 )
         });
-        let hints = match items_of.map(|(_, k)| k) {
-            Some(Items::Choices(_)) => tr("settings-items-choices"),
-            Some(Items::Texts) => tr("settings-items-texts"),
-            Some(Items::Table(_)) => tr("settings-items-table"),
-            None => tr("settings-hints"),
+        let hints = match items_of.map(|f| &f.kind) {
+            Some(FieldKind::Choices(_)) => tr("settings-items-choices"),
+            Some(FieldKind::Texts) => tr("settings-items-texts"),
+            Some(FieldKind::Table(_)) => tr("settings-items-table"),
+            _ => tr("settings-hints"),
         };
-        let count = format!("{}/{}", (selected + 1).min(shown.len()), shown.len());
+        let count = format!("{}/{}", (selected + 1).min(count), count);
         let panel = div()
             .id("settings")
             .debug_selector(|| "settings".into())
@@ -889,26 +930,26 @@ impl Editor {
                     .children(body)
                     .on_scroll_wheel(cx.listener(|this, ev: &ScrollWheelEvent, _, cx| {
                         let dy = f32::from(ev.delta.pixel_delta(px(20.)).y);
+                        if dy == 0. {
+                            return;
+                        }
                         let by = if dy < 0. { 1 } else { -1 };
                         let shared = this.shared.clone();
                         let Some(s) = &mut this.settings else {
                             return;
                         };
-                        if dy == 0. {
-                            return;
-                        }
-                        match (s.list.item, s.list.current()) {
-                            (Some(_), Some(spec)) => {
-                                let n = settings_list::items(&shared.config, spec).len();
+                        match (s.list.item, s.list.current_field(&shared.config)) {
+                            (Some(_), Some(f)) => {
+                                let n = settings_list::items(&shared.config, &f).len();
                                 s.list.move_item(by, n);
                             }
-                            _ => s.list.move_by(by),
+                            _ => s.list.move_by(by, &shared.config),
                         }
                         cx.notify();
                         cx.stop_propagation();
                     })),
             )
-            .child(div().flex().flex_col().children(fonts))
+            .child(div().flex().flex_col().children(offered))
             .children(about)
             .child(
                 div()

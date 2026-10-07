@@ -1174,6 +1174,68 @@ fn lists_and_tables_in_the_settings_panel(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn plugins_and_usual_values_in_the_settings_panel(cx: &mut TestAppContext) {
+    let (e, cx) = open("* A\n", cx);
+    let path = e.read_with(cx, |e, _| e.shared.settings_path.clone().unwrap());
+    let plugin = path.parent().unwrap().join("plugins/count");
+    std::fs::create_dir_all(&plugin).unwrap();
+    std::fs::write(
+        plugin.join("plugin.json"),
+        r#"{"id": "org.example.count", "name": "Count", "version": "1.2.0",
+            "settings": {"show": {"type": "boolean", "default": true,
+                                  "description": "Show the count"}}}"#,
+    )
+    .unwrap();
+    cx.simulate_keystrokes(&format!("{}-,", primary()));
+    // A text steps through its usual values with the arrows.
+    cx.simulate_keystrokes("/");
+    cx.simulate_input("latex.engine");
+    cx.simulate_keystrokes("enter right");
+    cx.run_until_parked();
+    assert_eq!(
+        e.read_with(cx, |e, _| e.shared.config.str("latex.engine").to_string()),
+        "pdflatex"
+    );
+    // While typing, the usual values are offered: Down and Enter take one.
+    cx.simulate_keystrokes("enter");
+    assert!(cx.debug_bounds("settings-offered-0").is_some());
+    cx.simulate_keystrokes("down down enter");
+    cx.run_until_parked();
+    assert_eq!(
+        e.read_with(cx, |e, _| e.shared.config.str("latex.engine").to_string()),
+        "pdflatex"
+    );
+    cx.simulate_keystrokes("escape");
+    // The installed plugins, then the plugin's page: its setting flipped.
+    cx.simulate_keystrokes("/");
+    cx.simulate_input("installed");
+    cx.simulate_keystrokes("enter enter");
+    assert!(
+        cx.debug_bounds("settings-plugin-org.example.count")
+            .is_some()
+    );
+    cx.simulate_keystrokes("enter");
+    assert!(
+        cx.debug_bounds("settings-row-plugins.\"org.example.count\".show")
+            .is_some()
+    );
+    cx.simulate_keystrokes("space");
+    cx.run_until_parked();
+    let saved = std::fs::read_to_string(&path).unwrap();
+    assert!(
+        saved.contains("[plugins.\"org.example.count\"]") && saved.contains("show = false"),
+        "{saved}"
+    );
+    // Its actions: Remove asks first, in the palette.
+    assert!(cx.debug_bounds("settings-action-plugin.remove").is_some());
+    // Escape goes back a page at a time (the filter kept), then clears
+    // the filter, then closes.
+    cx.simulate_keystrokes("escape escape escape escape");
+    assert!(e.read_with(cx, |e, _| e.settings.is_none()));
+    assert_eq!(text(&e, cx), "* A\n", "no key reached the document");
+}
+
+#[gpui::test]
 fn adding_projects_automatically_is_a_choice(cx: &mut TestAppContext) {
     let (e, cx) = open("* A\n", cx);
     let auto = |e: &Entity<Editor>, cx: &mut gpui::VisualTestContext| {

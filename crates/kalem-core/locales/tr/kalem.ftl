@@ -494,7 +494,7 @@ settings-on = açık
 settings-off = kapalı
 settings-empty = (boş)
 settings-default = Varsayılan: { $value }
-settings-hints = j k seç  h l değiştir  Enter düzenle  / süz  d varsayılan  e dosya  q kapat
+settings-hints = j k seç  h l değiştir  Enter düzenle/aç  / süz  d varsayılan  e dosya  Esc geri  q kapat
 settings-items = { $count ->
     [one] 1 öğe: Enter gösterir
    *[other] { $count } öğe: Enter gösterir
@@ -505,6 +505,17 @@ settings-items-table = j k seç  Enter düzenle  a ekle  x sil  h l mod  Esc ger
 settings-item-new = Yeni öğe
 settings-item-empty = Öğe boş olamaz
 settings-item-table = Bir yol, = ve bir mod yazın: notlar/*.txt = markdown
+settings-plugins = yüklü eklentiler
+settings-plugins-count = { $count ->
+    [one] 1 eklenti yüklü
+   *[other] { $count } eklenti yüklü
+}
+settings-plugins-about = Enter onları gösterir: her birinin ayarları, güncellenmesi, klasörü ve kaldırılması.
+settings-plugin-off = Çok sık durduğu için kapatıldı (kalem plugin enable açar).
+settings-plugin-server = Dil sunucusu: auto ({ $servers } içinden yüklü ilki), biri ya da hiçbiri için off
+settings-plugin-other = Eklentinin manifestinde tanımlamadığı bir ayarı, JSON olarak yazılır
+settings-plugin-actions = eylemler
+settings-wrong-value = `{ $key }` bu değeri alamaz
 
 ## Tarih seçici.
 

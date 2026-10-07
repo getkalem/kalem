@@ -2122,6 +2122,75 @@ fn lists_and_tables_change_in_the_settings_panel() {
 }
 
 #[test]
+fn texts_step_through_their_usual_values_and_plugins_have_pages() {
+    let mut t = with_config("* A\n", Config::default(), (90, 34));
+    // A plugin in the editor's settings folder, describing its settings.
+    let plugin = t.dir.as_ref().unwrap().join("config/plugins/count");
+    std::fs::create_dir_all(&plugin).unwrap();
+    std::fs::write(
+        plugin.join("plugin.json"),
+        r#"{"id": "org.example.count", "name": "Count", "version": "1.2.0",
+            "description": "Counts words",
+            "settings": {
+                "goal": {"type": "integer", "minimum": 0, "maximum": 50, "default": 10,
+                         "description": "Words a day"},
+                "style": {"type": "string", "enum": ["plain", "bars"], "default": "plain"}
+            }}"#,
+    )
+    .unwrap();
+    t.app.run_command("app.settings", serde_json::json!({}));
+    // A text steps through its usual values: no typing.
+    t.typ("/latex.engine");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    t.key(KeyCode::Right, KeyModifiers::NONE);
+    assert_eq!(t.app.config.str("latex.engine"), "pdflatex");
+    t.typ("h");
+    assert_eq!(t.app.config.str("latex.engine"), "auto");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    // The installed plugins: a page, then the plugin's own.
+    t.typ("/installed");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    let rows = screen(&mut t).join("\n");
+    assert!(
+        rows.contains("installed plugins") && rows.contains("1 ›"),
+        "{rows}"
+    );
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    let rows = screen(&mut t).join("\n");
+    assert!(rows.contains("Count") && rows.contains("1.2.0"), "{rows}");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    let rows = screen(&mut t).join("\n");
+    assert!(
+        rows.contains("goal") && rows.contains("Words a day") && rows.contains("Remove Count"),
+        "{rows}"
+    );
+    // Its settings change in place, under `[plugins."ID"]`.
+    t.typ("l");
+    t.typ("jl");
+    let saved =
+        std::fs::read_to_string(t.dir.as_ref().unwrap().join("config/settings.toml")).unwrap();
+    assert!(
+        saved.contains("[plugins.\"org.example.count\"]")
+            && saved.contains("goal = 11")
+            && saved.contains("style = \"bars\""),
+        "{saved}"
+    );
+    // `d` takes one back to its default.
+    t.typ("d");
+    let saved =
+        std::fs::read_to_string(t.dir.as_ref().unwrap().join("config/settings.toml")).unwrap();
+    assert!(!saved.contains("style"), "{saved}");
+    // Escape goes back a page at a time, then closes.
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    assert!(screen(&mut t).join("\n").contains("1.2.0 ›"));
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    assert!(!screen(&mut t).join("\n").contains("Settings"));
+    assert_eq!(t.text(), "* A\n", "no key reached the document");
+}
+
+#[test]
 fn text_under_a_heading_is_indented_to_its_title() {
     let text = "Before\n* One\nunder one\n*** Three\nunder three\n\n| a | b |\n";
     let mut t = open(text);

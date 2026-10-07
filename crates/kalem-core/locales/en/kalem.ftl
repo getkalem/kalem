@@ -514,7 +514,7 @@ settings-on = on
 settings-off = off
 settings-empty = (empty)
 settings-default = Default: { $value }
-settings-hints = j k choose  h l change  Enter edit  / filter  d default  e file  q close
+settings-hints = j k choose  h l change  Enter edit or open  / filter  d default  e file  Esc back  q close
 settings-items = { $count ->
     [one] 1 item: Enter shows it
    *[other] { $count } items: Enter shows them
@@ -525,6 +525,17 @@ settings-items-table = j k choose  Enter edit  a add  x remove  h l mode  Esc ba
 settings-item-new = New item
 settings-item-empty = An item cannot be empty
 settings-item-table = Type a path, = and a mode, such as notes/*.txt = markdown
+settings-plugins = installed plugins
+settings-plugins-count = { $count ->
+    [one] 1 plugin installed
+   *[other] { $count } plugins installed
+}
+settings-plugins-about = Enter shows them: each one's settings, updating it, its folder and removing it.
+settings-plugin-off = Turned off after stopping too often (kalem plugin enable turns it on).
+settings-plugin-server = The language server: auto (the first of { $servers } installed), one of them, or off for none
+settings-plugin-other = A setting of the plugin's that its manifest does not describe, typed as JSON
+settings-plugin-actions = actions
+settings-wrong-value = `{ $key }` cannot take this value
 
 ## The date picker.
 

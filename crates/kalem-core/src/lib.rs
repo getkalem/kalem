@@ -77,6 +77,7 @@ pub mod path_prompt;
 pub mod pdf;
 pub mod plugin_build;
 pub mod plugin_doc;
+pub mod plugin_settings;
 pub mod plugin_store;
 pub mod prefix_arg;
 pub mod print;
