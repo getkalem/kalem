@@ -3633,10 +3633,12 @@ fn csv_commands() -> Vec<Command> {
             }
             let (_, _, rec, _) = csv_cell(d)?;
             let record = d.text().as_str()[rec.range.clone()].to_string();
+            let steps = d.undo_depth();
             csv_clear_selection(d, now)?;
             d.begin_csv_edit(false);
             if let Some(e) = d.csv_edit.as_mut() {
                 e.record = record;
+                e.steps = steps;
             }
             Ok(())
         }),

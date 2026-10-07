@@ -80,6 +80,17 @@ impl Sheet {
         csv_cell_name(r, c)
     }
 
+    /// Types `text` as the editors do: into the grid, else as text.
+    fn typ(&mut self, text: &str) {
+        for c in text.chars() {
+            let c = c.to_string();
+            let now = Instant::now();
+            if !self.d.type_in_grid(&c, now) {
+                self.d.type_text(&c, false, now);
+            }
+        }
+    }
+
     fn key(&mut self, id: &str) -> &mut Sheet {
         self.ok(id, Value::Null)
     }
@@ -427,4 +438,36 @@ fn a_filter_keeps_a_row_edited_out_of_it() {
     s.ok("csv.setField", json!({"value": "9"}));
     s.at("A1");
     assert_eq!(view_ids(&s), ["id", "1", "9", "5"]);
+}
+
+#[test]
+fn undo_after_escape_does_not_bring_the_entry_back() {
+    let mut s = Sheet::new("a,b,c\n1,2,3\n");
+    s.at("A2");
+    s.typ("xy");
+    assert_eq!(s.text(), "a,b,c\nxy,2,3\n");
+    s.key("csv.cancelEdit");
+    assert_eq!(s.text(), "a,b,c\n1,2,3\n");
+    // Undo has nothing of the entry: neither it nor its cancel.
+    let _ = s.d.undo();
+    assert_eq!(s.text(), "a,b,c\n1,2,3\n");
+    let _ = s.d.redo();
+    assert_eq!(s.text(), "a,b,c\n1,2,3\n");
+    // Backspace's clearing goes with the entry it starts.
+    s.at("B2").key("csv.backspaceCell");
+    s.typ("9");
+    assert_eq!(s.text(), "a,b,c\n1,9,3\n");
+    s.key("csv.cancelEdit");
+    assert_eq!(s.text(), "a,b,c\n1,2,3\n");
+    let _ = s.d.undo();
+    assert_eq!(s.text(), "a,b,c\n1,2,3\n");
+    // An entry made before stays undoable.
+    s.at("C2");
+    s.typ("7");
+    s.at("A2");
+    s.typ("5");
+    s.key("csv.cancelEdit");
+    assert_eq!(s.text(), "a,b,c\n1,2,7\n");
+    let _ = s.d.undo();
+    assert_eq!(s.text(), "a,b,c\n1,2,3\n");
 }

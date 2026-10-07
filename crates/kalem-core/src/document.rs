@@ -100,6 +100,9 @@ pub struct CellEdit {
     /// Edit mode (F2): the arrows move in the cell; else Enter mode,
     /// where they go to another cell.
     pub edit: bool,
+    /// The undo steps there were before the entry's first change: Escape
+    /// undoes those after, so that Undo does not bring the entry back.
+    pub steps: usize,
 }
 
 /// The mode of a CSV grid, as Excel's status bar names it.
@@ -955,12 +958,20 @@ impl DocumentState {
             return;
         };
         let record = self.text.as_str()[rec.range.clone()].to_string();
+        // The entry's typing a step of its own.
+        self.break_undo_group();
         self.csv_edit = Some(CellEdit {
             row,
             col,
             record,
             edit,
+            steps: self.history.depth(),
         });
+    }
+
+    /// The number of undo steps.
+    pub fn undo_depth(&self) -> usize {
+        self.history.depth()
     }
 
     /// Escape in a cell being typed into or edited: its record as it was,
@@ -970,6 +981,13 @@ impl DocumentState {
             return false;
         };
         self.csv_edit = None;
+        // The entry's own undo steps undone and not kept for Redo (a
+        // "Cancel Entry" step of its own let Undo bring the entry back);
+        // with history beyond them, the record put back by an edit.
+        if self.history.depth() > e.steps {
+            while self.history.depth() > e.steps && self.undo().is_some() {}
+            self.history.forget_redo();
+        }
         let Some((_, _, rec, _)) = crate::csv::cell_at(self) else {
             return true;
         };
@@ -1522,6 +1540,9 @@ impl DocumentState {
             if entry.is_none() {
                 self.break_undo_group();
             }
+            let steps = entry
+                .as_ref()
+                .map_or_else(|| self.history.depth(), |e| e.steps);
             self.apply(&tx, ChangeKind::Typing, now);
             if let Some((_, row, _, col)) = crate::csv::cell_at(self) {
                 self.csv_edit = Some(CellEdit {
@@ -1529,6 +1550,7 @@ impl DocumentState {
                     col,
                     record,
                     edit: entry.is_some_and(|e| e.edit),
+                    steps,
                 });
             }
             return true;

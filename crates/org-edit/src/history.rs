@@ -132,6 +132,16 @@ impl History {
         !self.redo.is_empty()
     }
 
+    /// How many steps there are to undo.
+    pub fn depth(&self) -> usize {
+        self.undo.len()
+    }
+
+    /// Forgets the steps there are to redo (a cancelled entry's, undone).
+    pub fn forget_redo(&mut self) {
+        self.redo.clear();
+    }
+
     /// The label of the next undo step.
     pub fn undo_label(&self) -> Option<&str> {
         self.undo.last().map(|s| s.label.as_str())
