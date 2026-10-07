@@ -1,23 +1,31 @@
-/Settings/ in the Kalem menu (Ctrl+, or Cmd+,) sets the theme, the
-keys, the language, the text size, the font, and whether folders under
-version control become projects by themselves. Changes apply to every
-window and are saved in =settings.toml= in the settings directory:
-=$KALEM_CONFIG_DIR=, or =kalem= in =$XDG_CONFIG_HOME=, =%APPDATA%= on
-Windows, or =~/.config=. A project can have its own
+/Settings/ in the Kalem menu (Ctrl+, or Cmd+,; in the terminal Alt+,
+where the terminal cannot send Ctrl+,; =SPC h v= with Vim's keys)
+lists every setting, in both editors the same way. Changes apply to
+every window and are saved in =settings.toml= in the settings
+directory: =$KALEM_CONFIG_DIR=, or =kalem= in =$XDG_CONFIG_HOME=,
+=%APPDATA%= on Windows, or =~/.config=. A project can have its own
 =.kalem/settings.toml=, which applies over yours.
 
-In the terminal editor /Settings/ (Ctrl+,, or Alt+, where the terminal
-cannot send it; =SPC h v= with Vim's keys; the Kalem menu on F10)
-lists every setting, grouped by its table as in =settings.toml=, the
-way lazygit lists things: =j= and =k= (or the arrows) choose one, its
+The settings are grouped by their table as in =settings.toml=, the way
+lazygit lists things: =j= and =k= (or the arrows) choose one, its
 default and what it does show below, =h= and =l= (or Space) change it
 in place (a switch flipped, the next choice, a number up or down),
-Enter asks for a text, =/= filters by key or description, =d= takes a
-setting back to its default, =e= opens =settings.toml= (where lists
-are edited), and =q= or Escape closes. Values that differ from the
-default stand out. A change is saved at once and shows at once; when
-the workspace's =.kalem/settings.toml= sets the same key, the status
-line says that it wins.
+Enter types a text (in the graphical editor in place, with the fonts
+offered for the font), =/= filters by key or description, =d= takes a
+setting back to its default, =e= opens =settings.toml=, and =q= or
+Escape closes. A click chooses a setting and a click on the chosen one
+changes it. Values that differ from the default stand out. A change is
+saved at once and shows at once; when the workspace's
+=.kalem/settings.toml= sets the same key, the status line says that it
+wins.
+
+Enter on a list or a table shows its items in the same panel, so that
+no setting needs the file: in a list of choices (=editor.vim.modes=)
+Space puts a choice in or out; in a list of texts (=org.todo_keywords=,
+=plugins.sources=) Enter edits an item, =a= adds one, =x= removes it,
+and =J= and =K= move it down and up; in =files.modes= an entry is typed
+as =path = mode= and =h= and =l= step its mode. Escape goes back to the
+settings.
 
 Commands that change a setting, such as /Toggle Folder Tree/ or
 /Toggle Line Numbers/, save it too. After editing a settings file or
