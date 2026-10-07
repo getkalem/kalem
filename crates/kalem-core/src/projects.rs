@@ -768,14 +768,22 @@ impl ProjectSearch {
 /// The items of `picker` matching `input`, best first. File lists match
 /// paths (file names count most); the others match titles, then details.
 pub fn matches<'a>(picker: &'a Picker, input: &str) -> Vec<&'a PaletteItem> {
+    matching(picker, input)
+        .into_iter()
+        .map(|i| &picker.items[i])
+        .collect()
+}
+
+/// [`matches`] as indices into the picker's items.
+pub fn matching(picker: &Picker, input: &str) -> Vec<usize> {
     if input.trim().is_empty() {
-        return picker.items.iter().collect();
+        return (0..picker.items.len()).collect();
     }
     let paths = matches!(
         picker.kind,
         PickKind::ProjectFiles | PickKind::ProjectRecentFiles
     );
-    let mut scored: Vec<(i64, usize, &PaletteItem)> = picker
+    let mut scored: Vec<(i64, usize)> = picker
         .items
         .iter()
         .enumerate()
@@ -786,11 +794,11 @@ pub fn matches<'a>(picker: &'a Picker, input: &str) -> Vec<&'a PaletteItem> {
                 kalem_project::fuzzy(input, &it.title)
                     .or_else(|| kalem_project::fuzzy(input, &it.category).map(|s| s + 10))
             };
-            s.map(|s| (s, n, it))
+            s.map(|s| (s, n))
         })
         .collect();
-    scored.sort_by_key(|a| (a.0, a.1));
-    scored.into_iter().map(|(_, _, it)| it).collect()
+    scored.sort_unstable();
+    scored.into_iter().map(|(_, n)| n).collect()
 }
 
 #[cfg(test)]

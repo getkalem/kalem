@@ -110,6 +110,11 @@ pub struct Palette {
     pub hint: Option<String>,
     /// A path asked for, completed from its folder's entries.
     pub paths: Option<PathPrompt>,
+    /// The items matching what was typed, asked for at each key and each
+    /// frame.
+    matched: std::cell::RefCell<palette::MatchCache>,
+    /// When a list of files still being walked was last made again.
+    refreshed: Option<Instant>,
 }
 
 impl Palette {
@@ -149,6 +154,8 @@ impl Palette {
             pointing: None,
             hint: None,
             paths: None,
+            matched: Default::default(),
+            refreshed: None,
         }
     }
 
@@ -178,11 +185,14 @@ impl Palette {
         if self.search.is_some() || self.lines.is_some() {
             return Vec::new();
         }
-        match &self.pick {
-            Some(p) => kalem_core::projects::matches(p, &self.input),
-            None if self.ordered => palette::matches_ordered(&self.items, &self.input),
-            None => palette::matches(&self.items, &self.input),
-        }
+        let items = self.pick.as_ref().map_or(&self.items[..], |p| &p.items);
+        let mut cache = self.matched.borrow_mut();
+        let order = cache.get(items, &self.input, || match &self.pick {
+            Some(p) => kalem_core::projects::matching(p, &self.input),
+            None if self.ordered => palette::matching_ordered(items, &self.input),
+            None => palette::matching(items, &self.input),
+        });
+        order.iter().map(|&i| &items[i]).collect()
     }
 
     /// How many lines can be chosen.
@@ -325,6 +335,13 @@ impl Editor {
             }
             return;
         }
+        // The files found so far, a few times a second: the list is made
+        // again whole, four texts a file.
+        if p.refreshed
+            .is_some_and(|t| t.elapsed() < std::time::Duration::from_millis(250))
+        {
+            return;
+        }
         if let Some(pick) = p.pick.as_mut().filter(|k| k.partial) {
             let fresh = kalem_core::projects::picker(
                 pick.kind,
@@ -335,8 +352,13 @@ impl Editor {
             );
             if let Some(mut f) = fresh {
                 f.after = pick.after;
+                let changed = f.items.len() != pick.items.len() || !f.partial;
                 *pick = f;
-                cx.notify();
+                p.refreshed = Some(Instant::now());
+                if changed {
+                    p.matched.get_mut().clear();
+                    cx.notify();
+                }
             }
         }
     }

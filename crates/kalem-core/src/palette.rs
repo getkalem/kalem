@@ -184,30 +184,82 @@ pub fn fuzzy(query: &str, text: &str) -> Option<i64> {
 /// The items matching `input`, best first: by title, then by category and
 /// title.
 pub fn matches<'a>(items: &'a [PaletteItem], input: &str) -> Vec<&'a PaletteItem> {
-    let mut scored: Vec<(i64, &PaletteItem)> = items
+    matching(items, input)
+        .into_iter()
+        .map(|i| &items[i])
+        .collect()
+}
+
+/// [`matches`] as indices into `items`.
+pub fn matching(items: &[PaletteItem], input: &str) -> Vec<usize> {
+    // An ID typed with its dots (`org.todo.cycle`).
+    let undotted = input.replace('.', " ");
+    let mut scored: Vec<(i64, usize)> = items
         .iter()
-        .filter_map(|it| {
-            let hay = format!("{} {}", it.category, it.title);
+        .enumerate()
+        .filter_map(|(n, it)| {
             fuzzy(input, &it.title)
-                .or_else(|| fuzzy(input, &hay).map(|s| s + 10))
+                .or_else(|| fuzzy(input, &format!("{} {}", it.category, it.title)).map(|s| s + 10))
                 .or_else(|| fuzzy(input, &it.also).map(|s| s + 20))
-                // An ID typed with its dots (`org.todo.cycle`).
-                .or_else(|| fuzzy(&input.replace('.', " "), &it.also).map(|s| s + 20))
-                .map(|s| (s, it))
+                .or_else(|| fuzzy(&undotted, &it.also).map(|s| s + 20))
+                .map(|s| (s, n))
         })
         .collect();
-    scored.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.title.cmp(&b.1.title)));
-    scored.into_iter().map(|(_, it)| it).collect()
+    scored.sort_by(|a, b| {
+        a.0.cmp(&b.0)
+            .then_with(|| items[a.1].title.cmp(&items[b.1].title))
+    });
+    scored.into_iter().map(|(_, n)| n).collect()
 }
 
 /// [`matches`] for a list whose order means something (a context menu,
 /// a choice a command offers): with nothing typed, the items in their
 /// order rather than sorted.
 pub fn matches_ordered<'a>(items: &'a [PaletteItem], input: &str) -> Vec<&'a PaletteItem> {
+    matching_ordered(items, input)
+        .into_iter()
+        .map(|i| &items[i])
+        .collect()
+}
+
+/// [`matches_ordered`] as indices into `items`.
+pub fn matching_ordered(items: &[PaletteItem], input: &str) -> Vec<usize> {
     if input.trim().is_empty() {
-        return items.iter().collect();
+        return (0..items.len()).collect();
     }
-    matches(items, input)
+    matching(items, input)
+}
+
+/// Matches kept until the input or the list changes, a list known by
+/// where its items are and how many: frontends ask at each key and each
+/// frame, and a project's files may be a hundred thousand.
+#[derive(Debug, Default, Clone)]
+pub struct MatchCache {
+    key: Option<(String, usize, usize)>,
+    order: Vec<usize>,
+}
+
+impl MatchCache {
+    /// The indices into `items` matching `input`, from `find` when either
+    /// changed.
+    pub fn get(
+        &mut self,
+        items: &[PaletteItem],
+        input: &str,
+        find: impl FnOnce() -> Vec<usize>,
+    ) -> &[usize] {
+        let key = (input.to_string(), items.as_ptr() as usize, items.len());
+        if self.key.as_ref() != Some(&key) {
+            self.order = find();
+            self.key = Some(key);
+        }
+        &self.order
+    }
+
+    /// Forgets the matches: the list was replaced or changed in place.
+    pub fn clear(&mut self) {
+        self.key = None;
+    }
 }
 
 /// A palette item's `id` that runs `command` with `args`: the command,

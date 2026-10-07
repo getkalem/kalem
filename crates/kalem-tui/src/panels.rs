@@ -61,6 +61,9 @@ pub struct Palette {
     /// The items a menu's separator comes before, drawn as a rule while
     /// nothing is typed.
     breaks: Vec<usize>,
+    /// The items matching what was typed, asked for at each key and each
+    /// frame.
+    matched: std::cell::RefCell<kalem_core::palette::MatchCache>,
 }
 
 impl Palette {
@@ -79,6 +82,7 @@ impl Palette {
             resumable: false,
             lines: None,
             origin: None,
+            matched: Default::default(),
         }
     }
 
@@ -131,11 +135,20 @@ impl Palette {
         if self.search.is_some() || self.lines.is_some() {
             return Vec::new();
         }
-        match &self.pick {
-            Some(p) => kalem_core::projects::matches(p, &self.input),
-            None if self.ordered => kalem_core::palette::matches_ordered(&self.items, &self.input),
-            None => kalem_core::palette::matches(&self.items, &self.input),
-        }
+        let items = self.pick.as_ref().map_or(&self.items[..], |p| &p.items);
+        let mut cache = self.matched.borrow_mut();
+        let order = cache.get(items, &self.input, || match &self.pick {
+            Some(p) => kalem_core::projects::matching(p, &self.input),
+            None if self.ordered => kalem_core::palette::matching_ordered(items, &self.input),
+            None => kalem_core::palette::matching(items, &self.input),
+        });
+        order.iter().map(|&i| &items[i]).collect()
+    }
+
+    /// The list was replaced or changed in place: its matches are found
+    /// again.
+    pub fn items_changed(&mut self) {
+        self.matched.get_mut().clear();
     }
 
     /// How many lines can be chosen.
@@ -157,45 +170,46 @@ impl Palette {
         self.matches().get(self.selected).map(|it| it.id.clone())
     }
 
-    /// Draws the palette near the top of `area`.
+    /// Draws the palette near the top of `area` (nothing where it does not
+    /// fit).
     pub fn draw(&self, buf: &mut Buffer, area: Rect, caps: &Caps) {
+        if area.width < 8 || area.height < 3 {
+            return;
+        }
         let wide = self.pick.is_some() || self.search.is_some() || self.lines.is_some();
         let w = area.width.saturating_sub(4).min(if wide { 90 } else { 70 });
         let x = area.x + (area.width - w) / 2;
-        // Lines: a title, a detail and keys (or a mark).
-        let lines: Vec<(String, String, String)> = match (&self.search, &self.pick, &self.lines) {
-            (_, _, Some(l)) => l
-                .hits
-                .iter()
-                .map(|h| {
-                    let (text, place) = l.row(h);
+        // Lines: a title, a detail and keys (or a mark), made only for the
+        // rows shown.
+        let matches = self.matches();
+        let count = match (&self.search, &self.lines) {
+            (_, Some(l)) => l.hits.len(),
+            (Some(s), _) => s.hits.len(),
+            _ => matches.len(),
+        };
+        let line = |n: usize| -> (String, String, String) {
+            match (&self.search, &self.pick, &self.lines) {
+                (_, _, Some(l)) => {
+                    let (text, place) = l.row(&l.hits[n]);
                     (place, text, String::new())
-                })
-                .collect(),
-            (Some(s), _, _) => s
-                .hits
-                .iter()
-                .map(|h| {
-                    let (at, text) = s.line(h);
+                }
+                (Some(s), _, _) => {
+                    let (at, text) = s.line(&s.hits[n]);
                     (at, text, String::new())
-                })
-                .collect(),
-            (None, Some(_), _) => self
-                .matches()
-                .iter()
-                .map(|it| (it.title.clone(), it.category.clone(), it.keys.clone()))
-                .collect(),
-            (None, None, _) => self
-                .matches()
-                .iter()
-                .map(|it| {
+                }
+                (None, Some(_), _) => {
+                    let it = matches[n];
+                    (it.title.clone(), it.category.clone(), it.keys.clone())
+                }
+                (None, None, _) => {
+                    let it = matches[n];
                     (
                         format!("{}: {}", it.category, it.title),
                         String::new(),
                         it.keys.clone(),
                     )
-                })
-                .collect(),
+                }
+            }
         };
         // Rows: the lines, with a rule where a menu's group ends while
         // nothing is typed (`None`).
@@ -204,8 +218,8 @@ impl Palette {
             && self.pick.is_none()
             && self.search.is_none()
             && self.lines.is_none();
-        let mut rows: Vec<Option<usize>> = Vec::with_capacity(lines.len());
-        for n in 0..lines.len() {
+        let mut rows: Vec<Option<usize>> = Vec::with_capacity(count);
+        for n in 0..count {
             if rules && self.breaks.binary_search(&n).is_ok() {
                 rows.push(None);
             }
@@ -301,7 +315,7 @@ impl Palette {
                 );
                 continue;
             };
-            let (title, detail, keys) = &lines[n];
+            let (title, detail, keys) = &line(n);
             let style = if n == self.selected {
                 selected_style(caps, bg)
             } else {

@@ -168,6 +168,8 @@ pub struct App {
     pending_at: Option<Instant>,
     /// Whether the last frame showed the which-key panel.
     hints_drawn: bool,
+    /// When an open list of files still being walked was last made again.
+    pick_refreshed: Option<Instant>,
     status: Option<Status>,
     prompt: Option<Prompt>,
     debouncer: ChangeDebouncer,
@@ -519,6 +521,7 @@ impl App {
             pending: Vec::new(),
             pending_at: None,
             hints_drawn: false,
+            pick_refreshed: None,
             last_picker: None,
             resume_input: None,
             mark_picker: false,
@@ -3509,7 +3512,12 @@ impl App {
             }
             return;
         }
+        // The files found so far, a few times a second: the list is made
+        // again whole, four texts a file.
         if let Some(pick) = p.pick.as_mut().filter(|k| k.partial)
+            && self
+                .pick_refreshed
+                .is_none_or(|t| t.elapsed() >= Duration::from_millis(250))
             && let Some(mut fresh) = projects::picker(
                 pick.kind,
                 &[],
@@ -3518,9 +3526,14 @@ impl App {
                 &mut self.projects,
             )
         {
+            self.pick_refreshed = Some(Instant::now());
             fresh.after = pick.after;
+            let changed = fresh.items.len() != pick.items.len() || !fresh.partial;
             *pick = fresh;
-            self.dirty = true;
+            if changed {
+                p.items_changed();
+                self.dirty = true;
+            }
         }
     }
 
