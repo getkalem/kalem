@@ -61,6 +61,9 @@ pub struct Replay {
     pub transactions: Vec<Transaction>,
     /// The selection to restore.
     pub selection: Selection,
+    /// The selection the step began with (Vim puts the cursor there on
+    /// redo too).
+    pub start: Selection,
     /// The step's label.
     pub label: String,
 }
@@ -141,6 +144,7 @@ impl History {
         let replay = Replay {
             transactions: step.txs.iter().rev().map(|(_, inv)| inv.clone()).collect(),
             selection: step.selection_before,
+            start: step.selection_before,
             label: step.label.clone(),
         };
         self.redo.push(step);
@@ -154,6 +158,7 @@ impl History {
         let replay = Replay {
             transactions: step.txs.iter().map(|(f, _)| f.clone()).collect(),
             selection: step.selection_after,
+            start: step.selection_before,
             label: step.label.clone(),
         };
         self.undo.push(step);

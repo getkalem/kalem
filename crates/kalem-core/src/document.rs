@@ -1943,6 +1943,27 @@ impl DocumentState {
         Some(replay.label)
     }
 
+    /// Redoes the last undone step with the cursor where the step began,
+    /// as Vim's redo leaves it; returns its label.
+    pub fn redo_from_start(&mut self) -> Option<String> {
+        if self.viewer.is_some() {
+            return self.redo();
+        }
+        if self.read_only {
+            return None;
+        }
+        let replay = self.history.redo()?;
+        self.csv_edit = None;
+        for t in &replay.transactions {
+            self.apply_raw(t);
+        }
+        let len = self.text().len();
+        let at = replay.start.head.min(len);
+        self.selection = Selection::caret(at);
+        self.extra.clear();
+        Some(replay.label)
+    }
+
     /// Redoes the last undone step; returns its label.
     pub fn redo(&mut self) -> Option<String> {
         if let Some(v) = self.viewer.as_deref_mut() {
