@@ -236,6 +236,8 @@ fn every_bound_doom_key_runs_its_command() {
                     ORG.find("| 1").unwrap() + 2
                 } else if rest == "x" || rest == "+" {
                     ORG.find("[ ] two").unwrap() + 4
+                } else if rest == "l d" {
+                    ORG.find("[[https").unwrap() + 4
                 } else {
                     ORG.find("Head").unwrap()
                 };

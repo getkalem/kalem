@@ -60,8 +60,8 @@ command = "list.cycleBullet"
 mode = "org"
 doom = "SPC m *"
 keys = "space m *"
-what = "Toggle heading"
-reason = "Planned: T2.11 (org-toggle-heading)"
+what = "Toggle heading (Doom: or recalculate the table at point)"
+command = "org.headline.toggle"
 
 [[key]]
 mode = "org"
@@ -127,18 +127,18 @@ what = "Footnote action"
 command = "org.footnote.action"
 
 [[key]]
-doom = "SPC m h"
 mode = "org"
+doom = "SPC m h"
 keys = "space m h"
 what = "Toggle heading"
-reason = "Planned: T2.11 (org-toggle-heading)"
+command = "org.headline.toggle"
 
 [[key]]
-doom = "SPC m i"
 mode = "org"
+doom = "SPC m i"
 keys = "space m i"
 what = "Toggle item"
-reason = "Planned: T2.11 (org-toggle-item)"
+command = "list.toggleItem"
 
 [[key]]
 mode = "org"
@@ -554,11 +554,11 @@ what = "Insert the last stored link"
 command = "org.link.insertStored"
 
 [[key]]
-doom = "SPC m l d"
 mode = "org"
+doom = "SPC m l d"
 keys = "space m l d"
 what = "Remove the link"
-reason = "Planned: T2.11 (Remove Link)"
+command = "org.link.remove"
 
 [[key]]
 doom = "SPC m l t"
