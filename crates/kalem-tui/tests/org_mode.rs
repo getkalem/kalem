@@ -185,3 +185,31 @@ fn alt_enter_inserts_a_heading() {
     t.typ("New");
     assert_eq!(t.text(), "* A\n** a1\ntext\n* New\n* B\n");
 }
+
+#[test]
+fn shift_arrows_on_a_timestamp() {
+    // As `org-shiftup` and the others on a timestamp: the part at the
+    // cursor, a day with Left and Right; on a heading's timestamp before
+    // its priority; elsewhere Shift selects.
+    let text = "* TODO Call <2026-10-05 Mon 10:03>\nSCHEDULED: <2026-10-31 Sat>\nplain\n";
+    let mut t = open(text, text.find("10-05").unwrap() + 1);
+    t.key(KeyCode::Up, KeyModifiers::SHIFT);
+    assert!(t.text().starts_with("* TODO Call <2026-11-05 Thu 10:03>"), "{}", t.text());
+    t.app.doc.move_cursor(t.text().find("10:03").unwrap() + 4, false);
+    t.key(KeyCode::Up, KeyModifiers::SHIFT);
+    assert!(t.text().starts_with("* TODO Call <2026-11-05 Thu 10:05>"), "{}", t.text());
+    let s = t.text().find("<2026-10-31").unwrap() + 3;
+    t.app.doc.move_cursor(s, false);
+    t.key(KeyCode::Right, KeyModifiers::SHIFT);
+    assert!(t.text().contains("SCHEDULED: <2026-11-01 Sun>"), "{}", t.text());
+    t.key(KeyCode::Left, KeyModifiers::SHIFT);
+    t.key(KeyCode::Left, KeyModifiers::SHIFT);
+    assert!(t.text().contains("SCHEDULED: <2026-10-30 Fri>"), "{}", t.text());
+    // Away from timestamps the keys are what they were.
+    t.app.doc.move_cursor(t.text().find("plain").unwrap(), false);
+    t.key(KeyCode::Right, KeyModifiers::SHIFT);
+    assert_eq!(t.app.doc.selected_text(), Some("p"));
+    t.app.doc.move_cursor(3, false);
+    t.key(KeyCode::Up, KeyModifiers::SHIFT);
+    assert!(t.text().starts_with("* TODO [#B] Call"), "{}", t.text());
+}

@@ -190,7 +190,12 @@ after it), and write =SCHEDULED:= or =DEADLINE:= on the planning line
 as Emacs does; /Remove Schedule/ and /Remove Deadline/ take them off.
 Alt+Shift+D inserts a date from the same calendar, where arrows move by
 day and week and Page Up and Page Down by month; Ctrl+Shift+D inserts
-the current time stamp.
+the current time stamp. With the cursor on a date, Shift+Up and
+Shift+Down change the part under it (year, month, day, hour, or the
+minutes by five; on a repeater such as =+1w= its number or unit; on a
+bracket, active becomes inactive), and Shift+Right and Shift+Left move
+it a day, as in Emacs; on a =CLOCK:= line the duration follows. With a
+selection the keys extend it.
 
 /Refile/ (Ctrl+Alt+W) moves the subtree at the cursor under another
 heading of the document, chosen by outline path, as its last child.

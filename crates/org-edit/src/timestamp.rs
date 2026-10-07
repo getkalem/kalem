@@ -104,6 +104,27 @@ pub(crate) fn timestamp_at(text: &str, pos: usize) -> Option<Ts> {
     None
 }
 
+/// Whether `pos` is in (or right after) a timestamp-like text of its line,
+/// as `(org-at-timestamp-p 'lax)`: where S-up and the other timestamp keys
+/// apply. Only the 128 bytes before `pos` are looked at, which hold any
+/// timestamp around it.
+pub fn at_timestamp(text: &str, pos: usize) -> bool {
+    let pos = pos.min(text.len());
+    let bol = text[..pos].rfind('\n').map_or(0, |i| i + 1);
+    let mut from = bol.max(pos.saturating_sub(128));
+    while !text.is_char_boundary(from) {
+        from += 1;
+    }
+    if from == bol {
+        return timestamp_at(text, pos).is_some();
+    }
+    // A line of its own from `from`, for the left-to-right matching.
+    let eol = text[pos..].find('\n').map_or(text.len(), |i| pos + i);
+    let mut line = String::from("\n");
+    line.push_str(&text[from..eol]);
+    timestamp_at(&line, pos - from + 1).is_some()
+}
+
 /// The fields `org-timestamp-change` can move.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TsField {
@@ -629,6 +650,19 @@ mod tests {
         assert_eq!(extra("<2026-09-28 Mon .+2d/3d>"), " .+2d/3d");
         assert_eq!(extra("<2026-09-28>"), "");
         assert!(timestamp_at("<2026-09-28 Mon this is a long note>", 3).is_none());
+    }
+
+    #[test]
+    fn at_a_timestamp() {
+        let t = "x <2026-10-05 Mon> y";
+        assert!(!at_timestamp(t, 1));
+        assert!(at_timestamp(t, 2) && at_timestamp(t, 10) && at_timestamp(t, 18));
+        assert!(!at_timestamp(t, 19));
+        // Far into a long line, the same answers.
+        let long = format!("{} <2026-10-05 Mon> y", "w".repeat(500));
+        assert!(at_timestamp(&long, 510));
+        assert!(!at_timestamp(&long, 498));
+        assert!(!at_timestamp(&long, long.len()));
     }
 
     #[test]

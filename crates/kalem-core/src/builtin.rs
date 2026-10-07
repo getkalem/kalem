@@ -490,6 +490,17 @@ fn resolve_path(doc: &crate::document::DocumentState, file: &str) -> std::path::
 const ORG: &str = "editorMode == org";
 const TABLE: &str = "editorMode == org && inTable";
 const LIST: &str = "editorMode == org && inList";
+const ON_TIMESTAMP: &str = "editorMode == org && onTimestamp && !hasSelection";
+
+/// `org-timestamp-change` at the cursor by `n` of `what`, or of the part
+/// of the timestamp the cursor is in.
+fn timestamp_change(
+    ctx: &mut EditorContext<'_>,
+    n: i64,
+    what: Option<org_edit::timestamp::TsField>,
+) -> CommandResult {
+    ctx.org(|d, p, _| org_edit::timestamp::timestamp_change(&text_of(d), p, n, what, true))
+}
 
 /// The text and parse context of a model, for the commands that take text.
 fn text_of(d: &org_model::Document) -> String {
@@ -8505,6 +8516,41 @@ fn plain_commands() -> Vec<Command> {
             &["shift+down"],
             Some("editorMode == org && onHeadline"),
             |ctx, _| priority(ctx, PriorityAction::Down),
+        ),
+        // Shift with the arrows on a timestamp, before a heading's
+        // priority and TODO state as in Org (`org-shiftup` and the
+        // others); with a selection they extend it.
+        cmd(
+            "org.timestamp.up",
+            "Increase Date at Cursor",
+            "Tasks",
+            &["shift+up"],
+            Some(ON_TIMESTAMP),
+            |ctx, _| timestamp_change(ctx, 1, None),
+        ),
+        cmd(
+            "org.timestamp.down",
+            "Decrease Date at Cursor",
+            "Tasks",
+            &["shift+down"],
+            Some(ON_TIMESTAMP),
+            |ctx, _| timestamp_change(ctx, -1, None),
+        ),
+        cmd(
+            "org.timestamp.dayLater",
+            "One Day Later",
+            "Tasks",
+            &["shift+right"],
+            Some(ON_TIMESTAMP),
+            |ctx, _| timestamp_change(ctx, 1, Some(org_edit::timestamp::TsField::Day)),
+        ),
+        cmd(
+            "org.timestamp.dayEarlier",
+            "One Day Earlier",
+            "Tasks",
+            &["shift+left"],
+            Some(ON_TIMESTAMP),
+            |ctx, _| timestamp_change(ctx, -1, Some(org_edit::timestamp::TsField::Day)),
         ),
         cmd(
             "org.priority.set",

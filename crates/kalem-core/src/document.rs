@@ -2326,8 +2326,8 @@ impl DocumentState {
     /// The when-clause context at the cursor: `editorMode` (`org`,
     /// `markdown`, `csv`, `text`, `binary`), `editorLanguage`,
     /// `hasSelection`, `narrowed` and `modified`, and in Org documents
-    /// `onHeadline` (on a heading line), `inTable`, `inList`, `inBlock` and
-    /// `inSrcBlock`. While a full reparse runs, the Org keys come from the
+    /// `onHeadline` (on a heading line), `inTable`, `inList`, `inBlock`,
+    /// `inSrcBlock` and `onTimestamp`. While a full reparse runs, the Org keys come from the
     /// previous tree. Frontends add their own keys, such as `editorFocus`.
     pub fn when_context(&self) -> Context {
         use org_syntax::SyntaxKind as K;
@@ -2429,6 +2429,10 @@ impl DocumentState {
         c.flag("inList", kinds.contains(&K::ITEM));
         c.flag("inBlock", kinds.iter().any(block));
         c.flag("inSrcBlock", el.kind() == K::SRC_BLOCK);
+        c.flag(
+            "onTimestamp",
+            org_edit::timestamp::at_timestamp(self.text.as_str(), pos),
+        );
         c
     }
 }
