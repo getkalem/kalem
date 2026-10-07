@@ -201,6 +201,13 @@ pub trait Lines {
         true
     }
 
+    /// Where line `line` comes among the lines shown, for comparing two
+    /// lines' places (a sorted view shows them out of the text's order);
+    /// the line itself by default.
+    fn position(&self, line: usize) -> usize {
+        line
+    }
+
     /// The rows of line `line` for a text `width` cells wide.
     fn rows(&self, line: usize, width: u16) -> Vec<Vec<Glyph<Self::Data>>>;
 
@@ -239,7 +246,8 @@ impl Viewport {
             self.top_row = crow;
             top_line = cl;
         }
-        if cl < top_line || (cl == top_line && crow < self.top_row) {
+        if lines.position(cl) < lines.position(top_line) || (cl == top_line && crow < self.top_row)
+        {
             self.top = lines.line_start(cl);
             self.top_row = crow;
             return;

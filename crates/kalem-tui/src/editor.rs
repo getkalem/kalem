@@ -58,6 +58,9 @@ pub struct EditorView {
     toc: TocCache,
     /// The text area of the last frame.
     pub area: Rect,
+    /// The CSV and BibTeX sorts of the last frame: a view sorted anew
+    /// starts at its first row.
+    sort_seen: (Option<(usize, bool)>, Option<(usize, bool)>),
     /// Focus mode: only the section holding the cursor shows.
     pub focus: bool,
     /// The text column's width in characters; 0 for the whole window.
@@ -436,6 +439,27 @@ pub(crate) struct Layout<'a> {
 }
 
 impl<'a> Layout<'a> {
+    /// In a sorted view, the place among the lines shown of line `line`,
+    /// or of the shown line nearest before it in the text (the first one
+    /// when there is none).
+    fn place(&self, line: usize) -> Option<usize> {
+        let (lines, at) = self.order.as_ref()?;
+        if let Some(&i) = at.get(&line) {
+            return Some(i);
+        }
+        let before = lines.iter().filter(|&&l| l < line).max();
+        before
+            .and_then(|l| at.get(l).copied())
+            .or_else(|| (!lines.is_empty()).then_some(0))
+    }
+
+    /// In a sorted view, the first line shown.
+    pub(crate) fn first_shown(&self) -> Option<usize> {
+        self.order
+            .as_ref()
+            .and_then(|(lines, _)| lines.first().copied())
+    }
+
     fn new(
         doc: &'a DocumentState,
         shared: Shared<'a>,
@@ -1700,9 +1724,22 @@ impl Lines for Layout<'_> {
         self.visible.get(i).is_some_and(|r| r.start <= s)
     }
 
+    fn position(&self, line: usize) -> usize {
+        self.order
+            .as_ref()
+            .and_then(|_| self.place(line))
+            .unwrap_or(line)
+    }
+
     /// The next visible line after `line`.
     fn next_line(&self, line: usize) -> Option<usize> {
         if let Some((lines, at)) = &self.order {
+            // A line not shown (the cursor at the end of the text): after
+            // the shown line before it.
+            if !at.contains_key(&line) {
+                let i = self.place(line)?;
+                return lines.get(i + 1).or(lines.get(i)).copied();
+            }
             return at.get(&line).and_then(|&i| lines.get(i + 1)).copied();
         }
         let n = self.text().line_count();
@@ -1722,6 +1759,9 @@ impl Lines for Layout<'_> {
     /// The visible line before `line`.
     fn prev_line(&self, line: usize) -> Option<usize> {
         if let Some((lines, at)) = &self.order {
+            if !at.contains_key(&line) {
+                return self.place(line).and_then(|i| lines.get(i)).copied();
+            }
             return at
                 .get(&line)
                 .and_then(|&i| i.checked_sub(1))
@@ -2073,6 +2113,15 @@ impl EditorView {
         }
         let width = self.width();
         let l = Layout::new(doc, shared!(self), &blocks, caps, width);
+        let sort = (doc.csv_sort, doc.bib_sort);
+        if sort != self.sort_seen {
+            self.sort_seen = sort;
+            if let Some(first) = l.first_shown() {
+                self.viewport.top = doc.text().line_start(first);
+                self.viewport.top_row = 0;
+                self.follow = true;
+            }
+        }
         // A CSV file's header row stays on the first row when its rows
         // scroll: the rows below get one row less.
         let header = doc.meta.mode == kalem_core::DocumentMode::Csv
