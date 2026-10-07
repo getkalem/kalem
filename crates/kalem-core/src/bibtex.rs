@@ -220,6 +220,14 @@ pub fn entries(text: &str) -> Vec<Entry> {
             // or the end.
             let stop = next_entry.unwrap_or(b.len());
             let last = text[..stop].trim_end().len().max(at + 1);
+            // A value left open runs on past the entry's last text (to
+            // the next entry, or the end): it ends with the entry.
+            for f in &mut fields {
+                f.value.end = f.value.end.min(last);
+                f.value.start = f.value.start.min(f.value.end);
+                f.name.end = f.name.end.min(last);
+                f.name.start = f.name.start.min(f.name.end);
+            }
             out.push(Entry {
                 range: at..last,
                 kind,
@@ -832,7 +840,7 @@ pub fn set_field(text: &str, e: &Entry, name: &str, value: &str) -> Transaction 
                 .rfind('\n')
                 .map_or(f.name.start, |n| n + 1);
             let mut end = f.value.end;
-            let rest = &text[end..e.close];
+            let rest = text.get(end..e.close).unwrap_or("");
             let comma = rest.find(',').filter(|k| rest[..*k].trim().is_empty());
             if let Some(k) = comma {
                 end += k + 1;
@@ -866,7 +874,7 @@ pub fn set_field(text: &str, e: &Entry, name: &str, value: &str) -> Transaction 
     // After the last field (its comma added when it has none), on a line of
     // its own.
     let after = e.fields.last().map_or(e.key.end, |f| f.value.end);
-    let rest = &text[after..e.close];
+    let rest = text.get(after..e.close).unwrap_or("");
     let has_comma = rest.trim_start().starts_with(',');
     let at = if has_comma {
         after + rest.find(',').map_or(0, |k| k + 1)
@@ -1050,6 +1058,22 @@ mod tests {
         // The bad field skipped, the good ones read.
         assert!(es[0].field(bib, "year").is_some());
         assert_eq!(cells(bib, &es[2])[3], "C");
+        // Set Field on the entry left open, as while typing it: no field
+        // runs past the entry.
+        let open = &es[1];
+        assert!(open.fields.iter().all(|f| f.value.end <= open.close));
+        for (name, value) in [("year", "2020"), ("title", ""), ("title", "T")] {
+            let tx = set_field(bib, open, name, value);
+            let mut s = bib.to_string();
+            for c in tx.edits.iter().rev() {
+                s.replace_range(c.range.clone(), &c.insert);
+            }
+            assert!(s.contains("@misc{c,"), "{s}");
+        }
+        let end = "@article{z,\n  title = {Open";
+        let es = entries(end);
+        let _ = set_field(end, &es[0], "year", "2020");
+        let _ = set_field(end, &es[0], "title", "");
     }
 
     #[test]
