@@ -520,3 +520,25 @@ fn insert_as_many_rows_and_columns_as_selected() {
     s.at("A2").key("csv.insertRow").key("csv.insertColumn");
     assert_eq!(s.text(), ",a,b\n,1,2\n,,\n");
 }
+
+#[test]
+fn quotes_an_entry_no_longer_needs_go() {
+    // A space typed and deleted left `""`; a comma typed and deleted the
+    // quotes around the value.
+    let mut s = Sheet::new("a,b\n1,2\n");
+    s.at("A2");
+    s.typ(" ");
+    assert_eq!(s.text(), "a,b\n\" \",2\n");
+    s.key("csv.backspaceCell");
+    assert_eq!(s.text(), "a,b\n,2\n");
+    s.at("B2").key("csv.editCell");
+    s.typ(",");
+    assert_eq!(s.text(), "a,b\n,\"2,\"\n");
+    s.key("csv.backspaceCell");
+    assert_eq!(s.text(), "a,b\n,2\n");
+    // A field quoted in the file stays quoted.
+    let mut s = Sheet::new("a,b\n\"x\",2\n");
+    s.at("A2").key("csv.editCell");
+    s.key("csv.backspaceCell");
+    assert_eq!(s.text(), "a,b\n\"\",2\n");
+}

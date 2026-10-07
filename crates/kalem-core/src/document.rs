@@ -1742,8 +1742,49 @@ impl DocumentState {
             &layout.dialect,
         ) {
             self.apply(&tx, ChangeKind::Typing, now);
+            self.unquote_entry(now);
         }
         true
+    }
+
+    /// After a deletion in the cell being typed into or edited: quotes
+    /// the entry put around its value (for a delimiter, a quote or a blank
+    /// at an end, typed) go when the value no longer needs them and the
+    /// field had none before the entry (a space typed and deleted left
+    /// `""` in the file).
+    fn unquote_entry(&mut self, now: Instant) {
+        let Some(e) = self.csv_editing().cloned() else {
+            return;
+        };
+        let Some((layout, _, rec, col)) = crate::csv::cell_at(self) else {
+            return;
+        };
+        let d = &layout.dialect;
+        let Some(f) = rec.fields.get(col).filter(|f| f.quoted) else {
+            return;
+        };
+        if crate::csv::scan(&e.record, 0, d)
+            .fields
+            .get(col)
+            .is_some_and(|f| f.quoted)
+        {
+            return;
+        }
+        let text = self.text.as_str();
+        let v = crate::csv::value(text, f, d).into_owned();
+        if crate::csv::encode(&v, d) != v || text[f.range.clone()].len() != v.len() + 2 {
+            return;
+        }
+        // The caret where it was in the value, the opening quote gone.
+        let head = self.selection.head;
+        let caret = head
+            .saturating_sub(f.range.start + 1)
+            .min(v.len())
+            + f.range.start;
+        let mut tx = Transaction::new("Typing");
+        tx.edit(f.range.clone(), v);
+        let tx = tx.select(Selection::caret(caret));
+        self.apply(&tx, ChangeKind::Typing, now);
     }
 
     pub fn type_text(&mut self, text: &str, blank_field: bool, now: Instant) {
