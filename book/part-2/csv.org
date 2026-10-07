@@ -518,7 +518,12 @@ document is closed; it is not written to the file.
   covers, and typing goes into the cell the selection started from, as a
   spreadsheet types into the active cell; Backspace clears that cell
   alone and types into it; typed over a selection within one cell, the
-  text replaces it.
+  text replaces it. Enter and Shift+Enter move the active cell down and
+  up each column of the selection, Tab and Shift+Tab along each row,
+  wrapping at the ends, as Excel moves in a selected range: the cells
+  stay selected (=DocumentState::csv_rect=), typing goes into the active
+  cell, and Delete clears them all, until an arrow, a click or a
+  command ends them.
 - Backspace and Delete delete within a cell's value: at the start of a
   cell Backspace (at its end Delete) does nothing rather than delete the
   delimiter and merge two cells, the quotes of a quoted field stay, and a
@@ -950,5 +955,3 @@ Saving is atomic, as for every file.
 - Lenient reading: text after a closing quote, unterminated quotes and
   bare quotes are accepted, and reported (see [[*Malformed fields][Malformed fields]]) rather
   than refused.
-- With several cells selected, Enter and Tab do not move the active
-  cell within the selection, as Excel does; they leave it.

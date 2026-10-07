@@ -2380,8 +2380,19 @@ pub fn rows_between(doc: &crate::DocumentState, a: usize, b: usize) -> Vec<usize
 /// selection within one cell stays text).
 pub fn cell_rectangle(doc: &crate::DocumentState) -> Option<Rectangle> {
     let sel = doc.selection;
-    if sel.anchor == sel.head || !doc.extra.is_empty() {
+    if !doc.extra.is_empty() {
         return None;
+    }
+    if sel.anchor == sel.head {
+        // Cells Enter and Tab move the active cell within
+        // (`DocumentState::csv_rect`), while the cursor is in them.
+        let ((r0, c0), (r1, c1)) = doc.csv_rect?;
+        let (_, row, _, col) = cell_at(doc)?;
+        let rows = rows_between(doc, r0, r1);
+        let cols = (c0.min(c1), c0.max(c1));
+        let inside = rows.contains(&row) && cols.0 <= col && col <= cols.1;
+        return (inside && (rows.len() > 1 || cols.0 != cols.1))
+            .then_some(Rectangle { rows, cols });
     }
     let (_, r1, _, c1) = cell_at(doc)?;
     let (r0, c0) = anchor_cell(doc)?;

@@ -1450,6 +1450,58 @@ fn csv_in_cell_extending(
     true
 }
 
+/// Enter, Shift+Enter, Tab or Shift+Tab with cells of several rows or
+/// columns selected: the active cell (the cursor's; the anchor's for a
+/// selection just made) goes on within them, down each column for Enter
+/// (`along_rows` false) or along each row for Tab, back with `back`,
+/// wrapping at the ends, as Excel moves in a selected range; the cells
+/// stay selected (`DocumentState::csv_rect`) and typing goes into the
+/// active cell. `None` without such cells (they left the selection).
+fn csv_within(ctx: &mut EditorContext<'_>, along_rows: bool, back: bool) -> Option<CommandResult> {
+    let d = ctx.doc().ok()?;
+    let rect = crate::csv::cell_rectangle(d)?;
+    let (row, col) = if d.selection.anchor != d.selection.head {
+        crate::csv::anchor_cell(d)?
+    } else {
+        crate::csv::cell_at(d).map(|(_, r, _, c)| (r, c))?
+    };
+    let cols: Vec<usize> = (rect.cols.0..=rect.cols.1)
+        .filter(|c| !d.csv_columns.hidden.contains(c))
+        .collect();
+    let (nr, nc) = (rect.rows.len(), cols.len());
+    if nr == 0 || nc == 0 {
+        return None;
+    }
+    let ri = rect.rows.iter().position(|&r| r == row).unwrap_or(0);
+    let ci = cols.iter().position(|&c| c == col).unwrap_or(0);
+    let total = nr * nc;
+    let at = if along_rows {
+        ri * nc + ci
+    } else {
+        ci * nr + ri
+    };
+    let to = if back {
+        (at + total - 1) % total
+    } else {
+        (at + 1) % total
+    };
+    let (r, c) = if along_rows {
+        (rect.rows[to / nc], cols[to % nc])
+    } else {
+        (rect.rows[to % nr], cols[to / nr])
+    };
+    let corners = (
+        (rect.rows[0], rect.cols.0),
+        (rect.rows[nr - 1], rect.cols.1),
+    );
+    // The entry in the active cell stays, as Enter enters it.
+    d.csv_edit = None;
+    d.csv_tab_run = None;
+    d.go_to_csv_cell(r, c);
+    d.csv_rect = Some(corners);
+    Some(Ok(()))
+}
+
 /// Tab or Shift+Tab (`step`) as part of a run along a row: the column the
 /// run started from is kept for Enter to go back to on the row below
 /// (`DocumentState::csv_tab_run`); a step to another row ends it.
@@ -1623,6 +1675,19 @@ fn csv_clear_selection(d: &mut crate::DocumentState, now: std::time::Instant) ->
     let s = d.selection;
     if s.anchor != s.head {
         d.delete_in_grid(true, now);
+        return Ok(());
+    }
+    // Cells Enter and Tab move within: all of them cleared, and kept.
+    if let Some(rect) = crate::csv::cell_rectangle(d) {
+        let kept = d.csv_rect;
+        let (layout, row, _, col) = csv_cell(d)?;
+        if let Some(tx) = crate::csv::clear_cells(d.text().as_str(), &layout, &rect.rows, rect.cols)
+            .filter(|tx| csv_changes(d.text().as_str(), tx))
+        {
+            d.apply(&tx, org_edit::ChangeKind::Command, now);
+        }
+        d.go_to_csv_cell(row, col);
+        d.csv_rect = kept;
         return Ok(());
     }
     let (layout, row, rec, col) = csv_cell(d)?;
@@ -3477,6 +3542,9 @@ fn csv_commands() -> Vec<Command> {
     };
     vec![
         c("csv.nextField", "Next Field", &["tab"], |ctx, _| {
+            if let Some(r) = csv_within(ctx, true, false) {
+                return r;
+            }
             csv_tab(ctx, |ctx| {
                 let (_, next) = csv_neighbours(ctx);
                 let hidden = ctx.doc()?.csv_columns.hidden.clone();
@@ -3686,6 +3754,9 @@ fn csv_commands() -> Vec<Command> {
         // spreadsheet (Enter broke the record in two). Past the last row
         // Enter adds one, as Tab does.
         c("csv.cellBelow", "Cell Below", &[], |ctx, _| {
+            if let Some(r) = csv_within(ctx, false, false) {
+                return r;
+            }
             let (_, next) = csv_neighbours(ctx);
             // After a run of Tabs along the row, the column it started
             // from, as in Excel.
@@ -3700,6 +3771,9 @@ fn csv_commands() -> Vec<Command> {
             })
         }),
         c("csv.cellAbove", "Cell Above", &[], |ctx, _| {
+            if let Some(r) = csv_within(ctx, false, true) {
+                return r;
+            }
             let (previous, _) = csv_neighbours(ctx);
             csv_edit(ctx, |_, _, _, _, col| {
                 Ok((None, previous.map(|r| (r, col))))
@@ -3710,6 +3784,9 @@ fn csv_commands() -> Vec<Command> {
             "Previous Field",
             &["shift+tab"],
             |ctx, _| {
+                if let Some(r) = csv_within(ctx, true, true) {
+                    return r;
+                }
                 csv_tab(ctx, |ctx| {
                     let (previous, _) = csv_neighbours(ctx);
                     let hidden = ctx.doc()?.csv_columns.hidden.clone();
@@ -11056,6 +11133,9 @@ mod tests {
         // Shift with the arrow: the selection's corner on Cem's row.
         let (_, text, head) = run("csv.extendDown");
         assert!(text[head..].starts_with("Izmir\nDen"), "{head}");
+        // Enter within those two cells would go between them: collapsed
+        // on Cem's first.
+        run("csv.cancelEdit");
         let (_, before, _) = run("csv.cellBelow");
         let (cell, after, _) = run("csv.cellBelow");
         assert_eq!(cell, Some((3, 1)), "Den is hidden: it stays");

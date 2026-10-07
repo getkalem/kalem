@@ -213,6 +213,12 @@ pub struct DocumentState {
     /// (row and column) and the column it started from, where Enter goes
     /// back to on the row below, as in Excel.
     pub csv_tab_run: Option<(usize, usize, usize)>,
+    /// Cells of several rows or columns that Enter and Tab move the
+    /// active cell (the cursor's) within, as Excel moves in a selected
+    /// range: the corners' rows and columns. They stay selected while the
+    /// cursor is in them and no other move or command ends them
+    /// (`crate::csv::cell_rectangle`).
+    pub csv_rect: Option<((usize, usize), (usize, usize))>,
     /// The CSV grid's cell being typed into or edited, as Excel's Enter
     /// and Edit modes; none in its Ready mode, where the cursor is a cell
     /// (`csv_mode`).
@@ -375,6 +381,7 @@ impl DocumentState {
             csv_virtual: None,
             csv_virtual_anchor: None,
             csv_tab_run: None,
+            csv_rect: None,
             csv_edit: None,
             csv_vim: false,
             bib_sort: None,
@@ -985,6 +992,8 @@ impl DocumentState {
         let Some(e) = self.csv_editing().cloned() else {
             return false;
         };
+        // Cells Enter and Tab move within stay selected.
+        let rect = self.csv_rect;
         self.csv_edit = None;
         // The entry's own undo steps undone and not kept for Redo (a
         // "Cancel Entry" step of its own let Undo bring the entry back);
@@ -1004,6 +1013,7 @@ impl DocumentState {
             self.selection = Selection::caret(start);
         }
         self.go_to_csv_cell(e.row, e.col);
+        self.csv_rect = rect;
         true
     }
 
@@ -1011,6 +1021,7 @@ impl DocumentState {
     /// start, or past its record's end (selected without a change) when the
     /// record is too short to have it.
     pub fn go_to_csv_cell(&mut self, row: usize, col: usize) {
+        self.csv_rect = None;
         let layout = crate::csv::layout(self);
         let rec = layout
             .index
@@ -1148,6 +1159,11 @@ impl DocumentState {
         });
         self.history
             .record(tx, self.text.as_str(), before, after, kind, now);
+        // A command's edit (rows or columns moved) ends cells Enter and Tab
+        // move within; typing into the active cell does not.
+        if kind == ChangeKind::Command {
+            self.csv_rect = None;
+        }
         self.apply_raw(tx);
         self.selection = after;
         if !self.extra.is_empty() {
@@ -1185,6 +1201,7 @@ impl DocumentState {
         while !text.is_char_boundary(p) {
             p -= 1;
         }
+        self.csv_rect = None;
         self.selection = if extend {
             Selection {
                 anchor: self.selection.anchor,

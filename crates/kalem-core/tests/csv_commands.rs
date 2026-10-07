@@ -637,3 +637,45 @@ fn amounts_count_as_numbers() {
     assert!(l.dialect.header);
     assert_eq!(l.numeric.get(1), Some(&true));
 }
+
+#[test]
+fn enter_and_tab_move_within_the_selected_cells() {
+    // B2:C3 selected: Enter goes down each column, Tab along each row,
+    // wrapping, the cells staying selected; typing goes into the active
+    // cell (they left the selection).
+    let mut s = Sheet::new("a,b,c,d\n1,2,3,4\n5,6,7,8\n9,10,11,12\n");
+    s.at("B2").key("csv.extendDown").key("csv.extendRight");
+    let rect = |s: &Sheet| csv::cell_rectangle(&s.d).map(|r| (r.rows, r.cols));
+    assert_eq!(rect(&s), Some((vec![1, 2], (1, 2))));
+    s.key("csv.cellBelow");
+    assert_eq!(s.cell(), "B3");
+    assert_eq!(rect(&s), Some((vec![1, 2], (1, 2))));
+    s.key("csv.cellBelow");
+    assert_eq!(s.cell(), "C2");
+    s.typ("x");
+    s.key("csv.cellBelow");
+    assert_eq!(s.cell(), "C3");
+    s.typ("y");
+    s.key("csv.cellBelow");
+    assert_eq!(s.cell(), "B2", "back to the first");
+    assert_eq!(s.text(), "a,b,c,d\n1,2,x,4\n5,6,y,8\n9,10,11,12\n");
+    assert_eq!(rect(&s), Some((vec![1, 2], (1, 2))));
+    // Tab along the rows, Shift+Tab and Shift+Enter back.
+    s.key("csv.nextField");
+    assert_eq!(s.cell(), "C2");
+    s.key("csv.nextField");
+    assert_eq!(s.cell(), "B3");
+    s.key("csv.previousField");
+    assert_eq!(s.cell(), "C2");
+    s.key("csv.cellAbove");
+    assert_eq!(s.cell(), "B3");
+    // Delete clears them all, and they stay selected.
+    s.key("csv.clearCells");
+    assert_eq!(s.text(), "a,b,c,d\n1,,,4\n5,,,8\n9,10,11,12\n");
+    assert_eq!(rect(&s), Some((vec![1, 2], (1, 2))));
+    // An arrow ends them.
+    s.key("csv.cellRight");
+    assert_eq!(rect(&s), None);
+    s.key("csv.cellBelow");
+    assert_eq!(s.cell(), "C4");
+}
