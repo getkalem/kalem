@@ -1910,9 +1910,7 @@ impl DocumentState {
                 tx.map(r.start, org_edit::Assoc::Before)..tx.map(r.end, org_edit::Assoc::After),
             );
         }
-        for e in tx.edits.iter().rev() {
-            self.text.replace(e.range.clone(), &e.insert);
-        }
+        self.text.apply(&tx.edits);
         self.version += 1;
         let version = self.version;
         let text = self.text.as_str();

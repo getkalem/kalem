@@ -62,6 +62,32 @@ impl Text {
         self.text.replace_range(a..b, insert);
     }
 
+    /// Applies `edits` (sorted, not overlapping, in offsets of the text as
+    /// it is): one at a time when they are few, else the text and its line
+    /// index made again in one pass. Each replacement moves the text after
+    /// it, so one on every line of a large file (Replace All, the line
+    /// endings changed, typing with many cursors) took seconds: 11 s for
+    /// 100,000 lines.
+    pub fn apply(&mut self, edits: &[org_edit::Edit]) {
+        if edits.len() <= 8 {
+            for e in edits.iter().rev() {
+                self.replace(e.range.clone(), &e.insert);
+            }
+            return;
+        }
+        let added: usize = edits.iter().map(|e| e.insert.len()).sum();
+        let removed: usize = edits.iter().map(|e| e.range.len()).sum();
+        let mut out = String::with_capacity((self.text.len() + added).saturating_sub(removed));
+        let mut at = 0;
+        for e in edits {
+            out.push_str(&self.text[at..e.range.start]);
+            out.push_str(&e.insert);
+            at = e.range.end;
+        }
+        out.push_str(&self.text[at..]);
+        *self = Text::new(out);
+    }
+
     /// The number of lines (a final line feed starts an empty last line).
     pub fn line_count(&self) -> usize {
         self.lines.len()
@@ -195,6 +221,34 @@ mod tests {
                 let fresh = Text::new(t.as_str().to_string());
                 prop_assert_eq!(&t.lines, &fresh.lines);
             }
+        }
+
+        #[test]
+        fn edits_at_once_as_one_by_one(
+            cuts in proptest::collection::vec((0usize..6, 0usize..4, "[aé\\n]{0,3}"), 0..24)
+        ) {
+            // Sorted, not overlapping edits; few are applied one by one,
+            // many in one pass: the same text and index either way.
+            let start = "abc\ndéf\n\nghi\njkl\nmno\npqr\nstu\nvwx\nyz\n".repeat(3);
+            let mut edits = Vec::new();
+            let mut at = 0;
+            for (gap, len, insert) in cuts {
+                let a = (at + gap).min(start.len());
+                let b = (a + len).min(start.len());
+                if !start.is_char_boundary(a) || !start.is_char_boundary(b) {
+                    continue;
+                }
+                edits.push(org_edit::Edit { range: a..b, insert });
+                at = b;
+            }
+            let mut one_by_one = Text::new(start.clone());
+            for e in edits.iter().rev() {
+                one_by_one.replace(e.range.clone(), &e.insert);
+            }
+            let mut t = Text::new(start);
+            t.apply(&edits);
+            prop_assert_eq!(t.as_str(), one_by_one.as_str());
+            prop_assert_eq!(&t.lines, &one_by_one.lines);
         }
     }
 }
