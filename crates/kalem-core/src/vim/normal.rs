@@ -508,34 +508,47 @@ impl Vim {
         by: i64,
         progressive: bool,
     ) {
-        let (first, last, from_col) = match &target {
+        let (first, last) = match &target {
             super::Target::Chars(r) => (
                 line_of(doc, r.start),
                 line_of(doc, r.end.saturating_sub(1).max(r.start)),
-                Some(r.start),
             ),
-            super::Target::Lines(a, b) => (*a, *b, None),
-            super::Target::Block { first, last, .. } => (*first, *last, None),
+            super::Target::Lines(a, b) => (*a, *b),
+            super::Target::Block { first, last, .. } => (*first, *last),
+        };
+        // Vim's cursor goes to the start of the selection.
+        let start = match &target {
+            super::Target::Chars(r) => r.start,
+            super::Target::Lines(a, _) => line_start(doc, *a),
+            super::Target::Block { first, left, .. } => at_column(doc, *first, *left),
         };
         self.begin_change();
         let mut k = 0;
-        let mut top = None;
         for l in first..=last.min(last_line(doc)) {
-            let from = match (&target, from_col) {
-                (_, Some(p)) if l == first => p,
-                (super::Target::Block { left, .. }, _) => at_column(doc, l, *left),
-                _ => line_start(doc, l),
-            };
-            let step = if progressive { by * (k + 1) } else { by };
+            // Only what is selected on the line: a number starts there
+            // and ends there at the latest (Vim's `op_addsub()`).
             let (s, e) = (line_start(doc, l), line_end(doc, l));
-            let text = doc.text().as_str()[s..e].to_string();
-            if let Some((range, new)) = number_at(&text, from - s, step, &self.options.nrformats) {
-                edit(doc, s + range.start..s + range.end, &new, s + range.start);
-                top.get_or_insert(s + range.start);
+            let (from, to) = match &target {
+                super::Target::Chars(r) => (
+                    if l == first { r.start } else { s },
+                    if l == last { r.end.min(e) } else { e },
+                ),
+                super::Target::Block { left, right, .. } => {
+                    (at_column(doc, l, *left), at_column(doc, l, *right))
+                }
+                super::Target::Lines(..) => (s, e),
+            };
+            if to <= from {
+                continue;
+            }
+            let step = if progressive { by * (k + 1) } else { by };
+            let part = doc.text().as_str()[from..to].to_string();
+            if let Some((range, new)) = number_at(&part, 0, step, &self.options.nrformats) {
+                edit(doc, from + range.start..from + range.end, &new, from + range.start);
                 k += 1;
             }
         }
-        let to = top.unwrap_or_else(|| line_start(doc, first));
+        let to = start.min(doc.text().len());
         doc.selection = Selection::caret(to);
         self.cursor = to;
         self.changed();
