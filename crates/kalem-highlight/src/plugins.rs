@@ -12,7 +12,7 @@
 //! is found by its file name, the folder of `Packages/HTML/` ignored.
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use syntect::parsing::{SyntaxDefinition, SyntaxSet};
 use yaml_rust::yaml::Hash;
@@ -248,6 +248,49 @@ pub fn register(sources: &[SyntaxSource]) -> Registered {
 /// key of the sources: building takes most of a second, loading the
 /// cached set a few milliseconds.
 pub fn register_cached(sources: &[SyntaxSource], cache: Option<&Path>) -> Registered {
+    let file = cache_file(sources, cache);
+    let (set, registered) = match file.as_deref().and_then(cached) {
+        Some(c) => c,
+        None => build(sources, file.as_deref(), cache),
+    };
+    super::replace_set(Box::leak(Box::new(set)));
+    registered
+}
+
+/// [`register_cached`] without waiting for a set to be built (a start
+/// after an update, or with a plugin changed): a cached set is put in
+/// place at once and what was registered returned; otherwise the set is
+/// built on a thread of its own, the set in place used meanwhile, and
+/// `done` is called with what was registered once the new set is in
+/// place. A lookup of a plugin's language waits for it
+/// ([`crate::Language::find`]), as [`crate::wait`] does; `done` must not.
+pub fn register_cached_later(
+    sources: Vec<SyntaxSource>,
+    cache: Option<PathBuf>,
+    done: impl FnOnce(Registered) + Send + 'static,
+) -> Option<Registered> {
+    let file = cache_file(&sources, cache.as_deref());
+    if let Some((set, registered)) = file.as_deref().and_then(cached) {
+        super::replace_set(Box::leak(Box::new(set)));
+        return Some(registered);
+    }
+    let n = super::start_building();
+    let thread = std::thread::Builder::new()
+        .name("kalem-syntaxes".into())
+        .spawn(move || {
+            let (set, registered) = build(&sources, file.as_deref(), cache.as_deref());
+            super::finish_building(n, set, || done(registered));
+        });
+    if thread.is_err() {
+        // No thread: the plugins' syntaxes are missing until the next
+        // start, and no lookup waits for them.
+        super::reset();
+    }
+    None
+}
+
+/// The file of the cached set of `sources` in `cache`.
+fn cache_file(sources: &[SyntaxSource], cache: Option<&Path>) -> Option<PathBuf> {
     let key = {
         let mut h = Fnv(0xcbf2_9ce4_8422_2325);
         h.write(env!("CARGO_PKG_VERSION").as_bytes());
@@ -258,20 +301,27 @@ pub fn register_cached(sources: &[SyntaxSource], cache: Option<&Path>) -> Regist
         }
         h.0
     };
-    let file = cache.map(|c| c.join(format!("syntaxes-{key:016x}.bin")));
-    if let Some(f) = &file
-        && let Ok(bytes) = std::fs::read(f)
-        && let Ok((set, registered)) =
-            syntect::dumps::from_reader::<(SyntaxSet, Registered), _>(&bytes[..])
-    {
-        // Used last, so pruned last.
-        let _ = std::fs::File::options()
-            .append(true)
-            .open(f)
-            .and_then(|f| f.set_modified(std::time::SystemTime::now()));
-        super::replace_set(Box::leak(Box::new(set)));
-        return registered;
-    }
+    cache.map(|c| c.join(format!("syntaxes-{key:016x}.bin")))
+}
+
+/// The set cached in `file`, if it can be read.
+fn cached(file: &Path) -> Option<(SyntaxSet, Registered)> {
+    let bytes = std::fs::read(file).ok()?;
+    let set = syntect::dumps::from_reader::<(SyntaxSet, Registered), _>(&bytes[..]).ok()?;
+    // Used last, so pruned last.
+    let _ = std::fs::File::options()
+        .append(true)
+        .open(file)
+        .and_then(|f| f.set_modified(std::time::SystemTime::now()));
+    Some(set)
+}
+
+/// The built-in set with `sources` added, kept in `file` of `cache`.
+fn build(
+    sources: &[SyntaxSource],
+    file: Option<&Path>,
+    cache: Option<&Path>,
+) -> (SyntaxSet, Registered) {
     let (flat, mut errors) = flatten(sources);
     let mut defs = Vec::new();
     let mut names = Vec::new();
@@ -290,7 +340,7 @@ pub fn register_cached(sources: &[SyntaxSource], cache: Option<&Path>) -> Regist
     }
     let set = builder.build();
     let registered = Registered { names, errors };
-    if let (Some(f), Some(dir)) = (&file, cache) {
+    if let (Some(f), Some(dir)) = (file, cache) {
         prune(dir, KEEP - 1);
         let _ = std::fs::create_dir_all(dir);
         let tmp = f.with_extension("tmp");
@@ -298,8 +348,7 @@ pub fn register_cached(sources: &[SyntaxSource], cache: Option<&Path>) -> Regist
             let _ = std::fs::rename(&tmp, f);
         }
     }
-    super::replace_set(Box::leak(Box::new(set)));
-    registered
+    (set, registered)
 }
 
 /// How many built sets the cache keeps: one for each Kalem version and set

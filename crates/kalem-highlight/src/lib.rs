@@ -4,11 +4,13 @@
 //! frontends color kinds with their theme.
 
 use std::ops::Range;
-use std::sync::{LazyLock, RwLock};
+use std::sync::{Condvar, LazyLock, Mutex, PoisonError, RwLock};
 
 mod plugins;
 
-pub use plugins::{Files, Registered, SyntaxSource, flatten, register, register_cached};
+pub use plugins::{
+    Files, Registered, SyntaxSource, flatten, register, register_cached, register_cached_later,
+};
 
 use syntect::parsing::{ParseState, Scope, ScopeStack, ScopeStackOp, SyntaxReference, SyntaxSet};
 
@@ -73,8 +75,52 @@ pub fn generation() -> u64 {
 }
 
 fn replace_set(set: &'static SyntaxSet) {
+    let mut building = BUILDING.lock().unwrap_or_else(PoisonError::into_inner);
+    *building = 0;
+    install(set);
+    BUILT.notify_all();
+}
+
+fn install(set: &'static SyntaxSet) {
     *SYNTAXES.write().expect("syntaxes") = set;
     GENERATION.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// The set being built on a thread of its own ([`register_cached_later`]):
+/// its number while it is, 0 otherwise. A registration meanwhile makes
+/// that set stale: it is dropped when built.
+static BUILDING: Mutex<u64> = Mutex::new(0);
+/// Told when [`BUILDING`] goes back to 0.
+static BUILT: Condvar = Condvar::new();
+static BUILDS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+/// A set to be built on a thread of its own: its number.
+fn start_building() -> u64 {
+    let n = BUILDS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    *BUILDING.lock().unwrap_or_else(PoisonError::into_inner) = n;
+    n
+}
+
+/// Puts the set built as number `n` in place and calls `done`, unless a
+/// registration came after it. Lookups waiting for it wait for `done` too.
+fn finish_building(n: u64, set: SyntaxSet, done: impl FnOnce()) {
+    let mut building = BUILDING.lock().unwrap_or_else(PoisonError::into_inner);
+    if *building != n {
+        return;
+    }
+    install(Box::leak(Box::new(set)));
+    done();
+    *building = 0;
+    BUILT.notify_all();
+}
+
+/// Waits for a set being built on a thread of its own
+/// ([`register_cached_later`]); at once when none is.
+pub fn wait() {
+    let mut building = BUILDING.lock().unwrap_or_else(PoisonError::into_inner);
+    while *building != 0 {
+        building = BUILT.wait(building).unwrap_or_else(PoisonError::into_inner);
+    }
 }
 
 /// Names and extensions that language plugins map to a syntax by its name
@@ -90,7 +136,11 @@ pub fn set_aliases(aliases: Vec<(String, String)>) {
 
 /// Back to the built-in syntaxes (the last plugin removed).
 pub fn reset() {
-    if !std::ptr::eq(current(), defaults()) {
+    if std::ptr::eq(current(), defaults()) {
+        let mut building = BUILDING.lock().unwrap_or_else(PoisonError::into_inner);
+        *building = 0;
+        BUILT.notify_all();
+    } else {
         replace_set(defaults());
     }
 }
@@ -173,14 +223,20 @@ impl Eq for Language {}
 impl Language {
     /// The language for an Org source block language (`sh`, `emacs-lisp`,
     /// `python`) or a file extension (`rs`), if known.
+    /// A plugin's language waits for a set being built with it
+    /// ([`register_cached_later`]); the others are found in the set in
+    /// place.
     pub fn find(name: &str) -> Option<Language> {
-        let set = current();
         let lower = name.to_ascii_lowercase();
         let plugin = PLUGIN_ALIASES
             .read()
             .ok()
-            .and_then(|a| a.iter().find(|(n, _)| *n == lower).map(|(_, s)| s.clone()))
-            .and_then(|s| set.find_syntax_by_name(&s));
+            .and_then(|a| a.iter().find(|(n, _)| *n == lower).map(|(_, s)| s.clone()));
+        if plugin.is_some() {
+            wait();
+        }
+        let set = current();
+        let plugin = plugin.and_then(|s| set.find_syntax_by_name(&s));
         if let Some(syntax) = plugin {
             return Some(Language { set, syntax });
         }

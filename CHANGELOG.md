@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- The first start after an update, or after a language plugin changed, no longer waits about a second before showing anything (`kalem tui` took 1.1 s with the Elixir plugin installed, later starts 0.04 s): the plugins' syntaxes, when not cached yet, are built on a thread of their own while the editor starts; only a file in a plugin's language waits for its colors.
+
 ## [0.2.1] - 2026-10-07
 
 ### Fixed

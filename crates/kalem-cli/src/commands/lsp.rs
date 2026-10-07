@@ -42,6 +42,8 @@ pub(crate) fn status(file: Option<&Path>) -> Result<ExitCode> {
     for d in languages::plugin_dirs() {
         println!("  {}", d.display());
     }
+    // Each plugin's syntaxes too.
+    languages::wait();
     let plugins = languages::plugins();
     if plugins.is_empty() {
         println!("No language plugins.");

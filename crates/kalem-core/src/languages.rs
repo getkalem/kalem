@@ -212,6 +212,29 @@ struct Loaded {
     plugins: Vec<Arc<Plugin>>,
     problems: Vec<String>,
     dirs: Vec<PathBuf>,
+    /// Which load this is: the syntaxes built on a thread
+    /// ([`load`]) are told to this one only.
+    load: u64,
+}
+
+impl Loaded {
+    /// What registering the plugins' syntaxes found: each plugin's
+    /// syntaxes (`files`: its files of syntaxes, by plugin), the files
+    /// that could not be loaded.
+    fn registered(&mut self, files: &[Vec<String>], r: &kalem_highlight::Registered) {
+        for (f, e) in &r.errors {
+            self.problems.push(format!("{f}: {e}"));
+        }
+        for (p, files) in self.plugins.iter_mut().zip(files) {
+            let syntaxes = r
+                .names
+                .iter()
+                .filter(|(f, _)| files.contains(f))
+                .map(|(_, n)| n.clone())
+                .collect();
+            Arc::make_mut(p).syntaxes = syntaxes;
+        }
+    }
 }
 
 static LOADED: RwLock<Option<Loaded>> = RwLock::new(None);
@@ -277,9 +300,12 @@ fn load_plugin(dir: &Path) -> Result<Option<(Plugin, Vec<kalem_highlight::Syntax
 }
 
 /// Loads the language plugins of [`plugin_dirs`], once; again only when
-/// the folders change. Cheap after the first call.
+/// the folders change. Cheap after the first call. Their syntaxes, when
+/// not cached (a start after an update), are built on a thread of their
+/// own: the first screen does not wait for them, a file in a plugin's
+/// language does ([`kalem_highlight::Language::find`]).
 pub fn load() {
-    load_from(&plugin_dirs());
+    load_dirs(&plugin_dirs(), true);
 }
 
 /// Loads the language plugins of [`plugin_dirs`] again, after one was
@@ -296,8 +322,19 @@ pub fn reload() {
     load_from(&dirs);
 }
 
-/// Loads the language plugins in `dirs` (replacing those loaded before).
+/// Loads the language plugins in `dirs` (replacing those loaded before),
+/// their syntaxes in place on return.
 pub fn load_from(dirs: &[PathBuf]) {
+    load_dirs(dirs, false);
+}
+
+/// Waits for the plugins' syntaxes being built ([`load`]).
+pub fn wait() {
+    kalem_highlight::wait();
+}
+
+fn load_dirs(dirs: &[PathBuf], later: bool) {
+    static LOADS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
     let _guard = LOAD
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -311,6 +348,7 @@ pub fn load_from(dirs: &[PathBuf]) {
     }
     let mut loaded = Loaded {
         dirs: dirs.to_vec(),
+        load: LOADS.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         ..Loaded::default()
     };
     // Every plugin's syntaxes are added at once: building the set takes
@@ -345,27 +383,44 @@ pub fn load_from(dirs: &[PathBuf]) {
         })
         .collect();
     kalem_highlight::set_aliases(aliases);
+    let (plugins, files): (Vec<_>, Vec<_>) = plugins.into_iter().unzip();
+    loaded.plugins = plugins.into_iter().map(Arc::new).collect();
+    let cache = crate::logging::state_dir().map(|d| d.join("cache"));
+    let later = later && !sources.is_empty();
     if sources.is_empty() {
         kalem_highlight::reset();
-    } else {
-        let cache = crate::logging::state_dir().map(|d| d.join("cache"));
+    } else if !later {
         let r = kalem_highlight::register_cached(&sources, cache.as_deref());
-        for (f, e) in &r.errors {
-            loaded.problems.push(format!("{f}: {e}"));
-        }
-        for (p, files) in &mut plugins {
-            p.syntaxes = r
-                .names
-                .iter()
-                .filter(|(f, _)| files.contains(f))
-                .map(|(_, n)| n.clone())
-                .collect();
-        }
+        loaded.registered(&files, &r);
     }
-    loaded.plugins = plugins.into_iter().map(|(p, _)| Arc::new(p)).collect();
+    let load = loaded.load;
     *LOADED
         .write()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(loaded);
+    if !later {
+        return;
+    }
+    // The syntaxes told to this load, if it is still the one loaded.
+    let tell = move |files: &[Vec<String>], r: &kalem_highlight::Registered| {
+        if let Some(l) = LOADED
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .as_mut()
+            .filter(|l| l.load == load)
+        {
+            l.registered(files, r);
+        }
+    };
+    let files = Arc::new(files);
+    let f = files.clone();
+    let started = std::time::Instant::now();
+    let done = move |r: kalem_highlight::Registered| {
+        tracing::info!(ms = started.elapsed().as_millis(), "plugin syntaxes built");
+        tell(&f, &r);
+    };
+    if let Some(r) = kalem_highlight::register_cached_later(sources, cache, done) {
+        tell(&files, &r);
+    }
 }
 
 /// The language plugins loaded.
@@ -378,8 +433,9 @@ pub fn plugins() -> Vec<Arc<Plugin>> {
         .unwrap_or_default()
 }
 
-/// The problems met loading plugins.
+/// The problems met loading plugins, their syntaxes' with them.
 pub fn problems() -> Vec<String> {
+    wait();
     LOADED
         .read()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
