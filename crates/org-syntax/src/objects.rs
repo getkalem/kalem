@@ -302,8 +302,9 @@ fn parse_objects_inner(p: &Parser<'_>, beg: usize, end: usize, r: Restriction) -
     let b = p.buf.narrowed(beg, end);
     let mut out = Vec::new();
     let mut pos = beg;
+    let mut radio = None;
     while pos < end {
-        let Some(mut obj) = object_lex(p, &b, pos, r) else {
+        let Some(mut obj) = object_lex(p, &b, pos, r, &mut radio) else {
             break;
         };
         if obj.begin < pos || obj.end <= pos || obj.end > end {
@@ -417,8 +418,19 @@ fn next_candidate(ctx: &ContextRegexes, b: &Buf<'_>, mut p: usize, bound: usize)
     None
 }
 
-/// `org-element--object-lex`.
-fn object_lex(p: &Parser<'_>, b: &Buf<'_>, start: usize, r: Restriction) -> Option<Raw> {
+/// The last radio link search of an object loop: where it started and what
+/// it found (see `radio_search`).
+type RadioMemo = Option<(usize, Option<(usize, usize, usize)>)>;
+
+/// `org-element--object-lex`. `memo` keeps the radio link search between
+/// the calls of one object loop.
+fn object_lex(
+    p: &Parser<'_>,
+    b: &Buf<'_>,
+    start: usize,
+    r: Restriction,
+    memo: &mut RadioMemo,
+) -> Option<Raw> {
     if r.has(TABLE_CELL) {
         return table_cell(b, start);
     }
@@ -434,10 +446,26 @@ fn object_lex(p: &Parser<'_>, b: &Buf<'_>, start: usize, r: Restriction) -> Opti
             } else {
                 b.prev_char(start)
             };
-            match radio_search(radio, b, q) {
+            // A search from a later position finds the same target while
+            // it starts before that target, and nothing when the earlier
+            // search found nothing: every position the earlier one passed
+            // fails again (a line start, required where a search starts,
+            // is also a boundary). Without this, each call would search to
+            // the end of the container.
+            let first = match *memo {
+                Some((q0, found)) if q0 <= q && found.is_none_or(|(s1, _, _)| q < s1) => found,
+                _ => {
+                    let found = radio_search(radio, b, q);
+                    *memo = Some((q, found));
+                    found
+                }
+            };
+            match first {
                 None => None,
                 Some((s1, e1, pt)) => {
-                    if start == b.next_char(b.bol(pt)) && start == e1 {
+                    // `start == e1` first: `bol` reads back to the line
+                    // start, the whole paragraph on a long line.
+                    if start == e1 && start == b.next_char(b.bol(pt)) {
                         radio_search(radio, b, pt).map(|(s2, _, _)| b.next_char(s2))
                     } else {
                         Some(b.next_char(s1))

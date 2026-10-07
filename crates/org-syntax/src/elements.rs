@@ -720,6 +720,10 @@ impl<'a> Parser<'a> {
                     title_end = q;
                     break;
                 }
+                // A later colon before `r` gets the same `r`, and fails too:
+                // skip them, keeping this linear in the line's length.
+                q = r;
+                continue;
             }
             q = b.next_char(q);
         }

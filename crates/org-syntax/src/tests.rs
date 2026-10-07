@@ -182,3 +182,35 @@ fn blank_line_before_property_drawer_reparses_it() {
         assert_eq!(inc.green(), crate::parse(&new_text).green(), "{eol:?}");
     }
 }
+
+#[test]
+fn headline_tags_after_runs_of_colons() {
+    let tags = |text: &str| {
+        crate::parse(text)
+            .syntax()
+            .descendants_with_tokens()
+            .find(|e| e.kind() == crate::SyntaxKind::TAGS)
+            .and_then(|e| e.into_token())
+            .map(|t| t.text().to_string())
+    };
+    assert_eq!(tags("* :a:a:a x :b:c:\n").as_deref(), Some(":b:c:"));
+    assert_eq!(tags("* x :a:b: \t\nbody\n").as_deref(), Some(":a:b:"));
+    assert_eq!(tags("* :a:b:c\n"), None);
+    assert_eq!(tags("* a :b::c: :d:\n").as_deref(), Some(":d:"));
+    assert_eq!(tags("* :::\n").as_deref(), Some(":::"));
+    // Linear in the title's length: thousands of colons that never end a
+    // tag list.
+    let long = format!("* {}x :t:\n", ":a".repeat(20_000));
+    assert_eq!(tags(&long).as_deref(), Some(":t:"));
+}
+
+#[test]
+fn radio_links_in_a_long_paragraph() {
+    // The radio link search is kept between the objects of a paragraph.
+    let run = "*b* x ".repeat(300);
+    let text = format!("<<<foo>>>\n\n{run}foo {run}Foo.\n");
+    let p = parse(&text);
+    let count = |k| p.syntax().descendants().filter(|n| n.kind() == k).count();
+    assert_eq!(count(crate::SyntaxKind::LINK), 2);
+    assert_eq!(count(crate::SyntaxKind::BOLD), 600);
+}

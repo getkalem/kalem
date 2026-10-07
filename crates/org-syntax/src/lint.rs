@@ -72,6 +72,14 @@ fn first_line(node: &SyntaxNode) -> (TextRange, String) {
     )
 }
 
+/// Whether the brackets of a `#+CALL:` line do not balance on the line:
+/// Emacs then looks for the closing one in the rest of the buffer.
+/// Incremental reparsing relies on the same rule.
+pub(crate) fn unbalanced_call_line(line: &str) -> bool {
+    let unbalanced = |o: char, c: char| line.matches(o).count() != line.matches(c).count();
+    unbalanced('(', ')') || unbalanced('[', ']')
+}
+
 fn check(root: &SyntaxNode) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     let mut custom_ids: HashMap<String, Vec<TextRange>> = HashMap::new();
@@ -122,9 +130,7 @@ fn check(root: &SyntaxNode) -> Vec<Diagnostic> {
             }
             BABEL_CALL => {
                 let (range, line) = first_line(&n);
-                let unbalanced =
-                    |o: char, c: char| line.matches(o).count() != line.matches(c).count();
-                if unbalanced('(', ')') || unbalanced('[', ']') {
+                if unbalanced_call_line(&line) {
                     out.push(diag(
                         range,
                         Severity::Warning,

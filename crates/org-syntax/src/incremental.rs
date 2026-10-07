@@ -178,25 +178,56 @@ fn context_facts(nodes: &[SyntaxNode]) -> (Vec<String>, Vec<String>) {
     (radios, keywords)
 }
 
-/// Whether a `#+CALL:` line before `pos` has brackets that do not balance
-/// on its own line.
-fn unbalanced_call_before(root: &SyntaxNode, pos: usize) -> bool {
-    root.descendants()
-        .filter(|n| n.kind() == BABEL_CALL)
-        .any(|n| {
-            if usize::from(n.text_range().start()) >= pos {
-                return false;
-            }
-            let text = n.text().to_string();
-            let line = text
-                .lines()
-                .find(|l| l.trim_start().to_ascii_uppercase().starts_with("#+CALL"))
-                .unwrap_or("");
-            let count = |o: char, c: char| {
-                line.chars().filter(|&x| x == o).count() != line.chars().filter(|&x| x == c).count()
-            };
-            count('(', ')') || count('[', ']')
+/// Whether a babel call that starts before `pos` has a `#+CALL:` line whose
+/// brackets do not balance on the line. `text` agrees with the text of
+/// `root` before `pos`.
+///
+/// Rather than walking the tree, this looks at the calls containing `pos`
+/// and at those around a `#+call` (any case) before `pos`: a call that ends
+/// at or before `pos` has its `#+CALL:` line there.
+fn unbalanced_call_before(root: &SyntaxNode, text: &str, pos: usize) -> bool {
+    let unbalanced = |n: &SyntaxNode| {
+        let text = n.text().to_string();
+        let line = text
+            .lines()
+            .find(|l| {
+                l.trim_start()
+                    .as_bytes()
+                    .get(..6)
+                    .is_some_and(|p| p.eq_ignore_ascii_case(b"#+CALL"))
+            })
+            .unwrap_or("");
+        crate::lint::unbalanced_call_line(line)
+    };
+    // The calls that start before `pos` and hold byte `at`.
+    let len = usize::from(root.text_range().end());
+    let calls_at = |at: usize| {
+        (at < len)
+            .then(|| root.covering_element(TextRange::at(TextSize::from(at as u32), 1.into())))
+            .into_iter()
+            .flat_map(|e| e.ancestors())
+            .filter(|n| n.kind() == BABEL_CALL && usize::from(n.text_range().start()) < pos)
+    };
+    if calls_at(pos).any(|n| unbalanced(&n)) {
+        return true;
+    }
+    let before = &text.as_bytes()[..pos];
+    memchr::memmem::find_iter(before, b"#+")
+        .filter(|&i| {
+            before
+                .get(i + 2..i + 6)
+                .is_some_and(|w| w.eq_ignore_ascii_case(b"call"))
         })
+        .any(|i| calls_at(i).any(|n| unbalanced(&n)))
+}
+
+/// Whether the text after an edit has a `\r\n` pair, given that the text
+/// before it had none: the edit put `[a, new_b)` in place, so a new pair
+/// lies inside it or across one of its edges.
+fn makes_crlf(text: &str, a: usize, new_b: usize) -> bool {
+    let t = text.as_bytes();
+    let pair_at = |i: usize| i > 0 && t.get(i - 1) == Some(&b'\r') && t.get(i) == Some(&b'\n');
+    pair_at(a) || pair_at(new_b) || memchr::memmem::find(&t[a..new_b], b"\r\n").is_some()
 }
 
 /// Lines whose presence can change elements that start before them.
@@ -429,15 +460,14 @@ fn try_plain(
     if b > old_len || a > b || old_len - (b - a) + edit.insert.len() != new_text.len() {
         return None;
     }
+    let new_b = a + edit.insert.len();
     // A `\r\n` pair or a byte order mark makes the document one that is
     // parsed normalized (see `try_crlf`); lone carriage returns are text.
-    if !normalized
-        && (memchr::memmem::find(new_text.as_bytes(), b"\r\n").is_some()
-            || new_text.starts_with('\u{feff}'))
-    {
+    // The old text has no pair, so a new one lies in the inserted text or
+    // across one of its edges.
+    if !normalized && (makes_crlf(new_text, a, new_b) || new_text.starts_with('\u{feff}')) {
         return None;
     }
-    let new_b = a + edit.insert.len();
     if !new_text.is_char_boundary(a)
         || !new_text.is_char_boundary(new_b)
         || new_text[a..new_b] != edit.insert
@@ -445,13 +475,11 @@ fn try_plain(
         return None;
     }
     // Read the removed text from the smallest node covering it. An
-    // insertion belongs to the token after it: at the first character of a
-    // section, the token before is the headline's line feed.
+    // insertion belongs to the token after it (the one holding its first
+    // byte): at the first character of a section, the token before is the
+    // headline's line feed.
     let covering = if a == b && a < old_len {
-        root.token_at_offset(edit.range.start())
-            .right_biased()
-            .map(NodeOrToken::Token)
-            .unwrap_or_else(|| root.covering_element(edit.range))
+        root.covering_element(TextRange::at(edit.range.start(), TextSize::from(1)))
     } else {
         root.covering_element(edit.range)
     };
@@ -489,7 +517,7 @@ fn try_plain(
     // (Emacs behavior), so an edit that changes brackets can change a call
     // anywhere before it, headline lines included.
     if (removed.contains(['(', ')', '[', ']']) || edit.insert.contains(['(', ')', '[', ']']))
-        && unbalanced_call_before(&root, a)
+        && unbalanced_call_before(&root, new_text, a)
     {
         return None;
     }
@@ -504,7 +532,7 @@ fn try_plain(
             && !old_lines.contains('\n')
             && !new_lines.contains('\n')
         {
-            return headline_line(old, &root, &cover_node, line_start, new_text, !normalized);
+            return headline_line(old, &cover_node, line_start, new_text, !normalized);
         }
         return None;
     }
@@ -561,7 +589,6 @@ fn try_plain(
             &section,
             first_mode,
             a,
-            b,
             new_b,
             delta,
             new_text,
@@ -581,7 +608,12 @@ fn try_plain(
     if old_facts != new_facts {
         return None;
     }
-    let path = node_path(&section);
+    // Only `try_crlf` uses the path.
+    let path = if normalized {
+        node_path(&section)
+    } else {
+        Vec::new()
+    };
     let green = section.replace_with(new_section);
     let parse = Parse {
         green,
@@ -596,7 +628,6 @@ fn try_plain(
 /// Rebuilds the first line of the headline starting at `line_start`.
 fn headline_line(
     old: &Parse,
-    root: &SyntaxNode,
     cover: &SyntaxNode,
     line_start: usize,
     text: &str,
@@ -605,7 +636,6 @@ fn headline_line(
     let headline = cover.ancestors().find(|n| {
         matches!(n.kind(), HEADLINE) && usize::from(n.text_range().start()) == line_start
     })?;
-    let _ = root;
     let parser = Parser::new(text, old.context());
     let line_end = parser.buf.next_line(line_start);
     let true_level = text[line_start..]
@@ -615,23 +645,31 @@ fn headline_line(
     let mut line = crate::raw::Raw::new(HEADLINE, line_start, line_end);
     parser.headline_title(&mut line, line_start, true_level, HEADLINE);
     let line_green = raw::build_green_mode(&line, text, crlf);
-    // The old headline's children after its first line.
+    // The old headline's children after its first line (`find_char`
+    // stops there rather than reading the whole subtree).
     let old_line_end = usize::from(headline.text_range().start())
         + headline
             .text()
-            .to_string()
-            .find('\n')
-            .map_or(usize::from(headline.text_range().len()), |i| i + 1);
-    let rest = headline
-        .children_with_tokens()
-        .filter(|e| usize::from(e.text_range().start()) >= old_line_end);
+            .find_char('\n')
+            .map_or(usize::from(headline.text_range().len()), |i| {
+                usize::from(i) + 1
+            });
+    // They follow the first line's children; counted on the green tree, as
+    // a headline may have tens of thousands of children.
+    let mut first_line_children = 0;
+    let mut offset = usize::from(headline.text_range().start());
+    for c in headline.green().children() {
+        if offset >= old_line_end {
+            break;
+        }
+        offset += usize::from(c.text_len());
+        first_line_children += 1;
+    }
+    let rest = headline.green().children().skip(first_line_children);
     let children: Vec<NodeOrToken<GreenNode, rowan::GreenToken>> = line_green
         .children()
+        .chain(rest)
         .map(|c| c.to_owned())
-        .chain(rest.map(|e| match e {
-            NodeOrToken::Node(n) => NodeOrToken::Node(n.green().to_owned()),
-            NodeOrToken::Token(t) => NodeOrToken::Token(t.green().to_owned()),
-        }))
         .collect();
     // The title may hold radio targets.
     let new_headline = GreenNode::new(SyntaxKind::HEADLINE.into(), children);
@@ -640,7 +678,13 @@ fn headline_line(
     {
         return None;
     }
-    let path = node_path(&headline);
+    // Only `try_crlf` uses the path; it parses the normalized text, with
+    // `crlf` false.
+    let path = if crlf {
+        Vec::new()
+    } else {
+        node_path(&headline)
+    };
     let green = headline.replace_with(new_headline);
     let parse = Parse {
         green,
@@ -652,11 +696,12 @@ fn headline_line(
     Some((parse, ReparseLevel::Elements, path))
 }
 
-/// The child nodes of a headline's first line (its title).
+/// The child nodes of a headline's first line (its title). They come
+/// first: children are in text order.
 fn headline_line_nodes(headline: &SyntaxNode, line_end: usize) -> Vec<SyntaxNode> {
     headline
         .children()
-        .filter(|c| usize::from(c.text_range().end()) <= line_end)
+        .take_while(|c| usize::from(c.text_range().end()) <= line_end)
         .collect()
 }
 
@@ -682,54 +727,55 @@ fn splice(
     section: &SyntaxNode,
     first_mode: Mode,
     a: usize,
-    b: usize,
     new_b: usize,
     delta: isize,
     text: &str,
     crlf: bool,
 ) -> Option<(GreenNode, Vec<SyntaxNode>, Vec<GreenNode>)> {
-    let kids: Vec<SyntaxNode> = section.children().collect();
-    if kids.is_empty() || section.children_with_tokens().count() != kids.len() {
+    // Only the old elements from the restart on are looked at (as nodes):
+    // a section may have tens of thousands of them.
+    let green = section.green();
+    let count = green.children().len();
+    if count == 0 || green.children().any(|c| matches!(c, NodeOrToken::Token(_))) {
         return None;
     }
-    // Modes before each old element.
-    let mut modes = Vec::with_capacity(kids.len() + 1);
-    let mut m = first_mode;
-    for k in &kids {
-        modes.push(m);
-        m = next_mode(m, k.kind(), false);
-    }
+    // The mode before the old element `j`. `Mode::None` stays `Mode::None`
+    // (`next_mode`), and a section reaches it within two elements.
+    let mode_before = |j: usize| {
+        let mut m = first_mode;
+        for k in section.children().take(j) {
+            if m == Mode::None {
+                break;
+            }
+            m = next_mode(m, k.kind(), false);
+        }
+        m
+    };
+    let at = |p: usize| {
+        section
+            .child_or_token_at_range(TextRange::at(TextSize::from(p as u32), 1.into()))
+            .and_then(|e| e.into_node())
+    };
     // The element containing the edit start, then one before it.
-    let k = kids
-        .iter()
-        .position(|n| a < usize::from(n.text_range().end()))
-        .unwrap_or(kids.len() - 1);
-    let mut s = k.saturating_sub(1);
+    let containing = if a < usize::from(section.text_range().end()) {
+        at(a)?
+    } else {
+        section.last_child()?
+    };
+    let mut first = containing.prev_sibling().unwrap_or(containing);
     // Orphaned affiliated keywords (such as `#+NAME:` before a blank line)
     // are separate keyword elements. An edit after them can give them an
     // element to attach to, so restart before the whole run.
-    while s > 0 && is_affiliated_keyword_element(&kids[s - 1]) {
-        s -= 1;
+    while let Some(p) = first.prev_sibling().filter(is_affiliated_keyword_element) {
+        first = p;
     }
-    if is_affiliated_keyword_element(&kids[s]) {
-        while s > 0 && is_affiliated_keyword_element(&kids[s - 1]) {
-            s -= 1;
-        }
-    }
+    let s = first.index();
     let old_sec_end = usize::from(section.text_range().end());
     let new_sec_end = shift(old_sec_end, delta)?;
-    let mut pos = usize::from(kids[s].text_range().start());
-    let mut mode = modes[s];
+    let mut pos = usize::from(first.text_range().start());
+    let mut mode = mode_before(s);
     let mut new_nodes: Vec<GreenNode> = Vec::new();
-    let mut resume = kids.len();
-    // Old element starts after the edit, by new position.
-    let old_starts: Vec<(usize, usize)> = kids
-        .iter()
-        .enumerate()
-        .skip(s + 1)
-        .filter(|(_, n)| usize::from(n.text_range().start()) >= b)
-        .filter_map(|(j, n)| Some((shift(usize::from(n.text_range().start()), delta)?, j)))
-        .collect();
+    let mut resume = count;
     while pos < new_sec_end {
         let el = parser.parse_one(pos, new_sec_end, mode, None);
         pos = el.end;
@@ -738,35 +784,29 @@ fn splice(
         // In the modes at a section's start, whether an element is a
         // planning line or a property drawer depends on the line before it,
         // which the edit may have changed: parse on instead of resuming.
+        // Otherwise resume at an old element after the edit (its old start
+        // is then at or after `b`) that starts here in the same mode.
         if pos >= new_b
             && !matches!(
                 mode,
                 Mode::Planning | Mode::PropertyDrawer | Mode::TopComment
             )
-            && let Ok(i) = old_starts.binary_search_by_key(&pos, |x| x.0)
-            && modes[old_starts[i].1] == mode
+            && let Some(old_pos) = shift(pos, -delta)
+            && let Some(old) = at(old_pos)
+            && usize::from(old.text_range().start()) == old_pos
+            && old.index() > s
+            && mode_before(old.index()) == mode
         {
-            resume = old_starts[i].1;
+            resume = old.index();
             break;
         }
     }
-    let _ = a;
-    let children: Vec<NodeOrToken<GreenNode, rowan::GreenToken>> = kids[..s]
-        .iter()
-        .map(|n| NodeOrToken::Node(n.green().to_owned()))
-        .chain(new_nodes.iter().cloned().map(NodeOrToken::Node))
-        .chain(
-            kids[resume..]
-                .iter()
-                .map(|n| NodeOrToken::Node(n.green().to_owned())),
-        )
+    let replaced: Vec<SyntaxNode> = std::iter::successors(Some(first), |n| n.next_sibling())
+        .take(resume - s)
         .collect();
-    let replaced = kids[s..resume].to_vec();
-    Some((
-        GreenNode::new(SyntaxKind::SECTION.into(), children),
-        replaced,
-        new_nodes,
-    ))
+    let new_section =
+        green.splice_children(s..resume, new_nodes.iter().cloned().map(NodeOrToken::Node));
+    Some((new_section, replaced, new_nodes))
 }
 
 fn is_affiliated_keyword_element(n: &SyntaxNode) -> bool {
@@ -798,3 +838,187 @@ fn shift(p: usize, delta: isize) -> Option<usize> {
 
 #[allow(dead_code)]
 fn _size(_: TextSize) {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Applies `edit` to `text` incrementally and checks the result against
+    /// a full parse; returns the new text and the level.
+    fn check(text: &str, edit: TextEdit) -> (String, ReparseLevel) {
+        let new_text = edit.apply(text);
+        let (inc, level) = crate::parse(text).reparse_with_level(&new_text, &edit);
+        let full = crate::parse(&new_text);
+        assert_eq!(inc.green(), full.green(), "{text:?} {edit:?}");
+        assert_eq!(inc.norm.is_some(), full.norm.is_some(), "{text:?} {edit:?}");
+        (new_text, level)
+    }
+
+    fn insert(at: usize, s: &str) -> TextEdit {
+        TextEdit {
+            range: TextRange::empty(TextSize::from(at as u32)),
+            insert: s.to_string(),
+        }
+    }
+
+    #[test]
+    fn typing_in_a_title_over_many_subheadlines() {
+        let mut text = String::from("* Title :tag:\n");
+        for i in 0..300 {
+            text.push_str(&format!("** Sub {i}\nText {i}.\n"));
+        }
+        for (at, s) in [(7, "x"), (7, " "), (2, "TODO "), (13, ":b")] {
+            let (_, level) = check(&text, insert(at, s));
+            assert_eq!(level, ReparseLevel::Elements, "{s:?} at {at}");
+        }
+    }
+
+    #[test]
+    fn typing_in_a_long_section() {
+        let mut text = String::from("SCHEDULED: <2026-01-01 Thu>\n#+NAME: n\n\n");
+        for i in 0..2000 {
+            text.push_str(&format!("Paragraph {i}.\n\n"));
+            if i % 500 == 7 {
+                text.push_str("#+NAME: orphan\n\n- item\n\n");
+            }
+        }
+        let n = text.len();
+        for at in [0, 1, 30, 40, n / 3, n / 2, n - 1, n] {
+            let at = text[..at].rfind(['.', '\n']).map_or(at, |i| i + 1);
+            for s in ["x", "\n", "\n\n", "#+begin_quote\n", "- "] {
+                check(&text, insert(at, s));
+            }
+            let b = (at + 3).min(n);
+            check(
+                &text,
+                TextEdit {
+                    range: TextRange::new(TextSize::from(at as u32), TextSize::from(b as u32)),
+                    insert: String::new(),
+                },
+            );
+        }
+        let mid = text.find("Paragraph 1000").unwrap_or(0) + 10;
+        assert_eq!(check(&text, insert(mid, "y")).1, ReparseLevel::Elements);
+    }
+
+    /// The rule as it was first written: every babel call of the tree.
+    fn unbalanced_call_before_walk(root: &SyntaxNode, pos: usize) -> bool {
+        root.descendants()
+            .filter(|n| n.kind() == BABEL_CALL)
+            .any(|n| {
+                if usize::from(n.text_range().start()) >= pos {
+                    return false;
+                }
+                let text = n.text().to_string();
+                let line = text
+                    .lines()
+                    .find(|l| l.trim_start().to_ascii_uppercase().starts_with("#+CALL"))
+                    .unwrap_or("");
+                let count = |o: char, c: char| {
+                    line.chars().filter(|&x| x == o).count()
+                        != line.chars().filter(|&x| x == c).count()
+                };
+                count('(', ')') || count('[', ']')
+            })
+    }
+
+    #[test]
+    fn unbalanced_call_before_matches_a_tree_walk() {
+        let mut docs: Vec<String> = [
+            "#+CALL: f(\ntext )\n",
+            "#+NAME: n\n#+CALL: f[x](\n\nPara ( here.\n",
+            "- item\n  #+call: g(a\n  more\n- two\n",
+            ":DRAWER:\n#+CALL: h()\n#+CALL: i((\n:END:\nText.\n",
+            "Mention #+call: x( inline.\n#+CALL: ok()\n",
+            "* H\n#+CALL: f(\n** Sub\n#+CALL: g]\n",
+            "#+ATTR_X: y\n#+NAME: z\n  #+CaLl: f[(]\nafter\n",
+            "#+CALL: a()\n\n\n#+CALL: b(\n#+CALL: c)\n",
+            "#+call",
+            "#+CALL: f(",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let corpus = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus");
+        for f in [
+            "org-mode/examples/babel.org",
+            "org-mode/examples/ob-header-arg-defaults.org",
+            "synthetic/malformed.org",
+        ] {
+            if let Ok(t) = std::fs::read_to_string(corpus.join(f)) {
+                docs.push(t);
+            }
+        }
+        for text in &docs {
+            let root = crate::parse(text).syntax();
+            for pos in (0..=text.len()).filter(|&p| text.is_char_boundary(p)) {
+                assert_eq!(
+                    unbalanced_call_before(&root, text, pos),
+                    unbalanced_call_before_walk(&root, pos),
+                    "{pos} in {:?}",
+                    &text[..pos.min(200)]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn brackets_after_an_unbalanced_call_reparse_everything() {
+        let text = "#+CALL: f(\n\nSome text.\n\n* H\nMore ( text.\n";
+        let at = text.find("More").unwrap_or(0);
+        assert_eq!(check(text, insert(at, ")")).1, ReparseLevel::Document);
+        assert_eq!(check(text, insert(at, "x")).1, ReparseLevel::Elements);
+        let text = "#+CALL: f()\n\nSome text.\n";
+        let at = text.find("text").unwrap_or(0);
+        assert_eq!(check(text, insert(at, ")")).1, ReparseLevel::Elements);
+    }
+
+    #[test]
+    fn makes_crlf_matches_a_full_scan() {
+        // Every text of up to four characters from `a`, CR and LF without a
+        // CR LF pair, every edit of it inserting up to two of them.
+        let alphabet = ['a', '\r', '\n'];
+        let strings = |max: usize| {
+            let mut all = vec![String::new()];
+            let mut last = vec![String::new()];
+            for _ in 0..max {
+                last = last
+                    .iter()
+                    .flat_map(|s| alphabet.iter().map(move |c| format!("{s}{c}")))
+                    .collect();
+                all.extend(last.iter().cloned());
+            }
+            all
+        };
+        let inserts = strings(2);
+        for old in strings(4).iter().filter(|s| !s.contains("\r\n")) {
+            for a in 0..=old.len() {
+                for b in a..=old.len() {
+                    for ins in &inserts {
+                        let new = format!("{}{ins}{}", &old[..a], &old[b..]);
+                        assert_eq!(
+                            makes_crlf(&new, a, a + ins.len()),
+                            new.contains("\r\n"),
+                            "{old:?} {a}..{b} {ins:?}"
+                        );
+                    }
+                }
+            }
+        }
+        // And through `reparse`: a pair made across either edge of an edit.
+        for (text, edit) in [
+            ("a\r\nb\n", insert(2, "\n")),
+            ("a\rb\n", insert(2, "\n")),
+            ("a\nb\n", insert(1, "\r")),
+            (
+                "a\rx\nb\n",
+                TextEdit {
+                    range: TextRange::new(2.into(), 3.into()),
+                    insert: String::new(),
+                },
+            ),
+        ] {
+            check(text, edit);
+        }
+    }
+}
