@@ -47,6 +47,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Org: Ctrl+B and the other emphasis keys dropped the selection, so a second press inserted a pair of markers instead of taking the bold away, and Ctrl+B, a word, Ctrl+B left the cursor inside the markers; they work as a word processor's now.
 - Org: a stored link to a heading of the same document was inserted with its file (`[[file:notes.org::*Top][Top]]`); as in Emacs it is `[[*Top][Top]]`.
 - Recent files that no longer exist leave the list when Kalem saves it, as Doom's recentf cleans up: temporary files that the editors' tests wrote into the user's list before 0.1.0 fixed that filled most of it.
+- CSV, as a spreadsheet does: a sorted or filtered view stays as it was worked out until Sort View or Filter Rows is run again (a row typed into jumped away or vanished, an inserted one went to the top), and a keystroke under it no longer reads the whole file; Undo after Escape no longer brings the cancelled entry back; Enter after a run of Tabs goes back to the column they started from; Ctrl+Home and Ctrl+End in Edit mode stay in the cell; Insert Row and Insert Column add as many as are selected; quotes an entry no longer needs go (a space typed and deleted left `""`).
+- CSV: an Emacs `Local Variables:` block ending the file is not read as records (sorting moved its lines); `10%`, `$20` and `(5)` count as numbers in the statistics, Sum Column, the alignment and the header's detection, as they did in sorting; a tab in a value no longer pushes the grid's bars out of line in the terminal; a header of two lines is pinned whole.
 
 ## [0.1.0] - 2026-10-06
 

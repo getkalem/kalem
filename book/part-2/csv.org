@@ -115,7 +115,10 @@ the grid nor taken for a header, and it is kept in the file as it is.
 A =sep== line with nothing after it names no delimiter. An Emacs mode
 line first (=# -*- mode: csv -*-=, which makes a file of any name CSV)
 is not a record either (=csv::preamble=): the commands, the filter, the
-sorts and the pinned header row start after either line.
+sorts and the pinned header row start after either line. An Emacs
+=Local Variables:= block ending the file (its lines up to one with
+=End:=, in the last 3000 bytes) is not records (=csv::body_end=): the
+records end before it, and rows added go before it.
 
 ** Line endings
 
@@ -476,11 +479,17 @@ document is closed; it is not written to the file.
   with them extends the selection, Home goes to column A and Ctrl+Home
   and Ctrl+End to the first and the last cell. In /Enter/ mode typing
   goes on after the text, and an arrow, Enter or Tab enters it and
-  moves. F2 or a double click is /Edit/ mode: Left, Right, Home and End
-  move within the cell, Backspace and Delete delete within its value
-  (never a delimiter or a quote), and Enter or Tab enters it. Escape, in
-  Enter or Edit mode, puts the cell back as it was. Shift with Left and
-  Right in Edit mode selects within the cell. A paste into a cell being
+  moves; Enter after a run of Tabs along a row goes to the row below in
+  the column the Tabs started from. F2 or a double click is /Edit/ mode:
+  Left, Right, Home and End (and Ctrl+Home and Ctrl+End) move within the
+  cell, Backspace and Delete delete within its value (never a delimiter
+  or a quote), and Enter or Tab enters it. Escape, in Enter or Edit
+  mode, puts the cell back as it was, undoing the entry's own steps, so
+  that Undo afterwards does not bring it back. Quotes an entry put
+  around a value (for a delimiter or a blank at an end, typed) go when
+  a deletion leaves the value without need of them, unless the field
+  had them in the file. Shift with Left and Right in Edit mode selects
+  within the cell. A paste into a cell being
   edited goes in at the caret, its line breaks too; a paste in Ready
   mode leaves the cell selected, as in Excel. Each entry is an undo step
   of its own. The arrows and Tab skip hidden columns, and Right stops at
@@ -531,7 +540,9 @@ after the record starts with CR LF, or when the dialect is CR LF and the
 record ends the text; otherwise LF. A record of one empty field (a file
 of one column) at the end of the text gets a line ending after it too,
 as a final line feed alone starts no record. The cursor goes to the
-same column of the new row.
+same column of the new row. With cells of several rows selected, as
+many empty records go after the last of them (=csv::insert_rows=), as
+Excel inserts.
 
 #+begin_example
 id,name,note          id,name,note
@@ -563,7 +574,9 @@ smallest edit, in one transaction.
 /Insert Column/ (=csv::insert_column=) inserts a delimiter at the start
 of field /c/ (the cursor's column) in every record that has it, which
 makes an empty field there. A record with fewer than /c + 1/ fields gets
-delimiters at its end until it has /c + 1/ fields.
+delimiters at its end until it has /c + 1/ fields. With cells of
+several columns selected, as many columns go before the first of them
+(=csv::insert_columns=).
 
 /Delete Column/ (=csv::delete_column=) removes, in every record that has
 field /c/, that field and the delimiter after it; for the last field of
@@ -746,6 +759,15 @@ the sorted view shows only the filtered records (=csv::shown_lines=).
 Filter and view sort are state of the open document, not of the file;
 they are not saved.
 
+As in a spreadsheet, a sort and a filter stay as they were worked out
+until they are asked for again (=csv::Frozen=, each record moved through
+every edit as a mark is): a row whose sorted value is typed into stays
+where it shows, a row edited out of the filter stays shown, and a row
+inserted shows after the one it follows in the file. Filter Rows and
+Sort View work the view out again, the edits counted (as Excel's
+Reapply); a rewrite of most of the file (Sort File, Transpose) does
+too.
+
 The grid looks like a spreadsheet (=csv.sheet=, on by default): the
 column letters in a shaded bar above the rows (=A=, =B=, … =AA=),
 lined up with the cells and scrolled with them, each row's number in a
@@ -892,9 +914,11 @@ Average: …   Min: …   Max: …", each number written as an integer when it
 is whole and otherwise with up to six decimals (from 10^15 on, in powers
 of ten); nothing is shown when the column has no numbers. With a filter
 on, the filter's count comes first, and the numbers are those of the
-rows shown. Sorting also reads amounts with a percent sign, a currency
-symbol or in parentheses, and dates (/Sort File by Column/); the
-statistics do not.
+rows shown. Amounts with a percent sign (in hundredths), a currency
+symbol or in parentheses (negative) count as numbers too
+(=csv::quantity=), in the statistics, Sum Column, the histogram, the
+right alignment, the header's detection and the sorts; sorting also
+reads dates (/Sort File by Column/).
 
 * Saving
 
@@ -921,14 +945,10 @@ Saving is atomic, as for every file.
   line ending (every LF after a CR) can disagree on a file with mixed
   line endings: rows added and Sort File use CR LF while saving adds no
   carriage returns.
-- The filter and the column operations scan the whole file each time
-  the text changes.
+- The column operations scan the whole file; a filtered or sorted view
+  maps its records through each change instead of reading them again.
 - Lenient reading: text after a closing quote, unterminated quotes and
   bare quotes are accepted, and reported (see [[*Malformed fields][Malformed fields]]) rather
   than refused.
-- An Emacs =Local Variables:= block at the end of a file is read as
-  records, which sorting moves; only a mode line first is set apart.
-- A sorted view sorts again after each edit, so an edited or inserted
-  row can move away from the cursor's place on screen.
-- Escape cancels an entry with an edit of its own: Undo after it brings
-  the entry back.
+- With several cells selected, Enter and Tab do not move the active
+  cell within the selection, as Excel does; they leave it.
