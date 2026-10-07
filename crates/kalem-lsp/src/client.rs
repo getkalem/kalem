@@ -194,7 +194,9 @@ struct Inner {
     /// Counts the diagnostics published, so readers know when theirs are
     /// out of date.
     published: AtomicU64,
-    progress: Mutex<Vec<(String, String)>>,
+    /// Work in progress by token: its title (from its `begin`) and the
+    /// text shown.
+    progress: Mutex<Vec<(String, String, String)>>,
     events: Mutex<VecDeque<Event>>,
     log: Mutex<VecDeque<String>>,
     wake: Wake,
@@ -221,10 +223,10 @@ impl Inner {
             return;
         }
         let mut p = self.progress.lock().expect("progress");
-        let busy = p.iter().any(|(t, _)| t == LOG_WORK);
+        let busy = p.iter().any(|(t, ..)| t == LOG_WORK);
         if c.busy_done.iter().any(|d| line.contains(d.as_str())) {
             if busy {
-                p.retain(|(t, _)| t != LOG_WORK);
+                p.retain(|(t, ..)| t != LOG_WORK);
                 drop(p);
                 self.event(Event::Progress);
             }
@@ -233,8 +235,8 @@ impl Inner {
         let starts = c.busy_start.iter().any(|s| line.contains(s.as_str()));
         if busy || starts {
             let text: String = line.lines().next().unwrap_or("").chars().take(80).collect();
-            p.retain(|(t, _)| t != LOG_WORK);
-            p.push((LOG_WORK.to_string(), text));
+            p.retain(|(t, ..)| t != LOG_WORK);
+            p.push((LOG_WORK.to_string(), String::new(), text));
             drop(p);
             self.event(Event::Progress);
         }
@@ -244,7 +246,7 @@ impl Inner {
     fn end_log_work(&self) {
         let mut p = self.progress.lock().expect("progress");
         let before = p.len();
-        p.retain(|(t, _)| t != LOG_WORK);
+        p.retain(|(t, ..)| t != LOG_WORK);
         if p.len() != before {
             drop(p);
             self.event(Event::Progress);
@@ -319,11 +321,19 @@ impl Inner {
             "client/registerCapability"
             | "client/unregisterCapability"
             | "window/workDoneProgress/create"
-            | "window/showMessageRequest"
             | "workspace/diagnostic/refresh"
             | "workspace/semanticTokens/refresh"
             | "workspace/inlayHint/refresh"
             | "workspace/codeLens/refresh" => self.answer(id, Ok(Value::Null)),
+            // Said as a message (the editor offers no choice of its
+            // actions yet), and answered with none chosen.
+            "window/showMessageRequest" => {
+                let text = params["message"].as_str().unwrap_or_default().to_string();
+                self.log(format!("[message] {text}"));
+                let level = params["type"].as_u64().unwrap_or(3) as u8;
+                self.event(Event::Message { level, text });
+                self.answer(id, Ok(Value::Null));
+            }
             "workspace/applyEdit" => {
                 // The editor applies it on its timer and answers then.
                 self.event(Event::ApplyEdit {
@@ -380,27 +390,26 @@ impl Inner {
                 let mut p = self.progress.lock().expect("progress");
                 match v["kind"].as_str() {
                     Some("begin") | Some("report") => {
-                        let title = v["title"].as_str();
-                        let message = v["message"].as_str();
-                        let text = match p.iter().position(|(t, _)| *t == token) {
+                        // The title comes with `begin` (a server may
+                        // report without one); each report's message
+                        // replaces the last.
+                        let (title, old) = match p.iter().position(|(t, ..)| *t == token) {
                             Some(i) => {
-                                let old = p.remove(i).1;
-                                let title = old.split(": ").next().unwrap_or("").to_string();
-                                match message {
-                                    Some(m) => format!("{title}: {m}"),
-                                    None => old,
-                                }
+                                let (_, title, text) = p.remove(i);
+                                (title, text)
                             }
-                            None => match (title, message) {
-                                (Some(t), Some(m)) => format!("{t}: {m}"),
-                                (Some(t), None) => t.to_string(),
-                                (None, Some(m)) => m.to_string(),
-                                (None, None) => String::new(),
-                            },
+                            None => (String::new(), String::new()),
                         };
-                        p.push((token, text));
+                        let title = v["title"].as_str().map_or(title, str::to_string);
+                        let text = match v["message"].as_str() {
+                            Some(m) if title.is_empty() => m.to_string(),
+                            Some(m) => format!("{title}: {m}"),
+                            None if old.is_empty() => title.clone(),
+                            None => old,
+                        };
+                        p.push((token, title, text));
                     }
-                    Some("end") => p.retain(|(t, _)| *t != token),
+                    Some("end") => p.retain(|(t, ..)| *t != token),
                     _ => {}
                 }
                 drop(p);
@@ -431,24 +440,37 @@ impl Inner {
     fn request(self: &Arc<Self>, method: &str, params: Value, urgent: bool) -> Pending {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = mpsc::channel();
-        if self.state.read().expect("state").exited {
+        // Waiting under the state's lock: the reader marks the server
+        // exited before it answers the waiting requests, so this one is
+        // either refused here or answered there, never left waiting.
+        let st = self.state.read().expect("state");
+        if st.exited {
+            drop(st);
             let _ = tx.send(Err(RpcError::client("server stopped")));
         } else {
             self.pending.lock().expect("pending").insert(id, tx);
-            self.send(
-                json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params}),
-                urgent,
-            );
+            drop(st);
+            let mut msg = message(method, params);
+            msg["id"] = json!(id);
+            self.send(msg, urgent);
         }
         Pending { id, rx }
     }
 
     fn notify(&self, method: &str, params: Value) {
-        self.send(
-            json!({"jsonrpc": "2.0", "method": method, "params": params}),
-            false,
-        );
+        self.send(message(method, params), false);
     }
+}
+
+/// A request or notification: without `params` when there are none
+/// (`shutdown`, `exit`), as JSON-RPC wants them an object, a list or
+/// absent, never null.
+fn message(method: &str, params: Value) -> Value {
+    let mut msg = json!({"jsonrpc": "2.0", "method": method});
+    if !params.is_null() {
+        msg["params"] = params;
+    }
+    msg
 }
 
 /// Queues `msg` for a server not ready yet. A document's changes then
@@ -623,9 +645,15 @@ impl Client {
             std::thread::Builder::new()
                 .name(format!("lsp-err:{name}"))
                 .spawn(move || {
-                    for line in BufReader::new(stderr).lines() {
-                        let Ok(line) = line else { break };
-                        inner.log(format!("[stderr] {line}"));
+                    // Read to its end whatever it holds: a line that is
+                    // not UTF-8 (a compiler's message in another locale)
+                    // must not close the pipe the server still writes to.
+                    let mut r = BufReader::new(stderr);
+                    let mut line = Vec::new();
+                    while matches!(r.read_until(b'\n', &mut line), Ok(n) if n > 0) {
+                        let text = String::from_utf8_lossy(&line);
+                        inner.log(format!("[stderr] {}", text.trim_end_matches(['\r', '\n'])));
+                        line.clear();
                     }
                 })?;
         }
@@ -818,7 +846,11 @@ impl Client {
     /// The work the server reports in progress, for the status bar.
     pub fn progress(&self) -> Option<String> {
         let p = self.inner.progress.lock().expect("progress");
-        p.last().map(|(_, t)| t.clone()).filter(|t| !t.is_empty())
+        p.iter()
+            .rev()
+            .map(|(.., t)| t)
+            .find(|t| !t.is_empty())
+            .cloned()
     }
 
     /// The log: the server's log messages and its standard error.

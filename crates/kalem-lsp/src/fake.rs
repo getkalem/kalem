@@ -86,6 +86,38 @@ pub fn serve(behavior: &str) {
                         "executeCommandProvider": {"commands": ["fake.cmd"]},
                     }}}),
                 );
+                if behavior == "chatty" {
+                    // A line of its standard error that is not UTF-8,
+                    // then one that is: both reach the log.
+                    let mut err = std::io::stderr();
+                    let _ = err.write_all(b"caf\xe9 compiled\nafter the odd byte\n");
+                    let _ = err.flush();
+                    // Work whose title has a colon in it.
+                    for value in [
+                        json!({"kind": "begin", "title": "Building: app"}),
+                        json!({"kind": "report", "message": "a.ex"}),
+                        json!({"kind": "report", "message": "b.ex"}),
+                    ] {
+                        send(
+                            &mut out,
+                            json!({"jsonrpc": "2.0", "method": "$/progress",
+                                "params": {"token": "build", "value": value}}),
+                        );
+                    }
+                    send(
+                        &mut out,
+                        json!({"jsonrpc": "2.0", "id": 902, "method": "window/showMessageRequest",
+                            "params": {"type": 2, "message": "Fetch the dependencies?",
+                                "actions": [{"title": "Yes"}]}}),
+                    );
+                    // Stray output with no newline before a message.
+                    let _ = out.write_all(b"warning: stray");
+                    send(
+                        &mut out,
+                        json!({"jsonrpc": "2.0", "method": "window/logMessage",
+                            "params": {"type": 3, "message": "after the stray output"}}),
+                    );
+                }
                 // Asks for its settings, as ElixirLS does.
                 send(
                     &mut out,
@@ -270,6 +302,11 @@ pub fn serve(behavior: &str) {
                     json!({"jsonrpc": "2.0", "id": id, "result": item}),
                 );
             }
+            // Whether a request came with `params`.
+            "fake/params" => send(
+                &mut out,
+                json!({"jsonrpc": "2.0", "id": id, "result": msg.get("params").is_some()}),
+            ),
             "shutdown" => send(
                 &mut out,
                 json!({"jsonrpc": "2.0", "id": id, "result": null}),
@@ -277,7 +314,13 @@ pub fn serve(behavior: &str) {
             "exit" => std::process::exit(0),
             _ => {
                 // The answer to the configuration request: logged back.
-                if id == Some(json!(901)) {
+                if id == Some(json!(902)) {
+                    send(
+                        &mut out,
+                        json!({"jsonrpc": "2.0", "method": "window/logMessage",
+                            "params": {"type": 3, "message": format!("chose {}", msg["result"])}}),
+                    );
+                } else if id == Some(json!(901)) {
                     send(
                         &mut out,
                         json!({"jsonrpc": "2.0", "method": "window/logMessage",

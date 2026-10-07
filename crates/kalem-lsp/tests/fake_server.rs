@@ -130,6 +130,36 @@ fn log_work() {
     until("diagnostics end it", || c.progress().is_none());
 }
 
+fn chatty() {
+    let c = start("chatty", Arc::new(AtomicUsize::new(0)));
+    until("ready", || c.is_ready());
+    // Its standard error read past a line that is not UTF-8.
+    until("stderr", || {
+        c.log().iter().any(|l| l == "[stderr] after the odd byte")
+    });
+    assert!(c.log().iter().any(|l| l == "[stderr] caf\u{fffd} compiled"));
+    // The title kept whole, each report's message after it.
+    until("progress", || {
+        c.progress().as_deref() == Some("Building: app: b.ex")
+    });
+    // A question is said, and answered with no choice.
+    until("answered", || c.log().iter().any(|l| l == "chose null"));
+    assert!(c.take_events().iter().any(|e| matches!(
+        e,
+        Event::Message { level: 2, text } if text == "Fetch the dependencies?"
+    )));
+    // A message after stray output is still read.
+    until("after the stray output", || {
+        c.log().iter().any(|l| l == "after the stray output")
+    });
+    // No `params` when there are none.
+    let p = c.request("fake/params", serde_json::Value::Null);
+    assert_eq!(p.wait(Duration::from_secs(5)).unwrap(), json!(false));
+    let p = c.request("fake/params", json!({}));
+    assert_eq!(p.wait(Duration::from_secs(5)).unwrap(), json!(true));
+    c.shutdown();
+}
+
 fn refuse() {
     let c = start("refuse", Arc::new(AtomicUsize::new(0)));
     // Refused `initialize`: said, and the process ended, not "starting".
@@ -161,6 +191,7 @@ fn main() {
         ("refuse", refuse),
         ("log work", log_work),
         ("garbage", garbage),
+        ("chatty", chatty),
     ] {
         f();
         println!("test {name} ... ok");

@@ -28,10 +28,13 @@ pub fn read(r: &mut impl BufRead) -> io::Result<Option<Value>> {
             // Blank lines before the headers are tolerated.
             continue;
         }
-        if let Some((name, value)) = l.split_once(':')
-            && name.trim().eq_ignore_ascii_case("content-length")
-        {
-            length = value.trim().parse().ok();
+        // Found anywhere in the line: a server's stray output without a
+        // newline (a dependency printing to standard output) runs into
+        // the header that follows it, which must not be lost, or every
+        // message after it would be.
+        let lower = l.to_ascii_lowercase();
+        if let Some(i) = lower.rfind("content-length:") {
+            length = l[i + "content-length:".len()..].trim().parse().ok();
         }
     }
     let length = length.unwrap_or(0);
@@ -70,5 +73,16 @@ mod tests {
         assert_eq!(read(&mut r).unwrap_err().kind(), io::ErrorKind::InvalidData);
         assert_eq!(read(&mut r).unwrap().unwrap()["n"], 2);
         assert!(read(&mut r).unwrap().is_none());
+    }
+
+    #[test]
+    fn stray_output_before_a_header() {
+        let mut buf = b"warning: stray".to_vec();
+        write(&mut buf, &json!({"n": 1})).unwrap();
+        buf.extend_from_slice(b"more noise\r\n");
+        write(&mut buf, &json!({"n": 2})).unwrap();
+        let mut r = io::Cursor::new(buf);
+        assert_eq!(read(&mut r).unwrap().unwrap()["n"], 1);
+        assert_eq!(read(&mut r).unwrap().unwrap()["n"], 2);
     }
 }
