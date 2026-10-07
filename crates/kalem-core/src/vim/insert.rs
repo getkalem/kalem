@@ -652,7 +652,14 @@ impl Vim {
         self.ai_line = None;
         // The cursor goes onto the last character, as in normal mode; the
         // return puts it back after it.
-        self.cursor = head;
+        let line = line_of(doc, head);
+        let at = if head >= line_end(doc, line) && head > line_start(doc, line) {
+            doc.grapheme_before(head)
+        } else {
+            head
+        };
+        doc.selection = Selection::caret(at);
+        self.cursor = at;
     }
 }
 
