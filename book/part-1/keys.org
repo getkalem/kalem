@@ -69,8 +69,8 @@ first:
 | =SPC ,=, =SPC b b=   | Switch Document                           |
 | =SPC f f=, =SPC .=   | Open a file by path (a new name makes it) |
 | =SPC f s=, =SPC b k= | Save; Close Document                      |
-| =SPC o -=, =SPC o P= | File manager; projects                    |
-| =SPC o o=            | Outline                                   |
+| =SPC o -=, =SPC p P= | File manager; projects                    |
+| =SPC c S=, =SPC o P= | Outline; the file in the folder tree      |
 | =SPC s s=            | Search lines, the cursor following        |
 | =SPC :=              | Command palette                           |
 | =SPC t z=, =SPC w v= | Focus mode; split view                    |
@@ -81,7 +81,11 @@ first:
 times, =SPC u SPC u= sixteen, digits after =SPC u= give the count, and
 Escape drops it. Every key of Doom's leader map, and what it does in
 Kalem or why it does not yet, is in the table at the end of this
-chapter.
+chapter. A key does what Doom's does wherever Kalem can; where Doom's
+command has no counterpart in Kalem, the key may run one of Kalem's
+own, marked "Kalem" in the table. With Doom's =:os macos= keys, =SPC o
+o= and =SPC o O= show the file and the project in Finder (the system's
+file manager elsewhere), =SPC o i= opens a terminal there.
 
 ** Panes, workspaces and sessions
 
@@ -89,14 +93,15 @@ chapter.
 w s= split it beside and below, =SPC w h j k l= go to the pane in that
 direction, =SPC w H J K L= move the pane to that edge, =SPC w o= shows
 only this pane and again all, =SPC w == balances, =SPC w x= swaps,
-=SPC w u= undoes the layout. A click focuses a pane; the new pane of a
+=SPC w u= and =SPC w C-r= undo and redo the layout. A click focuses a pane; the new pane of a
 split shows the document shown before it, or the same document beside
 itself when only one is open. Both editors have panes; in the
 terminal a rule with the document's name divides them.
 
 =SPC TAB= keeps workspaces, named sets of the window's documents, each
 with its panes: =SPC TAB n= starts one, =SPC TAB TAB= chooses one, =SPC
-TAB [= and =SPC TAB ]= go to the one before and after, =SPC TAB r=
+TAB [= and =SPC TAB ]= go to the one before and after, =SPC TAB 1= to
+=9= to one by its place and =SPC TAB 0= to the last, =SPC TAB r=
 renames and =SPC TAB d= deletes it (its documents join the next
 workspace); =SPC TAB s= and =SPC TAB l= save and restore one as a
 session.

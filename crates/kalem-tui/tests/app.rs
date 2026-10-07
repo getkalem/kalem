@@ -1812,8 +1812,8 @@ fn file_manager_with_vim_keys() {
     assert_eq!(title(&t), "sub/");
     t.typ("-");
     assert_eq!(title(&t), "proj/");
-    // SPC o P: the projects.
-    t.typ(" oP");
+    // SPC p P: the projects.
+    t.typ(" pP");
     assert!(t.text().contains("proj"));
     assert_eq!(t.app.doc.meta.path, None);
 }

@@ -36,6 +36,48 @@ what = "Toggle the checkbox"
 command = "list.toggleCheckbox"
 
 [[key]]
+mode = "org"
+doom = "SPC m @"
+keys = "space m @"
+what = "Insert a citation"
+command = "org.cite.insert"
+
+[[key]]
+mode = "org"
+doom = "SPC m ,"
+keys = "space m ,"
+what = "Switch to an Org document"
+command = "file.switch"
+
+[[key]]
+mode = "org"
+doom = "SPC m +"
+keys = "space m +"
+what = "Cycle the list bullet"
+command = "list.cycleBullet"
+
+[[key]]
+mode = "org"
+doom = "SPC m *"
+keys = "space m *"
+what = "Toggle heading"
+reason = "Planned: T2.11 (org-toggle-heading)"
+
+[[key]]
+mode = "org"
+doom = "SPC m T"
+keys = "space m shift+t"
+what = "The TODO list"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+mode = "org"
+doom = "SPC m K"
+keys = "space m shift+k"
+what = "Remove the source blocks' results"
+reason = "No source blocks to evaluate yet (Babel)"
+
+[[key]]
 doom = "SPC m #"
 mode = "org"
 keys = "space m #"
@@ -43,11 +85,11 @@ what = "Update statistics cookies"
 reason = "Not needed: Kalem updates the cookies as checkboxes and TODO keywords change"
 
 [[key]]
-doom = "SPC m '"
 mode = "org"
+doom = "SPC m '"
 keys = "space m '"
 what = "Edit the block at point in a pane"
-reason = "Planned: T2.7i.5 (panes)"
+reason = "Not yet: a block edited in a pane of its own; blocks are edited in place"
 
 [[key]]
 doom = "SPC m ."
@@ -99,39 +141,32 @@ what = "Toggle item"
 reason = "Planned: T2.11 (org-toggle-item)"
 
 [[key]]
-doom = "SPC m I"
 mode = "org"
+doom = "SPC m I"
 keys = "space m shift+i"
-what = "Toggle inline images"
-reason = "Images always show away from the cursor; Toggle Source View shows the links"
+what = "Create an ID"
+reason = "Planned: phase 3 (org-id)"
 
 [[key]]
-doom = "SPC m k"
 mode = "org"
+doom = "SPC m k"
 keys = "space m k"
-what = "Move the subtree up"
+what = "Move the subtree up (Kalem; Doom: remove a source block's result)"
 command = "org.headline.moveSubtreeUp"
 
 [[key]]
-doom = "SPC m j"
 mode = "org"
+doom = "SPC m j"
 keys = "space m j"
-what = "Move the subtree down"
+what = "Move the subtree down (Kalem)"
 command = "org.headline.moveSubtreeDown"
 
 [[key]]
+mode = "org"
 doom = "SPC m n"
-mode = "org"
 keys = "space m n"
-what = "Narrow to the subtree"
-command = "view.narrowToSubtree"
-
-[[key]]
-doom = "SPC m N"
-mode = "org"
-keys = "space m shift+n"
-what = "Widen"
-command = "view.widen"
+what = "Store a link"
+command = "link.store"
 
 [[key]]
 doom = "SPC m P"
@@ -246,11 +281,39 @@ what = "Sort the rows"
 command = "table.sortRows"
 
 [[key]]
-doom = "SPC m b t"
 mode = "org"
-keys = "space m b t"
-what = "Toggle the formula display"
+doom = "SPC m b t o"
+keys = "space m b t o"
+what = "Toggle the coordinate overlays"
 reason = "Planned: T2.1 (the formula overlay)"
+
+[[key]]
+mode = "org"
+doom = "SPC m b t f"
+keys = "space m b t f"
+what = "Toggle the formula debugger"
+reason = "No formula debugger; the formula bar shows a field's formula"
+
+[[key]]
+mode = "org"
+doom = "SPC m b b"
+keys = "space m b b"
+what = "Blank the field"
+reason = "Not yet as a key; select the field's text and delete it"
+
+[[key]]
+mode = "org"
+doom = "SPC m b h"
+keys = "space m b h"
+what = "Field info"
+reason = "Not yet as a key; the formula bar shows the field and its formula"
+
+[[key]]
+mode = "org"
+doom = "SPC m b R"
+keys = "space m b shift+r"
+what = "Recalculate every table"
+reason = "Not yet: =SPC m b r= recalculates the table at point"
 
 [[key]]
 doom = "SPC m b i c"
@@ -274,6 +337,13 @@ what = "Insert a rule row"
 command = "table.insertHline"
 
 [[key]]
+mode = "org"
+doom = "SPC m b i H"
+keys = "space m b i shift+h"
+what = "Insert a rule row and move"
+command = "table.insertHline"
+
+[[key]]
 doom = "SPC m b d c"
 mode = "org"
 keys = "space m b d c"
@@ -288,17 +358,10 @@ what = "Delete the row"
 command = "table.killRow"
 
 [[key]]
+mode = "org"
 doom = "SPC m c c"
-mode = "org"
 keys = "space m c c"
-what = "Clock in"
-reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
-
-[[key]]
-doom = "SPC m c C"
-mode = "org"
-keys = "space m c shift+c"
-what = "Clock out"
+what = "Cancel the clock"
 reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
@@ -309,10 +372,10 @@ what = "Mark the default task"
 reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
-doom = "SPC m c e"
 mode = "org"
+doom = "SPC m c e"
 keys = "space m c e"
-what = "Set the effort"
+what = "Modify the effort estimate"
 command = "org.property.set"
 
 [[key]]
@@ -323,10 +386,10 @@ what = "Go to the clocked task"
 reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
-doom = "SPC m c l"
 mode = "org"
+doom = "SPC m c l"
 keys = "space m c l"
-what = "Clock in the last task"
+what = "Toggle the last clock"
 reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
@@ -344,10 +407,38 @@ what = "Resolve clocks"
 reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
-doom = "SPC m c x"
 mode = "org"
-keys = "space m c x"
-what = "Cancel the clock"
+doom = "SPC m c i"
+keys = "space m c i"
+what = "Clock in"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+mode = "org"
+doom = "SPC m c I"
+keys = "space m c shift+i"
+what = "Clock in the last task"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+mode = "org"
+doom = "SPC m c o"
+keys = "space m c o"
+what = "Clock out"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+mode = "org"
+doom = "SPC m c E"
+keys = "space m c shift+e"
+what = "Set the effort"
+command = "org.property.set"
+
+[[key]]
+mode = "org"
+doom = "SPC m c t"
+keys = "space m c t"
+what = "Evaluate a time range"
 reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
@@ -386,6 +477,20 @@ what = "Go to a heading"
 command = "search.lines"
 
 [[key]]
+mode = "org"
+doom = "SPC m g G"
+keys = "space m g shift+g"
+what = "Go to a heading in the open documents"
+command = "search.lines"
+
+[[key]]
+mode = "org"
+doom = "SPC m g v"
+keys = "space m g v"
+what = "Go to a visible heading"
+reason = "Not yet: jumping to a heading on screen by letter"
+
+[[key]]
 doom = "SPC m g c"
 mode = "org"
 keys = "space m g c"
@@ -400,25 +505,25 @@ what = "Go to an ID"
 reason = "Planned: phase 3 (org-id)"
 
 [[key]]
-doom = "SPC m g r"
 mode = "org"
+doom = "SPC m g r"
 keys = "space m g r"
-what = "Go to a refile target"
-command = "org.refile"
+what = "Go to the last refile target"
+reason = "Planned: T2.11 (refile history)"
 
 [[key]]
-doom = "SPC m g x"
 mode = "org"
+doom = "SPC m g x"
 keys = "space m g x"
-what = "Open the link at point"
+what = "Open the link at point (Kalem; Doom: go to the last capture)"
 command = "org.link.open"
 
 [[key]]
-doom = "SPC m l i"
 mode = "org"
+doom = "SPC m l i"
 keys = "space m l i"
-what = "Insert the stored link"
-command = "org.link.insertStored"
+what = "Store a link (with an ID in Doom)"
+command = "link.store"
 
 [[key]]
 doom = "SPC m l l"
@@ -428,10 +533,10 @@ what = "Insert a link"
 command = "org.insert.link"
 
 [[key]]
-doom = "SPC m l L"
 mode = "org"
+doom = "SPC m l L"
 keys = "space m l shift+l"
-what = "Insert a link to a heading"
+what = "Insert all stored links"
 command = "org.link.insertStored"
 
 [[key]]
@@ -442,11 +547,11 @@ what = "Store a link"
 command = "link.store"
 
 [[key]]
-doom = "SPC m l S"
 mode = "org"
+doom = "SPC m l S"
 keys = "space m l shift+s"
-what = "Store a link to the heading"
-command = "link.store"
+what = "Insert the last stored link"
+command = "org.link.insertStored"
 
 [[key]]
 doom = "SPC m l d"
@@ -461,6 +566,20 @@ mode = "org"
 keys = "space m l t"
 what = "Toggle link display"
 command = "view.toggleSourceMarkers"
+
+[[key]]
+mode = "org"
+doom = "SPC m l y"
+keys = "space m l y"
+what = "Copy the link at point"
+reason = "Not yet: the link at point to the clipboard"
+
+[[key]]
+mode = "org"
+doom = "SPC m l c"
+keys = "space m l c"
+what = "Insert a link from the clipboard with its title"
+reason = "Kalem fetches no web pages; =SPC m l l= inserts a link"
 
 [[key]]
 doom = "SPC m p p"
@@ -588,6 +707,20 @@ keys = "space m s shift+s"
 what = "Sort the subtree"
 command = "org.headline.sort"
 
+[[key]]
+mode = "org"
+doom = "SPC m s b"
+keys = "space m s b"
+what = "The subtree in an indirect buffer"
+reason = "Not yet: a subtree narrowed in a pane of its own; =SPC m s n= narrows this one"
+
+[[key]]
+mode = "org"
+doom = "SPC m s c"
+keys = "space m s c"
+what = "Clone the subtree with a time shift"
+reason = "Not yet: copies of a subtree with shifted dates"
+
 
 # latex.
 [[key]]
@@ -598,18 +731,18 @@ what = "Build and view"
 command = "latex.build"
 
 [[key]]
-doom = "SPC m b"
 mode = "latex"
+doom = "SPC m b"
 keys = "space m b"
-what = "Build"
+what = "Build (Kalem)"
 command = "latex.build"
 
 [[key]]
-doom = "SPC m c"
 mode = "latex"
+doom = "SPC m c"
 keys = "space m c"
-what = "Complete a command"
-command = "edit.complete"
+what = "Compile"
+command = "latex.build"
 
 [[key]]
 doom = "SPC m e"
@@ -619,10 +752,10 @@ what = "Insert an equation"
 command = "latex.insert.equation"
 
 [[key]]
-doom = "SPC m f"
 mode = "latex"
+doom = "SPC m f"
 keys = "space m f"
-what = "Insert a font command"
+what = "Insert a font command (Kalem; Doom: fold the paragraph)"
 command = "latex.format.italic"
 
 [[key]]
@@ -654,11 +787,11 @@ what = "Toggle math preview"
 command = "view.toggleMath"
 
 [[key]]
-doom = "SPC m p"
 mode = "latex"
+doom = "SPC m p"
 keys = "space m p"
-what = "Next problem"
-command = "latex.nextProblem"
+what = "Preview the formulas"
+command = "view.toggleMath"
 
 [[key]]
 doom = "SPC m l"
@@ -666,6 +799,34 @@ mode = "latex"
 keys = "space m l"
 what = "Problems"
 command = "latex.problems"
+
+[[key]]
+mode = "latex"
+doom = "SPC m n"
+keys = "space m n"
+what = "Next problem (Kalem)"
+command = "latex.nextProblem"
+
+[[key]]
+mode = "latex"
+doom = "SPC m ;"
+keys = "space m ;"
+what = "Table of contents (RefTeX)"
+command = "view.outline"
+
+[[key]]
+mode = "latex"
+doom = "SPC m m"
+keys = "space m m"
+what = "Run a command"
+reason = "Not yet: choosing among the TeX commands; =SPC m c= builds"
+
+[[key]]
+mode = "latex"
+doom = "SPC m P"
+keys = "space m shift+p"
+what = "Remove the preview at point"
+reason = "Formulas preview away from the cursor; =SPC m p= toggles them"
 
 
 # markdown.
@@ -710,6 +871,41 @@ mode = "markdown"
 keys = "space m i i"
 what = "Insert italic"
 command = "markdown.emphasis.italic"
+
+[[key]]
+mode = "markdown"
+doom = "SPC m i e"
+keys = "space m i e"
+what = "Insert italic"
+command = "markdown.emphasis.italic"
+
+[[key]]
+mode = "markdown"
+doom = "SPC m i s"
+keys = "space m i s"
+what = "Insert strike-through"
+command = "markdown.emphasis.strikeThrough"
+
+[[key]]
+mode = "markdown"
+doom = "SPC m i C"
+keys = "space m i shift+c"
+what = "Insert a code block"
+reason = "Type three backticks and the language"
+
+[[key]]
+mode = "markdown"
+doom = "SPC m i ["
+keys = "space m i ["
+what = "Insert a checkbox"
+reason = "Type - [ ] at the start of an item"
+
+[[key]]
+mode = "markdown"
+doom = "SPC m i T"
+keys = "space m i shift+t"
+what = "Insert a table of contents"
+reason = "Not yet: a table of contents written into the document; the outline shows one"
 
 [[key]]
 doom = "SPC m i c"
@@ -808,6 +1004,13 @@ mode = "markdown"
 keys = "space m t w"
 what = "Toggle wiki links"
 command = "view.toggleSourceMarkers"
+
+[[key]]
+mode = "markdown"
+doom = "SPC m t x"
+keys = "space m t x"
+what = "Toggle the checkbox"
+command = "markdown.toggleCheckbox"
 
 [[key]]
 doom = "SPC m x"

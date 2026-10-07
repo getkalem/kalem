@@ -224,7 +224,7 @@ command = "file.scratch"
 [[key]]
 doom = "SPC b X"
 keys = "space b shift+x"
-what = "Scratch document in the project"
+what = "Switch to the scratch document"
 command = "file.scratch"
 
 [[key]]
@@ -238,6 +238,42 @@ doom = "SPC b z"
 keys = "space b z"
 what = "Bury document"
 command = "file.bury"
+
+[[key]]
+doom = "SPC b Z"
+keys = "space b shift+z"
+what = "Kill buried documents"
+reason = "Not yet: closing the documents no pane shows; =SPC b O= closes the others"
+
+[[key]]
+doom = "SPC b -"
+keys = "space b -"
+what = "Toggle narrowing"
+command = "view.narrowToElement"
+
+[[key]]
+doom = "SPC b C"
+keys = "space b shift+c"
+what = "Clone into another pane"
+command = "view.split"
+
+[[key]]
+doom = "SPC b I"
+keys = "space b shift+i"
+what = "The workspace's documents"
+command = "view.openFiles"
+
+[[key]]
+doom = "SPC b R"
+keys = "space b shift+r"
+what = "Rename buffer"
+reason = "A document is named by its file; =SPC f R= renames the file"
+
+[[key]]
+doom = "SPC b u"
+keys = "space b u"
+what = "Save as root"
+reason = "No editing as another user"
 
 
 # Files =SPC f=.
@@ -418,6 +454,12 @@ what = "Look up documentation"
 reason = "Waits for looking things up in the Book, and for hover in code (3.8)"
 
 [[key]]
+doom = "SPC s K"
+keys = "space s shift+k"
+what = "Look up in all docsets"
+reason = "Waits for looking things up in the Book, and for hover in code (3.8)"
+
+[[key]]
 doom = "SPC s l"
 keys = "space s l"
 what = "Jump to a link"
@@ -439,6 +481,12 @@ command = "bookmark.jump"
 doom = "SPC s o"
 keys = "space s o"
 what = "Search online"
+command = "search.online"
+
+[[key]]
+doom = "SPC s O"
+keys = "space s shift+o"
+what = "Search online (Kalem asks no engine: =search.online_url=)"
 command = "search.online"
 
 [[key]]
@@ -644,7 +692,7 @@ command = "pane.undo"
 [[key]]
 doom = "SPC w U"
 keys = "space w shift+u"
-what = "Redo the layout"
+what = "Redo the layout (Kalem; Doom: =SPC w C-r=)"
 command = "pane.redo"
 
 [[key]]
@@ -659,6 +707,114 @@ keys = "space w q"
 what = "Close pane and document"
 command = "pane.closeWithDocument"
 
+[[key]]
+doom = "SPC w S"
+keys = "space w shift+s"
+what = "Split below and follow"
+command = "pane.splitBelow"
+
+[[key]]
+doom = "SPC w V"
+keys = "space w shift+v"
+what = "Split right and follow"
+command = "pane.splitRight"
+
+[[key]]
+doom = "SPC w C-h"
+keys = "space w ctrl+h"
+what = "Focus left"
+command = "pane.focus"
+
+[[key]]
+doom = "SPC w C-j"
+keys = "space w ctrl+j"
+what = "Focus down"
+command = "pane.focus"
+
+[[key]]
+doom = "SPC w C-k"
+keys = "space w ctrl+k"
+what = "Focus up"
+command = "pane.focus"
+
+[[key]]
+doom = "SPC w C-l"
+keys = "space w ctrl+l"
+what = "Focus right"
+command = "pane.focus"
+
+[[key]]
+doom = "SPC w C-w"
+keys = "space w ctrl+w"
+what = "Next pane"
+command = "pane.next"
+
+[[key]]
+doom = "SPC w W"
+keys = "space w shift+w"
+what = "Previous pane in order"
+command = "pane.next"
+
+[[key]]
+doom = "SPC w C-o"
+keys = "space w ctrl+o"
+what = "Only this pane"
+command = "pane.only"
+
+[[key]]
+doom = "SPC w C-u"
+keys = "space w ctrl+u"
+what = "Undo the layout"
+command = "pane.undo"
+
+[[key]]
+doom = "SPC w C-r"
+keys = "space w ctrl+r"
+what = "Redo the layout"
+command = "pane.redo"
+
+[[key]]
+doom = "SPC w t"
+keys = "space w t"
+what = "Top-left pane"
+reason = "Not yet: the first and the last pane; =SPC w h j k l= go by direction"
+
+[[key]]
+doom = "SPC w b"
+keys = "space w b"
+what = "Bottom-right pane"
+reason = "Not yet: the first and the last pane; =SPC w h j k l= go by direction"
+
+[[key]]
+doom = "SPC w m v"
+keys = "space w m v"
+what = "Maximize vertically"
+reason = "Not yet: maximizing in one direction; =SPC w m m= shows the pane alone"
+
+[[key]]
+doom = "SPC w m s"
+keys = "space w m s"
+what = "Maximize horizontally"
+reason = "Not yet: maximizing in one direction; =SPC w m m= shows the pane alone"
+
+[[key]]
+doom = "SPC w _"
+keys = "space w _"
+what = "Set the height"
+reason = "Not yet: a height by count; =SPC w += and =SPC w -= resize"
+
+[[key]]
+doom = "SPC w |"
+keys = "space w |"
+what = "Set the width"
+reason = "Not yet: a width by count; =SPC w <= and =SPC w >= resize"
+
+[[key]]
+doom = "SPC w T"
+keys = "space w shift+t"
+what = "Tear off into a new frame"
+reason = "Not yet: a pane moved to a new window; =SPC o f= opens one"
+
 
 # Toggles =SPC t=.
 [[key]]
@@ -672,6 +828,12 @@ doom = "SPC t c"
 keys = "space t c"
 what = "Fill column indicator"
 reason = "Not yet: a line at the fill column or the word target"
+
+[[key]]
+doom = "SPC t d"
+keys = "space t d"
+what = "Diff highlights (git gutter)"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
 
 [[key]]
 doom = "SPC t f"
@@ -736,8 +898,8 @@ reason = "Waits for the spell checker (3.6)"
 [[key]]
 doom = "SPC t t"
 keys = "space t t"
-what = "Word wrap by visual line"
-reason = "Kalem wraps by visual line already; =SPC t w= toggles wrapping"
+what = "Pomodoro timer"
+reason = "Org's Pomodoro timer is not part of Kalem"
 
 [[key]]
 doom = "SPC t v"
@@ -816,7 +978,7 @@ command = "app.newWindow"
 [[key]]
 doom = "SPC o l"
 keys = "space o l"
-what = "Link at point"
+what = "Link at point (Kalem; Doom on macOS: LaunchBar)"
 command = "org.link.open"
 
 [[key]]
@@ -828,8 +990,26 @@ reason = "No mail in Kalem"
 [[key]]
 doom = "SPC o o"
 keys = "space o o"
-what = "The outline (Kalem)"
-command = "view.outline"
+what = "Reveal in Finder"
+command = "file.reveal"
+
+[[key]]
+doom = "SPC o O"
+keys = "space o shift+o"
+what = "Reveal the project in Finder"
+command = "file.reveal"
+
+[[key]]
+doom = "SPC o i"
+keys = "space o i"
+what = "Open in the terminal (iTerm in Doom)"
+command = "app.terminal"
+
+[[key]]
+doom = "SPC o I"
+keys = "space o shift+i"
+what = "Open in a new terminal window"
+command = "app.terminal"
 
 [[key]]
 doom = "SPC o p"
@@ -840,14 +1020,32 @@ command = "view.openFiles"
 [[key]]
 doom = "SPC o P"
 keys = "space o shift+p"
-what = "The projects"
-command = "dired.projects"
+what = "Find the file in the project sidebar"
+command = "view.revealInTree"
 
 [[key]]
 doom = "SPC o r"
 keys = "space o r"
 what = "REPL"
 reason = "No REPL in Kalem"
+
+[[key]]
+doom = "SPC o R"
+keys = "space o shift+r"
+what = "REPL in this window"
+reason = "No REPL in Kalem"
+
+[[key]]
+doom = "SPC o F"
+keys = "space o shift+f"
+what = "Select a frame"
+reason = "Not yet: choosing among Kalem's windows; the system's window switcher does"
+
+[[key]]
+doom = "SPC o D"
+keys = "space o shift+d"
+what = "Docker"
+reason = "Docker is not part of Kalem"
 
 [[key]]
 doom = "SPC o t"
@@ -864,7 +1062,7 @@ command = "app.terminal"
 [[key]]
 doom = "SPC o x"
 keys = "space o x"
-what = "Scratch"
+what = "Scratch (Kalem)"
 command = "file.scratch"
 
 
@@ -920,7 +1118,7 @@ command = "project.remove"
 [[key]]
 doom = "SPC p D"
 keys = "space p shift+d"
-what = "Project folder in the file manager"
+what = "Project folder in the file manager (Kalem; Doom: discover the projects in a folder)"
 command = "dired.projectRoot"
 
 [[key]]
@@ -1007,6 +1205,24 @@ keys = "space p x"
 what = "Scratch in the project"
 command = "file.scratch"
 
+[[key]]
+doom = "SPC p X"
+keys = "space p shift+x"
+what = "Switch to the project's scratch document"
+command = "file.scratch"
+
+[[key]]
+doom = "SPC p &"
+keys = "space p &"
+what = "Async shell command at the root"
+command = "project.shellCommand"
+
+[[key]]
+doom = "SPC p P"
+keys = "space p shift+p"
+what = "The projects view (Kalem)"
+command = "dired.projects"
+
 
 # Help =SPC h=.
 [[key]]
@@ -1014,6 +1230,66 @@ doom = "SPC h '"
 keys = "space h '"
 what = "Describe the character at point"
 command = "help.char"
+
+[[key]]
+doom = "SPC h c"
+keys = "space h c"
+what = "Describe key briefly"
+command = "help.describeKey"
+
+[[key]]
+doom = "SPC h o"
+keys = "space h o"
+what = "Describe a symbol (the palette)"
+command = "view.palette"
+
+[[key]]
+doom = "SPC h V"
+keys = "space h shift+v"
+what = "Set a variable (the settings)"
+command = "app.settings"
+
+[[key]]
+doom = "SPC h O"
+keys = "space h shift+o"
+what = "Look up online"
+command = "search.online"
+
+[[key]]
+doom = "SPC h b t"
+keys = "space h b t"
+what = "Top-level bindings"
+command = "help.bindings"
+
+[[key]]
+doom = "SPC h b m"
+keys = "space h b m"
+what = "The mode's bindings"
+command = "help.mode"
+
+[[key]]
+doom = "SPC h r t"
+keys = "space h r t"
+what = "Reload the theme"
+command = "help.reload"
+
+[[key]]
+doom = "SPC h r f"
+keys = "space h r f"
+what = "Reload the font"
+command = "help.reload"
+
+[[key]]
+doom = "SPC h l"
+keys = "space h l"
+what = "Recent keys (lossage)"
+reason = "Not yet: the keys pressed last as a list"
+
+[[key]]
+doom = "SPC h F"
+keys = "space h shift+f"
+what = "Describe face"
+reason = "Not yet: a face's colors; =SPC h t= chooses the theme"
 
 [[key]]
 doom = "SPC h a"
@@ -1072,8 +1348,8 @@ reason = "Not yet: the changelog inside Kalem"
 [[key]]
 doom = "SPC h p"
 keys = "space h p"
-what = "Describe package"
-reason = "Waits for plugins (11.10)"
+what = "Describe package (the installed plugins)"
+command = "plugin.list"
 
 [[key]]
 doom = "SPC h r r"
@@ -1154,6 +1430,30 @@ doom = "SPC c f"
 keys = "space c f"
 what = "Format"
 command = "edit.formatDocument"
+
+[[key]]
+doom = "SPC c S"
+keys = "space c shift+s"
+what = "Symbols (the outline)"
+command = "view.outline"
+
+[[key]]
+doom = "SPC c o"
+keys = "space c o"
+what = "Organize imports"
+reason = "Not yet as a key of its own; =SPC c a= lists the server's actions, organizing the imports among them"
+
+[[key]]
+doom = "SPC c E"
+keys = "space c shift+e"
+what = "Evaluate and replace"
+reason = "No source blocks to evaluate yet (Babel)"
+
+[[key]]
+doom = "SPC c s"
+keys = "space c s"
+what = "Send to the REPL"
+reason = "No REPL in Kalem"
 
 [[key]]
 doom = "SPC c i"
@@ -1295,6 +1595,36 @@ keys = "space g o o"
 what = "Open on the remote"
 reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
 
+[[key]]
+doom = "SPC g G"
+keys = "space g shift+g"
+what = "Status here"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g /"
+keys = "space g /"
+what = "Dispatch"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g r"
+keys = "space g r"
+what = "Revert the hunk"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g s"
+keys = "space g s"
+what = "Stage the hunk"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g y"
+keys = "space g y"
+what = "Copy the link to the remote"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
 
 # Notes =SPC n=.
 [[key]]
@@ -1304,21 +1634,15 @@ what = "Agenda"
 reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
-doom = "SPC n A"
-keys = "space n shift+a"
-what = "Agenda"
-reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
-
-[[key]]
 doom = "SPC n c"
 keys = "space n c"
-what = "Capture"
+what = "Toggle the last clock"
 reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
 doom = "SPC n C"
 keys = "space n shift+c"
-what = "Go to the capture target"
+what = "Cancel the clock"
 reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
@@ -1370,6 +1694,30 @@ what = "Search the notes"
 command = "notes.search"
 
 [[key]]
+doom = "SPC n S"
+keys = "space n shift+s"
+what = "Search the notes' headings"
+reason = "Not yet: the headings of the notes folder; =SPC n s= searches its text"
+
+[[key]]
+doom = "SPC n f"
+keys = "space n f"
+what = "Find a file in the notes"
+reason = "Not yet: a file picker over the notes folder; =SPC n F= shows the folder"
+
+[[key]]
+doom = "SPC n F"
+keys = "space n shift+f"
+what = "Browse the notes"
+command = "notes.browse"
+
+[[key]]
+doom = "SPC n *"
+keys = "space n *"
+what = "Search the notes for the word at point"
+reason = "Not yet: =SPC n s= and the word typed"
+
+[[key]]
 doom = "SPC n t"
 keys = "space n t"
 what = "TODO list"
@@ -1406,6 +1754,12 @@ doom = "SPC i f"
 keys = "space i f"
 what = "File name"
 command = "insert.fileName"
+
+[[key]]
+doom = "SPC i p"
+keys = "space i p"
+what = "Evil ex path"
+reason = "Not yet: Vim's =:r !echo= is not there"
 
 [[key]]
 doom = "SPC i F"
@@ -1448,8 +1802,8 @@ command = "window.close"
 [[key]]
 doom = "SPC q F"
 keys = "space q shift+f"
-what = "Close all frames"
-command = "app.quit"
+what = "Clear the frame: close every document"
+command = "file.closeAll"
 
 [[key]]
 doom = "SPC q K"
@@ -1492,6 +1846,12 @@ doom = "SPC q R"
 keys = "space q shift+r"
 what = "Restart"
 command = "app.restart"
+
+[[key]]
+doom = "SPC q d"
+keys = "space q d"
+what = "Restart the Emacs server"
+reason = "Kalem has no server to restart"
 
 [[key]]
 doom = "SPC q s"
@@ -1630,5 +1990,23 @@ command = "workspace.list"
 [[key]]
 doom = "SPC TAB x"
 keys = "space tab x"
-what = "Delete a saved session"
+what = "Kill the session"
+reason = "Not yet: closing every workspace at once; =SPC TAB d= deletes one, =SPC b K= closes every document"
+
+[[key]]
+doom = "SPC TAB D"
+keys = "space tab shift+d"
+what = "Delete a saved workspace"
 command = "workspace.deleteSaved"
+
+[[key]]
+doom = "SPC TAB R"
+keys = "space tab shift+r"
+what = "Restore the last session"
+command = "session.restore"
+
+[[key]]
+doom = "SPC TAB 0"
+keys = "space tab 0"
+what = "The last workspace"
+command = "workspace.switch"
