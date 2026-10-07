@@ -264,6 +264,11 @@ pub fn register_cached(sources: &[SyntaxSource], cache: Option<&Path>) -> Regist
         && let Ok((set, registered)) =
             syntect::dumps::from_reader::<(SyntaxSet, Registered), _>(&bytes[..])
     {
+        // Used last, so pruned last.
+        let _ = std::fs::File::options()
+            .append(true)
+            .open(f)
+            .and_then(|f| f.set_modified(std::time::SystemTime::now()));
         super::replace_set(Box::leak(Box::new(set)));
         return registered;
     }
@@ -286,16 +291,7 @@ pub fn register_cached(sources: &[SyntaxSource], cache: Option<&Path>) -> Regist
     let set = builder.build();
     let registered = Registered { names, errors };
     if let (Some(f), Some(dir)) = (&file, cache) {
-        // Old sets go; a failed write only costs the next start its time.
-        if let Ok(rd) = std::fs::read_dir(dir) {
-            for e in rd.filter_map(Result::ok) {
-                let n = e.file_name();
-                let n = n.to_string_lossy();
-                if n.starts_with("syntaxes-") && n.ends_with(".bin") {
-                    let _ = std::fs::remove_file(e.path());
-                }
-            }
-        }
+        prune(dir, KEEP - 1);
         let _ = std::fs::create_dir_all(dir);
         let tmp = f.with_extension("tmp");
         if std::fs::write(&tmp, syntect::dumps::dump_binary(&(&set, &registered))).is_ok() {
@@ -304,6 +300,35 @@ pub fn register_cached(sources: &[SyntaxSource], cache: Option<&Path>) -> Regist
     }
     super::replace_set(Box::leak(Box::new(set)));
     registered
+}
+
+/// How many built sets the cache keeps: one for each Kalem version and set
+/// of plugins used lately, so that an installed release and a build from
+/// source taking turns do not build theirs again at every start.
+const KEEP: usize = 4;
+
+/// Leaves the `keep` sets of `dir` used last; a failed removal only costs
+/// the disk its space.
+fn prune(dir: &Path, keep: usize) {
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let mut sets: Vec<_> = rd
+        .filter_map(Result::ok)
+        .filter(|e| {
+            let n = e.file_name();
+            let n = n.to_string_lossy();
+            n.starts_with("syntaxes-") && n.ends_with(".bin")
+        })
+        .map(|e| {
+            let used = e.metadata().and_then(|m| m.modified()).ok();
+            (used, e.path())
+        })
+        .collect();
+    sets.sort_by_key(|s| std::cmp::Reverse(s.0));
+    for (_, path) in sets.into_iter().skip(keep) {
+        let _ = std::fs::remove_file(path);
+    }
 }
 
 /// FNV-1a, a hash that is the same from one build to the next.
@@ -419,6 +444,41 @@ contexts:
         let again = register_cached(&sources, Some(&dir));
         assert_eq!(first.names, again.names);
         assert_eq!(crate::Language::find("child").unwrap().name(), "Child");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_sets_used_last_are_kept() {
+        let dir = std::env::temp_dir().join(format!("kalem-syntax-prune-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let now = std::time::SystemTime::now();
+        for i in 0..6u64 {
+            let f = dir.join(format!("syntaxes-{i:016x}.bin"));
+            std::fs::write(&f, b"").unwrap();
+            let used = now - std::time::Duration::from_secs(60 * (6 - i));
+            std::fs::File::options()
+                .append(true)
+                .open(&f)
+                .unwrap()
+                .set_modified(used)
+                .unwrap();
+        }
+        std::fs::write(dir.join("other.bin"), b"").unwrap();
+        prune(&dir, 3);
+        let mut left: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        left.sort();
+        assert_eq!(
+            left,
+            [
+                "other.bin",
+                "syntaxes-0000000000000003.bin",
+                "syntaxes-0000000000000004.bin",
+                "syntaxes-0000000000000005.bin",
+            ]
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
