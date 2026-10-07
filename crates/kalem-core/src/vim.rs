@@ -4824,7 +4824,16 @@ impl Vim {
             Ok(all) => {
                 out.highlights = Some(all);
                 let n = std::mem::replace(&mut self.search_count, 1).max(1);
-                match self.search_from(doc, &pattern, back, self.cursor, n) {
+                // From before the cursor by a character offset, so that
+                // `/pat/s+2` can find the match the cursor is in (Vim's
+                // `do_search()`).
+                let from = match self.search_offset {
+                    Some(SearchOffset::Start(k) | SearchOffset::End(k)) => {
+                        step_chars(doc, self.cursor, -k)
+                    }
+                    _ => self.cursor,
+                };
+                match self.search_from(doc, &pattern, back, from, n) {
                     Some(to) => {
                         self.jumping = true;
                         let m = self.offset_motion(doc, &pattern, to);
