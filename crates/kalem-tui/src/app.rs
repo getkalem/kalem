@@ -718,6 +718,16 @@ impl App {
         self.active
     }
 
+    /// The command the last key ran, until the next key that types.
+    pub fn last_command(&self) -> Option<&str> {
+        self.last_command.as_deref()
+    }
+
+    /// The status line's message, and whether it is an error.
+    pub fn status_message(&self) -> Option<(&str, bool)> {
+        self.status.as_ref().map(|s| (s.text.as_str(), s.error))
+    }
+
     /// A view for a new document, set up like the others.
     fn new_view(&self, doc: &DocumentState) -> EditorView {
         let mut v = EditorView::default();
