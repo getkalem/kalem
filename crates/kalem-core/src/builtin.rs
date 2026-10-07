@@ -3493,7 +3493,7 @@ fn csv_commands() -> Vec<Command> {
             "Move Row Down",
             &["alt+down"],
             |ctx, _| {
-                let col = csv_cell(ctx.doc()?)?.3;
+                let (_, next) = csv_row_neighbours(ctx)?;
                 csv_edit(ctx, |text, l, row, rec, col| {
                     if l.dialect.header && row == 0 {
                         return Err(CommandError::new(crate::tr!("msg-csv-no-row")));
@@ -3523,7 +3523,9 @@ fn csv_commands() -> Vec<Command> {
                         Some((row, col)),
                     ))
                 })?;
-                crate::csv::remap_columns(ctx.doc()?, |j| Some(swapped(j, col)));
+                // Hidden columns, widths and the sorted view's column follow
+                // theirs.
+                crate::csv::remap_columns(ctx.doc()?, |j| Some(if j >= col { j + 1 } else { j }));
                 Ok(())
             },
         ),
@@ -3541,7 +3543,16 @@ fn csv_commands() -> Vec<Command> {
                         Some((row, c0.min(left.saturating_sub(1)))),
                     ))
                 })?;
-                crate::csv::remap_columns(ctx.doc()?, |j| Some(swapped(j, col - 1)));
+                let n = c1 - c0 + 1;
+                crate::csv::remap_columns(ctx.doc()?, |j| {
+                    if j < c0 {
+                        Some(j)
+                    } else if j > c1 {
+                        Some(j - n)
+                    } else {
+                        None
+                    }
+                });
                 Ok(())
             },
         ),
@@ -3560,16 +3571,7 @@ fn csv_commands() -> Vec<Command> {
                         Some((row, col - 1)),
                     ))
                 })?;
-                let n = c1 - c0 + 1;
-                crate::csv::remap_columns(ctx.doc()?, |j| {
-                    if j < c0 {
-                        Some(j)
-                    } else if j > c1 {
-                        Some(j - n)
-                    } else {
-                        None
-                    }
-                });
+                crate::csv::remap_columns(ctx.doc()?, |j| Some(swapped(j, col - 1)));
                 Ok(())
             },
         ),
@@ -3578,7 +3580,7 @@ fn csv_commands() -> Vec<Command> {
             "Move Column Right",
             &["alt+right"],
             |ctx, _| {
-                let (_, next) = csv_row_neighbours(ctx)?;
+                let col = csv_cell(ctx.doc()?)?.3;
                 csv_edit(ctx, |text, l, row, rec, col| {
                     if col + 1 >= rec.fields.len() {
                         return Err(CommandError::new(crate::tr!("msg-csv-no-column")));
@@ -3588,9 +3590,7 @@ fn csv_commands() -> Vec<Command> {
                         Some((row, col + 1)),
                     ))
                 })?;
-                // Hidden columns, widths and the sorted view's column follow
-                // theirs.
-                crate::csv::remap_columns(ctx.doc()?, |j| Some(if j >= col { j + 1 } else { j }));
+                crate::csv::remap_columns(ctx.doc()?, |j| Some(swapped(j, col)));
                 Ok(())
             },
         ),
