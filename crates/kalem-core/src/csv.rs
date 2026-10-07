@@ -1190,9 +1190,12 @@ pub(crate) fn number(v: &str, comma_decimal: bool) -> Option<f64> {
                 .iter()
                 .all(|g| g.len() == 3 && g.bytes().all(|b| b.is_ascii_digit()))
             && spaced.last().is_some_and(|g| {
-                g.len() >= 3
-                    && g[..3].bytes().all(|b| b.is_ascii_digit())
-                    && (g.len() == 3 || matches!(g.as_bytes()[3], b'.' | b','))
+                // Bytes, not a slice: `5 kişi` has a character across
+                // byte 3 (slicing there aborted the editor at open).
+                let b = g.as_bytes();
+                b.len() >= 3
+                    && b[..3].iter().all(u8::is_ascii_digit)
+                    && (b.len() == 3 || matches!(b[3], b'.' | b','))
             });
         if !ok {
             return None;
@@ -3160,5 +3163,18 @@ mod spreadsheet_tests {
         // The header and the other columns stay.
         let (_, n) = replace_in_column(t, &d, 0, "city", "x");
         assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn a_character_across_byte_three_is_no_number() {
+        // `5 kişi` sliced its last group at byte 3, inside `ş`: the editor
+        // and `kalem check` aborted on any such value.
+        for v in ["5 kişi", "3 kuş", "1 aaç", "1 2€"] {
+            assert_eq!(number(v, false), None, "{v}");
+        }
+        let t = "masa,kapasite\nA,5 kişi\nB,12 kişi\n";
+        let d = detect(t);
+        assert!(d.header);
+        assert!(column_stats(t, &d, 1).is_none());
     }
 }
