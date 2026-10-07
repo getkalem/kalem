@@ -50,14 +50,13 @@ const DECLARING: &[&str] = &[
 /// bodies of the environments of [`LINES_KEPT`], of those a command of
 /// [`DECLARING`] declares and of minted's `\newminted{LANG}` (`LANGcode`),
 /// which the parser reads as LaTeX but LaTeX typesets line by line.
-fn protected(root: &SyntaxNode) -> Vec<Range<usize>> {
+fn protected(root: &SyntaxNode, lines_kept: &[String]) -> Vec<Range<usize>> {
     let mut keep: Vec<Range<usize>> = root
         .descendants_with_tokens()
         .filter_map(|e| e.into_token())
         .filter(|t| t.kind() == K::VERBATIM)
         .map(|t| usize::from(t.text_range().start())..usize::from(t.text_range().end()))
         .collect();
-    let lines_kept = lines_kept(&root.text().to_string());
     for env in root.descendants().filter(|n| n.kind() == K::ENVIRONMENT) {
         let name = latex_syntax::name(&env).unwrap_or_default();
         if lines_kept.contains(&name)
@@ -70,7 +69,9 @@ fn protected(root: &SyntaxNode) -> Vec<Range<usize>> {
 }
 
 /// The environments of `text` whose bodies the parser reads as LaTeX but
-/// LaTeX typesets line by line ([`protected`]).
+/// LaTeX typesets line by line ([`protected`]): those of packages, those
+/// declared as listings and those defined around a verbatim environment
+/// (fancyvrb's `\VerbatimEnvironment\begin{Verbatim}`, `\verbatim`).
 fn lines_kept(text: &str) -> Vec<String> {
     let mut lines_kept: Vec<String> = LINES_KEPT.iter().map(|s| (*s).to_string()).collect();
     let first_braces = |rest: &str| -> Option<String> {
@@ -88,6 +89,52 @@ fn lines_kept(text: &str) -> Vec<String> {
                 None => after,
             };
             lines_kept.extend(first_braces(after));
+        }
+    }
+    for command in ["\\newenvironment", "\\renewenvironment"] {
+        let mut rest = text;
+        while let Some(i) = rest.find(command) {
+            rest = &rest[i + command.len()..];
+            let Some(name) = first_braces(rest.strip_prefix('*').unwrap_or(rest)) else {
+                continue;
+            };
+            // The begin code: the first group after the name and the
+            // arguments' brackets.
+            let after = &rest[rest.find('}').map_or(rest.len(), |c| c + 1)..];
+            let mut code = after.trim_start();
+            while let Some(o) = code.strip_prefix('[') {
+                code = o.find(']').map_or("", |c| o[c + 1..].trim_start());
+            }
+            let Some(body) = code.strip_prefix('{') else {
+                continue;
+            };
+            let mut depth = 1;
+            let end = body
+                .char_indices()
+                .find(|&(_, c)| {
+                    depth += match c {
+                        '{' => 1,
+                        '}' => -1,
+                        _ => 0,
+                    };
+                    depth == 0
+                })
+                .map_or(body.len(), |(i, _)| i);
+            let begin = &body[..end];
+            let verbatim = [
+                "\\VerbatimEnvironment",
+                "\\verbatim",
+                "\\Verbatim",
+                "\\comment",
+                "\\lstlisting",
+                "\\begin{lstlisting}",
+                "\\begin{minted}",
+            ]
+            .iter()
+            .any(|v| begin.contains(v));
+            if verbatim {
+                lines_kept.push(name);
+            }
         }
     }
     let mut rest = text;
@@ -126,9 +173,8 @@ fn lead(line: &str) -> &str {
 /// The document's indentation step: what a line in an environment adds to
 /// its `\begin` line, the most common one; `None` when environments are
 /// not indented.
-fn step(text: &str, root: &SyntaxNode, keep: &[Range<usize>]) -> Option<String> {
+fn step(text: &str, root: &SyntaxNode, keep: &[Range<usize>], kept: &[String]) -> Option<String> {
     let mut votes: HashMap<String, usize> = HashMap::new();
-    let kept = lines_kept(text);
     for env in root.descendants().filter(|n| n.kind() == K::ENVIRONMENT) {
         let name = latex_syntax::name(&env).unwrap_or_default();
         if name == "document"
@@ -170,10 +216,33 @@ fn step(text: &str, root: &SyntaxNode, keep: &[Range<usize>]) -> Option<String> 
 
 /// The document formatted; `align` lines up the `&` of tables.
 pub fn format(text: &str, align: bool) -> String {
+    format_with(text, align, "")
+}
+
+/// [`format`] for the LaTeX file `file`: the listings and verbatim
+/// environments its root document declares kept as they are too (a
+/// chapter's code in an environment the main file defines).
+pub fn format_file(file: &std::path::Path, text: &str, align: bool) -> String {
+    let root = crate::latex_view::find_root(file, text);
+    let declarations = if root == file {
+        String::new()
+    } else {
+        crate::files::read(&root)
+            .map(|(t, _, _)| t)
+            .unwrap_or_default()
+    };
+    format_with(text, align, &declarations)
+}
+
+/// [`format`], with the environments `declarations` declares (the root
+/// document's preamble) kept as they are too.
+fn format_with(text: &str, align: bool, declarations: &str) -> String {
     let parse = latex_syntax::parse(text);
     let root = parse.syntax();
-    let keep = protected(&root);
-    let unit = step(text, &root, &keep);
+    let mut kept = lines_kept(text);
+    kept.extend(lines_kept(declarations));
+    let keep = protected(&root, &kept);
+    let unit = step(text, &root, &keep, &kept);
     // A line starting where verbatim text ends is the `\end` line: kept
     // as it is too, its indentation being the text's last line.
     let inside = |p: usize| keep.iter().any(|r| r.start < p && p <= r.end);
@@ -193,7 +262,9 @@ pub fn format(text: &str, align: bool) -> String {
             continue;
         }
         let body = line.trim_end_matches([' ', '\t']);
-        if body.trim().is_empty() {
+        // Blanks are spaces and tabs: a line of a no-break space (`~`'s
+        // character) is text, and keeps its paragraph whole.
+        if body.is_empty() {
             blank += 1;
             if blank == 1 {
                 out.push_str(if ending.is_empty() { "" } else { ending });
@@ -293,19 +364,39 @@ fn align_ampersands(text: &str) -> String {
         while at < be {
             let end = text[at..be].find('\n').map_or(be, |i| at + i);
             let line = &text[at..end];
-            let content = line.trim_start();
+            let content = line.trim_start_matches([' ', '\t']);
             let indent = line[..line.len() - content.len()].to_string();
             let nested = latex_syntax::token_at(&root, at + indent.len())
                 .and_then(|t| t.parent_ancestors().find(|a| a.kind() == K::ENVIRONMENT))
                 .is_some_and(|e| e != env);
-            if content.contains('&') && !content.contains("\\multicolumn") && !nested {
+            // Not a row with verbatim text, whose `&` and `\\` are not
+            // the row's.
+            let verbatim = [
+                "\\verb",
+                "\\Verb",
+                "\\lstinline",
+                "\\mintinline",
+                "\\url",
+                "\\path",
+            ]
+            .iter()
+            .any(|v| content.contains(v));
+            if content.contains('&') && !content.contains("\\multicolumn") && !nested && !verbatim {
                 let (row, tail) = match content.find("\\\\") {
                     Some(i) => (&content[..i], &content[i..]),
                     None => (content, ""),
                 };
-                let cs: Vec<String> = cells(row).iter().map(|c| c.trim().to_string()).collect();
+                let cs: Vec<String> = cells(row)
+                    .iter()
+                    .map(|c| c.trim_matches([' ', '\t']).to_string())
+                    .collect();
                 if cs.len() > 1 {
-                    rows.push((at..end, indent, cs, tail.trim_end().to_string()));
+                    rows.push((
+                        at..end,
+                        indent,
+                        cs,
+                        tail.trim_end_matches([' ', '\t']).to_string(),
+                    ));
                 }
             }
             at = end + 1;
@@ -417,6 +508,27 @@ mod tests {
         }
         assert!(out.contains("\n  \\begin{verbatim}\n"), "{out}");
         assert_eq!(format(&out, false), out);
+    }
+
+    #[test]
+    fn verbatim_wrappers_rows_and_no_break_spaces_kept() {
+        // fancyvrb's and the verbatim package's way of defining a listing,
+        // and one the root document declares for its chapter.
+        let text = "\\newenvironment{code}{\\VerbatimEnvironment\\begin{Verbatim}}{\\end{Verbatim}}\n\\newenvironment{vcode}{\\verbatim}{\\endverbatim}\n\\begin{document}\n\\begin{itemize}\n  \\item a\n\\begin{code}\ndef f():\n    return x\n\\end{code}\n\\begin{vcode}\n  if x:\n      y\n\\end{vcode}\n\\end{itemize}\n\\end{document}\n";
+        let out = format(text, false);
+        assert!(out.contains("\ndef f():\n    return x\n"), "{out}");
+        assert!(out.contains("\n  if x:\n      y\n"), "{out}");
+        let chapter = "\\begin{itemize}\n  \\item a\n\\begin{python}\nif x:\n    y\n\\end{python}\n\\end{itemize}\n";
+        let out = format_with(chapter, false, "\\lstnewenvironment{python}{}{}\n");
+        assert!(out.contains("\nif x:\n    y\n"), "{out}");
+        // A row with verbatim text is not aligned: its `&` and `\\\\` are
+        // the text's.
+        let text = "\\begin{tabular}{ll}\na & b \\\\\ntype & \\verb|x&y| \\\\\nlong cell & c \\\\\n\\end{tabular}\n";
+        let out = format(text, true);
+        assert!(out.contains("type & \\verb|x&y| \\\\"), "{out}");
+        // A line of a no-break space is text, not a blank line.
+        let text = "One\n\u{a0}\nTwo\n";
+        assert_eq!(format(text, false), text);
     }
 
     #[test]

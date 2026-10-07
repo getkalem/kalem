@@ -5758,10 +5758,14 @@ fn plain_commands() -> Vec<Command> {
                     });
                 }
                 let latex = ctx.doc()?.meta.mode == crate::DocumentMode::Latex;
+                let path = ctx.doc()?.meta.path.clone();
                 lines_command(ctx, |t, _| {
                     // As `kalem fmt` does.
                     let new = if latex {
-                        crate::latex_fmt::format(t, false)
+                        match &path {
+                            Some(p) => crate::latex_fmt::format_file(p, t, false),
+                            None => crate::latex_fmt::format(t, false),
+                        }
                     } else {
                         org_edit::format::format(&org_model::Document::new(org_syntax::parse(t)))
                     };

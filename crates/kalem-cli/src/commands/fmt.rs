@@ -51,7 +51,7 @@ pub(crate) fn fmt(files: &[PathBuf], check: bool, align: bool) -> Result<ExitCod
         let formatted = if let Some(kalem_core::packs::Formatted::Text(t)) = pack {
             t
         } else if mode == kalem_core::DocumentMode::Latex {
-            kalem_core::latex_fmt::format(&text, align)
+            kalem_core::latex_fmt::format_file(path, &text, align)
         } else if mode == kalem_core::DocumentMode::Org {
             // The setup files' keywords too, as the editors read them.
             org_edit::format::format(&org_model::Document::new(org_syntax::parse_file(
