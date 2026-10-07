@@ -545,7 +545,7 @@ pub fn column_sum(
         .skip(usize::from(d.header))
         .filter(|(i, _)| Some(*i) != skip)
         .filter(|(i, _)| kept.is_none_or(|k| k.get(*i).copied().unwrap_or(true)))
-        .filter_map(|(_, r)| number(&value(text, r.fields.get(col)?, d), comma))
+        .filter_map(|(_, r)| crate::csv::quantity(&value(text, r.fields.get(col)?, d), comma))
         .collect();
     (!nums.is_empty()).then(|| nums.iter().sum())
 }

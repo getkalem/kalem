@@ -776,7 +776,7 @@ fn looks_like_header(text: &str, d: &Dialect) -> bool {
     let first = scan(text, 0, d);
     let names: Vec<Cow<'_, str>> = first.fields.iter().map(|f| value(text, f, d)).collect();
     // The reader of the statistics and of sorting.
-    let number = |s: &str| number(s, d.delimiter == b';').is_some();
+    let number = |s: &str| quantity(s, d.delimiter == b';').is_some();
     // Years name columns too (`name,2024,2025`), beside a name that is
     // text; a first record of numbers alone is data.
     let year = |s: &str| {
@@ -1197,7 +1197,7 @@ impl Ord for SortKey {
 
 /// The sort key of value `v` (`turkish`: `I` lowercases to `ı`).
 pub(crate) fn sort_key(v: &str, comma_decimal: bool, turkish: bool) -> SortKey {
-    if let Some(x) = number(v, comma_decimal).or_else(|| amount(v, comma_decimal)) {
+    if let Some(x) = quantity(v, comma_decimal) {
         return SortKey::Number(x);
     }
     if let Some((d, ..)) = crate::csv_tools::date(v) {
@@ -1206,8 +1206,16 @@ pub(crate) fn sort_key(v: &str, comma_decimal: bool, turkish: bool) -> SortKey {
     SortKey::Text(text_key(v, turkish), v.to_string())
 }
 
+/// A value as a quantity: a number ([`number`]) or an amount
+/// ([`amount`]): what the statistics, the sorts, the header's detection
+/// and the right alignment read, so that they agree (`10%` and `$20`
+/// sorted as numbers but were left out of the sums).
+pub(crate) fn quantity(v: &str, comma_decimal: bool) -> Option<f64> {
+    number(v, comma_decimal).or_else(|| amount(v, comma_decimal))
+}
+
 /// A number with a percent sign after it (in hundredths), a currency
-/// symbol before or after it, or in parentheses (negative), for sorting.
+/// symbol before or after it, or in parentheses (negative).
 fn amount(v: &str, comma_decimal: bool) -> Option<f64> {
     let t = v.trim();
     // Accounting's negative amounts: `(5)`, `($5)`.
@@ -1474,7 +1482,7 @@ pub fn column_stats_of(
         let Some(x) = r
             .fields
             .get(col)
-            .and_then(|f| number(&value(text, f, d), d.delimiter == b';'))
+            .and_then(|f| quantity(&value(text, f, d), d.delimiter == b';'))
         else {
             continue;
         };
@@ -1581,7 +1589,7 @@ pub fn histogram(text: &str, d: &Dialect, col: usize) -> Vec<Bin> {
         .enumerate()
         .filter(|(i, _)| !(*i == 0 && d.header))
         .filter_map(|(i, row)| {
-            number(row.get(col)?, comma)
+            quantity(row.get(col)?, comma)
                 .filter(|v| v.is_finite())
                 .map(|v| (i, v))
         })
@@ -1784,7 +1792,7 @@ pub struct Layout {
 /// or a date (`2026-09-29`, `29.09.2026`, `9/29/2026`).
 fn numeric_value(v: &str, comma_decimal: bool) -> bool {
     let v = v.trim();
-    if number(v, comma_decimal).is_some() {
+    if quantity(v, comma_decimal).is_some() {
         return true;
     }
     let parts: Vec<&str> = v.split(['-', '.', '/']).collect();

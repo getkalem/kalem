@@ -569,3 +569,17 @@ fn a_local_variables_block_is_not_records() {
     let l = csv::layout(&s.d);
     assert_eq!(l.index.borrow_mut().count(s.d.text().as_str(), &l.dialect), 3);
 }
+
+#[test]
+fn amounts_count_as_numbers() {
+    // `10%`, `$20` and `(5)` sorted as numbers but were left out of the
+    // sums, the alignment and the header's detection.
+    let mut s = Sheet::new("item,price\na,$20\nb,(5)\nc,10%\n");
+    s.at("B2");
+    let status = csv::status(&s.d).unwrap();
+    assert!(status.contains("Count: 3"), "{status}");
+    assert!(status.contains("Sum: 15.1"), "{status}");
+    let l = csv::layout(&s.d);
+    assert!(l.dialect.header);
+    assert_eq!(l.numeric.get(1), Some(&true));
+}
