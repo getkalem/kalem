@@ -1894,7 +1894,16 @@ impl Vim {
                 }
                 // The column on screen is kept (tabs and wide characters
                 // counted as they show), and the end of lines after `$`.
-                let goal = *self.goal.get_or_insert_with(|| display_col(doc, pos, ts));
+                // On a tab the cursor shows in its last column (Vim's
+                // `w_virtcol` in normal mode).
+                let goal = *self.goal.get_or_insert_with(|| {
+                    let col = display_col(doc, pos, ts);
+                    if char_at(doc, pos) == Some('\t') && self.mode != Mode::Insert {
+                        (col / ts + 1) * ts - 1
+                    } else {
+                        col
+                    }
+                });
                 let l = if down {
                     (line + n).min(last)
                 } else {
@@ -3299,8 +3308,11 @@ impl Vim {
             self.count = None;
             return self.finish_motion(doc, m, host, out);
         }
-        // Other commands forget the column vertical motion keeps.
-        self.goal = None;
+        // Other commands forget the column vertical motion keeps, but for
+        // those that leave the cursor be (`q`, `@`, `m`, `"`).
+        if !matches!(key, Key::Char('q' | '@' | 'm' | '"')) {
+            self.goal = None;
+        }
         let Key::Char(c) = key else {
             let n = self.count.unwrap_or(1);
             let plain = matches!(doc.meta.mode, DocumentMode::Text { .. });
