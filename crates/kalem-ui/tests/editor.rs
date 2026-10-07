@@ -4814,14 +4814,25 @@ fn csv_deleting_keeps_the_cells(cx: &mut TestAppContext) {
     edit(text.find("3,").unwrap() + 2, cx);
     cx.simulate_keystrokes("delete");
     assert_eq!(body(cx), text);
-    // From B2 to C4: the cells cleared, the rows and delimiters kept.
-    at(text.find("Ayş").unwrap(), cx);
-    cx.simulate_keystrokes("shift-down shift-down");
-    e.update(cx, |e, _| {
-        let end = e.doc.text().as_str().rfind('x').unwrap() + 1;
-        e.doc.move_cursor(end, true);
-    });
+    // From B2 to C4: Backspace clears the active cell alone, B2, as in
+    // Excel, and Escape puts it back (it cleared them all, and Escape wrote
+    // another row over B2's).
+    let select = |cx: &mut VisualTestContext| {
+        at(text.find("Ayş").unwrap(), cx);
+        cx.simulate_keystrokes("shift-down shift-down");
+        e.update(cx, |e, _| {
+            let end = e.doc.text().as_str().rfind('x').unwrap() + 1;
+            e.doc.move_cursor(end, true);
+        });
+    };
+    select(cx);
     cx.simulate_keystrokes("backspace");
+    assert_eq!(body(cx), text.replace("Ayş", ""));
+    cx.simulate_keystrokes("escape");
+    assert_eq!(body(cx), text);
+    // Delete: the cells cleared, the rows and delimiters kept.
+    select(cx);
+    cx.simulate_keystrokes("delete");
     assert_eq!(body(cx), "id,ad,şehir\n1,,\n2,,\n3,,\n");
 }
 
@@ -4914,10 +4925,11 @@ fn csv_selection_rows_columns_and_typing(cx: &mut TestAppContext) {
     cx.dispatch_action(kalem_ui::editor::RunCommand::new("csv.deleteColumn"));
     assert_eq!(body(cx), "a\n1\n4\n7\n");
     undo(cx);
-    // Typing over B2:C3: C3's, the cursor's cell, as Excel types.
+    // Typing over B2:C3: into B2, the cell the selection started from,
+    // as Excel types into the active cell (it went into C3).
     select("2", "6", cx);
     cx.simulate_input("x");
-    assert_eq!(body(cx), "a,b,c\n1,2,3\n4,5,x\n7,8,9\n");
+    assert_eq!(body(cx), "a,b,c\n1,x,3\n4,5,6\n7,8,9\n");
 }
 
 /// A record with a quoted line break shows as a row of the grid two lines
