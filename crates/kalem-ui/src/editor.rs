@@ -814,6 +814,10 @@ impl Editor {
                 }
             }
         }
+        // The lines hidden, after a first line up to a last: taken out of
+        // `out` at once (one pass over it for each was a pass per paragraph
+        // at every keystroke in a long LaTeX document).
+        let mut hidden: Vec<(usize, usize)> = Vec::new();
         // A LaTeX environment away from the cursor shows as one formula, on
         // its first line.
         if self.math {
@@ -825,7 +829,7 @@ impl Editor {
                 let first = text.line_of(b.range.start);
                 let last = text.line_of(b.content_end.saturating_sub(1).max(b.range.start));
                 if last > first {
-                    out.retain(|l| *l <= first || *l > last);
+                    hidden.push((first + 1, last));
                 }
             }
         }
@@ -839,8 +843,21 @@ impl Editor {
             let first = text.line_of(p.start);
             let last = text.line_of(p.end);
             if last > first {
-                out.retain(|l| *l <= first || *l > last);
+                hidden.push((first + 1, last));
             }
+        }
+        if !hidden.is_empty() {
+            hidden.sort_unstable();
+            // `out` is in order: one walk along both.
+            let mut k = 0;
+            let mut reach = 0;
+            out.retain(|&l| {
+                while k < hidden.len() && hidden[k].0 <= l {
+                    reach = reach.max(hidden[k].1 + 1);
+                    k += 1;
+                }
+                l >= reach
+            });
         }
         if out.is_empty() {
             out.push(0);
@@ -3535,8 +3552,10 @@ impl Editor {
             }
         }
         let end = text.line_start(last).max(start);
+        // Kept by its text, not the document's version: an edit elsewhere
+        // does not color the block again.
         let spans = kalem_highlight::Language::find(lang)
-            .map(|l| Arc::new(kalem_highlight::highlight(l, &text.as_str()[start..end])));
+            .map(|l| kalem_highlight::highlight_block(l, &text.as_str()[start..end]));
         self.code
             .borrow_mut()
             .1

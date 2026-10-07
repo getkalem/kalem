@@ -5,6 +5,7 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use kalem_core::DocumentState;
@@ -90,7 +91,24 @@ pub struct EditorView {
     /// The highlighting of a file too large for `plain`'s: the lines on
     /// screen, in windows.
     windowed: RefCell<kalem_highlight::Windowed>,
+    /// A CSV filter's or sort's rows as layouts use them.
+    shown: ShownCache,
 }
+
+/// For the rows a CSV filter or sort shows (kept by the core for a text
+/// version, the same list until it changes): each line's place, and the
+/// byte ranges shown. Made again for every layout, several a keystroke,
+/// they cost a copy, a sort and a map of every row shown.
+type ShownCache = RefCell<Option<ShownRows>>;
+
+/// The rows shown, for a text version: the list, each line's place, the
+/// byte ranges.
+type ShownRows = (
+    Rc<Vec<usize>>,
+    u64,
+    Rc<HashMap<usize, usize>>,
+    Rc<Vec<Range<usize>>>,
+);
 
 /// See [`EditorView`]'s `plain`.
 type PlainCache = RefCell<Option<(u64, Option<kalem_highlight::Highlighter>, usize)>>;
@@ -346,7 +364,7 @@ pub(crate) struct Code {
     /// Where its code starts.
     start: usize,
     /// The spans of each code line.
-    lines: Vec<Vec<kalem_highlight::Span>>,
+    lines: Arc<Vec<Vec<kalem_highlight::Span>>>,
 }
 
 /// A table drawn as an aligned grid.
@@ -395,10 +413,11 @@ struct Shared<'a> {
     windowed: &'a RefCell<kalem_highlight::Windowed>,
     raw_math: bool,
     outline_indent: bool,
+    shown: &'a ShownCache,
 }
 
 /// Lines in the order shown, and each line's place.
-type Order = (std::rc::Rc<Vec<usize>>, HashMap<usize, usize>);
+type Order = (Rc<Vec<usize>>, Rc<HashMap<usize, usize>>);
 
 /// What is needed to lay out lines.
 pub(crate) struct Layout<'a> {
@@ -436,6 +455,30 @@ pub(crate) struct Layout<'a> {
     /// LaTeX: the paragraphs over several lines shown as one, away from
     /// the cursor.
     paragraphs: Vec<Range<usize>>,
+}
+
+/// `ranges` without the ranges of `hide`, both in order (those of `hide`
+/// may overlap), in one pass: each paragraph or formula hidden was cut out
+/// of the whole list, a pass for each in a long LaTeX document.
+fn subtract(ranges: &[Range<usize>], hide: &[Range<usize>]) -> Vec<Range<usize>> {
+    let mut out = Vec::with_capacity(ranges.len() + hide.len());
+    let mut first = 0;
+    for r in ranges {
+        let mut start = r.start;
+        while first < hide.len() && hide[first].end <= start {
+            first += 1;
+        }
+        for h in hide[first..].iter().take_while(|h| h.start < r.end) {
+            if h.start > start {
+                out.push(start..h.start);
+            }
+            start = start.max(h.end);
+        }
+        if start < r.end {
+            out.push(start..r.end);
+        }
+    }
+    out
 }
 
 impl<'a> Layout<'a> {
@@ -479,6 +522,7 @@ impl<'a> Layout<'a> {
             windowed,
             raw_math,
             outline_indent,
+            shown: shown_rows,
         } = shared;
         let is_plain = doc.meta.mode != kalem_core::DocumentMode::Org;
         if is_plain && doc.dired.is_none() {
@@ -533,15 +577,17 @@ impl<'a> Layout<'a> {
                 kalem_core::csv::shown_lines(doc).or_else(|| kalem_core::bibtex::shown_lines(doc))
             })
             .flatten();
-        let order = shown
-            .as_ref()
-            .filter(|_| doc.csv_sort.is_some() || doc.bib_sort.is_some())
-            .map(|lines| {
-                let at: HashMap<usize, usize> =
-                    lines.iter().enumerate().map(|(i, &l)| (l, i)).collect();
-                (lines.clone(), at)
-            });
-        let (mut visible, folded) = if let Some(lines) = &shown {
+        // Each line's place and the ranges shown, made once for the list.
+        let rows = shown.as_ref().map(|lines| {
+            let mut cache = shown_rows.borrow_mut();
+            if let Some((l, v, at, ranges)) = cache.as_ref()
+                && Rc::ptr_eq(l, lines)
+                && *v == doc.version()
+            {
+                return (at.clone(), ranges.clone());
+            }
+            let at: HashMap<usize, usize> =
+                lines.iter().enumerate().map(|(i, &l)| (l, i)).collect();
             let text = doc.text();
             let mut sorted: Vec<usize> = lines.to_vec();
             sorted.sort_unstable();
@@ -553,7 +599,17 @@ impl<'a> Layout<'a> {
                     _ => ranges.push(r),
                 }
             }
-            (ranges, HashSet::new())
+            let (at, ranges) = (Rc::new(at), Rc::new(ranges));
+            *cache = Some((lines.clone(), doc.version(), at.clone(), ranges.clone()));
+            (at, ranges)
+        });
+        let order = shown
+            .as_ref()
+            .zip(rows.as_ref())
+            .filter(|_| doc.csv_sort.is_some() || doc.bib_sort.is_some())
+            .map(|(lines, (at, _))| (lines.clone(), at.clone()));
+        let (mut visible, folded) = if let Some((_, ranges)) = &rows {
+            (ranges.to_vec(), HashSet::new())
         } else if source
             || (parse.is_none()
                 && doc.latex().is_none()
@@ -578,6 +634,8 @@ impl<'a> Layout<'a> {
         // Without images, the formula shows its Unicode approximation on
         // its first line all the same.
         let pictures = images.borrow().picker.is_some();
+        // The lines hidden, in order: subtracted from `visible` at once.
+        let mut hidden = Vec::new();
         if (parse.is_some() || latex || markdown) && !source && !raw_math {
             let text = doc.text();
             let c = doc.selection.head;
@@ -591,7 +649,9 @@ impl<'a> Layout<'a> {
                     continue;
                 }
                 let src = text.as_str()[b.range.start..b.content_end].trim_end();
-                if pictures {
+                // LaTeX's formulas show on their first line whether or not
+                // they make a picture: none is made for that here.
+                if pictures && !latex {
                     let mut im = images.borrow_mut();
                     let key = match parse {
                         Some(p) => im.math(src, p, doc.version()),
@@ -606,19 +666,11 @@ impl<'a> Layout<'a> {
                             im.latex_math(&src, doc)
                         }
                     };
-                    if im.size(&key, width).is_none() && !latex {
+                    if im.size(&key, width).is_none() {
                         continue;
                     }
                 }
-                let hide = text.line_start(first + 1)..text.line_range(last).end + 1;
-                visible = visible
-                    .iter()
-                    .flat_map(|r| {
-                        [r.start..r.end.min(hide.start), r.start.max(hide.end)..r.end]
-                            .into_iter()
-                            .filter(|x| x.start < x.end)
-                    })
-                    .collect();
+                hidden.push(text.line_start(first + 1)..text.line_range(last).end + 1);
             }
         }
         // A LaTeX paragraph over several lines away from the cursor shows as
@@ -637,16 +689,12 @@ impl<'a> Layout<'a> {
                     continue;
                 }
                 paragraphs.push(p.clone());
-                let hide = text.line_start(first + 1)..text.line_range(last).end + 1;
-                visible = visible
-                    .iter()
-                    .flat_map(|r| {
-                        [r.start..r.end.min(hide.start), r.start.max(hide.end)..r.end]
-                            .into_iter()
-                            .filter(|x| x.start < x.end)
-                    })
-                    .collect();
+                hidden.push(text.line_start(first + 1)..text.line_range(last).end + 1);
             }
+        }
+        if !hidden.is_empty() {
+            hidden.sort_by_key(|h| h.start);
+            visible = subtract(&visible, &hidden);
         }
         // The narrowed part, or the section in focus.
         if let Some(lim) = view::limit(doc, focus) {
@@ -823,10 +871,12 @@ impl<'a> Layout<'a> {
         let last = text.line_of(b.content_end.saturating_sub(1).max(b.range.start));
         let start = text.line_start(first + 1).min(b.content_end);
         let end = text.line_start(last).max(start);
+        // Kept by its text, not the document's version: an edit elsewhere
+        // does not color the block again.
         let c = kalem_highlight::Language::find(lang).map(|l| {
             Arc::new(Code {
                 start,
-                lines: kalem_highlight::highlight(l, &text.as_str()[start..end]),
+                lines: kalem_highlight::highlight_block(l, &text.as_str()[start..end]),
             })
         });
         self.code.borrow_mut().1.insert(b.range.start, c.clone());
@@ -1842,6 +1892,7 @@ macro_rules! shared {
             windowed: &$v.windowed,
             raw_math: $v.raw_math,
             outline_indent: $v.outline_indent,
+            shown: &$v.shown,
         }
     };
 }
@@ -2403,5 +2454,22 @@ impl EditorView {
     /// The blocks, for folding all.
     pub fn all_blocks(&mut self, doc: &DocumentState) -> Arc<Vec<Block>> {
         self.blocks(doc)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ranges_subtracted() {
+        let cut = |r: &[Range<usize>], h: &[Range<usize>]| subtract(r, h);
+        assert_eq!(cut(&[0..10], &[]), [0..10]);
+        assert_eq!(cut(&[0..10], &[2..4, 6..8]), [0..2, 4..6, 8..10]);
+        // Hidden ranges over several, overlapping, at the edges.
+        assert_eq!(cut(&[0..5, 7..12], &[3..9]), [0..3, 9..12]);
+        assert_eq!(cut(&[0..10], &[0..3, 2..5, 9..20]), [5..9]);
+        assert_eq!(cut(&[0..4, 6..8], &[4..6]), [0..4, 6..8]);
+        assert!(cut(&[2..4], &[0..10]).is_empty());
     }
 }
