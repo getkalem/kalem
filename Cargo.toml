@@ -216,6 +216,26 @@ opt-level = 3
 # a component took 40 ms in a debug build (wasm_todo W6).
 [profile.dev.package."kalem-script"]
 opt-level = 3
+# Syntax highlighting (syntect, its regular expressions, the cached set's
+# decoding): a debug build colored the first screen of a 10 KB Markdown
+# file in 1.5 s and a 6,000-line Rust file in 6 s, release builds ten
+# times faster.
+[profile.dev.package.syntect]
+opt-level = 3
+[profile.dev.package.fancy-regex]
+opt-level = 3
+[profile.dev.package.regex-automata]
+opt-level = 3
+[profile.dev.package.regex-syntax]
+opt-level = 3
+[profile.dev.package.aho-corasick]
+opt-level = 3
+[profile.dev.package.memchr]
+opt-level = 3
+[profile.dev.package.bincode]
+opt-level = 3
+[profile.dev.package."kalem-highlight"]
+opt-level = 3
 
 [profile.bench]
 debug = true
