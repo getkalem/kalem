@@ -732,7 +732,7 @@ impl Client {
         st.ready && !st.exited
     }
 
-    /// The process has ended.
+    /// The process has ended; its [`Event::Exited`] is among the events.
     pub fn has_exited(&self) -> bool {
         self.inner.state.read().expect("state").exited
     }
@@ -1040,9 +1040,9 @@ fn reader(inner: Arc<Inner>, stdout: std::process::ChildStdout, init: Pending) {
         }
     }
     // The output closes as the process ends; its exit status follows a
-    // moment later.
+    // moment later (more than 400 ms on a busy Windows machine).
     let mut code = None;
-    for _ in 0..40 {
+    for _ in 0..500 {
         match inner.child.lock().expect("child").try_wait() {
             Ok(Some(status)) => {
                 code = status.code();
@@ -1052,19 +1052,25 @@ fn reader(inner: Arc<Inner>, stdout: std::process::ChildStdout, init: Pending) {
             Err(_) => break,
         }
     }
-    {
-        let mut st = inner.state.write().expect("state");
-        st.exited = true;
-        st.queued.clear();
-    }
-    for (_, tx) in inner.pending.lock().expect("pending").drain() {
-        let _ = tx.send(Err(RpcError::client("server stopped")));
-    }
     inner.progress.lock().expect("progress").clear();
     if !inner.shutting_down.load(Ordering::SeqCst) {
         inner.log(format!("[client] the server exited ({code:?})"));
     }
-    inner.event(Event::Exited { code });
+    {
+        let mut st = inner.state.write().expect("state");
+        st.exited = true;
+        st.queued.clear();
+        // Whoever sees it exited finds its exit among the events.
+        inner
+            .events
+            .lock()
+            .expect("events")
+            .push_back(Event::Exited { code });
+    }
+    for (_, tx) in inner.pending.lock().expect("pending").drain() {
+        let _ = tx.send(Err(RpcError::client("server stopped")));
+    }
+    (inner.wake)();
 }
 
 fn initialized(inner: &Inner, answer: &Value) {
