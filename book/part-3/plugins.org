@@ -400,8 +400,13 @@ A =boolean= is a switch, an =integer= steps in its range, a =string=
 with an =enum= steps through its choices and one with =examples=
 through them (anything may be typed), an =array= with an =enum= in
 =items= is a list of choices each in or out, another =array= a list of
-texts, and any other type is typed as JSON. A key the user's table
-holds that the manifest does not describe is typed as JSON.
+texts, and any other type is typed as JSON. A dotted key is in tables
+within the plugin's: a language plugin describes the settings its
+server is sent as =settings.SECTION.NAME= (=settings.elixirLS.mixEnv=).
+A key the user's table holds that the manifest does not describe is
+typed as JSON. For a language plugin the page also has its server and
+each server's program and environment (=servers.KEY.command=,
+=servers.KEY.env=).
 
 Files and the network are not a plugin's unless its manifest asks for
 them, with the permissions of §11.6:

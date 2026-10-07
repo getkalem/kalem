@@ -186,7 +186,11 @@ Beside the fields every plugin has (=id=, =name=, =version=,
 
 * Settings
 
-A user's settings for a plugin live under its ID in =settings.toml=:
+A user's settings for a plugin live under its ID in =settings.toml=,
+and the plugin's page in the settings panel (/installed plugins/)
+changes them without the file: the server, the settings the manifest
+describes under ="settings"= (see [[file:plugins.org][Plugins]]), each server's program
+and environment:
 
 #+begin_src toml
 [plugins."org.kalem.elixir"]

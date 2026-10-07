@@ -535,6 +535,9 @@ settings-plugin-off = Turned off after stopping too often (kalem plugin enable t
 settings-plugin-server = The language server: auto (the first of { $servers } installed), one of them, or off for none
 settings-plugin-other = A setting of the plugin's that its manifest does not describe, typed as JSON
 settings-plugin-actions = actions
+settings-plugin-servers = servers
+settings-plugin-command = The program and arguments starting { $server } instead of the plugin's (empty: the plugin's)
+settings-plugin-env = Environment variables for { $server }, as a JSON table
 settings-wrong-value = `{ $key }` cannot take this value
 
 ## The date picker.

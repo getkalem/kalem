@@ -10,7 +10,10 @@
 //!   with an `enum` of choices or `examples` to step through, `array` of
 //!   strings, with an `enum` in `items` for a list of choices), a
 //!   `default` and a `description`, as VS Code's extensions describe
-//!   theirs;
+//!   theirs; a dotted key is in tables within the plugin's
+//!   (`settings.elixirLS.mixEnv`, what its language server is sent);
+//! - each server's program and environment put in place of the
+//!   manifest's (`servers.KEY.command`, `servers.KEY.env`);
 //! - any other key the user's table holds, typed as JSON;
 //!
 //! then updating it, its folder and removing it.
@@ -168,11 +171,38 @@ pub fn rows(p: &PluginInfo, config: &Config) -> Vec<Row> {
         known.push(f.name.clone());
         out.push(Row::Entry(Entry::Field(f.clone())));
     }
+    // Each server's program and environment, the plugin's own replaced.
+    if !p.servers.is_empty() {
+        out.push(Row::Heading(tr("settings-plugin-servers")));
+    }
+    for (key, name) in &p.servers {
+        let command = format!("servers.{key}.command");
+        let env = format!("servers.{key}.env");
+        out.push(Row::Entry(Entry::Field(Field::plugin(
+            &p.id,
+            &command,
+            FieldKind::Texts,
+            Value::Array(Vec::new()),
+            crate::tr!("settings-plugin-command", server = name.as_str()),
+        ))));
+        out.push(Row::Entry(Entry::Field(Field::plugin(
+            &p.id,
+            &env,
+            FieldKind::Json,
+            Value::Object(serde_json::Map::new()),
+            crate::tr!("settings-plugin-env", server = name.as_str()),
+        ))));
+        known.extend([command, env]);
+    }
+    // The user's other keys, those within the tables of keys described
+    // too (`settings.elixirLS.…`).
     if let Some(Value::Object(t)) = config.get_path(&["plugins", &p.id]) {
-        for k in t.keys().filter(|k| !known.contains(k)) {
+        let mut others = Vec::new();
+        other_keys(t, "", &known, &mut others);
+        for k in others {
             out.push(Row::Entry(Entry::Field(Field::plugin(
                 &p.id,
-                k,
+                &k,
                 FieldKind::Json,
                 Value::Null,
                 tr("settings-plugin-other"),
@@ -203,6 +233,31 @@ pub fn rows(p: &PluginInfo, config: &Config) -> Vec<Row> {
     out
 }
 
+/// The keys of table `t` (within `prefix`) that `known` does not hold:
+/// a table some known key is in is looked into, any other value is a key.
+fn other_keys(
+    t: &serde_json::Map<String, Value>,
+    prefix: &str,
+    known: &[String],
+    out: &mut Vec<String>,
+) {
+    for (k, v) in t {
+        let key = if prefix.is_empty() {
+            k.clone()
+        } else {
+            format!("{prefix}.{k}")
+        };
+        if known.contains(&key) {
+            continue;
+        }
+        let holds = known.iter().any(|n| n.starts_with(&format!("{key}.")));
+        match v {
+            Value::Object(inner) if holds => other_keys(inner, &key, known, out),
+            _ => out.push(key),
+        }
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -224,7 +279,8 @@ pub(crate) mod tests {
                 "folder": {"type": "string", "examples": ["notes", "journal"]},
                 "kinds": {"type": "array", "items": {"enum": ["org", "md"]}},
                 "skip": {"type": "array"},
-                "raw": {"type": "object"}
+                "raw": {"type": "object"},
+                "settings.wc.mode": {"type": "string", "enum": ["fast", "exact"], "default": "fast"}
             }
         });
         let mut p = read(
@@ -278,7 +334,9 @@ pub(crate) mod tests {
         let config = Config::from_layers(&[(
             crate::settings::Layer::User,
             None,
-            "[plugins.\"org.example.count\"]\nserver = \"off\"\nold = 3\n",
+            "[plugins.\"org.example.count\"]\nserver = \"off\"\nold = 3\n\
+             [plugins.\"org.example.count\".settings.wc]\nmode = \"exact\"\nextra = 1\n\
+             [plugins.\"org.example.count\".servers.wc]\ncommand = [\"/opt/wc\"]\n",
         )]);
         let rows = rows(&p, &config);
         let entries: Vec<&Entry> = rows
@@ -305,6 +363,35 @@ pub(crate) mod tests {
             .expect("the user's other key");
         assert_eq!(settings_list::edit(old), Edit::Type);
         assert_eq!(settings_list::shown(&config, old), "3");
+        // A dotted key is in the tables within the plugin's.
+        let mode = entries
+            .iter()
+            .find_map(|e| e.field().filter(|f| f.name == "settings.wc.mode"))
+            .expect("a dotted key");
+        assert_eq!(
+            mode.path,
+            ["plugins", "org.example.count", "settings", "wc", "mode"]
+        );
+        assert_eq!(settings_list::shown(&config, mode), "exact");
+        // Each server's program in place of the plugin's.
+        let command = entries
+            .iter()
+            .find_map(|e| e.field().filter(|f| f.name == "servers.wc.command"))
+            .expect("the server's program");
+        assert_eq!(settings_list::shown(&config, command), "/opt/wc");
+        // The user's other keys, those in the described tables too, once.
+        let names: Vec<String> = entries.iter().map(|e| e.name()).collect();
+        assert!(
+            names.contains(&"settings.wc.extra".to_string()),
+            "{names:?}"
+        );
+        for once in ["settings.wc.mode", "servers.wc.command", "server"] {
+            assert_eq!(names.iter().filter(|n| *n == once).count(), 1, "{once}");
+        }
+        assert!(
+            !names.iter().any(|n| n == "settings" || n == "servers"),
+            "{names:?}"
+        );
         // Then what can be done with it.
         let commands: Vec<&str> = entries
             .iter()

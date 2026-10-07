@@ -102,7 +102,8 @@ impl Field {
         }
     }
 
-    /// Plugin `id`'s setting `key`, under `[plugins."ID"]`.
+    /// Plugin `id`'s setting `key`, under `[plugins."ID"]`; a dotted key
+    /// (`settings.elixirLS.mixEnv`) is in tables within it.
     pub fn plugin(
         id: &str,
         key: &str,
@@ -110,8 +111,10 @@ impl Field {
         default: Value,
         description: String,
     ) -> Field {
+        let mut path = vec!["plugins".to_string(), id.to_string()];
+        path.extend(key.split('.').map(str::to_string));
         Field {
-            path: vec!["plugins".into(), id.into(), key.into()],
+            path,
             key: format!("plugins.\"{id}\".{key}"),
             name: key.to_string(),
             kind,

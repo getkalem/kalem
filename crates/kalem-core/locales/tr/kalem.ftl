@@ -515,6 +515,9 @@ settings-plugin-off = Çok sık durduğu için kapatıldı (kalem plugin enable 
 settings-plugin-server = Dil sunucusu: auto ({ $servers } içinden yüklü ilki), biri ya da hiçbiri için off
 settings-plugin-other = Eklentinin manifestinde tanımlamadığı bir ayarı, JSON olarak yazılır
 settings-plugin-actions = eylemler
+settings-plugin-servers = sunucular
+settings-plugin-command = { $server } sunucusunu eklentininki yerine başlatan program ve argümanları (boş: eklentininki)
+settings-plugin-env = { $server } için ortam değişkenleri, JSON tablo olarak
 settings-wrong-value = `{ $key }` bu değeri alamaz
 
 ## Tarih seçici.
