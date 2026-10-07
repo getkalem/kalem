@@ -7,22 +7,28 @@ or other European locale writes =;= between fields and =,= in numbers;
 both are read.
 
 Tab and Shift+Tab go from field to field (Tab past the last field adds
-a row). The commands of the /CSV/ category insert, delete and move
-rows and columns, and /Sort File by Column/ sorts the records by the
-column at the cursor (numbers as numbers, the header first); every
-change is one undo step, and only the fields that change are written,
-quoted only when they need it. /Copy as Tab-Separated Values/ copies
-the selected records (all of them without a selection) as a
-spreadsheet pastes them, and rows pasted from a spreadsheet get the
-file's delimiter. The status bar shows the count, sum, average,
-smallest and largest of the numbers in the cursor's column, and the
-header row stays at the top when the rows scroll.
+a row), Enter and the arrows from cell to cell as in a spreadsheet,
+and Alt+Enter (Ctrl+J in a terminal) puts a line break into the cell.
+With Vim's keys, =j= and =k= go to the same column of the row below
+and above, and insert mode inserts into the cell. The commands of the
+/CSV/ category insert, delete and move rows and columns, and /Sort
+File by Column/ sorts the records by the column at the cursor (numbers
+as numbers, the header first); every change is one undo step, and only
+the fields that change are written, quoted only when they need it.
+/Copy as Tab-Separated Values/ copies the selected records (all of
+them without a selection) as a spreadsheet pastes them, and rows
+pasted from a spreadsheet get the file's delimiter. The status bar
+shows the count, sum, average, smallest and largest of the numbers in
+the cursor's column, and the header row stays at the top when the rows
+scroll.
 
 In the /Table/ menu: /Filter Rows/ asks for a text and shows only the
 rows with a field holding it (case ignored), with the header and the
 row at the cursor, and says how many match; /Show All Rows/ shows them
 all again. /Sort View by Column/ shows the rows in the order of the
 column at the cursor (again: descending) and /File Order/ ends it;
-neither changes the file. /Open as Plain Text/ shows the text as it
-is, and /Convert to Org Table/ writes the rows as an Org table in a
-new =.org= file beside it and opens it.
+neither changes the file. With a filter or a sorted view on, a
+selection covers the rows shown, and the commands on it (Delete Row,
+Fill Down, Delete, Copy, Paste) change only those. /Open as Plain
+Text/ shows the text as it is, and /Convert to Org Table/ writes the
+rows as an Org table in a new =.org= file beside it and opens it.

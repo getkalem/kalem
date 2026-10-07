@@ -112,6 +112,10 @@ A file whose first line is exactly =sep== followed by one ASCII character
 (Excel writes ~sep=;~) takes that character as its delimiter without
 further detection; the line is not a record, so it is neither shown in
 the grid nor taken for a header, and it is kept in the file as it is.
+A =sep== line with nothing after it names no delimiter. An Emacs mode
+line first (=# -*- mode: csv -*-=, which makes a file of any name CSV)
+is not a record either (=csv::preamble=): the commands, the filter, the
+sorts and the pinned header row start after either line.
 
 ** Line endings
 
@@ -177,7 +181,8 @@ follows:
    =1.234,5= and =1 234,5= do; dates, version numbers, phone numbers
    and integers with leading zeros do not.
 3. When any value of the first record looks like a number, there is no
-   header.
+   header; but a year (1800 to 2199) beside a value that is text names a
+   column, as in =name,2024,2025=.
 4. Otherwise, when any value of the next twenty records looks like a
    number, there is a header.
 5. Otherwise there is a header when every value of the first record is
@@ -357,6 +362,12 @@ typed ones inside the quotes, every quote doubled, and the cursor after
 what was typed; inside the quotes of a quoted field the characters are
 inserted with their quotes doubled. Other characters, blanks included,
 are inserted as they are, so a field is quoted only when it has to be.
+A line break goes into a value with /Line Break in Cell/
+(=csv.lineBreak=: Alt+Enter, as in Excel; Ctrl+J in a terminal, where
+Alt+Enter is Shift+Enter's), at the caret, or after the cell's text from
+Ready mode. With Vim's keys there are no Excel modes (below): typing in
+insert mode inserts at the cursor, a delimiter or a quote still going
+into the value.
 In the source view (Ctrl+/) typing is raw: a comma typed there is a
 delimiter. Enter inserts a line break, without copying the line's
 leading blanks or tabs as =edit.newline= does in other files (they are
@@ -386,6 +397,7 @@ to Org Table, Open as Plain Text) and in the palette of both editors.
 | =csv.previousField=    | Previous Field                    | Shift+Tab       | No                       |
 | =csv.cellBelow=        | Cell Below                        | Enter           | Only past the last row   |
 | =csv.cellAbove=        | Cell Above                        | Shift+Enter     | No                       |
+| =csv.lineBreak=        | Line Break in Cell                | Alt+Enter       | Yes, the cell            |
 | =csv.insertRow=        | Insert Row                        | Alt+Shift+Down  | Yes                      |
 | =csv.deleteRow=        | Delete Row                        | Alt+Shift+Up    | Yes                      |
 | =csv.moveRowUp=        | Move Row Up                       | Alt+Up          | Yes                      |
@@ -438,10 +450,12 @@ to Org Table, Open as Plain Text) and in the palette of both editors.
 | =csv.detectDialect=    | Detect Delimiter and Header Again |                 | No                       |
 
 Arguments: =csv.sortFile= and =csv.sortView= take =reverse= (boolean);
-=csv.filter= takes =text= (string, required); =csv.setDelimiter= takes
-=delimiter= and =csv.setQuote= takes =quote= (strings, required: one
-ASCII character, and for the delimiter also =tab= or =\t=; anything
-else is refused with a message). The dialect set by hand lasts until the
+=csv.filter= takes =text= (string, required) and =column= (integer,
+from 0: the records whose value in that column is the text, an empty
+one too); =csv.setDelimiter= takes =delimiter= and =csv.setQuote= takes
+=quote= (strings, required: one ASCII character, and for the delimiter
+also =tab=, =\t=, =space= or a space; the delimiter and the quote must
+differ; anything else is refused with a message). The dialect set by hand lasts until the
 document is closed; it is not written to the file.
 
 ** Moving between fields
@@ -465,27 +479,46 @@ document is closed; it is not written to the file.
   moves. F2 or a double click is /Edit/ mode: Left, Right, Home and End
   move within the cell, Backspace and Delete delete within its value
   (never a delimiter or a quote), and Enter or Tab enters it. Escape, in
-  Enter or Edit mode, puts the cell back as it was. Vim keeps its own
-  keys, and the source view edits the text as text.
+  Enter or Edit mode, puts the cell back as it was. Shift with Left and
+  Right in Edit mode selects within the cell. A paste into a cell being
+  edited goes in at the caret, its line breaks too; a paste in Ready
+  mode leaves the cell selected, as in Excel. Each entry is an undo step
+  of its own. The arrows and Tab skip hidden columns, and Right stops at
+  the first empty column right of the data. The source view edits the
+  text as text.
+- With Vim's keys (=DocumentState::csv_vim=) the grid has no Excel
+  modes and the status bar names none: the cursor shows in the cell,
+  Vim's motions and operators work on the text, insert mode inserts at
+  the cursor, and =j= and =k= (and the arrows) go to the same column of
+  the row shown below or above, a record of several lines being one row
+  and a filter's or a sorted view's rows those shown (=csv::view_vertical=;
+  with an operator they take the text's lines).
 - /Cell Below/ (Enter) and /Cell Above/ (Shift+Enter; Alt+Enter in a
   terminal) go to the same column of the next and previous record, as in
   a spreadsheet; Enter on the last record adds an empty one. In the
-  source view Enter breaks the line as in any text.
-- With cells of several rows or columns selected, /Delete Row/ and
-  /Delete Column/ delete every row or column the selection covers, and
-  typing goes into the cursor's cell, as a spreadsheet types into the
-  active cell; typed over a selection within one cell, the text replaces
-  it.
+  source view Enter breaks the line as in any text. Up, Down and the page
+  keys go by the rows shown too, in both editors, and stay on the first
+  and the last row.
+- A selection from a cell in one row to a cell in another covers the
+  rows the grid shows between them (=csv::rows_between=): with a filter
+  on, the rows it hides between them are not selected, and with a sorted
+  view on, rows shown elsewhere are not either; the commands on a
+  selection (Delete Row, Fill, Delete, Copy, Cut, Paste) change those
+  rows alone. With cells of several rows or columns selected, /Delete
+  Row/ and /Delete Column/ delete every row or column the selection
+  covers, and typing goes into the cell the selection started from, as a
+  spreadsheet types into the active cell; Backspace clears that cell
+  alone and types into it; typed over a selection within one cell, the
+  text replaces it.
 - Backspace and Delete delete within a cell's value: at the start of a
   cell Backspace (at its end Delete) does nothing rather than delete the
   delimiter and merge two cells, the quotes of a quoted field stay, and a
   doubled quote goes as one character. A selection over more than one
   cell clears the cells, keeping the rows and the delimiters.
 - A short record's missing cells and the empty columns right of the data
-  can be selected (by a click, Tab, Enter, Up and Down, or Go to Cell)
-  without a change
-  to the file; typing there adds the empty fields up to the cell, then
-  the value.
+  can be selected (by a click, Tab, Enter, Up and Down, Shift with the
+  arrows, or Go to Cell) without a change to the file; typing there, in
+  any mode, adds the empty fields up to the cell, then the value.
 
 ** Rows
 
@@ -495,8 +528,10 @@ record of /n/ fields, that is /n − 1/ delimiters, where /n/ is the
 larger of the number of columns in the layout and the number of fields
 of the cursor's record. The line ending inserted is CR LF when the text
 after the record starts with CR LF, or when the dialect is CR LF and the
-record ends the text; otherwise LF. The cursor goes to the same column
-of the new row.
+record ends the text; otherwise LF. A record of one empty field (a file
+of one column) at the end of the text gets a line ending after it too,
+as a final line feed alone starts no record. The cursor goes to the
+same column of the new row.
 
 #+begin_example
 id,name,note          id,name,note
@@ -505,16 +540,20 @@ id,name,note          id,name,note
                       ,,
 #+end_example
 
-/Delete Row/ (=csv::delete_row=) removes the cursor's record together
-with its line ending. When the record is the last one and has no line
-ending after it, the line ending before it goes instead. The cursor
-stays on the same row number and column.
+/Delete Row/ (=csv::delete_row_list=) removes the cursor's record, or
+the records a selection covers, each together with its line ending.
+When the record is the last one and has no line ending after it, the
+line ending before it goes instead. The cursor goes to the same column
+of the row shown after them, or of the one before when there is none.
 
 /Move Row Up/ and /Move Row Down/ (=csv::swap_rows=) exchange the bytes
-of two neighbouring records; the line endings between them stay where
-they are, and so does every byte inside each record. When a header was
-detected, the header cannot move and no row can move above it. At the
-first or last record the command fails with "No row to move past".
+of the cursor's record and the one shown above or below it (with a
+filter on, past the rows it hides); the line endings between them stay
+where they are, and so does every byte inside each record. When a
+header was detected, the header cannot move and no row can move above
+it. At the first or last record the command fails with "No row to move
+past"; in a sorted view, which has no order of the file's to move in,
+it is refused.
 
 ** Columns
 
@@ -563,14 +602,23 @@ file by the cursor's column; with =reverse=, in descending order. When
 a header was detected it stays first. Two values compare
 (=csv::compare=), in a total order whatever the column mixes:
 
-1. numbers (read as the column statistics read them, below) before
-   text, and two numbers by value;
-2. two texts after lower-casing both, by Unicode code points (there is
-   no locale collation).
+1. numbers (read as the column statistics read them, below, and amounts
+   with a percent sign after them, in hundredths, a currency symbol
+   before or after them, or in parentheses, negative: =10%=, =$20=,
+   =₺5=, =(5)=) first, two numbers by value;
+2. then dates (=2026-09-29=, =29.09.2026=, =9/29/2026=, or =29/9/2026=
+   when the first part is past 12), by date;
+3. then text, letter by letter without case in the alphabet's order,
+   Turkish's letters where the alphabet has them (=ç= after =c=, =ğ=
+   after =g=, =ı= before =i=, =ö= after =o=, =ş= after =s=, =ü= after
+   =u=); =I= lowercases to =ı= when the interface is in Turkish, to =i=
+   otherwise. There is no other locale collation.
 
-The sort is stable, a missing field compares as an empty value, and
-blank lines go after every other record, in their file order, in both
-directions. The file is rewritten from its first record (a =sep== line
+Each value's key is worked out once a sort. The sort is stable, a
+missing field compares as an empty value, and blank lines go after
+every other record, in their file order, in both directions (a blank
+line ending the file gets a line ending, so that it stays a record).
+The file is rewritten from its first record (a =sep== line
 stays) to the end of its last record as
 the records' own bytes, unchanged, joined with the dialect's line
 ending; the line ending after the last record, if any, stays. So
@@ -591,13 +639,18 @@ an ordinary edit of cell text (=kalem_core::csv_tools=), so the file
 keeps its dialect and every byte the command does not name.
 
 - /Fill Down/ copies the first row of the selection into the same
-  column of the other rows it covers; without a selection, the cell
-  above into the cell at the cursor. /Fill Series/ continues instead:
-  numbers by the step of the two cells above (1 when there is one, or
-  with a selection), keeping the decimals the first value writes
-  (=1.50=, =1.75=; =1,5= in a file =;= delimits); text ending in a
-  number counts on (=Item 9=, =Item 10=; =007=, =008=). A value that
-  cannot continue is refused with a message.
+  column of the other rows it covers (the rows shown, with a filter or
+  a sorted view on); without a selection, the cell shown above into the
+  cell at the cursor (a missing cell above empties it). /Fill Series/
+  continues instead: numbers by the step of the two cells above (1 when
+  there is one, or with a selection), with as many decimals as the
+  values write and their decimal separator (=1.50=, =1.75=; =0.125=,
+  =0.250=, =0.375=; =1,5= in a file =;= delimits; integers past 2^53
+  exact); dates by days (=2026-01-31=, =2026-02-01=; =28.02.2026=,
+  =01.03.2026=; the step of two dates above in days); text ending in a
+  number counts on, up or down (=Item 9=, =Item 10=; =007=, =008=;
+  =Item 2=, =Item 1=, =Item 0=). A value that cannot continue is
+  refused with a message, as is a fill with no cell above.
 - /Remove Duplicate Rows/ deletes every data record equal, field by
   field after unquoting, to an earlier one, with its line ending; the
   header and blank lines stay, and the message counts the rows removed.
@@ -618,14 +671,16 @@ keeps its dialect and every byte the command does not name.
 - /Replace in Column/ (=find=, =replace=) replaces the text in every
   field of the cursor's column but the header, and says how many fields
   changed.
-- /Kill Field/ empties the cursor's field and copies its value; /Yank
-  Field/ writes the last copied text into it.
+- /Kill Field/ empties the cursor's field and copies its value (a cell
+  past the record's end stays as it is); /Yank Field/ writes the last
+  copied text into it, and with nothing copied is refused.
 - /Paste as Block/ writes the clipboard over the cells from the cursor's
   down and to the right, as a spreadsheet pastes a range: lines of
   tab-separated values (what spreadsheets copy), or of the dialect's
   delimiter when no line has a tab; records past the last are added,
   short records get the fields they lack, and only the cells the block
-  covers change (=csv_tools::paste_block=). In the grid an ordinary
+  covers change (=csv_tools::paste_block=); with a filter or a sorted
+  view on, the block goes down the rows shown. In the grid an ordinary
   paste does the same with text of several lines or with tabs, from the
   cursor's cell (a selection's top left one); a single value goes into
   the cell, quoted when it needs it (=DocumentState::paste_in_grid=).
@@ -639,23 +694,33 @@ keeps its dialect and every byte the command does not name.
 - A selection from a cell in one row to a cell in another is a
   rectangle of cells, as in a spreadsheet: both editors paint the cells
   between the two corners, not the text between them. Copy (and /Copy
-  Cells/) copies them as tab-separated values, a line a row, what a
-  spreadsheet pastes as a range and what /Paste as Block/ writes back;
+  Cells/) copies them as tab-separated values, a line a row, a value
+  with a tab or a line break, or starting with a quote, in quotes, what
+  a spreadsheet pastes as a range and what /Paste as Block/ writes back
+  (a single quoted cell pasted alone is unquoted);
   Cut (and /Cut Cells/) copies them and empties them, the rows and
   columns staying; so does a selection over cells of one row. Without a
   selection Copy and Cut take the cursor's cell, as in a spreadsheet. A
   selection within one cell stays text. In the source view a selection
   is always text.
 - /Sort File by Columns/ (=columns=) sorts by several columns in order,
-  named by letter or number with =-= for descending (=B, -A= or =2 -1=);
-  values compare as /Sort File by Column/ compares them.
+  named by the header's name (without case), by letter or by number,
+  with =-= for descending (=B, -A=, =2 -1= or =city -age=); a name of no
+  column is refused. Values compare as /Sort File by Column/ compares
+  them.
 - /Sum Column/ shows the sum of the column's numbers (read as the
-  statistics read them; the header left out) and copies it, as =C-c +=
-  does in an Org table; with =insert=, it writes the sum of the other
-  rows into the cell at the cursor.
+  statistics read them; the header left out; with a filter on, the rows
+  shown) and copies it, as =C-c += does in an Org table, with a decimal
+  comma in a file =;= delimits; with =insert=, it writes the sum of the
+  other rows into the cell at the cursor (not on the header row).
 - /Cell Coordinates/ names the cell as a spreadsheet and as an Org
   table do, =B3 (@3$2)=, with the column's header; /Go to Cell/
-  (=cell=) takes either form, or =3,2=.
+  (=cell=) takes either form, or =3,2=, and refuses a cell past the last
+  row or column.
+
+A command that leaves the text as it was (a sorted file sorted again, a
+field set to its value) leaves the document unmodified and makes no
+undo step.
 
 * Views that do not change the file
 
@@ -664,10 +729,13 @@ untouched and saving writes all of it. The text asked for is trimmed;
 an empty text shows all rows again, as /Show All Rows/ does. A record is
 shown (=csv::filter_rows=) when it is the header, when it holds the
 cursor, or when any of its fields' values contains the text, compared
-case-insensitively (both lower-cased); a blank line never matches. The
-status bar says "Filtered: /m/ of /n/ rows (“/text/”)", where /n/
-counts every record but the header and blank lines, and /m/ those that
-match.
+case-insensitively (both lower-cased); a blank line never matches.
+With =column=, a record is shown when its value in that column is the
+text (an empty one too), as the Frequency Table filters. The status bar
+says "Filtered: /m/ of /n/ rows (“/text/”)" (“B = /text/” for a
+column's value), where /n/ counts every record but the header and blank
+lines, and /m/ those that match; the column's numbers after it count the
+rows shown. Setting the dialect by hand reads the filter again.
 
 /Sort View by Column/ (=csv.sortView=) shows the records in the order of
 the cursor's column, compared as Sort File compares, with the header
@@ -703,11 +771,12 @@ saved either (=csv::View=); the settings =csv.align_numbers=,
 Two views list the data in the palette:
 
 - /Record View/ shows the cursor's record as a form, one line a field
-  (=name: value=, the header's names, or =Column n=); choosing a line
-  edits that field.
+  (=name: value=, the header's names, or =Column n=; a line break shows
+  as =⏎=); choosing a line edits that field.
 - /Frequency Table/ lists the values of the cursor's column with how
   many records hold each, the most frequent first, with a bar of their
-  share; choosing one filters the rows to it.
+  share; choosing one filters the rows to those with that value in the
+  column (an empty one too), as many as the table counts.
 - /Histogram of Column/ puts the numbers of the cursor's column in
   ranges of a round width (1, 2 or 5 times a power of ten, about as many
   ranges as Sturges' rule gives, at most twenty), each with how many
@@ -718,7 +787,9 @@ Two views list the data in the palette:
 
 The columns the grid shows, and their widths, are view state too
 (=csv::Columns=): never written to the file, kept while the document is
-open.
+open. Insert, Delete and Move Column carry them, and a sorted view's
+column, along with their columns (=csv::remap_columns=); Transpose
+starts them again.
 
 - /Hide Column/ takes the cursor's column out of sight, with its
   delimiters; the cursor goes to the next column that shows. The last
@@ -726,7 +797,7 @@ open.
 - /Autosize Column/ makes the cursor's column as wide as its widest
   value (of the first ten thousand records), however long;
   /Autosize All Columns/ does it for every column. /Widen Column/ and
-  /Narrow Column/ change the width by two characters, and /Column Width/
+  /Narrow Column/ change the width drawn by two characters, and /Column Width/
   (=width=, 2 to 500) sets it. A value longer than a width set so shows
   cut, its last character =…=, but whole in the cell at the cursor.
   /Reset Column Widths/ goes back to the widths the grid chooses (the
@@ -818,9 +889,12 @@ left out. The same reader decides the header row (a first record with
 a number in it is data) and how Sort File compares, so the three always
 agree. The status bar shows "Count: /n/   Sum: …
 Average: …   Min: …   Max: …", each number written as an integer when it
-is whole and otherwise with up to six decimals; nothing is shown when
-the column has no numbers. With a filter on, the filter's count comes
-first.
+is whole and otherwise with up to six decimals (from 10^15 on, in powers
+of ten); nothing is shown when the column has no numbers. With a filter
+on, the filter's count comes first, and the numbers are those of the
+rows shown. Sorting also reads amounts with a percent sign, a currency
+symbol or in parentheses, and dates (/Sort File by Column/); the
+statistics do not.
 
 * Saving
 
@@ -841,7 +915,8 @@ Saving is atomic, as for every file.
 - Only four delimiters are detected: =,= =;= tab and vertical bar;
   others can be set by hand or with a =sep== line.
 - Column widths are measured on the source text, quotes included, from
-  the first 1,000 records only.
+  the first 1,000 records only; a value of several lines by its widest
+  line.
 - The dialect's CR LF flag (any CR LF in the sample) and the document's
   line ending (every LF after a CR) can disagree on a file with mixed
   line endings: rows added and Sort File use CR LF while saving adds no
@@ -851,3 +926,9 @@ Saving is atomic, as for every file.
 - Lenient reading: text after a closing quote, unterminated quotes and
   bare quotes are accepted, and reported (see [[*Malformed fields][Malformed fields]]) rather
   than refused.
+- An Emacs =Local Variables:= block at the end of a file is read as
+  records, which sorting moves; only a mode line first is set apart.
+- A sorted view sorts again after each edit, so an edited or inserted
+  row can move away from the cursor's place on screen.
+- Escape cancels an entry with an edit of its own: Undo after it brings
+  the entry back.
