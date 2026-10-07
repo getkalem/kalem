@@ -6,16 +6,16 @@
 //! key comes here first; keys with Control or Alt that Vim does not use go
 //! on to the keymap (so Ctrl+S still saves and Ctrl+C copies).
 //!
-//! Covered: normal, insert, visual (characters and lines) and replace
-//! modes; counts; the motions `h j k l w b e W B E 0 ^ $ gg G f t F T ; ,
-//! % { } + - _ Enter H M L n N` and Ctrl+D/U/F/B; the operators `d c y > <
-//! gu gU g~` with motions, doubled for lines, and the text objects `iw aw
-//! iW aW`, quotes, brackets and `ip ap`; `x X D C Y s S p P J r ~ u Ctrl+R
-//! . i a I A o O R v V`; registers `"a`-`"z` (`"A` appends) and the system
-//! clipboard `"+`; search with `/ ? n N * #` (regular expressions as in the
-//! find bar); and the command line `:w :q :q! :wq :x :N :$ :noh`. In Org
-//! documents `>>` and `<<` demote and promote headlines and indent list
-//! items. Block selection, macros, marks and `:s` come later (§7.3.1).
+//! Covered: normal, insert, visual (characters, lines and blocks) and
+//! replace modes; counts; Vim's motions, operators (with `v`, `V` and
+//! CTRL-V to force a motion's kind), text objects (sentences and
+//! paragraphs ported from Vim in `objects`), registers, macros, marks
+//! with the jump and change lists, undo with `U`, `g-` and `g+`, search
+//! with offsets, `.`; and the command line with ranges, `:s`, `:g`,
+//! `:normal`, `:sort`, `:retab` and the file and window commands (`ex`).
+//! In Org documents `>>` and `<<` demote and promote headlines and indent
+//! list items. `tests/vim/cases.json` holds key sequences whose text and
+//! cursor must come out as in Vim itself (`tools/vim-expected.py`).
 
 mod ex;
 mod insert;

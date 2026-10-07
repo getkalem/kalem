@@ -2229,15 +2229,50 @@
   "line": 5,
   "text": "The quick br0wn f0x jumps 0ver the lazy d0g.\n  indented line with (parens [and brackets]) here\nf00_bar baz-qux 42 0x1f -7\n\nlast paragraph, w0rd. An0ther sentence!\n  end\n"
  },
+ "sweep_blank_2CX_Esc": {
+  "col": 1,
+  "line": 1,
+  "text": "X\n  a  \n\t\tb\n\n  \n c\n"
+ },
+ "sweep_blank_2D": {
+  "col": 3,
+  "line": 1,
+  "text": "  a  \n\t\tb\n\n  \n c\n"
+ },
  "sweep_blank_2_3norm_dw_CR": {
   "col": 1,
   "line": 3,
   "text": "\n  a  \nb\n\n  \n c\n"
  },
+ "sweep_blank_2d": {
+  "col": 3,
+  "line": 1,
+  "text": "  a  \n\t\tb\n\n  \n c\n"
+ },
  "sweep_blank_4jwdis": {
   "col": 1,
   "line": 7,
   "text": "\n\n  a  \n\t\tb\n\n  \n \n"
+ },
+ "sweep_blank_C_v_3jed": {
+  "col": 1,
+  "line": 1,
+  "text": "\n\n\n\n\n  \n c\n"
+ },
+ "sweep_blank_C_v_3jwd": {
+  "col": 1,
+  "line": 1,
+  "text": "\n\n\n\n\n  \n c\n"
+ },
+ "sweep_blank_C_v_Gd": {
+  "col": 1,
+  "line": 1,
+  "text": "\n\na  \n      \tb\n\n\n\n"
+ },
+ "sweep_blank_jdge": {
+  "col": 3,
+  "line": 1,
+  "text": "  a  \n\t\tb\n\n  \n c\n"
  },
  "sweep_ch_3dd": {
   "col": 1,
@@ -2258,6 +2293,16 @@
   "col": 9,
   "line": 1,
   "text": "fn main{x\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_C_v_jjlg_C_a": {
+  "col": 1,
+  "line": 1,
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
+ },
+ "sweep_code_VGg_C_a": {
+  "col": 1,
+  "line": 1,
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 2 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n"
  },
  "sweep_code_ci_X_Esc": {
   "col": 9,
@@ -2404,6 +2449,46 @@
   "line": 2,
   "text": "def f():\n    return y\n"
  },
+ "sweep_long_C_v_j_C_a": {
+  "col": 1,
+  "line": 1,
+  "text": "w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 w16 w17 w18 w19 w20 w21 w22 w23 w24 w25 w26 w27 w28 w29 w30 w31 w32 w33 w34 w35 w36 w37 w38 w39\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39\n"
+ },
+ "sweep_long_Vj_C_a": {
+  "col": 1,
+  "line": 1,
+  "text": "w1 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 w16 w17 w18 w19 w20 w21 w22 w23 w24 w25 w26 w27 w28 w29 w30 w31 w32 w33 w34 w35 w36 w37 w38 w39\nline 3\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39\n"
+ },
+ "sweep_long_Vjg_C_a": {
+  "col": 1,
+  "line": 1,
+  "text": "w1 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 w16 w17 w18 w19 w20 w21 w22 w23 w24 w25 w26 w27 w28 w29 w30 w31 w32 w33 w34 w35 w36 w37 w38 w39\nline 4\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39\n"
+ },
+ "sweep_long_vj_C_x": {
+  "col": 1,
+  "line": 1,
+  "text": "w-1 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 w16 w17 w18 w19 w20 w21 w22 w23 w24 w25 w26 w27 w28 w29 w30 w31 w32 w33 w34 w35 w36 w37 w38 w39\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39\n"
+ },
+ "sweep_nums_C_v_j_C_a": {
+  "col": 1,
+  "line": 1,
+  "text": "2 2 3\n-5 0x0f 007 abc9\nfoo-1 x10y 0b101 -0x10\n9 99 999\n"
+ },
+ "sweep_nums_d": {
+  "col": 1,
+  "line": 1,
+  "text": "1 x10y 0b101 -0x10\n9 99 999\n"
+ },
+ "sweep_nums_d_2": {
+  "col": 1,
+  "line": 1,
+  "text": "1 x10y 0b101 -0x10\n9 99 999\n"
+ },
+ "sweep_nums_vj_C_x": {
+  "col": 1,
+  "line": 1,
+  "text": "0 2 3\n-5 0x0f 007 abc9\nfoo-1 x10y 0b101 -0x10\n9 99 999\n"
+ },
  "sweep_one_2_3g_d_CR": {
   "col": 1,
   "line": 1,
@@ -2484,6 +2569,11 @@
   "line": 1,
   "text": "ingle line here\n"
  },
+ "sweep_paras_le_4_CR": {
+  "col": 5,
+  "line": 1,
+  "text": "    First para line one.\n    line two of it.\n    \n    \n    Second para. It has two sentences.\n    And more.\n    \n    Third.\n"
+ },
  "sweep_paras_norm_dw_CR": {
   "col": 1,
   "line": 6,
@@ -2529,10 +2619,20 @@
   "line": 1,
   "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
  },
+ "sweep_prose_C_v_jjlg_C_a": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
+ },
  "sweep_prose_Gdis": {
   "col": 2,
   "line": 6,
   "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  \n"
+ },
+ "sweep_prose_VGg_C_a": {
+  "col": 1,
+  "line": 1,
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 43 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
  },
  "sweep_prose_Vjd_sync_u": {
   "col": 1,
@@ -2719,6 +2819,11 @@
   "line": 3,
   "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n"
  },
+ "sweep_prose_le_4_CR": {
+  "col": 5,
+  "line": 1,
+  "text": "    The quick brown fox jumps over the lazy dog.\n    indented line with (parens [and brackets]) here\n    foo_bar baz-qux 42 0x1f -7\n    \n    last paragraph, word. Another sentence!  Two spaces.\n    end\n"
+ },
  "sweep_prose_mx": {
   "col": 1,
   "line": 1,
@@ -2884,6 +2989,11 @@
   "line": 1,
   "text": "a `tick` b\n"
  },
+ "sweep_quotes_3G5G_x": {
+  "col": 1,
+  "line": 1,
+  "text": "ay \"hello \\\"world\\\"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n"
+ },
  "sweep_quotes_da": {
   "col": 5,
   "line": 1,
@@ -2954,6 +3064,76 @@
   "line": 1,
   "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
  },
+ "sweep_tabs_C_v_2jIX_Esc": {
+  "col": 2,
+  "line": 1,
+  "text": "\tXone\ttwo\n\tX\tdeep\tx\nno tab hXere\n    four spaces\n"
+ },
+ "sweep_tabs_C_v_2j_d": {
+  "col": 1,
+  "line": 1,
+  "text": "\t\n\t\nno tab h\n    four spaces\n"
+ },
+ "sweep_tabs_C_v_2jl": {
+  "col": 2,
+  "line": 1,
+  "text": "\tONe\ttwo\n\t\tdeep\tx\nno tab hERe\n    four spaces\n"
+ },
+ "sweep_tabs_C_v_2jlC_Esc": {
+  "col": 1,
+  "line": 1,
+  "text": "\t\n\t\nno tab h\n    four spaces\n"
+ },
+ "sweep_tabs_C_v_2jlD": {
+  "col": 1,
+  "line": 1,
+  "text": "\t\n\t\nno tab h\n    four spaces\n"
+ },
+ "sweep_tabs_C_v_2jlOd": {
+  "col": 2,
+  "line": 1,
+  "text": "\te\ttwo\n\t      deep\tx\nno tab he\n    four spaces\n"
+ },
+ "sweep_tabs_C_v_2jlcX_Esc": {
+  "col": 2,
+  "line": 1,
+  "text": "\tXe\ttwo\n\tX      deep\tx\nno tab hXe\n    four spaces\n"
+ },
+ "sweep_tabs_C_v_2jlsX_Esc": {
+  "col": 2,
+  "line": 1,
+  "text": "\tXe\ttwo\n\tX      deep\tx\nno tab hXe\n    four spaces\n"
+ },
+ "sweep_tabs_C_v_2jlx": {
+  "col": 2,
+  "line": 1,
+  "text": "\te\ttwo\n\t      deep\tx\nno tab he\n    four spaces\n"
+ },
+ "sweep_tabs_C_v_3jed": {
+  "col": 2,
+  "line": 1,
+  "text": "\t two\n\t deep\tx\nno tab h\n    four\n"
+ },
+ "sweep_tabs_C_v_3jwd": {
+  "col": 2,
+  "line": 1,
+  "text": "\te\ttwo\n\t      deep\tx\nno tab he\n    fourpaces\n"
+ },
+ "sweep_tabs_C_v_Gd": {
+  "col": 5,
+  "line": 1,
+  "text": "    ne\ttwo\n           deep\tx\nno tre\n    spaces\n"
+ },
+ "sweep_tabs_C_v_jIX_Esc_j": {
+  "col": 2,
+  "line": 2,
+  "text": "\tXone\ttwo\n\tXX\tdeep\tx\nno tab hXere\n    four spaces\n"
+ },
+ "sweep_tabs_C_v_jd": {
+  "col": 2,
+  "line": 1,
+  "text": "\ttwo\n\tdeep\tx\nno tab here\n    four spaces\n"
+ },
  "sweep_tabs_C_v_jd_sync_u": {
   "col": 2,
   "line": 1,
@@ -2963,6 +3143,16 @@
   "col": 2,
   "line": 1,
   "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_C_v_jlld": {
+  "col": 2,
+  "line": 1,
+  "text": "\to\n\tep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_C_v_jlld_sync_u_sync_C_r": {
+  "col": 2,
+  "line": 1,
+  "text": "\to\n\tep\tx\nno tab here\n    four spaces\n"
  },
  "sweep_tabs_R_C_w_x_Esc": {
   "col": 1,
@@ -3088,6 +3278,11 @@
   "col": 8,
   "line": 1,
   "text": "\ttwoone\t\n\t\tdeep\tx\nno tab here\n    four spaces\n"
+ },
+ "sweep_tabs_e_CR_x": {
+  "col": 2,
+  "line": 1,
+  "text": "\tne\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
  },
  "sweep_tabs_e_e_CR_x": {
   "col": 14,
@@ -3334,6 +3529,11 @@
   "line": 1,
   "text": "\nno tab here\n    four spaces\n"
  },
+ "sweep_tabs_vj_C_v_d": {
+  "col": 2,
+  "line": 1,
+  "text": "\ttwo\n\tdeep\tx\nno tab here\n    four spaces\n"
+ },
  "sweep_tabs_vjd_sync_u": {
   "col": 2,
   "line": 1,
@@ -3429,6 +3629,16 @@
   "line": 2,
   "text": "\tone\ttwo\n                ne\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n"
  },
+ "sweep_tags_d": {
+  "col": 1,
+  "line": 1,
+  "text": "div>\n"
+ },
+ "sweep_tags_d_2": {
+  "col": 1,
+  "line": 1,
+  "text": "div>\n"
+ },
  "sweep_tr_2_4g_d_CR": {
   "col": 1,
   "line": 1,
@@ -3443,6 +3653,11 @@
   "col": 1,
   "line": 1,
   "text": "straße naïve café — end\n"
+ },
+ "sweep_tr_3G5G_x": {
+  "col": 1,
+  "line": 1,
+  "text": "alışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n"
  },
  "sweep_tr_4j_das": {
   "col": 1,
@@ -3588,6 +3803,11 @@
   "col": 1,
   "line": 1,
   "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n"
+ },
+ "sweep_tr_sort_i_CR": {
+  "col": 1,
+  "line": 1,
+  "text": "straße naïve café — end\nÇalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\n"
  },
  "sweep_tr_vlld1vd": {
   "col": 1,

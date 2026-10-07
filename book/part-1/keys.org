@@ -26,11 +26,14 @@ motions, operators, text objects and counts, registers and macros,
 marks with the jump and change lists, search with Vim's patterns, and
 the command line with ranges, =:s=, =:g=, =:sort=, =:set= and the file
 and window commands (=:w=, =:e=, =:sp=, =:bn=, =:Ex= for the file
-manager, =:Projects=). Some five hundred key sequences in
+manager, =:Projects=). Some eight hundred key sequences in
 =tests/vim/cases.json= are run in Vim itself and in Kalem, and the text
-and cursor after them must agree. Not there: Vim script, plugins,
-=:help=, Vim's fold commands (Tab folds Org headings), the =:!= filter
-and =gq=.
+and cursor after them must agree; they come from fifteen thousand that
+were tried against Vim, over tabs, Turkish letters and blank lines.
+Not there: Vim script and expressions (=:let=, =:exe=, =\==, CTRL-R
+=), plugins, =:help=, Vim's fold commands (Tab folds Org headings), the
+=:!= filter, =gq=, =:a=, =:i= and =:c=, and the motions over screen
+lines (=gj=, =gk=, =g$=).
 
 =:q= closes the pane when the window is split, else the document, as a
 tab closes: Kalem stays open, an empty document taking the last one's

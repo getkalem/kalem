@@ -3938,5 +3938,225 @@
   "name": "sweep_tr_jjf",
   "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
   "keys": "jjfß~"
+ },
+ {
+  "name": "sweep_prose_VGg_C_a",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "VGg<C-a>"
+ },
+ {
+  "name": "sweep_code_VGg_C_a",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "VGg<C-a>"
+ },
+ {
+  "name": "sweep_tabs_C_v_3jwd",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>3jwd"
+ },
+ {
+  "name": "sweep_blank_C_v_3jwd",
+  "text": "\n\n  a  \n\t\tb\n\n  \n c\n",
+  "keys": "<C-v>3jwd"
+ },
+ {
+  "name": "sweep_tr_3G5G_x",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": "3G5G``x"
+ },
+ {
+  "name": "sweep_quotes_3G5G_x",
+  "text": "say \"hello \\\"world\\\"\" and 'it''s' ok\n\"first\" mid \"second\"\na `tick` b\n",
+  "keys": "3G5G``x"
+ },
+ {
+  "name": "sweep_prose_C_v_jjlg_C_a",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": "<C-v>jjlg<C-a>"
+ },
+ {
+  "name": "sweep_code_C_v_jjlg_C_a",
+  "text": "fn main() {\n    let x = foo(a, [b, c], \"str (x)\");\n    if x > 1 { return 'y'; }\n    // comment here\n    call(  spaced  );\n}\n",
+  "keys": "<C-v>jjlg<C-a>"
+ },
+ {
+  "name": "sweep_nums_d",
+  "text": "1 2 3\n-5 0x0f 007 abc9\nfoo-1 x10y 0b101 -0x10\n9 99 999\n",
+  "keys": "d*"
+ },
+ {
+  "name": "sweep_tags_d",
+  "text": "<div class=\"a\">\n  <p>one <b>two</b> three</p>\n  <br/>\n</div>\n",
+  "keys": "d*"
+ },
+ {
+  "name": "sweep_nums_d_2",
+  "text": "1 2 3\n-5 0x0f 007 abc9\nfoo-1 x10y 0b101 -0x10\n9 99 999\n",
+  "keys": "d#"
+ },
+ {
+  "name": "sweep_tags_d_2",
+  "text": "<div class=\"a\">\n  <p>one <b>two</b> three</p>\n  <br/>\n</div>\n",
+  "keys": "d#"
+ },
+ {
+  "name": "sweep_tabs_C_v_2jlx",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>2jlx"
+ },
+ {
+  "name": "sweep_blank_2D",
+  "text": "\n\n  a  \n\t\tb\n\n  \n c\n",
+  "keys": "2D"
+ },
+ {
+  "name": "sweep_tabs_C_v_2jlC_Esc",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>2jlC<Esc>"
+ },
+ {
+  "name": "sweep_long_Vjg_C_a",
+  "text": "w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 w16 w17 w18 w19 w20 w21 w22 w23 w24 w25 w26 w27 w28 w29 w30 w31 w32 w33 w34 w35 w36 w37 w38 w39\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39\n",
+  "keys": "Vjg<C-a>"
+ },
+ {
+  "name": "sweep_tabs_C_v_2jlcX_Esc",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>2jlcX<Esc>"
+ },
+ {
+  "name": "sweep_tabs_C_v_2j_d",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>2j$d"
+ },
+ {
+  "name": "sweep_nums_vj_C_x",
+  "text": "1 2 3\n-5 0x0f 007 abc9\nfoo-1 x10y 0b101 -0x10\n9 99 999\n",
+  "keys": "vj<C-x>"
+ },
+ {
+  "name": "sweep_long_vj_C_x",
+  "text": "w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 w16 w17 w18 w19 w20 w21 w22 w23 w24 w25 w26 w27 w28 w29 w30 w31 w32 w33 w34 w35 w36 w37 w38 w39\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39\n",
+  "keys": "vj<C-x>"
+ },
+ {
+  "name": "sweep_tabs_C_v_jlld",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>jlld"
+ },
+ {
+  "name": "sweep_blank_jdge",
+  "text": "\n\n  a  \n\t\tb\n\n  \n c\n",
+  "keys": "jdge"
+ },
+ {
+  "name": "sweep_blank_2CX_Esc",
+  "text": "\n\n  a  \n\t\tb\n\n  \n c\n",
+  "keys": "2CX<Esc>"
+ },
+ {
+  "name": "sweep_tr_sort_i_CR",
+  "text": "Çalışkan öğrenci şu kitabı okudu.\nİğne ılık ğüşöç ÇĞİÖŞÜ.\nstraße naïve café — end\n",
+  "keys": ":%sort i<CR>"
+ },
+ {
+  "name": "sweep_tabs_C_v_Gd",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>Gd"
+ },
+ {
+  "name": "sweep_blank_C_v_Gd",
+  "text": "\n\n  a  \n\t\tb\n\n  \n c\n",
+  "keys": "<C-v>Gd"
+ },
+ {
+  "name": "sweep_tabs_C_v_3jed",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>3jed"
+ },
+ {
+  "name": "sweep_blank_C_v_3jed",
+  "text": "\n\n  a  \n\t\tb\n\n  \n c\n",
+  "keys": "<C-v>3jed"
+ },
+ {
+  "name": "sweep_tabs_vj_C_v_d",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "vj<C-v>d"
+ },
+ {
+  "name": "sweep_tabs_e_CR_x",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "/e<CR>``x"
+ },
+ {
+  "name": "sweep_tabs_C_v_2jlD",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>2jlD"
+ },
+ {
+  "name": "sweep_nums_C_v_j_C_a",
+  "text": "1 2 3\n-5 0x0f 007 abc9\nfoo-1 x10y 0b101 -0x10\n9 99 999\n",
+  "keys": "<C-v>j<C-a>"
+ },
+ {
+  "name": "sweep_long_C_v_j_C_a",
+  "text": "w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 w16 w17 w18 w19 w20 w21 w22 w23 w24 w25 w26 w27 w28 w29 w30 w31 w32 w33 w34 w35 w36 w37 w38 w39\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39\n",
+  "keys": "<C-v>j<C-a>"
+ },
+ {
+  "name": "sweep_tabs_C_v_2jlOd",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>2jlOd"
+ },
+ {
+  "name": "sweep_long_Vj_C_a",
+  "text": "w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 w16 w17 w18 w19 w20 w21 w22 w23 w24 w25 w26 w27 w28 w29 w30 w31 w32 w33 w34 w35 w36 w37 w38 w39\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39\n",
+  "keys": "Vj<C-a>"
+ },
+ {
+  "name": "sweep_prose_le_4_CR",
+  "text": "The quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!  Two spaces.\n  end\n",
+  "keys": ":%le 4<CR>"
+ },
+ {
+  "name": "sweep_paras_le_4_CR",
+  "text": "First para line one.\nline two of it.\n\n\nSecond para. It has two sentences.\nAnd more.\n\nThird.\n",
+  "keys": ":%le 4<CR>"
+ },
+ {
+  "name": "sweep_tabs_C_v_2jIX_Esc",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>2jIX<Esc>"
+ },
+ {
+  "name": "sweep_tabs_C_v_2jlsX_Esc",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>2jlsX<Esc>"
+ },
+ {
+  "name": "sweep_tabs_C_v_2jl",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>2jl~"
+ },
+ {
+  "name": "sweep_tabs_C_v_jIX_Esc_j",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>jIX<Esc>j."
+ },
+ {
+  "name": "sweep_blank_2d",
+  "text": "\n\n  a  \n\t\tb\n\n  \n c\n",
+  "keys": "2d$"
+ },
+ {
+  "name": "sweep_tabs_C_v_jd",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>jd"
+ },
+ {
+  "name": "sweep_tabs_C_v_jlld_sync_u_sync_C_r",
+  "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
+  "keys": "<C-v>jlld<sync>u<sync><C-r>"
  }
 ]
