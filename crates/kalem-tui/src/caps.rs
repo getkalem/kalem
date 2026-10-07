@@ -32,6 +32,8 @@ pub struct Caps {
     pub ascii: bool,
     /// Whether the terminal answered the queries.
     pub answered: bool,
+    /// How long the queries took to answer (or to give up on).
+    pub query_time: std::time::Duration,
     /// The background color, from OSC 11.
     pub background: Option<(u8, u8, u8)>,
     /// The theme's colors, used on true-color terminals instead of the
@@ -43,9 +45,14 @@ fn env(k: &str) -> Option<String> {
     std::env::var(k).ok().filter(|v| !v.is_empty())
 }
 
-/// Reads stdin until `done` holds or the time is up. Raw mode must be on.
+/// Reads stdin until `done` holds or the time is up, or until the terminal,
+/// once it has begun to answer, is silent for `idle`: it answers its
+/// questions in one burst, and one that leaves the last unanswered (or
+/// answered as `done` does not read it) kept the editor waiting for the
+/// whole timeout at every start (half a second in iTerm2). Raw mode must
+/// be on.
 #[cfg(unix)]
-fn read_until(timeout: Duration, done: impl Fn(&[u8]) -> bool) -> Vec<u8> {
+fn read_until(timeout: Duration, idle: Duration, done: impl Fn(&[u8]) -> bool) -> Vec<u8> {
     use rustix::event::{PollFd, PollFlags, Timespec, poll};
     use std::os::fd::AsFd;
     let stdin = std::io::stdin();
@@ -57,9 +64,10 @@ fn read_until(timeout: Duration, done: impl Fn(&[u8]) -> bool) -> Vec<u8> {
         if left.is_zero() {
             break;
         }
+        let wait = if out.is_empty() { left } else { left.min(idle) };
         let ts = Timespec {
-            tv_sec: left.as_secs() as _,
-            tv_nsec: left.subsec_nanos() as _,
+            tv_sec: wait.as_secs() as _,
+            tv_nsec: wait.subsec_nanos() as _,
         };
         let mut fds = [PollFd::new(&fd, PollFlags::IN)];
         match poll(&mut fds, Some(&ts)) {
@@ -192,7 +200,11 @@ pub fn query(timeout: Duration) -> Caps {
         // background color, then DA1.
         let _ = out.write_all(b"\x1b[>0q\x1b[?2026$p\x1b[?u\x1b[16t\x1b]11;?\x1b\\\x1b[c");
         let _ = out.flush();
-        let bytes = read_until(timeout, |b| da1(&String::from_utf8_lossy(b)).is_some());
+        let start = std::time::Instant::now();
+        let bytes = read_until(timeout, Duration::from_millis(100), |b| {
+            da1(&String::from_utf8_lossy(b)).is_some()
+        });
+        c.query_time = start.elapsed();
         parse_reply(&String::from_utf8_lossy(&bytes), &mut c);
     }
     #[cfg(not(unix))]
@@ -262,7 +274,11 @@ impl Caps {
                 "terminal            {}",
                 self.terminal.as_deref().unwrap_or("unknown")
             ),
-            format!("answered queries    {}", yes(self.answered)),
+            format!(
+                "answered queries    {} ({} ms)",
+                yes(self.answered),
+                self.query_time.as_millis()
+            ),
             format!("true color          {}", yes(self.true_color)),
             format!("italic              {}", yes(self.italic)),
             format!("strike-through      {}", yes(self.strikethrough)),

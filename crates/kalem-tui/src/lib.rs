@@ -46,7 +46,13 @@ pub fn run(path: Option<&Path>) -> io::Result<()> {
     terminal::raw_mode()?;
     let mut caps = caps::query(Duration::from_millis(500));
     caps.colors = theme_colors(&config, &caps);
-    tracing::info!(terminal = ?caps.terminal, kitty_keyboard = caps.kitty_keyboard, "terminal");
+    tracing::info!(
+        terminal = ?caps.terminal,
+        kitty_keyboard = caps.kitty_keyboard,
+        da1 = ?caps.da1,
+        query_ms = caps.query_time.as_millis() as u64,
+        "terminal"
+    );
     let mut app = match app::App::new(path, config, caps) {
         Ok(a) => a,
         Err(e) => {
