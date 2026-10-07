@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-07
+
 ### Added
 - The plugin API is 0.2.4: an extension plugin may run the programs its manifest names (`subprocess:git`) through the `process` interface, without a shell or a terminal, in a project's folder, the run answered later as a fetch is; the user's setting `programs.NAME` of the plugin says where a program is when it is not on the PATH, and the installer names the programs ("Runs programs on this computer: git"). For the git plugin of getkalem/plugins.
 
