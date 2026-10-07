@@ -14,15 +14,14 @@ pub fn command(name: &str) -> &'static str {
         | "mathit" | "mathcal" | "mathbb" | "mathsf" | "mathtt" | "mathfrak" | "mathscr"
         | "boldsymbol" | "overline" | "hat" | "bar" | "tilde" | "vec" | "dot" | "ddot"
         | "check" | "breve" | "acute" | "grave" | "widehat" | "widetilde" | "overbrace"
-        | "underbrace" | "overrightarrow" | "overleftarrow" | "label" | "ref" | "eqref"
-        | "pageref" | "autoref" | "cref" | "Cref" | "subref" | "thref" | "nameref" | "input"
-        | "include" | "includeonly" | "bibliography" | "bibliographystyle" | "date" | "thanks"
-        | "phantom" | "hphantom" | "vphantom" | "intertext" | "sout" | "uline" | "appendixname"
-        | "keywords" | "email" | "affiliation" | "address" | "subtitle" | "vref" | "Vref"
-        | "cpageref" | "refstepcounter" | "stepcounter" | "subfile" | "graphicspath"
-        | "IEEEauthorblockN" | "IEEEauthorblockA" | "IEEEmembership" | "institution"
-        | "department" | "city" | "state" | "country" | "streetaddress" | "postcode" | "orcid"
-        | "institute" | "inst" | "pacs" => "m",
+        | "underbrace" | "overrightarrow" | "overleftarrow" | "label" | "eqref" | "thref"
+        | "input" | "include" | "includeonly" | "bibliography" | "bibliographystyle" | "date"
+        | "thanks" | "phantom" | "hphantom" | "vphantom" | "intertext" | "sout" | "uline"
+        | "appendixname" | "keywords" | "email" | "affiliation" | "address" | "subtitle"
+        | "refstepcounter" | "stepcounter" | "subfile" | "graphicspath" | "IEEEauthorblockN"
+        | "IEEEauthorblockA" | "IEEEmembership" | "institution" | "department" | "city"
+        | "state" | "country" | "streetaddress" | "postcode" | "orcid" | "institute" | "inst"
+        | "pacs" => "m",
         "subjclass" | "altaffiliation" => "om",
         "correspondingauthor"
         | "software"
@@ -48,8 +47,14 @@ pub fn command(name: &str) -> &'static str {
         | "overset" | "underset" | "setlength" | "setcounter" | "addtocounter"
         | "texorpdfstring" | "import" | "subimport" => "mm",
         "tag" => "*m",
+        // hyperref's starred references (no link), cleveref's and
+        // subcaption's.
+        "ref" | "pageref" | "autoref" | "nameref" | "cref" | "Cref" | "cpageref" | "Cpageref"
+        | "subref" | "vref" | "Vref" => "*m",
         "numberwithin" => "omm",
         "counterwithin" | "counterwithout" => "*mm",
+        // LaTeX's own, after `\makeatletter`.
+        "@addtoreset" | "@removefromreset" => "mm",
         "captionof" => "*mom",
         // siunitx.
         "num" | "si" | "unit" | "ang" | "numlist" => "om",
@@ -82,12 +87,15 @@ pub fn command(name: &str) -> &'static str {
         "hspace" | "vspace" | "operatorname" => "*m",
         "raisebox" => "moom",
         "parbox" => "ooomm",
-        "title" | "caption" | "footnote" | "footnotetext" | "color" | "usepackage"
-        | "RequirePackage" | "documentclass" | "addbibresource" | "xrightarrow" | "xleftarrow"
-        | "shortauthor" | "icmltitle" => "om",
+        "title" | "footnote" | "footnotetext" | "color" | "usepackage" | "RequirePackage"
+        | "documentclass" | "addbibresource" | "xrightarrow" | "xleftarrow" | "shortauthor"
+        | "icmltitle" => "om",
+        // The caption package's `\caption*`, unnumbered; KOMA-Script's.
+        "caption" | "captionabove" | "captionbelow" => "*om",
         "sqrt" => "om",
         "textcolor" | "colorbox" => "omm",
         "includegraphics" => "*om",
+        "lstinputlisting" => "om",
         "cite" | "citep" | "citet" | "parencite" | "textcite" | "autocite" | "footcite"
         | "citeauthor" | "citeyear" | "citealt" | "citealp" | "citetalias" | "citepalias"
         | "nocite" | "smartcite" | "Cite" | "Citep" | "Citet" | "Parencite" | "Textcite"

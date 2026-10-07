@@ -209,6 +209,43 @@ pub(crate) fn verb_end(b: &[u8], pos: usize, limit: usize, lst: bool) -> Option<
         .map(|k| k + len)
 }
 
+/// For a command that takes its argument as it is, at `pos` (after its
+/// name): where the argument ends, on the same line. `\verb|…|`,
+/// listings' `\lstinline`, fancyvrb's `\Verb*[options]|…|` and minted's
+/// `\mintinline[options]{lang}|…|` (or `{…}`).
+pub(crate) fn verbatim_arg_end(b: &[u8], name: &str, pos: usize, limit: usize) -> Option<usize> {
+    match name {
+        "verb" => verb_end(b, pos, limit, false),
+        "lstinline" => verb_end(b, pos, limit, true),
+        "Verb" => verb_end(b, pos + usize::from(b.get(pos) == Some(&b'*')), limit, true),
+        "mintinline" => {
+            let eol = line_end(b, pos, limit);
+            let mut i = pos;
+            if i < eol && b[i] == b'[' {
+                i = i + 1 + b[i + 1..eol].iter().position(|&c| c == b']')? + 1;
+            }
+            if i >= eol || b[i] != b'{' {
+                return None;
+            }
+            i = i + 1 + b[i + 1..eol].iter().position(|&c| c == b'}')? + 1;
+            verb_end(b, i, limit, true)
+        }
+        _ => None,
+    }
+}
+
+/// The commands whose argument [`verbatim_arg_end`] reads.
+pub(crate) fn verbatim_command(name: &str) -> bool {
+    matches!(name, "verb" | "lstinline" | "Verb" | "mintinline")
+}
+
+/// The commands whose braced argument is taken as it is (an address, a
+/// path): `\url`, `\href`'s first, url's `\path`, hyperref's
+/// `\nolinkurl`.
+pub(crate) fn raw_braced_command(name: &str) -> bool {
+    matches!(name, "url" | "href" | "path" | "nolinkurl")
+}
+
 /// For `\url` and `\href` at `pos` (after the command name): the braces of
 /// the address, taken as they are, on the same line: `(open, close)`.
 pub(crate) fn raw_braces(b: &[u8], pos: usize, limit: usize) -> Option<(usize, usize)> {

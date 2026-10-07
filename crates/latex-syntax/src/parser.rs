@@ -372,9 +372,10 @@ impl<'a> Parser<'a> {
     /// `start..name_end` (verbatim arguments, environment names).
     fn raw_skip(&self, start: usize, name_end: usize, limit: usize) -> Option<usize> {
         match &self.src[start + 1..name_end] {
-            "verb" => lexer::verb_end(self.b, name_end, limit, false),
-            "lstinline" => lexer::verb_end(self.b, name_end, limit, true),
-            "url" | "href" => lexer::raw_braces(self.b, name_end, limit).map(|(_, c)| c + 1),
+            n if lexer::verbatim_command(n) => lexer::verbatim_arg_end(self.b, n, name_end, limit),
+            n if lexer::raw_braced_command(n) => {
+                lexer::raw_braces(self.b, name_end, limit).map(|(_, c)| c + 1)
+            }
             "begin" | "end" => lexer::env_name(self.b, name_end, limit).map(|(_, _, k)| k + 1),
             _ => None,
         }
@@ -423,14 +424,10 @@ impl<'a> Parser<'a> {
                         Tok::ControlWord
                             if !matches!(
                                 &self.src[p + 1..e],
-                                "begin"
-                                    | "end"
-                                    | "verb"
-                                    | "lstinline"
-                                    | "makeatletter"
-                                    | "makeatother"
-                            ) && !(matches!(&self.src[p + 1..e], "url" | "href")
-                                && lexer::raw_braces(self.b, e, limit).is_some()) =>
+                                "begin" | "end" | "makeatletter" | "makeatother"
+                            ) && !lexer::verbatim_command(&self.src[p + 1..e])
+                                && !(lexer::raw_braced_command(&self.src[p + 1..e])
+                                    && lexer::raw_braces(self.b, e, limit).is_some()) =>
                         {
                             self.blanks(p);
                             self.token(CONTROL_WORD, e);
@@ -490,20 +487,23 @@ impl<'a> Parser<'a> {
                     return;
                 }
             }
-            "verb" | "lstinline" => {
-                if let Some(v) = lexer::verb_end(self.b, name_end, limit, name == "lstinline") {
+            n if lexer::verbatim_command(n) => {
+                if let Some(v) = lexer::verbatim_arg_end(self.b, n, name_end, limit) {
                     self.builder.start_node(VERB.into());
                     self.token(CONTROL_WORD, name_end);
                     self.token(VERBATIM, v);
                     self.builder.finish_node();
                     return;
                 }
-                self.diag(
-                    start..name_end,
-                    format!("\\{name} without its closing delimiter"),
-                );
+                // The packages' commands may be someone's own.
+                if matches!(n, "verb" | "lstinline") {
+                    self.diag(
+                        start..name_end,
+                        format!("\\{name} without its closing delimiter"),
+                    );
+                }
             }
-            "url" | "href" => {
+            n if lexer::raw_braced_command(n) => {
                 if let Some((open, close)) = lexer::raw_braces(self.b, name_end, limit) {
                     let href = name == "href";
                     self.builder.start_node(COMMAND.into());
@@ -522,7 +522,10 @@ impl<'a> Parser<'a> {
                     self.builder.finish_node();
                     return;
                 }
-                self.diag(start..name_end, format!("\\{name} without its address"));
+                // `\path` is TikZ's too.
+                if matches!(n, "url" | "href") {
+                    self.diag(start..name_end, format!("\\{name} without its address"));
+                }
             }
             "makeatletter" | "makeatother" => {
                 self.at_letter = name == "makeatletter";
@@ -583,17 +586,9 @@ impl<'a> Parser<'a> {
         self.builder.start_node(COMMAND.into());
         self.token(CONTROL_WORD, name_end);
         let raw = |s: &str| {
-            matches!(
-                s,
-                "begin"
-                    | "end"
-                    | "verb"
-                    | "lstinline"
-                    | "url"
-                    | "href"
-                    | "makeatletter"
-                    | "makeatother"
-            )
+            matches!(s, "begin" | "end" | "makeatletter" | "makeatother")
+                || lexer::verbatim_command(s)
+                || lexer::raw_braced_command(s)
         };
         let mut names = 0;
         let mut equals = false;

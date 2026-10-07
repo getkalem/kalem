@@ -103,13 +103,13 @@ pub(crate) fn build(
             Tok::ControlWord => {
                 let name = &src[pos + 1..e];
                 match name {
-                    "verb" | "lstinline" => {
-                        if let Some(v) = lexer::verb_end(b, e, end, name == "lstinline") {
+                    n if lexer::verbatim_command(n) => {
+                        if let Some(v) = lexer::verbatim_arg_end(b, n, e, end) {
                             pos = v;
                             continue;
                         }
                     }
-                    "url" | "href" => {
+                    n if lexer::raw_braced_command(n) => {
                         if let Some((_, close)) = lexer::raw_braces(b, e, end) {
                             pos = close + 1;
                             continue;
