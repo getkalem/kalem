@@ -6554,6 +6554,15 @@ fn plain_commands() -> Vec<Command> {
                 Ok(())
             },
         ),
+        // Doom Emacs's `+org/remove-link` (SPC m l d).
+        cmd(
+            "org.link.remove",
+            "Remove Link",
+            "Links",
+            &[],
+            Some(ORG),
+            |ctx, _| ctx.org(|d, p, _| org_edit::insert::remove_link(&text_of(d), p)),
+        ),
         // Doom Emacs's `+org/dwim-at-point`, Enter in Vim's Normal mode.
         cmd(
             "org.dwim",
@@ -8420,6 +8429,37 @@ fn plain_commands() -> Vec<Command> {
                     CommandError::new(crate::tr!("msg-missing-argument", name = "level"))
                 })?;
                 ctx.org(|d, p, _| h::set_level(&text_of(d), p, level as usize, d.parse().context()))
+            },
+        ),
+        // `org-toggle-heading` (C-c *, Doom's SPC m h).
+        cmd(
+            "org.headline.toggle",
+            "Toggle Heading",
+            "Headlines",
+            &[],
+            Some(ORG),
+            |ctx, _| {
+                ctx.org(|d, p, m| {
+                    let t = org_edit::toggle::toggle_heading(&text_of(d), p, m, d.parse().context())?;
+                    if t.is_empty() {
+                        return Err(org_edit::EditError {
+                            message: crate::tr!("msg-cannot-toggle-heading"),
+                            point: None,
+                        });
+                    }
+                    Ok(t)
+                })
+            },
+        ),
+        // `org-toggle-item` (C-c -, Doom's SPC m i).
+        cmd(
+            "list.toggleItem",
+            "Toggle Item",
+            "Lists",
+            &[],
+            Some(ORG),
+            |ctx, _| {
+                ctx.org(|d, p, m| org_edit::toggle::toggle_item(&text_of(d), p, m, d.parse().context()))
             },
         ),
         // `org-insert-heading` (M-RET): in a list Alt+Enter is Insert Item.

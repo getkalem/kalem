@@ -16,7 +16,11 @@ makes it plain text again. Alt+Enter inserts a new heading of the same
 level, as =M-RET= does in Emacs: on a heading's title the rest of the
 title moves to it, at the start of a heading it goes above. /Insert
 Heading After Subtree/ (Emacs's =C-RET=), /Insert Subheading/ and
-/Insert TODO Heading/ are in the palette. Alt+Left and Alt+Right
+/Insert TODO Heading/ are in the palette, with /Toggle Heading/, which
+turns the line (or the selected lines) into a heading under the entry
+and a heading back into text, as =C-c *= does, and /Toggle Item/, the
+same with list items (=C-c -=): a TODO heading becomes an item with a
+checkbox. Alt+Left and Alt+Right
 promote and demote a heading, with Shift its whole subtree; Alt+Up and
 Alt+Down move a subtree past its neighbors. Tab on a heading folds and
 unfolds it; Shift+Tab cycles the whole document between overview,
@@ -128,7 +132,8 @@ file manager the marked files, in a document its file and heading;
 /Insert Stored Link/ writes them as =[[file:…][name]]=, and Ctrl+K
 offers the last one. /Insert Cross Reference/ lists what a link can
 point to, named elements, headings by =CUSTOM_ID= and =<<targets>>=,
-and links to the one you choose.
+and links to the one you choose. /Remove Link/ replaces the link at the
+cursor with its description (or its target when it has none).
 
 * Macros, snippets, captions and blocks
 

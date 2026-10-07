@@ -266,3 +266,26 @@ fn vim_keys_of_evil_org_and_doom() {
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(t.text(), before);
 }
+
+#[test]
+fn toggle_heading_toggle_item_and_remove_link() {
+    // Text to a heading under the entry, and back.
+    let text = "* A\nsome text\n";
+    let mut t = open(text, 6);
+    t.app.run_command("org.headline.toggle", serde_json::json!({}));
+    assert_eq!(t.text(), "* A\n** some text\n");
+    t.app.run_command("org.headline.toggle", serde_json::json!({}));
+    assert_eq!(t.text(), "* A\nsome text\n");
+    // A TODO heading to an item with a checkbox; the item back to text.
+    let text = "* TODO Buy milk :home:\n";
+    let mut t = open(text, 3);
+    t.app.run_command("list.toggleItem", serde_json::json!({}));
+    assert_eq!(t.text(), "- [ ] Buy milk\n");
+    t.app.run_command("list.toggleItem", serde_json::json!({}));
+    assert_eq!(t.text(), "[ ] Buy milk\n");
+    // A link gives way to its description.
+    let text = "See [[https://orgmode.org][Org]] now\n";
+    let mut t = open(text, 8);
+    t.app.run_command("org.link.remove", serde_json::json!({}));
+    assert_eq!(t.text(), "See Org now\n");
+}

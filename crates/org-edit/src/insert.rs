@@ -31,6 +31,95 @@ pub fn link_escape(link: &str) -> String {
     out
 }
 
+/// `org-link-unescape`: a run of backslashes before a bracket or at the
+/// end is halved.
+pub fn link_unescape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = rest.find('\\') {
+        out.push_str(&rest[..i]);
+        let n = rest[i..].bytes().take_while(|b| *b == b'\\').count();
+        let after = &rest[i + n..];
+        if after.is_empty() || after.starts_with(['[', ']']) {
+            out.push_str(&"\\".repeat(n / 2));
+        } else {
+            out.push_str(&rest[i..i + n]);
+        }
+        rest = after;
+    }
+    out.push_str(rest);
+    out
+}
+
+/// The bracket link (`org-link-bracket-re`) starting at `i`: its end, the
+/// range of its target and of its description.
+fn bracket_link_at(text: &str, i: usize) -> Option<(usize, (usize, usize), Option<(usize, usize)>)> {
+    let b = text.as_bytes();
+    if !text[i..].starts_with("[[") {
+        return None;
+    }
+    let t = i + 2;
+    let mut k = t;
+    while k < b.len() {
+        match b[k] {
+            b'[' => return None,
+            b']' => break,
+            b'\\' => {
+                let n = b[k..].iter().take_while(|c| **c == b'\\').count();
+                k += n;
+                if k < b.len() {
+                    k += text[k..].chars().next().map_or(1, char::len_utf8);
+                }
+            }
+            _ => k += text[k..].chars().next().map_or(1, char::len_utf8),
+        }
+    }
+    if k == t || b.get(k) != Some(&b']') {
+        return None;
+    }
+    let target = (t, k);
+    match b.get(k + 1) {
+        Some(b']') => Some((k + 2, target, None)),
+        Some(b'[') => {
+            let d = k + 2;
+            // `[^z-a]+?` up to the first `]]`.
+            let close = text[d..].find("]]").map(|j| d + j)?;
+            (close > d).then_some((close + 2, target, Some((d, close))))
+        }
+        _ => None,
+    }
+}
+
+/// Doom Emacs's `+org/remove-link`: the bracket link at `point` gives way
+/// to its description, or to its target when it has none.
+pub fn remove_link(text: &str, point: usize) -> Result<Transaction, EditError> {
+    let bol = text[..point].rfind('\n').map_or(0, |i| i + 1);
+    let eol = text[point..].find('\n').map_or(text.len(), |i| point + i);
+    let mut i = bol;
+    while let Some(j) = text[i..eol].find("[[") {
+        let s = i + j;
+        if s > point {
+            break;
+        }
+        if let Some((end, (ts, te), desc)) = bracket_link_at(text, s) {
+            if point <= end {
+                let label = match desc {
+                    Some((ds, de)) => text[ds..de].to_string(),
+                    None => link_unescape(&text[ts..te]),
+                };
+                let mut buf = Buf::new(text, point);
+                buf.replace(s, end, &label);
+                buf.point = point.min(s + label.len());
+                return Ok(buf.transaction("Remove link"));
+            }
+            i = end;
+        } else {
+            i = s + 1;
+        }
+    }
+    Err(EditError::new("No link at point"))
+}
+
 /// `org-link-make-string`: `[[LINK][DESCRIPTION]]`, with the description
 /// trimmed and zero width spaces keeping `]]` out of it.
 pub fn link_string(link: &str, description: Option<&str>) -> Result<String, EditError> {
@@ -377,6 +466,18 @@ pub fn insert_drawer(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn links_removed() {
+        let rm = |t: &str, p: usize| super::remove_link(t, p).map(|x| x.apply(t));
+        assert_eq!(rm("a [[https://x.org][Org]] b", 5).unwrap(), "a Org b");
+        assert_eq!(rm("a [[file:a\\]b.org]] b", 3).unwrap(), "a file:a]b.org b");
+        assert_eq!(rm("a [[x][y]] [[z]] b", 13).unwrap(), "a [[x][y]] z b");
+        // At either end of the link too; elsewhere no link.
+        assert_eq!(rm("[[x][y]]", 8).unwrap(), "y");
+        assert!(rm("a [[x][y]] b", 1).is_err());
+        assert_eq!(super::link_unescape("a\\]b\\\\\\[c"), "a]b\\[c");
+    }
+
     use super::*;
 
     #[test]
