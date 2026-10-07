@@ -1,6 +1,8 @@
 //! Document-wide settings read from in-buffer keywords, as
 //! `org-set-regexps-and-options` computes them.
 
+use std::sync::Arc;
+
 use org_syntax::ast::{AstNode, Keyword};
 use org_syntax::{Parse, SyntaxKind, SyntaxNode};
 
@@ -58,25 +60,66 @@ fn keywords_in(node: &SyntaxNode, out: &mut Vec<(String, String)>) {
     }
 }
 
+/// The keywords of a headline's subtree, as cached across versions: its
+/// section's, and its child headlines', which are shared.
+#[derive(Debug)]
+pub(crate) struct Keywords {
+    parts: Vec<Part>,
+    /// Keywords in all.
+    len: usize,
+}
+
+#[derive(Debug)]
+enum Part {
+    Section(Vec<(String, String)>),
+    Headline(Arc<Keywords>),
+}
+
+impl Keywords {
+    /// Appends the keywords in order.
+    fn copy_to(&self, out: &mut Vec<(String, String)>) {
+        if self.len == 0 {
+            return;
+        }
+        for p in &self.parts {
+            match p {
+                Part::Section(v) => out.extend(v.iter().cloned()),
+                Part::Headline(k) => k.copy_to(out),
+            }
+        }
+    }
+}
+
+type Pass<'a> = crate::cache::Pass<'a, Keywords>;
+
 /// The keywords of a headline's subtree, reusing cached subtrees.
-fn headline_keywords(
-    node: &SyntaxNode,
-    cache: Option<&crate::cache::ModelCache>,
-) -> std::sync::Arc<Vec<(String, String)>> {
-    if let Some(v) = cache.and_then(|c| c.keywords(node)) {
+fn headline_keywords(node: &SyntaxNode, pass: Option<&Pass<'_>>) -> Arc<Keywords> {
+    if let Some(v) = pass.and_then(|p| p.get(node)) {
         return v;
     }
-    let mut out = Vec::new();
+    let mut parts = Vec::new();
+    let mut len = 0;
     for child in node.children() {
         match child.kind() {
-            SyntaxKind::SECTION => keywords_in(&child, &mut out),
-            SyntaxKind::HEADLINE => out.extend(headline_keywords(&child, cache).iter().cloned()),
+            SyntaxKind::SECTION => {
+                let mut v = Vec::new();
+                keywords_in(&child, &mut v);
+                if !v.is_empty() {
+                    len += v.len();
+                    parts.push(Part::Section(v));
+                }
+            }
+            SyntaxKind::HEADLINE => {
+                let k = headline_keywords(&child, pass);
+                len += k.len;
+                parts.push(Part::Headline(k));
+            }
             _ => {}
         }
     }
-    let v = std::sync::Arc::new(out);
-    if let Some(c) = cache {
-        c.put_keywords(node, v.clone());
+    let v = Arc::new(Keywords { parts, len });
+    if let Some(p) = pass {
+        p.put(node, v.clone());
     }
     v
 }
@@ -86,11 +129,12 @@ fn document_keywords(
     root: &SyntaxNode,
     cache: Option<&crate::cache::ModelCache>,
 ) -> Vec<(String, String)> {
+    let pass = cache.map(|c| c.keywords.pass());
     let mut out = Vec::new();
     for child in root.children() {
         match child.kind() {
             SyntaxKind::SECTION => keywords_in(&child, &mut out),
-            SyntaxKind::HEADLINE => out.extend(headline_keywords(&child, cache).iter().cloned()),
+            SyntaxKind::HEADLINE => headline_keywords(&child, pass.as_ref()).copy_to(&mut out),
             _ => {}
         }
     }

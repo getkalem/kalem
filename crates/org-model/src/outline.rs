@@ -195,68 +195,102 @@ fn entry_data(node: &SyntaxNode, ctx: &ParseContext, base: TextSize) -> Entry {
     }
 }
 
-/// Appends `sub` (entries with ranges relative to its own start and
-/// parents relative to its own indices) to `dst`, shifted by `shift`, with
-/// its top entries placed under `parent`.
-fn append(dst: &mut Vec<Entry>, sub: &[Entry], shift: TextSize, parent: Option<EntryId>) {
-    let off = dst.len();
-    for (i, e) in sub.iter().enumerate() {
-        let mut e = e.clone();
-        e.range = TextRange::new(e.range.start() + shift, e.range.end() + shift);
-        e.parent = match e.parent {
-            Some(p) => Some(EntryId(p.0 + off)),
-            None => parent,
-        };
-        for c in &mut e.children {
-            c.0 += off;
+/// A headline and what is below it, as cached across versions: ranges
+/// are relative to the headline's start, and child headlines are shared,
+/// so a new version builds only the headlines on the path to an edit and
+/// copies each entry once, into its outline.
+#[derive(Debug)]
+pub(crate) struct Subtree {
+    /// The headline, without parent or children.
+    head: Entry,
+    /// Its section's inlinetasks and its child headlines, in order.
+    below: Vec<Below>,
+    /// Entries in all, the headline included.
+    len: usize,
+}
+
+/// A part of a [`Subtree`], or of the document's top level.
+#[derive(Debug)]
+enum Below {
+    /// An entry of a section, without parent or children.
+    Entry(Box<Entry>),
+    /// A headline, at its offset.
+    Headline(TextSize, Arc<Subtree>),
+}
+
+impl Below {
+    fn len(&self) -> usize {
+        match self {
+            Below::Entry(_) => 1,
+            Below::Headline(_, s) => s.len,
         }
-        if sub[i].parent.is_none()
-            && let Some(p) = parent
-        {
-            dst[p.0].children.push(EntryId(off + i));
+    }
+
+    /// Appends the entries, shifted by `shift`, under `parent`.
+    fn flatten(&self, dst: &mut Vec<Entry>, shift: TextSize, parent: Option<EntryId>) {
+        match self {
+            Below::Entry(e) => dst.push(Entry {
+                range: e.range + shift,
+                parent,
+                ..(**e).clone()
+            }),
+            Below::Headline(offset, sub) => {
+                let shift = shift + *offset;
+                let id = dst.len();
+                let mut next = id + 1;
+                let children = sub
+                    .below
+                    .iter()
+                    .map(|b| {
+                        let c = EntryId(next);
+                        next += b.len();
+                        c
+                    })
+                    .collect();
+                dst.push(Entry {
+                    range: sub.head.range + shift,
+                    parent,
+                    children,
+                    ..sub.head.clone()
+                });
+                for b in &sub.below {
+                    b.flatten(dst, shift, Some(EntryId(id)));
+                }
+            }
         }
-        dst.push(e);
     }
 }
 
-/// The entries of the headline `node` and its subtree, relative to its
-/// start, reusing cached subtrees.
-fn subtree(
-    node: &SyntaxNode,
-    ctx: &ParseContext,
-    cache: Option<&crate::cache::ModelCache>,
-) -> Arc<Vec<Entry>> {
-    if let Some(v) = cache.and_then(|c| c.subtree(node)) {
+type Pass<'a> = crate::cache::Pass<'a, Subtree>;
+
+/// The headline `node` and its subtree, reusing cached subtrees.
+fn subtree(node: &SyntaxNode, ctx: &ParseContext, pass: Option<&Pass<'_>>) -> Arc<Subtree> {
+    if let Some(v) = pass.and_then(|p| p.get(node)) {
         return v;
     }
     let base = node.text_range().start();
-    let mut v = vec![entry_data(node, ctx, base)];
+    let mut below = Vec::new();
     for child in node.children() {
         match child.kind() {
-            SyntaxKind::SECTION => {
-                for n in entries_of(&child) {
-                    let mut e = entry_data(&n, ctx, base);
-                    e.parent = Some(EntryId(0));
-                    let id = EntryId(v.len());
-                    v[0].children.push(id);
-                    v.push(e);
-                }
-            }
-            SyntaxKind::HEADLINE => {
-                let sub = subtree(&child, ctx, cache);
-                append(
-                    &mut v,
-                    &sub,
-                    child.text_range().start() - base,
-                    Some(EntryId(0)),
-                );
-            }
+            SyntaxKind::SECTION => below.extend(
+                entries_of(&child)
+                    .iter()
+                    .map(|n| Below::Entry(Box::new(entry_data(n, ctx, base)))),
+            ),
+            SyntaxKind::HEADLINE => below.push(Below::Headline(
+                child.text_range().start() - base,
+                subtree(&child, ctx, pass),
+            )),
             _ => {}
         }
     }
-    let v = Arc::new(v);
-    if let Some(c) = cache {
-        c.put_subtree(node, v.clone());
+    let v = Arc::new(Subtree {
+        head: entry_data(node, ctx, base),
+        len: 1 + below.iter().map(Below::len).sum::<usize>(),
+        below,
+    });
+    if let Some(p) = pass {
+        p.put(node, v.clone());
     }
     v
 }
@@ -272,20 +306,27 @@ impl Outline {
         ctx: &ParseContext,
         cache: Option<&crate::cache::ModelCache>,
     ) -> Outline {
-        let mut entries: Vec<Entry> = Vec::new();
+        let pass = cache.map(|c| c.subtrees.pass());
+        let mut top: Vec<Below> = Vec::new();
         for child in root.children() {
             match child.kind() {
-                SyntaxKind::SECTION => {
-                    for n in entries_of(&child) {
-                        entries.push(entry_data(&n, ctx, TextSize::from(0)));
-                    }
-                }
-                SyntaxKind::HEADLINE => {
-                    let sub = subtree(&child, ctx, cache);
-                    append(&mut entries, &sub, child.text_range().start(), None);
-                }
+                SyntaxKind::SECTION => top.extend(
+                    entries_of(&child)
+                        .iter()
+                        .map(|n| Below::Entry(Box::new(entry_data(n, ctx, TextSize::from(0))))),
+                ),
+                SyntaxKind::HEADLINE => top.push(Below::Headline(
+                    child.text_range().start(),
+                    subtree(&child, ctx, pass.as_ref()),
+                )),
                 _ => {}
             }
+        }
+        // Ends the pass: what this version no longer uses leaves the cache.
+        drop(pass);
+        let mut entries = Vec::with_capacity(top.iter().map(Below::len).sum());
+        for b in &top {
+            b.flatten(&mut entries, TextSize::from(0), None);
         }
         let roots = (0..entries.len())
             .filter(|&i| entries[i].parent.is_none())
