@@ -4871,8 +4871,14 @@ fn csv_enter_moves_between_cells(cx: &mut TestAppContext) {
     };
     let body =
         |cx: &mut VisualTestContext| e.read_with(cx, |e, _| e.doc.text().as_str().to_string());
-    // To C1 (İzmir's header): Tab twice.
+    // To C1 (İzmir's header): Tab twice; Enter then goes back to the
+    // column the Tabs started from, as in Excel.
     cx.simulate_keystrokes("tab tab");
+    assert_eq!(cell(cx), Some((0, 2)));
+    cx.simulate_keystrokes("enter");
+    assert_eq!(cell(cx), Some((1, 0)));
+    // From C1 by the arrows, Enter keeps the column.
+    cx.simulate_keystrokes("up right right");
     assert_eq!(cell(cx), Some((0, 2)));
     cx.simulate_keystrokes("enter");
     assert_eq!(cell(cx), Some((1, 2)));
