@@ -2,7 +2,7 @@
 //! tests need no WebAssembly toolchain: calls, the cache, the time budget,
 //! the memory limit, grants, threads.
 
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use kalem_script::{Error, Host, Limits, Plugin};
 
@@ -91,6 +91,46 @@ fn a_component_compiles_once() {
     std::fs::write(files[0].path(), b"not a compiled component").unwrap();
     assert!(!host.load(&bytes).unwrap().cached());
     assert!(host.load(&bytes).unwrap().cached());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Sets `file`'s modification time, the cache's time of last use, `days`
+/// back.
+fn used_ago(file: &std::path::Path, days: u64) {
+    std::fs::File::options()
+        .append(true)
+        .open(file)
+        .unwrap()
+        .set_modified(SystemTime::now() - Duration::from_secs(days * 86_400))
+        .unwrap();
+}
+
+#[test]
+fn the_cache_keeps_what_is_used() {
+    let dir = temp("used");
+    std::fs::create_dir_all(&dir).unwrap();
+    // Left by an engine of long ago, and by a write that never finished.
+    let old = dir.join("an-old-engine.cwasm");
+    let half = dir.join("a-write.tmp");
+    for (f, days) in [(&old, 31), (&half, 2)] {
+        std::fs::write(f, b"").unwrap();
+        used_ago(f, days);
+    }
+    let host = Host::new(Some(dir.clone())).unwrap();
+    let bytes = wasm(TOOLS);
+    assert!(!host.load(&bytes).unwrap().cached());
+    // Pruned as the new one was written (or by the host's start).
+    let files: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .collect();
+    assert_eq!(files.len(), 1, "{files:?}");
+    assert_eq!(files[0].extension().unwrap(), "cwasm");
+    // Loaded from the cache, a file is marked used now: pruned last.
+    used_ago(&files[0], 10);
+    assert!(host.load(&bytes).unwrap().cached());
+    let at = std::fs::metadata(&files[0]).unwrap().modified().unwrap();
+    assert!(at > SystemTime::now() - Duration::from_secs(60), "{at:?}");
     let _ = std::fs::remove_dir_all(dir);
 }
 

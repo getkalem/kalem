@@ -6,13 +6,14 @@
 //!
 //! - a component compiles once and is cached in the state directory, keyed
 //!   by its bytes and the engine's compatibility, so a plugin's later
-//!   starts load it in a fraction of a millisecond;
+//!   starts load it in a fraction of a millisecond; files not used for
+//!   a month go, and the folder is kept under [`CACHE_CAP`];
 //! - a plugin reaches only what the host grants: its imports are resolved
 //!   against a [`Linker`] that starts empty, and one importing anything
 //!   else is refused, naming what it asked for;
 //! - each instance has a memory limit, and each call a time budget counted
-//!   by epochs (a tick every [`TICK`]), so a plugin that loops or grows
-//!   is stopped and the editor goes on;
+//!   by epochs (a tick every [`TICK`] while a call runs), so a plugin that
+//!   loops or grows is stopped and the editor goes on;
 //! - a loaded [`Plugin`] is shared by threads, each instantiating it in its
 //!   own store: parsers, renderers and completers run in parallel.
 //!
@@ -56,10 +57,10 @@ pub fn api_compatible(requirement: Option<&str>) -> bool {
 }
 
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::sync::{Condvar, Mutex, MutexGuard, OnceLock, PoisonError};
+use std::time::{Duration, SystemTime};
 
 use sha2::{Digest, Sha256};
 use wasmtime::component::{Component, ComponentNamedList, Lift, Lower, TypedFunc};
@@ -70,8 +71,19 @@ pub use wasmtime::component::Linker;
 pub mod extension;
 pub mod viewer;
 
-/// How often the time budget's clock ticks.
+/// How often the time budget's clock ticks while a call runs.
 pub const TICK: Duration = Duration::from_millis(10);
+
+/// The most the cache of compiled components holds, in bytes: past it the
+/// files used longest ago go first. A compiled component is 5 to 15 MB.
+pub const CACHE_CAP: u64 = 200 << 20;
+
+/// How long a compiled component no host used stays in the cache: one
+/// built for another plugin version or engine is never used again.
+const UNUSED: Duration = Duration::from_secs(30 * 86_400);
+
+/// How long a `.tmp` file, a write to the cache that never finished, stays.
+const UNFINISHED: Duration = Duration::from_secs(86_400);
 
 /// What an instance may use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -139,22 +151,107 @@ impl From<std::io::Error> for Error {
 /// The result of the host's functions.
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// The engine, its clock, and where compiled components are kept.
+/// The engine and where compiled components are kept.
 pub struct Host {
-    engine: Engine,
+    engine: &'static Engine,
     cache: Option<PathBuf>,
-    clock: Arc<Clock>,
 }
 
-/// The time budget's clock: its thread ticks the engine's epochs until the
-/// host and every instance made through it have gone, so an instance kept
-/// after its host is still stopped when it loops.
-#[derive(Debug)]
-struct Clock(Arc<AtomicBool>);
+/// The engine every host shares: wasmtime's advice is one per process, and
+/// one engine needs one clock.
+fn engine() -> Result<&'static Engine> {
+    static ENGINE: OnceLock<std::result::Result<Engine, String>> = OnceLock::new();
+    ENGINE
+        .get_or_init(|| {
+            let mut config = Config::new();
+            config.epoch_interruption(true);
+            Engine::new(&config).map_err(|e| e.to_string())
+        })
+        .as_ref()
+        .map_err(|e| Error::Invalid(e.clone()))
+}
 
-impl Drop for Clock {
+/// The time budget's clock: one thread ticking the engine's epochs while a
+/// call runs, parked while none does, so an idle editor is not woken a
+/// hundred times a second. It lives as long as the process, so an
+/// instance kept after its host is still stopped when it loops.
+struct Clock {
+    state: Mutex<Ticking>,
+    wake: Condvar,
+}
+
+/// What the clock knows.
+struct Ticking {
+    /// Calls in flight, instantiations among them (a component's start
+    /// runs its code).
+    calls: usize,
+    /// Whether its thread was started.
+    started: bool,
+    /// How many times it ticked: the tests see it rest.
+    ticks: u64,
+}
+
+static CLOCK: Clock = Clock {
+    state: Mutex::new(Ticking {
+        calls: 0,
+        started: false,
+        ticks: 0,
+    }),
+    wake: Condvar::new(),
+};
+
+impl Clock {
+    fn state(&self) -> MutexGuard<'_, Ticking> {
+        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Starts the thread ticking `engine`, once; a host is refused when it
+    /// cannot, as its calls would have no time budget.
+    fn start(&'static self, engine: &'static Engine) -> std::io::Result<()> {
+        let mut s = self.state();
+        if !s.started {
+            std::thread::Builder::new()
+                .name("kalem-script-clock".into())
+                .spawn(move || self.run(engine))?;
+            s.started = true;
+        }
+        Ok(())
+    }
+
+    /// The thread: a tick every [`TICK`] while a call is in flight.
+    fn run(&self, engine: &Engine) {
+        let mut s = self.state();
+        loop {
+            s = self
+                .wake
+                .wait_while(s, |s| s.calls == 0)
+                .unwrap_or_else(PoisonError::into_inner);
+            drop(s);
+            std::thread::sleep(TICK);
+            engine.increment_epoch();
+            s = self.state();
+            s.ticks += 1;
+        }
+    }
+
+    /// A call starting: the clock ticks until the guard is dropped.
+    fn call(&'static self) -> Call {
+        let mut s = self.state();
+        s.calls += 1;
+        if s.calls == 1 {
+            self.wake.notify_one();
+        }
+        Call(self)
+    }
+}
+
+/// A call in flight, from [`Clock::call`].
+struct Call(&'static Clock);
+
+impl Drop for Call {
     fn drop(&mut self) {
-        self.0.store(false, Ordering::Relaxed);
+        let mut s = self.0.state();
+        s.calls = s.calls.saturating_sub(1);
     }
 }
 
@@ -168,36 +265,28 @@ impl fmt::Debug for Host {
 
 impl Host {
     /// A host keeping compiled components in `cache` (a folder of the
-    /// state directory), or compiling them each time with `None`.
+    /// state directory), or compiling them each time with `None`. The
+    /// cache is pruned on a thread of its own.
     pub fn new(cache: Option<PathBuf>) -> Result<Host> {
-        let mut config = Config::new();
-        config.epoch_interruption(true);
-        let engine = Engine::new(&config).map_err(|e| Error::Invalid(e.to_string()))?;
-        let running = Arc::new(AtomicBool::new(true));
-        let (clock, on) = (engine.clone(), running.clone());
-        std::thread::Builder::new()
-            .name("kalem-script-clock".into())
-            .spawn(move || {
-                while on.load(Ordering::Relaxed) {
-                    std::thread::sleep(TICK);
-                    clock.increment_epoch();
-                }
-            })?;
-        Ok(Host {
-            engine,
-            cache,
-            clock: Arc::new(Clock(running)),
-        })
+        let engine = engine()?;
+        CLOCK.start(engine)?;
+        if let Some(dir) = cache.clone() {
+            // A failed spawn only leaves the pruning to the next write.
+            let _ = std::thread::Builder::new()
+                .name("kalem-script-prune".into())
+                .spawn(move || prune(&dir, None, CACHE_CAP));
+        }
+        Ok(Host { engine, cache })
     }
 
     /// The engine, for building a [`Linker`] of granted interfaces.
     pub fn engine(&self) -> &Engine {
-        &self.engine
+        self.engine
     }
 
     /// A linker granting nothing: the host adds what a plugin may use.
     pub fn linker<T: 'static>(&self) -> Linker<Data<T>> {
-        Linker::new(&self.engine)
+        Linker::new(self.engine)
     }
 
     /// Loads the component in the file at `path`.
@@ -215,6 +304,7 @@ impl Host {
         if file.is_file()
             && let Ok(component) = self.load_compiled(&file)
         {
+            touch(&file);
             return Ok(Plugin::new(component, true));
         }
         let component = self.compile(bytes)?;
@@ -224,21 +314,27 @@ impl Host {
             let tmp = file.with_extension("tmp");
             if std::fs::write(&tmp, compiled).is_ok() {
                 let _ = std::fs::rename(&tmp, &file);
+            } else {
+                // Half written on a full disk: not left to fill it more.
+                let _ = std::fs::remove_file(&tmp);
             }
+            // `kalem plugin dev` writes one per build: pruned as written.
+            prune(dir, Some(&file), CACHE_CAP);
         }
         Ok(Plugin::new(component, false))
     }
 
     fn compile(&self, bytes: &[u8]) -> Result<Component> {
-        Component::new(&self.engine, bytes).map_err(|e| Error::Invalid(format!("{e:#}")))
+        Component::new(self.engine, bytes).map_err(|e| Error::Invalid(format!("{e:#}")))
     }
 
     /// The cache's file name for `bytes`: their hash and the engine's
     /// compatibility (its version and settings), so a file compiled by
-    /// another engine is never loaded.
+    /// another engine is never loaded. Both hashes are the same from one
+    /// toolchain to the next (`DefaultHasher` is not), so that a new Rust
+    /// does not orphan every file.
     fn cache_name(&self, bytes: &[u8]) -> String {
-        use std::hash::{Hash, Hasher};
-        let mut compat = std::collections::hash_map::DefaultHasher::new();
+        let mut compat = Fnv::default();
         self.engine
             .precompile_compatibility_hash()
             .hash(&mut compat);
@@ -263,9 +359,92 @@ impl Host {
         // made from it is alive ends the process with SIGBUS; the bytes in
         // memory cannot change under the component.
         let bytes = std::fs::read(file).map_err(|e| Error::Invalid(e.to_string()))?;
-        unsafe { Component::deserialize(&self.engine, &bytes) }
+        unsafe { Component::deserialize(self.engine, &bytes) }
             .map_err(|e| Error::Invalid(e.to_string()))
     }
+}
+
+/// FNV-1a, a hash that is the same from one build to the next.
+struct Fnv(u64);
+
+impl Default for Fnv {
+    fn default() -> Fnv {
+        Fnv(0xcbf2_9ce4_8422_2325)
+    }
+}
+
+impl Hasher for Fnv {
+    fn write(&mut self, bytes: &[u8]) {
+        for b in bytes {
+            self.0 = (self.0 ^ u64::from(*b)).wrapping_mul(0x0100_0000_01b3);
+        }
+    }
+
+    fn finish(&self) -> u64 {
+        self.0
+    }
+}
+
+/// Marks a cached `file` used now: its modification time is when it was
+/// last used, which the pruning goes by.
+fn touch(file: &Path) {
+    let _ = std::fs::File::options()
+        .append(true)
+        .open(file)
+        .and_then(|f| f.set_modified(SystemTime::now()));
+}
+
+/// Clears the cache folder `dir`: `.tmp` files older than [`UNFINISHED`],
+/// compiled components not used for [`UNUSED`], then those used longest
+/// ago while the folder holds more than `cap` bytes. `keep`, the file just
+/// written, stays, and so does one a host used while this ran. A failed
+/// removal only costs the disk its space; a component in use is in memory,
+/// not mapped, so its file may go.
+fn prune(dir: &Path, keep: Option<&Path>, cap: u64) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let now = SystemTime::now();
+    let mut files = Vec::new();
+    for e in entries.flatten() {
+        let path = e.path();
+        let Ok(meta) = e.metadata() else {
+            continue;
+        };
+        let Ok(used) = meta.modified() else {
+            continue;
+        };
+        if !meta.is_file() {
+            continue;
+        }
+        let age = now.duration_since(used).unwrap_or_default();
+        let kept = keep == Some(path.as_path());
+        match path.extension().and_then(|x| x.to_str()) {
+            Some("tmp") if age > UNFINISHED => {
+                remove_unused(&path, used);
+            }
+            Some("cwasm") if age > UNUSED && !kept && remove_unused(&path, used) => {}
+            Some("cwasm") => files.push((used, meta.len(), path)),
+            _ => {}
+        }
+    }
+    let mut total: u64 = files.iter().map(|f| f.1).sum();
+    files.sort_by_key(|f| f.0);
+    for (used, len, path) in files {
+        if total <= cap {
+            break;
+        }
+        if keep != Some(path.as_path()) && remove_unused(&path, used) {
+            total -= len;
+        }
+    }
+}
+
+/// Removes `path` unless it was used after `used`, when it was listed: a
+/// host may have just loaded it.
+fn remove_unused(path: &Path, used: SystemTime) -> bool {
+    let unchanged = std::fs::metadata(path).and_then(|m| m.modified()).ok() == Some(used);
+    unchanged && std::fs::remove_file(path).is_ok()
 }
 
 /// A loaded component, shared by the threads that instantiate it.
@@ -297,7 +476,7 @@ impl Plugin {
     pub fn imports(&self, host: &Host) -> Vec<String> {
         self.component
             .component_type()
-            .imports(&host.engine)
+            .imports(host.engine)
             .map(|(name, _)| name.to_string())
             .collect()
     }
@@ -306,7 +485,7 @@ impl Plugin {
     pub fn exports(&self, host: &Host) -> Vec<String> {
         self.component
             .component_type()
-            .exports(&host.engine)
+            .exports(host.engine)
             .map(|(name, _)| name.to_string())
             .collect()
     }
@@ -328,7 +507,7 @@ impl Plugin {
             }
         })?;
         let mut store = Store::new(
-            &host.engine,
+            host.engine,
             Data {
                 user: data,
                 limiter: Limiter {
@@ -340,6 +519,7 @@ impl Plugin {
         );
         store.limiter(|d| &mut d.limiter);
         store.epoch_deadline_trap();
+        let _call = CLOCK.call();
         store.set_epoch_deadline(ticks(limits.time));
         let instance = pre
             .instantiate(&mut store)
@@ -348,7 +528,6 @@ impl Plugin {
             store,
             instance,
             limits,
-            _clock: host.clock.clone(),
         })
     }
 }
@@ -485,7 +664,6 @@ pub struct Instance<T: 'static> {
     store: Store<Data<T>>,
     instance: wasmtime::component::Instance,
     limits: Limits,
-    _clock: Arc<Clock>,
 }
 
 impl<T: 'static> fmt::Debug for Instance<T> {
@@ -509,6 +687,7 @@ impl<T: Send + 'static> Instance<T> {
             .instance
             .get_typed_func(&mut self.store, name)
             .map_err(|e| Error::Invalid(format!("{name}: {e:#}")))?;
+        let _call = CLOCK.call();
         self.store.set_epoch_deadline(ticks(self.limits.time));
         let out = f.call(&mut self.store, params);
         out.map_err(|e| classify(e, &self.store, self.limits))
@@ -529,6 +708,7 @@ impl<T: Send + 'static> Instance<T> {
         &mut self,
         f: impl FnOnce(&mut Store<Data<T>>) -> wasmtime::Result<R>,
     ) -> Result<R> {
+        let _call = CLOCK.call();
         self.store.set_epoch_deadline(ticks(self.limits.time));
         self.store.data_mut().diagnostics.panicked = None;
         f(&mut self.store).map_err(|e| classify(e, &self.store, self.limits))
@@ -547,6 +727,8 @@ impl<T: Send + 'static> Instance<T> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn a_traps_rust_functions_read() {
         let trace = "error while executing at wasm backtrace:\n    \
@@ -572,5 +754,101 @@ mod tests {
         assert!(!super::api_compatible(Some("^1.0")));
         // Built against a later 0.2.x: it may import what this host lacks.
         assert!(!super::api_compatible(Some("^0.2.9")));
+    }
+
+    /// An empty folder of the test's own.
+    fn folder(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("kalem-script-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    /// A file of `len` bytes in `dir`, used last `days` ago.
+    fn used(dir: &Path, name: &str, len: usize, days: u64) -> PathBuf {
+        let f = dir.join(name);
+        std::fs::write(&f, vec![0; len]).unwrap();
+        let at = SystemTime::now() - Duration::from_secs(days * 86_400);
+        std::fs::File::options()
+            .append(true)
+            .open(&f)
+            .unwrap()
+            .set_modified(at)
+            .unwrap();
+        f
+    }
+
+    fn names(dir: &Path) -> Vec<String> {
+        let mut names: Vec<_> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn the_cache_forgets_what_is_not_used() {
+        let dir = folder("prune-age");
+        used(&dir, "month.cwasm", 10, 31);
+        used(&dir, "weeks.cwasm", 10, 29);
+        used(&dir, "unfinished.tmp", 10, 2);
+        used(&dir, "writing.tmp", 10, 0);
+        used(&dir, "other.txt", 10, 365);
+        let just = used(&dir, "just-written.cwasm", 10, 40);
+        prune(&dir, Some(&just), CACHE_CAP);
+        assert_eq!(
+            names(&dir),
+            [
+                "just-written.cwasm",
+                "other.txt",
+                "weeks.cwasm",
+                "writing.tmp"
+            ]
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_cache_keeps_under_its_cap_the_files_used_last() {
+        let dir = folder("prune-cap");
+        for (name, days) in [("a", 5), ("b", 1), ("c", 3), ("d", 2), ("e", 4)] {
+            used(&dir, &format!("{name}.cwasm"), 100, days);
+        }
+        // The file just written stays, used longest ago as its time says.
+        prune(&dir, Some(&dir.join("a.cwasm")), 250);
+        // 500 bytes: e, c and d go, used before b; 200 are left.
+        assert_eq!(names(&dir), ["a.cwasm", "b.cwasm"]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_clock_rests_between_calls() {
+        const SPIN: &str = r#"
+            (component
+              (core module $m (func (export "spin") (loop $l br $l)))
+              (core instance $i (instantiate $m))
+              (func (export "spin") (canon lift (core func $i "spin"))))
+        "#;
+        let host = Host::new(None).unwrap();
+        let limits = Limits {
+            time: Duration::from_millis(50),
+            ..Limits::default()
+        };
+        let mut i = host
+            .load(SPIN.as_bytes())
+            .unwrap()
+            .instantiate(&host, &host.linker::<()>(), (), limits)
+            .unwrap();
+        let before = CLOCK.state().ticks;
+        let out = i.call::<(), ()>("spin", ());
+        assert!(matches!(out, Err(Error::Timeout(_))), "{out:?}");
+        assert!(CLOCK.state().ticks > before, "it ticks while a call runs");
+        assert_eq!(CLOCK.state().calls, 0);
+        // The tick under way when the call ended.
+        std::thread::sleep(TICK * 3);
+        let idle = CLOCK.state().ticks;
+        std::thread::sleep(TICK * 10);
+        assert_eq!(CLOCK.state().ticks, idle, "and rests while none does");
     }
 }
