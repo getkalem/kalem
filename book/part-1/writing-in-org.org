@@ -33,7 +33,10 @@ item, move a table column), =M-k= and =M-j= move it, and with Shift
 (=M-H=, =M-L=) the whole subtree, as evil-org has them; Enter marks a
 TODO heading done (or not done again), toggles a checkbox, opens a
 link, goes to a footnote's other end or recalculates a table, as
-Doom's =+org/dwim-at-point= (/Act at Cursor/).
+Doom's =+org/dwim-at-point= (/Act at Cursor/). =]h= and =[h= go to
+the next and previous heading of the same level, =gj= and =gk= to the
+next and previous element, =gh= to the element around the cursor and
+=gl= into the one at it.
 
 /Cut Subtree/ and /Copy Subtree/ take the heading at the cursor with
 everything under it, and /Paste Subtree/ pastes one at the level that

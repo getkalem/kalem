@@ -21,6 +21,7 @@ mod ex;
 mod insert;
 mod normal;
 mod objects;
+mod org;
 mod pattern;
 
 use std::collections::HashMap;
@@ -3111,6 +3112,18 @@ impl Vim {
                         self.jumping = m.is_some();
                         self.finish_motion(doc, m, host, out);
                     }
+                    // `]h` and `[h` in Org: the next or previous heading
+                    // of the same level, as Doom Emacs has them.
+                    (_, 'h') if doc.meta.mode == crate::DocumentMode::Org => {
+                        let m =
+                            org::heading_motion(doc, self.cursor, forward, n).map(|to| Motion {
+                                to,
+                                linewise: false,
+                                inclusive: false,
+                            });
+                        self.jumping = m.is_some();
+                        self.finish_motion(doc, m, host, out);
+                    }
                     // `]p`: put after with this line's indent; `[p`, `[P`,
                     // `]P` before.
                     (_, 'p' | 'P') if self.op.is_none() && !self.visual() => {
@@ -3282,6 +3295,25 @@ impl Vim {
                         let t = self.visual_target(doc);
                         self.mode = Mode::Normal;
                         self.visual_increment(doc, t, if c == 'a' { n } else { -n }, true);
+                    }
+                    // evil-org's `gj`, `gk`, `gh` and `gl` in Org: by
+                    // element, up to the one around, into it.
+                    Key::Char(c @ ('j' | 'k' | 'h' | 'l'))
+                        if doc.meta.mode == crate::DocumentMode::Org =>
+                    {
+                        let n = self.count.take().unwrap_or(1);
+                        let m = match org::element_motion(doc, self.cursor, c, n) {
+                            Ok(to) => Some(Motion {
+                                to,
+                                linewise: false,
+                                inclusive: false,
+                            }),
+                            Err(e) => {
+                                out.message = Some((e, true));
+                                None
+                            }
+                        };
+                        self.finish_motion(doc, m, host, out);
                     }
                     Key::Char(c @ ('u' | 'U' | '~' | '?')) => {
                         let op = match c {

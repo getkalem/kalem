@@ -328,3 +328,25 @@ fn toggle_heading_toggle_item_and_remove_link() {
     t.app.run_command("org.link.remove", serde_json::json!({}));
     assert_eq!(t.text(), "See Org now\n");
 }
+
+#[test]
+fn vim_structure_motions() {
+    let vim = "editor.keymap_profile = \"vim\"\n";
+    let text = "* A\npara\n\n- x\n- y\n** A1\n* B\ntext\n";
+    // `]h` and `[h`: the next and previous heading of the same level.
+    let mut t = open_with(text, vim, 0);
+    t.typ("]h");
+    assert_eq!(t.app.doc.selection.head, text.find("* B").unwrap());
+    t.typ("[h");
+    assert_eq!(t.app.doc.selection.head, 0);
+    // `gj` by element in the section, `gk` back, `gh` up, `gl` in.
+    let mut t = open_with(text, vim, text.find("para").unwrap());
+    t.typ("gj");
+    assert_eq!(t.app.doc.selection.head, text.find("- x").unwrap());
+    t.typ("gk");
+    assert_eq!(t.app.doc.selection.head, text.find("para").unwrap());
+    t.typ("gh");
+    assert_eq!(t.app.doc.selection.head, 0);
+    // In other documents `gj` is Vim's own (a screen line down).
+    assert_eq!(t.text(), text);
+}
