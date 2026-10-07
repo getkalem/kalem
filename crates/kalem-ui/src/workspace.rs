@@ -526,6 +526,7 @@ impl Workspace {
             }
             W::Cycle(back) => self.show_space(|w| w.cycle(back), window, cx),
             W::Switch(i) => self.show_space(|w| w.switch(i), window, cx),
+            W::Final => self.show_space(|w| w.switch_final(), window, cx),
             W::Last => self.show_space(|w| w.switch_last(), window, cx),
             W::Save => {
                 let mut s = self.session(cx);

@@ -2733,6 +2733,7 @@ impl App {
             }
             W::Cycle(back) => self.show_workspace(|w| w.cycle(back)),
             W::Switch(i) => self.show_workspace(|w| w.switch(i)),
+            W::Final => self.show_workspace(|w| w.switch_final()),
             W::Last => self.show_workspace(|w| w.switch_last()),
             W::Save => {
                 let mut s = self.session();

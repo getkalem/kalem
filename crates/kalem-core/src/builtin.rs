@@ -173,6 +173,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("plugin.removeConfirmed", object(&[("id", "string", true)])),
         ("file.rename", object(&[("target", "string", false)])),
         ("app.terminal", object(&[("project", "boolean", false)])),
+        ("file.reveal", object(&[("project", "boolean", false)])),
         ("settings.set", object(&[("key", "string", true)])),
         (
             "project.shellCommand",
@@ -345,6 +346,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
             object(&[("axis", "string", false), ("by", "integer", false)]),
         ),
         ("pane.rotate", object(&[("back", "boolean", false)])),
+        ("pane.next", object(&[("back", "boolean", false)])),
         ("session.saveAs", object(&[("name", "string", true)])),
         ("session.restore", object(&[("name", "string", false)])),
         ("session.restoreNamed", object(&[("name", "string", false)])),
@@ -445,6 +447,19 @@ fn arg_str<'a>(args: &'a Value, key: &str) -> Result<&'a str, CommandError> {
 
 fn arg_bool(args: &Value, key: &str) -> bool {
     args.get(key).and_then(Value::as_bool).unwrap_or(false)
+}
+
+/// The folder of setting `notes.directory`, when it is there.
+fn notes_folder(ctx: &EditorContext<'_>) -> Result<std::path::PathBuf, CommandError> {
+    let dir = crate::settings::expand_home(ctx.config.str("notes.directory"));
+    let dir = std::path::PathBuf::from(dir);
+    if !dir.is_dir() {
+        return Err(CommandError::new(crate::tr!(
+            "msg-no-notes-folder",
+            path = dir.display().to_string()
+        )));
+    }
+    Ok(dir)
 }
 
 /// A path typed by the user: relative to the document's directory.
@@ -7142,8 +7157,13 @@ fn plain_commands() -> Vec<Command> {
             &[],
             None,
             |ctx, args| {
-                let i = args.get("index").and_then(Value::as_u64).unwrap_or(0) as usize;
-                request(ctx, Request::Workspace(WorkspaceOp::Switch(i)))
+                // A negative index is the last workspace (Doom's `SPC TAB 0`).
+                let i = args.get("index").and_then(Value::as_i64).unwrap_or(0);
+                let op = match usize::try_from(i) {
+                    Ok(i) => WorkspaceOp::Switch(i),
+                    Err(_) => WorkspaceOp::Final,
+                };
+                request(ctx, Request::Workspace(op))
             },
         ),
         cmd(
@@ -7253,9 +7273,17 @@ fn plain_commands() -> Vec<Command> {
             None,
             |ctx, _| request(ctx, Request::Pane(PaneOp::Only)),
         ),
-        cmd("pane.next", "Next Pane", "Window", &[], None, |ctx, _| {
-            request(ctx, Request::Pane(PaneOp::Cycle(false)))
-        }),
+        cmd(
+            "pane.next",
+            "Next Pane",
+            "Window",
+            &[],
+            None,
+            |ctx, args| {
+                // `back`: the one before in the cycle (Vim's `C-w W`).
+                request(ctx, Request::Pane(PaneOp::Cycle(arg_bool(args, "back"))))
+            },
+        ),
         cmd(
             "pane.previous",
             "Previous Pane",
@@ -7315,15 +7343,25 @@ fn plain_commands() -> Vec<Command> {
             &[],
             None,
             |ctx, _| {
-                let dir = crate::settings::expand_home(ctx.config.str("notes.directory"));
-                let dir = std::path::PathBuf::from(dir);
-                if !dir.is_dir() {
-                    return Err(CommandError::new(crate::tr!(
-                        "msg-no-notes-folder",
-                        path = dir.display().to_string()
-                    )));
-                }
+                let dir = notes_folder(ctx)?;
                 request(ctx, Request::SearchIn(dir))
+            },
+        ),
+        // Doom's `SPC n F`: the notes folder in the file manager.
+        cmd(
+            "notes.browse",
+            "Browse Notes",
+            "Search",
+            &[],
+            None,
+            |ctx, _| {
+                let dir = notes_folder(ctx)?;
+                request(
+                    ctx,
+                    Request::Open {
+                        path: Some(dir.display().to_string()),
+                    },
+                )
             },
         ),
         // Doom's `SPC i` (T2.7i.13).
@@ -7790,6 +7828,36 @@ fn plain_commands() -> Vec<Command> {
                     dir
                 };
                 request(ctx, Request::Terminal(dir))
+            },
+        ),
+        // Doom's `SPC o o` and `SPC o O` (`:os macos`): the file, else the
+        // listing's folder, or with `project` the project's folder, in
+        // Finder or the system's file manager.
+        cmd(
+            "file.reveal",
+            "Show in System File Manager",
+            "File",
+            &[],
+            None,
+            |ctx, args| {
+                let doc = ctx.doc()?;
+                let file = doc
+                    .meta
+                    .path
+                    .as_deref()
+                    .filter(|_| doc.dired.is_none())
+                    .and_then(|p| std::path::absolute(p).ok());
+                let dir = crate::command::folder_of(doc);
+                let path = if args.get("project").and_then(Value::as_bool) == Some(true) {
+                    dir.map(|d| kalem_project::list::detect_root(&d).unwrap_or(d))
+                } else {
+                    file.or(dir)
+                }
+                .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-file")))?;
+                request(
+                    ctx,
+                    Request::OpenLink(crate::input::LinkAction::Reveal(path)),
+                )
             },
         ),
         cmd(
@@ -10517,10 +10585,14 @@ mod tests {
             &Default::default(),
         )
         .unwrap();
+        let notes = format!(
+            "notes.directory = {:?}\n",
+            dir.join("notes").display().to_string()
+        );
         let (reg, mut clip, config) = (
             CommandRegistry::with_builtins(),
             Clipboard::default(),
-            crate::settings::Config::default(),
+            crate::settings::Config::from_layers(&[(crate::settings::Layer::User, None, &notes)]),
         );
         let mut run = |d: &mut DocumentState, id: &str, args: serde_json::Value| {
             let mut ctx = EditorContext {
@@ -10535,6 +10607,18 @@ mod tests {
             reg.execute(id, &mut ctx, &args).unwrap();
             ctx.requests
         };
+        // `SPC o o` shows the file in Finder, `SPC o O` the project.
+        use crate::input::LinkAction::Reveal;
+        let req = run(&mut d, "file.reveal", json!({}));
+        assert!(matches!(&req[..], [Request::OpenLink(Reveal(p))] if p.ends_with("notes/a.org")));
+        let req = run(&mut d, "file.reveal", json!({ "project": true }));
+        assert!(
+            matches!(&req[..], [Request::OpenLink(Reveal(p))] if !p.ends_with("notes") && dir.ends_with(p.file_name().unwrap())),
+            "{req:?}"
+        );
+        // `SPC n F`: the notes folder in the file manager.
+        let req = run(&mut d, "notes.browse", json!({}));
+        assert!(matches!(&req[..], [Request::Open { path: Some(p) }] if p.ends_with("notes")));
         // `SPC o b`: the HTML written beside it and opened.
         let req = run(&mut d, "export.htmlBrowser", json!({}));
         assert!(dir.join("notes/a.html").is_file());
@@ -10548,6 +10632,38 @@ mod tests {
         let req = run(&mut d, "app.terminal", json!({ "project": true }));
         assert!(matches!(&req[..], [Request::Terminal(p)] if !p.ends_with("notes")));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn last_workspace_and_panes_back() {
+        let (reg, mut clip, config) = (
+            CommandRegistry::with_builtins(),
+            Clipboard::default(),
+            crate::settings::Config::default(),
+        );
+        let mut run = |id: &str, args: serde_json::Value| {
+            let mut ctx = EditorContext {
+                document: None,
+                clipboard: &mut clip,
+                config: &config,
+                now: Instant::now(),
+                clock: jiff::civil::date(2026, 10, 7).at(9, 0, 0, 0),
+                messages: Vec::new(),
+                requests: Vec::new(),
+            };
+            reg.execute(id, &mut ctx, &args).unwrap();
+            ctx.requests
+        };
+        // `SPC TAB 0` the last workspace, `SPC TAB 3` the third.
+        let req = run("workspace.switch", json!({ "index": -1 }));
+        assert_eq!(req, [Request::Workspace(WorkspaceOp::Final)]);
+        let req = run("workspace.switch", json!({ "index": 2 }));
+        assert_eq!(req, [Request::Workspace(WorkspaceOp::Switch(2))]);
+        // `SPC w w` and `SPC w W`.
+        let req = run("pane.next", json!({}));
+        assert_eq!(req, [Request::Pane(PaneOp::Cycle(false))]);
+        let req = run("pane.next", json!({ "back": true }));
+        assert_eq!(req, [Request::Pane(PaneOp::Cycle(true))]);
     }
 
     #[test]

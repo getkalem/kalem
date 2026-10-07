@@ -52,6 +52,8 @@ pub enum WorkspaceOp {
     Cycle(bool),
     /// The workspace at this place, from 0.
     Switch(usize),
+    /// The last workspace of the list (Doom's `SPC TAB 0`).
+    Final,
     /// The workspace shown before.
     Last,
     /// Save the current workspace's documents as a session.
@@ -146,6 +148,11 @@ impl Workspaces {
         self.last = Some(self.list[self.current].id);
         self.current = i;
         true
+    }
+
+    /// Makes the last workspace of the list current.
+    pub fn switch_final(&mut self) -> bool {
+        self.switch(self.list.len().saturating_sub(1))
     }
 
     /// The next workspace (`back`: the one before), wrapping.
@@ -307,6 +314,11 @@ mod tests {
         assert_eq!(w.current_index(), 1);
         assert!(w.cycle(false));
         assert_eq!(w.current_index(), 0);
+        // The last of the list (`SPC TAB 0`).
+        assert!(w.switch_final());
+        assert_eq!(w.current_index(), 1);
+        assert!(!w.switch_final(), "already there");
+        w.switch(0);
         // Deleting keeps the documents: they join the next one shown.
         w.switch(1);
         assert!(w.rename("notes"));
