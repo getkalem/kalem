@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.5;
+package kalem:plugin@0.2.6;
 
 /// Settings (design §11.4's `kalem.settings`): Kalem's, read, and the
 /// plugin's own, kept in the user's `settings.toml` under

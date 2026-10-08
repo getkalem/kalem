@@ -2231,7 +2231,8 @@ impl Editor {
         if g.version <= shown {
             return;
         }
-        self.doc.show_generated(g.doc(), &g.text, g.cursor);
+        self.doc
+            .show_generated(g.doc(), &g.text, g.cursor, &g.styles);
         self.after_change(cx);
     }
 

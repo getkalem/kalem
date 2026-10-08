@@ -422,6 +422,7 @@ impl Workspace {
                     g.language.clone(),
                     &g.text,
                     g.cursor,
+                    &g.styles,
                     std::sync::Arc::new(org_model::Settings::default()),
                 );
                 let shared = self.shared.clone();

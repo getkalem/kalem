@@ -62,7 +62,7 @@ fn a_plugins_document_is_shown_rewritten_and_closed(cx: &mut TestAppContext) {
     };
 
     let text = "Head: main\nUnstaged changes (1)\nmodified notes.org\n";
-    let n = x::open_generated("gentest", spec(), text.into(), Some(11)).unwrap();
+    let n = x::open_generated("gentest", spec(), text.into(), Some(11), Vec::new()).unwrap();
     ask(Request::ShowGenerated(n), cx);
     assert_eq!(
         active(cx),
@@ -79,7 +79,7 @@ fn a_plugins_document_is_shown_rewritten_and_closed(cx: &mut TestAppContext) {
 
     // Written again: the same editor, the new text.
     let more = "Head: main\nUnstaged changes (1)\nmodified notes.org\n@@ -1 +1 @@\n";
-    x::set_generated("gentest", n, more.into(), None).unwrap();
+    x::set_generated("gentest", n, more.into(), None, Vec::new()).unwrap();
     written(cx);
     assert_eq!(
         active(cx),
@@ -109,12 +109,12 @@ fn a_plugins_document_is_shown_rewritten_and_closed(cx: &mut TestAppContext) {
     assert_eq!(x::generated(n), None);
 
     // The user closes it: forgotten, the plugin's write refused.
-    let n = x::open_generated("gentest", spec(), text.into(), None).unwrap();
+    let n = x::open_generated("gentest", spec(), text.into(), None, Vec::new()).unwrap();
     ask(Request::ShowGenerated(n), cx);
     assert_eq!(active(cx).0, Some(n));
     ask(Request::Close, cx);
     assert_eq!(active(cx).0, None);
-    assert!(x::set_generated("gentest", n, "late".into(), None).is_err());
+    assert!(x::set_generated("gentest", n, "late".into(), None, Vec::new()).is_err());
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -172,7 +172,7 @@ fn a_plugins_keys_apply_in_its_documents(cx: &mut TestAppContext) {
         kind: "gentest-keys".into(),
         language: None,
     };
-    let n = x::open_generated("gentest", spec, "alpha\nbeta\n".into(), None).unwrap();
+    let n = x::open_generated("gentest", spec, "alpha\nbeta\n".into(), None, Vec::new()).unwrap();
     cx.cx
         .update(|app| workspace::ask_queued(vec![Request::ShowGenerated(n)], app));
     cx.run_until_parked();

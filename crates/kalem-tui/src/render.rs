@@ -52,6 +52,46 @@ pub fn code_bg(caps: &Caps) -> Color {
 }
 
 /// A code glyph's style for its highlighting kind.
+/// A plugin document's style over `base` (`styled-documents`): the
+/// theme's shade of its color on a true-color terminal, the terminal's own
+/// color otherwise; only the emphasis without colors.
+pub fn span_style(s: kalem_core::SpanStyle, base: Style, caps: &Caps) -> Style {
+    use kalem_core::StyleColor as C;
+    let mut st = base;
+    if s.bold {
+        st = st.add_modifier(Modifier::BOLD);
+    }
+    if s.italic && caps.italic {
+        st = st.add_modifier(Modifier::ITALIC);
+    }
+    if s.underline {
+        st = st.add_modifier(Modifier::UNDERLINED);
+    }
+    if caps.no_color {
+        if s.color == C::Muted {
+            st = st.add_modifier(Modifier::DIM);
+        }
+        return st;
+    }
+    if let Some(t) = &caps.colors {
+        return match t.style_color(s.color) {
+            Some(c) => st.fg(rgb(c)),
+            None => st,
+        };
+    }
+    match s.color {
+        C::Default => st,
+        C::Muted => st.fg(Color::DarkGray),
+        C::Red => st.fg(Color::Red),
+        C::Green => st.fg(Color::Green),
+        C::Yellow => st.fg(Color::Yellow),
+        C::Blue => st.fg(Color::Blue),
+        C::Magenta => st.fg(Color::Magenta),
+        C::Cyan => st.fg(Color::Cyan),
+        C::Accent => st.fg(Color::LightBlue),
+    }
+}
+
 pub fn code_style(kind: kalem_highlight::Kind, base: Style, caps: &Caps) -> Style {
     use kalem_highlight::Kind as K;
     if caps.no_color {

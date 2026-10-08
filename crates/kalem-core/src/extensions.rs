@@ -85,6 +85,8 @@ pub struct Generated {
     pub text: String,
     /// Where the cursor goes when the text is shown, if anywhere.
     pub cursor: Option<usize>,
+    /// The styles of its text (`styled-documents`, API 0.2.6).
+    pub styles: Vec<crate::StyleSpan>,
     /// Incremented by each write.
     pub version: u64,
 }
@@ -833,6 +835,7 @@ pub fn open_generated(
     spec: GeneratedSpec,
     text: String,
     cursor: Option<usize>,
+    styles: Vec<crate::StyleSpan>,
 ) -> Result<u64, String> {
     // Its kind is the plugin's own, as its commands' IDs are: `git-…`.
     if !spec.kind.starts_with(&format!("{plugin}-")) || spec.kind.len() <= plugin.len() + 1 {
@@ -861,6 +864,7 @@ pub fn open_generated(
                 language: spec.language,
                 text,
                 cursor,
+                styles,
                 version,
             },
         );
@@ -877,6 +881,7 @@ pub fn set_generated(
     number: u64,
     text: String,
     cursor: Option<usize>,
+    styles: Vec<crate::StyleSpan>,
 ) -> Result<(), String> {
     let mut docs = GENERATED.lock().unwrap_or_else(|e| e.into_inner());
     let g = docs
@@ -885,6 +890,7 @@ pub fn set_generated(
         .ok_or_else(|| format!("The plugin has no document {number}: closed"))?;
     g.text = text;
     g.cursor = cursor;
+    g.styles = styles;
     g.version += 1;
     drop(docs);
     GENERATED_WRITES.fetch_add(1, Ordering::Relaxed);
@@ -1641,7 +1647,7 @@ mod process_tests {
             language: Some("diff".into()),
         };
         let open = |key: &str, kind: &str, text: &str| {
-            open_generated("gentests", spec(key, kind), text.into(), None)
+            open_generated("gentests", spec(key, kind), text.into(), None, Vec::new())
         };
         // Its kind is the plugin's own.
         for kind in ["git-status", "gentests", "gentests-", "status"] {
@@ -1665,8 +1671,8 @@ mod process_tests {
         let other = open("/b", "gentests-status", "").unwrap();
         assert_ne!(other, n);
         // Only its plugin writes it.
-        assert!(set_generated("another", n, "x".into(), None).is_err());
-        set_generated("gentests", n, "three".into(), Some(2)).unwrap();
+        assert!(set_generated("another", n, "x".into(), None, Vec::new()).is_err());
+        set_generated("gentests", n, "three".into(), Some(2), Vec::new()).unwrap();
         let g = generated(n).unwrap();
         assert_eq!(
             (g.text.as_str(), g.cursor, g.version),
@@ -1675,7 +1681,7 @@ mod process_tests {
         // Closed in the editor, it is forgotten; a write says so.
         generated_closed(n);
         assert_eq!(generated(n), None);
-        let e = set_generated("gentests", n, "late".into(), None).unwrap_err();
+        let e = set_generated("gentests", n, "late".into(), None, Vec::new()).unwrap_err();
         assert!(e.contains("closed"), "{e}");
         generated_closed(other);
     }

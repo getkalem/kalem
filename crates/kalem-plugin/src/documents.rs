@@ -61,3 +61,46 @@ pub fn current() -> Option<u64> {
 pub fn close(doc: u64) {
     api::close(doc);
 }
+
+pub use crate::extension::kalem::plugin::styled_documents::{Color, StyledSpan, TextStyle};
+
+use crate::extension::kalem::plugin::styled_documents as styled;
+
+impl TextStyle {
+    /// Text in `color`, neither bold, italic nor underlined.
+    pub fn color(color: Color) -> TextStyle {
+        TextStyle {
+            color,
+            bold: false,
+            italic: false,
+            underline: false,
+        }
+    }
+
+    /// The same, bold.
+    pub fn bold(mut self) -> TextStyle {
+        self.bold = true;
+        self
+    }
+}
+
+/// [`open`] with styles on stretches of the text (API 0.2.6): bytes
+/// `start..end` and how they show; a span inside another wins over it.
+pub fn open_styled(
+    spec: &Spec,
+    text: &str,
+    cursor: Option<u64>,
+    styles: &[StyledSpan],
+) -> Result<u64, String> {
+    styled::open(&spec.0, text, cursor, styles)
+}
+
+/// [`set`] with styles on stretches of the text (API 0.2.6).
+pub fn set_styled(
+    doc: u64,
+    text: &str,
+    cursor: Option<u64>,
+    styles: &[StyledSpan],
+) -> Result<(), String> {
+    styled::set(doc, text, cursor, styles)
+}

@@ -219,6 +219,7 @@ impl Editor for Bridge {
         spec: x::documents::DocumentSpec,
         text: String,
         cursor: Option<u64>,
+        styles: Vec<x::styled_documents::StyledSpan>,
     ) -> Result<u64, String> {
         kalem_core::extensions::open_generated(
             plugin,
@@ -231,6 +232,7 @@ impl Editor for Bridge {
             },
             text,
             cursor.map(|c| c as usize),
+            core_styles(styles),
         )
     }
 
@@ -240,8 +242,15 @@ impl Editor for Bridge {
         doc: u64,
         text: String,
         cursor: Option<u64>,
+        styles: Vec<x::styled_documents::StyledSpan>,
     ) -> Result<(), String> {
-        kalem_core::extensions::set_generated(plugin, doc, text, cursor.map(|c| c as usize))
+        kalem_core::extensions::set_generated(
+            plugin,
+            doc,
+            text,
+            cursor.map(|c| c as usize),
+            core_styles(styles),
+        )
     }
 
     fn close_document(&mut self, plugin: &str, doc: u64) {
@@ -273,6 +282,34 @@ impl Editor for Bridge {
     fn clear_gutter(&mut self, plugin: &str, path: Option<PathBuf>) {
         kalem_core::extensions::clear_gutter(plugin, path.as_deref());
     }
+}
+
+/// A plugin's styled stretches in the core's terms.
+fn core_styles(styles: Vec<x::styled_documents::StyledSpan>) -> Vec<kalem_core::StyleSpan> {
+    use kalem_core::StyleColor as C;
+    use x::styled_documents::Color as W;
+    styles
+        .into_iter()
+        .map(|s| kalem_core::StyleSpan {
+            range: s.start as usize..s.end as usize,
+            style: kalem_core::SpanStyle {
+                color: match s.style.color {
+                    W::Default => C::Default,
+                    W::Muted => C::Muted,
+                    W::Red => C::Red,
+                    W::Green => C::Green,
+                    W::Yellow => C::Yellow,
+                    W::Blue => C::Blue,
+                    W::Magenta => C::Magenta,
+                    W::Cyan => C::Cyan,
+                    W::Accent => C::Accent,
+                },
+                bold: s.style.bold,
+                italic: s.style.italic,
+                underline: s.style.underline,
+            },
+        })
+        .collect()
 }
 
 /// The document of the plugin's command running on this thread

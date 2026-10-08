@@ -1215,6 +1215,7 @@ impl App {
                     g.language.clone(),
                     &g.text,
                     g.cursor,
+                    &g.styles,
                     Arc::new(org_model::Settings::default()),
                 );
                 let doc_id = DocumentId(self.next_doc);
@@ -1258,13 +1259,14 @@ impl App {
             kalem_core::extensions::generated(shown.number).filter(|g| g.version > shown.version)
         };
         if let Some(g) = newer(&self.doc) {
-            self.doc.show_generated(g.doc(), &g.text, g.cursor);
+            self.doc
+                .show_generated(g.doc(), &g.text, g.cursor, &g.styles);
             self.after_change(true);
             self.dirty = true;
         }
         for b in self.docs.iter_mut().flatten() {
             if let Some(g) = newer(&b.doc) {
-                b.doc.show_generated(g.doc(), &g.text, g.cursor);
+                b.doc.show_generated(g.doc(), &g.text, g.cursor, &g.styles);
             }
         }
     }

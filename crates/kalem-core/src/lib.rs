@@ -112,7 +112,8 @@ pub use command::{
     Command, CommandError, CommandHandler, CommandRegistry, CommandResult, EditorContext, Request,
 };
 pub use document::{
-    CellEdit, CellMode, DocumentState, GeneratedDoc, GutterMark, LineEnding, Metadata,
+    CellEdit, CellMode, DocumentState, GeneratedDoc, GutterMark, LineEnding, Metadata, SpanStyle,
+    StyleColor, StyleSpan,
 };
 /// The character encodings of files (`Metadata::encoding`).
 pub use encoding_rs;

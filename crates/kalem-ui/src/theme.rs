@@ -41,6 +41,9 @@ pub struct Theme {
     pub border: Hsla,
     /// Syntax colors: keyword, string, comment, number, function, type.
     pub syntax: [Hsla; 6],
+    /// The colors plugins name for their documents' text, as
+    /// [`STYLE_COLORS`] lists them.
+    pub styles: [Option<Hsla>; 9],
     /// The body font family.
     pub font: String,
     /// The code font family.
@@ -58,6 +61,20 @@ fn fonts() -> (String, String) {
         ("Noto Sans".into(), "DejaVu Sans Mono".into())
     }
 }
+
+/// The colors a plugin names for its document's text, in [`Theme::styles`]'s
+/// order.
+pub const STYLE_COLORS: [kalem_core::StyleColor; 9] = [
+    kalem_core::StyleColor::Default,
+    kalem_core::StyleColor::Muted,
+    kalem_core::StyleColor::Red,
+    kalem_core::StyleColor::Green,
+    kalem_core::StyleColor::Yellow,
+    kalem_core::StyleColor::Blue,
+    kalem_core::StyleColor::Magenta,
+    kalem_core::StyleColor::Cyan,
+    kalem_core::StyleColor::Accent,
+];
 
 pub fn color(c: Color) -> Hsla {
     gpui::rgba(c.0).into()
@@ -85,10 +102,18 @@ impl Theme {
             bar: color(c.bar),
             border: color(c.border),
             syntax: c.syntax.map(color),
+            styles: STYLE_COLORS.map(|s| c.style_color(s).map(color)),
             font,
             mono,
             size: 16.,
         }
+    }
+
+    /// The shade of a color a plugin names for its document's text; none
+    /// for the text's own.
+    pub fn style_color(&self, c: kalem_core::StyleColor) -> Option<Hsla> {
+        let i = STYLE_COLORS.iter().position(|s| *s == c)?;
+        self.styles[i]
     }
 
     /// The built-in light theme.

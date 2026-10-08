@@ -74,6 +74,25 @@ impl Plugin for Run {
             }
             documents::open(&spec, &s("text"), v["cursor"].as_u64()).map(|n| n.to_string())
         })?;
+        command("run.showStyled", |a| {
+            use kalem_plugin::documents::{Color, StyledSpan, TextStyle};
+            let v: Value = serde_json::from_str(a).map_err(|e| e.to_string())?;
+            let s = |k: &str| v[k].as_str().unwrap_or_default().to_string();
+            let spec = Spec::new(&s("id"), &s("key"), &s("title"), &s("kind"));
+            let styles = [
+                StyledSpan {
+                    start: 0,
+                    end: 2,
+                    style: TextStyle::color(Color::Red),
+                },
+                StyledSpan {
+                    start: 3,
+                    end: 8,
+                    style: TextStyle::color(Color::Green).bold(),
+                },
+            ];
+            documents::open_styled(&spec, &s("text"), None, &styles).map(|n| n.to_string())
+        })?;
         command("run.write", |a| {
             let v: Value = serde_json::from_str(a).map_err(|e| e.to_string())?;
             let doc = v["doc"].as_u64().unwrap_or_default();

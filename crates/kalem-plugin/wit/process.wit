@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.5;
+package kalem:plugin@0.2.6;
 
 /// Programs (design §11.6's `subprocess`): a plugin runs a program its
 /// manifest names (`subprocess:git`), never a shell, in a folder of a

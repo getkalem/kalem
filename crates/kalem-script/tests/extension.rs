@@ -36,6 +36,8 @@ struct State {
     /// The documents plugins write: plugin, spec, text and cursor.
     documents: BTreeMap<u64, (String, documents::DocumentSpec, String, Option<u64>)>,
     closed: Vec<u64>,
+    /// The styles of the last document opened: start, end, color, bold.
+    styles: Vec<(u64, u64, String, bool)>,
     /// The marks plugins set: plugin, then line and kind, by file.
     gutters: BTreeMap<std::path::PathBuf, (String, Vec<(u32, String)>)>,
 }
@@ -171,7 +173,12 @@ impl Editor for Fake {
         spec: documents::DocumentSpec,
         text: String,
         cursor: Option<u64>,
+        styles: Vec<kalem_script::extension::styled_documents::StyledSpan>,
     ) -> Result<u64, String> {
+        self.0.lock().unwrap().styles = styles
+            .iter()
+            .map(|s| (s.start, s.end, format!("{:?}", s.style.color), s.style.bold))
+            .collect();
         let mut s = self.0.lock().unwrap();
         let found = s
             .documents
@@ -189,6 +196,7 @@ impl Editor for Fake {
         doc: u64,
         text: String,
         cursor: Option<u64>,
+        _styles: Vec<kalem_script::extension::styled_documents::StyledSpan>,
     ) -> Result<(), String> {
         let mut s = self.0.lock().unwrap();
         match s.documents.get_mut(&doc) {
@@ -1011,4 +1019,29 @@ fn a_plugin_marks_the_lines_of_files() {
     assert!(e.contains("At most"), "{e}");
     call(&mut ext, "run.unmark", serde_json::json!({ "path": path })).unwrap();
     assert!(fake.0.lock().unwrap().gutters.is_empty());
+}
+
+#[test]
+fn a_plugins_document_is_styled() {
+    let root = std::env::temp_dir().canonicalize().unwrap();
+    let (mut ext, fake) = match runner(&["subprocess:git"], &root) {
+        None => return,
+        Some(r) => r.unwrap(),
+    };
+    call(
+        &mut ext,
+        "run.showStyled",
+        serde_json::json!({
+            "id": "run.styled", "key": "k", "title": "Styled", "kind": "run-styled",
+            "text": " M a.txt\n",
+        }),
+    )
+    .unwrap();
+    assert_eq!(
+        fake.0.lock().unwrap().styles,
+        [
+            (0, 2, "Color::Red".to_string(), false),
+            (3, 8, "Color::Green".to_string(), true)
+        ]
+    );
 }

@@ -744,6 +744,63 @@ fn fit_runs(text: &str, runs: &mut [TextRun]) {
     }
 }
 
+/// `runs` of a line starting at `line_start`, its source shown byte for
+/// byte, with a plugin document's styles over them: each span's color,
+/// weight, slant and underline; a span inside another wins.
+fn style_runs(
+    runs: Vec<TextRun>,
+    line_start: usize,
+    spans: &[kalem_core::StyleSpan],
+    theme: &Theme,
+) -> Vec<TextRun> {
+    let mut out = Vec::with_capacity(runs.len() + spans.len() * 2);
+    let mut pos = 0;
+    for run in runs {
+        let end = pos + run.len;
+        let mut cuts = vec![pos, end];
+        for s in spans {
+            for b in [s.range.start - line_start, s.range.end - line_start] {
+                if b > pos && b < end {
+                    cuts.push(b);
+                }
+            }
+        }
+        cuts.sort_unstable();
+        cuts.dedup();
+        for w in cuts.windows(2) {
+            let mut piece = TextRun {
+                len: w[1] - w[0],
+                ..run.clone()
+            };
+            if let Some(s) = spans
+                .iter()
+                .rev()
+                .find(|s| s.range.start - line_start <= w[0] && w[0] < s.range.end - line_start)
+            {
+                if let Some(c) = theme.style_color(s.style.color) {
+                    piece.color = c;
+                }
+                if s.style.bold {
+                    piece.font.weight = gpui::FontWeight::BOLD;
+                }
+                if s.style.italic {
+                    piece.font.style = gpui::FontStyle::Italic;
+                }
+                if s.style.underline {
+                    piece.underline = Some(gpui::UnderlineStyle {
+                        thickness: px(1.),
+                        color: None,
+                        wavy: false,
+                    });
+                }
+            }
+            out.push(piece);
+        }
+        pos = end;
+    }
+    out
+}
+
 /// Splits `runs` so that source code ranges get their syntax colors.
 fn color_code(
     runs: Vec<TextRun>,
@@ -1281,6 +1338,13 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
         });
         if let Some(spans) = spans {
             runs = color_code(runs, &text, &view, &spans, &theme);
+        }
+        // A plugin's document: the styles its plugin gave the text.
+        if editor.doc.generated.is_some() {
+            let spans = editor.doc.styles_in(view.range.clone());
+            if !spans.is_empty() {
+                runs = style_runs(runs, view.range.start, &spans, &theme);
+            }
         }
     }
     // Source code in a block: syntax colors.
@@ -2282,6 +2346,51 @@ fn drawn_at(view: &kalem_core::view::LineView, at: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_plugins_styles_split_the_runs() {
+        use kalem_core::{SpanStyle, StyleColor, StyleSpan};
+        let theme = crate::theme::Theme::light();
+        let run = |len| gpui::TextRun {
+            len,
+            font: gpui::font("Kalem"),
+            color: theme.foreground,
+            background_color: None,
+            underline: None,
+            strikethrough: None,
+        };
+        let style = |color, bold| SpanStyle {
+            color,
+            bold,
+            ..SpanStyle::default()
+        };
+        // ` M a.txt` from byte 100: the code red, the name green and bold,
+        // its `a` blue inside it; the line was one run of 8 and one of 1.
+        let spans = [
+            StyleSpan {
+                range: 101..102,
+                style: style(StyleColor::Red, false),
+            },
+            StyleSpan {
+                range: 103..108,
+                style: style(StyleColor::Green, true),
+            },
+            StyleSpan {
+                range: 103..104,
+                style: style(StyleColor::Blue, false),
+            },
+        ];
+        let out = super::style_runs(vec![run(8), run(1)], 100, &spans, &theme);
+        let lens: Vec<usize> = out.iter().map(|r| r.len).collect();
+        assert_eq!(lens, [1, 1, 1, 1, 4, 1]);
+        let color = |c| theme.style_color(c).unwrap();
+        assert_eq!(out[0].color, theme.foreground);
+        assert_eq!(out[1].color, color(StyleColor::Red));
+        assert_eq!(out[3].color, color(StyleColor::Blue), "the inner span wins");
+        assert_eq!(out[4].color, color(StyleColor::Green));
+        assert_eq!(out[4].font.weight, gpui::FontWeight::BOLD);
+        assert_eq!(out[5].color, theme.foreground);
+    }
+
     #[test]
     fn a_block_cursor_on_an_empty_cell_is_one_character() {
         // `,,`: on the empty cell B the next character is its delimiter,

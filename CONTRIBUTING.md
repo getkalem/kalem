@@ -71,6 +71,7 @@ Several people (and agents) push to `main` the same day. CI lets every run on `m
 - When `main` is red from your push, fix it before anything else; when it is red from someone else's, say so to them rather than push on top.
 - The bundled plugins are released components of `getkalem/plugins`, pinned in `crates/kalem-components/components.toml`: a change to a plugin reaches Kalem as a release of it and a new line there. A change to the plugin API needs the plugins released against it before Kalem pins them.
 - The plugin API's released WIT interfaces never change (`crates/kalem-plugin/tests/frozen.rs`): a new function goes into a new interface in a file of its own, exported by the worlds in `worlds.wit` (the Book, Part III, "Versions of the plugin API").
+- An addition to the plugin API is general and needed: say in its commit what several plugins would do with it, and which plugin uses it now. What one plugin alone needs goes through what exists first (an editor command run with `kalem.run`, a panel, the manifest).
 
 ## License
 

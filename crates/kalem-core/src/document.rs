@@ -132,6 +132,76 @@ pub enum GutterMark {
     RemovedAbove,
 }
 
+/// A color of the theme a plugin names for its document's text
+/// (`styled-documents`, plugin API 0.2.6): each theme, and the terminal,
+/// has its own shade of it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum StyleColor {
+    /// The text's own.
+    #[default]
+    Default,
+    /// Dimmed.
+    Muted,
+    /// Red.
+    Red,
+    /// Green.
+    Green,
+    /// Yellow.
+    Yellow,
+    /// Blue.
+    Blue,
+    /// Magenta.
+    Magenta,
+    /// Cyan.
+    Cyan,
+    /// The theme's accent (its links' color).
+    Accent,
+}
+
+/// How a stretch of a plugin's document is shown.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct SpanStyle {
+    /// Its color.
+    pub color: StyleColor,
+    /// Bold.
+    pub bold: bool,
+    /// Italic.
+    pub italic: bool,
+    /// Underlined.
+    pub underline: bool,
+}
+
+/// A styled stretch of a plugin's document, in bytes of its text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StyleSpan {
+    /// Its bytes.
+    pub range: std::ops::Range<usize>,
+    /// Its style.
+    pub style: SpanStyle,
+}
+
+/// `spans` fit to `text`: within it, on character boundaries, empty ones
+/// left out, in order of their starts.
+pub fn fit_spans(text: &str, spans: &[StyleSpan]) -> Vec<StyleSpan> {
+    let fit = |mut i: usize| {
+        i = i.min(text.len());
+        while !text.is_char_boundary(i) {
+            i -= 1;
+        }
+        i
+    };
+    let mut v: Vec<StyleSpan> = spans
+        .iter()
+        .map(|s| StyleSpan {
+            range: fit(s.range.start)..fit(s.range.end),
+            style: s.style,
+        })
+        .filter(|s| s.range.start < s.range.end)
+        .collect();
+    v.sort_by_key(|s| s.range.start);
+    v
+}
+
 /// A document a plugin writes (`documents`, plugin API 0.2.5), as the
 /// editors keep it beside its text.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -203,6 +273,8 @@ pub struct DocumentState {
     pub viewer: Option<Box<crate::viewer::ViewerState>>,
     /// A document a plugin writes ([`GeneratedDoc`]).
     pub generated: Option<GeneratedDoc>,
+    /// The styles its plugin gave the text of such a document, in order.
+    generated_styles: Vec<StyleSpan>,
     /// The marks plugins set beside its lines ([`GutterMark`]), by the
     /// start of their line when set, in order; they move with edits.
     gutter: Vec<(usize, GutterMark)>,
@@ -411,6 +483,7 @@ impl DocumentState {
             dired: None,
             viewer: None,
             generated: None,
+            generated_styles: Vec::new(),
             gutter: Vec::new(),
             gutter_seen: (0, 0),
             vcs: std::cell::RefCell::new(None),
@@ -528,6 +601,7 @@ impl DocumentState {
         language: Option<String>,
         text: &str,
         cursor: Option<usize>,
+        styles: &[StyleSpan],
         settings: Arc<Settings>,
     ) -> DocumentState {
         let meta = Metadata {
@@ -542,6 +616,7 @@ impl DocumentState {
         d.read_only = true;
         d.generated = Some(g);
         d.replace_shown(text);
+        d.generated_styles = fit_spans(text, styles);
         d.place_shown_cursor(Some(cursor.unwrap_or(0)), 0);
         d
     }
@@ -549,9 +624,16 @@ impl DocumentState {
     /// The plugin wrote its document again (`g`, its title and version):
     /// the new text, the cursor at `cursor` when given, else on the same
     /// line as before.
-    pub fn show_generated(&mut self, g: GeneratedDoc, text: &str, cursor: Option<usize>) {
+    pub fn show_generated(
+        &mut self,
+        g: GeneratedDoc,
+        text: &str,
+        cursor: Option<usize>,
+        styles: &[StyleSpan],
+    ) {
         let line = self.text.line_of(self.selection.head);
         self.replace_shown(text);
+        self.generated_styles = fit_spans(text, styles);
         self.place_shown_cursor(cursor, line);
         self.generated = Some(g);
     }
@@ -645,6 +727,27 @@ impl DocumentState {
             }
         }
         starts
+    }
+
+    /// The styles of a plugin's document over `range` of its text, each
+    /// cut to it, in order.
+    pub fn styles_in(&self, range: std::ops::Range<usize>) -> Vec<StyleSpan> {
+        if self.generated_styles.is_empty() {
+            return Vec::new();
+        }
+        // Every span starting before the range's end and ending after its
+        // start.
+        let end = self
+            .generated_styles
+            .partition_point(|s| s.range.start < range.end);
+        self.generated_styles[..end]
+            .iter()
+            .filter(|s| s.range.end > range.start)
+            .map(|s| StyleSpan {
+                range: s.range.start.max(range.start)..s.range.end.min(range.end),
+                style: s.style,
+            })
+            .collect()
     }
 
     /// The title a plugin gave its document, when this is one.
@@ -2969,6 +3072,7 @@ mod tests {
             Some("diff".into()),
             text,
             Some(11),
+            &[],
             Arc::new(Settings::default()),
         );
         assert_eq!(d.text().as_str(), text);
@@ -2983,15 +3087,58 @@ mod tests {
         // file; no cursor given, it stays on its line.
         d.selection = Selection::caret(d.text().line_range(3).start);
         let more = "Head: main\nUnstaged changes (2)\nmodified a.rs\n@@ -1 +1 @@\nmodified b.rs\n";
-        d.show_generated(g(2, "Git: org (dev)"), more, None);
+        d.show_generated(g(2, "Git: org (dev)"), more, None, &[]);
         assert_eq!(d.text().as_str(), more);
         assert_eq!(d.text().line_of(d.selection.head), 3);
         assert!(!d.is_modified() && !d.history.can_undo());
         assert_eq!(d.generated.as_ref().map(|g| g.version), Some(2));
         assert_eq!(d.generated_title(), Some("Git: org (dev)"));
         // A cursor given past the end, or inside a character, is put back.
-        d.show_generated(g(3, "Git: org"), "é", Some(1));
+        d.show_generated(g(3, "Git: org"), "é", Some(1), &[]);
         assert_eq!(d.selection.head, 0);
+    }
+
+    #[test]
+    fn a_plugins_document_keeps_its_styles_per_line() {
+        let g = GeneratedDoc {
+            number: 1,
+            plugin: "git".into(),
+            kind: "git-status".into(),
+            title: "Git".into(),
+            version: 1,
+        };
+        let red = SpanStyle {
+            color: StyleColor::Red,
+            ..SpanStyle::default()
+        };
+        let bold = SpanStyle {
+            bold: true,
+            ..SpanStyle::default()
+        };
+        let span = |range: std::ops::Range<usize>, style| StyleSpan { range, style };
+        let text = "é M a.txt\n?? b.txt\n";
+        // Unordered, past the end, inside a character, empty: fit.
+        let d = DocumentState::generated(
+            g.clone(),
+            None,
+            text,
+            None,
+            &[
+                span(13..99, red),
+                span(0..10, bold),
+                span(1..5, red),
+                span(4..4, red),
+            ],
+            Arc::new(Settings::default()),
+        );
+        // `é` is two bytes: the first line ends at 10, the second is
+        // 11..20. A span starting inside a character starts before it.
+        assert_eq!(d.styles_in(0..11), [span(0..10, bold), span(0..5, red)]);
+        assert_eq!(d.styles_in(11..20), [span(13..20, red)]);
+        // Written again, the styles are the new text's.
+        let mut d = d;
+        d.show_generated(g, "x\n", None, &[]);
+        assert!(d.styles_in(0..2).is_empty());
     }
 
     #[test]

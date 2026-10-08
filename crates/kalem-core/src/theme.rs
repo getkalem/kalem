@@ -97,6 +97,24 @@ const DARK: &str = include_str!("../themes/dark.toml");
 const SYNTAX: [&str; 6] = ["keyword", "string", "comment", "number", "function", "type"];
 
 impl ThemeColors {
+    /// The theme's shade of a color a plugin names for its document's text
+    /// ([`crate::StyleColor`]): red its TODO keywords', green its done
+    /// ones', the others its source code's; none for the text's own.
+    pub fn style_color(&self, c: crate::StyleColor) -> Option<Color> {
+        use crate::StyleColor as S;
+        Some(match c {
+            S::Default => return None,
+            S::Muted => self.muted,
+            S::Red => self.todo,
+            S::Green => self.done,
+            S::Yellow => self.syntax[5],
+            S::Blue => self.syntax[4],
+            S::Magenta => self.syntax[0],
+            S::Cyan => self.levels[1],
+            S::Accent => self.link,
+        })
+    }
+
     fn blank() -> ThemeColors {
         let c = Color(0x000000ff);
         ThemeColors {

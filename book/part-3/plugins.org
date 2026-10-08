@@ -205,7 +205,7 @@ million cells.
 * Versions of the plugin API
 
 The plugin API is the WIT package =kalem:plugin= (=crates/kalem-plugin/wit=),
-version 0.2.5; a component's manifest names the version it was built
+version 0.2.6; a component's manifest names the version it was built
 against (="api": "^0.2.1"=), and Kalem tries it when its own API is of
 the same 0.MINOR and no earlier. The rules, so that a plugin built once
 keeps working:
@@ -257,8 +257,23 @@ keeps working:
   =extension= world's =plugin= interface no longer gains exports: a
   component built against 0.2.4 binds it as it is. A plugin learns that
   the user closed its document from its next write, which is refused.
+- 0.2.6 added the import =styled-documents=: a plugin's document with
+  colors and emphasis on stretches of its text, written with the text
+  (=kalem_plugin::documents::open_styled=, below). The git plugin was
+  released against 0.2.5, so =documents= and =decorations= are frozen
+  (=wit-frozen/0.2.5=), and styles came as an interface of their own
+  rather than as an argument of =documents.set=.
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
+- An addition is general, or it waits. It names what several plugins
+  would do with it, not what one plugin needs (=process= runs any
+  program a manifest grants, =documents= shows any view a plugin writes,
+  =styled-documents= colors any of them by the theme's names), and it
+  comes when a plugin needs it, not before: an extension point no plugin
+  uses is a contract kept for nobody. A plugin's need that no general
+  form covers is reached through what exists (=kalem.run= of an editor
+  command, a panel, a manifest's declarations) until a second plugin
+  shows the shape it should take.
 
 Components from before 0.2.0 (the manifests that say =^0.1=, built while
 the API had no version and changed with every spreadsheet feature) are
@@ -567,6 +582,24 @@ Doom's =SPC g ]= and =SPC g [=) go from one change to the next.
 use kalem_plugin::decorations::{self, Mark};
 
 decorations::set_gutter("/home/a/org/src/lib.rs", &[(12, Mark::Changed), (40, Mark::Added)])?;
+#+end_src
+
+A plugin's document may be styled (=styled-documents=, API 0.2.6):
+stretches of its text, in bytes, each with a color and bold, italic or
+underlined, written with the text so that the two always agree. A color
+is named, not given (=red=, =green=, =yellow=, =blue=, =magenta=,
+=cyan=, =muted=, =accent=): each theme has its own shade of it, so the
+document reads in the light and the dark theme; a terminal shows the
+theme's shade when it shows colors in full, its own named colors
+otherwise, and bold and underlines without colors. A span inside
+another wins over it. The git plugin's status colors its files as
+lazygit does.
+
+#+begin_src rust
+use kalem_plugin::documents::{self, Color, StyledSpan, TextStyle};
+
+let styles = [StyledSpan { start: 1, end: 3, style: TextStyle::color(Color::Red) }];
+documents::open_styled(&spec, " M README.md\n", None, &styles)?;
 #+end_src
 
 The first plugins planned:

@@ -31,7 +31,7 @@ pub use api::{CommandSpec, Event, EventKind, Reply, Scope};
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
 pub use bindings::kalem::plugin::{
-    decorations, diagnostics, documents, editor, fs, http, net, process, settings,
+    decorations, diagnostics, documents, editor, fs, http, net, process, settings, styled_documents,
 };
 
 /// An edit a plugin asked for, applied when its command returns, its
@@ -395,6 +395,7 @@ pub trait Editor: Send + 'static {
         spec: documents::DocumentSpec,
         text: String,
         cursor: Option<u64>,
+        styles: Vec<styled_documents::StyledSpan>,
     ) -> Result<u64, String>;
 
     /// Writes plugin `plugin`'s document `doc` anew.
@@ -404,6 +405,7 @@ pub trait Editor: Send + 'static {
         doc: u64,
         text: String,
         cursor: Option<u64>,
+        styles: Vec<styled_documents::StyledSpan>,
     ) -> Result<(), String>;
 
     /// Closes plugin `plugin`'s document `doc`.
@@ -776,12 +778,18 @@ impl net::Host for Session {
     }
 }
 
-impl documents::Host for Session {
-    fn open(
+/// Styled stretches of a plugin's document at most.
+pub const MAX_STYLES: usize = 100_000;
+
+impl Session {
+    /// A plugin's document opened: its ID the plugin's, its text and its
+    /// styles within their limits.
+    fn open_styled(
         &mut self,
         spec: documents::DocumentSpec,
         text: String,
         cursor: Option<u64>,
+        styles: Vec<styled_documents::StyledSpan>,
     ) -> Result<u64, String> {
         if !self.named_own(&spec.id) {
             return Err(format!(
@@ -789,19 +797,51 @@ impl documents::Host for Session {
                 spec.id, self.plugin
             ));
         }
-        if text.len() > MAX_BYTES {
-            return Err(format!("A document holds at most {} MB", MAX_BYTES >> 20));
-        }
+        check_document(&text, &styles)?;
         let plugin = self.plugin.clone();
-        self.editor.open_document(&plugin, spec, text, cursor)
+        self.editor
+            .open_document(&plugin, spec, text, cursor, styles)
+    }
+
+    fn set_styled(
+        &mut self,
+        doc: u64,
+        text: String,
+        cursor: Option<u64>,
+        styles: Vec<styled_documents::StyledSpan>,
+    ) -> Result<(), String> {
+        check_document(&text, &styles)?;
+        let plugin = self.plugin.clone();
+        self.editor.set_document(&plugin, doc, text, cursor, styles)
+    }
+}
+
+/// A document's text and styles within their limits.
+fn check_document(text: &str, styles: &[styled_documents::StyledSpan]) -> Result<(), String> {
+    if text.len() > MAX_BYTES {
+        return Err(format!("A document holds at most {} MB", MAX_BYTES >> 20));
+    }
+    if styles.len() > MAX_STYLES {
+        return Err(format!(
+            "A document has at most {MAX_STYLES} styled stretches, not {}",
+            styles.len()
+        ));
+    }
+    Ok(())
+}
+
+impl documents::Host for Session {
+    fn open(
+        &mut self,
+        spec: documents::DocumentSpec,
+        text: String,
+        cursor: Option<u64>,
+    ) -> Result<u64, String> {
+        self.open_styled(spec, text, cursor, Vec::new())
     }
 
     fn set(&mut self, doc: u64, text: String, cursor: Option<u64>) -> Result<(), String> {
-        if text.len() > MAX_BYTES {
-            return Err(format!("A document holds at most {} MB", MAX_BYTES >> 20));
-        }
-        let plugin = self.plugin.clone();
-        self.editor.set_document(&plugin, doc, text, cursor)
+        self.set_styled(doc, text, cursor, Vec::new())
     }
 
     fn current(&mut self) -> Option<u64> {
@@ -811,6 +851,28 @@ impl documents::Host for Session {
     fn close(&mut self, doc: u64) {
         let plugin = self.plugin.clone();
         self.editor.close_document(&plugin, doc);
+    }
+}
+
+impl styled_documents::Host for Session {
+    fn open(
+        &mut self,
+        spec: documents::DocumentSpec,
+        text: String,
+        cursor: Option<u64>,
+        styles: Vec<styled_documents::StyledSpan>,
+    ) -> Result<u64, String> {
+        self.open_styled(spec, text, cursor, styles)
+    }
+
+    fn set(
+        &mut self,
+        doc: u64,
+        text: String,
+        cursor: Option<u64>,
+        styles: Vec<styled_documents::StyledSpan>,
+    ) -> Result<(), String> {
+        self.set_styled(doc, text, cursor, styles)
     }
 }
 
@@ -1312,6 +1374,11 @@ impl Extension {
         )
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
         decorations::add_to_linker::<_, HasSelf<Session>>(
+            &mut linker,
+            |d: &mut crate::Data<Session>| &mut d.user,
+        )
+        .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        styled_documents::add_to_linker::<_, HasSelf<Session>>(
             &mut linker,
             |d: &mut crate::Data<Session>| &mut d.user,
         )

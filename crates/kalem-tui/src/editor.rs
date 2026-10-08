@@ -1489,6 +1489,9 @@ impl<'a> Layout<'a> {
                     // Syntax colors where the line shows its source (not a
                     // BibTeX grid row).
                     self.plain_colors(line, &range, &mut lg.glyphs);
+                    if self.doc.generated.is_some() {
+                        self.plugin_styles(&range, &mut lg.glyphs);
+                    }
                     if self.doc.meta.mode == kalem_core::DocumentMode::Markdown && !self.source {
                         self.color_inline_code(&range, &mut lg.glyphs);
                     }
@@ -1646,6 +1649,27 @@ impl<'a> Layout<'a> {
                 })
                 .collect(),
         )
+    }
+
+    /// A plugin's document: the styles its plugin gave the text, a span
+    /// inside another winning.
+    fn plugin_styles(&self, range: &Range<usize>, glyphs: &mut [Glyph]) {
+        let spans = self.doc.styles_in(range.clone());
+        if spans.is_empty() {
+            return;
+        }
+        for g in glyphs.iter_mut() {
+            if g.src_end <= g.src {
+                continue;
+            }
+            if let Some(s) = spans
+                .iter()
+                .rev()
+                .find(|s| s.range.start <= g.src && g.src < s.range.end)
+            {
+                g.style = render::span_style(s.style, g.style, self.caps);
+            }
+        }
     }
 
     /// Syntax colors and indentation guides for a plain text line.

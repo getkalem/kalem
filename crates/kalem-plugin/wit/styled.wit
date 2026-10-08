@@ -1,0 +1,52 @@
+package kalem:plugin@0.2.6;
+
+/// Documents a plugin writes, their text styled (API 0.2.6): what
+/// `documents` shows, with colors and emphasis on stretches of the text,
+/// written with the text so that the two always agree. A color is named,
+/// not given: each theme has its own shade of it, light or dark, and the
+/// terminal its own colors, so a document reads everywhere. The git
+/// plugin's status colors its files as lazygit does; a test runner its
+/// passes and failures, a log its levels.
+interface styled-documents {
+    use documents.{document-spec};
+
+    /// A color of the theme.
+    enum color {
+        /// The text's own.
+        default,
+        /// Dimmed.
+        muted,
+        red,
+        green,
+        yellow,
+        blue,
+        magenta,
+        cyan,
+        /// The theme's accent, its links' color.
+        accent,
+    }
+
+    /// How a stretch of text is shown.
+    record text-style {
+        color: color,
+        bold: bool,
+        italic: bool,
+        underline: bool,
+    }
+
+    /// A styled stretch: bytes `start` to `end` (left out) of the text.
+    record styled-span {
+        start: u64,
+        end: u64,
+        style: text-style,
+    }
+
+    /// Shows a document as `documents.open` does, its text styled by
+    /// `styles` (at most 100,000; where they overlap, the one starting
+    /// later wins: a span inside another).
+    open: func(spec: document-spec, text: string, cursor: option<u64>, styles: list<styled-span>) -> result<u64, string>;
+
+    /// Writes document `doc` anew as `documents.set` does, its text
+    /// styled by `styles`.
+    set: func(doc: u64, text: string, cursor: option<u64>, styles: list<styled-span>) -> result<_, string>;
+}

@@ -1191,7 +1191,7 @@ pub mod kalem {
     pub mod fs  { pub fn read(path: &Path) -> Future<String>; pub fn write(path: &Path, text: &str) -> Future<()>; pub fn list(dir: &Path) -> Future<Vec<PathBuf>>; } // permission required
     pub mod net { pub fn fetch(request: Request) -> Future<Response>; }                          // permission required
     pub mod process { pub fn run(command: Command) -> Future<Exit>; pub fn kill(run: u64); }      // permission required: `subprocess:<program>` (API 0.2.4)
-    pub mod documents { pub fn open(spec: Spec, text: &str, cursor: Option<usize>) -> Result<u64>; pub fn set(doc: u64, text: &str, cursor: Option<usize>) -> Result<()>; pub fn current() -> Option<u64>; pub fn close(doc: u64); } // read-only documents a plugin writes, scoped by their kind (API 0.2.5)
+    pub mod documents { pub fn open(spec: Spec, text: &str, cursor: Option<usize>) -> Result<u64>; pub fn set(doc: u64, text: &str, cursor: Option<usize>) -> Result<()>; pub fn current() -> Option<u64>; pub fn close(doc: u64); pub fn open_styled(..., styles: &[StyledSpan]); pub fn set_styled(..., styles: &[StyledSpan]); } // read-only documents a plugin writes, scoped by their kind (API 0.2.5), styled by the theme's named colors (0.2.6)
     pub mod babel { pub fn register_language(name: &str, runner: impl BabelRunner) -> Disposable; }
     pub mod exporter { pub fn register_backend(name: &str, backend: impl ExportBackend) -> Disposable; pub fn add_filter(stage: Stage, f: impl ExportFilter) -> Disposable; }
     pub mod tables { pub fn register_function(name: &str, f: impl Fn(&[Number]) -> Number) -> Disposable; }
