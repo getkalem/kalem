@@ -191,6 +191,9 @@ struct Ticking {
     started: bool,
     /// How many times it ticked: the tests see it rest.
     ticks: u64,
+    /// How many calls began: the tests tell their own calls from the
+    /// others' of the process.
+    begun: u64,
 }
 
 static CLOCK: Clock = Clock {
@@ -198,6 +201,7 @@ static CLOCK: Clock = Clock {
         calls: 0,
         started: false,
         ticks: 0,
+        begun: 0,
     }),
     wake: Condvar::new(),
 };
@@ -240,6 +244,7 @@ impl Clock {
     fn call(&'static self) -> Call {
         let mut s = self.state();
         s.calls += 1;
+        s.begun += 1;
         if s.calls == 1 {
             self.wake.notify_one();
         }
@@ -846,11 +851,20 @@ mod tests {
         let out = i.call::<(), ()>("spin", ());
         assert!(matches!(out, Err(Error::Timeout(_))), "{out:?}");
         assert!(CLOCK.state().ticks > before, "it ticks while a call runs");
-        assert_eq!(CLOCK.state().calls, 0);
         // The tick under way when the call ended.
         std::thread::sleep(TICK * 3);
-        let idle = CLOCK.state().ticks;
-        std::thread::sleep(TICK * 10);
-        assert_eq!(CLOCK.state().ticks, idle, "and rests while none does");
+        // It rests while no call runs. The clock is the process's, and the
+        // other tests' calls tick it too: a window in which one ran is
+        // tried again (one landing in the window failed CI on macOS).
+        let rested = (0..50).any(|_| {
+            let (ticks, begun, calls) = {
+                let s = CLOCK.state();
+                (s.ticks, s.begun, s.calls)
+            };
+            std::thread::sleep(TICK * 10);
+            let s = CLOCK.state();
+            calls == 0 && s.calls == 0 && s.begun == begun && s.ticks == ticks
+        });
+        assert!(rested, "and rests while none does");
     }
 }
