@@ -572,7 +572,9 @@ if documents::set(doc, &text, None).is_err() { /* closed: forget it */ }
 A plugin also marks the lines of files (=decorations=, API 0.2.5): the
 added, changed and removed lines, which both editors draw beside the
 lines, a colored bar (in the terminal =▎=, and =▁= under a line after
-which lines were removed). A plugin sets a file's marks whole, as the
+which lines were removed); an added or changed line is also tinted under
+its text, green or orange, so that the change shows where it is
+(=editor.highlight_changes= turns the tint off). A plugin sets a file's marks whole, as the
 file is on disk; the editor moves them with the edits made since, until
 the plugin sets them again (the git plugin does on each save). Next
 Change and Previous Change (=edit.nextChange=, =edit.previousChange=;
