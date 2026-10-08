@@ -15,7 +15,9 @@ terminal's graphics (kitty's, iTerm2's or Sixel), else in half-block
 cells, and with colors off shows its text.
 
 - PDF :: Pages with their outline in the sidebar, their page labels and
-  their links; text is selected and copied as on paper. A PDF
+  their links: one to a page turns to it, and one that leaves the
+  document (a web address, a file, another program) asks first and
+  shows where it goes. Text is selected and copied as on paper. A PDF
   that LaTeX built goes back to its source line on Ctrl-click (Cmd-click
   on macOS). A PDF with a password asks for it, hidden as typed, and
   keeps it until Kalem quits.

@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- A link in a PDF that leaves the document (a web address, a file, another program) asks before it opens outside Kalem, showing where it goes: a click no longer starts a program at once.
+
 ## [0.5.1] - 2026-10-08
 
 ### Added

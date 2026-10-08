@@ -13,6 +13,8 @@ use gpui::{
     SharedString, Styled, Task, Window, div, point, px, size,
 };
 
+use kalem_core::tr;
+
 use crate::editor::Editor;
 
 /// The textures shown, by generation, unit, turn and the scale they were
@@ -381,7 +383,7 @@ impl Editor {
             )
             .on_mouse_up(
                 MouseButton::Left,
-                cx.listener(|this, ev: &MouseUpEvent, _, cx| {
+                cx.listener(|this, ev: &MouseUpEvent, window, cx| {
                     this.viewer_view.drag = None;
                     this.viewer_view.selecting_text = false;
                     let Some(down) = this.viewer_view.press.take() else {
@@ -429,7 +431,7 @@ impl Editor {
                     if let Some(url) = v.follow(&target)
                         && (url.contains("://") || url.starts_with("mailto:"))
                     {
-                        cx.open_url(&url);
+                        this.open_outside_asked(url, window, cx);
                     }
                     cx.notify();
                 }),
@@ -536,6 +538,32 @@ impl Editor {
                 .child(area)
                 .children(info),
         )
+    }
+
+    /// A link that leaves the document (a web address, a file, another
+    /// program): asked before it opens outside Kalem, with its address,
+    /// since a link's text need not say where it goes and a file address
+    /// can start a program.
+    fn open_outside_asked(
+        &mut self,
+        url: String,
+        window: &mut Window,
+        cx: &mut Context<'_, Editor>,
+    ) {
+        let (open, cancel) = (tr!("dialog-open-link-open"), tr!("dialog-cancel"));
+        let answer = window.prompt(
+            gpui::PromptLevel::Info,
+            &tr!("dialog-open-link"),
+            Some(&url),
+            &[open.as_str(), cancel.as_str()],
+            cx,
+        );
+        cx.spawn_in(window, async move |this, cx| {
+            if answer.await == Ok(0) {
+                let _ = this.update_in(cx, |_, _, cx| cx.open_url(&url));
+            }
+        })
+        .detach();
     }
 
     /// A grid unit (a sheet): letters above, row numbers at the left, the

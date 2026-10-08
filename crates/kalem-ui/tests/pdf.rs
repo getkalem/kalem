@@ -185,6 +185,105 @@ fn a_pdf_opens_page_by_page(cx: &mut TestAppContext) {
     assert_eq!(found(cx), (0, "1/3".to_string()));
 }
 
+/// A one-page PDF whose link leaves the document: a web address at
+/// 72–300 × 72–122 of the page, where pages.pdf's link to page three sits.
+fn pdf_with_a_web_link(path: &std::path::Path) {
+    let content = b"BT /F1 36 Tf 72 680 Td (A link) Tj ET";
+    let objects: Vec<Vec<u8>> = vec![
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R \
+          /Resources << /Font << /F1 5 0 R >> >> /Annots [6 0 R] >>"
+            .to_vec(),
+        [
+            format!("<< /Length {} >>\nstream\n", content.len()).as_bytes(),
+            content,
+            b"\nendstream",
+        ]
+        .concat(),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_vec(),
+        b"<< /Type /Annot /Subtype /Link /Rect [72 670 300 720] \
+          /A << /S /URI /URI (https://example.org/) >> >>"
+            .to_vec(),
+    ];
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, body) in objects.iter().enumerate() {
+        offsets.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+        out.extend_from_slice(body);
+        out.extend_from_slice(b"\nendobj\n");
+    }
+    let xref = out.len();
+    let size = objects.len() + 1;
+    out.extend_from_slice(format!("xref\n0 {size}\n0000000000 65535 f \n").as_bytes());
+    for o in &offsets {
+        out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    out.extend_from_slice(
+        format!("trailer\n<< /Size {size} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n").as_bytes(),
+    );
+    std::fs::write(path, out).unwrap();
+}
+
+/// A link that leaves the document (a web address, a file, another
+/// program) asks before it opens outside Kalem, its address shown: the
+/// link's text need not say where it goes, and a file address can start
+/// a program.
+#[gpui::test]
+fn a_link_outside_the_document_asks_first(cx: &mut TestAppContext) {
+    let (ws, cx) = open(cx);
+    settle(&ws, cx);
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    let dir = e.read_with(cx, |e, _| {
+        e.doc
+            .meta
+            .path
+            .clone()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf()
+    });
+    let link = dir.join("link.pdf");
+    pdf_with_a_web_link(&link);
+    ws.update_in(cx, |ws, window, cx| ws.open(&link, None, window, cx));
+    settle(&ws, cx);
+    let (_, _, text) = state(&ws, cx);
+    assert_eq!(text, "A link");
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    let at = e.update(cx, |e, _| {
+        let origin = e.viewer_view.bounds.expect("laid out").origin;
+        let p = e.doc.viewer.as_deref_mut().unwrap().placement();
+        origin
+            + gpui::point(
+                gpui::px(p.x + 150.0 * p.scale),
+                gpui::px(p.y + 97.0 * p.scale),
+            )
+    });
+
+    // A click asks, with the address; Cancel opens nothing.
+    cx.simulate_click(at, gpui::Modifiers::default());
+    cx.run_until_parked();
+    let (message, detail) = cx.pending_prompt().expect("asked before opening");
+    assert!(
+        format!("{message} {detail}").contains("https://example.org/"),
+        "{message} / {detail}"
+    );
+    assert_eq!(cx.opened_url(), None);
+    cx.simulate_prompt_answer("Cancel");
+    cx.run_until_parked();
+    assert_eq!(cx.opened_url(), None);
+
+    // Open: the address goes to the system.
+    cx.simulate_click(at, gpui::Modifiers::default());
+    cx.run_until_parked();
+    assert!(cx.has_pending_prompt());
+    cx.simulate_prompt_answer("Open");
+    cx.run_until_parked();
+    assert_eq!(cx.opened_url().as_deref(), Some("https://example.org/"));
+}
+
 /// SyncTeX (T2.7h.24): opened at a line, a PDF shows that page; a
 /// Ctrl-click (Cmd on macOS) on a page opens the source line typeset
 /// there.

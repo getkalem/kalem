@@ -1021,11 +1021,15 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   kept fit in 256 MB, one larger is not kept; a stopped document now
   closes saying why (wasm_todo W8). Released as pdf-viewer 0.0.2, built
   in since 2026-10-06.)
-- [ ] **Minor, reported.** Any link target with `://` opens with the
+- [~] **Minor, reported.** Any link target with `://` opens with the
   system without confirmation (`kalem-ui/src/viewer.rs:429-433`), so a
   `file:///…/x.app` or `smb://` link in a PDF launches on one click;
   GoToR and Launch links do nothing; outline entries jump to the page
   top, not the position.
+  (partly, 2026-10-08: a link that leaves the document asks first, the
+  address shown (`Editor::open_outside_asked`, test
+  `a_link_outside_the_document_asks_first`). Open: GoToR and Launch,
+  the outline's positions.)
 - [ ] **Minor, reported.** While neighbouring pages render ahead they
   hold the document lock, and `text_hit`/`link_under` use `try_lock`
   (`viewer.rs:788-795`, `1099-1137`): a drag over text pans instead of
