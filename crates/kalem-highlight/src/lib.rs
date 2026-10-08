@@ -45,6 +45,20 @@ pub enum Kind {
     Inserted,
     /// A line a diff removes.
     Deleted,
+    /// A diff hunk's range line (`@@ -1,3 +1,4 @@`).
+    Hunk,
+}
+
+/// The kind a whole line of a diff has, from its spans: an added or
+/// removed line, or a hunk's range line, which the editors also give a
+/// background, as magit does; none for any other line.
+pub fn line_kind(spans: &[Span]) -> Option<Kind> {
+    spans
+        .first()
+        .filter(|s| {
+            s.range.start == 0 && matches!(s.kind, Kind::Inserted | Kind::Deleted | Kind::Hunk)
+        })
+        .map(|s| s.kind)
 }
 
 /// A highlighted range of one line, in bytes from the line's start.
@@ -291,7 +305,7 @@ fn kind(stack: &ScopeStack) -> Option<Kind> {
             // as a function (its heading), the file headers dimmed.
             ("markup.inserted", Kind::Inserted),
             ("markup.deleted", Kind::Deleted),
-            ("meta.diff.range", Kind::Function),
+            ("meta.diff.range", Kind::Hunk),
             ("meta.diff.header", Kind::Comment),
             ("meta.diff.index", Kind::Comment),
             ("meta.separator.diff", Kind::Comment),
@@ -805,7 +819,11 @@ mod tests {
         };
         assert_eq!(at(2, "a/a.txt"), Some(Kind::Comment), "{:?}", lines[2]);
         assert_eq!(at(3, "b/a.txt"), Some(Kind::Comment), "{:?}", lines[3]);
-        assert_eq!(at(4, "@@"), Some(Kind::Function), "{:?}", lines[4]);
+        assert_eq!(at(4, "@@"), Some(Kind::Hunk), "{:?}", lines[4]);
+        assert_eq!(line_kind(&lines[4]), Some(Kind::Hunk));
+        assert_eq!(line_kind(&lines[6]), Some(Kind::Deleted));
+        assert_eq!(line_kind(&lines[7]), Some(Kind::Inserted));
+        assert_eq!(line_kind(&lines[5]), None);
         assert_eq!(at(6, "line 2"), Some(Kind::Deleted), "{:?}", lines[6]);
         assert_eq!(at(7, "line TWO"), Some(Kind::Inserted), "{:?}", lines[7]);
         assert!(

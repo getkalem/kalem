@@ -1765,6 +1765,14 @@ impl<'a> Layout<'a> {
     }
 
     /// Whether line `line` is monospace code (for the background).
+    /// The whole-line kind of `line` in a diff (added, removed, a hunk's
+    /// range), from the plain-text highlighter; none elsewhere.
+    pub(crate) fn diff_line_kind(&self, line: usize) -> Option<kalem_highlight::Kind> {
+        let mut p = self.plain.borrow_mut();
+        let (_, h, _) = p.as_mut()?;
+        kalem_highlight::line_kind(h.as_mut()?.line(line))
+    }
+
     pub(crate) fn is_code(&self, line: usize) -> bool {
         if self.source {
             return false;
@@ -1903,6 +1911,12 @@ impl Lines for Layout<'_> {
                 Some(t) => render::solid(t.bar, t),
                 None => ratatui::style::Color::Indexed(235),
             });
+        }
+        if let Some(bg) = self
+            .diff_line_kind(line)
+            .and_then(|k| render::diff_bg(k, self.caps))
+        {
+            return Some(bg);
         }
         self.is_code(line).then(|| render::code_bg(self.caps))
     }

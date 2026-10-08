@@ -285,3 +285,62 @@ fn marked_lines_are_tinted_under_their_text() {
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn a_diffs_lines_have_backgrounds() {
+    let _serial = one_at_a_time();
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    let dir = std::env::temp_dir().join(format!("kalem-tui-diffbg-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("notes.txt"), "notes\n").unwrap();
+    let caps = Caps {
+        colors: Some(std::sync::Arc::new(
+            kalem_core::theme::ThemeColors::builtin(true),
+        )),
+        ..Caps::full()
+    };
+    let mut app = App::with_keymap(
+        Some(&dir.join("notes.txt")),
+        Config::default(),
+        caps,
+        &[],
+        Vec::new(),
+    )
+    .unwrap();
+    let spec = GeneratedSpec {
+        id: "gentest.diff".into(),
+        key: dir.display().to_string(),
+        title: "Diff".into(),
+        kind: "gentest-diff".into(),
+        language: Some("diff".into()),
+    };
+    let text = "header\n@@ -1,2 +1,2 @@\n same\n-gone\n+here\n";
+    x::open_generated("gentest", spec, text.into(), None, Vec::new()).unwrap();
+    app.tick(Instant::now());
+    let mut term = Terminal::new(TestBackend::new(60, 8)).unwrap();
+    term.draw(|f| app.draw(f)).unwrap();
+    let buf = term.backend().buffer().clone();
+    let text_of = |y: u16| {
+        (0..buf.area.width)
+            .map(|x| buf[(x, y)].symbol().to_string())
+            .collect::<String>()
+    };
+    let bg_at = |word: &str| {
+        let y = (0..buf.area.height)
+            .find(|&y| text_of(y).contains(word))
+            .unwrap();
+        let first = word.chars().next().unwrap().to_string();
+        let x = (0..buf.area.width)
+            .find(|&x| buf[(x, y)].symbol() == first)
+            .unwrap();
+        buf[(x, y)].bg
+    };
+    let base = bg_at("same");
+    assert_ne!(bg_at("+here"), base, "an added line has a background");
+    assert_ne!(bg_at("-gone"), base, "a removed line has a background");
+    assert_ne!(bg_at("@@"), base, "a hunk's line has a background");
+    assert_ne!(bg_at("+here"), bg_at("-gone"), "added and removed differ");
+    let _ = std::fs::remove_dir_all(&dir);
+}

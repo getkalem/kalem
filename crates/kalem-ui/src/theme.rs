@@ -159,6 +159,28 @@ impl Theme {
         self.levels[(level.max(1) as usize - 1) % self.levels.len()]
     }
 
+    /// The background of a whole line of a diff ([`kalem_highlight::line_kind`]):
+    /// an added or removed line in a wash of its color, a hunk's line in
+    /// the link color's, as magit shows them.
+    pub fn diff_line_bg(&self, kind: kalem_highlight::Kind) -> Option<Hsla> {
+        use kalem_highlight::Kind as K;
+        Some(match kind {
+            K::Inserted => Hsla {
+                a: 0.16,
+                ..self.syntax[6]
+            },
+            K::Deleted => Hsla {
+                a: 0.16,
+                ..self.syntax[7]
+            },
+            K::Hunk => Hsla {
+                a: 0.18,
+                ..self.link
+            },
+            _ => return None,
+        })
+    }
+
     /// A syntax color for a highlighting kind.
     pub fn code(&self, kind: kalem_highlight::Kind) -> Option<Hsla> {
         use kalem_highlight::Kind as K;
@@ -171,6 +193,7 @@ impl Theme {
             K::Type => self.syntax[5],
             K::Inserted => self.syntax[6],
             K::Deleted => self.syntax[7],
+            K::Hunk => self.syntax[4],
             K::Invalid => self.todo,
             K::Operator | K::Variable => return None,
         })

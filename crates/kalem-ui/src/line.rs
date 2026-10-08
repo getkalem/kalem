@@ -1840,6 +1840,17 @@ impl gpui::Element for LineElement {
             );
             window.paint_quad(fill(wide, tint));
         }
+        // A diff's added, removed and hunk lines in a wash of their color.
+        if let Some(bg) = editor
+            .diff_line_kind(self.line)
+            .and_then(|k| theme.diff_line_bg(k))
+        {
+            let wide = Bounds::new(
+                point(bounds.origin.x - px(12.), bounds.origin.y),
+                size(bounds.size.width + px(24.), bounds.size.height),
+            );
+            window.paint_quad(fill(wide, bg));
+        }
         // The cursor's line in plain text and the source view.
         if current && numbers {
             let wide = Bounds::new(

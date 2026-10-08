@@ -2874,6 +2874,14 @@ impl Editor {
         *p = Some((stamp, h, step));
     }
 
+    /// The whole-line kind of `line` in a diff (added, removed, a hunk's
+    /// range), from the plain-text highlighter; none elsewhere.
+    pub fn diff_line_kind(&self, line: usize) -> Option<kalem_highlight::Kind> {
+        let mut p = self.plain.borrow_mut();
+        let (_, h, _) = p.as_mut()?;
+        kalem_highlight::line_kind(h.as_mut()?.line(line))
+    }
+
     /// Whether lines a plugin marked as added or changed are tinted under
     /// their text (`editor.highlight_changes`).
     pub fn highlight_changes(&self) -> bool {

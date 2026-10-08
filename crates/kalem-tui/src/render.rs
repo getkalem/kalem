@@ -78,6 +78,41 @@ pub fn change_tint(mark: kalem_core::GutterMark, caps: &Caps) -> Option<Color> {
     })
 }
 
+/// The background of a whole line of a diff ([`kalem_highlight::line_kind`]):
+/// an added or removed line in a wash of its color over the theme's
+/// background, a hunk's line in the link color's, as magit shows them;
+/// shades of the palette where the theme's colors are not shown.
+pub fn diff_bg(kind: kalem_highlight::Kind, caps: &Caps) -> Option<Color> {
+    use kalem_highlight::Kind as K;
+    if caps.no_color || !matches!(kind, K::Inserted | K::Deleted | K::Hunk) {
+        return None;
+    }
+    if let Some(t) = &caps.colors {
+        let c = match kind {
+            K::Inserted => t.syntax[6],
+            K::Deleted => t.syntax[7],
+            _ => t.link,
+        };
+        let wash = kalem_core::theme::Color((c.0 & 0xffffff00) | 0x33);
+        return Some(rgb(wash.over(t.background)));
+    }
+    let dark = caps.dark_background().unwrap_or(true);
+    Some(match (caps.true_color, dark, kind) {
+        (true, true, K::Inserted) => Color::Rgb(30, 52, 36),
+        (true, true, K::Deleted) => Color::Rgb(62, 32, 32),
+        (true, true, _) => Color::Rgb(34, 42, 62),
+        (true, false, K::Inserted) => Color::Rgb(225, 245, 228),
+        (true, false, K::Deleted) => Color::Rgb(252, 226, 226),
+        (true, false, _) => Color::Rgb(226, 234, 250),
+        (false, true, K::Inserted) => Color::Indexed(22),
+        (false, true, K::Deleted) => Color::Indexed(52),
+        (false, true, _) => Color::Indexed(17),
+        (false, false, K::Inserted) => Color::Indexed(194),
+        (false, false, K::Deleted) => Color::Indexed(224),
+        (false, false, _) => Color::Indexed(189),
+    })
+}
+
 /// A code glyph's style for its highlighting kind.
 /// A plugin document's style over `base` (`styled-documents`): the
 /// theme's shade of its color on a true-color terminal, the terminal's own
@@ -152,6 +187,7 @@ pub fn code_style(kind: kalem_highlight::Kind, base: Style, caps: &Caps) -> Styl
             K::Type => base.fg(ty),
             K::Inserted => base.fg(inserted),
             K::Deleted => base.fg(deleted),
+            K::Hunk => base.fg(function),
             K::Invalid => base.fg(rgb(t.todo)),
             K::Operator | K::Variable => base,
         };
@@ -171,6 +207,7 @@ pub fn code_style(kind: kalem_highlight::Kind, base: Style, caps: &Caps) -> Styl
         K::Macro => base.fg(Color::Cyan),
         K::Inserted => base.fg(Color::Green),
         K::Deleted => base.fg(Color::Red),
+        K::Hunk => base.fg(Color::LightBlue),
         K::Invalid => base.fg(Color::Red),
         K::Operator | K::Variable => base,
     }
