@@ -11,6 +11,12 @@ updates:
         patterns:
           - "gpui-unofficial"
           - "gpui-platform-gpui-unofficial"
+    ignore:
+      # wasmtime and cranelift still hash with sha2 0.10: a 0.11 of Kalem's
+      # own would put a second copy in the binary, whose size ceilings are
+      # thin (tools/binary-size.txt). Take the bump when wasmtime moves.
+      - dependency-name: "sha2"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
