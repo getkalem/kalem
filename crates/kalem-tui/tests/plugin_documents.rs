@@ -221,3 +221,58 @@ fn a_plugins_document_is_drawn_in_its_styles() {
     x::close_generated("gentest", n);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn marked_lines_are_tinted_under_their_text() {
+    let _serial = one_at_a_time();
+    use kalem_core::GutterMark as M;
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    let dir = std::env::temp_dir().join(format!("kalem-tui-tint-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("a.txt");
+    std::fs::write(&file, "one\ntwo\nthree\nfour\n").unwrap();
+    let caps = Caps {
+        colors: Some(std::sync::Arc::new(
+            kalem_core::theme::ThemeColors::builtin(true),
+        )),
+        ..Caps::full()
+    };
+    let mut app = App::with_keymap(Some(&file), Config::default(), caps, &[], Vec::new()).unwrap();
+    let mut term = Terminal::new(TestBackend::new(60, 8)).unwrap();
+    x::set_gutter("gentest", &file, vec![(2, M::Changed), (4, M::Added)]).unwrap();
+    app.tick(Instant::now());
+    term.draw(|f| app.draw(f)).unwrap();
+    let buf = term.backend().buffer().clone();
+    let text = |y: u16| {
+        (0..buf.area.width)
+            .map(|x| buf[(x, y)].symbol().to_string())
+            .collect::<String>()
+    };
+    // The background of the word's first cell.
+    let bg_at = |word: &str| {
+        let y = (0..buf.area.height)
+            .find(|&y| text(y).contains(word))
+            .unwrap();
+        let first = word.chars().next().unwrap().to_string();
+        let x = (0..buf.area.width)
+            .find(|&x| buf[(x, y)].symbol() == first)
+            .unwrap();
+        buf[(x, y)].bg
+    };
+    // The base is a line without a mark that is not the cursor's (the
+    // cursor's line has a shade of its own); the marked ones differ from it
+    // and from each other.
+    let base = bg_at("three");
+    assert_ne!(bg_at("two"), base, "a changed line is tinted");
+    assert_ne!(bg_at("four"), base, "an added line is tinted");
+    assert_ne!(bg_at("two"), bg_at("four"), "changed and added differ");
+    assert_ne!(
+        bg_at("two"),
+        bg_at("one"),
+        "the tint is not the cursor line's shade"
+    );
+    x::clear_gutter("gentest", None);
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -1824,6 +1824,22 @@ impl gpui::Element for LineElement {
             );
             window.paint_quad(fill(wide, bg));
         }
+        // A line a plugin marked as added or changed (the git plugin's),
+        // tinted in its mark's color under the text, so that the change
+        // shows where it is and not only in the gutter.
+        if editor.highlight_changes()
+            && let Some(tint) = editor.doc.gutter_mark(self.line).and_then(|m| match m {
+                kalem_core::GutterMark::Added => Some(gpui::hsla(0.36, 0.55, 0.45, 0.14)),
+                kalem_core::GutterMark::Changed => Some(gpui::hsla(0.11, 0.85, 0.5, 0.12)),
+                _ => None,
+            })
+        {
+            let wide = Bounds::new(
+                point(bounds.origin.x - px(12.), bounds.origin.y),
+                size(bounds.size.width + px(24.), bounds.size.height),
+            );
+            window.paint_quad(fill(wide, tint));
+        }
         // The cursor's line in plain text and the source view.
         if current && numbers {
             let wide = Bounds::new(

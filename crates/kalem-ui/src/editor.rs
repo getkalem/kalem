@@ -2874,6 +2874,12 @@ impl Editor {
         *p = Some((stamp, h, step));
     }
 
+    /// Whether lines a plugin marked as added or changed are tinted under
+    /// their text (`editor.highlight_changes`).
+    pub fn highlight_changes(&self) -> bool {
+        self.shared.config.bool("editor.highlight_changes")
+    }
+
     /// Whether lines show numbers: plain text and the source view.
     pub fn line_numbers(&self) -> bool {
         // A CSV grid numbers its rows itself; a listing and a plugin's

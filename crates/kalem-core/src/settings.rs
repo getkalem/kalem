@@ -208,6 +208,12 @@ pub const SPECS: &[Spec] = &[
         description: "Line numbers in plain text files and in the source view",
     },
     Spec {
+        key: "editor.highlight_changes",
+        kind: Kind::Bool,
+        default: "true",
+        description: "Lines a plugin marks as added or changed (the git plugin's) tinted under their text, beside their mark in the gutter",
+    },
+    Spec {
         key: "editor.keymap_profile",
         kind: Kind::Enum(&["word", "vim"]),
         default: r#""word""#,

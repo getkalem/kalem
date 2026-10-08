@@ -622,6 +622,7 @@ impl App {
         app.editor.center = app.config.bool("editor.center_text");
         app.editor.wrap = app.config.bool("editor.soft_wrap");
         app.editor.line_numbers = app.config.bool("editor.line_numbers");
+        app.editor.highlight_changes = app.config.bool("editor.highlight_changes");
         app.refresh_vim();
         app.editor.images.borrow_mut().base = app
             .doc
@@ -783,6 +784,7 @@ impl App {
         v.center = self.config.bool("editor.center_text");
         v.wrap = self.config.bool("editor.soft_wrap");
         v.line_numbers = self.config.bool("editor.line_numbers");
+        v.highlight_changes = self.config.bool("editor.highlight_changes");
         v.raw_math = self.editor.raw_math;
         v.outline_indent = self.config.bool("editor.outline_indent");
         {
@@ -2313,6 +2315,8 @@ impl App {
         let center = self.config.bool("editor.center_text");
         let wrap = self.config.bool("editor.soft_wrap");
         let numbers = self.config.bool("editor.line_numbers");
+        let tint = self.config.bool("editor.highlight_changes");
+        let tinted = has("editor.highlight_changes");
         let (w, c, s, n) = (
             has("editor.line_width"),
             has("editor.center_text"),
@@ -2334,6 +2338,9 @@ impl App {
             }
             if n {
                 v.line_numbers = numbers;
+            }
+            if tinted {
+                v.highlight_changes = tint;
             }
         }
         if has("ui.open_files") {
