@@ -99,7 +99,9 @@ def atom(rng, depth):
             return s + "{}"
         return s + (rng.choice(["{}", " ", "\\ "]) if s[-1].isalpha() else "")
     if r < 0.76:
-        return rng.choice(SPACES)
+        s = rng.choice(SPACES)
+        # `\quad` before a word would read as one control sequence.
+        return s + rng.choice(["{}", " "]) if s[-1].isalpha() else s
     if r < 0.88 and depth < 3:
         f = rng.choice(FONTS)
         inner = phrase(rng, depth + 1, 1, 3)
@@ -108,7 +110,9 @@ def atom(rng, depth):
         # TeX's \lowercase around LaTeX's \MakeUppercase of an accented
         # letter loops forever (`\lowercase{\MakeLowercase{é}}`): LaTeX's
         # case change there.
-        if f in (r"\uppercase", r"\lowercase") and r"\Make" in inner:
+        # TeX's \lowercase and \uppercase work on bytes: a UTF-8 letter
+        # (`café`) comes apart in them.
+        if f in (r"\uppercase", r"\lowercase") and (r"\Make" in inner or not inner.isascii()):
             f = r"\MakeUppercase" if f == r"\uppercase" else r"\MakeLowercase"
         return f"{f}{{{inner}}}"
     if r < 0.95 and depth < 3:
@@ -124,8 +128,10 @@ def phrase(rng, depth, lo, hi):
         parts.append(atom(rng, depth))
         parts.append(rng.choice([" ", " ", "", "  "]))
     s = "".join(parts).strip()
-    # A trailing `\ ` would lose its space and escape what follows.
-    return s + "{}" if s.endswith("\\") else s
+    # A trailing `\ ` lost its space to the strip: it is put back, with
+    # an empty group after it, so that it escapes neither the newline nor
+    # a brace (`\{}` was an escaped brace and one `}` too many).
+    return s + " {}" if s.endswith("\\") else s
 
 
 COMBINING = {"\u0300": "`", "\u0301": "'", "\u0302": "^", "\u0303": "~", "\u0304": "=",
