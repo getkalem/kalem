@@ -40,7 +40,7 @@ pub struct Theme {
     /// Lines between areas.
     pub border: Hsla,
     /// Syntax colors: keyword, string, comment, number, function, type.
-    pub syntax: [Hsla; 6],
+    pub syntax: [Hsla; 8],
     /// The colors plugins name for their documents' text, as
     /// [`STYLE_COLORS`] lists them.
     pub styles: [Option<Hsla>; 9],
@@ -169,6 +169,8 @@ impl Theme {
             K::Number | K::Constant => self.syntax[3],
             K::Function | K::Tag => self.syntax[4],
             K::Type => self.syntax[5],
+            K::Inserted => self.syntax[6],
+            K::Deleted => self.syntax[7],
             K::Invalid => self.todo,
             K::Operator | K::Variable => return None,
         })

@@ -41,6 +41,10 @@ pub enum Kind {
     Macro,
     /// Invalid code.
     Invalid,
+    /// A line a diff adds.
+    Inserted,
+    /// A line a diff removes.
+    Deleted,
 }
 
 /// A highlighted range of one line, in bytes from the line's start.
@@ -283,6 +287,14 @@ fn kind(stack: &ScopeStack) -> Option<Kind> {
             ("variable.parameter", Kind::Variable),
             ("variable", Kind::Variable),
             ("invalid", Kind::Invalid),
+            // A diff: its added and removed lines, the hunk's range line
+            // as a function (its heading), the file headers dimmed.
+            ("markup.inserted", Kind::Inserted),
+            ("markup.deleted", Kind::Deleted),
+            ("meta.diff.range", Kind::Function),
+            ("meta.diff.header", Kind::Comment),
+            ("meta.diff.index", Kind::Comment),
+            ("meta.separator.diff", Kind::Comment),
         ]
         .into_iter()
         .map(|(s, k)| (Scope::new(s).expect("a valid scope"), k))
@@ -776,6 +788,32 @@ mod tests {
         assert_eq!(
             Language::find("sh").map(Language::name),
             Some("Bourne Again Shell (bash)")
+        );
+    }
+
+    #[test]
+    fn diff() {
+        let code = "diff --git a/a.txt b/a.txt\nindex 1234567..89abcde 100644\n--- a/a.txt\n+++ b/a.txt\n@@ -1,3 +1,3 @@ fn main\n context\n-line 2\n+line TWO\n";
+        let lines = highlight(Language::find("diff").unwrap(), code);
+        let at = |l: usize, s: &str| {
+            let line = code.split('\n').nth(l).unwrap();
+            let i = line.find(s).unwrap();
+            lines[l]
+                .iter()
+                .find(|sp| sp.range.contains(&i))
+                .map(|sp| sp.kind)
+        };
+        assert_eq!(at(2, "a/a.txt"), Some(Kind::Comment), "{:?}", lines[2]);
+        assert_eq!(at(3, "b/a.txt"), Some(Kind::Comment), "{:?}", lines[3]);
+        assert_eq!(at(4, "@@"), Some(Kind::Function), "{:?}", lines[4]);
+        assert_eq!(at(6, "line 2"), Some(Kind::Deleted), "{:?}", lines[6]);
+        assert_eq!(at(7, "line TWO"), Some(Kind::Inserted), "{:?}", lines[7]);
+        assert!(
+            lines[5]
+                .iter()
+                .all(|sp| !matches!(sp.kind, Kind::Inserted | Kind::Deleted)),
+            "{:?}",
+            lines[5]
         );
     }
 

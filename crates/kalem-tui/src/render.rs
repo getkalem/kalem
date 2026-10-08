@@ -102,7 +102,16 @@ pub fn code_style(kind: kalem_highlight::Kind, base: Style, caps: &Caps) -> Styl
         };
     }
     if let Some(t) = &caps.colors {
-        let [keyword, string, comment, number, function, ty] = t.syntax.map(rgb);
+        let [
+            keyword,
+            string,
+            comment,
+            number,
+            function,
+            ty,
+            inserted,
+            deleted,
+        ] = t.syntax.map(rgb);
         return match kind {
             K::Comment => base.fg(comment).add_modifier(if caps.italic {
                 Modifier::ITALIC
@@ -114,6 +123,8 @@ pub fn code_style(kind: kalem_highlight::Kind, base: Style, caps: &Caps) -> Styl
             K::Keyword | K::Macro => base.fg(keyword),
             K::Function | K::Tag => base.fg(function),
             K::Type => base.fg(ty),
+            K::Inserted => base.fg(inserted),
+            K::Deleted => base.fg(deleted),
             K::Invalid => base.fg(rgb(t.todo)),
             K::Operator | K::Variable => base,
         };
@@ -131,6 +142,8 @@ pub fn code_style(kind: kalem_highlight::Kind, base: Style, caps: &Caps) -> Styl
         K::Type => base.fg(Color::Yellow),
         K::Tag => base.fg(Color::LightBlue),
         K::Macro => base.fg(Color::Cyan),
+        K::Inserted => base.fg(Color::Green),
+        K::Deleted => base.fg(Color::Red),
         K::Invalid => base.fg(Color::Red),
         K::Operator | K::Variable => base,
     }

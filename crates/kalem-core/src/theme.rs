@@ -87,14 +87,17 @@ pub struct ThemeColors {
     pub border: Color,
     /// Headlines, by level.
     pub levels: [Color; 6],
-    /// Source code: keyword, string, comment, number, function, type.
-    pub syntax: [Color; 6],
+    /// Source code: keyword, string, comment, number, function, type;
+    /// then a diff's inserted and deleted lines.
+    pub syntax: [Color; 8],
 }
 
 const LIGHT: &str = include_str!("../themes/light.toml");
 const DARK: &str = include_str!("../themes/dark.toml");
 
-const SYNTAX: [&str; 6] = ["keyword", "string", "comment", "number", "function", "type"];
+const SYNTAX: [&str; 8] = [
+    "keyword", "string", "comment", "number", "function", "type", "inserted", "deleted",
+];
 
 impl ThemeColors {
     /// The theme's shade of a color a plugin names for its document's text
@@ -135,7 +138,7 @@ impl ThemeColors {
             bar: c,
             border: c,
             levels: [c; 6],
-            syntax: [c; 6],
+            syntax: [c; 8],
         }
     }
 
