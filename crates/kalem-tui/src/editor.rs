@@ -2447,25 +2447,22 @@ impl EditorView {
             }
         }
         // Lines a plugin marked as added or changed, tinted in the mark's
-        // color under their text where the terminal has the theme's colors;
-        // a cell with a background of its own (a selection) keeps it.
-        if self.highlight_changes
-            && !caps.no_color
-            && let Some(t) = &caps.colors
-        {
-            let base = render::rgb(t.background);
+        // color under their text; a cell with a background of its own (a
+        // selection, the cursor's line) keeps it.
+        if self.highlight_changes && !caps.no_color {
+            let base = caps.colors.as_ref().map(|t| render::rgb(t.background));
             for dl in drawn.lines.iter().filter(|d| d.skipped == 0) {
-                let tint = match doc.gutter_mark(dl.line) {
-                    Some(kalem_core::GutterMark::Added) => kalem_core::theme::Color(0x4caf5033),
-                    Some(kalem_core::GutterMark::Changed) => kalem_core::theme::Color(0xe9a23b2e),
-                    _ => continue,
+                let Some(bg) = doc
+                    .gutter_mark(dl.line)
+                    .and_then(|m| render::change_tint(m, caps))
+                else {
+                    continue;
                 };
-                let bg = render::rgb(tint.over(t.background));
                 let rows = u16::try_from(dl.rows).unwrap_or(u16::MAX);
                 for y in dl.y..dl.y.saturating_add(rows).min(area.bottom()) {
                     for x in area.x..area.right() {
                         let cell = &mut buf[(x, y)];
-                        if cell.bg == ratatui::style::Color::Reset || cell.bg == base {
+                        if cell.bg == ratatui::style::Color::Reset || Some(cell.bg) == base {
                             cell.set_bg(bg);
                         }
                     }

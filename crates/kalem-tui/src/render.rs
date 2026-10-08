@@ -51,6 +51,33 @@ pub fn code_bg(caps: &Caps) -> Color {
     }
 }
 
+/// The background of a line a plugin marked as added or changed (the
+/// git plugin's), under its text: the mark's color over the theme's
+/// background where the terminal has the theme's colors, else a shade
+/// for its light or dark background; none for a removal or without color.
+pub fn change_tint(mark: kalem_core::GutterMark, caps: &Caps) -> Option<Color> {
+    use kalem_core::GutterMark as M;
+    if caps.no_color || !matches!(mark, M::Added | M::Changed) {
+        return None;
+    }
+    let added = mark == M::Added;
+    if let Some(t) = &caps.colors {
+        let tint = kalem_core::theme::Color(if added { 0x4caf5033 } else { 0xe9a23b2e });
+        return Some(rgb(tint.over(t.background)));
+    }
+    let dark = caps.dark_background().unwrap_or(true);
+    Some(match (caps.true_color, dark, added) {
+        (true, true, true) => Color::Rgb(30, 52, 36),
+        (true, true, false) => Color::Rgb(58, 46, 30),
+        (true, false, true) => Color::Rgb(225, 245, 228),
+        (true, false, false) => Color::Rgb(252, 240, 215),
+        (false, true, true) => Color::Indexed(22),
+        (false, true, false) => Color::Indexed(58),
+        (false, false, true) => Color::Indexed(194),
+        (false, false, false) => Color::Indexed(230),
+    })
+}
+
 /// A code glyph's style for its highlighting kind.
 /// A plugin document's style over `base` (`styled-documents`): the
 /// theme's shade of its color on a true-color terminal, the terminal's own
