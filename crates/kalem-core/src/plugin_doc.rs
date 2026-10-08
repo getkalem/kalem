@@ -110,6 +110,9 @@ pub struct DocView {
     pub text: String,
     /// The selection: anchor and cursor.
     pub selection: (usize, usize),
+    /// The number of the document, when a plugin writes it
+    /// ([`crate::GeneratedDoc`]).
+    pub generated: Option<u64>,
     model: Option<Arc<Document>>,
 }
 
@@ -167,6 +170,7 @@ impl DocView {
             modified: doc.is_modified(),
             text: doc.text().as_str().to_string(),
             selection: (doc.selection.anchor, doc.selection.head),
+            generated: doc.generated.as_ref().map(|g| g.number),
             model,
         }
     }

@@ -117,6 +117,37 @@ pub enum CellMode {
     Edit,
 }
 
+/// What a line of a file changed, as a plugin marks it beside the line
+/// (`decorations`, plugin API 0.2.5): the git plugin's diff against the
+/// index. In the order a line's marks give way to one another.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum GutterMark {
+    /// The line is new.
+    Added,
+    /// The line changed.
+    Changed,
+    /// Lines were removed after this one.
+    Removed,
+    /// Lines were removed before this one, the first.
+    RemovedAbove,
+}
+
+/// A document a plugin writes (`documents`, plugin API 0.2.5), as the
+/// editors keep it beside its text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GeneratedDoc {
+    /// Its number, the plugin's name for it.
+    pub number: u64,
+    /// The plugin, by its short ID (`git`).
+    pub plugin: String,
+    /// Its text type, for the scopes of commands (`git-status`).
+    pub kind: String,
+    /// Its title in the list of open files and the tab.
+    pub title: String,
+    /// The version of the text shown.
+    pub version: u64,
+}
+
 /// An open document.
 #[derive(Debug)]
 pub struct DocumentState {
@@ -170,6 +201,14 @@ pub struct DocumentState {
     /// A file that is not text, opened by a viewer plugin
     /// ([`DocumentMode::Viewer`]).
     pub viewer: Option<Box<crate::viewer::ViewerState>>,
+    /// A document a plugin writes ([`GeneratedDoc`]).
+    pub generated: Option<GeneratedDoc>,
+    /// The marks plugins set beside its lines ([`GutterMark`]), by the
+    /// start of their line when set, in order; they move with edits.
+    gutter: Vec<(usize, GutterMark)>,
+    /// The plugins' writes of marks read last, and the version of this
+    /// file's marks taken.
+    gutter_seen: (u64, u64),
     /// A CSV document's filter (view state): only the rows with a field
     /// holding this text show (`crate::csv::filtered`).
     pub csv_filter: Option<String>,
@@ -369,6 +408,9 @@ impl DocumentState {
             changes: Vec::new(),
             dired: None,
             viewer: None,
+            generated: None,
+            gutter: Vec::new(),
+            gutter_seen: (0, 0),
             csv_filter: None,
             csv_filter_column: None,
             csv_frozen: std::cell::RefCell::new(None),
@@ -437,6 +479,17 @@ impl DocumentState {
             .unwrap_or(0);
         let column = state.name_range(target).map_or(0, |r| r.start);
         self.meta.path = state.dir().map(Path::to_path_buf);
+        self.replace_shown(&text);
+        let lines = self.text.line_count();
+        let target = target.min(lines.saturating_sub(1));
+        let r = self.text.line_range(target);
+        self.selection = Selection::caret((r.start + column).min(r.end));
+    }
+
+    /// Replaces the text with `text` as what the document shows, not as an
+    /// edit: only the part that differs is rewritten (so the view keeps its
+    /// place), there is nothing to undo, and nothing to save.
+    fn replace_shown(&mut self, text: &str) {
         let old = self.text.as_str();
         if old != text {
             let (a, b) = (old.as_bytes(), text.as_bytes());
@@ -461,10 +514,139 @@ impl DocumentState {
         }
         self.history = History::new();
         self.mark_saved();
+    }
+
+    /// A document plugin `g.plugin` writes (`documents`, plugin API 0.2.5):
+    /// read-only text, highlighted as `language`, without a file, its keys
+    /// scoped by its kind; the cursor at `cursor` (a byte offset), else at
+    /// the start.
+    pub fn generated(
+        g: GeneratedDoc,
+        language: Option<String>,
+        text: &str,
+        cursor: Option<usize>,
+        settings: Arc<Settings>,
+    ) -> DocumentState {
+        let meta = Metadata {
+            path: None,
+            mode: DocumentMode::Text { language },
+            line_ending: LineEnding::Lf,
+            bom: false,
+            encoding: encoding_rs::UTF_8,
+            lossy: false,
+        };
+        let mut d = DocumentState::new("", meta, settings);
+        d.read_only = true;
+        d.generated = Some(g);
+        d.replace_shown(text);
+        d.place_shown_cursor(Some(cursor.unwrap_or(0)), 0);
+        d
+    }
+
+    /// The plugin wrote its document again (`g`, its title and version):
+    /// the new text, the cursor at `cursor` when given, else on the same
+    /// line as before.
+    pub fn show_generated(&mut self, g: GeneratedDoc, text: &str, cursor: Option<usize>) {
+        let line = self.text.line_of(self.selection.head);
+        self.replace_shown(text);
+        self.place_shown_cursor(cursor, line);
+        self.generated = Some(g);
+    }
+
+    fn place_shown_cursor(&mut self, cursor: Option<usize>, line: usize) {
+        let len = self.text.len();
+        let at = match cursor {
+            Some(mut c) => {
+                c = c.min(len);
+                while !self.text.as_str().is_char_boundary(c) {
+                    c -= 1;
+                }
+                c
+            }
+            None => {
+                let line = line.min(self.text.line_count().saturating_sub(1));
+                self.text.line_range(line).start
+            }
+        };
+        self.selection = Selection::caret(at);
+    }
+
+    /// Takes the marks plugins set for its file when they changed since
+    /// ([`crate::extensions::set_gutter`]); whether they did.
+    pub fn sync_gutter(&mut self) -> bool {
+        let writes = crate::extensions::gutter_writes();
+        if writes == self.gutter_seen.0 {
+            return false;
+        }
+        self.gutter_seen.0 = writes;
+        let (version, marks) = match self.meta.path.as_deref() {
+            Some(p) if self.dired.is_none() => crate::extensions::gutter(p),
+            _ => (0, Vec::new()),
+        };
+        if version == self.gutter_seen.1 {
+            return false;
+        }
+        self.gutter_seen.1 = version;
+        self.set_gutter(&marks);
+        true
+    }
+
+    /// Sets the marks beside its lines: lines from 1 with what changed
+    /// there; removed lines after line 0 are before the first.
+    pub fn set_gutter(&mut self, marks: &[(u32, GutterMark)]) {
         let lines = self.text.line_count();
-        let target = target.min(lines.saturating_sub(1));
-        let r = self.text.line_range(target);
-        self.selection = Selection::caret((r.start + column).min(r.end));
+        let mut v: Vec<(usize, GutterMark)> = marks
+            .iter()
+            .filter_map(|(line, kind)| {
+                let (l, kind) = match (*line, *kind) {
+                    (0, GutterMark::Removed) => (0, GutterMark::RemovedAbove),
+                    (0, _) => return None,
+                    (n, k) => (n as usize - 1, k),
+                };
+                (l < lines).then(|| (self.text.line_start(l), kind))
+            })
+            .collect();
+        v.sort();
+        v.dedup();
+        self.gutter = v;
+    }
+
+    /// The mark beside line `line` (from 0), the one that wins when it
+    /// has several.
+    pub fn gutter_mark(&self, line: usize) -> Option<GutterMark> {
+        if self.gutter.is_empty() || line >= self.text.line_count() {
+            return None;
+        }
+        let start = self.text.line_start(line);
+        let i = self.gutter.partition_point(|m| m.0 < start);
+        self.gutter[i..]
+            .iter()
+            .take_while(|m| self.text.line_of(m.0) == line)
+            .map(|m| m.1)
+            .min()
+    }
+
+    /// Whether plugins marked lines of it.
+    pub fn has_gutter(&self) -> bool {
+        !self.gutter.is_empty()
+    }
+
+    /// The first line of each run of marked lines (a change), in order.
+    pub fn changes_starts(&self) -> Vec<usize> {
+        let mut lines: Vec<usize> = self.gutter.iter().map(|m| self.text.line_of(m.0)).collect();
+        lines.dedup();
+        let mut starts = Vec::new();
+        for (i, l) in lines.iter().enumerate() {
+            if i == 0 || lines[i - 1] + 1 != *l {
+                starts.push(*l);
+            }
+        }
+        starts
+    }
+
+    /// The title a plugin gave its document, when this is one.
+    pub fn generated_title(&self) -> Option<&str> {
+        self.generated.as_ref().map(|g| g.title.as_str())
     }
 
     /// Reads the file manager's folder again, keeping marks and the cursor.
@@ -2076,6 +2258,11 @@ impl DocumentState {
         }
         self.changes.push(tx.clone());
         self.marks.map(tx);
+        // A mark goes with its line: text put at the line's start goes
+        // before it.
+        for m in &mut self.gutter {
+            m.0 = tx.map(m.0, org_edit::Assoc::After);
+        }
         if let Some(f) = self.csv_frozen.get_mut() {
             f.map(tx);
         }
@@ -2245,6 +2432,9 @@ impl DocumentState {
     /// or `text`, `markdown`, `latex`, `csv`, `directory`. Menus and
     /// toolbars show the commands that serve it.
     pub fn document_type(&self) -> String {
+        if let Some(g) = &self.generated {
+            return g.kind.clone();
+        }
         match &self.meta.mode {
             DocumentMode::Org => crate::kinds::file_kind(self).unwrap_or("org").to_string(),
             DocumentMode::Text { language: Some(l) } => l.to_lowercase(),
@@ -2277,6 +2467,9 @@ impl DocumentState {
     /// `text`; `markdown`, `csv`, `directory`.
     pub fn text_type(&self) -> String {
         use org_syntax::SyntaxKind as K;
+        if let Some(g) = &self.generated {
+            return g.kind.clone();
+        }
         match &self.meta.mode {
             DocumentMode::Org => {}
             DocumentMode::Text { language: Some(l) } => {
@@ -2733,6 +2926,101 @@ mod tests {
 
     /// A document made read-only still follows its file: the reload
     /// takes the new text (it reported the reload and kept the old text).
+    #[test]
+    fn a_plugins_document_is_shown_not_edited() {
+        let g = |version, title: &str| GeneratedDoc {
+            number: 3,
+            plugin: "git".into(),
+            kind: "git-status".into(),
+            title: title.into(),
+            version,
+        };
+        let text = "Head: main\nUnstaged changes (2)\nmodified a.rs\nmodified b.rs\n";
+        let mut d = DocumentState::generated(
+            g(1, "Git: org"),
+            Some("diff".into()),
+            text,
+            Some(11),
+            Arc::new(Settings::default()),
+        );
+        assert_eq!(d.text().as_str(), text);
+        assert_eq!(d.selection.head, 11);
+        assert!(d.read_only && !d.is_modified() && d.meta.path.is_none());
+        assert_eq!(
+            (d.text_type(), d.document_type()),
+            ("git-status".into(), "git-status".into())
+        );
+        assert_eq!(d.generated_title(), Some("Git: org"));
+        // On the third line, written again: a hunk opens under the first
+        // file; no cursor given, it stays on its line.
+        d.selection = Selection::caret(d.text().line_range(3).start);
+        let more = "Head: main\nUnstaged changes (2)\nmodified a.rs\n@@ -1 +1 @@\nmodified b.rs\n";
+        d.show_generated(g(2, "Git: org (dev)"), more, None);
+        assert_eq!(d.text().as_str(), more);
+        assert_eq!(d.text().line_of(d.selection.head), 3);
+        assert!(!d.is_modified() && !d.history.can_undo());
+        assert_eq!(d.generated.as_ref().map(|g| g.version), Some(2));
+        assert_eq!(d.generated_title(), Some("Git: org (dev)"));
+        // A cursor given past the end, or inside a character, is put back.
+        d.show_generated(g(3, "Git: org"), "é", Some(1));
+        assert_eq!(d.selection.head, 0);
+    }
+
+    #[test]
+    fn gutter_marks_follow_their_lines() {
+        use crate::GutterMark as M;
+        let meta = Metadata {
+            path: None,
+            mode: DocumentMode::Text { language: None },
+            line_ending: LineEnding::Lf,
+            bom: false,
+            encoding: encoding_rs::UTF_8,
+            lossy: false,
+        };
+        let mut d = DocumentState::new(
+            "one\ntwo\nthree\nfour\nfive\n",
+            meta,
+            Arc::new(Settings::default()),
+        );
+        d.set_gutter(&[
+            (2, M::Changed),
+            (3, M::Added),
+            (4, M::Added),
+            (0, M::Removed),
+            (9, M::Added),
+        ]);
+        assert!(d.has_gutter());
+        assert_eq!(
+            (0..5).map(|l| d.gutter_mark(l)).collect::<Vec<_>>(),
+            [
+                Some(M::RemovedAbove),
+                Some(M::Changed),
+                Some(M::Added),
+                Some(M::Added),
+                None
+            ]
+        );
+        assert_eq!(d.changes_starts(), [0]);
+        // A line opened above: the marks go down with their lines.
+        let now = Instant::now();
+        d.move_cursor(0, false);
+        d.insert_text("zero\n", now);
+        assert_eq!(d.gutter_mark(0), None);
+        assert_eq!(d.gutter_mark(1), Some(M::RemovedAbove));
+        assert_eq!(d.gutter_mark(2), Some(M::Changed));
+        assert_eq!(d.gutter_mark(4), Some(M::Added));
+        assert_eq!(d.changes_starts(), [1]);
+        // Typing at a marked line's start keeps the mark on it.
+        let at = d.text().line_start(2);
+        d.move_cursor(at, false);
+        d.insert_text("x", now);
+        assert_eq!(d.gutter_mark(2), Some(M::Changed));
+        // A line's several marks: the change wins over removed lines.
+        d.set_gutter(&[(1, M::Removed), (1, M::Added), (3, M::Removed)]);
+        assert_eq!(d.gutter_mark(0), Some(M::Added));
+        assert_eq!(d.changes_starts(), [0, 2]);
+    }
+
     #[test]
     fn a_read_only_document_reloads() {
         let dir = std::env::temp_dir().join(format!("kalem-ro-{}", std::process::id()));

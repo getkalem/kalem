@@ -6002,6 +6002,33 @@ fn open_as_workbook(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult 
     )
 }
 
+/// The cursor to the first line of the next change marked beside the
+/// lines (`forward`), or of the previous one.
+fn goto_change(ctx: &mut EditorContext<'_>, forward: bool) -> CommandResult {
+    let doc = ctx.doc()?;
+    let starts = doc.changes_starts();
+    if starts.is_empty() {
+        let m = crate::l10n::tr("msg-no-changes");
+        ctx.messages.push(m);
+        return Ok(());
+    }
+    let line = doc.text().line_of(doc.selection.head);
+    let to = if forward {
+        starts.iter().find(|l| **l > line)
+    } else {
+        starts.iter().rev().find(|l| **l < line)
+    };
+    match to {
+        Some(l) => {
+            let doc = ctx.doc()?;
+            let pos = doc.text().line_start(*l);
+            doc.move_cursor(pos, false);
+        }
+        None => ctx.messages.push(crate::l10n::tr("msg-no-more-changes")),
+    }
+    Ok(())
+}
+
 fn request(ctx: &mut EditorContext<'_>, r: Request) -> CommandResult {
     ctx.requests.push(r);
     Ok(())
@@ -6653,6 +6680,23 @@ fn plain_commands() -> Vec<Command> {
                 Ok(())
             },
         ),
+        // The changes plugins mark beside the lines (the git plugin's).
+        cmd(
+            "edit.nextChange",
+            "Next Change",
+            "Edit",
+            &["alt+f5"],
+            None,
+            |ctx, _| goto_change(ctx, true),
+        ),
+        cmd(
+            "edit.previousChange",
+            "Previous Change",
+            "Edit",
+            &["shift+alt+f5"],
+            None,
+            |ctx, _| goto_change(ctx, false),
+        ),
         cmd(
             "stats.chapters",
             "Word Count by Chapter",
@@ -7005,6 +7049,19 @@ fn plain_commands() -> Vec<Command> {
                         std::fs::create_dir_all(dir)
                             .map_err(|e| CommandError::new(e.to_string()))?;
                     }
+                }
+                // At a line (from 1) and a byte of it, as a plugin opens a
+                // diff's line.
+                if let (Some(p), Some(line)) = (&path, args.get("line").and_then(Value::as_u64)) {
+                    let column = args.get("column").and_then(Value::as_u64).unwrap_or(0);
+                    return request(
+                        ctx,
+                        Request::OpenAt {
+                            path: p.clone(),
+                            line: line.max(1),
+                            column: column as usize,
+                        },
+                    );
                 }
                 request(ctx, Request::Open { path })
             },
@@ -10278,6 +10335,46 @@ mod tests {
         assert!(md.contains("New * Saved") || md.contains("New"), "{md}");
         reg.execute("export.html", &mut ctx, &json!({})).unwrap();
         assert!(dir.join("n.html").is_file());
+    }
+
+    #[test]
+    fn a_file_opens_at_a_line() {
+        let reg = CommandRegistry::with_builtins();
+        let mut clip = Clipboard::default();
+        let config = crate::settings::Config::default();
+        let mut ctx = EditorContext {
+            document: None,
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock: jiff::civil::date(2026, 10, 8).at(10, 0, 0, 0),
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        let path = std::env::temp_dir().join("a.rs").display().to_string();
+        reg.execute(
+            "file.open",
+            &mut ctx,
+            &json!({ "path": path, "line": 12, "column": 4 }),
+        )
+        .unwrap();
+        reg.execute("file.open", &mut ctx, &json!({ "path": path, "line": 0 }))
+            .unwrap();
+        assert_eq!(
+            ctx.requests,
+            [
+                Request::OpenAt {
+                    path: path.clone(),
+                    line: 12,
+                    column: 4
+                },
+                Request::OpenAt {
+                    path,
+                    line: 1,
+                    column: 0
+                }
+            ]
+        );
     }
 
     #[test]

@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.4;
+package kalem:plugin@0.2.5;
 
 /// The editor's commands, keys and events (design §11.2 to §11.4): what a
 /// plugin adds to the palette, menus and keymap, and what it hears.
@@ -275,6 +275,8 @@ world extension {
     import fs;
     import net;
     import process;
+    import documents;
+    import decorations;
     import editor;
     export plugin;
 }

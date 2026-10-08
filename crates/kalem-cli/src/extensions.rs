@@ -212,6 +212,67 @@ impl Editor for Bridge {
     fn kill(&mut self, run: u64) {
         kalem_core::extensions::kill_run(run);
     }
+
+    fn open_document(
+        &mut self,
+        plugin: &str,
+        spec: x::documents::DocumentSpec,
+        text: String,
+        cursor: Option<u64>,
+    ) -> Result<u64, String> {
+        kalem_core::extensions::open_generated(
+            plugin,
+            kalem_core::extensions::GeneratedSpec {
+                id: spec.id,
+                key: spec.key,
+                title: spec.title,
+                kind: spec.kind,
+                language: spec.language,
+            },
+            text,
+            cursor.map(|c| c as usize),
+        )
+    }
+
+    fn set_document(
+        &mut self,
+        plugin: &str,
+        doc: u64,
+        text: String,
+        cursor: Option<u64>,
+    ) -> Result<(), String> {
+        kalem_core::extensions::set_generated(plugin, doc, text, cursor.map(|c| c as usize))
+    }
+
+    fn close_document(&mut self, plugin: &str, doc: u64) {
+        kalem_core::extensions::close_generated(plugin, doc);
+    }
+
+    fn set_gutter(
+        &mut self,
+        plugin: &str,
+        path: PathBuf,
+        marks: Vec<x::decorations::LineMark>,
+    ) -> Result<(), String> {
+        use kalem_core::GutterMark as M;
+        use x::decorations::MarkKind as K;
+        let marks = marks
+            .into_iter()
+            .map(|m| {
+                let kind = match m.kind {
+                    K::Added => M::Added,
+                    K::Changed => M::Changed,
+                    K::Removed => M::Removed,
+                };
+                (m.line, kind)
+            })
+            .collect();
+        kalem_core::extensions::set_gutter(plugin, &path, marks)
+    }
+
+    fn clear_gutter(&mut self, plugin: &str, path: Option<PathBuf>) {
+        kalem_core::extensions::clear_gutter(plugin, path.as_deref());
+    }
 }
 
 /// The document of the plugin's command running on this thread
@@ -247,6 +308,10 @@ impl x::DocumentAccess for Document {
             modified: false,
             length: 0,
         })
+    }
+
+    fn generated(&self) -> Option<u64> {
+        read(|d| d.generated)
     }
 
     fn selection(&self) -> x::editor::Selection {
@@ -511,6 +576,8 @@ impl Plugins {
             let _ = ext.deactivate();
         }
         l.failed = true;
+        kalem_core::extensions::close_plugin_documents(&l.id);
+        kalem_core::extensions::clear_gutter(&l.id, None);
         kalem_core::jobs::notice(format!("The plugin {} was stopped: {error}", l.id), true);
     }
 }

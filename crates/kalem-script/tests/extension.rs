@@ -15,7 +15,7 @@ use kalem_script::extension::{
     Answer, CommandSpec, Editor, Event, EventKind, Extension, Grants, Level, PanelEvent, PanelSpec,
     Question, Reply, StatusOptions, VERSION, WidgetKind, WidgetTree, api,
 };
-use kalem_script::extension::{http, process};
+use kalem_script::extension::{documents, http, process};
 use kalem_script::{Error, Host, Limits};
 
 /// What the fake editor holds.
@@ -33,6 +33,11 @@ struct State {
     fetched: Vec<(u64, String)>,
     spawned: Vec<(u64, String, Vec<String>, std::path::PathBuf)>,
     killed: Vec<u64>,
+    /// The documents plugins write: plugin, spec, text and cursor.
+    documents: BTreeMap<u64, (String, documents::DocumentSpec, String, Option<u64>)>,
+    closed: Vec<u64>,
+    /// The marks plugins set: plugin, then line and kind, by file.
+    gutters: BTreeMap<std::path::PathBuf, (String, Vec<(u32, String)>)>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -158,6 +163,79 @@ impl Editor for Fake {
 
     fn kill(&mut self, run: u64) {
         self.0.lock().unwrap().killed.push(run);
+    }
+
+    fn open_document(
+        &mut self,
+        plugin: &str,
+        spec: documents::DocumentSpec,
+        text: String,
+        cursor: Option<u64>,
+    ) -> Result<u64, String> {
+        let mut s = self.0.lock().unwrap();
+        let found = s
+            .documents
+            .iter()
+            .find(|(_, (p, d, _, _))| p == plugin && d.id == spec.id && d.key == spec.key)
+            .map(|(n, _)| *n);
+        let n = found.unwrap_or(s.documents.len() as u64 + s.closed.len() as u64 + 1);
+        s.documents.insert(n, (plugin.into(), spec, text, cursor));
+        Ok(n)
+    }
+
+    fn set_document(
+        &mut self,
+        plugin: &str,
+        doc: u64,
+        text: String,
+        cursor: Option<u64>,
+    ) -> Result<(), String> {
+        let mut s = self.0.lock().unwrap();
+        match s.documents.get_mut(&doc) {
+            Some(d) if d.0 == plugin => {
+                d.2 = text;
+                d.3 = cursor;
+                Ok(())
+            }
+            _ => Err(format!("The plugin has no document {doc}: closed")),
+        }
+    }
+
+    fn set_gutter(
+        &mut self,
+        plugin: &str,
+        path: std::path::PathBuf,
+        marks: Vec<kalem_script::extension::decorations::LineMark>,
+    ) -> Result<(), String> {
+        self.0.lock().unwrap().gutters.insert(
+            path,
+            (
+                plugin.to_string(),
+                marks
+                    .iter()
+                    .map(|m| (m.line, format!("{:?}", m.kind)))
+                    .collect(),
+            ),
+        );
+        Ok(())
+    }
+
+    fn clear_gutter(&mut self, _plugin: &str, path: Option<std::path::PathBuf>) {
+        let mut s = self.0.lock().unwrap();
+        match path {
+            Some(p) => {
+                s.gutters.remove(&p);
+            }
+            None => s.gutters.clear(),
+        }
+    }
+
+    fn close_document(&mut self, plugin: &str, doc: u64) {
+        let mut s = self.0.lock().unwrap();
+        if s.documents.get(&doc).is_some_and(|d| d.0 == plugin) {
+            s.documents.remove(&doc);
+            s.closed.push(doc);
+        }
     }
 }
 
@@ -815,4 +893,122 @@ fn programs_are_granted_by_name() {
     assert_eq!(g.programs, ["git", "git-lfs"]);
     assert!(g.process() && !g.fs() && !g.net());
     assert!(!Grants::from_permissions(&["subprocess"]).process());
+}
+
+#[test]
+fn a_plugin_writes_documents_of_its_own() {
+    let root = std::env::temp_dir().canonicalize().unwrap();
+    let (mut ext, fake) = match runner(&["subprocess:git"], &root) {
+        None => return,
+        Some(r) => r.unwrap(),
+    };
+    let show = |ext: &mut Extension, id: &str, key: &str, text: &str| {
+        call(
+            ext,
+            "run.show",
+            serde_json::json!({
+                "id": id, "key": key, "title": "Git: org", "kind": "run-status",
+                "language": "diff", "text": text, "cursor": 3,
+            }),
+        )
+    };
+    let doc: u64 = show(&mut ext, "run.status", "/org", "Head: main\n")
+        .unwrap()
+        .parse()
+        .unwrap();
+    {
+        let s = fake.0.lock().unwrap();
+        let (plugin, spec, text, cursor) = &s.documents[&doc];
+        assert_eq!(
+            (plugin.as_str(), spec.title.as_str(), spec.kind.as_str()),
+            ("run", "Git: org", "run-status")
+        );
+        assert_eq!(spec.language.as_deref(), Some("diff"));
+        assert_eq!((text.as_str(), *cursor), ("Head: main\n", Some(3)));
+    }
+    // The same ID and key is that document; another key, another one.
+    assert_eq!(
+        show(&mut ext, "run.status", "/org", "again\n"),
+        Ok(doc.to_string())
+    );
+    let other: u64 = show(&mut ext, "run.status", "/plugins", "")
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert_ne!(other, doc);
+    // A name that is not the plugin's is refused before the editor.
+    let e = show(&mut ext, "git.status", "/org", "").unwrap_err();
+    assert!(e.contains("not the plugin's"), "{e}");
+    call(
+        &mut ext,
+        "run.write",
+        serde_json::json!({ "doc": doc, "text": "Head: dev\n" }),
+    )
+    .unwrap();
+    assert_eq!(fake.0.lock().unwrap().documents[&doc].2, "Head: dev\n");
+    // Outside a document of its own, none is current.
+    assert_eq!(
+        call(&mut ext, "run.current", serde_json::Value::Null),
+        Ok("none".into())
+    );
+    // Closed, a write is refused, and the plugin forgets it.
+    call(&mut ext, "run.close", serde_json::json!({ "doc": doc })).unwrap();
+    assert_eq!(fake.0.lock().unwrap().closed, [doc]);
+    let e = call(
+        &mut ext,
+        "run.write",
+        serde_json::json!({ "doc": doc, "text": "late" }),
+    )
+    .unwrap_err();
+    assert!(e.contains("closed"), "{e}");
+}
+
+#[test]
+fn a_plugin_marks_the_lines_of_files() {
+    let root = std::env::temp_dir().canonicalize().unwrap();
+    let (mut ext, fake) = match runner(&["subprocess:git"], &root) {
+        None => return,
+        Some(r) => r.unwrap(),
+    };
+    let file = root.join("marked.rs");
+    let path = file.display().to_string();
+    call(
+        &mut ext,
+        "run.mark",
+        serde_json::json!({ "path": path, "marks": [[3, "added"], [7, "changed"], [0, "removed"]] }),
+    )
+    .unwrap();
+    {
+        let s = fake.0.lock().unwrap();
+        let (plugin, marks) = &s.gutters[&file];
+        assert_eq!(plugin, "run");
+        assert_eq!(
+            marks,
+            &[
+                (3, "MarkKind::Added".to_string()),
+                (7, "MarkKind::Changed".to_string()),
+                (0, "MarkKind::Removed".to_string())
+            ]
+        );
+    }
+    // A relative path, or too many marks, are refused before the editor.
+    let e = call(
+        &mut ext,
+        "run.mark",
+        serde_json::json!({ "path": "src/lib.rs", "marks": [[1, "added"]] }),
+    )
+    .unwrap_err();
+    assert!(e.contains("absolute"), "{e}");
+    let many: Vec<serde_json::Value> = (0..=kalem_script::extension::MAX_MARKS)
+        .map(|n| serde_json::json!([n, "added"]))
+        .collect();
+    let e = call(
+        &mut ext,
+        "run.mark",
+        serde_json::json!({ "path": path, "marks": many }),
+    )
+    .unwrap_err();
+    assert!(e.contains("At most"), "{e}");
+    call(&mut ext, "run.unmark", serde_json::json!({ "path": path })).unwrap();
+    assert!(fake.0.lock().unwrap().gutters.is_empty());
 }

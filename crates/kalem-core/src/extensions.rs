@@ -63,6 +63,45 @@ pub trait Extensions: Send {
     fn process_done(&mut self, run: u64, result: Result<ProcessExit, String>);
 }
 
+/// A document a plugin writes (`documents`, plugin API 0.2.5), as the
+/// plugin last wrote it; the editors show it ([`crate::GeneratedDoc`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Generated {
+    /// Its number.
+    pub number: u64,
+    /// The plugin, by its short ID.
+    pub plugin: String,
+    /// The plugin's name for it (`git.status`).
+    pub id: String,
+    /// What tells documents of one ID apart (a repository's root).
+    pub key: String,
+    /// Its title.
+    pub title: String,
+    /// Its text type, for the scopes of commands (`git-status`).
+    pub kind: String,
+    /// Its highlighter (`diff`), if any.
+    pub language: Option<String>,
+    /// Its text.
+    pub text: String,
+    /// Where the cursor goes when the text is shown, if anywhere.
+    pub cursor: Option<usize>,
+    /// Incremented by each write.
+    pub version: u64,
+}
+
+impl Generated {
+    /// The record the editors keep beside the document's text.
+    pub fn doc(&self) -> crate::GeneratedDoc {
+        crate::GeneratedDoc {
+            number: self.number,
+            plugin: self.plugin.clone(),
+            kind: self.kind.clone(),
+            title: self.title.clone(),
+            version: self.version,
+        }
+    }
+}
+
 /// A program a plugin runs (`process`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProcessRequest {
@@ -352,6 +391,9 @@ struct State {
     asking: std::collections::BTreeSet<u64>,
     status: BTreeMap<(String, String), StatusItem>,
     panels: BTreeMap<String, Panel>,
+    /// Requests for the editors besides the questions: a plugin's document
+    /// to show or close.
+    requests: Vec<crate::command::Request>,
 }
 
 static STATE: Mutex<State> = Mutex::new(State {
@@ -362,7 +404,12 @@ static STATE: Mutex<State> = Mutex::new(State {
     asking: std::collections::BTreeSet::new(),
     status: BTreeMap::new(),
     panels: BTreeMap::new(),
+    requests: Vec::new(),
 });
+
+fn queue_request(r: crate::command::Request) {
+    state().requests.push(r);
+}
 
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 static SHOWN: AtomicU64 = AtomicU64::new(0);
@@ -710,6 +757,220 @@ pub fn find_program(plugin: &str, name: &str, cwd: &std::path::Path) -> Option<s
     }
 }
 
+/// The documents plugins write, by number.
+static GENERATED: Mutex<BTreeMap<u64, Generated>> = Mutex::new(BTreeMap::new());
+static GENERATED_NEXT: AtomicU64 = AtomicU64::new(0);
+/// Changes with every write of a plugin's document: the editors show the
+/// new text.
+static GENERATED_WRITES: AtomicU64 = AtomicU64::new(0);
+
+/// What a plugin asks to show.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GeneratedSpec {
+    /// Its name for the document (`git.status`).
+    pub id: String,
+    /// What tells documents of one ID apart.
+    pub key: String,
+    /// The title.
+    pub title: String,
+    /// The text type (`git-status`): not one of Kalem's.
+    pub kind: String,
+    /// The highlighter, if any.
+    pub language: Option<String>,
+}
+
+/// Opens plugin `plugin`'s document `spec` with `text`, or writes again the
+/// one of the same ID and key, and has the editors show it; its number.
+pub fn open_generated(
+    plugin: &str,
+    spec: GeneratedSpec,
+    text: String,
+    cursor: Option<usize>,
+) -> Result<u64, String> {
+    // Its kind is the plugin's own, as its commands' IDs are: `git-…`.
+    if !spec.kind.starts_with(&format!("{plugin}-")) || spec.kind.len() <= plugin.len() + 1 {
+        return Err(format!(
+            "A document's kind starts with the plugin's ID and a dash (`{plugin}-…`), not `{}`",
+            spec.kind
+        ));
+    }
+    let number = {
+        let mut docs = GENERATED.lock().unwrap_or_else(|e| e.into_inner());
+        let found = docs
+            .values()
+            .find(|g| g.plugin == plugin && g.id == spec.id && g.key == spec.key)
+            .map(|g| g.number);
+        let number = found.unwrap_or_else(|| GENERATED_NEXT.fetch_add(1, Ordering::Relaxed) + 1);
+        let version = docs.get(&number).map_or(0, |g| g.version) + 1;
+        docs.insert(
+            number,
+            Generated {
+                number,
+                plugin: plugin.to_string(),
+                id: spec.id,
+                key: spec.key,
+                title: spec.title,
+                kind: spec.kind,
+                language: spec.language,
+                text,
+                cursor,
+                version,
+            },
+        );
+        number
+    };
+    GENERATED_WRITES.fetch_add(1, Ordering::Relaxed);
+    queue_request(crate::command::Request::ShowGenerated(number));
+    Ok(number)
+}
+
+/// Writes plugin `plugin`'s document `number` again.
+pub fn set_generated(
+    plugin: &str,
+    number: u64,
+    text: String,
+    cursor: Option<usize>,
+) -> Result<(), String> {
+    let mut docs = GENERATED.lock().unwrap_or_else(|e| e.into_inner());
+    let g = docs
+        .get_mut(&number)
+        .filter(|g| g.plugin == plugin)
+        .ok_or_else(|| format!("The plugin has no document {number}: closed"))?;
+    g.text = text;
+    g.cursor = cursor;
+    g.version += 1;
+    drop(docs);
+    GENERATED_WRITES.fetch_add(1, Ordering::Relaxed);
+    Ok(())
+}
+
+/// Plugin `plugin` closes its document `number`.
+pub fn close_generated(plugin: &str, number: u64) {
+    let owned = GENERATED
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&number)
+        .is_some_and(|g| g.plugin == plugin);
+    if owned {
+        queue_request(crate::command::Request::CloseGenerated(number));
+    }
+}
+
+/// A plugin's document as last written.
+pub fn generated(number: u64) -> Option<Generated> {
+    GENERATED
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&number)
+        .cloned()
+}
+
+/// Changes with every write of a plugin's document.
+pub fn generated_writes() -> u64 {
+    GENERATED_WRITES.load(Ordering::Relaxed)
+}
+
+/// The editors closed document `number`: forgotten, its plugin's next
+/// write refused.
+pub fn generated_closed(number: u64) {
+    GENERATED
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .remove(&number);
+}
+
+/// A plugin's documents are closed with it.
+pub fn close_plugin_documents(plugin: &str) {
+    let numbers: Vec<u64> = GENERATED
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .values()
+        .filter(|g| g.plugin == plugin)
+        .map(|g| g.number)
+        .collect();
+    for n in numbers {
+        queue_request(crate::command::Request::CloseGenerated(n));
+    }
+}
+
+/// The marks plugins set beside the lines of files (`decorations`), by
+/// file: the version of its marks, and each plugin's.
+#[allow(clippy::type_complexity)]
+static GUTTERS: Mutex<
+    BTreeMap<std::path::PathBuf, (u64, BTreeMap<String, Vec<(u32, crate::GutterMark)>>)>,
+> = Mutex::new(BTreeMap::new());
+/// Changes with every write of marks: the documents take theirs again.
+static GUTTER_WRITES: AtomicU64 = AtomicU64::new(0);
+
+/// Marks a plugin sets in a file at most.
+pub const MAX_MARKS: usize = 10_000;
+
+/// A file as the marks are kept by: its real path when it has one.
+fn gutter_key(path: &std::path::Path) -> std::path::PathBuf {
+    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+}
+
+/// Plugin `plugin` marks the lines of file `path` (lines from 1, what
+/// changed there), in place of its earlier marks there.
+pub fn set_gutter(
+    plugin: &str,
+    path: &std::path::Path,
+    marks: Vec<(u32, crate::GutterMark)>,
+) -> Result<(), String> {
+    if marks.len() > MAX_MARKS {
+        return Err(format!(
+            "At most {MAX_MARKS} marks a file, not {}",
+            marks.len()
+        ));
+    }
+    let key = gutter_key(path);
+    let mut g = GUTTERS.lock().unwrap_or_else(|e| e.into_inner());
+    let entry = g.entry(key).or_default();
+    let had = entry.1.get(plugin);
+    if had.is_none_or(Vec::is_empty) && marks.is_empty() || had == Some(&marks) {
+        return Ok(());
+    }
+    if marks.is_empty() {
+        entry.1.remove(plugin);
+    } else {
+        entry.1.insert(plugin.to_string(), marks);
+    }
+    entry.0 = GUTTER_WRITES.fetch_add(1, Ordering::Relaxed) + 1;
+    Ok(())
+}
+
+/// Plugin `plugin` takes its marks away from file `path`, or from every
+/// file.
+pub fn clear_gutter(plugin: &str, path: Option<&std::path::Path>) {
+    let key = path.map(gutter_key);
+    let mut g = GUTTERS.lock().unwrap_or_else(|e| e.into_inner());
+    for (file, entry) in g.iter_mut() {
+        if key.as_ref().is_some_and(|k| k != file) {
+            continue;
+        }
+        if entry.1.remove(plugin).is_some() {
+            entry.0 = GUTTER_WRITES.fetch_add(1, Ordering::Relaxed) + 1;
+        }
+    }
+}
+
+/// The marks of file `path`, every plugin's, with the version of the
+/// file's marks (0 when none was ever set).
+pub fn gutter(path: &std::path::Path) -> (u64, Vec<(u32, crate::GutterMark)>) {
+    let g = GUTTERS.lock().unwrap_or_else(|e| e.into_inner());
+    let Some((version, by_plugin)) = g.get(&gutter_key(path)) else {
+        return (0, Vec::new());
+    };
+    let mut v: Vec<(u32, crate::GutterMark)> = by_plugin.values().flatten().copied().collect();
+    v.sort();
+    (*version, v)
+}
+
+/// Changes with every write of marks.
+pub fn gutter_writes() -> u64 {
+    GUTTER_WRITES.load(Ordering::Relaxed)
+}
+
 /// Hands how run `run` ended to its plugin (from the thread that ran it).
 pub fn process_done(run: u64, result: Result<ProcessExit, String>) {
     let mut installed = INSTALLED.lock().unwrap_or_else(|e| e.into_inner());
@@ -769,7 +1030,16 @@ pub fn take_requests() -> Vec<crate::command::Request> {
         keys: String::new(),
         also: String::new(),
     };
-    std::mem::take(&mut state().questions)
+    // Both lists under one lock: a second `state()` in this statement
+    // would wait for the first's guard.
+    let (questions, requests) = {
+        let mut s = state();
+        (
+            std::mem::take(&mut s.questions),
+            std::mem::take(&mut s.requests),
+        )
+    };
+    questions
         .into_iter()
         .map(|(request, q)| match q {
             Question::Prompt { title, value } => {
@@ -812,6 +1082,7 @@ pub fn take_requests() -> Vec<crate::command::Request> {
                     .collect(),
             ),
         })
+        .chain(requests)
         .collect()
 }
 
@@ -1311,6 +1582,84 @@ mod process_tests {
         .unwrap();
         assert_eq!(e.status, None);
         assert!(started.elapsed() < Duration::from_secs(10));
+    }
+
+    #[test]
+    fn plugins_documents_are_kept_until_closed() {
+        let spec = |key: &str, kind: &str| GeneratedSpec {
+            id: "gentests.status".into(),
+            key: key.into(),
+            title: "Status".into(),
+            kind: kind.into(),
+            language: Some("diff".into()),
+        };
+        let open = |key: &str, kind: &str, text: &str| {
+            open_generated("gentests", spec(key, kind), text.into(), None)
+        };
+        // Its kind is the plugin's own.
+        for kind in ["git-status", "gentests", "gentests-", "status"] {
+            assert!(open("/a", kind, "").is_err(), "{kind}");
+        }
+        let writes = generated_writes();
+        let n = open("/a", "gentests-status", "one").unwrap();
+        assert!(generated_writes() > writes);
+        let g = generated(n).unwrap();
+        assert_eq!(
+            (g.text.as_str(), g.version, g.plugin.as_str()),
+            ("one", 1, "gentests")
+        );
+        assert_eq!(g.doc().kind, "gentests-status");
+        // The same ID and key is that document, written anew.
+        assert_eq!(open("/a", "gentests-status", "two"), Ok(n));
+        assert_eq!(
+            generated(n).map(|g| (g.text, g.version)),
+            Some(("two".into(), 2))
+        );
+        let other = open("/b", "gentests-status", "").unwrap();
+        assert_ne!(other, n);
+        // Only its plugin writes it.
+        assert!(set_generated("another", n, "x".into(), None).is_err());
+        set_generated("gentests", n, "three".into(), Some(2)).unwrap();
+        let g = generated(n).unwrap();
+        assert_eq!(
+            (g.text.as_str(), g.cursor, g.version),
+            ("three", Some(2), 3)
+        );
+        // Closed in the editor, it is forgotten; a write says so.
+        generated_closed(n);
+        assert_eq!(generated(n), None);
+        let e = set_generated("gentests", n, "late".into(), None).unwrap_err();
+        assert!(e.contains("closed"), "{e}");
+        generated_closed(other);
+    }
+
+    #[test]
+    fn marks_are_kept_by_file_and_plugin() {
+        use crate::GutterMark as M;
+        let dir = std::env::temp_dir().join(format!("kalem-gutter-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("a.txt");
+        std::fs::write(&file, "one\ntwo\n").unwrap();
+        let writes = gutter_writes();
+        assert_eq!(gutter(&file), (0, Vec::new()));
+        set_gutter("gutterone", &file, vec![(2, M::Changed)]).unwrap();
+        set_gutter("guttertwo", &file, vec![(1, M::Added)]).unwrap();
+        assert!(gutter_writes() >= writes + 2);
+        let (v1, marks) = gutter(&file);
+        assert_eq!(marks, [(1, M::Added), (2, M::Changed)]);
+        // The same marks again change nothing; a path through `..` is the
+        // same file.
+        set_gutter("gutterone", &file, vec![(2, M::Changed)]).unwrap();
+        let same = dir.join("..").join(dir.file_name().unwrap()).join("a.txt");
+        assert_eq!(gutter(&same).0, v1);
+        assert!(set_gutter("gutterone", &file, vec![(1, M::Added); MAX_MARKS + 1]).is_err());
+        clear_gutter("guttertwo", None);
+        let (v2, marks) = gutter(&file);
+        assert!(v2 > v1);
+        assert_eq!(marks, [(2, M::Changed)]);
+        clear_gutter("gutterone", Some(&file));
+        assert!(gutter(&file).1.is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

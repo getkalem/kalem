@@ -1,0 +1,41 @@
+package kalem:plugin@0.2.5;
+
+/// Documents a plugin writes (API 0.2.5): read-only text the editor shows
+/// as a document of its own, as the file manager's listing is (design
+/// §2.7), so the cursor, search, selection, Vim's motions and scrolling
+/// work on it unchanged. The plugin writes its text, and writes it again
+/// to change it; its commands scoped to the document's kind act on what
+/// the cursor is on, which the plugin reads with `editor.selected`.
+interface documents {
+    /// A document to show.
+    record document-spec {
+        /// The plugin's name for it, `pluginId.name` (`git.status`).
+        id: string,
+        /// What tells documents of one ID apart (a repository's root):
+        /// opening the same ID and key again writes that document anew.
+        key: string,
+        /// Its title in the list of open files and the tab.
+        title: string,
+        /// Its text type, for the scopes of the plugin's commands: the
+        /// plugin's ID, a dash and a name (`git-status`).
+        kind: string,
+        /// Its highlighter (`diff`), if any.
+        language: option<string>,
+    }
+
+    /// Shows a document with `text`, the cursor at byte `cursor` (else at
+    /// the start); its number. Shown again, and written anew, when one of
+    /// the same ID and key is open.
+    open: func(spec: document-spec, text: string, cursor: option<u64>) -> result<u64, string>;
+
+    /// Writes document `doc` anew: the cursor at byte `cursor`, else on
+    /// the line it was on. An error once the user closed it, so the
+    /// plugin forgets it.
+    set: func(doc: u64, text: string, cursor: option<u64>) -> result<_, string>;
+
+    /// The plugin's document the running command is in, if any.
+    current: func() -> option<u64>;
+
+    /// Closes document `doc`.
+    close: func(doc: u64);
+}

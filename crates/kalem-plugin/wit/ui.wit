@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.4;
+package kalem:plugin@0.2.5;
 
 /// What a plugin shows (design §11.4's `kalem.ui`): notifications,
 /// questions, status bar items and panels. A plugin never draws: a panel

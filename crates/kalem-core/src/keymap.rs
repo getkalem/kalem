@@ -23,7 +23,7 @@ use std::fmt;
 use serde_json::Value;
 
 use crate::command::CommandRegistry;
-use crate::keys::KeySequence;
+use crate::keys::{KeyChord, KeySequence};
 use crate::when::{Context, WhenClause};
 
 /// A built-in keymap profile.
@@ -61,6 +61,31 @@ impl Profile {
 /// The leader key of Vim's leader bindings (`editor.vim.leader`), unless
 /// changed.
 pub const DEFAULT_LEADER: &str = "space";
+
+/// A plugin's key that starts with the leader as Kalem's own leader keys
+/// are (`keymaps/vim.json`): the leader's chord first (Doom's `space`, or
+/// `editor.vim.leader`), in Vim's command mode only. Bound in every mode,
+/// a plugin's `space g g` made Space start a key sequence in insert mode,
+/// where it typed no space.
+fn plugin_leader(mut b: Binding, leader: Option<&KeyChord>) -> Binding {
+    let starts = b.keys.0.first().is_some_and(|c| {
+        c.mods == crate::keys::Modifiers::default()
+            && (c.key == "space" || c.key.eq_ignore_ascii_case("leader"))
+    });
+    if !starts {
+        return b;
+    }
+    if let Some(l) = leader {
+        b.keys.0[0] = l.clone();
+    }
+    let vim = WhenClause::Key("vimCommand".into());
+    b.when = Some(match b.when.take() {
+        Some(w) if w.mentions("vimCommand") => w,
+        Some(w) => WhenClause::And(Box::new(vim), Box::new(w)),
+        None => vim,
+    });
+    b
+}
 
 /// `keys` with every `leader` (or `<leader>`) chord replaced by `leader`.
 fn with_leader(keys: &str, leader: &str) -> String {
@@ -346,25 +371,43 @@ impl Keymap {
         leader: &str,
     ) -> (Keymap, Vec<KeymapIssue>) {
         let mut all: Vec<Binding> = Vec::new();
+        let leader_chord = KeySequence::parse(leader).and_then(|s| s.0.into_iter().next());
         for c in registry.commands() {
+            let plugin = matches!(c.source, crate::command::CommandSource::Plugin(_));
             for k in &c.default_keys {
-                all.push(Binding {
+                let b = Binding {
                     keys: k.clone(),
                     command: c.id.clone(),
                     args: Value::Null,
                     when: None,
                     terminal_keys: None,
                     origin: Origin::Default,
+                };
+                all.push(if plugin {
+                    plugin_leader(b, leader_chord.as_ref())
+                } else {
+                    b
                 });
             }
         }
         // The plugins' bindings, as default keys (`crate::extensions`), to
         // the commands there are.
-        all.extend(
+        // A plugin's keys in its own documents (`textType == git-status`)
+        // come after the profile's, so that Tab, Enter or a letter there
+        // are the plugin's; the user's still come last.
+        let own_kind = |b: &Binding| {
+            b.when
+                .iter()
+                .flat_map(|w| w.values("textType"))
+                .any(|t| crate::command::plugin_kind(registry, &t))
+        };
+        let (in_own_documents, plugins): (Vec<Binding>, Vec<Binding>) =
             crate::extensions::bindings()
                 .into_iter()
-                .filter(|b| registry.get(&b.command).is_some()),
-        );
+                .filter(|b| registry.get(&b.command).is_some())
+                .map(|b| plugin_leader(b, leader_chord.as_ref()))
+                .partition(own_kind);
+        all.extend(plugins);
         // In the Vim profile the Word-like keys with Control or Alt give
         // way to Vim's while the Vim layer is on (`vimActive`; Control
         // only where it is Vim's, `vimOwnsCtrl`, not Command on macOS):
@@ -381,8 +424,9 @@ impl Keymap {
             let word = profile == Profile::Vim && i + 1 < profile.files().len();
             profile_entries.extend(entries.into_iter().map(|e| (e, word)));
         }
+        let own = in_own_documents.into_iter().map(|b| (Entry::Add(b), false));
         let user = user.iter().map(|e| (e.clone(), false));
-        for (e, word) in profile_entries.into_iter().chain(user) {
+        for (e, word) in profile_entries.into_iter().chain(own).chain(user) {
             match e {
                 Entry::Add(b) => {
                     let same = all.iter_mut().zip(word_like.iter_mut()).find(|(a, _)| {
@@ -452,7 +496,9 @@ impl Keymap {
         let mut bindings = Vec::new();
         for b in all {
             for t in b.when.iter().flat_map(|w| w.values("textType")) {
-                if !crate::command::known_text_type(&t) {
+                if !crate::command::known_text_type(&t)
+                    && !crate::command::plugin_kind(registry, &t)
+                {
                     issues.push(KeymapIssue {
                         kind: IssueKind::UnknownTextType,
                         message: format!(
@@ -864,6 +910,82 @@ mod tests {
         assert_eq!(label("b").as_deref(), Some("+buffer"));
         // A Doom key Kalem does not bind yet, marked.
         assert_eq!(label("shift+x").as_deref(), Some("Capture (later)"));
+    }
+
+    #[test]
+    fn a_plugins_leader_keys_apply_in_vims_command_mode_only() {
+        use crate::command::{Command, CommandHandler, CommandSource, Scope};
+        let mut reg = CommandRegistry::new();
+        reg.register(Command {
+            id: "lead.go".into(),
+            title: "Go".into(),
+            category: String::new(),
+            default_keys: vec![keys("space x y"), keys("ctrl+alt+y")],
+            when: None,
+            handler: CommandHandler::Plugin("lead".into()),
+            args_schema: None,
+            source: CommandSource::Plugin("lead".into()),
+            scope: Some(Scope::all()),
+        })
+        .unwrap();
+        let (m, _) = Keymap::build(&reg, Profile::Vim, &[]);
+        let normal = org_ctx(&["vimCommand"]);
+        let insert = org_ctx(&[]);
+        assert!(matches!(m.lookup(&keys("space"), &normal), Lookup::Prefix));
+        assert_eq!(run(&m, "space x y", &normal).map(|r| r.0), Some("lead.go"));
+        // In insert mode Space is no prefix: it types.
+        assert!(matches!(m.lookup(&keys("space"), &insert), Lookup::None));
+        assert_eq!(run(&m, "space x y", &insert), None);
+        // A key with modifiers applies everywhere, as before.
+        assert_eq!(run(&m, "ctrl+alt+y", &insert).map(|r| r.0), Some("lead.go"));
+        // Another leader: the plugin's Space keys follow it.
+        let (m, _) = Keymap::build_with(&reg, Profile::Vim, &[], ",");
+        assert_eq!(run(&m, ", x y", &normal).map(|r| r.0), Some("lead.go"));
+    }
+
+    #[test]
+    fn a_plugins_keys_in_its_own_documents_come_before_the_profiles() {
+        use crate::command::{Command, CommandHandler, CommandSource, Scope};
+        let mut reg = CommandRegistry::with_builtins();
+        reg.register(Command {
+            id: "lead.toggle".into(),
+            title: "Toggle".into(),
+            category: String::new(),
+            default_keys: Vec::new(),
+            when: None,
+            handler: CommandHandler::Plugin("lead".into()),
+            args_schema: None,
+            source: CommandSource::Plugin("lead".into()),
+            scope: Some(Scope::only(&["lead-status"])),
+        })
+        .unwrap();
+        let when = "textType == lead-status && (vimCommand || !vimActive)";
+        crate::extensions::add_binding(9_101, "tab", "lead.toggle", Some(when)).unwrap();
+        crate::extensions::add_binding(9_102, "enter", "lead.toggle", Some(when)).unwrap();
+        for profile in [Profile::Word, Profile::Vim] {
+            let (m, issues) = Keymap::build(&reg, profile, &[]);
+            assert!(
+                !issues.iter().any(|i| i.kind == IssueKind::UnknownTextType),
+                "{issues:#?}"
+            );
+            let mut ctx = org_ctx(&["vimCommand", "vimActive"]);
+            if profile == Profile::Word {
+                ctx = org_ctx(&[]);
+            }
+            ctx.set("textType", crate::when::Value::Str("lead-status".into()));
+            for k in ["tab", "enter"] {
+                assert_eq!(
+                    run(&m, k, &ctx).map(|r| r.0),
+                    Some("lead.toggle"),
+                    "{profile:?} {k}"
+                );
+            }
+            // Elsewhere the profile's keys are untouched.
+            let org = org_ctx(&["vimCommand", "vimActive"]);
+            assert_ne!(run(&m, "tab", &org).map(|r| r.0), Some("lead.toggle"));
+        }
+        crate::extensions::remove_binding(9_101);
+        crate::extensions::remove_binding(9_102);
     }
 
     #[test]

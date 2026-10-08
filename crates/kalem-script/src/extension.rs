@@ -30,7 +30,9 @@ mod bindings {
 pub use api::{CommandSpec, Event, EventKind, Reply, Scope};
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
-pub use bindings::kalem::plugin::{diagnostics, editor, fs, http, net, process, settings};
+pub use bindings::kalem::plugin::{
+    decorations, diagnostics, documents, editor, fs, http, net, process, settings,
+};
 
 /// An edit a plugin asked for, applied when its command returns, its
 /// places those of the document as the command found it.
@@ -132,6 +134,10 @@ pub trait DocumentAccess {
     fn table_at(&self, offset: u64) -> Option<editor::Table>;
     /// Queues `edit`.
     fn edit(&mut self, edit: Edit);
+    /// Its number when a plugin writes it (`documents`).
+    fn generated(&self) -> Option<u64> {
+        None
+    }
 }
 pub use ui::{
     Answer, Level, PanelEvent, PanelSpec, PickItem, PickOptions, PromptOptions, StatusOptions,
@@ -379,6 +385,42 @@ pub trait Editor: Send + 'static {
 
     /// Stops run `run`, started by [`Editor::spawn`].
     fn kill(&mut self, run: u64);
+
+    /// Shows plugin `plugin`'s document `spec` with `text`, or writes again
+    /// the one of the same ID and key; its number. Refused as the editor
+    /// refuses one (a kind not the plugin's).
+    fn open_document(
+        &mut self,
+        plugin: &str,
+        spec: documents::DocumentSpec,
+        text: String,
+        cursor: Option<u64>,
+    ) -> Result<u64, String>;
+
+    /// Writes plugin `plugin`'s document `doc` anew.
+    fn set_document(
+        &mut self,
+        plugin: &str,
+        doc: u64,
+        text: String,
+        cursor: Option<u64>,
+    ) -> Result<(), String>;
+
+    /// Closes plugin `plugin`'s document `doc`.
+    fn close_document(&mut self, plugin: &str, doc: u64);
+
+    /// Plugin `plugin` marks the lines of the file at `path` (lines from
+    /// 1), in place of its earlier marks there.
+    fn set_gutter(
+        &mut self,
+        plugin: &str,
+        path: std::path::PathBuf,
+        marks: Vec<decorations::LineMark>,
+    ) -> Result<(), String>;
+
+    /// Plugin `plugin` takes its marks away from the file at `path`, or
+    /// from every file.
+    fn clear_gutter(&mut self, plugin: &str, path: Option<std::path::PathBuf>);
 
     /// The document the plugin's command runs in; `None` outside one.
     fn document(&mut self) -> Option<Box<dyn DocumentAccess + '_>>;
@@ -731,6 +773,74 @@ impl net::Host for Session {
         self.fetching.insert(id);
         self.editor.fetch(&self.plugin, id, request);
         Ok(id)
+    }
+}
+
+impl documents::Host for Session {
+    fn open(
+        &mut self,
+        spec: documents::DocumentSpec,
+        text: String,
+        cursor: Option<u64>,
+    ) -> Result<u64, String> {
+        if !self.named_own(&spec.id) {
+            return Err(format!(
+                "Document `{}` is not the plugin's: its ID starts `{}.`",
+                spec.id, self.plugin
+            ));
+        }
+        if text.len() > MAX_BYTES {
+            return Err(format!("A document holds at most {} MB", MAX_BYTES >> 20));
+        }
+        let plugin = self.plugin.clone();
+        self.editor.open_document(&plugin, spec, text, cursor)
+    }
+
+    fn set(&mut self, doc: u64, text: String, cursor: Option<u64>) -> Result<(), String> {
+        if text.len() > MAX_BYTES {
+            return Err(format!("A document holds at most {} MB", MAX_BYTES >> 20));
+        }
+        let plugin = self.plugin.clone();
+        self.editor.set_document(&plugin, doc, text, cursor)
+    }
+
+    fn current(&mut self) -> Option<u64> {
+        self.editor.document()?.generated()
+    }
+
+    fn close(&mut self, doc: u64) {
+        let plugin = self.plugin.clone();
+        self.editor.close_document(&plugin, doc);
+    }
+}
+
+/// Marks a plugin sets in a file at most.
+pub const MAX_MARKS: usize = 10_000;
+
+impl decorations::Host for Session {
+    fn set_gutter(
+        &mut self,
+        path: String,
+        marks: Vec<decorations::LineMark>,
+    ) -> Result<(), String> {
+        let p = std::path::PathBuf::from(&path);
+        if !p.is_absolute() {
+            return Err(format!("`{path}` is not an absolute path"));
+        }
+        if marks.len() > MAX_MARKS {
+            return Err(format!(
+                "At most {MAX_MARKS} marks a file, not {}",
+                marks.len()
+            ));
+        }
+        let plugin = self.plugin.clone();
+        self.editor.set_gutter(&plugin, p, marks)
+    }
+
+    fn clear_gutter(&mut self, path: Option<String>) {
+        let plugin = self.plugin.clone();
+        self.editor
+            .clear_gutter(&plugin, path.map(std::path::PathBuf::from));
     }
 }
 
@@ -1192,6 +1302,16 @@ impl Extension {
         )
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
         settings::add_to_linker::<_, HasSelf<Session>>(
+            &mut linker,
+            |d: &mut crate::Data<Session>| &mut d.user,
+        )
+        .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        documents::add_to_linker::<_, HasSelf<Session>>(
+            &mut linker,
+            |d: &mut crate::Data<Session>| &mut d.user,
+        )
+        .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        decorations::add_to_linker::<_, HasSelf<Session>>(
             &mut linker,
             |d: &mut crate::Data<Session>| &mut d.user,
         )

@@ -1581,13 +1581,13 @@ reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
 doom = "SPC g ["
 keys = "space g ["
 what = "Previous hunk"
-reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+command = "edit.previousChange"
 
 [[key]]
 doom = "SPC g ]"
 keys = "space g ]"
 what = "Next hunk"
-reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+command = "edit.nextChange"
 
 [[key]]
 doom = "SPC g o o"

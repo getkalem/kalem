@@ -309,6 +309,11 @@ pub enum Request {
     /// Show or hide a plugin's panel ([`crate::extensions::panels`]), by
     /// its ID; `None` hides the one shown.
     PluginPanel(Option<String>),
+    /// Show a document a plugin writes ([`crate::extensions::generated`]),
+    /// by its number: the one open, else opened.
+    ShowGenerated(u64),
+    /// Close a document a plugin writes, by its number, when it is open.
+    CloseGenerated(u64),
 }
 
 impl Request {
@@ -611,6 +616,20 @@ pub fn known_text_type(t: &str) -> bool {
     ];
     let t = t.to_ascii_lowercase();
     TYPES.contains(&t.as_str()) || crate::code::comment_style(&t).is_some()
+}
+
+/// Whether `t` is the kind of a plugin's documents (`git-status`, the
+/// `documents` interface): the short ID of a plugin with commands, a dash
+/// and a name.
+pub fn plugin_kind(registry: &CommandRegistry, t: &str) -> bool {
+    let Some((plugin, name)) = t.split_once('-') else {
+        return false;
+    };
+    !name.is_empty()
+        && registry.commands().any(|c| {
+            matches!(c.source, CommandSource::Plugin(_))
+                && c.id.split_once('.').is_some_and(|(p, _)| p == plugin)
+        })
 }
 
 /// The text types a command serves: all, or a list of them, less some

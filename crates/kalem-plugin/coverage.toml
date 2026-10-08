@@ -18,7 +18,9 @@ planned = "T3.1.9b"
 
 [[point]]
 name = "Decorations"
-planned = "T3.1.9c"
+# Gutter marks (API 0.2.5); highlights, badges and virtual text are
+# T3.1.9c's rest.
+interface = "decorations"
 
 [[point]]
 name = "Completers and hover"

@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- The plugin API is 0.2.5: an extension plugin may show documents of its own through the `documents` interface, read-only text the editor shows in a tab as it shows the file manager's listing, with a title, a highlighter (`diff`) and a kind (`git-status`) that the plugin's commands and keys are scoped to; the plugin writes it again as it changes, the view keeping its place and the cursor its line. It has no file to save, no line numbers and no indentation guides, and once the user closes it the plugin's next write is refused. A plugin's keys in its own documents come before the profile's and Vim's, so that Tab, Enter, the arrows and single letters there are the plugin's, in Vim's command mode and in the Word-like profile. A plugin built against 0.2.4 still binds. For the git plugin's status of getkalem/plugins.
+- Marks beside the lines (plugin API 0.2.5, `decorations`): a plugin marks the added, changed and removed lines of a file, and both editors draw them in the gutter, a colored bar beside the line (in the terminal `▎`, `▁` for removed lines; `+`, `~` and `_` without Unicode); they move with the edits made since, until the plugin sets them again. Next Change and Previous Change (Doom's `SPC g ]` and `SPC g [`, Alt+F5 and Shift+Alt+F5) go from one change to the next. The git plugin's diff of a file against the index.
+- Open File takes a line and a column (`file.open` with `{"path": …, "line": 12}`), as a plugin opens a diff's line.
+
+### Fixed
+- A plugin's keys under the leader (the git plugin's `SPC g g`) were bound in every mode, so in Vim's insert mode Space opened the key hints instead of typing a space. They apply in Vim's command mode only, as Kalem's own leader keys do, and follow `editor.vim.leader` when it is not Space.
+
 ## [0.3.0] - 2026-10-07
 
 ### Added

@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.4;
+package kalem:plugin@0.2.5;
 
 /// The grid of spreadsheets and databases (design §11.13, D54, T3.7.4):
 /// the other half of `kalem-viewer`'s contract, for a document whose units

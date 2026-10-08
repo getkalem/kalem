@@ -226,6 +226,8 @@ cmd-cursor-clearExtra = Single Cursor
 cmd-file-reopenWithEncoding = Reopen with Encoding
 cmd-file-saveWithEncoding = Save with Encoding
 cmd-edit-gotoLine = Go to Line
+cmd-edit-nextChange = Next Change
+cmd-edit-previousChange = Previous Change
 cmd-stats-chapters = Word Count by Chapter
 cmd-stats-setDocumentTarget = Set Document Word Target
 cmd-stats-setSectionTarget = Set Section Word Target
@@ -366,6 +368,7 @@ mode-text = Text
 msg-saved = Saved
 msg-saved-as = Saved { $path }
 msg-not-saved = Not saved: { $reason }
+msg-plugin-document-not-saved = { $title } is a view a plugin writes: there is no file to save
 msg-copied = Copied
 msg-exported = Exported to { $path }
 msg-cannot-write = Cannot write { $path }: { $reason }
@@ -387,6 +390,8 @@ msg-no-completions = No completions here
 msg-no-comment-style = This language has no comment marker Kalem knows
 msg-no-bracket = No bracket at the cursor, or it has no match
 msg-no-more-occurrences = No more occurrences
+msg-no-changes = No change marked beside the lines (the git plugin marks them)
+msg-no-more-changes = No more changes
 msg-occurrences-selected = { $count ->
     [one] { $count } occurrence selected
    *[other] { $count } occurrences selected

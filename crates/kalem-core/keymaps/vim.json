@@ -369,6 +369,10 @@
   // listed folder out, `C-x C-q` edits the names, and `SPC f D`, `SPC f
   // R`, `SPC f C` delete, rename and copy the entry at point.
   { "keys": "leader o -", "command": "dired.jump", "when": "vimCommand" },
+  // The changes a plugin marks beside the lines (the git plugin's diff):
+  // Doom's `SPC g [` and `SPC g ]`.
+  { "keys": "leader g [", "command": "edit.previousChange", "when": "vimCommand" },
+  { "keys": "leader g ]", "command": "edit.nextChange", "when": "vimCommand" },
   { "keys": "-", "command": "dired.jump", "when": "vimCommand && editorMode != directory" },
   { "keys": "leader o shift+p", "command": "view.revealInTree", "when": "vimCommand" },
   { "keys": "leader p shift+d", "command": "dired.projectRoot", "when": "vimCommand" },

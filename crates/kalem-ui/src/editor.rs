@@ -132,6 +132,10 @@ pub enum DocEvent {
     },
     /// A new, empty document.
     New,
+    /// Show a plugin's document (`kalem_core::extensions::open_generated`).
+    ShowGenerated(u64),
+    /// Close a plugin's document.
+    CloseGenerated(u64),
     /// Close this document (unsaved changes were dealt with).
     Close,
     /// Show the next open document, or the previous one.
@@ -490,11 +494,13 @@ impl Focusable for Editor {
 impl Editor {
     /// An editor for `doc`.
     pub fn new(
-        doc: DocumentState,
+        mut doc: DocumentState,
         shared: Rc<Shared>,
         theme: Theme,
         cx: &mut Context<'_, Self>,
     ) -> Editor {
+        // The marks plugins set beside its lines already.
+        doc.sync_gutter();
         let mut e = Editor {
             doc,
             shared,
@@ -1659,6 +1665,8 @@ impl Editor {
                 .detach();
             }
             Request::New => cx.emit(DocEvent::New),
+            Request::ShowGenerated(n) => cx.emit(DocEvent::ShowGenerated(n)),
+            Request::CloseGenerated(n) => cx.emit(DocEvent::CloseGenerated(n)),
             Request::Close => self.close(window, cx),
             Request::Cycle { back } => cx.emit(DocEvent::Cycle(back)),
             Request::Pick(kind) => cx.emit(DocEvent::Pick(
@@ -1980,6 +1988,9 @@ impl Editor {
     }
 
     fn save(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) {
+        if self.refuse_generated_save(cx) {
+            return;
+        }
         if self.doc.meta.path.is_none() {
             self.save_as(window, cx);
             return;
@@ -2102,7 +2113,20 @@ impl Editor {
         }
     }
 
+    /// A plugin's document has no file to save: said so.
+    fn refuse_generated_save(&mut self, cx: &mut Context<'_, Self>) -> bool {
+        let Some(title) = self.doc.generated_title().map(str::to_string) else {
+            return false;
+        };
+        self.message(tr!("msg-plugin-document-not-saved", title = title), false);
+        cx.notify();
+        true
+    }
+
     fn save_as(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) {
+        if self.refuse_generated_save(cx) {
+            return;
+        }
         let dir = self
             .doc
             .meta
@@ -2196,10 +2220,28 @@ impl Editor {
         .detach();
     }
 
+    /// A plugin's document: the text its plugin last wrote, when it is
+    /// newer than the one shown.
+    pub fn show_generated(
+        &mut self,
+        g: &kalem_core::extensions::Generated,
+        cx: &mut Context<'_, Self>,
+    ) {
+        let shown = self.doc.generated.as_ref().map_or(0, |d| d.version);
+        if g.version <= shown {
+            return;
+        }
+        self.doc.show_generated(g.doc(), &g.text, g.cursor);
+        self.after_change(cx);
+    }
+
     /// The document's title: its file name, or "Untitled".
     pub fn title(&self) -> String {
         if let Some(d) = self.doc.dired.as_deref() {
             return d.title();
+        }
+        if let Some(t) = self.doc.generated_title() {
+            return t.to_string();
         }
         self.doc
             .meta
@@ -2823,8 +2865,9 @@ impl Editor {
             }
             _ => kalem_highlight::Highlighter::new(l, text),
         });
+        // A plugin's document is laid out by the plugin: no guides.
         let step = match kalem_core::text::detect_indent(text) {
-            Some(kalem_core::text::Indent::Spaces(n)) => n,
+            Some(kalem_core::text::Indent::Spaces(n)) if self.doc.generated.is_none() => n,
             _ => 0,
         };
         *p = Some((stamp, h, step));
@@ -2832,10 +2875,12 @@ impl Editor {
 
     /// Whether lines show numbers: plain text and the source view.
     pub fn line_numbers(&self) -> bool {
-        // A CSV grid numbers its rows itself.
+        // A CSV grid numbers its rows itself; a listing and a plugin's
+        // document have none.
         self.shared.config.bool("editor.line_numbers")
             && (self.doc.meta.mode != DocumentMode::Csv || self.source)
             && self.doc.dired.is_none()
+            && self.doc.generated.is_none()
             && (self.doc.meta.mode != DocumentMode::Org || self.source)
     }
 
@@ -4519,13 +4564,16 @@ impl gpui::Render for Editor {
             }
             _ => (None, self.popup()),
         };
-        let label = self
-            .doc
-            .meta
-            .path
-            .as_ref()
-            .and_then(|p| p.file_name())
-            .map_or("untitled".into(), |n| n.to_string_lossy().into_owned());
+        let label = match self.doc.generated_title() {
+            Some(t) => t.to_string(),
+            None => self
+                .doc
+                .meta
+                .path
+                .as_ref()
+                .and_then(|p| p.file_name())
+                .map_or("untitled".into(), |n| n.to_string_lossy().into_owned()),
+        };
         if self.follow_sideways() {
             cx.notify();
         }

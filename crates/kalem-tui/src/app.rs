@@ -247,6 +247,9 @@ pub struct App {
     /// The plugins' status items and panels drawn
     /// (`kalem_core::extensions::shown`).
     shown_seen: u64,
+    /// The plugins' writes of their documents shown
+    /// (`kalem_core::extensions::generated_writes`).
+    written_seen: u64,
     /// The open documents in the order they were opened; the active
     /// one's slot is empty, its state being in the fields above.
     docs: Vec<Option<Buffer>>,
@@ -582,6 +585,7 @@ impl App {
             outline: None,
             plugin_panel: None,
             shown_seen: kalem_core::extensions::shown(),
+            written_seen: kalem_core::extensions::generated_writes(),
             docs: vec![None],
             active: 0,
             next_doc: 2,
@@ -719,6 +723,9 @@ impl App {
             path: doc.meta.path.clone().filter(|_| doc.dired.is_none()),
             title: match doc.dired.as_deref() {
                 Some(d) => d.list_title(),
+                None if doc.generated.is_some() => {
+                    doc.generated_title().unwrap_or_default().to_string()
+                }
                 None => doc
                     .meta
                     .path
@@ -1156,6 +1163,11 @@ impl App {
         if let Some(p) = &self.doc.meta.path {
             kalem_core::lsp::closed(p);
         }
+        // A plugin's document is forgotten: the plugin's next write is
+        // refused.
+        if let Some(g) = &self.doc.generated {
+            kalem_core::extensions::generated_closed(g.number);
+        }
         let closing_id = self.doc_id;
         if let (Some(w), Some(p)) = (&mut self.watcher, &self.doc.meta.path) {
             let _ = w.unwatch(p);
@@ -1169,6 +1181,106 @@ impl App {
         self.forget_document(closing_id);
         self.workspaces.leave(closing_id.0);
         self.dirty = true;
+    }
+
+    /// The open document that is plugin document `number`.
+    fn generated_index(&self, number: u64) -> Option<usize> {
+        let is = |d: &DocumentState| d.generated.as_ref().is_some_and(|g| g.number == number);
+        self.docs.iter().enumerate().find_map(|(i, b)| match b {
+            Some(b) if is(&b.doc) => Some(i),
+            None if is(&self.doc) => Some(i),
+            _ => None,
+        })
+    }
+
+    /// Shows plugin document `number` as its plugin last wrote it: the open
+    /// one, else a new one.
+    fn show_generated(&mut self, number: u64) {
+        let Some(g) = kalem_core::extensions::generated(number) else {
+            return;
+        };
+        match self.generated_index(number) {
+            Some(i) => {
+                self.activate(i);
+                self.generated_written();
+            }
+            None => {
+                let doc = DocumentState::generated(
+                    g.doc(),
+                    g.language.clone(),
+                    &g.text,
+                    g.cursor,
+                    Arc::new(org_model::Settings::default()),
+                );
+                let doc_id = DocumentId(self.next_doc);
+                self.next_doc += 1;
+                self.bus.emit(&Event::DocumentOpen {
+                    doc: doc_id,
+                    path: None,
+                });
+                let editor = self.new_view(&doc);
+                // An untouched empty document gives way.
+                let replace = self.doc.meta.path.is_none()
+                    && self.doc.dired.is_none()
+                    && self.doc.generated.is_none()
+                    && !self.doc.is_modified()
+                    && self.doc.text().is_empty();
+                let old = self.active;
+                self.docs.push(Some(Buffer {
+                    doc,
+                    doc_id,
+                    editor,
+                    global_fold: Visibility::Subtree,
+                    words: Default::default(),
+                    formula: Default::default(),
+                }));
+                self.activate(self.docs.len() - 1);
+                if replace {
+                    self.docs.remove(old);
+                    self.active -= 1;
+                }
+                self.after_change(true);
+            }
+        }
+        self.dirty = true;
+    }
+
+    /// Plugins wrote their documents again: the open ones take the text
+    /// newer than theirs.
+    fn generated_written(&mut self) {
+        let newer = |d: &DocumentState| {
+            let shown = d.generated.as_ref()?;
+            kalem_core::extensions::generated(shown.number).filter(|g| g.version > shown.version)
+        };
+        if let Some(g) = newer(&self.doc) {
+            self.doc.show_generated(g.doc(), &g.text, g.cursor);
+            self.after_change(true);
+            self.dirty = true;
+        }
+        for b in self.docs.iter_mut().flatten() {
+            if let Some(g) = newer(&b.doc) {
+                b.doc.show_generated(g.doc(), &g.text, g.cursor);
+            }
+        }
+    }
+
+    /// Closes plugin document `number` where it is open, the document
+    /// shown staying so.
+    fn close_generated(&mut self, number: u64) {
+        let Some(i) = self.generated_index(number) else {
+            kalem_core::extensions::generated_closed(number);
+            return;
+        };
+        let shown = self.doc_id;
+        self.activate(i);
+        self.close_document();
+        if let Some(j) = self
+            .docs
+            .iter()
+            .position(|b| b.as_ref().is_some_and(|b| b.doc_id == shown))
+        {
+            self.activate(j);
+        }
     }
 
     /// Shows the next open document (in the list's order), or the previous.
@@ -1746,6 +1858,7 @@ impl App {
                 None => self.message(tr!("msg-no-panel"), false),
             },
             Request::Save => self.save(false),
+            Request::SaveAs if self.doc.generated.is_some() => self.save(false),
             Request::SaveAs => {
                 let current = self
                     .doc
@@ -1813,6 +1926,8 @@ impl App {
                 );
             }
             Request::New => self.new_empty(),
+            Request::ShowGenerated(n) => self.show_generated(n),
+            Request::CloseGenerated(n) => self.close_generated(n),
             Request::Close => {
                 if self.doc.is_modified() {
                     let name = self.open_files()[self.active].title.clone();
@@ -2686,6 +2801,11 @@ impl App {
 
     /// Saves, asking the event bus first.
     fn save(&mut self, force: bool) {
+        if let Some(title) = self.doc.generated_title() {
+            let m = tr!("msg-plugin-document-not-saved", title = title.to_string());
+            self.message(m, false);
+            return;
+        }
         let Some(path) = self.doc.meta.path.clone() else {
             self.request(Request::SaveAs);
             return;
@@ -5148,6 +5268,18 @@ impl App {
         // again when they change.
         for r in kalem_core::extensions::take_requests() {
             self.request(r);
+        }
+        // The marks plugins set beside the lines (the git plugin's).
+        if self.doc.sync_gutter() {
+            self.dirty = true;
+        }
+        for b in self.docs.iter_mut().flatten() {
+            b.doc.sync_gutter();
+        }
+        let written = kalem_core::extensions::generated_writes();
+        if written != self.written_seen {
+            self.written_seen = written;
+            self.generated_written();
         }
         let shown = kalem_core::extensions::shown();
         if shown != self.shown_seen {

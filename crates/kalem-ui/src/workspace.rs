@@ -390,6 +390,62 @@ impl Workspace {
         }
     }
 
+    /// The editor of plugin document `number`, if it is open here.
+    fn generated_editor(&self, number: u64, cx: &App) -> Option<Entity<Editor>> {
+        self.editors
+            .iter()
+            .find(|e| {
+                e.read(cx)
+                    .doc
+                    .generated
+                    .as_ref()
+                    .is_some_and(|g| g.number == number)
+            })
+            .cloned()
+    }
+
+    /// Shows plugin document `number` as its plugin last wrote it: in its
+    /// editor if it is open, else in a new one.
+    fn show_generated(&mut self, number: u64, window: &mut Window, cx: &mut Context<'_, Self>) {
+        let Some(g) = kalem_core::extensions::generated(number) else {
+            return;
+        };
+        let editor = match self.generated_editor(number, cx) {
+            Some(e) => {
+                e.update(cx, |e, cx| e.show_generated(&g, cx));
+                e
+            }
+            None => {
+                let theme = self.editor.read(cx).theme.clone();
+                let doc = kalem_core::DocumentState::generated(
+                    g.doc(),
+                    g.language.clone(),
+                    &g.text,
+                    g.cursor,
+                    std::sync::Arc::new(org_model::Settings::default()),
+                );
+                let shared = self.shared.clone();
+                let e = cx.new(|cx| Editor::new(doc, shared, theme, cx));
+                // An untouched empty document gives way.
+                let old = self.editor.clone();
+                let replace = {
+                    let o = old.read(cx);
+                    o.doc.meta.path.is_none()
+                        && o.doc.dired.is_none()
+                        && o.doc.generated.is_none()
+                        && !o.doc.is_modified()
+                        && o.doc.text().is_empty()
+                };
+                self.adopt(e.clone(), window, cx);
+                if replace {
+                    self.editors.retain(|x| *x != old);
+                }
+                e
+            }
+        };
+        self.activate(editor, window, cx);
+    }
+
     /// Closes `editor`'s document (its unsaved changes were dealt with);
     /// closing the last one leaves an empty document, not an empty or
     /// closed window (quitting is Quit's).
@@ -403,6 +459,11 @@ impl Workspace {
         let Some(i) = self.index_of(editor) else {
             return;
         };
+        // A plugin's document is forgotten: the plugin's next write is
+        // refused.
+        if let Some(g) = &editor.read(cx).doc.generated {
+            kalem_core::extensions::generated_closed(g.number);
+        }
         let at = order.iter().position(|&x| x == i).unwrap_or(0);
         self.editors.remove(i);
         self.spaces.leave(doc_key(editor));
@@ -1300,6 +1361,14 @@ impl Workspace {
         match ev.clone() {
             DocEvent::Open { path, at } => self.open(&path, at, window, cx),
             DocEvent::New => self.new_document(window, cx),
+            DocEvent::ShowGenerated(n) => self.show_generated(n, window, cx),
+            DocEvent::CloseGenerated(n) => {
+                let found = self.generated_editor(n, cx);
+                match found {
+                    Some(e) => self.close(&e, window, cx),
+                    None => kalem_core::extensions::generated_closed(n),
+                }
+            }
             DocEvent::InsertLink(path) => self.insert_link(&path, window, cx),
             DocEvent::Close => self.close(editor, window, cx),
             DocEvent::Cycle(back) => self.cycle(back, window, cx),
@@ -2441,6 +2510,42 @@ pub fn plugins_changed(cx: &mut App) {
     };
     let new = crate::preferences::rebuild(&old, old.config.clone());
     crate::preferences::apply(Rc::new(new), cx);
+}
+
+/// Plugins set marks beside the lines of files: the open ones take
+/// theirs.
+pub fn gutters_written(cx: &mut App) {
+    for w in cx.windows() {
+        let Some(w) = w.downcast::<Workspace>() else {
+            continue;
+        };
+        let _ = w.update(cx, |ws, _, cx| {
+            for e in ws.editors.clone() {
+                e.update(cx, |e, cx| {
+                    if e.doc.sync_gutter() {
+                        cx.notify();
+                    }
+                });
+            }
+        });
+    }
+}
+
+/// Plugins wrote their documents again: the open ones show the new text.
+pub fn generated_written(cx: &mut App) {
+    for w in cx.windows() {
+        let Some(w) = w.downcast::<Workspace>() else {
+            continue;
+        };
+        let _ = w.update(cx, |ws, _, cx| {
+            for e in ws.editors.clone() {
+                let number = e.read(cx).doc.generated.as_ref().map(|g| g.number);
+                if let Some(g) = number.and_then(kalem_core::extensions::generated) {
+                    e.update(cx, |e, cx| e.show_generated(&g, cx));
+                }
+            }
+        });
+    }
 }
 
 /// Runs the commands plugins asked for outside their own (from an

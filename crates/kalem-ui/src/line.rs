@@ -1774,6 +1774,27 @@ impl gpui::Element for LineElement {
                 },
             ));
         }
+        // The mark a plugin set beside the line (the git plugin's change):
+        // a bar between the number and the text, a removal a short line at
+        // the line's foot (its head for the first line's).
+        if let Some(mark) = editor.doc.gutter_mark(self.line) {
+            let (color, bar) = match mark {
+                kalem_core::GutterMark::Added => (gpui::hsla(0.36, 0.55, 0.45, 1.), true),
+                kalem_core::GutterMark::Changed => (gpui::hsla(0.11, 0.85, 0.5, 1.), true),
+                _ => (gpui::hsla(0., 0.75, 0.5, 1.), false),
+            };
+            let x = bounds.origin.x - px(7.);
+            let r = if bar {
+                Bounds::new(point(x, bounds.origin.y), size(px(3.), line_height))
+            } else {
+                let y = match mark {
+                    kalem_core::GutterMark::RemovedAbove => bounds.origin.y,
+                    _ => bounds.origin.y + line_height - px(2.),
+                };
+                Bounds::new(point(x - px(3.), y), size(px(8.), px(2.)))
+            };
+            window.paint_quad(fill(r, color));
+        }
         // The line number in the margin.
         if numbers {
             let n: SharedString = (self.line + 1).to_string().into();

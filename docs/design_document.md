@@ -1191,6 +1191,7 @@ pub mod kalem {
     pub mod fs  { pub fn read(path: &Path) -> Future<String>; pub fn write(path: &Path, text: &str) -> Future<()>; pub fn list(dir: &Path) -> Future<Vec<PathBuf>>; } // permission required
     pub mod net { pub fn fetch(request: Request) -> Future<Response>; }                          // permission required
     pub mod process { pub fn run(command: Command) -> Future<Exit>; pub fn kill(run: u64); }      // permission required: `subprocess:<program>` (API 0.2.4)
+    pub mod documents { pub fn open(spec: Spec, text: &str, cursor: Option<usize>) -> Result<u64>; pub fn set(doc: u64, text: &str, cursor: Option<usize>) -> Result<()>; pub fn current() -> Option<u64>; pub fn close(doc: u64); } // read-only documents a plugin writes, scoped by their kind (API 0.2.5)
     pub mod babel { pub fn register_language(name: &str, runner: impl BabelRunner) -> Disposable; }
     pub mod exporter { pub fn register_backend(name: &str, backend: impl ExportBackend) -> Disposable; pub fn add_filter(stage: Stage, f: impl ExportFilter) -> Disposable; }
     pub mod tables { pub fn register_function(name: &str, f: impl Fn(&[Number]) -> Number) -> Disposable; }
@@ -1198,7 +1199,7 @@ pub mod kalem {
     // Extension points for new features (11.10)
     pub mod links { pub fn register(kind: &str, spec: impl LinkType) -> Disposable; }           // resolve, open, hover, complete, render, export
     pub mod blocks { pub fn register(name: &str, spec: impl Block) -> Disposable; }             // special blocks and src languages: render, edit, export
-    pub mod decorations { pub fn create(spec: DecorationSpec) -> DecorationSet; }              // highlights, badges, gutter marks, virtual text
+    pub mod decorations { pub fn create(spec: DecorationSpec) -> DecorationSet; }              // highlights, badges, gutter marks, virtual text; gutter marks are API 0.2.5's `set_gutter`
     pub mod completers { pub fn register(spec: impl Completer) -> Disposable; }                 // triggers, context, items (11.12)
     pub mod hover { pub fn register(provider: impl Hover) -> Disposable; }
     pub mod input_rules { pub fn register(rule: InputRule) -> Disposable; }                     // for example "->" becomes "→"

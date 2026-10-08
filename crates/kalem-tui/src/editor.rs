@@ -555,8 +555,9 @@ impl<'a> Layout<'a> {
                     }
                     _ => kalem_highlight::Highlighter::new(l, text),
                 });
+                // A plugin's document is laid out by the plugin: no guides.
                 let step = match kalem_core::text::detect_indent(text) {
-                    Some(kalem_core::text::Indent::Spaces(n)) => n,
+                    Some(kalem_core::text::Indent::Spaces(n)) if doc.generated.is_none() => n,
                     _ => 0,
                 };
                 *p = Some((stamp, h, step));
@@ -2117,16 +2118,22 @@ impl EditorView {
         let area = self.column(area, &doc.meta.mode);
         // Line numbers in a gutter.
         // (A CSV grid numbers its rows itself.)
+        // (A listing and a plugin's document have none.)
         let numbers = self.line_numbers
             && doc.dired.is_none()
+            && doc.generated.is_none()
             && (doc.meta.mode != kalem_core::DocumentMode::Org || self.source)
             && (doc.meta.mode != kalem_core::DocumentMode::Csv || self.source);
         let digits = doc.text().line_count().to_string().len() as u16;
-        let gutter = if numbers && area.width > digits + 10 {
+        let numbers_width = if numbers && area.width > digits + 10 {
             digits + 1
         } else {
             0
         };
+        // A column for the marks plugins set beside the lines (the git
+        // plugin's changes), before the numbers.
+        let marks_width = u16::from(doc.has_gutter() && area.width > numbers_width + 12);
+        let gutter = numbers_width + marks_width;
         let full = area;
         let area = Rect {
             x: area.x + gutter,
@@ -2391,7 +2398,28 @@ impl EditorView {
                 );
             }
         }
-        if gutter > 0 {
+        if marks_width > 0 {
+            for dl in drawn.lines.iter().filter(|d| d.skipped == 0) {
+                let Some(mark) = doc.gutter_mark(dl.line) else {
+                    continue;
+                };
+                let (unicode, ascii, color) = match mark {
+                    kalem_core::GutterMark::Added => ("▎", "+", ratatui::style::Color::Green),
+                    kalem_core::GutterMark::Changed => ("▎", "~", ratatui::style::Color::Yellow),
+                    kalem_core::GutterMark::Removed => ("▁", "_", ratatui::style::Color::Red),
+                    kalem_core::GutterMark::RemovedAbove => ("▔", "^", ratatui::style::Color::Red),
+                };
+                let glyph = if caps.ascii { ascii } else { unicode };
+                buf.set_stringn(
+                    full.x,
+                    dl.y,
+                    glyph,
+                    1,
+                    ratatui::style::Style::default().fg(color),
+                );
+            }
+        }
+        if numbers_width > 0 {
             let current = doc.text().line_of(sel.head);
             for dl in drawn.lines.iter().filter(|d| d.skipped == 0) {
                 let mut style = ratatui::style::Style::default().add_modifier(Modifier::DIM);
@@ -2413,12 +2441,18 @@ impl EditorView {
                     _ => {}
                 }
                 let n = format!("{:>w$}", dl.line + 1, w = usize::from(digits));
-                buf.set_stringn(full.x, dl.y, &n, usize::from(digits), style);
+                buf.set_stringn(full.x + marks_width, dl.y, &n, usize::from(digits), style);
             }
             if pinned {
                 let style = ratatui::style::Style::default().add_modifier(Modifier::DIM);
                 let n = format!("{:>w$}", 1, w = usize::from(digits));
-                buf.set_stringn(full.x, header_area.y, &n, usize::from(digits), style);
+                buf.set_stringn(
+                    full.x + marks_width,
+                    header_area.y,
+                    &n,
+                    usize::from(digits),
+                    style,
+                );
             }
         }
         if let Some(layout) = &sheet {

@@ -111,7 +111,9 @@ pub use builtin::export_dialog_items;
 pub use command::{
     Command, CommandError, CommandHandler, CommandRegistry, CommandResult, EditorContext, Request,
 };
-pub use document::{CellEdit, CellMode, DocumentState, LineEnding, Metadata};
+pub use document::{
+    CellEdit, CellMode, DocumentState, GeneratedDoc, GutterMark, LineEnding, Metadata,
+};
 /// The character encodings of files (`Metadata::encoding`).
 pub use encoding_rs;
 pub use events::{DocumentId, Event, EventBus, EventKind};

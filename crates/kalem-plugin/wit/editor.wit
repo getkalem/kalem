@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.4;
+package kalem:plugin@0.2.5;
 
 /// The document a plugin's command runs in (design §11.4's `editor` and
 /// its `Document`, `Headline`, `Table` and `Selection`).

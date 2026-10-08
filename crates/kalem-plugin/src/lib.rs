@@ -85,6 +85,8 @@ pub mod extension {
 }
 
 pub mod adapter;
+pub mod decorations;
+pub mod documents;
 pub mod editor;
 pub mod fs;
 pub mod kalem;

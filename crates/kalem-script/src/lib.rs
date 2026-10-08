@@ -26,8 +26,9 @@
 /// an earlier `0.2.x` binds what it has (the Book, Part III, "Versions of
 /// the plugin API"). 0.2.1 added the `diagnostics` import, 0.2.2 the
 /// `password` export, 0.2.3 the `formats` export, 0.2.4 the `process`
-/// import and the `on-process` export of the `extension` world.
-pub const API_VERSION: &str = "0.2.4";
+/// import and the `on-process` export of the `extension` world, 0.2.5
+/// the `documents` and `decorations` imports.
+pub const API_VERSION: &str = "0.2.5";
 
 /// Whether a manifest's `api` requirement (`^0.2`, `0.2`, `^0.2.1`)
 /// names this host's API: the same `0.MINOR` before 1.0 (the same major

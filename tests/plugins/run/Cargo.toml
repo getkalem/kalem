@@ -3,7 +3,7 @@ name = "kalem-plugin-run"
 version = "0.0.0"
 edition = "2024"
 publish = false
-description = "An extension plugin for tests: commands running programs through the `process` interface (API 0.2.4), their arguments as JSON, so that the host's grants decide what runs"
+description = "An extension plugin for tests: commands running programs through the `process` interface (API 0.2.4), their arguments as JSON, so that the host's grants decide what runs, and writing documents through the `documents` interface (API 0.2.5)"
 
 [lib]
 crate-type = ["cdylib"]

@@ -162,6 +162,8 @@ pub fn run(path: Option<PathBuf>) {
             let mut first = !started_with_file;
             let mut plugins = kalem_core::extensions::generation();
             let mut shown = kalem_core::extensions::shown();
+            let mut written = kalem_core::extensions::generated_writes();
+            let mut marked = kalem_core::extensions::gutter_writes();
             loop {
                 cx.background_executor()
                     .timer(std::time::Duration::from_millis(if first {
@@ -206,6 +208,18 @@ pub fn run(path: Option<PathBuf>) {
                     let asked = kalem_core::extensions::take_requests();
                     if !asked.is_empty() {
                         workspace::ask_queued(asked, cx);
+                    }
+                    // Their documents, shown as last written.
+                    let now = kalem_core::extensions::generated_writes();
+                    if now != written {
+                        written = now;
+                        workspace::generated_written(cx);
+                    }
+                    // The marks beside the lines.
+                    let now = kalem_core::extensions::gutter_writes();
+                    if now != marked {
+                        marked = now;
+                        workspace::gutters_written(cx);
                     }
                     let now = kalem_core::extensions::shown();
                     if now != shown {
