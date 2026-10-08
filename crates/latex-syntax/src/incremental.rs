@@ -167,18 +167,22 @@ pub(crate) fn reparse(old: &Parse, new_text: &str, edit: &TextEdit) -> Option<Pa
     if crate::tables::defines(region) || crate::tables::defines(&old_region) {
         return None;
     }
-    // A definition outside the region can read into it: `\def` takes as
+    // A definition before the region can read into it: `\def` takes as
     // its name the next control word, past blank lines, so text put
-    // between a `\def` and its name changes what it defines. The
-    // definitions of the new text are those of the old, or only a full
-    // parse is right.
-    let new_defs = if old.extra.is_empty() {
-        crate::tables::Definitions::of(new_text)
-    } else {
-        crate::tables::Definitions::of(&format!("{}\n{new_text}", old.extra))
-    };
-    if new_defs != *old.defs {
-        return None;
+    // between a `\def` and its name changes what it defines. With one
+    // before the region (a definition after it reads only what follows
+    // it), the definitions of the new text are those of the old, or only
+    // a full parse is right. The search for one is the standard library's
+    // and fast; the definitions are read again only when there is one.
+    if crate::tables::defines(&new_text[..rs]) {
+        let new_defs = if old.extra.is_empty() {
+            crate::tables::Definitions::of(new_text)
+        } else {
+            crate::tables::Definitions::of(&format!("{}\n{new_text}", old.extra))
+        };
+        if new_defs != *old.defs {
+            return None;
+        }
     }
     let defs = &old.defs;
     let uses = |text: &str, n: &String| {
