@@ -111,6 +111,11 @@ pub fn run(path: Option<PathBuf>) {
     config.apply_process_settings();
     // Newer versions of the installed plugins, once a day.
     kalem_core::plugin_store::check_updates(&config);
+    // The plugins' registrations counted before the keymap is built: a
+    // plugin that starts meanwhile (from the compiled components' cache,
+    // at once) is seen at the first tick. Counted after, its keys were
+    // never bound.
+    let plugins_at_start = kalem_core::extensions::generation();
     let shared = shared(config);
     shared.problems.set(settings::report_problems(
         &shared.config,
@@ -160,7 +165,7 @@ pub fn run(path: Option<PathBuf>) {
         cx.activate(true);
         cx.spawn(async move |cx| {
             let mut first = !started_with_file;
-            let mut plugins = kalem_core::extensions::generation();
+            let mut plugins = plugins_at_start;
             let mut shown = kalem_core::extensions::shown();
             let mut written = kalem_core::extensions::generated_writes();
             let mut marked = kalem_core::extensions::gutter_writes();

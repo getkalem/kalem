@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- A plugin's keys (the git plugin's `SPC g g`) were not bound from the second start on: a plugin loaded from the compiled components' cache registers them at once, before the editor had counted the plugins' registrations, so the editor never saw them. Both editors count them before building their keymap.
+- A file opened by a relative path (`kalem notes.org`) kept that path, so a plugin was given `notes.org` and the git plugin said "`.` is not an absolute path"; an opened document's path is absolute.
+
 ## [0.4.1] - 2026-10-08
 
 ### Added

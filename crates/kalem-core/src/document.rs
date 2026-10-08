@@ -733,10 +733,14 @@ impl DocumentState {
         settings: Arc<Settings>,
         base: &ParseContext,
     ) -> Result<DocumentState, OpenError> {
+        // Its path absolute (`kalem notes.org` from a folder): what the
+        // plugins and the language servers are given, and where a project
+        // and a version control are looked for.
+        let absolute = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+        let path = absolute.as_path();
         if path.is_dir() {
-            let dir = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
             return Ok(DocumentState::directory(
-                crate::dired::Place::Dir(dir),
+                crate::dired::Place::Dir(path.to_path_buf()),
                 kalem_fs::ListOptions::default(),
                 true,
                 settings,
@@ -3043,6 +3047,22 @@ mod tests {
         d.set_gutter(&[(1, M::Removed), (1, M::Added), (3, M::Removed)]);
         assert_eq!(d.gutter_mark(0), Some(M::Added));
         assert_eq!(d.changes_starts(), [0, 2]);
+    }
+
+    #[test]
+    fn a_file_opened_by_a_relative_path_has_its_absolute_path() {
+        let name = format!("kalem-relative-{}.txt", std::process::id());
+        std::fs::write(&name, "one\n").unwrap();
+        let d = DocumentState::open(
+            Path::new(&name),
+            Arc::new(Settings::default()),
+            &ParseContext::default(),
+        )
+        .unwrap();
+        let _ = std::fs::remove_file(&name);
+        let p = d.meta.path.clone().unwrap();
+        assert!(p.is_absolute(), "{}", p.display());
+        assert_eq!(p, std::env::current_dir().unwrap().join(&name));
     }
 
     #[test]

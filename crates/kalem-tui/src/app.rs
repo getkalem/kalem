@@ -430,7 +430,7 @@ fn new_document(path: Option<&Path>, config: &Config) -> Result<DocumentState, O
         _ => {
             let mode = path.map_or(DocumentMode::Org, |p| DocumentMode::detect(Some(p), b""));
             let meta = Metadata {
-                path: path.map(Path::to_path_buf),
+                path: path.map(|p| std::path::absolute(p).unwrap_or_else(|_| p.to_path_buf())),
                 mode,
                 line_ending: if cfg!(windows) {
                     LineEnding::CrLf
@@ -500,6 +500,11 @@ impl App {
         };
         // What plugins read (`kalem.settings`).
         kalem_core::extensions::set_config(&config);
+        // The plugins' registrations counted before the keymap is built:
+        // a plugin that starts meanwhile (from the compiled components'
+        // cache, at once) is seen at the first tick. Counted after, its
+        // keys were never bound.
+        let plugins_seen = kalem_core::extensions::generation();
         let registry = CommandRegistry::with_builtins();
         let (full, more) = Keymap::build_with(
             &registry,
@@ -539,7 +544,7 @@ impl App {
             keymap,
             keymap_issues: issues,
             bus,
-            plugins_seen: kalem_core::extensions::generation(),
+            plugins_seen,
             watcher,
             changed_files,
             doc,

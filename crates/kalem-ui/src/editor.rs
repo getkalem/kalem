@@ -4279,7 +4279,7 @@ pub fn open(
         }
         _ => {
             let meta = kalem_core::Metadata {
-                path: path.map(std::path::Path::to_path_buf),
+                path: path.map(|p| std::path::absolute(p).unwrap_or_else(|_| p.to_path_buf())),
                 mode: path.map_or(DocumentMode::Org, |p| DocumentMode::detect(Some(p), b"")),
                 line_ending: if cfg!(windows) {
                     kalem_core::LineEnding::CrLf
