@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - LaTeX: an edit between a `\def` and the name it defines across blank lines (`\def`, paragraphs, `\ee`) changed what the document defines, and the edited paragraph's quick reparse kept the old definitions, so `\be … \ee` equations could parse as they no longer should until the next full parse. A quick reparse now checks the document's definitions and parses it whole when they changed. (Found by the fuzz tests.)
+- LaTeX: the view showed the blanks and `\space`s a `\textcolor`'s text starts with (`\textcolor{red}{\space x}`), which LaTeX drops, as the text starts after xcolor's `\ignorespaces`. (Found by the typeset fuzz test.)
 
 ## [0.4.2] - 2026-10-08
 

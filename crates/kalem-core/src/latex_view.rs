@@ -3331,6 +3331,24 @@ impl Builder<'_> {
     }
 }
 
+/// The end of the blanks and `\space`s from `at` in `text` (before
+/// `limit`): what TeX's `\ignorespaces` takes, as `\space` expands to a
+/// blank.
+fn ignored_spaces(text: &str, mut at: usize, limit: usize) -> usize {
+    loop {
+        let rest = &text[at..limit];
+        let blanks = rest.len() - rest.trim_start_matches([' ', '\t']).len();
+        at += blanks;
+        match text[at..limit].strip_prefix("\\space") {
+            Some(after) if !after.starts_with(|c: char| c.is_ascii_alphabetic()) => {
+                at += "\\space".len();
+            }
+            _ if blanks == 0 => return at,
+            _ => {}
+        }
+    }
+}
+
 /// The view of source line `line` (without its line ending) of the LaTeX
 /// document `doc`, with the cursor at `cursor`; the text under the
 /// document's diagnostics flagged (T2.7h.20).
@@ -4962,26 +4980,15 @@ fn unflagged_line_view(
                             && !near(&(r.start..end)) =>
                     {
                         // xcolor's `\color` ends with `\ignorespaces`: the
-                        // blanks after it go, and `\space`, which expands
-                        // to one.
+                        // blanks after it go. `\textcolor{c}{…}` is
+                        // `{\color{c}…}`: the blanks its text starts with.
                         let mut end = end;
                         if n == "color" {
-                            loop {
-                                let rest = &text[end..line.end];
-                                let blanks =
-                                    rest.len() - rest.trim_start_matches([' ', '\t']).len();
-                                end += blanks;
-                                let rest = &text[end..line.end];
-                                match rest.strip_prefix("\\space") {
-                                    Some(after)
-                                        if !after
-                                            .starts_with(|c: char| c.is_ascii_alphabetic()) =>
-                                    {
-                                        end += "\\space".len();
-                                    }
-                                    _ if blanks == 0 => break,
-                                    _ => {}
-                                }
+                            end = ignored_spaces(text, end, line.end);
+                        } else if n == "textcolor" && text[end..line.end].starts_with('{') {
+                            let blanks = end + 1..ignored_spaces(text, end + 1, line.end);
+                            if !blanks.is_empty() && !near(&blanks) {
+                                hidden.push(blanks);
                             }
                         }
                         b.replace(r.start..end, "", c.style);
@@ -8337,6 +8344,22 @@ mod tests {
         // The coverage count draws them too.
         let c = crate::latex_check::coverage_report(text, None);
         assert_eq!(c.source, 0, "{:?}", c.source_by_name);
+    }
+
+    #[test]
+    fn textcolor_ignores_the_spaces_its_text_starts_with() {
+        // `\\textcolor{c}{…}` is `{\\color{c}…}`: its text starts after
+        // `\\ignorespaces` too, which expands `\\space` (the typeset
+        // fuzz's seed 797).
+        for (src, want) in [
+            ("A\\textcolor{red}{ x}\n", "A{x}"),
+            ("A\\textcolor{red}{\\space  \\space x} y\n", "A{x} y"),
+            ("A\\textcolor[rgb]{1,0,0}{\t\\space}\n", "A{}"),
+            ("A\\textcolor{red}{\\spacex}\n", "A{\\spacex}"),
+        ] {
+            let d = doc(src);
+            assert_eq!(shown(&d, 0, None).display(), want, "{src:?}");
+        }
     }
 
     #[test]
