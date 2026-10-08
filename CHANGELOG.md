@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-08
+
 ### Added
 - A plugin's manifest may add menus to the menu bar (`"menus"`: a title, a when-clause on the document, the plugin's commands), in the window and in the list F10 shows in both editors. A when-clause may name `vcs`, the version control holding the document's file (`git`, `hg`, `jj`, `svn`…, by the nearest folder above it with its marker): the git plugin's Git menu shows in a repository only, its Status the same as `SPC g g`.
 
