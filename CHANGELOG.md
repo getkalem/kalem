@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 - The plugin API is 0.2.6: a plugin's document may be styled (`styled-documents`), stretches of its text in a color and bold, italic or underlined, written with the text. Colors are named (red, green, yellow, blue, magenta, cyan, muted, accent) and take each theme's shade, so the document reads in the light and the dark theme; a terminal shows the theme's shade with full colors, its own named colors otherwise. For the git plugin's status, colored as lazygit is.
 
+### Fixed
+- LaTeX: an edit between a `\def` and the name it defines across blank lines (`\def`, paragraphs, `\ee`) changed what the document defines, and the edited paragraph's quick reparse kept the old definitions, so `\be … \ee` equations could parse as they no longer should until the next full parse. A quick reparse now checks the document's definitions and parses it whole when they changed. (Found by the fuzz tests.)
+
 ## [0.4.2] - 2026-10-08
 
 ### Fixed
