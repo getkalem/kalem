@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-08
+
 ### Added
 - The `diff` highlighter colors its lines: added lines green, removed lines red, a hunk's `@@` line as a heading, the file headers dimmed, in both editors; the added, removed and hunk lines have a wash of their color behind them too, as magit shows a diff. The theme's `[syntax]` table gains `inserted` and `deleted` for the two. The git plugin's status and commit views, highlighted as `diff`, show their hunks in these colors.
 - Lines the git plugin marks as added or changed are tinted under their text, beside their mark in the gutter, in both editors (green for added, orange for changed); `editor.highlight_changes` turns it off.
