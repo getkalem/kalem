@@ -2886,6 +2886,7 @@ impl Editor {
         // document have none.
         self.shared.config.bool("editor.line_numbers")
             && (self.doc.meta.mode != DocumentMode::Csv || self.source)
+            && (self.doc.meta.mode != DocumentMode::Org || self.source)
             && self.doc.dired.is_none()
             && self.doc.generated.is_none()
             && (self.doc.meta.mode != DocumentMode::Org || self.source)
@@ -4631,6 +4632,15 @@ impl gpui::Render for Editor {
                 (l.gutter, widths, current)
             });
         let bar_height = px(theme.size * 1.6);
+        let numbers = self.line_numbers();
+        let digits = self.doc.text().line_count().to_string().len();
+        let marks = self.doc.has_gutter();
+        // A document with headings folds them by an arrow in the margin.
+        let headings = !self.source
+            && matches!(
+                self.doc.meta.mode,
+                DocumentMode::Org | DocumentMode::Markdown
+            );
         // A character's width in the grid's font, to line the letters up
         // with the columns.
         let char_w = {
@@ -4692,6 +4702,18 @@ impl gpui::Render for Editor {
             } else {
                 (px(16.), px(48.))
             };
+            // The margin where the line numbers and the plugins' marks are
+            // painted is each line's own left padding, inside the list,
+            // which clips what it paints to its bounds: the text's padding
+            // gives up that much, so the text stays where it was.
+            let gutter = if numbers {
+                char_w * 0.8 * digits as f32 + px(32.)
+            } else if marks || headings {
+                px(26.)
+            } else {
+                px(0.)
+            };
+            let left = (left - gutter).max(px(0.));
             let mut text = div()
                 .h_full()
                 .w_full()
@@ -4885,7 +4907,7 @@ impl gpui::Render for Editor {
                         let line = visible.get(ix).copied().unwrap_or(0);
                         // `org-indent-mode`: the line moved right by the
                         // level of its heading, two characters a level.
-                        let indent = entity.update(cx, |e, _| e.outline_indent_of(line));
+                        let indent = entity.update(cx, |e, _| e.outline_indent_of(line)) + gutter;
                         let element = crate::line::LineElement {
                             editor: entity.clone(),
                             line,

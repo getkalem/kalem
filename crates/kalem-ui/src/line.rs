@@ -1895,8 +1895,9 @@ impl gpui::Element for LineElement {
                 strikethrough: None,
             };
             let shaped = window.text_system().shape_line(n, fs, &[run], None);
+            // Left of the fold arrow (at 20) and the change mark (at 7).
             let o = point(
-                bounds.origin.x - px(10.) - shaped.width,
+                bounds.origin.x - px(28.) - shaped.width,
                 bounds.origin.y + (line_height - fs * 1.2) / 2.,
             );
             let _ = shaped.paint(o, fs * 1.2, gpui::TextAlign::Left, None, window, cx);

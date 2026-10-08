@@ -10,6 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The `diff` highlighter colors its lines: added lines green, removed lines red, a hunk's `@@` line as a heading, the file headers dimmed, in both editors. The theme's `[syntax]` table gains `inserted` and `deleted` for the two. The git plugin's status and commit views, highlighted as `diff`, show their hunks in these colors.
 - Lines the git plugin marks as added or changed are tinted under their text, beside their mark in the gutter, in both editors (green for added, orange for changed); `editor.highlight_changes` turns it off.
 
+### Fixed
+- The graphical editor's margin: line numbers, the fold arrows of headings and the plugins' change marks, painted left of the lines, had been clipped away since the move to gpui from crates.io (its list clips what it paints to its bounds). Each line now carries the margin as its own padding, the number left of the arrow and the mark; an Org document shows no line numbers, as in the terminal editor.
+
 ## [0.5.0] - 2026-10-08
 
 ### Added
