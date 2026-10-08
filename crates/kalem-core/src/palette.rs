@@ -130,13 +130,17 @@ pub fn menu_items(
     use crate::menus::MenuEntry;
     let mut out = Vec::new();
     for m in crate::menus::menus() {
+        if !m.shows(ctx) {
+            continue;
+        }
         for e in m.entries {
             let (label, id, args) = match e {
                 MenuEntry::Separator => continue,
                 MenuEntry::Command { label, id, args } => (label, id, args),
-                MenuEntry::Open(label) => (label, "file.open", None),
-                MenuEntry::AddProjectFolder(label) => (label, "project.add", None),
+                MenuEntry::Open(label) => (label, "file.open".to_string(), None),
+                MenuEntry::AddProjectFolder(label) => (label, "project.add".to_string(), None),
             };
+            let id = id.as_str();
             if !registry.offered(id, ctx) {
                 continue;
             }

@@ -12,6 +12,16 @@ pub struct MenuSpec {
     pub name: String,
     /// Its items.
     pub entries: Vec<MenuEntry>,
+    /// Where it shows, a plugin's menu: a when-clause on the document
+    /// (`vcs == git`); everywhere when none.
+    pub when: Option<crate::when::WhenClause>,
+}
+
+impl MenuSpec {
+    /// Whether it shows for a document of context `ctx`.
+    pub fn shows(&self, ctx: &crate::when::Context) -> bool {
+        self.when.as_ref().is_none_or(|w| w.eval(ctx))
+    }
 }
 
 /// An item of a menu.
@@ -24,7 +34,7 @@ pub enum MenuEntry {
         /// The item's title.
         label: String,
         /// The command.
-        id: &'static str,
+        id: String,
         /// Its arguments, if any.
         args: Option<serde_json::Value>,
     },
@@ -40,17 +50,17 @@ pub fn menus() -> Vec<MenuSpec> {
     // An item titled like its command, or with its own label.
     let item = |id: &'static str| MenuEntry::Command {
         label: tr(&command_key(id)),
-        id,
+        id: id.to_string(),
         args: None,
     };
     let named = |label: String, id: &'static str| MenuEntry::Command {
         label,
-        id,
+        id: id.to_string(),
         args: None,
     };
     let with = |label: String, id: &'static str, args: serde_json::Value| MenuEntry::Command {
         label,
-        id,
+        id: id.to_string(),
         args: Some(args),
     };
     let heading = |level: u8| {
@@ -67,8 +77,9 @@ pub fn menus() -> Vec<MenuSpec> {
             json!({ "level": level }),
         )
     };
-    vec![
+    let mut menus = vec![
         MenuSpec {
+            when: None,
             name: "Kalem".to_string(),
             entries: vec![
                 named(tr("menu-settings"), "app.settings"),
@@ -83,6 +94,7 @@ pub fn menus() -> Vec<MenuSpec> {
             ],
         },
         MenuSpec {
+            when: None,
             name: tr("menu-file"),
             entries: vec![
                 item("file.new"),
@@ -135,6 +147,7 @@ pub fn menus() -> Vec<MenuSpec> {
             ],
         },
         MenuSpec {
+            when: None,
             name: tr("menu-project"),
             entries: vec![
                 item("project.switch"),
@@ -154,6 +167,7 @@ pub fn menus() -> Vec<MenuSpec> {
             ],
         },
         MenuSpec {
+            when: None,
             name: tr("menu-edit"),
             entries: vec![
                 item("edit.undo"),
@@ -187,6 +201,7 @@ pub fn menus() -> Vec<MenuSpec> {
             ],
         },
         MenuSpec {
+            when: None,
             name: tr("menu-format"),
             entries: vec![
                 item("org.emphasis.bold"),
@@ -238,6 +253,7 @@ pub fn menus() -> Vec<MenuSpec> {
             ],
         },
         MenuSpec {
+            when: None,
             name: tr("menu-insert"),
             entries: vec![
                 named(tr("menu-link"), "org.insert.link"),
@@ -273,6 +289,7 @@ pub fn menus() -> Vec<MenuSpec> {
         },
         MenuSpec {
             // CSV files: rows and columns.
+            when: None,
             name: tr("menu-table"),
             entries: vec![
                 item("csv.insertRow"),
@@ -326,6 +343,7 @@ pub fn menus() -> Vec<MenuSpec> {
         },
         MenuSpec {
             // BibTeX files: the entries as a grid.
+            when: None,
             name: tr("menu-bibtex"),
             entries: vec![
                 item("bib.newEntry"),
@@ -355,6 +373,7 @@ pub fn menus() -> Vec<MenuSpec> {
             ],
         },
         MenuSpec {
+            when: None,
             name: tr("menu-view"),
             entries: vec![
                 item("view.fold"),
@@ -373,7 +392,28 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("view.palette"),
             ],
         },
-    ]
+    ];
+    // The plugins' menus (the git plugin's Git menu), after Kalem's.
+    for m in crate::extensions::menus() {
+        let entries = m
+            .items
+            .iter()
+            .map(|i| match i.as_str() {
+                "-" => MenuEntry::Separator,
+                id => MenuEntry::Command {
+                    label: crate::extensions::menu_label(id),
+                    id: id.to_string(),
+                    args: None,
+                },
+            })
+            .collect();
+        menus.push(MenuSpec {
+            name: m.title,
+            entries,
+            when: m.when,
+        });
+    }
+    menus
 }
 
 #[cfg(test)]
@@ -386,10 +426,46 @@ mod tests {
         for m in menus() {
             for e in m.entries {
                 if let MenuEntry::Command { id, .. } = e {
-                    assert!(reg.get(id).is_some(), "{} › {id}", m.name);
+                    assert!(reg.get(&id).is_some(), "{} › {id}", m.name);
                 }
             }
         }
+    }
+
+    #[test]
+    fn a_plugins_menu_shows_where_its_when_clause_holds() {
+        use crate::command::{Command, CommandHandler, CommandSource, Scope};
+        crate::extensions::add_command(Command {
+            id: "menutest.status".into(),
+            title: "Menutest: Status".into(),
+            category: "Menutest".into(),
+            default_keys: Vec::new(),
+            when: None,
+            handler: CommandHandler::Plugin("menutest".into()),
+            args_schema: None,
+            source: CommandSource::Plugin("menutest".into()),
+            scope: Some(Scope::all()),
+        })
+        .unwrap();
+        crate::extensions::add_menu(crate::extensions::PluginMenu {
+            plugin: "menutest".into(),
+            title: "Menutest".into(),
+            when: Some(crate::when::WhenClause::parse("vcs == git").unwrap()),
+            items: vec!["menutest.status".into(), "-".into()],
+        });
+        let m = menus().into_iter().find(|m| m.name == "Menutest").unwrap();
+        // Titled as the command, its category's prefix left out.
+        assert!(matches!(
+            &m.entries[0],
+            MenuEntry::Command { label, id, .. } if label == "Status" && id == "menutest.status"
+        ));
+        let mut ctx = crate::when::Context::default();
+        assert!(!m.shows(&ctx));
+        ctx.set("vcs", crate::when::Value::Str("git".into()));
+        assert!(m.shows(&ctx));
+        crate::extensions::remove_menus("menutest");
+        crate::extensions::remove_command("menutest.status");
+        assert!(!menus().iter().any(|m| m.name == "Menutest"));
     }
 
     #[test]
@@ -399,7 +475,7 @@ mod tests {
             .entries
             .iter()
             .filter_map(|e| match e {
-                MenuEntry::Command { id, .. } => Some(*id),
+                MenuEntry::Command { id, .. } => Some(id.as_str()),
                 _ => None,
             })
             .collect();

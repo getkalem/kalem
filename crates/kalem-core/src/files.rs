@@ -923,6 +923,29 @@ impl FileWatcher {
     }
 }
 
+/// The version control holding `path` (a file or a folder): `git`, `hg`,
+/// `svn`, `jj`, `bzr`, `darcs` or `pijul`, by the marker of the nearest
+/// folder above it that has one. A plugin's menu shows by it
+/// (`vcs == git`).
+pub fn vcs_of(path: &std::path::Path) -> Option<&'static str> {
+    const MARKERS: &[(&str, &str)] = &[
+        (".git", "git"),
+        (".hg", "hg"),
+        (".jj", "jj"),
+        (".svn", "svn"),
+        (".bzr", "bzr"),
+        ("_darcs", "darcs"),
+        (".pijul", "pijul"),
+    ];
+    let start = if path.is_dir() { path } else { path.parent()? };
+    start.ancestors().find_map(|dir| {
+        MARKERS
+            .iter()
+            .find(|(m, _)| dir.join(m).exists())
+            .map(|(_, name)| *name)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -1260,5 +1283,21 @@ mod tests {
         assert!(seen.borrow().contains(&link), "{:?}", seen.borrow());
         w.unwatch(&link).unwrap();
         std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn the_version_control_of_a_file_is_found_above_it() {
+        let dir = std::env::temp_dir().join(format!("kalem-vcs-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("repo/.git")).unwrap();
+        std::fs::create_dir_all(dir.join("repo/src")).unwrap();
+        std::fs::create_dir_all(dir.join("plain")).unwrap();
+        std::fs::write(dir.join("repo/src/a.rs"), "").unwrap();
+        assert_eq!(vcs_of(&dir.join("repo/src/a.rs")), Some("git"));
+        assert_eq!(vcs_of(&dir.join("repo/src")), Some("git"));
+        assert_eq!(vcs_of(&dir.join("repo/new.txt")), Some("git"));
+        std::fs::create_dir_all(dir.join("plain/.hg")).unwrap();
+        assert_eq!(vcs_of(&dir.join("plain/b.txt")), Some("hg"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

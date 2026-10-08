@@ -526,6 +526,44 @@ struct Loaded {
     extension: Option<Extension>,
     /// Stopped after a failure; not started again until Kalem restarts.
     failed: bool,
+    /// The menus its manifest adds to the menu bar, once it runs.
+    menus: Vec<kalem_core::extensions::PluginMenu>,
+}
+
+/// A manifest's `menus` for plugin `id` (its short ID): each a title, a
+/// when-clause on the document (`vcs == git`) and items, the plugin's own
+/// commands and `-` between groups. A menu whose when-clause does not
+/// parse is left out.
+fn manifest_menus(id: &str, m: &serde_json::Value) -> Vec<kalem_core::extensions::PluginMenu> {
+    let own = format!("{id}.");
+    m["menus"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|menu| {
+            let title = menu["title"].as_str()?.trim().to_string();
+            if title.is_empty() {
+                return None;
+            }
+            let when = match menu["when"].as_str() {
+                Some(w) => Some(WhenClause::parse(w).ok()?),
+                None => None,
+            };
+            let items = menu["items"]
+                .as_array()?
+                .iter()
+                .filter_map(|i| i.as_str())
+                .filter(|i| *i == "-" || i.starts_with(&own))
+                .map(str::to_string)
+                .collect();
+            Some(kalem_core::extensions::PluginMenu {
+                plugin: id.to_string(),
+                title,
+                when,
+                items,
+            })
+        })
+        .collect()
 }
 
 /// The installed extension plugins.
@@ -560,7 +598,12 @@ impl Plugins {
                 }
             });
         match started {
-            Ok(ext) => l.extension = Some(ext),
+            Ok(ext) => {
+                l.extension = Some(ext);
+                for m in l.menus.clone() {
+                    kalem_core::extensions::add_menu(m);
+                }
+            }
             Err(e) => {
                 l.failed = true;
                 kalem_core::jobs::notice(format!("The plugin {} did not start: {e}", l.id), true);
@@ -578,6 +621,7 @@ impl Plugins {
         l.failed = true;
         kalem_core::extensions::close_plugin_documents(&l.id);
         kalem_core::extensions::clear_gutter(&l.id, None);
+        kalem_core::extensions::remove_menus(&l.id);
         kalem_core::jobs::notice(format!("The plugin {} was stopped: {error}", l.id), true);
     }
 }
@@ -914,8 +958,10 @@ fn installed() -> Vec<Loaded> {
                 .as_u64()
                 .map_or(defaults.time, std::time::Duration::from_millis),
         };
+        let id = p.id.rsplit('.').next().unwrap_or(&p.id).to_string();
         list.push(Loaded {
-            id: p.id.rsplit('.').next().unwrap_or(&p.id).to_string(),
+            menus: manifest_menus(&id, &m),
+            id,
             full: p.id.clone(),
             grants: x::Grants::from_permissions(&strings(&m["permissions"])),
             file: p.dir.join(main),
@@ -956,4 +1002,31 @@ pub(crate) fn load() {
             }
             kalem_core::extensions::install(Box::new(plugins));
         });
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_manifests_menus_hold_the_plugins_own_commands() {
+        let m: serde_json::Value = serde_json::from_str(
+            r#"{"menus": [
+                {"title": "Git", "when": "vcs == git || textType == git-status",
+                 "items": ["git.status", "-", "git.commit", "file.save", "other.x"]},
+                {"title": "Broken", "when": "vcs ==", "items": ["git.status"]},
+                {"title": " ", "items": ["git.status"]},
+                {"title": "Always", "items": ["git.fetch"]}
+            ]}"#,
+        )
+        .unwrap();
+        let menus = super::manifest_menus("git", &m);
+        assert_eq!(menus.len(), 2, "{menus:?}");
+        assert_eq!(menus[0].title, "Git");
+        assert_eq!(menus[0].items, ["git.status", "-", "git.commit"]);
+        assert!(menus[0].when.is_some());
+        assert_eq!(
+            (menus[1].title.as_str(), menus[1].when.is_none()),
+            ("Always", true)
+        );
+        assert!(super::manifest_menus("git", &serde_json::json!({})).is_empty());
+    }
 }

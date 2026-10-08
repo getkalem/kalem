@@ -252,3 +252,52 @@ fn a_plugins_marks_reach_the_open_file(cx: &mut TestAppContext) {
     x::clear_gutter("gentest", None);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A plugin's menu (the git plugin's Git menu) stands in the menu bar for
+/// a document whose folder is under its version control, and not for
+/// another.
+#[test]
+fn a_plugins_menu_shows_in_a_repository() {
+    use kalem_core::command::{Command, CommandHandler, CommandSource, Scope};
+    let dir = std::env::temp_dir().join(format!("kalem-ui-gitmenu-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("repo/.git")).unwrap();
+    std::fs::create_dir_all(dir.join("plain")).unwrap();
+    std::fs::write(dir.join("repo/a.txt"), "a\n").unwrap();
+    std::fs::write(dir.join("plain/b.txt"), "b\n").unwrap();
+    x::add_command(Command {
+        id: "gitmenu.status".into(),
+        title: "Gitmenu: Status".into(),
+        category: "Gitmenu".into(),
+        default_keys: Vec::new(),
+        when: None,
+        handler: CommandHandler::Plugin("gitmenu".into()),
+        args_schema: None,
+        source: CommandSource::Plugin("gitmenu".into()),
+        scope: Some(Scope::all()),
+    })
+    .unwrap();
+    x::add_menu(x::PluginMenu {
+        plugin: "gitmenu".into(),
+        title: "Gitmenu".into(),
+        when: Some(kalem_core::when::WhenClause::parse("vcs == git").unwrap()),
+        items: vec!["gitmenu.status".into()],
+    });
+    let registry = kalem_core::CommandRegistry::with_builtins();
+    let shows = |file: &str| {
+        let doc = kalem_core::DocumentState::open(
+            &dir.join(file),
+            std::sync::Arc::new(org_model::Settings::default()),
+            &Default::default(),
+        )
+        .unwrap();
+        workspace::menus_for(&registry, &doc.document_context())
+            .iter()
+            .any(|m| m.name.as_ref() == "Gitmenu")
+    };
+    assert!(shows("repo/a.txt"));
+    assert!(!shows("plain/b.txt"));
+    x::remove_menus("gitmenu");
+    x::remove_command("gitmenu.status");
+    let _ = std::fs::remove_dir_all(&dir);
+}

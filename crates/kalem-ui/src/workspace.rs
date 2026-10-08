@@ -2250,9 +2250,17 @@ impl Render for Workspace {
         // that serve it.
         if window.is_window_active() {
             let d = &self.editor.read(cx).doc;
+            // Its kind, its version control (a plugin's menu shows by
+            // it) and the plugins' registrations.
             let (doc, key) = (
                 d.document_context(),
-                format!("{} {}", d.meta.mode.name(), d.document_type()),
+                format!(
+                    "{} {} {:?} {}",
+                    d.meta.mode.name(),
+                    d.document_type(),
+                    d.vcs(),
+                    kalem_core::extensions::generation()
+                ),
             );
             if MENUS_FOR.with(|m| m.borrow().as_deref() != Some(key.as_str())) {
                 cx.set_menus(menus_for(&self.shared.registry, &doc));
@@ -2314,7 +2322,13 @@ pub fn menus_for(
     registry: &kalem_core::CommandRegistry,
     doc: &kalem_core::when::Context,
 ) -> Vec<Menu> {
-    menus()
+    // A plugin's menu where its when-clause holds (the Git menu in a
+    // repository).
+    let specs = kalem_core::menus::menus()
+        .into_iter()
+        .filter(|m| m.shows(doc))
+        .collect();
+    gpui_menus(specs)
         .into_iter()
         .filter_map(|mut m| {
             let items = std::mem::take(&mut m.items);
@@ -2364,8 +2378,13 @@ pub fn refresh_menus() {
 /// Every menu item, with the command of each, in the interface language
 /// (`kalem_core::menus`).
 pub fn menus() -> Vec<Menu> {
+    gpui_menus(kalem_core::menus::menus())
+}
+
+/// `specs` as gpui's menus.
+fn gpui_menus(specs: Vec<kalem_core::menus::MenuSpec>) -> Vec<Menu> {
     use kalem_core::menus::MenuEntry;
-    kalem_core::menus::menus()
+    specs
         .into_iter()
         .map(|m| Menu {
             name: m.name.into(),
@@ -2379,12 +2398,12 @@ pub fn menus() -> Vec<Menu> {
                         label,
                         id,
                         args: None,
-                    } => MenuItem::action(label, RunCommand::new(id)),
+                    } => MenuItem::action(label, RunCommand::new(&id)),
                     MenuEntry::Command {
                         label,
                         id,
                         args: Some(args),
-                    } => MenuItem::action(label, RunCommand::with(id, args)),
+                    } => MenuItem::action(label, RunCommand::with(&id, args)),
                     MenuEntry::Open(label) => MenuItem::action(label, OpenFile),
                     MenuEntry::AddProjectFolder(label) => MenuItem::action(label, AddProjectFolder),
                 })

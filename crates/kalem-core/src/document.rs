@@ -209,6 +209,8 @@ pub struct DocumentState {
     /// The plugins' writes of marks read last, and the version of this
     /// file's marks taken.
     gutter_seen: (u64, u64),
+    /// The version control holding its file, found for that path.
+    vcs: std::cell::RefCell<Option<(PathBuf, Option<&'static str>)>>,
     /// A CSV document's filter (view state): only the rows with a field
     /// holding this text show (`crate::csv::filtered`).
     pub csv_filter: Option<String>,
@@ -411,6 +413,7 @@ impl DocumentState {
             generated: None,
             gutter: Vec::new(),
             gutter_seen: (0, 0),
+            vcs: std::cell::RefCell::new(None),
             csv_filter: None,
             csv_filter_column: None,
             csv_frozen: std::cell::RefCell::new(None),
@@ -2442,14 +2445,32 @@ impl DocumentState {
         }
     }
 
+    /// The version control holding its file (`git`), or its listing's
+    /// folder ([`crate::files::vcs_of`]); found once for its path.
+    pub fn vcs(&self) -> Option<&'static str> {
+        let path = self.meta.path.as_deref()?;
+        let mut cache = self.vcs.borrow_mut();
+        if let Some((p, v)) = cache.as_ref()
+            && p == path
+        {
+            return *v;
+        }
+        let v = crate::files::vcs_of(path);
+        *cache = Some((path.to_path_buf(), v));
+        v
+    }
+
     /// The when-clause keys that hold for the whole document, wherever the
-    /// cursor is: `editorMode`, `fileKind`, `editorLanguage`, and
+    /// cursor is: `editorMode`, `fileKind`, `editorLanguage`, `vcs`, and
     /// `textType` as `document_type`. Menus and toolbars offer the
     /// commands whose when-clause can hold with these
-    /// (`CommandRegistry::offered`).
+    /// (`CommandRegistry::offered`), and show a plugin's menu by them.
     pub fn document_context(&self) -> Context {
         let mut c = Context::default();
         c.set("editorMode", Value::Str(self.meta.mode.name().into()));
+        if let Some(v) = self.vcs() {
+            c.set("vcs", Value::Str(v.into()));
+        }
         if let Some(kind) = crate::kinds::file_kind(self) {
             c.set("fileKind", Value::Str(kind.into()));
         }
@@ -2617,6 +2638,9 @@ impl DocumentState {
         let mut c = Context::default();
         let mode = self.meta.mode.name();
         c.set("editorMode", Value::Str(mode.into()));
+        if let Some(v) = self.vcs() {
+            c.set("vcs", Value::Str(v.into()));
+        }
         if let Some(kind) = crate::kinds::file_kind(self) {
             c.set("fileKind", Value::Str(kind.into()));
         }

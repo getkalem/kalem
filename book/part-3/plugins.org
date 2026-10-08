@@ -354,6 +354,23 @@ editors' events, and its notifications show in the status line. A
 plugin that traps or runs past its budget is stopped, what it
 registered is taken back, and the user is told.
 
+A manifest may add menus to the menu bar (the system's on macOS, the
+window's own elsewhere, and the list F10 shows in both editors) under
+="menus"=: each a title, a when-clause on the document, and its items,
+the plugin's own commands (titled without their category's prefix) and
+=-= between groups. The when-clause sees the document's keys
+(=editorMode=, =textType=, =fileKind=, =editorLanguage=) and =vcs=, the
+version control holding the file (=git=, =hg=, =jj=, =svn=…, by the
+nearest folder above it with its marker), so that the git plugin's Git
+menu shows in a repository only:
+
+#+begin_src json
+"menus": [
+  { "title": "Git", "when": "vcs == git || textType == git-status",
+    "items": ["git.status", "-", "git.commit", "git.push", "git.pull"] }
+]
+#+end_src
+
 * The document
 
 A plugin's command reads and edits the document it runs in through

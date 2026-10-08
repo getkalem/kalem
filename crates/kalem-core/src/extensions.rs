@@ -394,6 +394,52 @@ struct State {
     /// Requests for the editors besides the questions: a plugin's document
     /// to show or close.
     requests: Vec<crate::command::Request>,
+    /// The menus plugins add to the menu bar.
+    menus: Vec<PluginMenu>,
+}
+
+/// A menu a plugin adds to the menu bar, from its manifest's `menus`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PluginMenu {
+    /// The plugin, by its short ID.
+    pub plugin: String,
+    /// The menu's title (`Git`).
+    pub title: String,
+    /// Where it shows: a when-clause on the document (`vcs == git`).
+    pub when: Option<WhenClause>,
+    /// Its items: the plugin's commands, `-` a line between groups.
+    pub items: Vec<String>,
+}
+
+/// Adds plugin menu `menu`, after the plugin's earlier ones.
+pub fn add_menu(menu: PluginMenu) {
+    state().menus.push(menu);
+    changed();
+}
+
+/// Takes plugin `plugin`'s menus away.
+pub fn remove_menus(plugin: &str) {
+    state().menus.retain(|m| m.plugin != plugin);
+    changed();
+}
+
+/// The menus plugins add, in the order they were added.
+pub fn menus() -> Vec<PluginMenu> {
+    state().menus.clone()
+}
+
+/// A plugin command's title in its menu: without its category's prefix
+/// (`Git: Commit` is `Commit` in the Git menu).
+pub fn menu_label(id: &str) -> String {
+    let s = state();
+    match s.commands.get(id) {
+        Some(c) => c
+            .title
+            .strip_prefix(&format!("{}: ", c.category))
+            .unwrap_or(&c.title)
+            .to_string(),
+        None => id.to_string(),
+    }
 }
 
 static STATE: Mutex<State> = Mutex::new(State {
@@ -405,6 +451,7 @@ static STATE: Mutex<State> = Mutex::new(State {
     status: BTreeMap::new(),
     panels: BTreeMap::new(),
     requests: Vec::new(),
+    menus: Vec::new(),
 });
 
 fn queue_request(r: crate::command::Request) {
