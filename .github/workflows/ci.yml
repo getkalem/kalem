@@ -214,7 +214,7 @@ jobs:
         run: |
           curl -sSfL https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.15.0/tectonic-0.15.0-x86_64-unknown-linux-musl.tar.gz | tar xz
           PATH="$PWD:$PATH" cargo test --release -p kalem-core --test latex_compile -- --nocapture
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: latex-differences
