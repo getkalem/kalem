@@ -386,11 +386,15 @@ pub fn guess(bytes: &[u8]) -> &'static encoding_rs::Encoding {
 /// what the text is when nothing else does: the bytes decide first, so a
 /// Turkish file opened on an American system reads as Turkish.
 pub fn guess_in(bytes: &[u8], tld: Option<&str>) -> &'static encoding_rs::Encoding {
-    let mut d = chardetng::EncodingDetector::new();
+    use chardetng::{Iso2022JpDetection, Utf8Detection};
+    // ISO-2022-JP and UTF-8 allowed as guesses, as chardetng 0.1 had them:
+    // the options are for browsers, which must not run scripts from a
+    // guessed page; a file opened in an editor runs nothing.
+    let mut d = chardetng::EncodingDetector::new(Iso2022JpDetection::Allow);
     d.feed(bytes, true);
-    let hinted = d.guess(tld.map(str::as_bytes), true);
+    let hinted = d.guess(tld.map(str::as_bytes), Utf8Detection::Allow);
     if hinted == encoding_rs::WINDOWS_1252 && tld.is_some() {
-        return d.guess(None, true);
+        return d.guess(None, Utf8Detection::Allow);
     }
     hinted
 }

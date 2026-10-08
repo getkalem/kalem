@@ -57,7 +57,7 @@ toml_edit = { version = "0.25", default-features = false, features = ["parse", "
 
 encoding_rs = "0.8"
 unicode-width = "0.2"
-chardetng = "0.1"
+chardetng = "1"
 unicode_names2 = "4"
 emojis = "0.9"
 hayro-svg = "0.7"
