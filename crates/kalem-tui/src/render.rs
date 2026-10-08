@@ -205,8 +205,9 @@ pub fn code_style(kind: kalem_highlight::Kind, base: Style, caps: &Caps) -> Styl
         K::Type => base.fg(Color::Yellow),
         K::Tag => base.fg(Color::LightBlue),
         K::Macro => base.fg(Color::Cyan),
-        K::Inserted => base.fg(Color::Green),
-        K::Deleted => base.fg(Color::Red),
+        // Bright, to read on the dark washes of `diff_bg`.
+        K::Inserted => base.fg(Color::LightGreen),
+        K::Deleted => base.fg(Color::LightRed),
         K::Hunk => base.fg(Color::LightBlue),
         K::Invalid => base.fg(Color::Red),
         K::Operator | K::Variable => base,
