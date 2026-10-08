@@ -7,10 +7,21 @@ use kalem_core::extensions::{self as x, GeneratedSpec};
 use kalem_core::settings::Config;
 use kalem_tui::app::App;
 use kalem_tui::caps::Caps;
+use std::sync::Mutex;
 use std::time::Instant;
+
+/// The plugins' requests and documents are the process's: a test's tick
+/// takes another's requests when they run at once (they did on Windows),
+/// so the tests here run one at a time.
+static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
+
+fn one_at_a_time() -> std::sync::MutexGuard<'static, ()> {
+    ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 #[test]
 fn a_plugins_document_is_shown_rewritten_and_closed() {
+    let _serial = one_at_a_time();
     let dir = std::env::temp_dir().join(format!("kalem-tui-gendoc-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
@@ -87,6 +98,7 @@ fn a_plugins_document_is_shown_rewritten_and_closed() {
 
 #[test]
 fn a_plugins_marks_stand_beside_the_lines() {
+    let _serial = one_at_a_time();
     use kalem_core::GutterMark as M;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
@@ -145,6 +157,7 @@ fn a_plugins_marks_stand_beside_the_lines() {
 
 #[test]
 fn a_plugins_document_is_drawn_in_its_styles() {
+    let _serial = one_at_a_time();
     use kalem_core::{SpanStyle, StyleColor, StyleSpan};
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
