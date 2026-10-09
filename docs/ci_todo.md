@@ -38,8 +38,10 @@ The longest job is always a test job, and nearly all of it is the one
   `leader_keys` 29 s), and the runner's other cores wait.
 - **The sample plugins** (`tests/plugins`) are built for
   `wasm32-unknown-unknown` twice in every test job, by kalem-script's
-  tests and by kalem-cli's, each into its own target folder with its own
-  copy of their dependencies: about 80 s each on Ubuntu.
+  tests and by kalem-cli's, each into its own target folder. With their
+  dependencies in the cache that is 3 and 5 seconds; a first reading of
+  the log took the tests that ran between the two builds for the builds
+  (about 80 s).
 
 **The caches** are the other half. GitHub keeps 10 GB of Actions caches
 per repository and evicts the least recently used. On 2026-10-08 the
@@ -96,15 +98,19 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
   every open one when `Cargo.lock` moves on `main`: eight open pull
   requests (as on 2026-10-09) are a hundred jobs ahead of `main`'s own in
   the runners' queue. Groups: Cargo's minor and patch updates in one
-  pull request (gpui's group stays as it is), major updates one by one;
-  all of GitHub Actions' updates in one.
-  - Trade-off: one breaking 0.x update fails its group's pull request
-    (dependabot counts 0.57 to 0.62 as minor). Then
-    `@dependabot ignore this dependency` in that pull request, or make
-    the change on `main`.
+  pull request (gpui's group stays as it is), all of GitHub Actions'
+  updates in one. Dependabot counts a 0.x crate's minor update (0.23 to
+  0.24) as major, as Cargo does, so the updates that can break still
+  come one by one.
+  - Dependabot's Cargo pull requests are labeled `book-unchanged` (the
+    label is new): the Book workflow's check that a change to the code a
+    chapter describes changes the chapter failed every version bump.
+  - `dtolnay/rust-toolchain` is left alone: its tags are Rust's
+    versions, and dependabot offered to move the MSRV job's `@1.96` to
+    `@1.120`.
   - *Done when* dependabot's next run opens one pull request per
-    ecosystem (besides gpui's and majors) and the single ones it
-    replaces are closed.
+    ecosystem besides gpui's and the major updates, and closes the
+    single ones it replaces.
 
 ## 2. The test jobs
 
@@ -129,16 +135,17 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
   - *Done when* the step is shorter on all three, with the same tests
     run, and green.
 
-- [ ] **C5. The sample plugins built once per job.** kalem-script's and
-  kalem-cli's tests build them into one target folder (the lock they
-  take already serializes the builds), and under nextest a test process
-  does not ask cargo again for a plugin another process of the same run
-  built (`NEXTEST_RUN_ID` marks the run); under `cargo test` each
-  process keeps its own cache as now.
-  - *Measured by* the `Compiling kalem-plugin-*` lines after the test
-    binaries in the Ubuntu job's log: one build of each plugin.
-  - *Done when* each plugin is built once per job and the step is
-    shorter by about a minute on Ubuntu.
+- [ ] **C5. The sample plugins under nextest.** kalem-script's and
+  kalem-cli's tests build the plugins of `tests/plugins` behind a lock,
+  once per test process: 3 and 5 seconds a job under `cargo test`. Under
+  nextest every test is a process of its own, so each of kalem-script's
+  tests that loads a plugin asks cargo again whether it is built (and
+  wraps it again), one process at a time behind the lock.
+  - *Measured by* the times of kalem-script's `extension`, `viewer` and
+    `grid` tests and kalem-cli's `extensions` under nextest.
+  - *Done when* they add no more than about ten seconds to the step, or
+    a test process skips a build another process of the same run made
+    (`NEXTEST_RUN_ID` names the run).
 
 - [ ] **C6. Windows links with rust-lld.** `link.exe` links 106 test
   binaries; LLD is usually several times faster at it. In the Windows
