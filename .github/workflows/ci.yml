@@ -25,6 +25,11 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
+  # Line tables instead of full debug info in the debug builds: smaller
+  # caches, so that main's fit in GitHub's 10 GB, and faster links of the
+  # hundred test binaries (docs/ci_todo.md, C2). A panic still names its
+  # file and line, and a backtrace keeps its line numbers.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
 
 jobs:
   fmt:
@@ -121,21 +126,6 @@ jobs:
           sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
             libx11-xcb-dev libxcb1-dev libfontconfig-dev libfreetype-dev libvulkan-dev
       - run: cargo check --workspace
-
-  terminal-only:
-    name: terminal-only build
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-      # No windowing or GPU libraries: the build must not need them.
-      - run: cargo build -p kalem-editor --no-default-features --features tui
-      - name: No gpui in the dependency tree
-        run: "! cargo tree -p kalem-editor --no-default-features --features tui | grep -q gpui"
 
   components:
     name: bundled plugins as components
@@ -257,7 +247,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
+      # The terminal-only build, on a runner without the windowing and GPU
+      # libraries: it must not need them, and gpui must not be in its
+      # dependency tree (the terminal-only release archives; this job took
+      # over the check from a job of its own, docs/ci_todo.md, C2).
       - run: cargo build --release -p kalem-editor --no-default-features --features tui
+      - name: No gpui in the terminal-only build's dependency tree
+        run: "! cargo tree -p kalem-editor --no-default-features --features tui | grep -q gpui"
       - name: Core corpus
         run: |
           find tests/corpus -name '*.org' -print0 | xargs -0 ./target/release/kalem diff-emacs --summary
