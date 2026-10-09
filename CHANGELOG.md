@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- Spreadsheets: a word typed into a cell of a new workbook (New Workbook) and Enter stopped the workbook viewer, which closed the workbook with what was typed. Typing into new rows of any workbook no longer reads the sheet again at each Enter, and text that is not ASCII after the typed cell could stop the viewer the same way (xlsx 0.0.9).
+
 ## [0.6.0] - 2026-10-09
 
 ### Added

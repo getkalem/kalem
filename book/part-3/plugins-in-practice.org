@@ -58,14 +58,14 @@ the names of your functions.
 
 One thing to know: Kalem keeps using the plugin built into it unless
 yours is /newer/. So raise =version= in =plugins/xlsx/plugin.json=
-(from =0.0.8= to =0.0.9=, say) before =kalem plugin dev=; =kalem plugin
+(from =0.0.9= to =0.0.10=, say) before =kalem plugin dev=; =kalem plugin
 list= says which copy is in use. =kalem plugin remove org.kalem.xlsx=
 takes your copy out and the built-in one is back.
 
 To give your change to others:
 
 - the best way is a pull request to =getkalem/plugins=;
-- or push your fork and tag it =xlsx-v0.0.8=: the repository's release
+- or push your fork and tag it =xlsx-v0.0.10=: the repository's release
   workflow builds the component and publishes it (GitHub turns
   workflows off on a fork until you enable them, once, in its Actions
   tab). Then anyone installs it with *Install Plugin from GitHub…* and

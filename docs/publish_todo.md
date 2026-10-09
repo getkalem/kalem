@@ -294,6 +294,20 @@ not edit") or kill the process. Fix all of them before 0.1.
   attributes, ACLs and the creation date are named in the Book as not
   kept by the rename; files.org also corrected on renames by other
   programs (section 3.6's Doc item).)
+- [x] **Major, reported by the owner (2026-10-09).** New Workbook, a word
+  typed into a cell, Enter: "Excel workbooks stopped" and the workbook
+  closed, with what was typed. The workbook plugin patches the sheet's
+  model where a typed cell changed its text instead of reading the sheet
+  again; an insertion's new place was counted its own length too far
+  on, past the end of a new sheet's text (in a large sheet the slice
+  read as nothing and the sheet was read again, or cut a character that
+  is not ASCII and panicked too).
+  (done in getkalem/plugins fc94c92: a replacement moves by the ones
+  before it, and a cell that opens a new row is patched as a row of its
+  own. Released as xlsx 0.0.9 (tag at plugins 778d4f9, the owner's
+  go-ahead 2026-10-09) and built in from it; test
+  `the_built_in_workbook_viewer_types_into_a_new_workbook`, which fails
+  with xlsx 0.0.8 as Kalem did.)
 
 ## 3. Per format: bugs and important gaps
 
@@ -1085,6 +1099,15 @@ documents, `kalem check`'s round trip and diagnostics, a missing
 - [x] **Major.** The three items of sections 1 and 2 (unbindable xlsx
   0.0.4, dead instance after a trap, bundled viewers replaced).
   (done: each is checked off above.)
+- [ ] **Major, reported by the owner (2026-10-09).** After a built-in
+  viewer stopped three times and was turned off, "no Excel file opens":
+  the running Kalem had unregistered the viewer and had no other, and
+  xlsx 0.0.9 installed from the index while it ran was not tried until
+  Kalem was started again (`component_viewers` runs at startup;
+  `on_stop` falls back to a bundled copy only). A plugin installed from
+  the index while Kalem runs should register at once, as `kalem plugin
+  dev` reaches a running Kalem, and a viewer turned off should give way
+  to a newer installed copy without a restart.
 - [x] **Minor, reported.** The plugins README says releases are signed;
   Kalem checks only the index's SHA-256, which comes from the same
   mutable `main`-branch `index.json` that names the download. Say

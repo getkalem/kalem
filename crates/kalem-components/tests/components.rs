@@ -81,3 +81,54 @@ fn the_built_in_workbook_viewer_opens_one_with_a_password() {
     assert_eq!(d.cell_input(0, 1, 1), "1300");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[cfg(feature = "viewers")]
+#[test]
+fn the_built_in_workbook_viewer_types_into_a_new_workbook() {
+    // New Workbook, a word typed into a cell and Enter: xlsx 0.0.8 stopped
+    // there (its patch of the sheet looked for the new cell past the text's
+    // end) and Kalem closed the workbook. Text that is not ASCII, a number
+    // and a formula typed down a column, each a new row; saved and read
+    // again.
+    use kalem_viewer::{FileHandle, NewSheet, Viewer as _};
+    let Some(c) = kalem_components::components()
+        .iter()
+        .find(|c| c.id == "org.kalem.xlsx")
+    else {
+        return;
+    };
+    let host = std::sync::Arc::new(kalem_script::Host::new(None).unwrap());
+    let v = c.viewer(host);
+    let blank = v
+        .new_file(
+            "xlsx",
+            &[NewSheet {
+                name: "Sheet1".into(),
+                rows: Vec::new(),
+            }],
+        )
+        .unwrap();
+    let dir = std::env::temp_dir().join(format!("kalem-new-book-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("Book1.xlsx");
+    std::fs::write(&path, blank).unwrap();
+    let mut d = v.open(FileHandle::new(&path)).unwrap();
+    for (row, input) in ["Çay ve şeker", "5", "=A2*2"].into_iter().enumerate() {
+        d.set_cell(0, row as u32, 0, input)
+            .unwrap_or_else(|e| panic!("row {row}: {e}"));
+        assert!(d.stopped().is_none(), "the viewer stopped at row {row}");
+    }
+    let shown: Vec<String> = d
+        .grid_cells(0, 0..3, 0..1)
+        .into_iter()
+        .map(|(_, _, cell)| cell.text)
+        .collect();
+    assert_eq!(shown, ["Çay ve şeker", "5", "10"]);
+    let saved = d.save().unwrap().bytes;
+    std::fs::write(&path, saved).unwrap();
+    let mut d = v.open(FileHandle::new(&path)).unwrap();
+    assert_eq!(d.cell_input(0, 0, 0), "Çay ve şeker");
+    assert_eq!(d.cell_input(0, 2, 0), "=A2*2");
+    let _ = std::fs::remove_dir_all(&dir);
+}
