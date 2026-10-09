@@ -123,14 +123,18 @@ The commands of the /Review/ category act on the annotations:
 | Accept All Changes, Reject All Changes | The same for every change, in every part of the document |
 | Track Changes        | Turns tracking on or off (=w:trackRevisions= in the settings)       |
 | Next Comment, Previous Comment | Moves to the next or the previous comment                |
+| New Comment (Ctrl+Alt+M) | Puts a comment on the selected text, in the body or a note: its range's start and end around the text, a run split where the range starts or ends inside it, a run with its reference after the end |
+| Reply to Comment     | Answers the comment at the cursor: a comment anchored on the same text and named as its answer; an answer to an answer answers the first comment, as in Word |
 
 What is not edited says why when it is tried: deleted text of a
 tracked change, a field's result, a note's mark, a check box, text
 drawn two ways in the file (=mc:AlternateContent=), a paragraph of a
 text box, an edit across a table's cells, a join across a section
-break, and every edit of a document whose protection is enforced. New
-Comment, Reply to Comment, Resolve Comment and Delete Comment are
-refused by the plugin until it writes comments.
+break, and every edit of a document whose protection is enforced (a
+document protected for comments takes comments, as in Word). A comment
+in a header or a footer is refused, as Word keeps none there. Resolve
+Comment and Delete Comment are refused by the plugin until it writes
+them.
 
 * What is written
 
@@ -138,8 +142,13 @@ Only the paragraphs an edit touched are written again; every other
 byte of the part, and every other entry of the ZIP archive with its
 local header, is copied as it was. A save without edits returns the
 file unchanged. Nothing is written that ECMA-376 does not define: no
-=rsid= invented, no property Word would not write. A document opened
-with a password is saved encrypted again with it.
+=rsid= invented, no property Word would not write. A comment added
+to a document without comments adds the comments part, with its
+relationship and content type; an answer adds the extended comments
+part (=commentsExtended.xml=) the same way when there is none, and its
+entry names the answered comment's last paragraph by its =w14:paraId=,
+which is given one when it has none. A document opened with a
+password is saved encrypted again with it.
 
 * Export and conversion
 
@@ -158,12 +167,14 @@ format is refused, saying so.
   document's language.
 - LibreOffice drops a paragraph mark inserted as a tracked change when
   it saves the document again; Word keeps it.
+- LibreOffice 7.3 shows an answer as a comment of its own: it reads no
+  threads. Word shows it under the comment it answers.
 
 * Not implemented
 
 - Section breaks are not marked in the text.
-- Formatting edits (bold, styles, lists), comments added, answered,
-  resolved and deleted, and pictures, links, tables and notes inserted.
+- Formatting edits (bold, styles, lists), comments resolved, edited
+  and deleted, and pictures, links, tables and notes inserted.
 - Text boxes edited.
 - Word opening every edited file without a repair prompt, checked by
   hand.
@@ -184,11 +195,13 @@ document that large in the editors is not measured yet.
 - The plugin: =plugins/docx= of =getkalem/plugins=: =document.rs= (the
   document and its edits), =story.rs=, =styles.rs=, =numbering.rs=,
   =props.rs=, =flow.rs= (the view), =edit.rs= (runs rewritten),
-  =review.rs= (changes accepted and rejected), =contract.rs= (the flow
+  =review.rs= (changes accepted and rejected), =comments.rs= (comments
+  added and answered), =contract.rs= (the flow
   and its annotations), =viewer.rs= (the plugin as Kalem's viewer); the
   Office layer it shares with the workbook plugin in =crates/ooxml=.
 - Its tests: =tests/docx.rs=, =tests/conformance.rs= (the corpus saved
-  back byte for byte), =tests/viewer.rs=, =tests/contract.rs=; the
+  back byte for byte), =tests/comments.rs=, =tests/viewer.rs=,
+  =tests/contract.rs=; the
   corpus in =tests/corpus/=, made by =make.py=.
 - Kalem's half: the interfaces in =crates/kalem-plugin/wit/flow.wit= and
   =annotations.wit=, the contract in =crates/kalem-viewer/src/flow.rs=,
