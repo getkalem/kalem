@@ -46,3 +46,7 @@ updates:
       actions:
         patterns:
           - "*"
+    ignore:
+      # Its tags name Rust's versions, not the action's: `@1.96` is the
+      # minimum supported Rust version, moved on purpose (the MSRV job).
+      - dependency-name: "dtolnay/rust-toolchain"
