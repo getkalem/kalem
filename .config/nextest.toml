@@ -1,0 +1,23 @@
+# cargo-nextest, which runs CI's test jobs (docs/ci_todo.md, C4): every
+# test of every binary in one pool, as many at once as there are cores,
+# each in a process of its own. `cargo test` works as before.
+#
+#     cargo nextest run --workspace
+#
+# Doc tests are not nextest's: `cargo test --workspace --doc`.
+
+[profile.default]
+# Name the tests slower than a minute; they still run to the end.
+slow-timeout = { period = "60s" }
+
+# kalem-cli's component_speed holds measurements to ceilings: no other
+# test runs beside it.
+[[profile.default.overrides]]
+filter = 'package(kalem-cli) & binary(component_speed)'
+threads-required = 'num-test-threads'
+
+# CI: every test runs, and the output of the failures is repeated at the
+# end of the log.
+[profile.ci]
+fail-fast = false
+failure-output = "immediate-final"

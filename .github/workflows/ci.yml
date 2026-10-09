@@ -83,7 +83,7 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: taiki-e/install-action@v2
         with:
-          tool: wasm-tools
+          tool: wasm-tools,cargo-nextest
       - uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -104,7 +104,13 @@ jobs:
             https://raw.githubusercontent.com/commonmark/commonmark-spec/0.31.2/spec.txt
           curl -sSfL -o spikes/md-parser/data/gfm-spec.txt \
             https://raw.githubusercontent.com/github/cmark-gfm/0.29.0.gfm.13/test/spec.txt
-      - run: cargo test --workspace --no-fail-fast
+      # nextest runs every test of every binary in one pool, as many at
+      # once as the runner has cores, where `cargo test` ran the binaries
+      # one after another (docs/ci_todo.md, C4); .config/nextest.toml.
+      - run: cargo nextest run --workspace --profile ci
+      # Doc tests are not nextest's; they run after a failure too.
+      - if: ${{ !cancelled() }}
+        run: cargo test --workspace --doc
 
   msrv:
     name: minimum supported Rust version

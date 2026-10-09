@@ -73,6 +73,14 @@ fn setup() -> (PathBuf, PathBuf) {
 }
 
 fn main() {
+    // nextest asks each test binary for its tests before it runs them:
+    // this one is a single test, `main` (docs/ci_todo.md, C4).
+    if std::env::args().any(|a| a == "--list") {
+        if !std::env::args().any(|a| a == "--ignored") {
+            println!("main: test");
+        }
+        return;
+    }
     // The plugin's formatter command: runs of spaces become one.
     if std::env::args().any(|a| a == "--fake-format") {
         let mut text = String::new();

@@ -180,6 +180,14 @@ fn garbage() {
 }
 
 fn main() {
+    // nextest asks each test binary for its tests before it runs them:
+    // this one is a single test, `main` (docs/ci_todo.md, C4).
+    if std::env::args().any(|a| a == "--list") {
+        if !std::env::args().any(|a| a == "--ignored") {
+            println!("main: test");
+        }
+        return;
+    }
     if let Ok(b) = std::env::var("KALEM_LSP_FAKE") {
         kalem_lsp::fake::serve(&b);
         return;

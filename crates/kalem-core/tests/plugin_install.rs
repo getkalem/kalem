@@ -224,6 +224,14 @@ fn child(work: &Path) {
 }
 
 fn main() {
+    // nextest asks each test binary for its tests before it runs them:
+    // this one is a single test, `main` (docs/ci_todo.md, C4).
+    if std::env::args().any(|a| a == "--list") {
+        if !std::env::args().any(|a| a == "--ignored") {
+            println!("main: test");
+        }
+        return;
+    }
     if let Ok(work) = std::env::var("KALEM_PLUGIN_INSTALL_TEST") {
         child(Path::new(&work));
         return;

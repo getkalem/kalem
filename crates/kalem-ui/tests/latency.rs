@@ -9,7 +9,7 @@
 //! Without `--ignored` it does nothing: the system's text system must be
 //! created on the main thread, so this test has its own `main`.
 
-#![allow(clippy::print_stderr)]
+#![allow(clippy::print_stderr, clippy::print_stdout)]
 
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -25,6 +25,12 @@ fn percentile(times: &mut [Duration], p: f64) -> Duration {
 }
 
 fn main() {
+    // nextest asks each test binary for its tests before it runs them:
+    // this one is a single ignored test, `main` (docs/ci_todo.md, C4).
+    if std::env::args().any(|a| a == "--list") {
+        println!("main: test");
+        return;
+    }
     if !std::env::args().any(|a| a == "--ignored") {
         return;
     }
