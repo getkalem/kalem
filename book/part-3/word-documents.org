@@ -174,7 +174,8 @@ format is refused, saying so.
 Measured on 2026-10-09 on an Apple M1 Max, with the plugin's library in
 a release build: a document of 20,000 paragraphs (4.4 MB of
 =document.xml=) is opened and laid out as blocks in 0.18 s in 82 MB;
-an edit there and the save take 0.17 s. The component is 900 kB. Kalem
+an edit there and the save take 0.17 s. The component is 1.0 MB as
+released, its functions' names kept for backtraces. Kalem
 fetches a document's items from it 2,048 at a time; its layout of a
 document that large in the editors is not measured yet.
 
