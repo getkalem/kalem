@@ -416,8 +416,8 @@ Viewers
 - [ ] R5.16 docx, pptx and sqlite viewers (T3.7.5, T3.7.6, T3.7.6a) on
   the viewer contract; terminal parity for viewers (T3.7.8); the file
   manager opens everything (T3.7.9). L
-  (docx's part done 2026-10-09 but for its release: the `docx` plugin
-  of getkalem/plugins on plugin API 0.2.7's `flow` and `annotations`
+  (docx's part done 2026-10-09, released as `docx-v0.0.1`: the `docx`
+  plugin of getkalem/plugins on plugin API 0.2.7's `flow` and `annotations`
   interfaces, in both editors, T3.7.5's progress and the Book's "Word
   documents" saying what is open. pptx and sqlite are open.)
 
