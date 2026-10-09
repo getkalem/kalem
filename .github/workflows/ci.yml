@@ -115,6 +115,12 @@ jobs:
       # Doc tests are not nextest's; they run after a failure too.
       - if: ${{ !cancelled() }}
         run: cargo test --workspace --doc
+      # A terminal-only Kalem with the bundled plugins built in lists and
+      # runs them (wasm_todo W5), a combination of features the workspace
+      # does not build. The components' other tests run above on every
+      # runner (they had a job of their own, docs/ci_todo.md, C2).
+      - if: ${{ !cancelled() && runner.os == 'Linux' }}
+        run: cargo nextest run --profile ci -p kalem-editor --no-default-features --features tui,components --test components
 
   msrv:
     name: minimum supported Rust version
@@ -136,25 +142,6 @@ jobs:
           sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
             libx11-xcb-dev libxcb1-dev libfontconfig-dev libfreetype-dev libvulkan-dev
       - run: cargo check --workspace
-
-  components:
-    name: bundled plugins as components
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-      # wasm_todo W9: the released components components.toml pins,
-      # downloaded and checked, bound by this checkout's plugin host.
-      - run: cargo test -p kalem-components --features embed,viewers
-      # W5: a terminal-only Kalem with them built in lists and runs them.
-      - run: cargo test -p kalem-editor --no-default-features --features tui,components --test components
-      # W6: each measurement with its ceiling (a debug build, as the owner
-      # runs Kalem).
-      - run: cargo test -p kalem-cli --test component_speed -- --nocapture
 
   binary-size:
     name: binary size

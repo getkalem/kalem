@@ -10,11 +10,12 @@
 # Name the tests slower than a minute; they still run to the end.
 slow-timeout = { period = "60s" }
 
-# kalem-cli's component_speed holds measurements to ceilings: no other
-# test runs beside it.
+# kalem-cli's component_speed holds measurements to ceilings (wasm_todo
+# W6): no other test runs beside it, and its numbers are in the log.
 [[profile.default.overrides]]
 filter = 'package(kalem-cli) & binary(component_speed)'
 threads-required = 'num-test-threads'
+success-output = 'immediate'
 
 # CI: every test runs, and the output of the failures is repeated at the
 # end of the log.

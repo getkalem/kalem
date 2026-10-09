@@ -24,7 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      # No Rust cache: this job runs daily with no one waiting, and its
+      # gigabyte would push one of CI's out of GitHub's 10 GB
+      # (docs/ci_todo.md, C2).
       # The terminal editor with the plugin host: no windowing libraries.
       - run: cargo build --locked -p kalem-editor --no-default-features --features tui,plugins
       - run: sh tools/check-released-plugins.sh target/debug/kalem
