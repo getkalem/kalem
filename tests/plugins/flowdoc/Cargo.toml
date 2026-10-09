@@ -1,0 +1,22 @@
+[package]
+name = "kalem-plugin-flowdoc"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "A fake document of flowing text for tests: paragraphs, a heading, a list, a table, a note and comments, exported through kalem-plugin's `flow` (API 0.2.7)"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+kalem-plugin = { path = "../../../crates/kalem-plugin", features = ["flow"] }
+kalem-viewer = { path = "../../../crates/kalem-viewer" }
+
+[profile.release]
+opt-level = "s"
+panic = "abort"
+strip = "symbols"
+
+# Built for wasm32-unknown-unknown by `kalem-script`'s tests, apart from
+# the workspace.
+[workspace]

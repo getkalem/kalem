@@ -3692,14 +3692,18 @@ impl Editor {
         if !self.stopped
             && let Some(text) = self
                 .doc
-                .viewer
-                .as_deref()
+                .viewer_state()
                 .and_then(|v| v.stopped_message(&self.title(), self.doc.is_modified()))
         {
             self.stopped = true;
             cx.emit(DocEvent::Close);
             cx.emit(DocEvent::Notice(text, true));
             return;
+        }
+        // An edit a document's plugin refused (flowing text), and why.
+        if let Some(n) = self.doc.take_notice() {
+            cx.emit(DocEvent::Notice(n, true));
+            cx.notify();
         }
         self.tick_palette(cx);
         // Language servers: the document in step, their answers shown.

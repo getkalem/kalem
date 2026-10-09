@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.6;
+package kalem:plugin@0.2.7;
 
 // The worlds of the viewer plugins. They are kept apart from the
 // interfaces: a released interface never changes (the Book, Part III,
@@ -13,6 +13,7 @@ world document-viewer {
     export viewer;
     export password;
     export formats;
+    export annotations;
 }
 
 /// A plugin opening files of sheets of cells: workbooks, databases.
@@ -24,4 +25,34 @@ world spreadsheet-viewer {
     export grid;
     export password;
     export formats;
+    export annotations;
+}
+
+/// A plugin opening documents of flowing text: word processing
+/// documents, e-books, web pages, e-mail (API 0.2.7).
+world flow-viewer {
+    import files;
+    import clock;
+    import diagnostics;
+    export viewer;
+    export flow;
+    export password;
+    export formats;
+    export annotations;
+}
+
+/// Every interface a viewer may export: what `kalem-plugin` builds with
+/// both its features `grid` and `flow`, as a workspace building a
+/// workbook plugin and a document plugin at once does. Kalem binds what a
+/// component has, whichever world it was built for.
+world full-viewer {
+    import files;
+    import clock;
+    import diagnostics;
+    export viewer;
+    export grid;
+    export flow;
+    export password;
+    export formats;
+    export annotations;
 }

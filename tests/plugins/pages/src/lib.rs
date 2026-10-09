@@ -194,4 +194,102 @@ impl kalem_plugin::viewer::exports::kalem::plugin::formats::Guest for Pages {
     }
 }
 
+/// No comments and no tracked changes: a viewer of the WIT world itself
+/// answers the `annotations` interface (API 0.2.7) with none, and refuses
+/// to write them.
+impl kalem_plugin::viewer::exports::kalem::plugin::annotations::Guest for Pages {
+    fn list(
+        _doc: kalem_plugin::viewer::exports::kalem::plugin::annotations::DocumentBorrow<'_>,
+        _unit: Option<u32>,
+    ) -> Vec<kalem_plugin::viewer::exports::kalem::plugin::annotations::Annotation> {
+        Vec::new()
+    }
+
+    fn set_author(
+        _doc: kalem_plugin::viewer::exports::kalem::plugin::annotations::DocumentBorrow<'_>,
+        _name: String,
+    ) {
+    }
+
+    fn comment(
+        _doc: kalem_plugin::viewer::exports::kalem::plugin::annotations::DocumentBorrow<'_>,
+        _on: kalem_plugin::viewer::exports::kalem::plugin::annotations::Anchor,
+        _text: String,
+    ) -> Result<String, String> {
+        Err("no comments".into())
+    }
+
+    fn reply(
+        _doc: kalem_plugin::viewer::exports::kalem::plugin::annotations::DocumentBorrow<'_>,
+        _parent: String,
+        _text: String,
+    ) -> Result<String, String> {
+        Err("no comments".into())
+    }
+
+    fn set_text(
+        _doc: kalem_plugin::viewer::exports::kalem::plugin::annotations::DocumentBorrow<'_>,
+        _id: String,
+        _text: String,
+    ) -> Result<(), String> {
+        Err("no comments".into())
+    }
+
+    fn resolve(
+        _doc: kalem_plugin::viewer::exports::kalem::plugin::annotations::DocumentBorrow<'_>,
+        _id: String,
+        _done: bool,
+    ) -> Result<(), String> {
+        Err("no comments".into())
+    }
+
+    fn remove(
+        _doc: kalem_plugin::viewer::exports::kalem::plugin::annotations::DocumentBorrow<'_>,
+        _id: String,
+    ) -> Result<(), String> {
+        Err("no comments".into())
+    }
+
+    fn accept(
+        _doc: kalem_plugin::viewer::exports::kalem::plugin::annotations::DocumentBorrow<'_>,
+        _id: String,
+    ) -> Result<(), String> {
+        Err("no tracked changes".into())
+    }
+
+    fn reject(
+        _doc: kalem_plugin::viewer::exports::kalem::plugin::annotations::DocumentBorrow<'_>,
+        _id: String,
+    ) -> Result<(), String> {
+        Err("no tracked changes".into())
+    }
+
+    fn accept_all(
+        _doc: kalem_plugin::viewer::exports::kalem::plugin::annotations::DocumentBorrow<'_>,
+        _unit: Option<u32>,
+    ) -> Result<(), String> {
+        Err("no tracked changes".into())
+    }
+
+    fn reject_all(
+        _doc: kalem_plugin::viewer::exports::kalem::plugin::annotations::DocumentBorrow<'_>,
+        _unit: Option<u32>,
+    ) -> Result<(), String> {
+        Err("no tracked changes".into())
+    }
+
+    fn tracking(
+        _doc: kalem_plugin::viewer::exports::kalem::plugin::annotations::DocumentBorrow<'_>,
+    ) -> Option<bool> {
+        None
+    }
+
+    fn set_tracking(
+        _doc: kalem_plugin::viewer::exports::kalem::plugin::annotations::DocumentBorrow<'_>,
+        _on: bool,
+    ) -> Result<(), String> {
+        Err("no tracked changes".into())
+    }
+}
+
 kalem_plugin::viewer::export_viewer!(Pages);

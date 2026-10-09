@@ -1,0 +1,304 @@
+package kalem:plugin@0.2.7;
+
+/// Documents of flowing text (API 0.2.7, design §11.13, D54): word
+/// processing documents (Word's, OpenDocument's, RTF), e-books, web pages
+/// and e-mail, the text of slides. The other half of `kalem-viewer`'s
+/// contract for a unit made of paragraphs, as `grid` is for one made of
+/// cells: the plugin says what the unit holds, in the vocabulary every
+/// such format has (paragraphs with a role and a style, runs with marks,
+/// tables, notes and frames); Kalem lays it out with its own text engines,
+/// in both editors, and edits it through the functions here, which the
+/// plugin writes in its format's own vocabulary and nothing else. Nothing
+/// of one format is in it: a format's own name for a thing travels as a
+/// string the user reads (a style's name, a placeholder's).
+///
+/// A unit's flow is a list of items: paragraphs, and the starts and ends
+/// that put paragraphs in tables, notes and frames (WIT has no type that
+/// holds itself). A paragraph's *edit text* is its text as edits count
+/// it: one character per tab ('\t'), line break (U+000B), page break
+/// (U+000C), column break (U+000E) and object (U+FFFC, a picture, a
+/// note's mark); places are bytes of it.
+interface flow {
+    use viewer.{document, rgb, bitmap};
+
+    /// A unit's flow, when the unit is one.
+    record flow-layout {
+        /// How many items it has; `items` gives them a range at a time.
+        items: u32,
+        /// Changes whenever the flow does: the host fetches again what it
+        /// holds of an older one.
+        version: u64,
+        /// Whether its text is edited here (the plugin writes the format).
+        editable: bool,
+    }
+
+    /// What a paragraph is for, as every format has it.
+    enum role {
+        body,
+        title,
+        subtitle,
+        /// A heading; its level says which.
+        heading,
+        /// An item of a list; its level says how deep, its label shows.
+        list-item,
+        quote,
+        code,
+        caption,
+    }
+
+    enum align {
+        start,
+        center,
+        end,
+        justify,
+    }
+
+    /// Raised or lowered text.
+    enum script {
+        baseline,
+        superscript,
+        subscript,
+    }
+
+    /// How a run looks, every value resolved (styles applied).
+    record marks {
+        bold: bool,
+        italic: bool,
+        /// The underline's kind (`single`, `double`, `wave`, `dotted`…),
+        /// when underlined.
+        underline: option<string>,
+        strike: bool,
+        double-strike: bool,
+        caps: bool,
+        small-caps: bool,
+        /// Hidden text: not shown, still in the edit text.
+        hidden: bool,
+        script: script,
+        /// The text's color; none for the theme's.
+        color: option<rgb>,
+        /// The highlight behind the text.
+        highlight: option<rgb>,
+        /// The size in points; none for the body text's.
+        size: option<f32>,
+        /// The typeface; none for the editor's.
+        face: option<string>,
+    }
+
+    /// A picture in the flow.
+    record picture {
+        /// Its name for `render-picture`.
+        id: string,
+        /// Its size in points.
+        width: f32,
+        height: f32,
+        /// Its alternative text.
+        alt: string,
+    }
+
+    /// What a run stands for.
+    variant piece {
+        text,
+        tab,
+        line-break,
+        page-break,
+        column-break,
+        /// A note's mark: the note's ID (an `aside` of the same ID).
+        note-mark(string),
+        picture(picture),
+        /// A construct shown by name (its text): a chart, an equation, a
+        /// shape the plugin does not show.
+        placeholder,
+    }
+
+    /// A run: text of one look.
+    record run {
+        /// What is shown.
+        text: string,
+        piece: piece,
+        marks: marks,
+        /// The bytes of its paragraph's edit text it stands for (start,
+        /// end left out).
+        source: tuple<u32, u32>,
+        /// A link: a URL, or `#name` for a place in the document.
+        link: option<string>,
+        /// The annotations it is in, by ID (the `annotations` interface).
+        annotations: list<string>,
+        /// Why it is not edited as text (deleted text of a tracked change,
+        /// a field's computed result), when it is not.
+        locked: option<string>,
+    }
+
+    /// A paragraph.
+    record paragraph {
+        /// Its number among the unit's paragraphs that are edited, which
+        /// the edits name; none for one that is not.
+        index: option<u32>,
+        role: role,
+        /// A heading's level or a list item's depth, from 1; 0 otherwise.
+        level: u8,
+        /// Its style's name for people (`Heading 1`); empty without one.
+        style: string,
+        /// A list item's label (`1.`, `•`) and how it looks.
+        label: option<tuple<string, marks>>,
+        align: align,
+        /// Its start, end and first line's indents in points, the first
+        /// line's negative when it hangs.
+        indent: tuple<f32, f32, f32>,
+        /// Space before and after it, in points.
+        spacing: tuple<f32, f32>,
+        background: option<rgb>,
+        /// Its edit text.
+        text: string,
+        runs: list<run>,
+        /// The annotations on the paragraph's end (a paragraph inserted or
+        /// deleted as a tracked change), by ID.
+        annotations: list<string>,
+    }
+
+    /// A table: its grid's column widths in points, and its style's name.
+    record table {
+        columns: list<f32>,
+        style: string,
+    }
+
+    /// A row of a table.
+    record row {
+        /// Repeated at the top of each page.
+        header: bool,
+    }
+
+    /// A border line: its color (none for automatic), width in points,
+    /// and line (`single`, `double`, `dashed`…).
+    record border {
+        color: option<rgb>,
+        width: f32,
+        style: string,
+    }
+
+    /// A cell of a row.
+    record cell {
+        /// How many of the grid's columns it spans.
+        columns: u32,
+        /// It continues the cell above it (cells merged down).
+        merged: bool,
+        background: option<rgb>,
+        /// Top, start, bottom and end.
+        borders: tuple<option<border>, option<border>, option<border>, option<border>>,
+    }
+
+    /// What an aside is.
+    enum aside-kind {
+        header,
+        footer,
+        footnote,
+        endnote,
+        /// A text box, a slide's shape: blocks apart from the flow.
+        frame,
+        sidebar,
+    }
+
+    /// Blocks apart from the main flow: a header, a note, a text box.
+    record aside {
+        kind: aside-kind,
+        /// Its ID (a note's, which a `note-mark` names).
+        id: string,
+        /// What it is labeled with: a note's mark, a frame's name.
+        label: string,
+    }
+
+    /// An item of a unit's flow.
+    variant item {
+        paragraph(paragraph),
+        table-start(table),
+        row-start(row),
+        cell-start(cell),
+        cell-end,
+        row-end,
+        table-end,
+        aside-start(aside),
+        aside-end,
+        /// A break between blocks: `page`, `column`, a section's kind
+        /// (`next-page`, `continuous`…), `line` for a horizontal rule.
+        rule(string),
+        /// A block shown by name.
+        placeholder(string),
+    }
+
+    /// A place in a unit's text: an edited paragraph by its index, a byte
+    /// of its edit text.
+    record place {
+        paragraph: u32,
+        offset: u32,
+    }
+
+    /// A change of marks over a range.
+    variant mark-change {
+        bold(bool),
+        italic(bool),
+        underline(option<string>),
+        strike(bool),
+        script(script),
+        color(option<rgb>),
+        highlight(option<rgb>),
+        size(option<f32>),
+        face(option<string>),
+        /// Back to the style's look: direct formatting taken away.
+        clear,
+    }
+
+    /// What a style applies to.
+    enum style-kind {
+        paragraph,
+        character,
+    }
+
+    /// A style a user may give.
+    record style {
+        /// The plugin's name for it, which `set-style` takes.
+        id: string,
+        /// Its name for people.
+        name: string,
+        kind: style-kind,
+        /// Shown among the styles a user picks (not a hidden one).
+        shown: bool,
+    }
+
+    /// Unit `unit`'s flow, when it is one.
+    layout: func(doc: borrow<document>, unit: u32) -> option<flow-layout>;
+    /// Items `from` to `from + count` (left out) of a unit's flow.
+    items: func(doc: borrow<document>, unit: u32, %from: u32, count: u32) -> list<item>;
+    /// A picture's pixels, at most `max` pixels on its longer side.
+    render-picture: func(doc: borrow<document>, unit: u32, id: string, max: u32) -> result<bitmap, string>;
+
+    // The editor half: each edit is one step of the document's history,
+    // and changes the flow's version; refused with the reason the user
+    // reads.
+
+    /// Replaces `start` to `end` of a paragraph's edit text with `text`,
+    /// as typing does: the text takes the look of the text before it.
+    /// '\t', '\n' (a line break) and the break characters are written as
+    /// what they stand for.
+    replace: func(doc: borrow<document>, unit: u32, paragraph: u32, start: u32, end: u32, text: string) -> result<_, string>;
+    /// Splits a paragraph at a place (Enter).
+    split: func(doc: borrow<document>, unit: u32, at: place) -> result<_, string>;
+    /// Joins a paragraph with the next one (Backspace at its start).
+    join: func(doc: borrow<document>, unit: u32, paragraph: u32) -> result<_, string>;
+    /// Deletes from a place to a later one, across paragraphs.
+    delete: func(doc: borrow<document>, unit: u32, %from: place, to: place) -> result<_, string>;
+    /// Changes the marks of the text from a place to a later one.
+    set-marks: func(doc: borrow<document>, unit: u32, %from: place, to: place, changes: list<mark-change>) -> result<_, string>;
+    /// Gives paragraphs `from` to `to` (both in) a paragraph style.
+    set-style: func(doc: borrow<document>, unit: u32, %from: u32, to: u32, style: string) -> result<_, string>;
+    /// The styles a user may give.
+    styles: func(doc: borrow<document>) -> list<style>;
+
+    // The document's history, the same steps the grid's are.
+
+    /// Whether the document keeps its own history of edits.
+    has-history: func(doc: borrow<document>) -> bool;
+    undo: func(doc: borrow<document>) -> result<bool, string>;
+    redo: func(doc: borrow<document>) -> result<bool, string>;
+    /// The edits until `end-batch` undo as one step.
+    begin-batch: func(doc: borrow<document>);
+    end-batch: func(doc: borrow<document>);
+}

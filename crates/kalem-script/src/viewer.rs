@@ -37,6 +37,37 @@ mod spreadsheet {
 /// The `grid` interface, as the host calls it.
 pub use spreadsheet::exports::kalem::plugin::grid;
 
+/// The `flow-viewer` world's bindings (API 0.2.7): the `flow` interface of
+/// a viewer of documents of flowing text, and `annotations`, which every
+/// world exports.
+mod flowing {
+    wasmtime::component::bindgen!({
+        path: "../kalem-plugin/wit",
+        world: "flow-viewer",
+        with: {
+            "kalem:plugin/files.file": super::OpenFile,
+        },
+    });
+}
+
+/// The `flow` interface, as the host calls it.
+pub use flowing::exports::kalem::plugin::flow;
+
+/// The `annotations` interface, as the host calls it.
+pub use flowing::exports::kalem::plugin::annotations;
+
+/// The flow's and the annotations' types between the contract and the
+/// interfaces.
+#[allow(unreachable_pub, dead_code)]
+mod flow_conv {
+    use super::annotations as a;
+    use super::flow as f;
+    use kalem_viewer as kv;
+
+    include!("../../kalem-plugin/src/annotations_conv.rs");
+    include!("../../kalem-plugin/src/flow_conv.rs");
+}
+
 /// The grid's types between the contract and the interface.
 #[allow(unreachable_pub, dead_code)]
 mod grid_conv {
@@ -143,6 +174,12 @@ pub struct Viewer {
     /// The `formats` exports (API 0.2.3), for a viewer writing files of
     /// other formats.
     formats: Option<formats::Guest>,
+    /// The `flow` exports (API 0.2.7), for a viewer of documents of
+    /// flowing text.
+    flow: Option<flow::Guest>,
+    /// The `annotations` exports (API 0.2.7): comments and tracked
+    /// changes.
+    annotations: Option<annotations::Guest>,
 }
 
 impl std::fmt::Debug for Viewer {
@@ -237,12 +274,38 @@ impl Viewer {
                     .map(Some)
             })
             .map_err(stale)?;
+        let flow = instance
+            .bindings(|store, i| {
+                let pre = i.instance_pre(&*store);
+                let name = format!("kalem:plugin/flow@{}", crate::API_VERSION);
+                if pre.component().get_export_index(None, &name).is_none() {
+                    return Ok(None);
+                }
+                flow::GuestIndices::new(&pre)?
+                    .load(&mut *store, i)
+                    .map(Some)
+            })
+            .map_err(stale)?;
+        let annotations = instance
+            .bindings(|store, i| {
+                let pre = i.instance_pre(&*store);
+                let name = format!("kalem:plugin/annotations@{}", crate::API_VERSION);
+                if pre.component().get_export_index(None, &name).is_none() {
+                    return Ok(None);
+                }
+                annotations::GuestIndices::new(&pre)?
+                    .load(&mut *store, i)
+                    .map(Some)
+            })
+            .map_err(stale)?;
         Ok(Viewer {
             instance,
             api,
             grid,
             password,
             formats,
+            flow,
+            annotations,
         })
     }
 
@@ -345,6 +408,34 @@ impl Viewer {
     /// Whether the plugin exports the `grid` interface.
     pub fn is_grid(&self) -> bool {
         self.grid.is_some()
+    }
+
+    /// Whether the plugin exports the `flow` interface.
+    pub fn is_flow(&self) -> bool {
+        self.flow.is_some()
+    }
+
+    /// Calls `f` with the plugin's `flow` functions; `None` when it has
+    /// none.
+    pub fn flow<R>(
+        &mut self,
+        f: impl FnOnce(&flow::Guest, &mut wasmtime::Store<crate::Data<Files>>) -> wasmtime::Result<R>,
+    ) -> Option<crate::Result<R>> {
+        let g = self.flow.as_ref()?;
+        Some(self.instance.run(|s| f(g, s)))
+    }
+
+    /// Calls `f` with the plugin's `annotations` functions; `None` when it
+    /// has none.
+    pub fn annotations<R>(
+        &mut self,
+        f: impl FnOnce(
+            &annotations::Guest,
+            &mut wasmtime::Store<crate::Data<Files>>,
+        ) -> wasmtime::Result<R>,
+    ) -> Option<crate::Result<R>> {
+        let g = self.annotations.as_ref()?;
+        Some(self.instance.run(|s| f(g, s)))
     }
 
     /// Calls `f` with the plugin's `grid` functions; `None` when it has
@@ -726,6 +817,7 @@ impl ComponentViewer {
     }
 }
 
+use flow_conv::Cross;
 use grid_conv::Conv;
 use kalem_viewer as kv;
 
@@ -1921,11 +2013,19 @@ impl kalem_viewer::ViewerDocument for ComponentDocument {
     }
 
     fn begin_batch(&mut self) {
-        let _ = self.g(|g, s, d| g.call_begin_batch(s, d));
+        if self.is_flow() {
+            let _ = self.fl(|f, s, d| f.call_begin_batch(s, d));
+        } else {
+            let _ = self.g(|g, s, d| g.call_begin_batch(s, d));
+        }
     }
 
     fn end_batch(&mut self) {
-        let _ = self.g(|g, s, d| g.call_end_batch(s, d));
+        if self.is_flow() {
+            let _ = self.fl(|f, s, d| f.call_end_batch(s, d));
+        } else {
+            let _ = self.g(|g, s, d| g.call_end_batch(s, d));
+        }
     }
 
     fn conditional_ranges(&mut self, unit: usize) -> Vec<[u32; 4]> {
@@ -2215,17 +2315,179 @@ impl kalem_viewer::ViewerDocument for ComponentDocument {
         self.ch(|g, s, d| g.call_delete_thread_comment(s, d, unit as u32, row, col, index as u32))
     }
 
+    // The document's history: the grid's, or a flow's for a viewer of
+    // flowing text.
+
     fn has_history(&self) -> bool {
+        if self.is_flow() {
+            return self.fl(|f, s, d| f.call_has_history(s, d)).unwrap_or(false);
+        }
         self.g(|g, s, d| g.call_has_history(s, d)).unwrap_or(false)
     }
 
     fn undo(&mut self) -> kv::Result<bool> {
+        if self.is_flow() {
+            return self
+                .fl(|f, s, d| f.call_undo(s, d))?
+                .map_err(kv::ViewerError);
+        }
         self.g(|g, s, d| g.call_undo(s, d))?
             .map_err(kv::ViewerError)
     }
 
     fn redo(&mut self) -> kv::Result<bool> {
+        if self.is_flow() {
+            return self
+                .fl(|f, s, d| f.call_redo(s, d))?
+                .map_err(kv::ViewerError);
+        }
         self.g(|g, s, d| g.call_redo(s, d))?
+            .map_err(kv::ViewerError)
+    }
+
+    // Flowing text (the `flow` interface, API 0.2.7): through the plugin's
+    // exports when it has them; a viewer without has no flow, as the
+    // contract's defaults say.
+
+    fn flow(&mut self, unit: usize) -> Option<kv::FlowLayout> {
+        self.fl(|f, s, d| f.call_layout(s, d, unit as u32))
+            .ok()
+            .flatten()
+            .map(Cross::cross)
+    }
+
+    fn flow_items(&mut self, unit: usize, from: u32, count: u32) -> Vec<kv::FlowItem> {
+        self.fl(|f, s, d| f.call_items(s, d, unit as u32, from, count))
+            .map(Cross::cross)
+            .unwrap_or_default()
+    }
+
+    fn flow_picture(&mut self, unit: usize, id: &str, max: u32) -> kv::Result<kv::Bitmap> {
+        self.fl(|f, s, d| f.call_render_picture(s, d, unit as u32, id, max))?
+            .map(Cross::cross)
+            .map_err(kv::ViewerError)
+    }
+
+    fn flow_replace(
+        &mut self,
+        unit: usize,
+        paragraph: u32,
+        range: std::ops::Range<u32>,
+        text: &str,
+    ) -> kv::Result<()> {
+        self.fl(|f, s, d| {
+            f.call_replace(s, d, unit as u32, paragraph, range.start, range.end, text)
+        })?
+        .map_err(kv::ViewerError)
+    }
+
+    fn flow_split(&mut self, unit: usize, at: kv::FlowPlace) -> kv::Result<()> {
+        self.fl(|f, s, d| f.call_split(s, d, unit as u32, at.cross()))?
+            .map_err(kv::ViewerError)
+    }
+
+    fn flow_join(&mut self, unit: usize, paragraph: u32) -> kv::Result<()> {
+        self.fl(|f, s, d| f.call_join(s, d, unit as u32, paragraph))?
+            .map_err(kv::ViewerError)
+    }
+
+    fn flow_delete(
+        &mut self,
+        unit: usize,
+        from: kv::FlowPlace,
+        to: kv::FlowPlace,
+    ) -> kv::Result<()> {
+        self.fl(|f, s, d| f.call_delete(s, d, unit as u32, from.cross(), to.cross()))?
+            .map_err(kv::ViewerError)
+    }
+
+    fn flow_set_marks(
+        &mut self,
+        unit: usize,
+        from: kv::FlowPlace,
+        to: kv::FlowPlace,
+        changes: &[kv::MarkChange],
+    ) -> kv::Result<()> {
+        let changes: Vec<flow::MarkChange> = changes.to_vec().cross();
+        self.fl(|f, s, d| f.call_set_marks(s, d, unit as u32, from.cross(), to.cross(), &changes))?
+            .map_err(kv::ViewerError)
+    }
+
+    fn flow_set_style(&mut self, unit: usize, from: u32, to: u32, style: &str) -> kv::Result<()> {
+        self.fl(|f, s, d| f.call_set_style(s, d, unit as u32, from, to, style))?
+            .map_err(kv::ViewerError)
+    }
+
+    fn flow_styles(&mut self) -> Vec<kv::FlowStyle> {
+        self.fl(|f, s, d| f.call_styles(s, d))
+            .map(Cross::cross)
+            .unwrap_or_default()
+    }
+
+    // Annotations (the `annotations` interface, API 0.2.7).
+
+    fn annotations(&mut self, unit: Option<usize>) -> Vec<kv::Annotation> {
+        self.an(|a, s, d| a.call_list(s, d, unit.map(|u| u as u32)))
+            .map(Cross::cross)
+            .unwrap_or_default()
+    }
+
+    fn set_author(&mut self, name: &str) {
+        let _ = self.an(|a, s, d| a.call_set_author(s, d, name));
+    }
+
+    fn comment(&mut self, on: kv::Anchor, text: &str) -> kv::Result<String> {
+        let on: annotations::Anchor = on.cross();
+        self.an(|a, s, d| a.call_comment(s, d, on, text))?
+            .map_err(kv::ViewerError)
+    }
+
+    fn reply(&mut self, parent: &str, text: &str) -> kv::Result<String> {
+        self.an(|a, s, d| a.call_reply(s, d, parent, text))?
+            .map_err(kv::ViewerError)
+    }
+
+    fn set_comment_text(&mut self, id: &str, text: &str) -> kv::Result<()> {
+        self.an(|a, s, d| a.call_set_text(s, d, id, text))?
+            .map_err(kv::ViewerError)
+    }
+
+    fn resolve(&mut self, id: &str, done: bool) -> kv::Result<()> {
+        self.an(|a, s, d| a.call_resolve(s, d, id, done))?
+            .map_err(kv::ViewerError)
+    }
+
+    fn remove_comment(&mut self, id: &str) -> kv::Result<()> {
+        self.an(|a, s, d| a.call_remove(s, d, id))?
+            .map_err(kv::ViewerError)
+    }
+
+    fn accept(&mut self, id: &str) -> kv::Result<()> {
+        self.an(|a, s, d| a.call_accept(s, d, id))?
+            .map_err(kv::ViewerError)
+    }
+
+    fn reject(&mut self, id: &str) -> kv::Result<()> {
+        self.an(|a, s, d| a.call_reject(s, d, id))?
+            .map_err(kv::ViewerError)
+    }
+
+    fn accept_all(&mut self, unit: Option<usize>) -> kv::Result<()> {
+        self.an(|a, s, d| a.call_accept_all(s, d, unit.map(|u| u as u32)))?
+            .map_err(kv::ViewerError)
+    }
+
+    fn reject_all(&mut self, unit: Option<usize>) -> kv::Result<()> {
+        self.an(|a, s, d| a.call_reject_all(s, d, unit.map(|u| u as u32)))?
+            .map_err(kv::ViewerError)
+    }
+
+    fn tracking(&mut self) -> Option<bool> {
+        self.an(|a, s, d| a.call_tracking(s, d)).ok().flatten()
+    }
+
+    fn set_tracking(&mut self, on: bool) -> kv::Result<()> {
+        self.an(|a, s, d| a.call_set_tracking(s, d, on))?
             .map_err(kv::ViewerError)
     }
 
@@ -2285,6 +2547,41 @@ impl ComponentDocument {
         let doc = self.doc;
         self.run(|v| v.grid(|g, s| f(g, s, doc)))
             .unwrap_or_else(|| Err(kv::ViewerError("Not a grid".into())))
+    }
+
+    /// Calls the plugin's flow function `f`; an error when the plugin has
+    /// no flow or failed.
+    fn fl<R>(
+        &self,
+        f: impl FnOnce(
+            &flow::Guest,
+            &mut wasmtime::Store<crate::Data<Files>>,
+            Document,
+        ) -> wasmtime::Result<R>,
+    ) -> kv::Result<R> {
+        let doc = self.doc;
+        self.run(|v| v.flow(|g, s| f(g, s, doc)))
+            .unwrap_or_else(|| Err(kv::ViewerError("Not a flowing document".into())))
+    }
+
+    /// Whether the plugin has a flow (its history is the flow's then).
+    fn is_flow(&self) -> bool {
+        self.v.lock().unwrap_or_else(|e| e.into_inner()).is_flow()
+    }
+
+    /// Calls the plugin's annotations function `f`; an error when the
+    /// plugin has none or failed.
+    fn an<R>(
+        &self,
+        f: impl FnOnce(
+            &annotations::Guest,
+            &mut wasmtime::Store<crate::Data<Files>>,
+            Document,
+        ) -> wasmtime::Result<R>,
+    ) -> kv::Result<R> {
+        let doc = self.doc;
+        self.run(|v| v.annotations(|g, s| f(g, s, doc)))
+            .unwrap_or_else(|| Err(kv::ViewerError("No annotations".into())))
     }
 
     /// [`ComponentDocument::g`] for a change: the units to draw again.

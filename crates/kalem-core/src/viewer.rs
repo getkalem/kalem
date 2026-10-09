@@ -1003,7 +1003,7 @@ impl ViewerState {
     }
 
     /// The document, waited for while a thread renders it.
-    fn doc(&self) -> MutexGuard<'_, Box<dyn ViewerDocument>> {
+    pub(crate) fn doc(&self) -> MutexGuard<'_, Box<dyn ViewerDocument>> {
         self.doc.lock().unwrap_or_else(|e| e.into_inner())
     }
 

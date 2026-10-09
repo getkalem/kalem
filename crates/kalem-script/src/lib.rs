@@ -29,7 +29,7 @@
 /// import and the `on-process` export of the `extension` world, 0.2.5
 /// the `documents` and `decorations` imports, 0.2.6 the
 /// `styled-documents` import.
-pub const API_VERSION: &str = "0.2.6";
+pub const API_VERSION: &str = "0.2.7";
 
 /// Whether a manifest's `api` requirement (`^0.2`, `0.2`, `^0.2.1`)
 /// names this host's API: the same `0.MINOR` before 1.0 (the same major

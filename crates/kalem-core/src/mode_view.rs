@@ -38,6 +38,7 @@ pub trait ModeView: Send + Sync {
 /// The view of `doc`; with `source`, the text as it is (the source view).
 pub fn view_of(doc: &DocumentState, source: bool) -> &'static dyn ModeView {
     match &doc.meta.mode {
+        DocumentMode::Flow if doc.flow.is_some() => &Flow,
         DocumentMode::Org if source => &OrgSource,
         DocumentMode::Org => &Org,
         _ if source => &Plain,
@@ -105,6 +106,30 @@ pub fn checkbox_command(doc: &DocumentState) -> &'static str {
     match doc.meta.mode {
         DocumentMode::Markdown => "markdown.toggleCheckbox",
         _ => "list.toggleCheckbox",
+    }
+}
+
+/// A document of flowing text (`crate::flow`): its paragraphs as the
+/// plugin gave them, in both the view and the source view (its text is
+/// not a source of its own).
+struct Flow;
+
+impl ModeView for Flow {
+    fn line_view(
+        &self,
+        doc: &DocumentState,
+        range: Range<usize>,
+        cursor: Option<usize>,
+        _: Option<Range<usize>>,
+    ) -> LineView {
+        match doc.flow.as_deref() {
+            Some(f) => crate::flow::line_view(f, range),
+            None => view::plain_line_view(doc.text().as_str(), range, cursor),
+        }
+    }
+
+    fn outline(&self, doc: &mut DocumentState) -> Option<Vec<OutlineItem>> {
+        doc.flow.as_deref().map(crate::flow::FlowState::outline)
     }
 }
 

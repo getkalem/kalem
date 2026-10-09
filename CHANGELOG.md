@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- The plugin API is 0.2.7: a viewer of documents of flowing text (word processing documents, e-books, web pages, e-mail) gives its paragraphs through the `flow` interface instead of rendering pages, and Kalem lays them out itself in both editors, as a document of the editor whose text is the paragraphs': styles, sizes in proportion to the body text's, list labels, tables (a row of one-paragraph cells a line), notes, headers and breaks shown with the plugin's look; typing, Enter, Backspace and deleting across paragraphs become the plugin's edits, which it writes in its own format or refuses, saying why; undo and redo are the plugin's. `kalem-plugin`'s feature `flow` exports it from the Rust contract (the `flow-viewer` world). For the docx plugin of getkalem/plugins.
+- Comments and tracked changes (the `annotations` interface of API 0.2.7, which every viewer world exports): text a comment is on is highlighted, inserted text underlined and deleted text struck through in their colors, and the status bar says the comment or the change at the cursor. The Review commands add (Ctrl+Alt+M), answer, resolve and delete comments, go to the next and previous comment or change, accept or reject a change or all of them, and turn Track Changes on and off. The setting `user.name` is the name they carry (the system account's when empty).
+
 ## [0.5.2] - 2026-10-09
 
 ### Added

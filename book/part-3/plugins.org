@@ -202,10 +202,80 @@ natively, as it was until 2026-10-05; a test measures each against a
 ceiling; a workbook needs about 256 MB inside the component for a
 million cells.
 
+* Viewers of flowing text
+
+A word processing document, an e-book, a web page or an e-mail is made of
+paragraphs that flow: no page or cell of their own until something lays
+them out. A viewer of such files exports the =flow= interface (API 0.2.7,
+=kalem-plugin='s feature =flow=, the =flow-viewer= world), and Kalem lays
+the paragraphs out itself, in both editors, as it lays out an Org
+document: the plugin never draws. The interface says what a unit holds in
+the words every such format has, and nothing of one format: paragraphs
+with a role (body, title, heading, list item, quote, code, caption), a
+level, a style's name for the user, a list label, an alignment, indents
+and spacing; runs of text with their marks (bold, italic, underline,
+strikethrough, raised or lowered, capitals, hidden, a color, a highlight,
+a size, a typeface), a link, and the annotations they are in; tables
+whose rows hold cells of paragraphs; asides (headers, footers, notes,
+text boxes) and rules (breaks). A unit's flow is a list of items, the
+starts and ends of tables and asides among the paragraphs, since WIT has
+no type that holds itself, and the host fetches it a range at a time, so
+that a book is never sent whole. A unit is a flow when =flow.layout=
+answers one, as a sheet is a grid when =grid.layout= does; =viewer='s
+unit kinds are frozen.
+
+Kalem shows a flow unit as a document of the editor, of the mode
+=flow=: its text is the paragraphs' edit texts, a paragraph a line (a
+table's row of one-paragraph cells a line, its cells apart by tabs), so
+that the cursor, selection, search, Vim's motions and both frontends'
+drawing work on it unchanged, and each line shows the look the plugin
+gave its runs, sizes in proportion to the body text's. An edit of that
+text is not applied to it: Kalem turns it into the plugin's edits
+(=replace= for typing and deleting in a paragraph, =split= for a line
+feed typed, =join= for one deleted, =delete= across paragraphs), one step
+of the plugin's history, and reads the paragraphs again. The plugin
+writes them in its format's own vocabulary or refuses them, saying why
+(deleted text of a tracked change, a field's result, a note's mark), and
+the editor shows the reason. Undo and redo are the plugin's; saving
+writes the bytes the plugin gives. A paragraph's *edit text* counts a
+tab, a line break (U+000B), a page break (U+000C), a column break
+(U+000E) and an object (U+FFFC, a picture, a note's mark) as one
+character each.
+
+What people wrote /about/ a document rather than in it is the
+=annotations= interface, apart from =flow= because other viewers have
+it too, and every viewer world exports it (a viewer without any answers
+none):
+
+- A *comment* is a remark someone made on part of the document, with
+  its author, date and text; it may be answered (an annotation whose
+  =parent= is the comment) and marked resolved. Word's and OpenDocument's
+  comments, a PDF's notes and highlights, a workbook's notes and
+  threaded comments, a slide's comments are comments.
+- A *revision* is a tracked change: an insertion, a deletion, a change
+  of formatting, a move from or to a place, with its author and date; it
+  is accepted (it becomes the document's) or rejected (the document is
+  as before it). Word's and OpenDocument's tracked changes are
+  revisions.
+
+An annotation is anchored to what it is about: text of a flow (from a
+paragraph's place to another's), bytes of a page's text, a cell of a
+grid, an area of a unit, or a whole unit; a run of a flow names the
+annotations it is in by ID, so the host draws them without knowing the
+format. The host shows inserted text underlined and deleted text struck
+through in their colors, and text a comment is on highlighted; the
+status bar says the comment or the change at the cursor. The commands of
+the /Review/ category add, answer, resolve and delete comments, go to the
+next and previous comment or change, accept and reject a change or all
+of them, and turn Track Changes on and off, while it is on the plugin
+writing the user's edits as tracked changes. The user's name, which
+comments and changes carry, is the setting =user.name=, else the system
+account's.
+
 * Versions of the plugin API
 
 The plugin API is the WIT package =kalem:plugin= (=crates/kalem-plugin/wit=),
-version 0.2.6; a component's manifest names the version it was built
+version 0.2.7; a component's manifest names the version it was built
 against (="api": "^0.2.1"=), and Kalem tries it when its own API is of
 the same 0.MINOR and no earlier. The rules, so that a plugin built once
 keeps working:
@@ -263,6 +333,14 @@ keeps working:
   released against 0.2.5, so =documents= and =decorations= are frozen
   (=wit-frozen/0.2.5=), and styles came as an interface of their own
   rather than as an argument of =documents.set=.
+- 0.2.7 added the exports =flow= and =annotations= (above, /Viewers of
+  flowing text/): =flow= in the new =flow-viewer= world (and in
+  =full-viewer=, which =kalem-plugin= builds with both its features
+  =grid= and =flow=), =annotations= in every viewer world. A viewer
+  written against the WIT world itself implements =annotations=,
+  answering none; =kalem-plugin='s adapter exports both from the
+  contract, whose defaults have no flow and no annotations. =styled.wit=
+  of 0.2.6 is frozen (=wit-frozen/0.2.6=).
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 - An addition is general, or it waits. It names what several plugins

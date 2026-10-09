@@ -133,6 +133,8 @@ fn schemas() -> Vec<(&'static str, Value)> {
             object(&[("key", "string", true), ("value", "string", true)]),
         ),
         ("org.tags.set", object(&[("tags", "array", true)])),
+        ("flow.comment.new", object(&[("text", "string", true)])),
+        ("flow.comment.reply", object(&[("text", "string", true)])),
         ("org.tags.toggle", object(&[("tag", "string", true)])),
         (
             "list.cycleBullet",
@@ -873,6 +875,7 @@ pub(crate) fn commands() -> Vec<Command> {
     all.extend(crate::extensions::core_commands());
     all.extend(csv_commands());
     all.extend(markdown_commands());
+    all.extend(flow_commands());
     all.extend(bib_commands());
     all.push(scoped(
         cmd(
@@ -2941,6 +2944,279 @@ fn bib_commands() -> Vec<Command> {
             d.apply(&tx, org_edit::ChangeKind::Command, now);
             Ok(())
         }),
+    ]
+}
+
+/// The range a comment goes on: the selection, else the word at the
+/// cursor (as Word comments on it).
+fn comment_range(d: &crate::DocumentState) -> Option<std::ops::Range<usize>> {
+    let s = d.selection;
+    if s.anchor != s.head {
+        return Some(s.anchor.min(s.head)..s.anchor.max(s.head));
+    }
+    let text = d.text().as_str();
+    let at = s.head.min(text.len());
+    let is_word = |c: char| c.is_alphanumeric() || c == '\'' || c == '’';
+    let start = text[..at]
+        .char_indices()
+        .rev()
+        .take_while(|(_, c)| is_word(*c))
+        .last()
+        .map_or(at, |(i, _)| i);
+    let end = text[at..]
+        .char_indices()
+        .find(|(_, c)| !is_word(*c))
+        .map_or(text.len(), |(i, _)| at + i);
+    (start < end).then_some(start..end)
+}
+
+/// The annotation of `kind` (a comment when `comment`, else a tracked
+/// change) at the cursor of a document of flowing text.
+fn flow_annotation_at(ctx: &mut EditorContext<'_>, comment: bool) -> Result<String, CommandError> {
+    let d = ctx.doc()?;
+    let at = d.selection.head;
+    let f = d
+        .flow
+        .as_deref()
+        .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-not-flow")))?;
+    f.annotations_at(at)
+        .into_iter()
+        .find(|a| (a.kind == kalem_viewer::AnnotationKind::Comment) == comment)
+        .map(|a| a.id.clone())
+        .ok_or_else(|| {
+            CommandError::new(crate::l10n::tr(if comment {
+                "msg-no-comment-here"
+            } else {
+                "msg-no-change-here"
+            }))
+        })
+}
+
+/// Moves the cursor to the next (or previous) comment or tracked change.
+fn flow_step(ctx: &mut EditorContext<'_>, comment: bool, back: bool) -> CommandResult {
+    let d = ctx.doc()?;
+    let at = d.selection.head;
+    let f = d
+        .flow
+        .as_deref()
+        .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-not-flow")))?;
+    let list = if comment { f.comments() } else { f.changes() };
+    let mut starts: Vec<usize> = list.iter().filter_map(|a| f.start_of(&a.id)).collect();
+    starts.sort();
+    starts.dedup();
+    let next = if back {
+        starts.iter().rev().find(|s| **s < at).copied()
+    } else {
+        starts.iter().find(|s| **s > at).copied()
+    };
+    let to = next.ok_or_else(|| {
+        CommandError::new(crate::l10n::tr(if comment {
+            "msg-no-more-comments"
+        } else {
+            "msg-no-more-tracked-changes"
+        }))
+    })?;
+    d.move_cursor(to, false);
+    Ok(())
+}
+
+/// Runs an annotation's function on a document of flowing text.
+fn on_flow<R>(
+    ctx: &mut EditorContext<'_>,
+    f: impl FnOnce(&mut crate::flow::FlowState) -> Result<R, String>,
+) -> Result<R, CommandError> {
+    ctx.doc()?.on_flow(f).map_err(CommandError::new)
+}
+
+/// The commands of documents of flowing text (plugin API 0.2.7): their
+/// comments and tracked changes, as a review has them.
+fn flow_commands() -> Vec<Command> {
+    use crate::command::Scope;
+    let flow = || Scope::only(&["flow"]);
+    vec![
+        scoped(
+            cmd(
+                "flow.comment.new",
+                "New Comment",
+                "Review",
+                &["ctrl+alt+m"],
+                None,
+                |ctx, args| {
+                    let text = args["text"].as_str().unwrap_or_default().to_string();
+                    let range = comment_range(ctx.doc()?).ok_or_else(|| {
+                        CommandError::new(crate::l10n::tr("msg-select-to-comment"))
+                    })?;
+                    on_flow(ctx, |f| f.comment(range, &text)).map(|_| ())
+                },
+            ),
+            flow(),
+        ),
+        scoped(
+            cmd(
+                "flow.comment.reply",
+                "Reply to Comment",
+                "Review",
+                &[],
+                None,
+                |ctx, args| {
+                    let text = args["text"].as_str().unwrap_or_default().to_string();
+                    let id = flow_annotation_at(ctx, true)?;
+                    on_flow(ctx, |f| f.reply(&id, &text)).map(|_| ())
+                },
+            ),
+            flow(),
+        ),
+        scoped(
+            cmd(
+                "flow.comment.resolve",
+                "Resolve Comment",
+                "Review",
+                &[],
+                None,
+                |ctx, _| {
+                    let id = flow_annotation_at(ctx, true)?;
+                    let done = ctx
+                        .doc()?
+                        .flow
+                        .as_deref()
+                        .and_then(|f| f.annotations.get(&id))
+                        .is_some_and(|a| a.resolved);
+                    on_flow(ctx, |f| f.resolve(&id, !done))
+                },
+            ),
+            flow(),
+        ),
+        scoped(
+            cmd(
+                "flow.comment.delete",
+                "Delete Comment",
+                "Review",
+                &[],
+                None,
+                |ctx, _| {
+                    let id = flow_annotation_at(ctx, true)?;
+                    on_flow(ctx, |f| f.remove_comment(&id))
+                },
+            ),
+            flow(),
+        ),
+        scoped(
+            cmd(
+                "flow.comment.next",
+                "Next Comment",
+                "Review",
+                &[],
+                None,
+                |ctx, _| flow_step(ctx, true, false),
+            ),
+            flow(),
+        ),
+        scoped(
+            cmd(
+                "flow.comment.previous",
+                "Previous Comment",
+                "Review",
+                &[],
+                None,
+                |ctx, _| flow_step(ctx, true, true),
+            ),
+            flow(),
+        ),
+        scoped(
+            cmd(
+                "flow.change.accept",
+                "Accept Change",
+                "Review",
+                &[],
+                None,
+                |ctx, _| {
+                    let id = flow_annotation_at(ctx, false)?;
+                    on_flow(ctx, |f| f.decide(&id, true))
+                },
+            ),
+            flow(),
+        ),
+        scoped(
+            cmd(
+                "flow.change.reject",
+                "Reject Change",
+                "Review",
+                &[],
+                None,
+                |ctx, _| {
+                    let id = flow_annotation_at(ctx, false)?;
+                    on_flow(ctx, |f| f.decide(&id, false))
+                },
+            ),
+            flow(),
+        ),
+        scoped(
+            cmd(
+                "flow.change.acceptAll",
+                "Accept All Changes",
+                "Review",
+                &[],
+                None,
+                |ctx, _| on_flow(ctx, |f| f.decide_all(true)),
+            ),
+            flow(),
+        ),
+        scoped(
+            cmd(
+                "flow.change.rejectAll",
+                "Reject All Changes",
+                "Review",
+                &[],
+                None,
+                |ctx, _| on_flow(ctx, |f| f.decide_all(false)),
+            ),
+            flow(),
+        ),
+        scoped(
+            cmd(
+                "flow.change.next",
+                "Next Change",
+                "Review",
+                &[],
+                None,
+                |ctx, _| flow_step(ctx, false, false),
+            ),
+            flow(),
+        ),
+        scoped(
+            cmd(
+                "flow.change.previous",
+                "Previous Change",
+                "Review",
+                &[],
+                None,
+                |ctx, _| flow_step(ctx, false, true),
+            ),
+            flow(),
+        ),
+        scoped(
+            cmd(
+                "flow.trackChanges",
+                "Track Changes",
+                "Review",
+                &[],
+                None,
+                |ctx, _| {
+                    let on = ctx.doc()?.flow.as_deref().and_then(|f| f.tracking);
+                    let Some(on) = on else {
+                        return Err(CommandError::new(crate::l10n::tr("msg-no-tracking")));
+                    };
+                    on_flow(ctx, |f| f.set_tracking(!on))?;
+                    ctx.messages.push(crate::l10n::tr(if on {
+                        "msg-tracking-off"
+                    } else {
+                        "msg-tracking-on"
+                    }));
+                    Ok(())
+                },
+            ),
+            flow(),
+        ),
     ]
 }
 

@@ -108,6 +108,13 @@ pub(crate) fn number(x: f64) -> String {
 /// the cursor's): how many are filled, and the sum, average, smallest and
 /// largest of the numbers among them. `None` without such a selection.
 pub fn selection_stats(doc: &DocumentState) -> Option<String> {
+    // A document of flowing text: the comment or tracked change at the
+    // cursor.
+    if let Some(f) = doc.flow.as_deref()
+        && let Some(s) = crate::flow::status(f, doc.selection.head)
+    {
+        return Some(s);
+    }
     // CSV: the numbers of the column at the cursor.
     if doc.meta.mode == crate::DocumentMode::Csv {
         return crate::csv::status(doc);

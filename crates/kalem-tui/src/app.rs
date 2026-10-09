@@ -1135,8 +1135,7 @@ impl App {
         let modified = self.doc.is_modified();
         let Some(text) = self
             .doc
-            .viewer
-            .as_deref()
+            .viewer_state()
             .and_then(|v| v.stopped_message(&file, modified))
         else {
             return;
@@ -5268,6 +5267,11 @@ impl App {
 
     pub fn tick(&mut self, now: Instant) {
         self.close_stopped_viewer();
+        // An edit a document's plugin refused (flowing text), and why.
+        if let Some(n) = self.doc.take_notice() {
+            self.message(n, true);
+            self.dirty = true;
+        }
         // The plugins' commands and keys changed: built again; the
         // commands their event handlers asked for, run.
         let plugins = kalem_core::extensions::generation();

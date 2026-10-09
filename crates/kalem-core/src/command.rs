@@ -601,6 +601,7 @@ pub fn known_text_type(t: &str) -> bool {
         "csv",
         "text",
         "directory",
+        "flow",
         "latex",
         "html",
         "json",

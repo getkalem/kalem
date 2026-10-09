@@ -1313,6 +1313,7 @@ fm-menu-remove-project = Remove from Projects (the folder stays)
 # The viewer of files that are not text (design §11.13).
 category-viewer = Viewer
 mode-viewer = Viewer
+mode-flow = Document
 msg-viewer-unsaved = Save or undo the changes to this file first
 msg-viewer-no-document = No text document to insert a link into
 msg-viewer-copied = Copied the picture
@@ -1774,3 +1775,38 @@ plugin-url-not-found = { $url }: not found
 plugin-bad-sha = { $url }: its SHA-256 is { $got }, the index says { $want }
 plugin-bad-id = plugin.json: `{ $id }` is not a plugin ID
 plugin-nothing-to-load = { $id } declares no languages: nothing Kalem can load today
+
+# Documents of flowing text (plugin API 0.2.7): comments and tracked changes.
+category-review = Review
+cmd-flow-comment-new = New Comment
+cmd-flow-comment-reply = Reply to Comment
+cmd-flow-comment-resolve = Resolve Comment
+cmd-flow-comment-delete = Delete Comment
+cmd-flow-comment-next = Next Comment
+cmd-flow-comment-previous = Previous Comment
+cmd-flow-change-accept = Accept Change
+cmd-flow-change-reject = Reject Change
+cmd-flow-change-acceptAll = Accept All Changes
+cmd-flow-change-rejectAll = Reject All Changes
+cmd-flow-change-next = Next Change
+cmd-flow-change-previous = Previous Change
+cmd-flow-trackChanges = Track Changes
+msg-not-flow = This is not a document of flowing text
+msg-no-comment-here = There is no comment here
+msg-no-change-here = There is no tracked change here
+msg-no-more-comments = No more comments
+msg-no-more-tracked-changes = No more tracked changes
+msg-select-to-comment = Select the text to comment on
+msg-no-tracking = This document's format does not track changes
+msg-tracking-on = Track Changes is on: your edits are kept as changes
+msg-tracking-off = Track Changes is off
+flow-comment = { $author }: { $text }
+flow-comment-done = { $author } (resolved): { $text }
+flow-answers = { $count ->
+    [one] 1 answer
+   *[other] { $count } answers
+}
+flow-inserted = Inserted by { $author }
+flow-deleted = Deleted by { $author }
+flow-formatted = Formatted by { $author }
+flow-moved = Moved by { $author }

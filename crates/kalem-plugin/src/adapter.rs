@@ -345,6 +345,8 @@ macro_rules! export_viewer_of {
         }
 
         $crate::__kalem_grid!(__KalemViewer);
+        $crate::__kalem_flow!(__KalemViewer);
+        $crate::__kalem_annotations_exports!(__KalemViewer);
         $crate::viewer::export_viewer!(__KalemViewer);
     };
 }
@@ -945,6 +947,330 @@ macro_rules! __kalem_grid_exports {
                 use $crate::adapter::grid::Conv;
                 let mut ui = $crate::adapter::grid::Answers(answers.into());
                 $crate::adapter::grid::with(d, |x| x.run_macro(&name, &mut ui)).map(Conv::conv).map_err(|e| e.0)
+            }
+        }
+    };
+}
+
+/// The `annotations` interface's half of the adapter (API 0.2.7, every
+/// world): the interface over the contract's annotation functions, for
+/// [`export_viewer_of!`](crate::export_viewer_of).
+#[doc(hidden)]
+pub mod annotations {
+    pub use kalem_viewer as kv;
+
+    pub use crate::viewer::exports::kalem::plugin::annotations as a;
+
+    include!("annotations_conv.rs");
+
+    /// Calls `f` with the document behind the handle.
+    pub fn with<R>(
+        d: a::DocumentBorrow<'_>,
+        f: impl FnOnce(&mut dyn kv::ViewerDocument) -> R,
+    ) -> R {
+        super::report_panics();
+        let doc = d.get::<super::Doc>();
+        let mut doc = doc.0.borrow_mut();
+        f(&mut **doc)
+    }
+
+    /// An edit's result as the interface's.
+    pub fn done<T>(r: kv::Result<T>) -> Result<T, String> {
+        r.map_err(|e| e.0)
+    }
+}
+
+/// The `annotations` interface's exports over [`annotations::with`].
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __kalem_annotations_exports {
+    ($t:ty) => {
+        impl $crate::adapter::annotations::a::Guest for $t {
+            fn list(
+                d: $crate::adapter::annotations::a::DocumentBorrow<'_>,
+                unit: ::std::option::Option<u32>,
+            ) -> ::std::vec::Vec<$crate::adapter::annotations::a::Annotation> {
+                use $crate::adapter::annotations::Cross;
+                $crate::adapter::annotations::with(d, |x| x.annotations(unit.map(|u| u as usize)))
+                    .cross()
+            }
+            fn set_author(
+                d: $crate::adapter::annotations::a::DocumentBorrow<'_>,
+                name: ::std::string::String,
+            ) {
+                $crate::adapter::annotations::with(d, |x| x.set_author(&name))
+            }
+            fn comment(
+                d: $crate::adapter::annotations::a::DocumentBorrow<'_>,
+                on: $crate::adapter::annotations::a::Anchor,
+                text: ::std::string::String,
+            ) -> ::std::result::Result<::std::string::String, ::std::string::String> {
+                use $crate::adapter::annotations::Cross;
+                $crate::adapter::annotations::done($crate::adapter::annotations::with(d, |x| {
+                    x.comment(on.cross(), &text)
+                }))
+            }
+            fn reply(
+                d: $crate::adapter::annotations::a::DocumentBorrow<'_>,
+                parent: ::std::string::String,
+                text: ::std::string::String,
+            ) -> ::std::result::Result<::std::string::String, ::std::string::String> {
+                $crate::adapter::annotations::done($crate::adapter::annotations::with(d, |x| {
+                    x.reply(&parent, &text)
+                }))
+            }
+            fn set_text(
+                d: $crate::adapter::annotations::a::DocumentBorrow<'_>,
+                id: ::std::string::String,
+                text: ::std::string::String,
+            ) -> ::std::result::Result<(), ::std::string::String> {
+                $crate::adapter::annotations::done($crate::adapter::annotations::with(d, |x| {
+                    x.set_comment_text(&id, &text)
+                }))
+            }
+            fn resolve(
+                d: $crate::adapter::annotations::a::DocumentBorrow<'_>,
+                id: ::std::string::String,
+                done: bool,
+            ) -> ::std::result::Result<(), ::std::string::String> {
+                $crate::adapter::annotations::done($crate::adapter::annotations::with(d, |x| {
+                    x.resolve(&id, done)
+                }))
+            }
+            fn remove(
+                d: $crate::adapter::annotations::a::DocumentBorrow<'_>,
+                id: ::std::string::String,
+            ) -> ::std::result::Result<(), ::std::string::String> {
+                $crate::adapter::annotations::done($crate::adapter::annotations::with(d, |x| {
+                    x.remove_comment(&id)
+                }))
+            }
+            fn accept(
+                d: $crate::adapter::annotations::a::DocumentBorrow<'_>,
+                id: ::std::string::String,
+            ) -> ::std::result::Result<(), ::std::string::String> {
+                $crate::adapter::annotations::done($crate::adapter::annotations::with(d, |x| {
+                    x.accept(&id)
+                }))
+            }
+            fn reject(
+                d: $crate::adapter::annotations::a::DocumentBorrow<'_>,
+                id: ::std::string::String,
+            ) -> ::std::result::Result<(), ::std::string::String> {
+                $crate::adapter::annotations::done($crate::adapter::annotations::with(d, |x| {
+                    x.reject(&id)
+                }))
+            }
+            fn accept_all(
+                d: $crate::adapter::annotations::a::DocumentBorrow<'_>,
+                unit: ::std::option::Option<u32>,
+            ) -> ::std::result::Result<(), ::std::string::String> {
+                $crate::adapter::annotations::done($crate::adapter::annotations::with(d, |x| {
+                    x.accept_all(unit.map(|u| u as usize))
+                }))
+            }
+            fn reject_all(
+                d: $crate::adapter::annotations::a::DocumentBorrow<'_>,
+                unit: ::std::option::Option<u32>,
+            ) -> ::std::result::Result<(), ::std::string::String> {
+                $crate::adapter::annotations::done($crate::adapter::annotations::with(d, |x| {
+                    x.reject_all(unit.map(|u| u as usize))
+                }))
+            }
+            fn tracking(
+                d: $crate::adapter::annotations::a::DocumentBorrow<'_>,
+            ) -> ::std::option::Option<bool> {
+                $crate::adapter::annotations::with(d, |x| x.tracking())
+            }
+            fn set_tracking(
+                d: $crate::adapter::annotations::a::DocumentBorrow<'_>,
+                on: bool,
+            ) -> ::std::result::Result<(), ::std::string::String> {
+                $crate::adapter::annotations::done($crate::adapter::annotations::with(d, |x| {
+                    x.set_tracking(on)
+                }))
+            }
+        }
+    };
+}
+
+/// The `flow` interface's exports, with the feature `flow`.
+#[cfg(feature = "flow")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __kalem_flow {
+    ($t:ty) => {
+        $crate::__kalem_flow_exports!($t);
+    };
+}
+
+/// Nothing without the feature `flow`.
+#[cfg(not(feature = "flow"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __kalem_flow {
+    ($t:ty) => {};
+}
+
+/// The flow's half of the adapter (the feature `flow`): the `flow`
+/// interface over the contract's flow functions, for
+/// [`export_viewer_of!`](crate::export_viewer_of).
+#[cfg(feature = "flow")]
+#[doc(hidden)]
+pub mod flow {
+    pub use kalem_viewer as kv;
+
+    pub use crate::viewer::exports::kalem::plugin::annotations as a;
+    pub use crate::viewer::exports::kalem::plugin::flow as f;
+
+    include!("annotations_conv.rs");
+    include!("flow_conv.rs");
+
+    /// Calls `f` with the document behind the handle.
+    pub fn with<R>(
+        d: f::DocumentBorrow<'_>,
+        g: impl FnOnce(&mut dyn kv::ViewerDocument) -> R,
+    ) -> R {
+        super::report_panics();
+        let doc = d.get::<super::Doc>();
+        let mut doc = doc.0.borrow_mut();
+        g(&mut **doc)
+    }
+
+    /// An edit's result as the interface's.
+    pub fn done<T>(r: kv::Result<T>) -> Result<T, String> {
+        r.map_err(|e| e.0)
+    }
+}
+
+/// The `flow` interface's exports over [`flow::with`], for a viewer
+/// exported with the feature `flow`.
+#[cfg(feature = "flow")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __kalem_flow_exports {
+    ($t:ty) => {
+        impl $crate::adapter::flow::f::Guest for $t {
+            fn layout(
+                d: $crate::adapter::flow::f::DocumentBorrow<'_>,
+                unit: u32,
+            ) -> ::std::option::Option<$crate::adapter::flow::f::FlowLayout> {
+                use $crate::adapter::flow::Cross;
+                $crate::adapter::flow::with(d, |x| x.flow(unit as usize)).cross()
+            }
+            fn items(
+                d: $crate::adapter::flow::f::DocumentBorrow<'_>,
+                unit: u32,
+                from: u32,
+                count: u32,
+            ) -> ::std::vec::Vec<$crate::adapter::flow::f::Item> {
+                use $crate::adapter::flow::Cross;
+                $crate::adapter::flow::with(d, |x| x.flow_items(unit as usize, from, count)).cross()
+            }
+            fn render_picture(
+                d: $crate::adapter::flow::f::DocumentBorrow<'_>,
+                unit: u32,
+                id: ::std::string::String,
+                max: u32,
+            ) -> ::std::result::Result<$crate::adapter::flow::f::Bitmap, ::std::string::String>
+            {
+                use $crate::adapter::flow::Cross;
+                $crate::adapter::flow::done($crate::adapter::flow::with(d, |x| {
+                    x.flow_picture(unit as usize, &id, max)
+                }))
+                .map(|b| b.cross())
+            }
+            fn replace(
+                d: $crate::adapter::flow::f::DocumentBorrow<'_>,
+                unit: u32,
+                paragraph: u32,
+                start: u32,
+                end: u32,
+                text: ::std::string::String,
+            ) -> ::std::result::Result<(), ::std::string::String> {
+                $crate::adapter::flow::done($crate::adapter::flow::with(d, |x| {
+                    x.flow_replace(unit as usize, paragraph, start..end, &text)
+                }))
+            }
+            fn split(
+                d: $crate::adapter::flow::f::DocumentBorrow<'_>,
+                unit: u32,
+                at: $crate::adapter::flow::f::Place,
+            ) -> ::std::result::Result<(), ::std::string::String> {
+                use $crate::adapter::flow::Cross;
+                $crate::adapter::flow::done($crate::adapter::flow::with(d, |x| {
+                    x.flow_split(unit as usize, at.cross())
+                }))
+            }
+            fn join(
+                d: $crate::adapter::flow::f::DocumentBorrow<'_>,
+                unit: u32,
+                paragraph: u32,
+            ) -> ::std::result::Result<(), ::std::string::String> {
+                $crate::adapter::flow::done($crate::adapter::flow::with(d, |x| {
+                    x.flow_join(unit as usize, paragraph)
+                }))
+            }
+            fn delete(
+                d: $crate::adapter::flow::f::DocumentBorrow<'_>,
+                unit: u32,
+                from: $crate::adapter::flow::f::Place,
+                to: $crate::adapter::flow::f::Place,
+            ) -> ::std::result::Result<(), ::std::string::String> {
+                use $crate::adapter::flow::Cross;
+                $crate::adapter::flow::done($crate::adapter::flow::with(d, |x| {
+                    x.flow_delete(unit as usize, from.cross(), to.cross())
+                }))
+            }
+            fn set_marks(
+                d: $crate::adapter::flow::f::DocumentBorrow<'_>,
+                unit: u32,
+                from: $crate::adapter::flow::f::Place,
+                to: $crate::adapter::flow::f::Place,
+                changes: ::std::vec::Vec<$crate::adapter::flow::f::MarkChange>,
+            ) -> ::std::result::Result<(), ::std::string::String> {
+                use $crate::adapter::flow::Cross;
+                let changes: ::std::vec::Vec<$crate::adapter::flow::kv::MarkChange> =
+                    changes.cross();
+                $crate::adapter::flow::done($crate::adapter::flow::with(d, |x| {
+                    x.flow_set_marks(unit as usize, from.cross(), to.cross(), &changes)
+                }))
+            }
+            fn set_style(
+                d: $crate::adapter::flow::f::DocumentBorrow<'_>,
+                unit: u32,
+                from: u32,
+                to: u32,
+                style: ::std::string::String,
+            ) -> ::std::result::Result<(), ::std::string::String> {
+                $crate::adapter::flow::done($crate::adapter::flow::with(d, |x| {
+                    x.flow_set_style(unit as usize, from, to, &style)
+                }))
+            }
+            fn styles(
+                d: $crate::adapter::flow::f::DocumentBorrow<'_>,
+            ) -> ::std::vec::Vec<$crate::adapter::flow::f::Style> {
+                use $crate::adapter::flow::Cross;
+                $crate::adapter::flow::with(d, |x| x.flow_styles()).cross()
+            }
+            fn has_history(d: $crate::adapter::flow::f::DocumentBorrow<'_>) -> bool {
+                $crate::adapter::flow::with(d, |x| x.has_history())
+            }
+            fn undo(
+                d: $crate::adapter::flow::f::DocumentBorrow<'_>,
+            ) -> ::std::result::Result<bool, ::std::string::String> {
+                $crate::adapter::flow::done($crate::adapter::flow::with(d, |x| x.undo()))
+            }
+            fn redo(
+                d: $crate::adapter::flow::f::DocumentBorrow<'_>,
+            ) -> ::std::result::Result<bool, ::std::string::String> {
+                $crate::adapter::flow::done($crate::adapter::flow::with(d, |x| x.redo()))
+            }
+            fn begin_batch(d: $crate::adapter::flow::f::DocumentBorrow<'_>) {
+                $crate::adapter::flow::with(d, |x| x.begin_batch())
+            }
+            fn end_batch(d: $crate::adapter::flow::f::DocumentBorrow<'_>) {
+                $crate::adapter::flow::with(d, |x| x.end_batch())
             }
         }
     };

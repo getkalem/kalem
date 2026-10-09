@@ -63,6 +63,12 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 name = "xlsx_component"
 required-features = ["components"]
 
+# A viewer of flowing text as a component, opened, edited and saved
+# (`KALEM_FLOW_COMPONENT`, `KALEM_FLOW_FILE`).
+[[test]]
+name = "flow_component"
+required-features = ["plugins"]
+
 # wasm_todo W6: the bundled components measured, each with its ceiling.
 [[test]]
 name = "component_speed"

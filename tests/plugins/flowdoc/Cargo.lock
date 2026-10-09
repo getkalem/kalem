@@ -74,7 +74,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "kalem-plugin-sheet"
+name = "kalem-plugin-flowdoc"
 version = "0.0.0"
 dependencies = [
  "kalem-plugin",

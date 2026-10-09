@@ -19,6 +19,10 @@ kalem-viewer.workspace = true
 # The `spreadsheet-viewer` world: a viewer of sheets of cells exports the
 # `grid` interface too (T3.7.4).
 grid = []
+# The `flow-viewer` world: a viewer of documents of flowing text exports
+# the `flow` interface too (API 0.2.7). With `grid`, the `full-viewer`
+# world, which exports both.
+flow = []
 
 [dev-dependencies]
 toml_edit = { version = "0.25", default-features = false, features = ["parse"] }

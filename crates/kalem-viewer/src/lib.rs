@@ -14,6 +14,9 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+mod flow;
+pub use flow::*;
+
 /// Why a viewer failed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ViewerError(pub String);
@@ -3304,6 +3307,162 @@ pub trait ViewerDocument: Send {
     /// Redoes the last change undone; false when there is none.
     fn redo(&mut self) -> Result<bool> {
         Ok(false)
+    }
+
+    // Flowing text (API 0.2.7, the `flow` interface): a unit made of
+    // paragraphs, which the host lays out itself and edits through these.
+    // A viewer without flows answers none and refuses the edits.
+
+    /// A unit's flow, when the unit is one (a document's body); `None` for
+    /// a unit the host renders or shows as a grid.
+    fn flow(&mut self, _unit: usize) -> Option<FlowLayout> {
+        None
+    }
+
+    /// Items `from..from + count` of a unit's flow.
+    fn flow_items(&mut self, _unit: usize, _from: u32, _count: u32) -> Vec<FlowItem> {
+        Vec::new()
+    }
+
+    /// A flow's picture ([`FlowPicture::id`]), at most `max` pixels on its
+    /// longer side.
+    fn flow_picture(&mut self, _unit: usize, id: &str, _max: u32) -> Result<Bitmap> {
+        Err(ViewerError(format!("No picture {id}")))
+    }
+
+    /// Replaces bytes `range` of an edited paragraph's edit text with
+    /// `text`, as typing does: it takes the look of the text before it.
+    fn flow_replace(
+        &mut self,
+        _unit: usize,
+        _paragraph: u32,
+        _range: std::ops::Range<u32>,
+        _text: &str,
+    ) -> Result<()> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Splits a paragraph at a place (Enter).
+    fn flow_split(&mut self, _unit: usize, _at: FlowPlace) -> Result<()> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Joins a paragraph with the next one (Backspace at its start).
+    fn flow_join(&mut self, _unit: usize, _paragraph: u32) -> Result<()> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Deletes from a place to a later one, across paragraphs.
+    fn flow_delete(&mut self, _unit: usize, _from: FlowPlace, _to: FlowPlace) -> Result<()> {
+        Err(ViewerError("This format is not edited".into()))
+    }
+
+    /// Changes the marks of the text from a place to a later one.
+    fn flow_set_marks(
+        &mut self,
+        _unit: usize,
+        _from: FlowPlace,
+        _to: FlowPlace,
+        _changes: &[MarkChange],
+    ) -> Result<()> {
+        Err(ViewerError(
+            "This format's formatting is not edited yet".into(),
+        ))
+    }
+
+    /// Gives paragraphs `from..=to` a paragraph style ([`FlowStyle::id`]).
+    fn flow_set_style(&mut self, _unit: usize, _from: u32, _to: u32, _style: &str) -> Result<()> {
+        Err(ViewerError("This format's styles are not given yet".into()))
+    }
+
+    /// The styles a user may give.
+    fn flow_styles(&mut self) -> Vec<FlowStyle> {
+        Vec::new()
+    }
+
+    // Annotations (API 0.2.7, the `annotations` interface): comments and
+    // tracked changes, of any viewer's units.
+
+    /// The annotations of unit `unit`, or of the whole document.
+    fn annotations(&mut self, _unit: Option<usize>) -> Vec<Annotation> {
+        Vec::new()
+    }
+
+    /// Who annotations and tracked changes made from now on are by.
+    fn set_author(&mut self, _name: &str) {}
+
+    /// Adds a comment on `on`; its ID.
+    fn comment(&mut self, _on: Anchor, _text: &str) -> Result<String> {
+        Err(ViewerError(
+            "This format's comments are not written yet".into(),
+        ))
+    }
+
+    /// Answers comment `parent`; the answer's ID.
+    fn reply(&mut self, _parent: &str, _text: &str) -> Result<String> {
+        Err(ViewerError(
+            "This format's comments are not written yet".into(),
+        ))
+    }
+
+    /// Changes a comment's text.
+    fn set_comment_text(&mut self, _id: &str, _text: &str) -> Result<()> {
+        Err(ViewerError(
+            "This format's comments are not written yet".into(),
+        ))
+    }
+
+    /// Marks a comment done, or not.
+    fn resolve(&mut self, _id: &str, _done: bool) -> Result<()> {
+        Err(ViewerError(
+            "This format's comments are not written yet".into(),
+        ))
+    }
+
+    /// Takes a comment and its answers away.
+    fn remove_comment(&mut self, _id: &str) -> Result<()> {
+        Err(ViewerError(
+            "This format's comments are not written yet".into(),
+        ))
+    }
+
+    /// Accepts a tracked change.
+    fn accept(&mut self, _id: &str) -> Result<()> {
+        Err(ViewerError(
+            "This format's tracked changes are not accepted yet".into(),
+        ))
+    }
+
+    /// Rejects a tracked change.
+    fn reject(&mut self, _id: &str) -> Result<()> {
+        Err(ViewerError(
+            "This format's tracked changes are not rejected yet".into(),
+        ))
+    }
+
+    /// Accepts every tracked change, of unit `unit` or of the document.
+    fn accept_all(&mut self, _unit: Option<usize>) -> Result<()> {
+        Err(ViewerError(
+            "This format's tracked changes are not accepted yet".into(),
+        ))
+    }
+
+    /// Rejects every tracked change.
+    fn reject_all(&mut self, _unit: Option<usize>) -> Result<()> {
+        Err(ViewerError(
+            "This format's tracked changes are not rejected yet".into(),
+        ))
+    }
+
+    /// Whether edits are written as tracked changes; `None` for a format
+    /// without them.
+    fn tracking(&mut self) -> Option<bool> {
+        None
+    }
+
+    /// Turns tracking changes on or off.
+    fn set_tracking(&mut self, _on: bool) -> Result<()> {
+        Err(ViewerError("This format does not track changes".into()))
     }
 
     /// The macros the document carries.

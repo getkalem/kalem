@@ -1,0 +1,104 @@
+package kalem:plugin@0.2.7;
+
+/// What people wrote *about* a document rather than in it (API 0.2.7,
+/// design §11.13): comments, and the tracked changes of a review. Apart
+/// from `flow` because they are not a flowing document's alone: a PDF's
+/// notes and highlights, a workbook's notes and threaded comments, a
+/// slide's comments are the same thing, anchored to a page's text, a cell
+/// or an area instead of a paragraph. The host shows them the same way for
+/// every plugin (comments beside the text, insertions and deletions
+/// marked) and answers them through the functions here; a run of a flow
+/// names the annotations it is in by their IDs.
+interface annotations {
+    use viewer.{document, rect};
+
+    /// What an annotation is.
+    enum annotation-kind {
+        /// A remark someone made on a part of the document; it may be
+        /// answered (`parent`) and resolved.
+        comment,
+        /// Text or a paragraph inserted, a tracked change.
+        insertion,
+        /// Text or a paragraph deleted, a tracked change: shown until it
+        /// is accepted.
+        deletion,
+        /// Formatting changed, a tracked change; `text` says how.
+        formatting,
+        /// Text moved away from here, a tracked change.
+        move-from,
+        /// Text moved here, a tracked change.
+        move-to,
+    }
+
+    /// A place in a flow's text: an edited paragraph by its index, a byte
+    /// of its edit text (the `flow` interface's places).
+    record text-place {
+        paragraph: u32,
+        offset: u32,
+    }
+
+    /// What an annotation is about.
+    variant anchor {
+        /// Text of a flow unit, from a place to a later one.
+        flow(tuple<u32, text-place, text-place>),
+        /// Bytes of a unit's text (`viewer.text`): a page's.
+        text(tuple<u32, u32, u32>),
+        /// A cell of a grid unit: unit, row, column.
+        cell(tuple<u32, u32, u32>),
+        /// An area of a unit, in its pixels at scale 1.
+        area(tuple<u32, rect>),
+        /// A whole unit.
+        unit(u32),
+    }
+
+    /// An annotation.
+    record annotation {
+        /// Its ID, which runs and the functions here name.
+        id: string,
+        kind: annotation-kind,
+        author: string,
+        /// When, ISO 8601, when the format keeps it.
+        date: option<string>,
+        /// A comment's text; how formatting changed.
+        text: string,
+        /// The comment it answers.
+        parent: option<string>,
+        /// A comment marked done.
+        resolved: bool,
+        /// What it is about: none for an answer (its parent's), several
+        /// for a change in several places.
+        anchors: list<anchor>,
+    }
+
+    /// The annotations of unit `unit`, or of the whole document.
+    %list: func(doc: borrow<document>, unit: option<u32>) -> list<annotation>;
+
+    // The editor half: each edit is a step of the document's history.
+
+    /// Who annotations and tracked changes made from now on are by (the
+    /// user's name, from the host).
+    set-author: func(doc: borrow<document>, name: string);
+    /// Adds a comment on an anchor; its ID.
+    comment: func(doc: borrow<document>, on: anchor, text: string) -> result<string, string>;
+    /// Answers a comment; the answer's ID.
+    reply: func(doc: borrow<document>, parent: string, text: string) -> result<string, string>;
+    /// Changes a comment's text.
+    set-text: func(doc: borrow<document>, id: string, text: string) -> result<_, string>;
+    /// Marks a comment done, or not.
+    resolve: func(doc: borrow<document>, id: string, done: bool) -> result<_, string>;
+    /// Takes a comment and its answers away.
+    remove: func(doc: borrow<document>, id: string) -> result<_, string>;
+    /// Accepts a tracked change: it becomes the document's.
+    accept: func(doc: borrow<document>, id: string) -> result<_, string>;
+    /// Rejects a tracked change: the document is as before it.
+    reject: func(doc: borrow<document>, id: string) -> result<_, string>;
+    /// Accepts every tracked change, of a unit or of the document.
+    accept-all: func(doc: borrow<document>, unit: option<u32>) -> result<_, string>;
+    /// Rejects every tracked change.
+    reject-all: func(doc: borrow<document>, unit: option<u32>) -> result<_, string>;
+    /// Whether edits are written as tracked changes; none for a format
+    /// without them.
+    tracking: func(doc: borrow<document>) -> option<bool>;
+    /// Turns tracking changes on or off.
+    set-tracking: func(doc: borrow<document>, on: bool) -> result<_, string>;
+}

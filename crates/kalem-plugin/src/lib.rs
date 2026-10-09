@@ -39,7 +39,10 @@
 /// The `document-viewer` world (design §11.13, D54): a plugin opening
 /// files that are not text, reading the one file the host hands it. With
 /// the feature `grid`, the `spreadsheet-viewer` world instead: the same,
-/// and the `grid` interface of sheets of cells (T3.7.4).
+/// and the `grid` interface of sheets of cells (T3.7.4); with `flow`, the
+/// `flow-viewer` world, and the `flow` interface of documents of flowing
+/// text (API 0.2.7); with both, the `full-viewer` world, which exports
+/// both. Every one exports `annotations`.
 #[allow(
     missing_debug_implementations,
     unreachable_pub,
@@ -47,7 +50,7 @@
     rust_2018_idioms
 )]
 pub mod viewer {
-    #[cfg(not(feature = "grid"))]
+    #[cfg(not(any(feature = "grid", feature = "flow")))]
     wit_bindgen::generate!({
         path: "wit",
         world: "document-viewer",
@@ -55,10 +58,26 @@ pub mod viewer {
         export_macro_name: "export_viewer",
         default_bindings_module: "kalem_plugin::viewer",
     });
-    #[cfg(feature = "grid")]
+    #[cfg(all(feature = "grid", not(feature = "flow")))]
     wit_bindgen::generate!({
         path: "wit",
         world: "spreadsheet-viewer",
+        pub_export_macro: true,
+        export_macro_name: "export_viewer",
+        default_bindings_module: "kalem_plugin::viewer",
+    });
+    #[cfg(all(feature = "flow", not(feature = "grid")))]
+    wit_bindgen::generate!({
+        path: "wit",
+        world: "flow-viewer",
+        pub_export_macro: true,
+        export_macro_name: "export_viewer",
+        default_bindings_module: "kalem_plugin::viewer",
+    });
+    #[cfg(all(feature = "grid", feature = "flow"))]
+    wit_bindgen::generate!({
+        path: "wit",
+        world: "full-viewer",
         pub_export_macro: true,
         export_macro_name: "export_viewer",
         default_bindings_module: "kalem_plugin::viewer",

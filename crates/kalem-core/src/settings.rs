@@ -100,6 +100,12 @@ pub const SPECS: &[Spec] = &[
         description: "Font of code, tables and the source view; empty for the system's monospace font",
     },
     Spec {
+        key: "user.name",
+        kind: Kind::Str,
+        default: r#""""#,
+        description: "Your name, which the comments and tracked changes you make in documents carry; empty for the system account's",
+    },
+    Spec {
         key: "editor.font_size",
         kind: Kind::Int(6, 72),
         default: "16",
@@ -774,6 +780,7 @@ impl Config {
     /// the settings are loaded and whenever they change.
     pub fn apply_process_settings(&self) {
         crate::l10n::set_language(self.str("ui.language"));
+        crate::flow::set_author(self.str("user.name"));
         crate::languages::set_user_settings(self.get("plugins"));
         crate::languages::load();
         crate::lsp::settings_changed();
