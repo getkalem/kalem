@@ -168,6 +168,8 @@ pub struct Edit {
 #[derive(Default)]
 struct State {
     ready: bool,
+    /// Why `initialize` failed, when the server refused it.
+    refused: Option<String>,
     /// Messages written before the server answered `initialize`.
     queued: Vec<Value>,
     capabilities: Value,
@@ -199,6 +201,8 @@ struct Inner {
     progress: Mutex<Vec<(String, String, String)>>,
     events: Mutex<VecDeque<Event>>,
     log: Mutex<VecDeque<String>>,
+    /// Ends when its standard error has been read to its end.
+    stderr_read: Mutex<Option<mpsc::Receiver<()>>>,
     wake: Wake,
     shutting_down: AtomicBool,
 }
@@ -604,6 +608,7 @@ impl Client {
         let stdout = child.stdout.take().expect("piped stdout");
         let stderr = child.stderr.take().expect("piped stderr");
         let (writer, outbox) = mpsc::channel::<Value>();
+        let (stderr_done, stderr_read) = mpsc::channel::<()>();
         let inner = Arc::new(Inner {
             settings: RwLock::new(config.settings.clone()),
             config,
@@ -618,6 +623,7 @@ impl Client {
             progress: Mutex::new(Vec::new()),
             events: Mutex::new(VecDeque::new()),
             log: Mutex::new(VecDeque::new()),
+            stderr_read: Mutex::new(Some(stderr_read)),
             wake,
             shutting_down: AtomicBool::new(false),
         });
@@ -645,6 +651,9 @@ impl Client {
             std::thread::Builder::new()
                 .name(format!("lsp-err:{name}"))
                 .spawn(move || {
+                    // Dropped at the end: the exit waits for the reason a
+                    // server wrote before it ended.
+                    let _done = stderr_done;
                     // Read to its end whatever it holds: a line that is
                     // not UTF-8 (a compiler's message in another locale)
                     // must not close the pipe the server still writes to.
@@ -735,6 +744,49 @@ impl Client {
     /// The process has ended; its [`Event::Exited`] is among the events.
     pub fn has_exited(&self) -> bool {
         self.inner.state.read().expect("state").exited
+    }
+
+    /// It answered `initialize`, whether or not it has exited since. A
+    /// server whose process ended before is one that did not start.
+    pub fn started(&self) -> bool {
+        self.inner.state.read().expect("state").ready
+    }
+
+    /// Why it did not start, in its own words: the error it answered
+    /// `initialize` with, else the last lines it wrote on its standard
+    /// error (read to its end by the time its exit is an event: a proxy's
+    /// message is all it writes, a crash's reason comes after its log).
+    pub fn why_not_started(&self) -> Option<String> {
+        if let Some(r) = &self.inner.state.read().expect("state").refused {
+            return Some(r.clone());
+        }
+        let mut lines: Vec<String> = self
+            .standard_error()
+            .into_iter()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty())
+            .collect();
+        lines.drain(..lines.len().saturating_sub(3));
+        if lines.is_empty() {
+            return None;
+        }
+        let mut why = lines.join(" ");
+        if why.chars().count() > 300 {
+            why = why.chars().take(299).collect::<String>() + "…";
+        }
+        Some(why)
+    }
+
+    /// The lines it wrote on its standard error, as far as the log keeps
+    /// them.
+    pub fn standard_error(&self) -> Vec<String> {
+        self.inner
+            .log
+            .lock()
+            .expect("log")
+            .iter()
+            .filter_map(|l| l.strip_prefix("[stderr] ").map(str::to_string))
+            .collect()
     }
 
     /// The server's capabilities (null before it is ready).
@@ -1028,12 +1080,9 @@ fn reader(inner: Arc<Inner>, stdout: std::process::ChildStdout, init: Pending) {
                 Ok(v) => initialized(&inner, &v),
                 Err(e) => {
                     inner.log(format!("[client] initialize failed: {e}"));
-                    inner.event(Event::Message {
-                        level: 1,
-                        text: format!("{} did not start: {}", inner.config.name, e.message),
-                    });
-                    // A server that cannot start is ended, not left
-                    // "starting": its exit follows as for a crash.
+                    // Said with its exit, which follows: a server that
+                    // cannot start is ended, not left "starting".
+                    inner.state.write().expect("state").refused = Some(e.message.clone());
                     let _ = inner.child.lock().expect("child").kill();
                 }
             }
@@ -1053,6 +1102,12 @@ fn reader(inner: Arc<Inner>, stdout: std::process::ChildStdout, init: Pending) {
         }
     }
     inner.progress.lock().expect("progress").clear();
+    // Its standard error read to its end first (a moment at most: a
+    // process it started may hold the pipe), so that whoever sees the
+    // exit finds the reason the server wrote.
+    if let Some(done) = inner.stderr_read.lock().expect("stderr").take() {
+        let _ = done.recv_timeout(Duration::from_millis(500));
+    }
     if !inner.shutting_down.load(Ordering::SeqCst) {
         inner.log(format!("[client] the server exited ({code:?})"));
     }

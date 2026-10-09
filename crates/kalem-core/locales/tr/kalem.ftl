@@ -1556,10 +1556,15 @@ choice-no = Hayır
 
 lsp-off = { $plugin } için dil sunucuları kapalı
 lsp-did-not-start = { $server } başlamadı: { $reason }
+lsp-did-not-start-how = { $server } başlamadı: { $reason } ({ $how })
+lsp-no-initialize = `initialize` isteğine { $seconds } saniyede yanıt yok
+lsp-exit-code = çıkış kodu { $code }
+lsp-exit-signal = bir sinyalle sonlandı
+lsp-version-no-answer = { $seconds } saniyede yanıt yok
 lsp-restarting = { $server } yeniden başlatılıyor
 lsp-starting = { $server } başlıyor
 lsp-says = { $server }: { $text }
-lsp-gave-up = { $server } durdu ({ $code }) ve { $times } kez yeniden başlatıldı; `kalem lsp log` ile bakın
+lsp-gave-up = { $server } durdu ({ $code }) ve { $times } kez yeniden başlatıldı; `kalem lsp check --log` ile bakın
 lsp-stopped-restarting = { $server } durdu ({ $code }); yeniden başlatılıyor
 lsp-nothing = { $server }: { $what } yok
 lsp-not-provided = { $server } { $what } sağlamıyor

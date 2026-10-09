@@ -1640,10 +1640,15 @@ choice-no = No
 
 lsp-off = Language servers are off for { $plugin }
 lsp-did-not-start = { $server } did not start: { $reason }
+lsp-did-not-start-how = { $server } did not start: { $reason } ({ $how })
+lsp-no-initialize = no answer to `initialize` in { $seconds } s
+lsp-exit-code = exit code { $code }
+lsp-exit-signal = ended by a signal
+lsp-version-no-answer = no answer in { $seconds } s
 lsp-restarting = { $server } is restarting
 lsp-starting = { $server } is starting
 lsp-says = { $server }: { $text }
-lsp-gave-up = { $server } stopped ({ $code }) and was restarted { $times } times; see `kalem lsp log`
+lsp-gave-up = { $server } stopped ({ $code }) and was restarted { $times } times; see `kalem lsp check --log`
 lsp-stopped-restarting = { $server } stopped ({ $code }); restarting
 lsp-nothing = { $server }: no { $what }
 lsp-not-provided = { $server } does not provide { $what }

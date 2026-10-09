@@ -52,6 +52,7 @@ fn setup() -> (PathBuf, PathBuf) {
         "languages": [{"id": "fakelang", "name": "Fake", "extensions": ["fk"], "servers": ["f"]}],
         "commands": {"format": [exe, "--fake-format", "{file}"]},
         "servers": {"f": {"name": "FakeLS", "command": [exe], "env": {"KALEM_LSP_FAKE": "normal"},
+                          "install": "get FakeLS",
                           "rootMarkers": ["root.marker"], "requireRoot": true,
                           "settings": {"elixirLS": {"x": 1}}}}
     });
@@ -519,6 +520,44 @@ fn main() {
             .unwrap_err()
             .contains("language plugin")
     );
+
+    // A server that does not start (a toolchain's proxy for a component
+    // not installed, found on the PATH all the same): not started again,
+    // and said at once in its own words, with the plugin's install text.
+    kalem_core::languages::set_user_settings(Some(&serde_json::json!({
+        "org.example.fake": {"servers": {"f": {"env": {"KALEM_LSP_FAKE": "absent"}}}}
+    })));
+    let _ = kalem_core::jobs::take_notices();
+    lsp::restart(&doc).unwrap();
+    let (said, _) = until("the reason", || {
+        kalem_core::jobs::take_notices()
+            .into_iter()
+            .find(|(text, error)| *error && text.contains("did not start"))
+    });
+    assert_eq!(
+        said,
+        "FakeLS did not start: error: 'fake' is not installed for the toolchain 'test' \
+         help: run `fake install` to install it (get FakeLS)"
+    );
+    // Past the first restart's backoff (half a second): nothing started.
+    let t = Instant::now();
+    while t.elapsed() < Duration::from_millis(1500) {
+        lsp::tick();
+        let notices = kalem_core::jobs::take_notices();
+        assert!(notices.is_empty(), "{notices:?}");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let why = lsp::request(&doc, Kind::Hover).unwrap_err();
+    assert_eq!(why, said);
+    // The status bar says it too.
+    assert_eq!(lsp::status(&file, 0).as_deref(), Some(said.as_str()));
+    // Mended, it starts when asked.
+    kalem_core::languages::set_user_settings(None);
+    lsp::restart(&doc).unwrap();
+    until("the server again", || {
+        lsp::can(&doc, Kind::Hover).then_some(())
+    });
+    println!("test did not start ... ok");
 
     lsp::closed(&file);
     assert!(!lsp::serves(&doc));

@@ -96,6 +96,19 @@ pub(crate) fn status(file: Option<&Path>) -> Result<ExitCode> {
                 program.display(),
                 args.join(" ")
             );
+            // Found is not always runs: a toolchain's proxy for a
+            // component not installed is on the PATH all the same.
+            match languages::server_version(&s, &program, &root) {
+                Some(Ok(v)) => println!("  version: {v}"),
+                Some(Err(why)) => {
+                    println!("  does not run: {why}");
+                    if let Some(how) = &s.install {
+                        println!("  install: {how}");
+                    }
+                    return Ok(ExitCode::from(1));
+                }
+                None => {}
+            }
             Ok(ExitCode::SUCCESS)
         }
         Resolved::Off => {

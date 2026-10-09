@@ -35,6 +35,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 - Edit Comment (Review): in a document of flowing text, changes the text of the comment at the cursor; the palette starts with its text, a paragraph a line (shown as ↵). It goes through the `annotations` interface's `set-text`, which the docx plugin writes as Word does.
+- Language plugins: a server's `version` in the manifest (`["--version"]` for rust-analyzer). `kalem lsp status` runs it in the project's root and prints the server's version, or why the program found does not run (rustup's `rust-analyzer` when the component is not installed is on the PATH all the same), with the plugin's install text.
+
+### Fixed
+- Language servers: a server whose process ends before it answers `initialize` (rustup's proxy for a component not installed, a version manager's shim with no version chosen) was started again five times over half a minute, and Kalem then gave up saying only its exit code (`Some(1)`). It is not started again: the status bar, the `SPC c` keys and `kalem lsp check` say at once why, in the server's words (the last lines it wrote on its standard error), with the plugin's install text; Restart Server tries again. The give-up notice named a `kalem lsp log` command that does not exist; it names `kalem lsp check --log`.
 
 ### Fixed
 - A viewer turned off after stopping three times gave way to nothing until Kalem was started again: a newer copy of the plugin installed meanwhile (the workbook plugin's, say) opened no file, and every workbook said there was no workbook viewer. The viewers are now chosen again while Kalem runs: at the third stop the files go at once to a newer copy installed, else to the copy built in, else to the native viewer; a viewer installed, updated or removed from the plugin list or with `kalem plugin install` in a terminal, and `kalem plugin enable`, take effect within a second or two, and the status bar says which copy opens the files now. At startup a copy turned off is mentioned only when nothing opens its files in its place.
