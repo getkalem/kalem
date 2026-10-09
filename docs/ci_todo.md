@@ -66,7 +66,7 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
 
 ## 1. Caches
 
-- [ ] **C1. Only `main` saves caches.** `save-if: ${{ github.ref ==
+- [x] **C1. Only `main` saves caches.** `save-if: ${{ github.ref ==
   'refs/heads/main' }}` on every `Swatinem/rust-cache` of `ci.yml` and
   `book.yml`, the two workflows that run on pull requests (the others
   run only on `main` or by hand). Pull requests go on restoring `main`'s
@@ -75,8 +75,13 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
   and saves none).
   - *Measured by* `gh cache list` after dependabot's next pull requests.
   - *Done when* every Rust cache listed is `refs/heads/main`'s.
+  - *Results.* Every Rust cache dependabot's pull requests made after
+    the change is gone from the list; three older pull requests saved
+    the Book's on 2026-10-09 still, their merge commits holding the
+    `book.yml` of the day before (they stop once rebased). Pushed in
+    `73370ea`.
 
-- [ ] **C2. `main`'s caches fit in 10 GB.** Two cuts:
+- [x] **C2. `main`'s caches fit in 10 GB.** Two cuts:
   - The `terminal-only build` job goes. The Emacs job already builds the
     terminal-only binary on a runner without the windowing libraries
     (as does the Book's), so it proves the same; the `cargo tree` check
@@ -92,8 +97,23 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
     run is cold: the environment is part of the cache's key).
   - *Done when* `main`'s caches total under 9 GB, which leaves room for
     the monthly arXiv job.
+  - *Results.* Line tables made the caches only 15 to 20% smaller (the
+    Ubuntu test job's 1.69 to 1.37 GB, macOS's 1.22 to 1.08, Windows's
+    1.39 to 1.13), but a cold compile much shorter: Ubuntu 12:28 to
+    6:58, macOS 12:49 to 9:36, Windows 18:42 to 16:33 (runs 37885494037
+    and 37887755617, both cold). `main`'s caches still came to 10.4 GB,
+    so two more cuts (`0f44f7b`):
+    - The `bundled plugins as components` job (1.24 GB) went: the
+      workspace's run already held all five of its tests, on every
+      runner; the one it alone built, the terminal-only Kalem with the
+      components, is a step of the Ubuntu test job.
+    - The daily check of the released plugins (`plugins.yml`, 1 GB)
+      keeps no cache: no one waits for it.
+  - Left: about 8.1 GB, every job of a push to `main` with the Book and
+    the fuzzers. The caches of the removed jobs and the old keys
+    (3.6 GB) are used no more and go first when GitHub evicts.
 
-- [ ] **C3. One dependabot pull request per ecosystem.** Each of
+- [x] **C3. One dependabot pull request per ecosystem.** Each of
   dependabot's pull requests runs all 13 jobs, and dependabot rebases
   every open one when `Cargo.lock` moves on `main`: eight open pull
   requests (as on 2026-10-09) are a hundred jobs ahead of `main`'s own in
@@ -111,10 +131,20 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
   - *Done when* dependabot's next run opens one pull request per
     ecosystem besides gpui's and the major updates, and closes the
     single ones it replaces.
+  - *Results.* Dependabot opened one pull request for the Cargo group
+    (insta and objc2, replacing objc2's own) and one for Actions (six
+    updates), both green; `fontdb`, `getrandom`, `wit-bindgen` and
+    `hayro-svg` came one by one as 0.x minor updates. Three older
+    Actions pull requests (upload-artifact 7, cache 6, download-artifact
+    8) stay open beside the group's, which asks for lower versions of
+    two of them; closing one by hand would make dependabot skip that
+    version later, so they are left to the owner. `wasmparser` was
+    ignored for a while on a wrong reading (that its update would fail
+    the group); it is back to its own pull requests.
 
 ## 2. The test jobs
 
-- [ ] **C4. cargo-nextest runs the tests.** nextest runs every test of
+- [x] **C4. cargo-nextest runs the tests.** nextest runs every test of
   every binary in one pool, as many at once as the runner has cores, so
   a binary with one long test no longer holds up the rest. In the test
   matrix: `cargo nextest run --workspace --profile ci`, then
@@ -134,8 +164,30 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
     above, and the number of tests run against `cargo test`'s.
   - *Done when* the step is shorter on all three, with the same tests
     run, and green.
+  - *Results.* First run (37887097619): slower, 596 s for the tests on
+    Ubuntu against `cargo test`'s 259 s. Every one of kalem-tui's 56
+    workbook tests compiled the workbook's component in its own process
+    (15 s each on a loaded runner), and that load slowed every other
+    test. `kalem_components::viewer` now keeps compiled components in
+    the folder `KALEM_COMPONENT_CACHE` names, which CI sets, and the
+    cache's temporary file has the process's name (`62e282b`).
+  - Then, the tests alone (the step less its compile):
 
-- [ ] **C5. The sample plugins under nextest.** kalem-script's and
+    | Runner | `cargo test` | nextest | nextest, shared cache |
+    |---|---|---|---|
+    | Ubuntu | 259 s | 596 s | 238 to 298 s |
+    | macOS | 425 s | 430 s | 206 to 319 s |
+    | Windows | 586 s | 702 s | 212 to 425 s |
+
+    The same 1,516 to 1,536 tests run as before, the doc tests apart.
+    Ubuntu gains least: its four virtual cores are two physical ones,
+    and a long test such as `latex_corpus` (32 s under `cargo test`)
+    takes up to 130 s with every core busy.
+  - On Windows one run failed `kalem-ui`'s `this_file_keys`, which
+    waits three seconds for a file to reach the tests' trash: the
+    runner was loaded by the compiles above. It has passed since.
+
+- [x] **C5. The sample plugins under nextest.** kalem-script's and
   kalem-cli's tests build the plugins of `tests/plugins` behind a lock,
   once per test process: 3 and 5 seconds a job under `cargo test`. Under
   nextest every test is a process of its own, so each of kalem-script's
@@ -146,13 +198,25 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
   - *Done when* they add no more than about ten seconds to the step, or
     a test process skips a build another process of the same run made
     (`NEXTEST_RUN_ID` names the run).
+  - *Results.* No change needed. Under nextest kalem-script's plugin
+    tests take 0.2 to 1 s each, the lock and cargo's check of a built
+    plugin included; the two that took 22 s on a cold runner were the
+    first to build the plugins' dependencies and the one waiting for
+    it. With a warm cache that build is 3 s.
 
-- [ ] **C6. Windows links with rust-lld.** `link.exe` links 106 test
+- [x] **C6. Windows links with rust-lld.** `link.exe` links 106 test
   binaries; LLD is usually several times faster at it. In the Windows
   test job only: `CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=rust-lld`.
   - *Measured by* the Windows job's compile time with and without it.
   - *Done when* kept if it saves a minute or more and every test passes;
     otherwise taken out again and its numbers written here.
+  - *Results.* Not kept. On a cold Windows runner (branch run
+    37892279254 against `main`'s 37887755617) the stretch after the
+    last crate, the test binaries' compile and link, took 237 s with
+    LLD and 279 to 291 s with `link.exe`: about 50 s saved, under the
+    minute asked, and on a job that no longer decides a run's length
+    (8 minutes warm, after C2 and C4). The change is the one line
+    above, set before the cache step on Windows only.
 
 ## 3. After those
 
