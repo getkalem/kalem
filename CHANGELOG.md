@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-09
+
 ### Added
 - A plugin's manifest may add buttons (`"buttons"`: a title, one of the plugin's commands, a when-clause on the document), beside the File Manager and Projects buttons on the window's toolbar and in the terminal's list of open files, where the when-clause holds; a plugin's button is pressed while one of its documents is shown. The git plugin's Git button opens its status, as `SPC g g` does, in a repository.
 
