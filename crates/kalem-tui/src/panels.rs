@@ -374,7 +374,7 @@ pub fn selected_style(caps: &Caps, base: Style) -> Style {
 
 /// Where each document is in the list of open files, and where the
 /// commands it offers are.
-pub type FileSpots = (Vec<(Rect, usize)>, Vec<(Rect, &'static str)>);
+pub type FileSpots = (Vec<(Rect, usize)>, Vec<(Rect, String)>);
 
 /// The folder tree the list of open files shows: its lines, the active
 /// document's file, and where each line is drawn (its row and index).
@@ -389,9 +389,10 @@ pub struct FolderView<'a> {
 }
 
 /// The list of open files: in a column on the left (`top` false) or on
-/// one line at the top, with the file manager and the projects. Returns
-/// where each document is (its row, or its columns at the top, and its
-/// index) and where the two commands are.
+/// one line at the top, with the file manager, the projects and the
+/// plugins' `buttons` (each a command and its title, the git plugin's
+/// Git). Returns where each document is (its row, or its columns at the
+/// top, and its index) and where the commands are.
 #[allow(clippy::too_many_arguments)]
 pub fn draw_files(
     buf: &mut Buffer,
@@ -401,8 +402,14 @@ pub fn draw_files(
     active: usize,
     top: bool,
     tree: &FolderView<'_>,
+    buttons: &[(String, String)],
     caps: &Caps,
 ) -> FileSpots {
+    let actions_shown: Vec<(String, String)> = ACTIONS
+        .iter()
+        .map(|(id, label)| (id.to_string(), kalem_core::l10n::tr(label)))
+        .chain(buttons.iter().cloned())
+        .collect();
     let bg = panel_style(caps);
     for y in area.top()..area.bottom() {
         for x in area.left()..area.right() {
@@ -450,18 +457,19 @@ pub fn draw_files(
                 }
             }
         }
-        // The file manager and the projects, at the right end.
+        // The file manager, the projects and the plugins' buttons, at
+        // the right end.
         let mut actions = Vec::new();
         let mut right = area.right().saturating_sub(1);
-        for (id, label) in ACTIONS.iter().rev() {
-            let label = format!(" {} ", kalem_core::l10n::tr(label));
+        for (id, label) in actions_shown.iter().rev() {
+            let label = format!(" {label} ");
             let w = label.width() as u16;
             if right < x + w {
                 break;
             }
             right -= w;
             buf.set_stringn(right, area.y, &label, w as usize, accent_style(caps, bg));
-            actions.push((Rect::new(right, area.y, w, 1), *id));
+            actions.push((Rect::new(right, area.y, w, 1), id.clone()));
             right = right.saturating_sub(1);
         }
         return (spots, actions);
@@ -514,7 +522,7 @@ pub fn draw_files(
         y += 1;
     }
     // The project's folder tree, below the files, above the actions.
-    let bottom = area.bottom().saturating_sub(ACTIONS.len() as u16 + 1);
+    let bottom = area.bottom().saturating_sub(actions_shown.len() as u16 + 1);
     if !tree.rows.is_empty() && y + 2 < bottom {
         y += 1;
         buf.set_stringn(
@@ -567,22 +575,25 @@ pub fn draw_files(
             y += 1;
         }
     }
-    // The file manager and the projects, at the bottom.
+    // The file manager, the projects and the plugins' buttons, at the
+    // bottom.
     let mut actions = Vec::new();
     let glyph = if caps.ascii { ">" } else { "▸" };
-    for (i, (id, label)) in ACTIONS.iter().enumerate() {
-        let row = area.bottom().saturating_sub((ACTIONS.len() - i) as u16);
+    for (i, (id, label)) in actions_shown.iter().enumerate() {
+        let row = area
+            .bottom()
+            .saturating_sub((actions_shown.len() - i) as u16);
         if row <= y || row >= area.bottom() {
             continue;
         }
         buf.set_stringn(
             area.x + 1,
             row,
-            format!("{glyph} {}", kalem_core::l10n::tr(label)),
+            format!("{glyph} {label}"),
             w.saturating_sub(1) as usize,
             accent_style(caps, bg),
         );
-        actions.push((Rect::new(area.x, row, w, 1), *id));
+        actions.push((Rect::new(area.x, row, w, 1), id.clone()));
     }
     // A thin border on the right.
     let bar = if caps.ascii { "|" } else { "│" };

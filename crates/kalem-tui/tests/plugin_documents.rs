@@ -344,3 +344,85 @@ fn a_diffs_lines_have_backgrounds() {
     assert_ne!(bg_at("+here"), bg_at("-gone"), "added and removed differ");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A plugin's button (the git plugin's Git) stands beside the file
+/// manager and the projects in the list of open files, at the top or on
+/// the left, for a document whose folder is under its version control and
+/// not for another; a click runs the plugin's command.
+#[test]
+fn a_plugins_button_shows_in_a_repository() {
+    use crossterm::event::{Event, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+    use kalem_core::command::{Command, CommandHandler, CommandSource, Scope};
+    use kalem_core::settings::Layer;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static RAN: AtomicUsize = AtomicUsize::new(0);
+    let _serial = one_at_a_time();
+    let dir = std::env::temp_dir().join(format!("kalem-tui-gitbutton-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("repo/.git")).unwrap();
+    std::fs::create_dir_all(dir.join("plain")).unwrap();
+    for f in ["repo/a.txt", "repo/b.txt", "plain/c.txt"] {
+        std::fs::write(dir.join(f), "x\n").unwrap();
+    }
+    x::add_command(Command {
+        id: "gitbutton.status".into(),
+        title: "Gitbutton: Status".into(),
+        category: "Gitbutton".into(),
+        default_keys: Vec::new(),
+        when: None,
+        handler: CommandHandler::Native(|_, _| {
+            RAN.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }),
+        args_schema: None,
+        source: CommandSource::Plugin("gitbutton".into()),
+        scope: Some(Scope::all()),
+    })
+    .unwrap();
+    x::add_button(x::PluginButton {
+        plugin: "gitbutton".into(),
+        title: "Gitbutton".into(),
+        command: "gitbutton.status".into(),
+        when: Some(kalem_core::when::WhenClause::parse("vcs == git").unwrap()),
+    });
+    // Where the button's title is drawn.
+    let find = |buf: &ratatui::buffer::Buffer| {
+        (0..buf.area.height).find_map(|y| {
+            let row: Vec<&str> = (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect();
+            let row = row.concat();
+            row.find("Gitbutton")
+                .map(|i| (row[..i].chars().count() as u16, y))
+        })
+    };
+    for at in ["top", "left"] {
+        let config =
+            Config::from_layers(&[(Layer::User, None, &format!("ui.open_files = \"{at}\"\n"))]);
+        let mut app = App::with_keymap(
+            Some(&dir.join("repo/a.txt")),
+            config,
+            Caps::full(),
+            &[],
+            Vec::new(),
+        )
+        .unwrap();
+        app.open_path(&dir.join("repo/b.txt"), None);
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(80, 12)).unwrap();
+        let mut draw = |app: &mut App| term.draw(|f| app.draw(f)).unwrap().buffer.clone();
+        let Some((column, row)) = find(&draw(&mut app)) else {
+            panic!("no button {at}");
+        };
+        let ran = RAN.load(Ordering::SeqCst);
+        app.event(Event::Mouse(MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column,
+            row,
+            modifiers: KeyModifiers::NONE,
+        }));
+        assert_eq!(RAN.load(Ordering::SeqCst), ran + 1, "{at}");
+        app.open_path(&dir.join("plain/c.txt"), None);
+        assert_eq!(find(&draw(&mut app)), None, "{at}");
+    }
+    x::remove_buttons("gitbutton");
+    x::remove_command("gitbutton.status");
+    let _ = std::fs::remove_dir_all(&dir);
+}

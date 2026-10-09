@@ -565,6 +565,8 @@ struct Loaded {
     failed: bool,
     /// The menus its manifest adds to the menu bar, once it runs.
     menus: Vec<kalem_core::extensions::PluginMenu>,
+    /// The buttons its manifest adds to the toolbar, once it runs.
+    buttons: Vec<kalem_core::extensions::PluginButton>,
 }
 
 /// A manifest's `menus` for plugin `id` (its short ID): each a title, a
@@ -598,6 +600,36 @@ fn manifest_menus(id: &str, m: &serde_json::Value) -> Vec<kalem_core::extensions
                 title,
                 when,
                 items,
+            })
+        })
+        .collect()
+}
+
+/// A manifest's `buttons` for plugin `id` (its short ID): each a title,
+/// one of the plugin's own commands and a when-clause on the document
+/// (`vcs == git`). A button whose when-clause does not parse, or whose
+/// command is another's, is left out.
+fn manifest_buttons(id: &str, m: &serde_json::Value) -> Vec<kalem_core::extensions::PluginButton> {
+    let own = format!("{id}.");
+    m["buttons"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|button| {
+            let title = button["title"].as_str()?.trim().to_string();
+            let command = button["command"].as_str()?.to_string();
+            if title.is_empty() || !command.starts_with(&own) {
+                return None;
+            }
+            let when = match button["when"].as_str() {
+                Some(w) => Some(WhenClause::parse(w).ok()?),
+                None => None,
+            };
+            Some(kalem_core::extensions::PluginButton {
+                plugin: id.to_string(),
+                title,
+                command,
+                when,
             })
         })
         .collect()
@@ -640,6 +672,9 @@ impl Plugins {
                 for m in l.menus.clone() {
                     kalem_core::extensions::add_menu(m);
                 }
+                for b in l.buttons.clone() {
+                    kalem_core::extensions::add_button(b);
+                }
             }
             Err(e) => {
                 l.failed = true;
@@ -659,6 +694,7 @@ impl Plugins {
         kalem_core::extensions::close_plugin_documents(&l.id);
         kalem_core::extensions::clear_gutter(&l.id, None);
         kalem_core::extensions::remove_menus(&l.id);
+        kalem_core::extensions::remove_buttons(&l.id);
         kalem_core::jobs::notice(format!("The plugin {} was stopped: {error}", l.id), true);
     }
 }
@@ -998,6 +1034,7 @@ fn installed() -> Vec<Loaded> {
         let id = p.id.rsplit('.').next().unwrap_or(&p.id).to_string();
         list.push(Loaded {
             menus: manifest_menus(&id, &m),
+            buttons: manifest_buttons(&id, &m),
             id,
             full: p.id.clone(),
             grants: x::Grants::from_permissions(&strings(&m["permissions"])),
@@ -1065,5 +1102,30 @@ mod tests {
             ("Always", true)
         );
         assert!(super::manifest_menus("git", &serde_json::json!({})).is_empty());
+    }
+
+    #[test]
+    fn a_manifests_buttons_run_the_plugins_own_commands() {
+        let m: serde_json::Value = serde_json::from_str(
+            r#"{"buttons": [
+                {"title": "Git", "command": "git.status", "when": "vcs == git"},
+                {"title": "Save", "command": "file.save"},
+                {"title": "Broken", "command": "git.status", "when": "vcs =="},
+                {"title": " ", "command": "git.status"},
+                {"title": "No command"},
+                {"title": "Fetch", "command": "git.fetch"}
+            ]}"#,
+        )
+        .unwrap();
+        let buttons = super::manifest_buttons("git", &m);
+        let shown: Vec<_> = buttons
+            .iter()
+            .map(|b| (b.title.as_str(), b.command.as_str(), b.when.is_some()))
+            .collect();
+        assert_eq!(
+            shown,
+            [("Git", "git.status", true), ("Fetch", "git.fetch", false)]
+        );
+        assert!(super::manifest_buttons("git", &serde_json::json!({})).is_empty());
     }
 }

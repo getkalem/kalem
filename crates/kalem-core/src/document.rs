@@ -2553,9 +2553,19 @@ impl DocumentState {
     }
 
     /// The version control holding its file (`git`), or its listing's
-    /// folder ([`crate::files::vcs_of`]); found once for its path.
+    /// folder ([`crate::files::vcs_of`]); without a file (a new document,
+    /// a plugin's), the first project's folder's, where a plugin's
+    /// programs run for it ([`crate::projects::first_root`]). Found once
+    /// for each folder.
     pub fn vcs(&self) -> Option<&'static str> {
-        let path = self.meta.path.as_deref()?;
+        let project;
+        let path = match self.meta.path.as_deref() {
+            Some(p) => p,
+            None => {
+                project = crate::projects::first_root()?;
+                project.as_path()
+            }
+        };
         let mut cache = self.vcs.borrow_mut();
         if let Some((p, v)) = cache.as_ref()
             && p == path

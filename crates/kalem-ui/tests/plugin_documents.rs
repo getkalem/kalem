@@ -301,3 +301,70 @@ fn a_plugins_menu_shows_in_a_repository() {
     x::remove_command("gitmenu.status");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A plugin's button (the git plugin's Git) stands in the toolbar for a
+/// document whose folder is under its version control, not for another,
+/// and runs the plugin's command.
+#[gpui::test]
+fn a_plugins_button_shows_in_a_repository(cx: &mut TestAppContext) {
+    use kalem_core::command::{Command, CommandHandler, CommandSource, Scope};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static RAN: AtomicUsize = AtomicUsize::new(0);
+    let dir = std::env::temp_dir().join(format!("kalem-ui-gitbutton-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("repo/.git")).unwrap();
+    std::fs::create_dir_all(dir.join("plain")).unwrap();
+    std::fs::write(dir.join("repo/a.txt"), "a\n").unwrap();
+    std::fs::write(dir.join("plain/b.txt"), "b\n").unwrap();
+    let settings = dir.join("settings.toml");
+    std::fs::write(&settings, "[ui]\nlanguage = \"en\"\n").unwrap();
+    x::add_command(Command {
+        id: "gitbutton.status".into(),
+        title: "Gitbutton: Status".into(),
+        category: "Gitbutton".into(),
+        default_keys: Vec::new(),
+        when: None,
+        handler: CommandHandler::Native(|_, _| {
+            RAN.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }),
+        args_schema: None,
+        source: CommandSource::Plugin("gitbutton".into()),
+        scope: Some(Scope::all()),
+    })
+    .unwrap();
+    x::add_button(x::PluginButton {
+        plugin: "gitbutton".into(),
+        title: "Gitbutton".into(),
+        command: "gitbutton.status".into(),
+        when: Some(kalem_core::when::WhenClause::parse("vcs == git").unwrap()),
+    });
+    let shared = || {
+        let mut shared = kalem_ui::shared_in(Config::default(), Some(settings.clone()));
+        shared.html_clipboard = || None;
+        shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
+            dir.join("projects.toml"),
+        )));
+        Rc::new(shared)
+    };
+    for (file, shows) in [("plain/b.txt", false), ("repo/a.txt", true)] {
+        let path = dir.join(file);
+        let shared = shared();
+        let (_ws, cx) = cx.add_window_view(|window, cx| {
+            let e = kalem_ui::editor::open(Some(&path), shared, Theme::light(), cx).unwrap();
+            window.focus(&gpui::Focusable::focus_handle(e.read(cx), cx), cx);
+            Workspace::new(e, window, cx)
+        });
+        cx.run_until_parked();
+        let button = cx.debug_bounds("tool-gitbutton.status");
+        assert_eq!(button.is_some(), shows, "{file}");
+        if let Some(b) = button {
+            cx.simulate_click(b.center(), gpui::Modifiers::default());
+            cx.run_until_parked();
+            assert_eq!(RAN.load(Ordering::SeqCst), 1);
+        }
+    }
+    x::remove_buttons("gitbutton");
+    x::remove_command("gitbutton.status");
+    let _ = std::fs::remove_dir_all(&dir);
+}

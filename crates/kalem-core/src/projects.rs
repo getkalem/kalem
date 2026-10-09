@@ -27,6 +27,41 @@ pub fn current_name(path: &Path) -> Option<String> {
         .map(|p| p.name.clone())
 }
 
+/// The folder of the first project of the saved list: where a plugin's
+/// program runs when it names no folder, and so the folder a document
+/// without a file is in (its version control, `vcs`). The list is read
+/// again only when its file changed.
+pub fn first_root() -> Option<PathBuf> {
+    first_root_in(&list_file()?)
+}
+
+fn first_root_in(file: &Path) -> Option<PathBuf> {
+    // The file, its time and size when read, and its first project.
+    type Read = (
+        PathBuf,
+        Option<(std::time::SystemTime, u64)>,
+        Option<PathBuf>,
+    );
+    static READ: std::sync::Mutex<Option<Read>> = std::sync::Mutex::new(None);
+    let stamp = std::fs::metadata(file)
+        .ok()
+        .and_then(|m| Some((m.modified().ok()?, m.len())));
+    let mut read = READ.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((f, s, root)) = read.as_ref()
+        && f == file
+        && *s == stamp
+    {
+        return root.clone();
+    }
+    let root = Projects::load(Some(file.to_path_buf()))
+        .list
+        .into_iter()
+        .next()
+        .map(|p| p.root);
+    *read = Some((file.to_path_buf(), stamp, root.clone()));
+    root
+}
+
 /// The project list and the files of the projects in use.
 #[derive(Debug, Default)]
 pub struct ProjectState {
@@ -880,6 +915,27 @@ mod tests {
         assert!(state.visited(&root));
         // A new session (the list loaded again) starts with none.
         assert!(!ProjectState::load(None).visited(&root));
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn the_first_project_read_again_when_the_list_changed() {
+        let base = std::env::temp_dir().join(format!("kalem-core-first-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        for d in ["a", "bb"] {
+            std::fs::create_dir_all(base.join(d)).unwrap();
+        }
+        let base = kalem_project::list::normal(&base);
+        let file = base.join("projects.toml");
+        assert_eq!(first_root_in(&file), None);
+        let mut list = Projects::load(Some(file.clone()));
+        list.add(&base.join("a")).unwrap();
+        list.save().unwrap();
+        assert_eq!(first_root_in(&file), Some(base.join("a")));
+        list.list.clear();
+        list.add(&base.join("bb")).unwrap();
+        list.save().unwrap();
+        assert_eq!(first_root_in(&file), Some(base.join("bb")));
         std::fs::remove_dir_all(&base).unwrap();
     }
 

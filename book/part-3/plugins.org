@@ -376,13 +376,29 @@ the plugin's own commands (titled without their category's prefix) and
 =-= between groups. The when-clause sees the document's keys
 (=editorMode=, =textType=, =fileKind=, =editorLanguage=) and =vcs=, the
 version control holding the file (=git=, =hg=, =jj=, =svn=…, by the
-nearest folder above it with its marker), so that the git plugin's Git
-menu shows in a repository only:
+nearest folder above it with its marker), or for a document without a
+file (a new one, a plugin's) the first project's folder, where the
+plugin's programs run for it; so the git plugin's Git menu shows in a
+repository only:
 
 #+begin_src json
 "menus": [
   { "title": "Git", "when": "vcs == git || textType == git-status",
     "items": ["git.status", "-", "git.commit", "git.push", "git.pull"] }
+]
+#+end_src
+
+A manifest may add buttons too, under ="buttons"=: each a title, one of
+the plugin's own commands and a when-clause as a menu's. Where the
+clause holds, a button stands beside the /File Manager/ and /Projects/
+buttons, on the window's toolbar and in the terminal's list of open
+files, and it is pressed while one of the plugin's documents is shown.
+The git plugin's /Git/ opens its status, as =SPC g g= does:
+
+#+begin_src json
+"buttons": [
+  { "title": "Git", "command": "git.status",
+    "when": "vcs == git || textType == git-status" }
 ]
 #+end_src
 

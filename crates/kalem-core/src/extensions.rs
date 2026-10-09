@@ -398,6 +398,8 @@ struct State {
     requests: Vec<crate::command::Request>,
     /// The menus plugins add to the menu bar.
     menus: Vec<PluginMenu>,
+    /// The buttons plugins add to the toolbar.
+    buttons: Vec<PluginButton>,
 }
 
 /// A menu a plugin adds to the menu bar, from its manifest's `menus`.
@@ -430,6 +432,44 @@ pub fn menus() -> Vec<PluginMenu> {
     state().menus.clone()
 }
 
+/// A button a plugin adds to the toolbar, from its manifest's `buttons`:
+/// one of its commands, a click away.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PluginButton {
+    /// The plugin, by its short ID.
+    pub plugin: String,
+    /// The button's title (`Git`).
+    pub title: String,
+    /// The command it runs, the plugin's own (`git.status`).
+    pub command: String,
+    /// Where it shows: a when-clause on the document (`vcs == git`).
+    pub when: Option<WhenClause>,
+}
+
+impl PluginButton {
+    /// Whether it shows for a document of context `ctx`.
+    pub fn shows(&self, ctx: &crate::when::Context) -> bool {
+        self.when.as_ref().is_none_or(|w| w.eval(ctx))
+    }
+}
+
+/// Adds plugin button `button`, after the plugin's earlier ones.
+pub fn add_button(button: PluginButton) {
+    state().buttons.push(button);
+    changed();
+}
+
+/// Takes plugin `plugin`'s buttons away.
+pub fn remove_buttons(plugin: &str) {
+    state().buttons.retain(|b| b.plugin != plugin);
+    changed();
+}
+
+/// The buttons plugins add, in the order they were added.
+pub fn buttons() -> Vec<PluginButton> {
+    state().buttons.clone()
+}
+
 /// A plugin command's title in its menu: without its category's prefix
 /// (`Git: Commit` is `Commit` in the Git menu).
 pub fn menu_label(id: &str) -> String {
@@ -454,6 +494,7 @@ static STATE: Mutex<State> = Mutex::new(State {
     panels: BTreeMap::new(),
     requests: Vec::new(),
     menus: Vec::new(),
+    buttons: Vec::new(),
 });
 
 fn queue_request(r: crate::command::Request) {

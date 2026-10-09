@@ -264,8 +264,9 @@ pub struct App {
     /// Where each document is in the list of open files, as drawn.
     file_spots: Vec<(Rect, usize)>,
     /// Places that run a command when clicked (the file manager and the
-    /// projects in the list of open files, the hint in the status line).
-    action_spots: Vec<(Rect, &'static str)>,
+    /// projects and the plugins' buttons in the list of open files, the
+    /// hint in the status line).
+    action_spots: Vec<(Rect, String)>,
     /// The folder tree's lines as last drawn, and where each is.
     tree_rows: Vec<projects::TreeRow>,
     tree_spots: Vec<(Rect, usize)>,
@@ -3328,12 +3329,13 @@ impl App {
             self.focus_pane(p);
         }
         if let MouseEventKind::Down(MouseButton::Left) = m.kind
-            && let Some(&(_, id)) = self
+            && let Some((_, id)) = self
                 .action_spots
                 .iter()
                 .find(|(r, _)| r.contains(ratatui::layout::Position::new(m.column, m.row)))
+                .cloned()
         {
-            self.run_command(id, Value::Null);
+            self.run_command(&id, Value::Null);
             return;
         }
         if let MouseEventKind::Down(MouseButton::Left) = m.kind
@@ -5700,6 +5702,14 @@ impl App {
                 current: self.doc.meta.path.as_deref(),
                 spots: Default::default(),
             };
+            // The plugins' buttons where their when-clauses hold (the git
+            // plugin's Git in a repository).
+            let ctx = self.doc.document_context();
+            let buttons: Vec<(String, String)> = kalem_core::extensions::buttons()
+                .into_iter()
+                .filter(|b| b.shows(&ctx) && self.registry.offered(&b.command, &ctx))
+                .map(|b| (b.command, b.title))
+                .collect();
             if self.files_at == FilesAt::Top {
                 let line = Rect {
                     height: 1,
@@ -5713,6 +5723,7 @@ impl App {
                     self.active,
                     true,
                     &tree,
+                    &buttons,
                     &self.caps,
                 );
                 text_area.y += 1;
@@ -5731,6 +5742,7 @@ impl App {
                     self.active,
                     false,
                     &tree,
+                    &buttons,
                     &self.caps,
                 );
                 self.tree_spots = tree.spots.take();
@@ -6195,10 +6207,10 @@ impl App {
                 let room = line.right() - mx;
                 let fw = files_w.min(room);
                 self.action_spots
-                    .push((Rect::new(mx, y, fw, 1), "dired.jump"));
+                    .push((Rect::new(mx, y, fw, 1), "dired.jump".into()));
                 self.action_spots.push((
                     Rect::new(mx + fw, y, w.min(room).saturating_sub(fw), 1),
-                    "view.palette",
+                    "view.palette".into(),
                 ));
             }
         }

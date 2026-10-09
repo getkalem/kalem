@@ -153,6 +153,7 @@ and a string compare equal when the string reads as that number.
 | =editorMode=     | =org=, =markdown=, =csv=, =latex=, =text=, =binary=, =directory=                                                                     | document    |
 | =fileKind=       | =org=; only in Org documents                                                                                                         | document    |
 | =editorLanguage= | A plain text file's language, as detected (=rs=, =python=)                                                                           | document    |
+| =vcs=            | The version control holding the document's file (=git=, =hg=, =jj=, =svn=…); without a file, the first project's folder's            | document    |
 | =textType=       | The text type at the cursor (see [[*Text types][Text types]])                                                                                         | cursor      |
 | =hasSelection=   | Text is selected                                                                                                                     | cursor      |
 | =hasComments=    | The text has a comment syntax (Toggle Comment); not in a viewer or the file manager                                                  | document    |
@@ -183,9 +184,9 @@ parsed again. Keys the design names for later, such as =readOnly= or
 A command is offered only where it can work: a menu item, toolbar
 button or palette entry whose command cannot run in the document is
 not shown, not merely greyed out. Menus and toolbars ask with the
-document's keys alone (=editorMode=, =fileKind=, =editorLanguage=, and
-=textType= set to the document's own type, not the type at the
-cursor), and keep a command whose clause /could/ hold with those keys:
+document's keys alone (=editorMode=, =fileKind=, =editorLanguage=,
+=vcs=, and =textType= set to the document's own type, not the type at
+the cursor), and keep a command whose clause /could/ hold with those keys:
 ~editorMode == org && onHeadline~ stays in an Org document's menus and
 leaves a LaTeX document's. So menus do not change as the cursor
 moves. The palette evaluates the whole clause at the cursor.

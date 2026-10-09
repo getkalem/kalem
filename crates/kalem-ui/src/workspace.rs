@@ -1907,23 +1907,46 @@ impl Workspace {
             .map(|d| d.place == kalem_core::dired::Place::Projects);
         bar = bar
             .child(self.command_button(
-                "tool-files",
+                "tool-files".into(),
                 kalem_core::l10n::tr("menu-file-manager").into(),
-                "dired.jump",
-                r#"{"show":true}"#,
+                "dired.jump".into(),
+                serde_json::json!({ "show": true }),
                 place == Some(false),
                 cx,
             ))
             .child(self.command_button(
-                "tool-projects",
+                "tool-projects".into(),
                 kalem_core::l10n::tr("menu-projects-view").into(),
-                "dired.projects",
-                r#"{"show":true}"#,
+                "dired.projects".into(),
+                serde_json::json!({ "show": true }),
                 place == Some(true),
                 cx,
-            ))
-            .child(div().w(px(1.)).h(px(18.)).mx(px(4.)).bg(theme.border));
+            ));
+        // The plugins' buttons where their when-clauses hold (the git
+        // plugin's Git in a repository), beside them; pressed while one
+        // of the plugin's documents is shown.
         let doc = self.editor.read(cx).doc.document_context();
+        let shown = self
+            .editor
+            .read(cx)
+            .doc
+            .generated
+            .as_ref()
+            .map(|g| g.plugin.clone());
+        for b in kalem_core::extensions::buttons() {
+            if b.shows(&doc) && self.shared.registry.offered(&b.command, &doc) {
+                let pressed = shown.as_deref() == Some(b.plugin.as_str());
+                bar = bar.child(self.command_button(
+                    format!("tool-{}", b.command).into(),
+                    b.title.into(),
+                    b.command.into(),
+                    serde_json::Value::Null,
+                    pressed,
+                    cx,
+                ));
+            }
+        }
+        bar = bar.child(div().w(px(1.)).h(px(18.)).mx(px(4.)).bg(theme.border));
         let mode = self.editor.read(cx).doc.meta.mode.name();
         for (i, (label, _tip, id, args, not_in)) in TOOLBAR.iter().enumerate() {
             // Only the buttons whose command the document offers.
@@ -1975,15 +1998,15 @@ impl Workspace {
     /// `pressed`.
     fn command_button(
         &self,
-        name: &'static str,
+        name: SharedString,
         label: SharedString,
-        id: &'static str,
-        args: &'static str,
+        id: SharedString,
+        args: serde_json::Value,
         pressed: bool,
         cx: &mut Context<'_, Self>,
     ) -> impl IntoElement {
         div()
-            .id(name)
+            .id(name.clone())
             .debug_selector(move || name.to_string())
             .px(px(6.))
             .py(px(2.))
@@ -1993,8 +2016,7 @@ impl Workspace {
             .hover(|s| s.bg(gpui::hsla(0., 0., 0.5, 0.15)))
             .child(label)
             .on_click(cx.listener(move |ws, _, window, cx| {
-                let args = serde_json::from_str(args).unwrap_or(serde_json::Value::Null);
-                ws.run_active(id, args, window, cx);
+                ws.run_active(&id, args.clone(), window, cx);
             }))
     }
 

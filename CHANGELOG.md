@@ -6,7 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- A plugin's manifest may add buttons (`"buttons"`: a title, one of the plugin's commands, a when-clause on the document), beside the File Manager and Projects buttons on the window's toolbar and in the terminal's list of open files, where the when-clause holds; a plugin's button is pressed while one of its documents is shown. The git plugin's Git button opens its status, as `SPC g g` does, in a repository.
+
 ### Changed
+- The `vcs` when-clause key of a document without a file (a new document, a plugin's document, the projects view) is the first project's folder's, where a plugin's programs run for it: the git plugin's Git menu and button show there when that folder is a repository.
 - A link in a PDF that leaves the document (a web address, a file, another program) asks before it opens outside Kalem, showing where it goes: a click no longer starts a program at once.
 
 ### Fixed
