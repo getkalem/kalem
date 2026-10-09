@@ -632,6 +632,42 @@ impl Editor {
         Some((first, last.clamp(first, self.visible.len() - 1)))
     }
 
+    /// Whether `line` was wholly in the window by the last frame: painted
+    /// inside the list's viewport, cut by neither edge nor by a CSV grid's
+    /// pinned header row. By what was painted rather than by the list's
+    /// own bounds: `sync_pane` marks the cursor's lines for measuring
+    /// again, and the list then knows no bounds for them until the next
+    /// layout.
+    fn line_shown(&self, line: usize) -> bool {
+        let view = self.list.viewport_bounds();
+        let painted = self.painted.borrow();
+        let Some(p) = painted.get(&line) else {
+            return false;
+        };
+        let mut top = view.top();
+        if self.doc.meta.mode == DocumentMode::Csv && !self.source {
+            // The header row, pinned, is painted over the rows under it.
+            let header = self.csv_header_lines();
+            if !header.contains(&line)
+                && let Some(h) = painted.get(header.end())
+            {
+                top = top.max(h.bounds.bottom());
+            }
+        }
+        p.bounds.top() >= top - px(0.5) && p.bounds.bottom() <= view.bottom() + px(0.5)
+    }
+
+    /// Whether `line` lies below every line the last frame painted: the
+    /// window has to move to show it, and the list may know no heights on
+    /// the way.
+    fn line_beyond_painted(&self, line: usize) -> bool {
+        self.painted
+            .borrow()
+            .keys()
+            .max()
+            .is_none_or(|&last| line > last)
+    }
+
     /// After a wheel scroll: the cursor goes to the first line wholly in
     /// view, whichever way the text scrolled (asked by the owner: when
     /// scrolling up it stayed at the bottom of the window). Its column is
@@ -1090,11 +1126,18 @@ impl Editor {
         self.sync_list(&changes);
         let line = self.doc.text().line_of(self.doc.selection.head);
         if let Some(i) = self.item_of(line) {
-            // Far below what is laid out (Page Down): the list knows no
-            // heights there, so it goes to about the right place by the
-            // lines' usual height, and the next frames reveal it exactly.
             let top = self.list.logical_scroll_top().item_ix;
-            if i > top && self.list.bounds_for_item(i).is_none() {
+            if self.line_shown(line) {
+                // Wholly in the window by the last frame: the window stays
+                // where it is and the cursor moves in it (asked by the
+                // owner, 2026-10-09: going up from the end of a long file,
+                // the text scrolled under a cursor stuck on the bottom row,
+                // since the list, asked to measure the line again, had no
+                // bounds for it and it counted as far away).
+            } else if i > top && self.line_beyond_painted(line) {
+                // Far below what is laid out (Page Down): the list knows no
+                // heights there, so it goes to about the right place by the
+                // lines' usual height, and the next frames reveal it exactly.
                 let rows = (f32::from(self.list.viewport_bounds().size.height)
                     / f32::from(LINE_HINT)) as usize;
                 self.list.scroll_to(gpui::ListOffset {
@@ -4547,11 +4590,13 @@ impl gpui::Render for Editor {
             self.follow_scroll_now(cx);
         }
         // The cursor revealed once more, the lines around it measured by
-        // the last frame's layout.
+        // the last frame's layout, unless that frame showed it whole.
         if let Some((line, frames)) = self.reveal_again.take()
             && let Some(i) = self.item_of(line)
         {
-            self.reveal_item(i);
+            if !self.line_shown(line) {
+                self.reveal_item(i);
+            }
             if frames > 1 {
                 self.reveal_again = Some((line, frames - 1));
                 cx.notify();

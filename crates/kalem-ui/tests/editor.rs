@@ -4803,6 +4803,124 @@ fn the_cursor_follows_the_scroll(cx: &mut TestAppContext) {
     assert_eq!(from_end, top_line(cx));
 }
 
+/// Arrows move the cursor, not the text (asked by the owner, 2026-10-09:
+/// going up from the end of a long file, the text scrolled under a cursor
+/// stuck on the bottom row until the file's start was reached): the
+/// window stays where it is while the cursor is in it and scrolls by one
+/// line when the cursor leaves it; typing and Enter in the middle leave
+/// it where it is too.
+#[gpui::test]
+fn arrows_move_the_cursor_and_not_the_window(cx: &mut TestAppContext) {
+    let text: String = (0..400).map(|i| format!("line {i}\n")).collect();
+    let (e, cx) = open(&text, cx);
+    let line = |cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| e.doc.text().line_of(e.doc.selection.head))
+    };
+    // The window: its top line and how far into that line it is scrolled.
+    let window = |cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| {
+            let top = e.list.logical_scroll_top();
+            (e.visible[top.item_ix], top.offset_in_item)
+        })
+    };
+    // Whether the cursor's line is painted whole inside the window.
+    let shown = |cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| {
+            let line = e.doc.text().line_of(e.doc.selection.head);
+            let view = e.list.viewport_bounds();
+            e.painted.borrow().get(&line).is_some_and(|p| {
+                p.bounds.top() >= view.top() - gpui::px(0.5)
+                    && p.bounds.bottom() <= view.bottom() + gpui::px(0.5)
+            })
+        })
+    };
+    // A jump far away shows the cursor over two frames (the second
+    // measures the lines the first laid out); the test platform draws
+    // the frame a draw asks for only when nudged.
+    let settle = |cx: &mut VisualTestContext| {
+        for _ in 0..2 {
+            e.update(cx, |_, cx| cx.notify());
+            cx.run_until_parked();
+        }
+    };
+    at(&e, text.len(), cx);
+    settle(cx);
+    assert_eq!(line(cx), 400);
+    assert!(shown(cx), "the end is not shown");
+    let end = window(cx);
+    // The first line shown whole: the top line, unless it is cut.
+    let first = end.0 + usize::from(end.1 > gpui::px(0.));
+    // Up from the end: the window stays, the cursor climbs its rows.
+    let mut rows = 0;
+    while line(cx) > first {
+        let before = line(cx);
+        cx.simulate_keystrokes("up");
+        cx.run_until_parked();
+        rows += 1;
+        assert_eq!(line(cx), before - 1, "up {rows}");
+        assert_eq!(window(cx), end, "up {rows}: the window moved");
+        assert!(shown(cx), "up {rows}: the cursor's line is cut");
+    }
+    assert!(rows > 10, "{rows} rows in the window");
+    // One more: the window scrolls by one line, the cursor on its top row.
+    cx.simulate_keystrokes("up");
+    cx.run_until_parked();
+    assert_eq!(line(cx), first - 1);
+    assert_eq!(window(cx), (first - 1, gpui::px(0.)));
+    assert!(shown(cx));
+    // Down from the start: the window stays until the cursor leaves it
+    // below, then scrolls a line a key, never more.
+    at(&e, 0, cx);
+    settle(cx);
+    let top = window(cx);
+    assert_eq!(top, (0, gpui::px(0.)));
+    for k in 1..=rows {
+        cx.simulate_keystrokes("down");
+        cx.run_until_parked();
+        assert_eq!(line(cx), k, "down {k}");
+        assert_eq!(window(cx), top, "down {k}: the window moved");
+        assert!(shown(cx), "down {k}: the cursor's line is cut");
+    }
+    for k in 1..=5 {
+        let before = window(cx);
+        cx.simulate_keystrokes("down");
+        cx.run_until_parked();
+        let after = window(cx);
+        assert!(
+            (before.0..=before.0 + 1).contains(&after.0),
+            "down past the window {k}: {before:?} to {after:?}"
+        );
+        assert!(
+            shown(cx),
+            "down past the window {k}: the cursor's line is cut"
+        );
+    }
+    let scrolled = window(cx);
+    assert!(
+        (3..=5).contains(&scrolled.0),
+        "the window scrolled from {top:?} to {scrolled:?}"
+    );
+    // In the middle: typing and a new line leave the window where it is.
+    cx.simulate_keystrokes("up up up up");
+    cx.run_until_parked();
+    assert_eq!(window(cx), scrolled);
+    cx.simulate_input("x");
+    cx.run_until_parked();
+    assert_eq!(window(cx), scrolled, "typing moved the window");
+    assert!(shown(cx));
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    assert_eq!(window(cx), scrolled, "a new line moved the window");
+    assert!(shown(cx));
+    // Page Down still goes far: the cursor shown on a line well below.
+    let before = line(cx);
+    cx.simulate_keystrokes("pagedown");
+    cx.run_until_parked();
+    settle(cx);
+    assert!(line(cx) > before + 5, "pagedown: {before} to {}", line(cx));
+    assert!(shown(cx), "pagedown: the cursor's line is not shown");
+}
+
 /// The column bars of a CSV grid's rows, by their resize handles: the
 /// right edge of each column, in window coordinates.
 fn csv_edges(columns: usize, cx: &mut VisualTestContext) -> Vec<gpui::Pixels> {
