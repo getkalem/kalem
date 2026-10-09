@@ -50,5 +50,7 @@ category. [[file:../part-3/word-documents.org][Word documents]] has the details.
 
 A viewer that fails, runs past its time or out of its memory stops: the
 editor closes its document at once and says why, and goes on. A viewer
-that stops three times is turned off until it is updated;
-=kalem plugin enable ID= turns it on again.
+that stops three times is turned off until it is updated, and a newer
+copy installed opens its files in its place, even one installed while
+Kalem runs: no restart is needed. =kalem plugin enable ID= turns it on
+again.

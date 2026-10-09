@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- A viewer turned off after stopping three times gave way to nothing until Kalem was started again: a newer copy of the plugin installed meanwhile (the workbook plugin's, say) opened no file, and every workbook said there was no workbook viewer. The viewers are now chosen again while Kalem runs: at the third stop the files go at once to a newer copy installed, else to the copy built in, else to the native viewer; a viewer installed, updated or removed from the plugin list or with `kalem plugin install` in a terminal, and `kalem plugin enable`, take effect within a second or two, and the status bar says which copy opens the files now. At startup a copy turned off is mentioned only when nothing opens its files in its place.
+
 ### Added
 - Edit Comment (Review): in a document of flowing text, changes the text of the comment at the cursor; the palette starts with its text, a paragraph a line (shown as ↵). It goes through the `annotations` interface's `set-text`, which the docx plugin writes as Word does.
 

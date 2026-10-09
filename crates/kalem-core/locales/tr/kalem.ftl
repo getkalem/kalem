@@ -1648,6 +1648,7 @@ plugin-turned-off = { $plugin } { $version } { $count } kez durdu ve güncellene
 plugin-turned-off-short = kapalı: { $count } kez durdu (kalem plugin enable { $id })
 plugin-enabled = { $id } yeniden açık
 plugin-not-turned-off = { $id } kapatılmamıştı
+plugin-now-used = { $plugin } { $version } artık dosyalarını açıyor
 plugin-api-mismatch = { $name } { $version } eklenti API'si { $api } için derlenmiş, bu Kalem'inki { $ours }: eklentiyi güncelleyin (o zamana dek dosyalarını Kalem'e yerleşik olan açar)
 plugin-update = { $name } eklentisini güncelle
 plugin-from-short = kaynak: { $source }

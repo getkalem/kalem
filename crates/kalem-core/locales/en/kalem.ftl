@@ -1739,6 +1739,7 @@ plugin-turned-off = { $plugin } { $version } stopped { $count } times and is tur
 plugin-turned-off-short = turned off: stopped { $count } times (kalem plugin enable { $id })
 plugin-enabled = { $id } is on again
 plugin-not-turned-off = { $id } was not turned off
+plugin-now-used = { $plugin } { $version } opens its files now
 plugin-api-mismatch = { $name } { $version } was built for plugin API { $api }, and this Kalem's is { $ours }: update the plugin (the one built into Kalem opens its files meanwhile)
 plugin-from-short = from { $source }
 plugin-remove = Remove { $name }

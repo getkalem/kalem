@@ -1099,7 +1099,7 @@ documents, `kalem check`'s round trip and diagnostics, a missing
 - [x] **Major.** The three items of sections 1 and 2 (unbindable xlsx
   0.0.4, dead instance after a trap, bundled viewers replaced).
   (done: each is checked off above.)
-- [ ] **Major, reported by the owner (2026-10-09).** After a built-in
+- [x] **Major, reported by the owner (2026-10-09).** After a built-in
   viewer stopped three times and was turned off, "no Excel file opens":
   the running Kalem had unregistered the viewer and had no other, and
   xlsx 0.0.9 installed from the index while it ran was not tried until
@@ -1108,6 +1108,19 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   the index while Kalem runs should register at once, as `kalem plugin
   dev` reaches a running Kalem, and a viewer turned off should give way
   to a newer installed copy without a restart.
+  (done 2026-10-10: `kalem_cli::choose_viewers` chooses each plugin's
+  viewer by one rule, at startup and again while Kalem runs: a newer
+  installed copy not turned off, else the copy built in not turned off,
+  else the native viewer, else none; a viewer chosen again stays the
+  same instance. The third stop chooses at once; the editors watch
+  `plugin_store::stamp` (the times and sizes of `plugins.toml`, the
+  plugins' folder and the stops' file) once a second and choose again
+  when it has settled, so an install from the plugin list or from a
+  terminal, a removal and `kalem plugin enable` reach a running Kalem;
+  the status bar says which copy opens the files now. Test
+  `viewer_choice`, which fails without the watcher as Kalem did.
+  Extension plugins installed while Kalem runs still wait for a
+  restart.)
 - [x] **Minor, reported.** The plugins README says releases are signed;
   Kalem checks only the index's SHA-256, which comes from the same
   mutable `main`-branch `index.json` that names the download. Say

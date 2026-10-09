@@ -181,9 +181,14 @@ its document at once and says which plugin stopped and why, and that
 its unsaved changes, which nothing can save any more, are lost; the
 editor itself goes on, and the log keeps the plugin's version and what
 went wrong. A plugin that stops three times is turned off until it is
-updated (the bundled viewer of the same name, if any, opens its files
-meanwhile); =kalem plugin list= says so, and =kalem plugin enable ID=
-turns it on again. A viewer's limits are 1 GB and 10 s a call, more
+updated, and its files go at once to what opens them next: a newer copy
+installed, else the copy built into Kalem, else the bundled viewer of
+the same name. =kalem plugin list= says so, and =kalem plugin enable ID=
+turns it on again. Kalem need not be started again for any of this: a
+viewer installed, updated or removed while Kalem runs, from the plugin
+list or with =kalem plugin install= in a terminal, opens its files (or
+gives them back) within a second or two, and the status bar says which
+copy opens them now. A viewer's limits are 1 GB and 10 s a call, more
 than §11.6's defaults, since a viewer holds a whole file; a manifest
 may set others, =limits.memory_mb= and =limits.time_ms=.
 

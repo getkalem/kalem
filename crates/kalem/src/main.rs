@@ -99,6 +99,7 @@ fn gui(args: &[OsString]) -> ExitCode {
     }
     match one_path(args) {
         Ok(path) => {
+            kalem_cli::watch_plugins();
             kalem_ui::run(path);
             ExitCode::SUCCESS
         }
@@ -146,6 +147,7 @@ fn tui(args: &[OsString]) -> ExitCode {
         Ok(p) => p,
         Err(code) => return code,
     };
+    kalem_cli::watch_plugins();
     match kalem_tui::run(path.as_deref()) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {

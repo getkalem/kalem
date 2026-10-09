@@ -478,8 +478,47 @@ enum ViewFormat {
 pub fn bundled_plugins() {
     #[cfg(feature = "plugins")]
     {
-        component_viewers();
+        choose_viewers(true);
         extensions::load();
+    }
+}
+
+/// Chooses the viewers again ([`choose_viewers`]): after a plugin was
+/// installed, updated or removed, or turned off or on again.
+pub fn plugins_changed() {
+    #[cfg(feature = "plugins")]
+    choose_viewers(false);
+}
+
+/// For an editor: watches the installed plugins while it runs
+/// ([`kalem_core::plugin_store::stamp`], once a second) and chooses the
+/// viewers again once a change has settled, so that a plugin installed or
+/// updated while Kalem runs, from it or from a terminal, opens its files
+/// without a restart.
+pub fn watch_plugins() {
+    #[cfg(feature = "plugins")]
+    {
+        static STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        if STARTED.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            return;
+        }
+        let mut chosen_at = kalem_core::plugin_store::stamp();
+        let mut seen = chosen_at;
+        let _ = std::thread::Builder::new()
+            .name("kalem-plugins-watch".into())
+            .spawn(move || {
+                loop {
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                    // The same for a second: an install is a rename, a
+                    // record and a removal, not to be chosen from halfway.
+                    let now = kalem_core::plugin_store::stamp();
+                    if now == seen && now != chosen_at {
+                        chosen_at = now;
+                        choose_viewers(false);
+                    }
+                    seen = now;
+                }
+            });
     }
 }
 
@@ -515,16 +554,13 @@ pub(crate) fn embedded_viewers() -> Vec<std::sync::Arc<kalem_script::viewer::Com
     kalem_components::components()
         .iter()
         .map(|c| {
-            let id = c.id.rsplit('.').next().unwrap_or(c.id);
-            let bundled = kalem_core::viewer::viewers()
-                .into_iter()
-                .find(|b| b.id() == id);
+            let id = short(c.id);
+            let bundled = native_viewers().iter().find(|b| b.id() == id).cloned();
             let m = c.manifest_json();
             let hook = on_stop(
                 c.id,
                 m["name"].as_str().unwrap_or(c.id),
                 m["version"].as_str().unwrap_or_default(),
-                bundled.clone(),
             );
             std::sync::Arc::new(
                 c.viewer(host.clone())
@@ -541,26 +577,18 @@ pub(crate) fn embedded_viewers() -> Vec<std::sync::Arc<kalem_script::viewer::Com
 /// What a component viewer of plugin `id` (`name` at `version`) calls
 /// when one of its documents stops (wasm_todo W8): the stop counted and
 /// logged with the plugin's version; at the third, the plugin turned off
-/// until it is updated, `bundled` (or nothing) opening its files from
-/// then on, and the user told.
+/// until it is updated, the user told, and its files given at once to
+/// what opens them next ([`choose_viewers`]): a newer copy installed, the
+/// copy built in, the native viewer, or nothing.
 #[cfg(feature = "plugins")]
-fn on_stop(
-    id: &str,
-    name: &str,
-    version: &str,
-    bundled: Option<std::sync::Arc<dyn kalem_viewer::Viewer>>,
-) -> kalem_script::viewer::OnStop {
+fn on_stop(id: &str, name: &str, version: &str) -> kalem_script::viewer::OnStop {
     let (id, name, version) = (id.to_string(), name.to_string(), version.to_string());
     std::sync::Arc::new(move |why| {
         let n = kalem_core::plugin_store::record_stop(&id, &version, &format!("{why:?}"));
         tracing::error!(plugin = %id, version = %version, stops = n, why = ?why, "a plugin stopped");
         if n == kalem_core::plugin_store::STOPS_TO_TURN_OFF {
-            let short = id.rsplit('.').next().unwrap_or(&id);
-            match &bundled {
-                Some(b) => kalem_core::viewer::register(b.clone()),
-                None => kalem_core::viewer::unregister(short),
-            }
             kalem_core::jobs::notice(turned_off(&id, &name, &version, n), true);
+            choose_viewers(false);
         }
     })
 }
@@ -577,49 +605,185 @@ pub(crate) fn turned_off(id: &str, name: &str, version: &str, n: u32) -> String 
     )
 }
 
-/// The component viewers installed (`kalem plugin install` of a built
-/// viewer), registered from their manifests: a plugin with a `main`
-/// component that `opens` files. Nothing is compiled here: a thread
-/// compiles them, or reads them from the cache in the state directory, so
-/// the first file they open does not wait; without any, no engine starts.
+/// A plugin's viewer by its id: `org.kalem.xlsx` is the viewer `xlsx`.
 #[cfg(feature = "plugins")]
-fn component_viewers() {
-    let mut loaded = Vec::new();
-    // The bundled components first, then the installed ones, which take
-    // their place only when newer.
-    let embedded = embedded_viewers();
-    for (v, c) in embedded.iter().zip(kalem_components::components()) {
-        // Turned off after it stopped three times: the native copy, if
-        // any, opens its files (wasm_todo W8).
-        let m = c.manifest_json();
-        let version = m["version"].as_str().unwrap_or_default();
-        if kalem_core::plugin_store::turned_off(c.id, version) {
-            let name = m["name"].as_str().unwrap_or(c.id);
-            let n = kalem_core::plugin_store::stops(c.id, version);
-            kalem_core::jobs::notice(turned_off(c.id, name, version, n), true);
-            continue;
+fn short(id: &str) -> &str {
+    id.rsplit('.').next().unwrap_or(id)
+}
+
+/// The viewers registered before any component: the native ones a
+/// component takes the place of, which open its files when it cannot.
+/// Read once, before the first component is registered.
+#[cfg(feature = "plugins")]
+fn native_viewers() -> &'static [std::sync::Arc<dyn kalem_viewer::Viewer>] {
+    static NATIVE: std::sync::OnceLock<Vec<std::sync::Arc<dyn kalem_viewer::Viewer>>> =
+        std::sync::OnceLock::new();
+    NATIVE.get_or_init(kalem_core::viewer::viewers)
+}
+
+/// The components built in, each with its viewer, made once.
+#[cfg(feature = "plugins")]
+fn embedded() -> &'static [(
+    &'static kalem_components::Component,
+    std::sync::Arc<kalem_script::viewer::ComponentViewer>,
+)] {
+    static EMBEDDED: std::sync::OnceLock<
+        Vec<(
+            &'static kalem_components::Component,
+            std::sync::Arc<kalem_script::viewer::ComponentViewer>,
+        )>,
+    > = std::sync::OnceLock::new();
+    EMBEDDED.get_or_init(|| {
+        kalem_components::components()
+            .iter()
+            .zip(embedded_viewers())
+            .collect()
+    })
+}
+
+/// [`installed_viewers`], a copy made before kept as it was (with what it
+/// compiled), so that choosing again costs nothing.
+#[cfg(feature = "plugins")]
+fn installed_kept() -> Vec<(
+    kalem_core::plugin_store::Installed,
+    Result<std::sync::Arc<kalem_script::viewer::ComponentViewer>, String>,
+)> {
+    type Made = (
+        String,
+        String,
+        PathBuf,
+        std::sync::Arc<kalem_script::viewer::ComponentViewer>,
+    );
+    static MADE: std::sync::Mutex<Vec<Made>> = std::sync::Mutex::new(Vec::new());
+    let mut made = MADE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    installed_viewers()
+        .into_iter()
+        .map(|(p, v)| {
+            let v = v.map(|v| {
+                match made
+                    .iter()
+                    .find(|m| m.0 == p.id && m.1 == p.version && m.2 == p.dir)
+                {
+                    Some(m) => m.3.clone(),
+                    None => {
+                        made.push((p.id.clone(), p.version.clone(), p.dir.clone(), v.clone()));
+                        v
+                    }
+                }
+            });
+            (p, v)
+        })
+        .collect()
+}
+
+/// Chooses, for each plugin with a viewer component, what opens its
+/// files, and registers it: a copy the user installed, when it is newer
+/// than the one built in and not turned off; else the copy built in, when
+/// not turned off; else the native viewer it took the place of; else
+/// nothing. A viewer chosen again is the same one, with what it compiled.
+/// At startup the user is told of a copy turned off with nothing in its
+/// place; afterwards (an install, an update, a removal, a plugin turned
+/// off or on again) of the copy that opens the files now; once, of a copy
+/// built for another plugin API. Nothing is compiled here: a thread
+/// compiles what is new, or reads it from the cache in the state
+/// directory, so the first file it opens does not wait.
+#[cfg(feature = "plugins")]
+fn choose_viewers(startup: bool) {
+    use kalem_core::plugin_store;
+    use std::sync::Arc;
+    static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    // The copies built for another API the user was told of.
+    static TOLD: std::sync::Mutex<Vec<(String, String)>> = std::sync::Mutex::new(Vec::new());
+    let _one = ONE_AT_A_TIME
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let natives = native_viewers();
+    let embedded = embedded();
+    let installed = installed_kept();
+    let mut ids: Vec<&str> = embedded.iter().map(|(c, _)| short(c.id)).collect();
+    for (p, _) in &installed {
+        if !ids.contains(&short(&p.id)) {
+            ids.push(short(&p.id));
         }
-        kalem_core::viewer::register(v.clone());
-        loaded.push(v.clone());
     }
-    for (p, v) in installed_viewers() {
-        // `kalem plugin list` says why it is not used.
-        if embedded_is_newer(&p).is_some() {
-            continue;
-        }
-        if kalem_core::plugin_store::turned_off(&p.id, &p.version) {
-            let n = kalem_core::plugin_store::stops(&p.id, &p.version);
-            kalem_core::jobs::notice(turned_off(&p.id, &p.name, &p.version, n), true);
-            continue;
-        }
-        match v {
-            Ok(v) => {
-                kalem_core::viewer::register(v.clone());
-                loaded.push(v);
+    let mut loaded = Vec::new();
+    for id in ids {
+        // The viewer chosen, its plugin's name and version; and what the
+        // user is told when a copy that would open the files is off.
+        let mut chosen: Option<(Arc<kalem_script::viewer::ComponentViewer>, String, String)> = None;
+        let mut off = None;
+        if let Some((p, v)) = installed.iter().find(|(p, _)| short(&p.id) == id)
+            && embedded_is_newer(p).is_none()
+        {
+            if plugin_store::turned_off(&p.id, &p.version) {
+                let n = plugin_store::stops(&p.id, &p.version);
+                off = Some(turned_off(&p.id, &p.name, &p.version, n));
+            } else {
+                match v {
+                    Ok(v) => chosen = Some((v.clone(), p.name.clone(), p.version.clone())),
+                    // Built for another API: the copy built in opens its
+                    // files.
+                    Err(why) => {
+                        let key = (p.id.clone(), p.version.clone());
+                        let mut told = TOLD
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner);
+                        if !told.contains(&key) {
+                            told.push(key);
+                            kalem_core::jobs::notice(why.clone(), true);
+                        }
+                    }
+                }
             }
-            // Built for another API: not tried, the built-in component of
-            // the same name opens its files, and the user is told.
-            Err(why) => kalem_core::jobs::notice(why, true),
+        }
+        if chosen.is_none()
+            && let Some((c, v)) = embedded.iter().find(|(c, _)| short(c.id) == id)
+        {
+            let m = c.manifest_json();
+            let name = m["name"].as_str().unwrap_or(c.id);
+            let version = m["version"].as_str().unwrap_or_default();
+            if plugin_store::turned_off(c.id, version) {
+                let n = plugin_store::stops(c.id, version);
+                off.get_or_insert_with(|| turned_off(c.id, name, version, n));
+            } else {
+                chosen = Some((v.clone(), name.to_string(), version.to_string()));
+            }
+        }
+        if startup
+            && chosen.is_none()
+            && let Some(off) = off
+        {
+            kalem_core::jobs::notice(off, true);
+        }
+        let new: Option<Arc<dyn kalem_viewer::Viewer>> = match &chosen {
+            Some((v, ..)) => Some(v.clone()),
+            None => natives.iter().find(|n| n.id() == id).cloned(),
+        };
+        let now = kalem_core::viewer::viewers()
+            .into_iter()
+            .find(|v| v.id() == id);
+        let same = match (&now, &new) {
+            (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+            (None, None) => true,
+            _ => false,
+        };
+        if same {
+            continue;
+        }
+        match &new {
+            Some(v) => kalem_core::viewer::register(v.clone()),
+            None => kalem_core::viewer::unregister(id),
+        }
+        if let Some((v, name, version)) = chosen {
+            if !startup {
+                kalem_core::jobs::notice(
+                    kalem_core::tr!("plugin-now-used", plugin = name, version = version),
+                    false,
+                );
+            }
+            loaded.push(v);
         }
     }
     if !loaded.is_empty() {
@@ -694,19 +858,27 @@ pub(crate) fn installed_viewers() -> Vec<(
         let limits = kalem_components::limits(&m);
         // `org.kalem.pdf-viewer` is the viewer `pdf-viewer`, replacing
         // the bundled one.
-        let id = p.id.rsplit('.').next().unwrap_or(&p.id).to_string();
-        // The bundled viewer it replaces opens the files when the
-        // component cannot run (built for another version of the API).
-        let bundled = kalem_core::viewer::viewers()
-            .into_iter()
-            .find(|v| v.id() == id);
+        let id = short(&p.id).to_string();
+        // What opens the files when the component cannot run: the copy
+        // built in, unless it is turned off, else the native viewer.
+        let bundled: Option<std::sync::Arc<dyn kalem_viewer::Viewer>> = embedded()
+            .iter()
+            .find(|(c, _)| {
+                short(c.id) == id
+                    && !kalem_core::plugin_store::turned_off(
+                        c.id,
+                        c.manifest_json()["version"].as_str().unwrap_or_default(),
+                    )
+            })
+            .map(|(_, v)| -> std::sync::Arc<dyn kalem_viewer::Viewer> { v.clone() })
+            .or_else(|| native_viewers().iter().find(|v| v.id() == id).cloned());
         let v = std::sync::Arc::new(
             ComponentViewer::new(h, p.dir.join(main), id, &p.name, &opens, limits)
                 .with_fallback(
-                    bundled.clone(),
+                    bundled,
                     std::sync::Arc::new(|text| kalem_core::jobs::notice(text, true)),
                 )
-                .with_on_stop(on_stop(&p.id, &p.name, &p.version, bundled)),
+                .with_on_stop(on_stop(&p.id, &p.name, &p.version)),
         );
         out.push((p, Ok(v)));
     }

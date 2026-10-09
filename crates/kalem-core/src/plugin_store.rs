@@ -974,6 +974,22 @@ pub fn clear_stops(id: &str) -> bool {
     failures_path().is_some_and(|p| clear_stops_in(&p, id))
 }
 
+/// What changes when a plugin is installed, updated or removed, or turned
+/// off or on again, by this Kalem or by another (`kalem plugin install`
+/// in a terminal): the times and sizes of `plugins.toml`, of the plugins'
+/// folder and of the stops' file. A running Kalem compares it to choose
+/// its viewers again without a restart.
+pub fn stamp() -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    for path in [record_path(), plugins_dir(), failures_path()] {
+        let meta = path.and_then(|p| std::fs::metadata(p).ok());
+        meta.as_ref().and_then(|m| m.modified().ok()).hash(&mut h);
+        meta.map(|m| m.len()).hash(&mut h);
+    }
+    h.finish()
+}
+
 fn load_record() -> toml_edit::DocumentMut {
     record_path()
         .and_then(|p| std::fs::read_to_string(p).ok())
