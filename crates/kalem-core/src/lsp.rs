@@ -386,7 +386,15 @@ struct Service {
     /// Files no language plugin serves, not looked up again until the
     /// plugins or the settings change.
     unserved: std::collections::HashSet<PathBuf>,
+    /// Files a server named in its answers outside its root (a
+    /// definition in the standard library, a dependency's source), by
+    /// their real paths: the server that named each, which serves it
+    /// when it opens ([`Service::named_by`]).
+    named: HashMap<PathBuf, Key>,
 }
+
+/// Files [`Service::named`] keeps at most: past it, it starts again.
+const NAMED_MAX: usize = 20_000;
 
 /// An answer for a document, until its editor takes it or it expires.
 struct Answer {
@@ -573,15 +581,20 @@ impl Service {
         };
         let real = dunce::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
         let root = root_of(&real, &plugin, &language);
-        let outside = outside_root(&real, &plugin, &language);
-        let resolved = match &outside {
-            Some(why) => Resolved::Missing(why.clone()),
-            None => languages::resolve_server(&plugin, &language, Some(&root)),
-        };
-        let (key, missing) = match resolved {
-            Resolved::Found(spec, ..) => (Some((plugin.id.clone(), spec.key, root)), None),
-            Resolved::Off => (None, None),
-            Resolved::Missing(m) => (None, Some(m)),
+        let (key, missing) = match self.named_by(&real, &plugin, &language, &root) {
+            Some(key) => (Some(key), None),
+            None => {
+                let outside = outside_root(&real, &plugin, &language);
+                let resolved = match &outside {
+                    Some(why) => Resolved::Missing(why.clone()),
+                    None => languages::resolve_server(&plugin, &language, Some(&root)),
+                };
+                match resolved {
+                    Resolved::Found(spec, ..) => (Some((plugin.id.clone(), spec.key, root)), None),
+                    Resolved::Off => (None, None),
+                    Resolved::Missing(m) => (None, Some(m)),
+                }
+            }
         };
         let mut doc = Doc {
             uri: kalem_lsp::uri::from_path(&real),
@@ -766,6 +779,7 @@ pub fn tick() -> bool {
         if finished.is_empty() {
             return (changed, finished, HashMap::new(), HashMap::new());
         }
+        s.remember_named(&finished);
         let (aliases, open) = s.answer_context(&finished);
         (true, finished, aliases, open)
     });
@@ -964,6 +978,9 @@ impl Service {
     /// servers name mapped to the editor's, and the texts of the open
     /// documents the answers point into (copied, so the answers are read
     /// without the lock).
+    ///
+    /// Before it, [`Service::remember_named`] keeps the files the answers
+    /// name outside their servers' roots.
     fn answer_context(
         &self,
         finished: &[(Action, Answered)],
@@ -986,6 +1003,57 @@ impl Service {
             }
         }
         (aliases, open)
+    }
+
+    /// Keeps the files the answers name outside the root of the server
+    /// that gave them, with that server's key ([`Service::named`]).
+    fn remember_named(&mut self, finished: &[(Action, Answered)]) {
+        for (a, r) in finished {
+            let Ok(v) = r else { continue };
+            let Some(key) = self.docs.get(&a.path).and_then(|d| d.key.clone()) else {
+                continue;
+            };
+            for l in features::locations(v) {
+                if l.path.starts_with(&key.2) {
+                    continue;
+                }
+                if self.named.len() >= NAMED_MAX {
+                    self.named.clear();
+                }
+                let real = dunce::canonicalize(&l.path).unwrap_or(l.path);
+                self.named.insert(real, key.clone());
+            }
+        }
+    }
+
+    /// The server that serves `real`, a file of `language` whose own root
+    /// is `root`, because it named it in an answer: a server of the same
+    /// plugin, running and serving the language, and none running in the
+    /// file's own root. Its own root would start another server where it
+    /// knows less: a crate's sources from crates.io have a `Cargo.lock`,
+    /// and so does the standard library's folder, which rust-analyzer
+    /// started there cannot load; the server that named the file knows
+    /// it as part of its project. The same holds for Go's module cache,
+    /// Python's `site-packages` and a C compiler's headers.
+    fn named_by(
+        &self,
+        real: &Path,
+        plugin: &Plugin,
+        language: &LanguageSpec,
+        root: &Path,
+    ) -> Option<Key> {
+        let running = |k: &Key| self.servers.get(k).is_some_and(|s| s.client.is_some());
+        let own = self
+            .servers
+            .keys()
+            .any(|k| k.0 == plugin.id && k.2 == root && running(k));
+        if own {
+            return None;
+        }
+        self.named
+            .get(real)
+            .filter(|k| k.0 == plugin.id && language.servers.contains(&k.1) && running(k))
+            .cloned()
     }
 }
 

@@ -7,7 +7,10 @@
 //! (exits with 3 on the first `didOpen`); `garbage` (a malformed message
 //! first); `absent` (exits with 1 at once, its reason on standard error,
 //! as a toolchain's proxy for a component not installed does). In
-//! `normal`, a change whose text contains `CRASH` exits with 4.
+//! `normal`, a change whose text contains `CRASH` exits with 4, and the
+//! references of anything are the document's first line and, when the
+//! folder beside the root has a `library/lib.fk`, that file's (a
+//! library's source outside the project, as a standard library is).
 
 #![allow(clippy::print_stdout)]
 
@@ -57,6 +60,7 @@ pub fn serve(behavior: &str) {
     let mut r = BufReader::new(stdin.lock());
     let mut out = std::io::stdout();
     let mut texts: HashMap<String, String> = HashMap::new();
+    let mut root: Option<std::path::PathBuf> = None;
     let send = |out: &mut std::io::Stdout, v: Value| {
         let _ = rpc::write(out, &v);
     };
@@ -71,6 +75,7 @@ pub fn serve(behavior: &str) {
         let uri = p["textDocument"]["uri"].as_str().unwrap_or("").to_string();
         match method {
             "initialize" => {
+                root = p["rootUri"].as_str().and_then(crate::uri::to_path);
                 if behavior == "silent" {
                     continue;
                 }
@@ -175,6 +180,25 @@ pub fn serve(behavior: &str) {
                     &mut out,
                     json!({"jsonrpc": "2.0", "id": id, "result": {"contents": {"kind": "markdown",
                     "value": format!("at {}:{}", pos["line"], pos["character"])}}}),
+                );
+            }
+            "textDocument/references" => {
+                let line = |uri: &str| {
+                    json!({"uri": uri, "range": {"start": {"line": 0, "character": 0},
+                                                  "end": {"line": 0, "character": 1}}})
+                };
+                let mut list = vec![line(&uri)];
+                let library = root
+                    .as_deref()
+                    .and_then(std::path::Path::parent)
+                    .map(|d| d.join("library/lib.fk"))
+                    .filter(|p| p.is_file());
+                if let Some(lib) = library {
+                    list.push(line(&crate::uri::from_path(&lib)));
+                }
+                send(
+                    &mut out,
+                    json!({"jsonrpc": "2.0", "id": id, "result": list}),
                 );
             }
             "textDocument/definition" => {
