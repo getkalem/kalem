@@ -568,6 +568,88 @@ fn long_lines_wrap_and_scroll() {
     assert_eq!(t.app.editor.viewport.top, text.len() - 5 * 4);
 }
 
+/// Arrows move the cursor, not the text (asked by the owner, 2026-10-09,
+/// of the graphical editor, where going up from the end of a long file
+/// scrolled the text under a cursor stuck on the bottom row; the terminal
+/// editor checked the same way): the window stays where it is while the
+/// cursor is in it and scrolls by one line when the cursor leaves it;
+/// typing and Enter in the middle leave it where it is too.
+#[test]
+fn arrows_move_the_cursor_and_not_the_window() {
+    let text: String = (0..400).map(|i| format!("line {i}\n")).collect();
+    let mut t = with_config(&text, Config::default(), (40, 12));
+    let line = |t: &T| t.app.doc.text().line_of(t.app.doc.selection.head);
+    // The window: the line it starts with, and the row of that line.
+    let window = |t: &T| {
+        let v = &t.app.editor.viewport;
+        (t.app.doc.text().line_of(v.top), v.top_row)
+    };
+    // The cursor's row on the screen.
+    let row = |t: &mut T| {
+        t.draw();
+        t.term.get_cursor_position().unwrap().y
+    };
+    t.at(text.len());
+    assert_eq!(line(&t), 400);
+    let end = window(&t);
+    assert_eq!(end.1, 0, "the top line is cut");
+    // Up from the end: the window stays, the cursor climbs its rows.
+    let mut rows = 0;
+    while line(&t) > end.0 {
+        let (before, at) = (line(&t), row(&mut t));
+        t.key(KeyCode::Up, KeyModifiers::NONE);
+        rows += 1;
+        assert_eq!(line(&t), before - 1, "up {rows}");
+        assert_eq!(window(&t), end, "up {rows}: the window moved");
+        assert_eq!(row(&mut t), at - 1, "up {rows}: the cursor's row");
+    }
+    assert!(rows > 5, "{rows} rows in the window");
+    // One more: the window scrolls by one line, the cursor on its top row.
+    let at = row(&mut t);
+    t.key(KeyCode::Up, KeyModifiers::NONE);
+    assert_eq!(line(&t), end.0 - 1);
+    assert_eq!(window(&t), (end.0 - 1, 0));
+    assert_eq!(row(&mut t), at);
+    // Down from the start: the window stays until the cursor leaves it
+    // below, then scrolls a line a key, never more.
+    t.at(0);
+    assert_eq!(window(&t), (0, 0));
+    for k in 1..=rows {
+        t.key(KeyCode::Down, KeyModifiers::NONE);
+        assert_eq!(line(&t), k, "down {k}");
+        assert_eq!(window(&t), (0, 0), "down {k}: the window moved");
+    }
+    for k in 1..=3 {
+        let before = window(&t);
+        let at = row(&mut t);
+        t.key(KeyCode::Down, KeyModifiers::NONE);
+        let after = window(&t);
+        assert_eq!(after, (before.0 + 1, 0), "down past the window {k}");
+        assert_eq!(row(&mut t), at, "down past the window {k}: the row");
+    }
+    let scrolled = window(&t);
+    assert_eq!(scrolled, (3, 0));
+    // In the middle: typing and a new line leave the window where it is.
+    for _ in 0..4 {
+        t.key(KeyCode::Up, KeyModifiers::NONE);
+    }
+    assert_eq!(window(&t), scrolled);
+    t.typ("x");
+    assert_eq!(window(&t), scrolled, "typing moved the window");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(window(&t), scrolled, "a new line moved the window");
+    // Page Down still goes far: the cursor on a line well below, shown.
+    let before = line(&t);
+    t.key(KeyCode::PageDown, KeyModifiers::NONE);
+    assert!(line(&t) > before + 5, "pagedown: {before} to {}", line(&t));
+    let top = window(&t).0;
+    assert!(
+        (top..top + rows + 1).contains(&line(&t)),
+        "pagedown: line {} with the window at {top}",
+        line(&t)
+    );
+}
+
 #[test]
 fn tables_as_grids() {
     let text = "| Name | Qty |\n|---+---|\n| *apple* | 3 |\n| b | 10 |\nafter\n";
