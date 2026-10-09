@@ -265,7 +265,7 @@ annotations it is in by ID, so the host draws them without knowing the
 format. The host shows inserted text underlined and deleted text struck
 through in their colors, and text a comment is on highlighted; the
 status bar says the comment or the change at the cursor. The commands of
-the /Review/ category add, answer, resolve and delete comments, go to the
+the /Review/ category add, answer, edit, resolve and delete comments, go to the
 next and previous comment or change, accept and reject a change or all
 of them, and turn Track Changes on and off, while it is on the plugin
 writing the user's edits as tracked changes. The user's name, which

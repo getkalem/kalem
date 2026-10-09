@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- Edit Comment (Review): in a document of flowing text, changes the text of the comment at the cursor; the palette starts with its text, a paragraph a line (shown as ↵). It goes through the `annotations` interface's `set-text`, which the docx plugin writes as Word does.
+
 ## [0.6.1] - 2026-10-09
 
 ### Fixed

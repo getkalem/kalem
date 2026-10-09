@@ -195,3 +195,58 @@ fn comments_on_the_text() {
     d.on_flow(|f| f.remove_comment(&id)).unwrap();
     assert!(d.flow.as_deref().unwrap().comments().is_empty());
 }
+
+#[test]
+fn a_comment_edited_from_the_palette() {
+    use kalem_core::command::Clipboard;
+    use kalem_core::{CommandRegistry, Config, EditorContext};
+    let (mut d, _) = open(DOC);
+    let at = d.text().as_str().find("Plain").unwrap();
+    let id = d.on_flow(|f| f.comment(at..at + 5, "Check this")).unwrap();
+    d.selection = Selection::caret(at + 1);
+    let config = Config::default();
+    // The palette starts with the comment's text, to edit.
+    let start = kalem_core::command::argument_default_with(
+        "flow.comment.edit",
+        "text",
+        &serde_json::json!({}),
+        &mut d,
+        &config,
+    );
+    assert_eq!(start, "Check this");
+    let reg = CommandRegistry::with_builtins();
+    let mut clip = Clipboard::default();
+    let mut run = |d: &mut DocumentState, id: &str, args: serde_json::Value| {
+        let mut ctx = EditorContext {
+            document: Some(d),
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock: jiff::civil::date(2026, 10, 9).at(10, 0, 0, 0),
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        reg.execute(id, &mut ctx, &args).map_err(|e| e.to_string())
+    };
+    run(
+        &mut d,
+        "flow.comment.edit",
+        serde_json::json!({ "text": "Checked\ntwice" }),
+    )
+    .unwrap();
+    let f = d.flow.as_deref().unwrap();
+    assert_eq!(f.annotations[&id].text, "Checked\ntwice");
+    assert_eq!(
+        f.comment_at(at + 1).map(|a| a.id.as_str()),
+        Some(id.as_str())
+    );
+    // Nowhere near a comment: said so.
+    d.selection = Selection::caret(0);
+    let e = run(
+        &mut d,
+        "flow.comment.edit",
+        serde_json::json!({ "text": "x" }),
+    )
+    .unwrap_err();
+    assert!(!e.is_empty());
+}

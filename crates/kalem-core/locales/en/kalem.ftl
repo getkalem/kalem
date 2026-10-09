@@ -1780,6 +1780,7 @@ plugin-nothing-to-load = { $id } declares no languages: nothing Kalem can load t
 category-review = Review
 cmd-flow-comment-new = New Comment
 cmd-flow-comment-reply = Reply to Comment
+cmd-flow-comment-edit = Edit Comment
 cmd-flow-comment-resolve = Resolve Comment
 cmd-flow-comment-delete = Delete Comment
 cmd-flow-comment-next = Next Comment

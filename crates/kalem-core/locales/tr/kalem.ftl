@@ -1687,6 +1687,7 @@ plugin-nothing-to-load = { $id } hiç dil bildirmiyor: Kalem'in bugün yükleyeb
 category-review = Gözden Geçirme
 cmd-flow-comment-new = Yeni Yorum
 cmd-flow-comment-reply = Yorumu Yanıtla
+cmd-flow-comment-edit = Yorumu Düzenle
 cmd-flow-comment-resolve = Yorumu Çöz
 cmd-flow-comment-delete = Yorumu Sil
 cmd-flow-comment-next = Sonraki Yorum

@@ -523,6 +523,19 @@ impl FlowState {
         self.annotate(|d| d.reply(parent, text))
     }
 
+    /// Changes comment `id`'s text: a paragraph a line.
+    pub fn set_comment_text(&mut self, id: &str, text: &str) -> Result<(), String> {
+        self.annotate(|d| d.set_comment_text(id, text))
+    }
+
+    /// The comment at byte `pos` of the text: the first of those whose
+    /// text it is in, as the Review commands take it.
+    pub fn comment_at(&self, pos: usize) -> Option<&Annotation> {
+        self.annotations_at(pos)
+            .into_iter()
+            .find(|a| a.kind == AnnotationKind::Comment)
+    }
+
     /// Marks comment `id` done, or not.
     pub fn resolve(&mut self, id: &str, done: bool) -> Result<(), String> {
         self.annotate(|d| d.resolve(id, done))

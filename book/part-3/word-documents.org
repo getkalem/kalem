@@ -125,6 +125,7 @@ The commands of the /Review/ category act on the annotations:
 | Next Comment, Previous Comment | Moves to the next or the previous comment                |
 | New Comment (Ctrl+Alt+M) | Puts a comment on the selected text, in the body or a note: its range's start and end around the text, a run split where the range starts or ends inside it, a run with its reference after the end |
 | Reply to Comment     | Answers the comment at the cursor: a comment anchored on the same text and named as its answer; an answer to an answer answers the first comment, as in Word |
+| Edit Comment         | Changes the text of the comment at the cursor, a paragraph a line; the palette starts with its text. Its author, date and mark stay, and its last paragraph keeps its ID, so its answers and its done mark stay its own |
 | Resolve Comment      | Marks the thread at the cursor done, or open again: the mark is on its first comment, and its answers show resolved with it |
 | Delete Comment       | Takes the comment at the cursor away with its answers (an answer alone, when it is one): its range, its reference and the comment; the runs a range split stay split, as in Word |
 
@@ -134,8 +135,7 @@ drawn two ways in the file (=mc:AlternateContent=), a paragraph of a
 text box, an edit across a table's cells, a join across a section
 break, and every edit of a document whose protection is enforced (a
 document protected for comments takes comments, as in Word). A comment
-in a header or a footer is refused, as Word keeps none there. A
-comment's text is not edited yet.
+in a header or a footer is refused, as Word keeps none there.
 
 * What is written
 
@@ -178,8 +178,8 @@ format is refused, saying so.
 * Not implemented
 
 - Section breaks are not marked in the text.
-- Formatting edits (bold, styles, lists), a comment's text edited, and
-  pictures, links, tables and notes inserted.
+- Formatting edits (bold, styles, lists), and pictures, links, tables
+  and notes inserted.
 - Text boxes edited.
 - Word opening every edited file without a repair prompt, checked by
   hand.

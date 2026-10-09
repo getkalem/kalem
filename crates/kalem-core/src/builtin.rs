@@ -135,6 +135,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("org.tags.set", object(&[("tags", "array", true)])),
         ("flow.comment.new", object(&[("text", "string", true)])),
         ("flow.comment.reply", object(&[("text", "string", true)])),
+        ("flow.comment.edit", object(&[("text", "string", true)])),
         ("org.tags.toggle", object(&[("tag", "string", true)])),
         (
             "list.cycleBullet",
@@ -3062,6 +3063,21 @@ fn flow_commands() -> Vec<Command> {
                     let text = args["text"].as_str().unwrap_or_default().to_string();
                     let id = flow_annotation_at(ctx, true)?;
                     on_flow(ctx, |f| f.reply(&id, &text)).map(|_| ())
+                },
+            ),
+            flow(),
+        ),
+        scoped(
+            cmd(
+                "flow.comment.edit",
+                "Edit Comment",
+                "Review",
+                &[],
+                None,
+                |ctx, args| {
+                    let text = args["text"].as_str().unwrap_or_default().to_string();
+                    let id = flow_annotation_at(ctx, true)?;
+                    on_flow(ctx, |f| f.set_comment_text(&id, &text))
                 },
             ),
             flow(),

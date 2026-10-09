@@ -466,6 +466,18 @@ impl ViewerDocument for Doc {
         Ok(id)
     }
 
+    fn set_comment_text(&mut self, id: &str, text: &str) -> Result<()> {
+        self.step();
+        let c = self
+            .state
+            .comments
+            .iter_mut()
+            .find(|c| c.id == id)
+            .ok_or_else(|| ViewerError(format!("no comment {id}")))?;
+        c.text = text.into();
+        Ok(())
+    }
+
     fn resolve(&mut self, id: &str, done: bool) -> Result<()> {
         self.step();
         let c = self

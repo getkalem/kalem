@@ -791,7 +791,8 @@ pub fn argument_label(id: &str, name: &str) -> String {
 
 /// What the prompt for argument `name` of command `id`, given `args`
 /// already, starts with: a property's value when Set Property knows the
-/// key, the caption or name of the element at the cursor, the color used last for Text Color and Highlight, else as
+/// key, the text of the comment Edit Comment changes, the caption or
+/// name of the element at the cursor, the color used last for Text Color and Highlight, else as
 /// [`argument_default`].
 pub fn argument_default_with(
     id: &str,
@@ -817,6 +818,17 @@ pub fn argument_default_with(
         {
             return v;
         }
+    }
+    // The comment at the cursor's text, to edit (its paragraphs a line
+    // each, shown as such in the palette).
+    if (id, name) == ("flow.comment.edit", "text") {
+        let pos = doc.selection.head;
+        return doc
+            .flow
+            .as_deref()
+            .and_then(|f| f.comment_at(pos))
+            .map(|a| a.text.clone())
+            .unwrap_or_default();
     }
     // The heading's tags, as `org-set-tags-command` offers them to edit:
     // what is typed replaces them.
