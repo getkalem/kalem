@@ -1,2 +1,0 @@
-cargo:rustc-link-lib=static=wit_bindgen_cabi0_57_1
-cargo:rustc-link-search=native=/Users/m/workspace/mhmt/org-gpui/tests/plugins/pages/target/wasm32-unknown-unknown/release/build/wit-bindgen-e5cd487a3b53d039/out

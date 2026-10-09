@@ -1,6 +1,7 @@
 # Build output
 /target
 /spikes/*/target
+/tests/plugins/*/target
 /fuzz/target
 **/*.rs.bk
 *.pdb
