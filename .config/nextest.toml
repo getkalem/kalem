@@ -4,7 +4,10 @@
 #
 #     cargo nextest run --workspace
 #
-# Doc tests are not nextest's: `cargo test --workspace --doc`.
+# Doc tests are not nextest's: `cargo test --workspace --doc`. A test
+# target with `harness = false` must answer `--list` as libtest does, or
+# nextest cannot run the workspace: see `main` in
+# crates/kalem-lsp/tests/fake_server.rs.
 
 [profile.default]
 # Name the tests slower than a minute; they still run to the end.
