@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release -p kalem-editor --no-default-features --features tui
@@ -48,7 +48,7 @@ jobs:
       # only when the fetch added to it, also when arXiv stopped answering
       # partway. What the Actions cache still holds, from before the
       # release kept it, first.
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v6
         with:
           path: .cache/arxiv
           key: arxiv-2024-${{ github.event.inputs.per_field || '200' }}-
@@ -136,7 +136,7 @@ jobs:
           python3 tools/arxiv-licences.py .cache/arxiv > licences.tsv
           grep -E 'creativecommons.org/(licenses/by/|licenses/by-sa/|publicdomain/zero/)' licences.tsv | tee free.tsv
           { echo; echo '## Papers that may be committed'; echo; echo '```'; cat free.tsv; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: arxiv-coverage
           path: |

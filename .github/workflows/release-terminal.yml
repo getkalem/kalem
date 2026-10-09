@@ -57,7 +57,7 @@ jobs:
             tag=$(printf '%s' "$PLAN" | jq -r .announcement_tag)
           fi
           echo "TAG=$tag" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.TAG }}
       - uses: dtolnay/rust-toolchain@stable

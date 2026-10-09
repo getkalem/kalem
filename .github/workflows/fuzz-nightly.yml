@@ -19,20 +19,20 @@ jobs:
       matrix:
         target: [parse, reparse, latex_parse, latex_reparse]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@nightly
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: fuzz
       - run: cargo install cargo-fuzz --locked
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: fuzz/corpus/${{ matrix.target }}
           key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
           restore-keys: fuzz-corpus-${{ matrix.target }}-
       # rust-toolchain.toml asks for stable; the fuzzer needs nightly.
       - run: cargo +nightly fuzz run ${{ matrix.target }} -- -max_total_time=900
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: fuzz-crash-${{ matrix.target }}
