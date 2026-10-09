@@ -14,7 +14,7 @@ Kalem (Turkish for "pen") shows a file the way it reads and never touches what y
 
 ## Why Kalem
 
-- **Every file as itself, and the file stays yours.** Kalem never converts a file to open it (workbooks in `.ods`, `.xls` or `.xlsb` are the one exception, below), writes nothing into a file that its format does not define, and shows what it does not understand as the source it is. It edits the text in place and saves only what you changed, byte for byte: no database, no import, no "save as". Open the file in another editor, or in `git diff`, and you see only your edits.
+- **Every file as itself, and the file stays yours.** Kalem never converts a file to open it (workbooks in `.ods`, `.xls` or `.xlsb` are the one exception, below), writes nothing into a file that its format does not define, and shows what it does not understand as the source it is. It edits the text in place and saves only what you changed, byte for byte: no database, no import, no "save as", no account, no cloud. Open the file in another editor, or in `git diff`, and you see only your edits.
 - **Checked against the reference, on thousands of files.** Org against Emacs itself; LaTeX on 925 arXiv papers and 21 real projects, the HoTT book and the Stacks project among them; Markdown on every example of the CommonMark and GFM test suites; CSV on files written by Excel, LibreOffice and Google Sheets. On the way the project wrote the specification LaTeX never had: [LaTeX as written](book/appendices/latex-as-written.org).
 - **Fast.** Kalem is written in Rust: one binary, no runtime, no scripting engine. A keystroke in a paragraph reparses it in a twentieth of a millisecond. The [measurements](book/part-4/performance.org) give every number with the command that reproduces it.
 - **One editor, in a window and in a terminal.** The same documents, commands and keys in the graphical editor and in `kalem tui`, over SSH too. Every operation on a document is also a command on the command line: `kalem check`, `kalem fmt`, `kalem export`.
@@ -28,7 +28,7 @@ Five formats are built into the core, each with a chapter in the Book's [Part II
 | File | What you see |
 |---|---|
 | `.md`, `.markdown`, `.mdown`, `.mkd`, `.gfm` | A document, GitHub flavor: headings, lists, task lists, tables with formulas, front matter, wiki links, pictures. Markers hide away from the cursor and come back when you reach them. A folder of notes with wiki links between them works as a project. |
-| `.org` | A document: folding, TODO states, dates, tags, tables with formulas, footnotes, citations, typeset formulas. Export to HTML, Markdown, LaTeX, PDF and text as Emacs does; Word, OpenDocument and EPUB through pandoc. |
+| `.org` | A document: folding, TODO states, dates, tags, tables with formulas, footnotes, citations, typeset formulas. Export to HTML, Markdown, LaTeX, PDF and text as Emacs does; Word, OpenDocument and EPUB through pandoc, and `kalem import` brings Word, OpenDocument, HTML, EPUB and RTF files in as Org the same way. |
 | `.tex`, `.latex`, `.ltx` | A document: numbered sections, typeset formulas, references, citations, figures; what Kalem does not understand stays as source. Build the PDF with the errors at their lines, and Ctrl-click a line of the PDF to go back to the source. |
 | `.csv`, `.tsv`, `.tab` | A grid: sorting, filters, a record view, column statistics. Only the fields you edit are written. |
 | `.bib` | A grid of entries. |
@@ -76,11 +76,11 @@ If your format is not here, a plugin adds it: `kalem plugin browse` lists the pl
 
 ## From Emacs, for everyone
 
-Kalem's author used Emacs for many years. The parts of the Emacs world that worked best are built into Kalem's core, not added on top:
+Kalem's author used Emacs for many years. Emacs got a lot right: its packages are open code that hundreds of people refined over decades, and some of them became very good, Dired, Magit, Projectile and Org mode among them. But Emacs is made for programmers, everything hides behind key chords, and everything runs on one thread of Lisp, so one busy package stalls the whole editor. Kalem takes the parts that worked best and builds them into its core, not on top, as an everyday program for everyone:
 
 - **Org mode**, compared with Emacs command by command.
-- **Projects**, as Projectile has them: a project list, find a file in the project (Ctrl+P), search in it (Ctrl+Shift+F), switch project.
-- **A file manager**, as Dired: Ctrl+Alt+D lists the document's folder with the cursor on its file; marks, and names edited in the listing as wdired does.
+- **A file manager**, as Dired: a folder as a page of text, every file with its size and date. Open a file, rename it by editing its name, copy, move or trash it, select many at once; Ctrl+Alt+D lists the document's folder with the cursor on its file.
+- **Projects**, as Projectile has them: each piece of your work kept apart. Any file of the project opens by a few letters of its name (Ctrl+P), a search goes through all of it (Ctrl+Shift+F), and another project is one step away.
 - **Leader keys** with the Vim keys, in Doom Emacs's layout: Space is the leader, `SPC p p` switches the project, and a panel shows what can follow a prefix, as which-key does.
 
 <table>
@@ -94,7 +94,7 @@ Kalem's author used Emacs for many years. The parts of the Emacs world that work
 </table>
 <p align="center"><i>The file manager, the projects view, and the settings panel with its lazygit-like keys.</i></p>
 
-You do not need to be an Emacs user, and nothing has to be learned first: the interface most people know is there, a menu bar, tabs, a folder tree, a command palette, right-click menus, Ctrl+S. What Kalem leaves out is Elisp: there is no scripting engine; configuration is data in `settings.toml` and `keymap.json`, and every key can be changed. The Book's [Kalem and Emacs](book/part-4/kalem-and-emacs.org) says what is taken, what is left out, and why.
+You do not need to be an Emacs user, and nothing has to be learned first: the interface most people know is there, a menu bar, tabs, a folder tree, a command palette, right-click menus, Ctrl+S. Every setting, the plugins' included, is changed in a settings panel (Ctrl+, or Cmd+,): a switch flipped or the next choice picked in place, with lazygit's keys in the terminal, nothing typed into a file. The panel saves to `settings.toml`, and `keymap.json` changes any key. What Kalem leaves out is Elisp: there is no scripting engine. The Book's [Kalem and Emacs](book/part-4/kalem-and-emacs.org) says what is taken, what is left out, and why.
 
 For Emacs and Vim hands: `editor.keymap_profile = "vim"` turns the Vim keys on, and every key of Doom's leader map is listed with what it does in Kalem ([Keys](book/part-1/keys.org)); the file manager has Dired's keys ([The file manager](book/part-1/the-file-manager.org)); [`docs/keymaps/emacs.json`](docs/keymaps/emacs.json) is a complete keymap with Org mode's Emacs keys to copy from.
 
