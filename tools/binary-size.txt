@@ -8,5 +8,8 @@
 # 2026-10-06 so that growth of the core does not stop a release. Full
 # raised from 82 to 82.5 on 2026-10-07 for the plugin API's `process`
 # interface (0.2.4): 82.0 MiB before it, 82.1 MiB with it.
+# Full raised from 82.5 to 83 on 2026-10-09 for the plugin API's `flow`
+# interface (0.2.7, documents of flowing text laid out by Kalem): 82.6 MiB
+# with it.
 terminal   50           15
-full       82.5         40
+full       83           40
