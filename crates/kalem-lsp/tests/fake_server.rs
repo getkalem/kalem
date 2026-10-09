@@ -1,6 +1,6 @@
 //! The client against a fake server: this binary started again with
 //! `KALEM_LSP_FAKE` set to a behavior (`normal`, `silent`, `crash`,
-//! `garbage`).
+//! `refuse`, `garbage`, `absent`).
 
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
@@ -96,6 +96,8 @@ fn crash() {
             .iter()
             .any(|e| matches!(e, Event::Exited { code: Some(3) }))
     );
+    // It had started: a crash, not a server that cannot start.
+    assert!(c.started());
     let p = c.request("textDocument/hover", json!({}));
     assert!(p.wait(Duration::from_secs(1)).is_err());
 }
@@ -162,15 +164,33 @@ fn chatty() {
 
 fn refuse() {
     let c = start("refuse", Arc::new(AtomicUsize::new(0)));
-    // Refused `initialize`: said, and the process ended, not "starting".
+    // Refused `initialize`: the process ended, not "starting", and the
+    // reason kept for whoever sees the exit.
     until("exit", || c.has_exited());
-    let events = c.take_events();
+    assert!(!c.is_ready() && !c.started());
+    assert_eq!(c.why_not_started().as_deref(), Some("no project"));
+}
+
+fn absent() {
+    let c = start("absent", Arc::new(AtomicUsize::new(0)));
+    // A toolchain's proxy for a component not installed: it ends before
+    // it answers `initialize`, and what it wrote on its standard error is
+    // read by the time its exit is seen.
+    until("exit", || c.has_exited());
     assert!(
-        events
+        c.take_events()
             .iter()
-            .any(|e| matches!(e, Event::Message { level: 1, text } if text.contains("no project")))
+            .any(|e| matches!(e, Event::Exited { code: Some(1) }))
     );
-    assert!(!c.is_ready());
+    assert!(!c.started());
+    assert_eq!(
+        c.why_not_started().as_deref(),
+        Some(
+            "error: 'fake' is not installed for the toolchain 'test' \
+             help: run `fake install` to install it"
+        )
+    );
+    assert_eq!(c.standard_error().len(), 2);
 }
 
 fn garbage() {
@@ -197,6 +217,7 @@ fn main() {
         ("silent", silent),
         ("crash", crash),
         ("refuse", refuse),
+        ("absent", absent),
         ("log work", log_work),
         ("garbage", garbage),
         ("chatty", chatty),

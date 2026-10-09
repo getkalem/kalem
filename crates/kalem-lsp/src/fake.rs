@@ -5,7 +5,9 @@
 //! Behaviors: `normal`; `silent` (never answers `initialize`); `refuse`
 //! (answers it with an error); `crash`
 //! (exits with 3 on the first `didOpen`); `garbage` (a malformed message
-//! first). In `normal`, a change whose text contains `CRASH` exits with 4.
+//! first); `absent` (exits with 1 at once, its reason on standard error,
+//! as a toolchain's proxy for a component not installed does). In
+//! `normal`, a change whose text contains `CRASH` exits with 4.
 
 #![allow(clippy::print_stdout)]
 
@@ -42,6 +44,15 @@ fn real(uri: &str) -> String {
 
 /// Serves on standard input and output until `exit`.
 pub fn serve(behavior: &str) {
+    if behavior == "absent" {
+        let mut err = std::io::stderr();
+        let _ = writeln!(
+            err,
+            "error: 'fake' is not installed for the toolchain 'test'"
+        );
+        let _ = writeln!(err, "help: run `fake install` to install it");
+        std::process::exit(1);
+    }
     let stdin = std::io::stdin();
     let mut r = BufReader::new(stdin.lock());
     let mut out = std::io::stdout();

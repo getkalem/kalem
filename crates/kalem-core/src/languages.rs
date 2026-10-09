@@ -75,11 +75,16 @@ pub struct ServerSpec {
     pub initialization_options: Value,
     /// Its settings, before the user's.
     pub settings: Value,
-    /// How to install it, said when it is not found.
+    /// How to install it, said when it is not found or does not start.
     pub install: Option<String>,
     /// Log lines that start and end work the server tells only in its log
     /// (`busyLog`: `{"start": [...], "done": [...]}`).
     pub busy_log: (Vec<String>, Vec<String>),
+    /// The arguments that make its program print its version and end
+    /// (`version`: `["--version"]`), for [`server_version`]; none when
+    /// the manifest gives none, since a server's program may not end
+    /// when it is asked something it does not know.
+    pub version: Vec<String>,
 }
 
 /// A loaded language plugin.
@@ -182,6 +187,7 @@ pub fn parse_manifest(dir: &Path, text: &str) -> Result<Option<Plugin>, String> 
                     initialization_options: s["initializationOptions"].clone(),
                     settings: s["settings"].clone(),
                     install: s["install"].as_str().map(str::to_string),
+                    version: strings(&s["version"]),
                     busy_log: (
                         strings(&s["busyLog"]["start"]),
                         strings(&s["busyLog"]["done"]),
@@ -635,9 +641,153 @@ pub fn resolve_server(plugin: &Plugin, lang: &LanguageSpec, root: Option<&Path>)
     }
 }
 
+/// How long [`server_version`] waits for the program to end, in seconds.
+const VERSION_WAIT: u32 = 5;
+
+/// What the program found for `spec` says its version is: the manifest's
+/// `version` arguments run in `root`, with the server's environment (so a
+/// toolchain's proxy, rustup's or pyenv's, picks the project's toolchain),
+/// and the first line it prints. `Err` says why it does not run, in its
+/// own words when it wrote any on its standard error: a program found
+/// is not always one that runs (rustup's proxy for a component not
+/// installed is on the `PATH` all the same). `None` when the manifest
+/// gives no `version`.
+pub fn server_version(
+    spec: &ServerSpec,
+    program: &Path,
+    root: &Path,
+) -> Option<Result<String, String>> {
+    use std::io::Read;
+    use std::process::{Command, Stdio};
+    if spec.version.is_empty() {
+        return None;
+    }
+    let mut cmd = Command::new(program);
+    cmd.args(&spec.version)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    if root.is_dir() {
+        cmd.current_dir(root);
+    }
+    for (k, v) in &spec.env {
+        cmd.env(k, v);
+    }
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(e) => return Some(Err(e.to_string())),
+    };
+    let read = |pipe: Option<Box<dyn Read + Send>>| {
+        std::thread::spawn(move || {
+            let mut text = String::new();
+            if let Some(mut p) = pipe {
+                let mut bytes = Vec::new();
+                let _ = p.read_to_end(&mut bytes);
+                text = String::from_utf8_lossy(&bytes).into_owned();
+            }
+            text
+        })
+    };
+    let out = read(
+        child
+            .stdout
+            .take()
+            .map(|p| Box::new(p) as Box<dyn Read + Send>),
+    );
+    let err = read(
+        child
+            .stderr
+            .take()
+            .map(|p| Box::new(p) as Box<dyn Read + Send>),
+    );
+    let start = std::time::Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break Some(status),
+            Ok(None) if start.elapsed().as_secs() < u64::from(VERSION_WAIT) => {
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                break None;
+            }
+        }
+    };
+    let Some(status) = status else {
+        // Its output is not waited for: a process it started may hold
+        // the pipes.
+        return Some(Err(crate::tr!(
+            "lsp-version-no-answer",
+            seconds = VERSION_WAIT
+        )));
+    };
+    let out = out.join().unwrap_or_default();
+    let err = err.join().unwrap_or_default();
+    let first = |t: &str| {
+        t.lines()
+            .map(str::trim)
+            .find(|l| !l.is_empty())
+            .map(str::to_string)
+    };
+    Some(if status.success() {
+        first(&out)
+            .or_else(|| first(&err))
+            .ok_or_else(|| exit_text(status.code()))
+    } else {
+        let lines: Vec<&str> = err
+            .lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+            .take(3)
+            .collect();
+        Err(if lines.is_empty() {
+            exit_text(status.code())
+        } else {
+            lines.join(" ")
+        })
+    })
+}
+
+/// A process's end in words: its exit code, or the signal that ended it.
+pub fn exit_text(code: Option<i32>) -> String {
+    match code {
+        Some(code) => crate::tr!("lsp-exit-code", code = code),
+        None => crate::tr!("lsp-exit-signal"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A server's `version`: read from the manifest; its program's first
+    /// line when it runs, its standard error's lines when it does not, its
+    /// exit code when it says nothing; none without `version`.
+    #[cfg(unix)]
+    #[test]
+    fn server_version_runs_or_says_why() {
+        let p = parse_manifest(
+            Path::new("/p"),
+            r#"{"id": "x", "languages": [], "servers": {"s": {"command": ["sh"],
+                "version": ["-c", "echo 'fake 1.2' && echo more"]}}}"#,
+        )
+        .unwrap()
+        .unwrap();
+        let mut s = p.server("s").unwrap().clone();
+        assert_eq!(s.version, ["-c", "echo 'fake 1.2' && echo more"]);
+        let (sh, root) = (Path::new("/bin/sh"), std::env::temp_dir());
+        assert_eq!(server_version(&s, sh, &root), Some(Ok("fake 1.2".into())));
+        s.version[1] = "echo 'error: not installed' >&2; echo 'help: get it' >&2; exit 1".into();
+        assert_eq!(
+            server_version(&s, sh, &root),
+            Some(Err("error: not installed help: get it".into()))
+        );
+        s.version[1] = "exit 3".into();
+        assert_eq!(server_version(&s, sh, &root), Some(Err(exit_text(Some(3)))));
+        s.version.clear();
+        assert_eq!(server_version(&s, sh, &root), None);
+    }
 
     const MANIFEST: &str = r#"{
       "id": "org.example.lang", "name": "Lang", "version": "1",

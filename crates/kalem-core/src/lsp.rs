@@ -841,7 +841,22 @@ impl Service {
                         );
                     }
                     Event::Exited { code } => {
-                        if let Some(why) = slot_exited(slot, code, now) {
+                        let why = if c.started() {
+                            slot_exited(slot, code, now)
+                        } else {
+                            // Ended by Kalem for its silence, or by itself.
+                            let reason = if slot.started.elapsed() >= INIT_TIMEOUT {
+                                Some(crate::tr!(
+                                    "lsp-no-initialize",
+                                    seconds =
+                                        u32::try_from(INIT_TIMEOUT.as_secs()).unwrap_or(u32::MAX)
+                                ))
+                            } else {
+                                c.why_not_started()
+                            };
+                            Some(slot_not_started(slot, &key, code, reason))
+                        };
+                        if let Some(why) = why {
                             gave_up.push((key.clone(), why));
                         }
                     }
@@ -974,6 +989,43 @@ impl Service {
     }
 }
 
+/// A server's process ended before it answered `initialize`: it is not
+/// started again, since it would end the same way (a toolchain's proxy
+/// for a component not installed, a version manager's shim with no
+/// version chosen, an argument the program does not know, `initialize`
+/// refused), and the reason returned is the server's own, with the
+/// plugin's `install` text. `code.restartServer` tries again.
+fn slot_not_started(
+    slot: &mut Slot,
+    key: &Key,
+    code: Option<i32>,
+    reason: Option<String>,
+) -> String {
+    slot.client = None;
+    slot.retry_at = None;
+    let reason = reason.unwrap_or_else(|| languages::exit_text(code));
+    let install = languages::plugins()
+        .into_iter()
+        .find(|p| p.id == key.0)
+        .and_then(|p| p.server(&key.1).and_then(|s| s.install.clone()));
+    let why = match install {
+        Some(how) => crate::tr!(
+            "lsp-did-not-start-how",
+            server = slot.name.as_str(),
+            reason = reason,
+            how = how
+        ),
+        None => crate::tr!(
+            "lsp-did-not-start",
+            server = slot.name.as_str(),
+            reason = reason
+        ),
+    };
+    slot.failed = Some(why.clone());
+    notice(why.clone(), true);
+    why
+}
+
 /// A server's process ended: a restart is planned with backoff, or, past
 /// [`MAX_CRASHES`], the server is given up on and the reason returned.
 fn slot_exited(slot: &mut Slot, code: Option<i32>, now: Instant) -> Option<String> {
@@ -982,7 +1034,7 @@ fn slot_exited(slot: &mut Slot, code: Option<i32>, now: Instant) -> Option<Strin
         slot.crashes = 0;
     }
     slot.crashes += 1;
-    let code = format!("{code:?}");
+    let code = languages::exit_text(code);
     if slot.crashes > MAX_CRASHES {
         let why = crate::tr!(
             "lsp-gave-up",
