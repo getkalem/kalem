@@ -214,13 +214,14 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
     37892279254 against `main`'s 37887755617) the stretch after the
     last crate, the test binaries' compile and link, took 237 s with
     LLD and 279 to 291 s with `link.exe`: about 50 s saved, under the
-    minute asked, and on a job that no longer decides a run's length
-    (8 minutes warm, after C2 and C4). The change is the one line
+    minute asked. Since C7's split, Windows's halves (7 to 10 minutes)
+    end with macOS's job (10 minutes), so LLD would not shorten a run
+    unless macOS's tests were split too. The change is the one line
     above, set before the cache step on Windows only.
 
 ## 3. After those
 
-- [ ] **C7. Measure again and shorten the new longest job.** The test
+- [x] **C7. Measure again and shorten the new longest job.** The test
   jobs should come out near 10 minutes. Then `binary size` (two release
   builds with LTO, 9 to 10 minutes) and `pdflatex` (9 minutes) are
   next. If one of them is the longest job by two minutes or more:
@@ -229,9 +230,39 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
   - *Done when* the numbers of a warm run on `main` are in the table
     below and no single job leads the others by more than two minutes,
     or the reason it still does is written here.
+  - *Results.* With C1 to C5 the Windows test job still decided most
+    runs, and it varied most: on the same cache its compile took 3:23
+    to 5:26 and its tests 212 to 397 s from one run to the next. Three
+    changes:
+    - Windows's tests run in two halves on two runners
+      (`--partition hash:1/2` and `2/2`), each building everything from
+      the one cache (`bd1b238`): its tests take 2.3 to 3 minutes a half.
+    - The terminal-only Kalem with the bundled plugins (C2's step of the
+      Ubuntu test job) is a job of its own, restoring the Ubuntu test
+      job's cache and saving none (`0bc2d08`): 5 minutes, beside the
+      others.
+    - nextest tries a failed test twice more (`2fa650a`): on Windows,
+      `code_completions_taken` failed its first try in two runs in a row
+      (11 s waiting for a completion a second try had in 1.2 s), and
+      `this_file_keys` once. The log names such a test FLAKY; why they
+      are slow on a loaded runner is a task of its own.
+  - Now the longest jobs are the slower of Windows's halves and macOS's
+    job, about 10 minutes each, then Ubuntu's (8) and the differential
+    tests and binary size (7). macOS's tests (5 minutes on 3 cores)
+    could be split as Windows's were, but a free plan runs 5 macOS jobs
+    at once, which dependabot's pull requests would then fill; left as
+    it is.
 
 ## Results
 
-| Run | Commit | Longest job | Run time |
-|---|---|---|---|
-| 37829225913 (before) | `fd95f66` | test (windows) 21 min | 21 min |
+Start to finish, as GitHub shows a run (a push to `main` waits for the
+run before it, so `cd1a67e`'s includes a wait):
+
+| Run | Commit | Cache | Longest job | Run |
+|---|---|---|---|---|
+| 37829225913, before | `fd95f66` | warm | test (windows) 21 min | 21.7 min |
+| 37885494037, before | `e9e5843` | cold | test (windows) 32 min | 32.6 min |
+| 37887755617, C1 to C3 | `cd1a67e` | cold | test (windows) 30 min | 40.9 min |
+| 37892244068, C4 | `0f44f7b` | warm | test (ubuntu) 13.4 min | 13.4 min |
+| 37896269232, C4 | `2fa650a` | warm | test (windows) 14.2 min | 14.3 min |
+| 37897778896, C7 | `bd1b238` | warm | test (windows, 1/2) and test (macos) 10.4 min | 10.6 min |
