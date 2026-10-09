@@ -5217,6 +5217,13 @@ impl kalem_core::completers::Completer for Symbols {
     fn slow(&self) -> bool {
         true
     }
+    // A language server's time (1.5 s) and more, not the default 100 ms:
+    // on a runner with every core busy this thread can start later than
+    // that, and the editor drops what comes past the budget, which left
+    // the menu empty (CI's Windows runner, docs/ci_todo.md, C4).
+    fn budget(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(5)
+    }
     fn complete(
         &self,
         ctx: &kalem_core::completers::Context,
@@ -5243,7 +5250,8 @@ impl kalem_core::completers::Completer for Symbols {
 #[test]
 fn code_completions_taken() {
     let wait = |t: &mut T| {
-        for _ in 0..400 {
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while std::time::Instant::now() < end {
             t.app.tick(std::time::Instant::now());
             if t.app.completion_ready() {
                 return;

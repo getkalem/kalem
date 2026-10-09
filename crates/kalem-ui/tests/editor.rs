@@ -1526,6 +1526,13 @@ impl kalem_core::completers::Completer for Symbols {
     fn slow(&self) -> bool {
         true
     }
+    // A language server's time (1.5 s) and more, not the default 100 ms:
+    // on a runner with every core busy this thread can start later than
+    // that, and the editor drops what comes past the budget, which left
+    // the menu empty (CI's Windows runner, docs/ci_todo.md, C4).
+    fn budget(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(5)
+    }
     fn complete(
         &self,
         ctx: &kalem_core::completers::Context,
@@ -1574,7 +1581,8 @@ fn open_code<'a>(
 
 /// Waits for the slow completers' items, as the editor's timer does.
 fn completion_items(e: &Entity<Editor>, cx: &mut VisualTestContext) -> usize {
-    for _ in 0..200 {
+    let end = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while std::time::Instant::now() < end {
         let n = e.update(cx, |e, cx| {
             e.tick(cx);
             e.completion
@@ -2518,8 +2526,10 @@ fn this_file_keys(cx: &mut TestAppContext) {
         e.update(cx, |e, cx| e.tick(cx));
         cx.run_until_parked();
     };
+    // Ten seconds, for a runner with every core busy.
     let wait = |cx: &mut VisualTestContext, f: &dyn Fn() -> bool| {
-        for _ in 0..300 {
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while std::time::Instant::now() < end {
             tick(cx);
             if f() {
                 return;
@@ -2571,7 +2581,10 @@ fn this_file_keys(cx: &mut TestAppContext) {
         }
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
-    assert!(!copy.exists());
+    // A failed move leaves its error in the status line (CI's Windows
+    // runner once kept the file).
+    let status = ws.read_with(cx, |ws, cx| ws.editor.read(cx).status.clone());
+    assert!(!copy.exists(), "{status:?}");
     let open: Vec<_> = ws.read_with(cx, |ws, cx| {
         ws.editors
             .iter()

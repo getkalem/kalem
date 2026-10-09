@@ -184,8 +184,8 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
     and a long test such as `latex_corpus` (32 s under `cargo test`)
     takes up to 130 s with every core busy.
   - On Windows one run failed `kalem-ui`'s `this_file_keys`, which
-    waits three seconds for a file to reach the tests' trash: the
-    runner was loaded by the compiles above. It has passed since.
+    waits three seconds for a file to reach the tests' trash, under
+    the load of the compiles above (see C7).
 
 - [x] **C5. The sample plugins under nextest.** kalem-script's and
   kalem-cli's tests build the plugins of `tests/plugins` behind a lock,
@@ -244,8 +244,19 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
     - nextest tries a failed test twice more (`2fa650a`): on Windows,
       `code_completions_taken` failed its first try in two runs in a row
       (11 s waiting for a completion a second try had in 1.2 s), and
-      `this_file_keys` once. The log names such a test FLAKY; why they
-      are slow on a loaded runner is a task of its own.
+      `this_file_keys` once. The log names such a test FLAKY.
+    - Why `code_completions_taken` failed: its completer, standing for
+      a language server, ran on a thread of its own with the default
+      budget of 100 ms (a language server's is 1.5 s). A thread that
+      starts later than that on a loaded runner has its items dropped
+      by design, the menu stays empty, and the test's loop ran out after
+      ten seconds; a completer made 200 ms late fails the same way on
+      any machine. The test completers of both editors now have five
+      seconds, and their waits are ten seconds by the clock rather than
+      a count of turns. `this_file_keys` waits ten seconds too, and
+      names the editor's status line when the file is still there: a
+      move refused by Windows (a virus scan holding the file just
+      copied) would show there; no cause is known yet.
   - Now the longest jobs are the slower of Windows's halves and macOS's
     job, about 10 minutes each, then Ubuntu's (8) and the differential
     tests and binary size (7). macOS's tests (5 minutes on 3 cores)
