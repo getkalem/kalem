@@ -107,7 +107,11 @@ jobs:
       # nextest runs every test of every binary in one pool, as many at
       # once as the runner has cores, where `cargo test` ran the binaries
       # one after another (docs/ci_todo.md, C4); .config/nextest.toml.
+      # The built-in components compiled once for every test process
+      # (crates/kalem-components/src/viewers.rs).
       - run: cargo nextest run --workspace --profile ci
+        env:
+          KALEM_COMPONENT_CACHE: ${{ runner.temp }}/kalem-component-cache
       # Doc tests are not nextest's; they run after a failure too.
       - if: ${{ !cancelled() }}
         run: cargo test --workspace --doc

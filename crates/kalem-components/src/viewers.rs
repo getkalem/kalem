@@ -56,14 +56,21 @@ impl Component {
 }
 
 /// The built-in component `id` (`org.kalem.xlsx`) as a viewer, on a host
-/// of the process's own that caches nothing on disk: for tests and tools.
-/// Each call gives the same viewer, compiled once.
+/// of the process's own: for tests and tools. Each call gives the same
+/// viewer, compiled once. The host caches nothing on disk unless
+/// `KALEM_COMPONENT_CACHE` names a folder, where processes then share
+/// what one of them compiled: CI runs every test in a process of its own
+/// (docs/ci_todo.md, C4), and compiling the workbook's component in each
+/// took the runners' cores from the other tests.
 pub fn viewer(id: &str) -> Option<Arc<ComponentViewer>> {
     static HOST: OnceLock<Option<Arc<Host>>> = OnceLock::new();
     static VIEWERS: OnceLock<Vec<Arc<ComponentViewer>>> = OnceLock::new();
     let all = VIEWERS.get_or_init(|| {
         let Some(host) = HOST
-            .get_or_init(|| Host::new(None).ok().map(Arc::new))
+            .get_or_init(|| {
+                let cache = std::env::var_os("KALEM_COMPONENT_CACHE").map(std::path::PathBuf::from);
+                Host::new(cache).ok().map(Arc::new)
+            })
             .clone()
         else {
             return Vec::new();

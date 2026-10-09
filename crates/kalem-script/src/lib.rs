@@ -319,7 +319,10 @@ impl Host {
         // A failed write only costs the next start a compile.
         if let Ok(compiled) = component.serialize() {
             let _ = std::fs::create_dir_all(dir);
-            let tmp = file.with_extension("tmp");
+            // A name of the process's own: two processes compiling the
+            // same component (two Kalems, or tests run each in a process)
+            // never write into one file.
+            let tmp = file.with_extension(format!("{}.tmp", std::process::id()));
             if std::fs::write(&tmp, compiled).is_ok() {
                 let _ = std::fs::rename(&tmp, &file);
             } else {
