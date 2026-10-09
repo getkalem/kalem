@@ -70,15 +70,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        # Windows's runners are the slowest and vary most (its tests took
-        # 3.5 to 6.5 minutes from one run to the next): its tests in two
-        # halves on two runners, each building everything from the one
-        # cache (docs/ci_todo.md, C7).
+        os: [ubuntu-latest]
+        # Windows's and macOS's tests in two halves on two runners each,
+        # each half building everything from its system's one cache:
+        # Windows's runners are the slowest and vary most, macOS's have
+        # three cores (docs/ci_todo.md, C7). A free plan runs five macOS
+        # jobs at once.
         include:
           - os: windows-latest
             part: 1/2
           - os: windows-latest
+            part: 2/2
+          - os: macos-latest
+            part: 1/2
+          - os: macos-latest
             part: 2/2
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
@@ -121,8 +126,8 @@ jobs:
       - run: cargo nextest run --workspace --profile ci ${{ matrix.part && format('--partition hash:{0}', matrix.part) || '' }}
         env:
           KALEM_COMPONENT_CACHE: ${{ runner.temp }}/kalem-component-cache
-      # Doc tests are not nextest's; they run after a failure too (on
-      # Windows, with the first half).
+      # Doc tests are not nextest's; they run after a failure too (where
+      # the tests are in halves, with the first).
       - if: ${{ !cancelled() && matrix.part != '2/2' }}
         run: cargo test --workspace --doc
 

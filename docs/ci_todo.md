@@ -264,8 +264,9 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
     job, about 10 minutes each, then Ubuntu's (8) and the differential
     tests and binary size (7). macOS's tests (5 minutes on 3 cores)
     could be split as Windows's were, but a free plan runs 5 macOS jobs
-    at once, which dependabot's pull requests would then fill; left as
-    it is.
+    at once, which dependabot's pull requests would then fill.
+  - The owner asked for the split all the same (2026-10-09): macOS's
+    tests run in two halves too, as Windows's do.
 
 ## Results
 
