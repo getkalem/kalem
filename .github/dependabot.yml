@@ -6,10 +6,9 @@ updates:
       interval: weekly
     # Each pull request runs all of CI, and dependabot rebases every open
     # one when Cargo.lock moves on main: the week's minor and patch
-    # updates come as one pull request, major updates one by one
-    # (docs/ci_todo.md, C3). A breaking 0.x update fails the group's pull
-    # request; then `@dependabot ignore this dependency` there, or make
-    # the change on main.
+    # updates come as one pull request (docs/ci_todo.md, C3). Dependabot
+    # counts a 0.x crate's minor update (0.23 to 0.24) as major, as Cargo
+    # does, so the updates that can break still come one by one.
     groups:
       # gpui and its platform layer are one snapshot of a Zed release tag:
       # they move together (roadmap R2.7).
@@ -29,13 +28,6 @@ updates:
       # own would put a second copy in the binary, whose size ceilings are
       # thin (tools/binary-size.txt). Take the bump when wasmtime moves.
       - dependency-name: "sha2"
-        update-types: ["version-update:semver-minor", "version-update:semver-major"]
-      # kalem-components' build script reads the components with
-      # wasmparser, whose API changes between 0.x versions (0.261 renamed
-      # the field of an import's name): dependabot cannot make the change,
-      # and in the group it would fail every other update with it. Bump it
-      # by hand.
-      - dependency-name: "wasmparser"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
