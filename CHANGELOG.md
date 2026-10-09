@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 - A link in a PDF that leaves the document (a web address, a file, another program) asks before it opens outside Kalem, showing where it goes: a click no longer starts a program at once.
 
+### Fixed
+- Windows: moving or renaming a file (in the file manager, or this file's own) that another program had open for a moment (a virus scanner reading a file just written, an indexer, a backup) failed at once with "access denied" or a sharing violation. The move now tries again for up to a second before it reports the error.
+
 ## [0.5.1] - 2026-10-08
 
 ### Added

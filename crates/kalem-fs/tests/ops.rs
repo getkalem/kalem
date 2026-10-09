@@ -295,3 +295,27 @@ fn move_across_devices() {
     assert_eq!(read(&d.join("folder/b.txt")), "beta");
     let _ = std::fs::remove_dir_all(&other);
 }
+
+/// On Windows a file another process has open cannot be moved; the move
+/// waits a moment for it to be let go (a virus scanner reading a file
+/// just written; here a handle of the test's own that shares nothing).
+#[cfg(windows)]
+#[test]
+fn a_move_waits_for_a_file_held_a_moment() {
+    use std::os::windows::fs::OpenOptionsExt;
+    let d = tree("held", &[("a.txt", "a")]);
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .share_mode(0)
+        .open(d.join("a.txt"))
+        .unwrap();
+    assert!(std::fs::rename(d.join("a.txt"), d.join("c.txt")).is_err());
+    let release = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        drop(file);
+    });
+    kalem_fs::move_path(&d.join("a.txt"), &d.join("b.txt")).unwrap();
+    release.join().unwrap();
+    assert_eq!(read(&d.join("b.txt")), "a");
+    let _ = std::fs::remove_dir_all(&d);
+}

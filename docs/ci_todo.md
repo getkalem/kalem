@@ -256,7 +256,10 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
       a count of turns. `this_file_keys` waits ten seconds too, and
       names the editor's status line when the file is still there: a
       move refused by Windows (a virus scan holding the file just
-      copied) would show there; no cause is known yet.
+      copied) would show there; no cause is known yet. Since then a move
+      on Windows tries again for up to a second while another process
+      has the file open (kalem-fs, `retry_held`), which such a scan
+      would have failed.
   - Now the longest jobs are the slower of Windows's halves and macOS's
     job, about 10 minutes each, then Ubuntu's (8) and the differential
     tests and binary size (7). macOS's tests (5 minutes on 3 cores)

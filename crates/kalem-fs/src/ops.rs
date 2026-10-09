@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 
 /// What an operation does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -245,7 +246,7 @@ pub(crate) fn move_with(src: &Path, dst: &Path, r: &dyn Report) -> io::Result<()
         if src.file_name() == dst.file_name() {
             return Ok(());
         }
-        return std::fs::rename(src, dst);
+        return rename(src, dst);
     }
     let meta = std::fs::symlink_metadata(src)?;
     match std::fs::symlink_metadata(dst) {
@@ -270,17 +271,72 @@ pub(crate) fn move_with(src: &Path, dst: &Path, r: &dyn Report) -> io::Result<()
         Err(_) => {}
     }
     r.file(src);
-    match std::fs::rename(src, dst) {
+    match rename(src, dst) {
         Ok(()) => {
             r.bytes(meta.len());
             Ok(())
         }
         Err(e) if e.kind() == io::ErrorKind::CrossesDevices => {
             copy_with(src, dst, r)?;
-            delete_path(src)
+            retry_held(HELD_WAIT, held, || delete_path(src))
         }
         Err(e) => Err(e),
     }
+}
+
+/// How long a move waits, at most, for another process to let go of a
+/// file Windows will not move while it is held.
+const HELD_WAIT: Duration = Duration::from_secs(1);
+
+/// `f`, a move or a delete, tried again for up to `limit` while `held`
+/// says another process has the file open: on Windows a virus scanner
+/// reading a file just written, an indexer or a backup refuses a rename
+/// for a moment, where Unix lets it through. Waits 10 ms, then twice as
+/// long each time; any other error, or the last, is returned at once.
+fn retry_held<T>(
+    limit: Duration,
+    held: fn(&io::Error) -> bool,
+    mut f: impl FnMut() -> io::Result<T>,
+) -> io::Result<T> {
+    let end = Instant::now() + limit;
+    let mut wait = Duration::from_millis(10);
+    loop {
+        match f() {
+            Err(e) if held(&e) => {
+                let left = end.saturating_duration_since(Instant::now());
+                if left.is_zero() {
+                    return Err(e);
+                }
+                std::thread::sleep(wait.min(left));
+                wait *= 2;
+            }
+            r => return r,
+        }
+    }
+}
+
+/// Whether `e` is Windows refusing because another process has the file
+/// open: access denied, or a sharing or lock violation.
+#[cfg(windows)]
+fn held(e: &io::Error) -> bool {
+    const ERROR_ACCESS_DENIED: i32 = 5;
+    const ERROR_SHARING_VIOLATION: i32 = 32;
+    const ERROR_LOCK_VIOLATION: i32 = 33;
+    matches!(
+        e.raw_os_error(),
+        Some(ERROR_ACCESS_DENIED | ERROR_SHARING_VIOLATION | ERROR_LOCK_VIOLATION)
+    )
+}
+
+/// Elsewhere an open file can be moved: nothing to wait for.
+#[cfg(not(windows))]
+fn held(_: &io::Error) -> bool {
+    false
+}
+
+/// A rename, tried again for a moment on Windows ([`retry_held`]).
+fn rename(src: &Path, dst: &Path) -> io::Result<()> {
+    retry_held(HELD_WAIT, held, || std::fs::rename(src, dst))
 }
 
 /// Deletes `path` for good: a directory with everything in it; a link,
@@ -557,4 +613,53 @@ pub(crate) fn run(op: &Operation, r: &dyn Report, cancel: &AtomicBool) -> Outcom
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every error held, as a file another process keeps open.
+    fn always(_: &io::Error) -> bool {
+        true
+    }
+
+    #[test]
+    fn a_held_file_is_tried_again_until_it_is_let_go() {
+        let mut calls = 0;
+        let r = retry_held(Duration::from_secs(1), always, || {
+            calls += 1;
+            if calls < 3 {
+                Err(io::Error::other("held"))
+            } else {
+                Ok(calls)
+            }
+        });
+        assert_eq!(r.unwrap(), 3);
+    }
+
+    #[test]
+    fn other_errors_and_a_file_held_too_long_are_returned() {
+        let mut calls = 0;
+        let r: io::Result<()> = retry_held(
+            Duration::from_secs(1),
+            |e| e.kind() == io::ErrorKind::ResourceBusy,
+            || {
+                calls += 1;
+                Err(io::Error::from(io::ErrorKind::NotFound))
+            },
+        );
+        assert_eq!(r.unwrap_err().kind(), io::ErrorKind::NotFound);
+        assert_eq!(calls, 1);
+        let start = Instant::now();
+        let r: io::Result<()> = retry_held(Duration::from_millis(50), always, || {
+            Err(io::Error::other("held"))
+        });
+        assert!(r.is_err());
+        let took = start.elapsed();
+        assert!(
+            took >= Duration::from_millis(50) && took < Duration::from_secs(2),
+            "{took:?}"
+        );
+    }
 }
