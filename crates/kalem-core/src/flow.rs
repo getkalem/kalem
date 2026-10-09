@@ -20,7 +20,7 @@ use std::ops::Range;
 
 use kalem_viewer::{
     Annotation, AnnotationKind, AsideKind, FlowAlign, FlowItem, FlowParagraph, FlowPlace, FlowRole,
-    Marks, Piece, Script, ViewerDocument,
+    FlowRun, FlowStyle, FlowStyleKind, MarkChange, Marks, Piece, Script, ViewerDocument,
 };
 use org_edit::Transaction;
 
@@ -521,6 +521,141 @@ impl FlowState {
     /// Answers comment `parent`.
     pub fn reply(&mut self, parent: &str, text: &str) -> Result<String, String> {
         self.annotate(|d| d.reply(parent, text))
+    }
+
+    /// The paragraphs bytes `range` of the text covers, each with the
+    /// bytes of its edit text in the range; for a caret, the paragraph it
+    /// is in, with an empty range.
+    pub fn spans(&self, range: Range<usize>) -> Vec<(&FlowParagraph, Range<usize>)> {
+        let mut out = Vec::new();
+        if self.lines.is_empty() {
+            return out;
+        }
+        let (first, _) = self.locate(range.start);
+        let (last, _) = self.locate(range.end);
+        for i in first..=last.min(self.lines.len() - 1) {
+            let base = self.starts[i];
+            for s in &self.lines[i].segs {
+                let (a, b) = (base + s.start, base + s.end());
+                let (from, to) = (range.start.max(a), range.end.min(b));
+                let caret = range.is_empty() && a <= range.start && range.start <= b;
+                if from < to || caret {
+                    out.push((&s.para, from.min(to) - a..to.max(from) - a));
+                }
+            }
+        }
+        out
+    }
+
+    /// The runs of text bytes `range` of the text covers.
+    pub fn runs_in(&self, range: Range<usize>) -> Vec<&FlowRun> {
+        self.spans(range)
+            .into_iter()
+            .flat_map(|(p, r)| {
+                p.runs.iter().filter(move |run| {
+                    let (s, e) = (run.source.start as usize, run.source.end as usize);
+                    run.piece == Piece::Text && s < r.end && e > r.start
+                })
+            })
+            .collect()
+    }
+
+    /// The run of byte `pos`: the one before it, whose look typing there
+    /// takes; at a paragraph's start, its first.
+    pub fn run_at(&self, pos: usize) -> Option<&FlowRun> {
+        let (s, off) = self.seg_at(pos)?;
+        let runs = &s.para.runs;
+        runs.iter()
+            .filter(|r| r.piece == Piece::Text)
+            .find(|r| (r.source.start as usize) < off && off <= r.source.end as usize)
+            .or_else(|| runs.iter().find(|r| r.piece == Piece::Text))
+    }
+
+    /// The paragraph of byte `pos`.
+    pub fn paragraph_at(&self, pos: usize) -> Option<&FlowParagraph> {
+        self.seg_at(pos).map(|(s, _)| &s.para)
+    }
+
+    /// The edited paragraphs bytes `range` covers: their indices and the
+    /// bytes of each in it.
+    fn edited(&self, range: Range<usize>) -> Result<Vec<(u32, Range<usize>)>, String> {
+        let out: Vec<(u32, Range<usize>)> = self
+            .spans(range)
+            .into_iter()
+            .filter_map(|(p, r)| p.index.map(|i| (i, r)))
+            .collect();
+        if out.is_empty() {
+            return Err("This is not text the document edits".into());
+        }
+        Ok(out)
+    }
+
+    /// Changes the look of bytes `range` of the text: `changes` made on
+    /// every run in it, by the plugin, one step.
+    pub fn set_marks(&mut self, range: Range<usize>, changes: &[MarkChange]) -> Result<(), String> {
+        let spans = self.edited(range)?;
+        let (first, last) = (&spans[0], &spans[spans.len() - 1]);
+        let from = FlowPlace {
+            paragraph: first.0,
+            offset: first.1.start as u32,
+        };
+        let to = FlowPlace {
+            paragraph: last.0,
+            offset: last.1.end as u32,
+        };
+        let unit = self.unit;
+        self.annotate(|d| d.flow_set_marks(unit, from, to, changes))
+    }
+
+    /// Gives the paragraphs bytes `range` covers (the cursor's, for a
+    /// caret) paragraph style `style` (its [`FlowStyle::id`]).
+    pub fn set_style(&mut self, range: Range<usize>, style: &str) -> Result<(), String> {
+        let spans = self.edited(range)?;
+        let from = spans.iter().map(|s| s.0).min().unwrap_or(0);
+        let to = spans.iter().map(|s| s.0).max().unwrap_or(0);
+        let unit = self.unit;
+        self.annotate(|d| d.flow_set_style(unit, from, to, style))
+    }
+
+    /// The paragraph styles a user picks among, as the plugin offers them:
+    /// the default style first, then the title's, the headings' in their
+    /// order, then the others by name.
+    pub fn paragraph_styles(&mut self) -> Vec<FlowStyle> {
+        let mut list: Vec<FlowStyle> = self
+            .viewer
+            .doc()
+            .flow_styles()
+            .into_iter()
+            .filter(|s| s.kind == FlowStyleKind::Paragraph && s.shown)
+            .collect();
+        let rank = |s: &FlowStyle| {
+            let n = s.name.to_lowercase();
+            if n == "normal" || n == "default paragraph style" {
+                (0, 0, n)
+            } else if n == "title" || n == "subtitle" {
+                (1, usize::from(n == "subtitle"), n)
+            } else if let Some(level) = n
+                .strip_prefix("heading ")
+                .and_then(|l| l.parse::<usize>().ok())
+            {
+                (2, level, n)
+            } else {
+                (3, 0, n)
+            }
+        };
+        list.sort_by_key(rank);
+        list
+    }
+
+    /// The look at byte `pos` as the toolbar shows it: the paragraph's
+    /// style, the run's typeface, size and marks.
+    pub fn look_at(&self, pos: usize) -> Option<(String, Marks)> {
+        let p = self.paragraph_at(pos)?;
+        let marks = self
+            .run_at(pos)
+            .map(|r| r.marks.clone())
+            .unwrap_or_default();
+        Some((p.style.clone(), marks))
     }
 
     /// Changes comment `id`'s text: a paragraph a line.

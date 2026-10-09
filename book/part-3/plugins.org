@@ -247,6 +247,25 @@ tab, a line break (U+000B), a page break (U+000C), a column break
 (U+000E) and an object (U+FFFC, a picture, a note's mark) as one
 character each.
 
+The look of the text is changed as a word processor changes it, through
+=set-marks= (bold, italic, underline, strikethrough, raised or lowered,
+a color, a highlight, a size, a typeface, or back to the style's look)
+on a range of places, and =set-style= on a range of paragraphs, from
+the styles =styles= offers. The commands of the /Format/ category do it
+on the selection, or the word at the cursor when nothing is selected:
+Bold (Ctrl+B), Italic (Ctrl+I) and Underline (Ctrl+U) turn a mark on,
+or off where the whole selection has it, as Strike Through,
+Superscript and Subscript do; Font, Font Size,
+Text Color, Highlight Color and Paragraph Style offer a list (the
+document's typefaces and common ones; common sizes; a word processor's
+colors; the document's styles, the default first, then the title's and
+the headings') and take a value typed; Clear Formatting (Ctrl+Space)
+gives the text back its style's look. They are in the /Format/ menu,
+the /Review/ menu has the annotations' commands, and in the graphical
+editor the toolbar shows the paragraph's style, the typeface and the
+size at the cursor, each opening its list, and the marks, pressed where
+the text there has them.
+
 What people wrote /about/ a document rather than in it is the
 =annotations= interface, apart from =flow= because other viewers have
 it too, and every viewer world exports it (a viewer without any answers
@@ -270,7 +289,7 @@ annotations it is in by ID, so the host draws them without knowing the
 format. The host shows inserted text underlined and deleted text struck
 through in their colors, and text a comment is on highlighted; the
 status bar says the comment or the change at the cursor. The commands of
-the /Review/ category add, answer, edit, resolve and delete comments, go to the
+the /Review/ category (and menu) add, answer, edit, resolve and delete comments, go to the
 next and previous comment or change, accept and reject a change or all
 of them, and turn Track Changes on and off, while it is on the plugin
 writing the user's edits as tracked changes. The user's name, which

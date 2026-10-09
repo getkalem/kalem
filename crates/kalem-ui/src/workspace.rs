@@ -1947,6 +1947,7 @@ impl Workspace {
             }
         }
         bar = bar.child(div().w(px(1.)).h(px(18.)).mx(px(4.)).bg(theme.border));
+        bar = self.flow_tools(bar, theme, &doc, cx);
         let mode = self.editor.read(cx).doc.meta.mode.name();
         for (i, (label, _tip, id, args, not_in)) in TOOLBAR.iter().enumerate() {
             // Only the buttons whose command the document offers.
@@ -1977,6 +1978,118 @@ impl Workspace {
             );
         }
         bar.flex_wrap().items_center()
+    }
+
+    /// The tools of a document of flowing text (a Word document), as a
+    /// word processor's: the paragraph's style, the typeface and the size
+    /// at the cursor, each opening its list; the marks, pressed where the
+    /// text at the cursor has them; color, highlight, clearing, and a new
+    /// comment.
+    fn flow_tools(
+        &self,
+        mut bar: gpui::Div,
+        theme: &Theme,
+        doc: &kalem_core::when::Context,
+        cx: &mut Context<'_, Self>,
+    ) -> gpui::Div {
+        let look = {
+            let d = &self.editor.read(cx).doc;
+            let s = d.selection;
+            d.flow
+                .as_deref()
+                .and_then(|f| f.look_at(s.anchor.min(s.head)))
+        };
+        let Some((style, marks)) = look else {
+            return bar;
+        };
+        if !self.shared.registry.offered("flow.format.bold", doc) {
+            return bar;
+        }
+        let tr = kalem_core::l10n::tr;
+        let size = marks.size.map_or("—".to_string(), |n| {
+            format!("{}", (n * 2.0).round() / 2.0)
+        });
+        let face = marks.face.clone().unwrap_or_else(|| "—".to_string());
+        let style = if style.is_empty() {
+            "—".to_string()
+        } else {
+            style
+        };
+        let pickers = [
+            ("tool-flow-style", format!("{style} ▾"), "flow.format.style"),
+            ("tool-flow-font", format!("{face} ▾"), "flow.format.font"),
+            (
+                "tool-flow-size",
+                format!("{size} ▾"),
+                "flow.format.fontSize",
+            ),
+        ];
+        for (name, label, id) in pickers {
+            bar = bar.child(self.command_button(
+                name.into(),
+                label.into(),
+                id.into(),
+                serde_json::Value::Null,
+                false,
+                cx,
+            ));
+        }
+        let script = marks.script;
+        let toggles = [
+            ("tool-flow-bold", "B", "flow.format.bold", marks.bold),
+            ("tool-flow-italic", "I", "flow.format.italic", marks.italic),
+            (
+                "tool-flow-underline",
+                "U",
+                "flow.format.underline",
+                marks.underline.is_some(),
+            ),
+            (
+                "tool-flow-strike",
+                "S",
+                "flow.format.strikeThrough",
+                marks.strike || marks.double_strike,
+            ),
+            (
+                "tool-flow-superscript",
+                "x²",
+                "flow.format.superscript",
+                script == kalem_viewer::Script::Superscript,
+            ),
+            (
+                "tool-flow-subscript",
+                "x₂",
+                "flow.format.subscript",
+                script == kalem_viewer::Script::Subscript,
+            ),
+            ("tool-flow-color", "A", "flow.format.color", false),
+            ("tool-flow-highlight", "ab", "flow.format.highlight", false),
+            ("tool-flow-clear", "Tx", "flow.format.clear", false),
+        ];
+        bar = bar.child(div().w(px(1.)).h(px(18.)).mx(px(4.)).bg(theme.border));
+        for (name, label, id, pressed) in toggles {
+            bar = bar.child(self.command_button(
+                name.into(),
+                label.into(),
+                id.into(),
+                serde_json::Value::Null,
+                pressed,
+                cx,
+            ));
+        }
+        if self.shared.registry.offered("flow.comment.new", doc) {
+            bar = bar
+                .child(div().w(px(1.)).h(px(18.)).mx(px(4.)).bg(theme.border))
+                .child(self.command_button(
+                    "tool-flow-comment".into(),
+                    format!("✎ {}", tr("cmd-flow-comment-new")).into(),
+                    "flow.comment.new".into(),
+                    serde_json::Value::Null,
+                    false,
+                    cx,
+                ));
+        }
+        bar
     }
 
     /// Runs `id` with `args` in the active editor, then gives it the focus.

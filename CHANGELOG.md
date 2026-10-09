@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- Formatting in documents of flowing text (a Word document), as a word processor's: Bold (Ctrl+B), Italic (Ctrl+I), Underline (Ctrl+U), Strike Through, Superscript and Subscript turn a mark on, or off where the whole selection has it; Font, Font Size, Text Color and Highlight Color offer lists (the document's typefaces and common ones, common sizes, a word processor's colors) or a value typed; Paragraph Style gives the paragraphs one of the document's styles; Clear Formatting gives the text back its style's look. They act on the selection, or the word at the cursor, and go through the plugin API's `flow` interface (`set-marks`, `set-style`). They are in the Format menu, and a new Review menu holds the comments' and the tracked changes' commands. The graphical editor's toolbar shows, for such a document, the paragraph's style, the typeface and the size at the cursor, each opening its list, the marks pressed where the text has them, the colors, Clear Formatting and New Comment.
+
 ## [0.6.2] - 2026-10-10
 
 ### Added

@@ -8,8 +8,8 @@
 use kalem_viewer::{
     Anchor, Annotation, AnnotationKind, Aside, AsideKind, Detection, FileHandle, FlowCell,
     FlowItem, FlowLayout, FlowParagraph, FlowPlace, FlowRole, FlowRow, FlowRun, FlowStyle,
-    FlowStyleKind, FlowTable, Marks, Piece, RenderRequest, Rendered, Result, Structure, Unit,
-    UnitKind, Viewer, ViewerDocument, ViewerError,
+    FlowStyleKind, FlowTable, MarkChange, Marks, Piece, RenderRequest, Rendered, Result, Structure,
+    Unit, UnitKind, Viewer, ViewerDocument, ViewerError,
 };
 
 pub struct Flows;
@@ -18,12 +18,34 @@ pub struct Flows;
 struct State {
     lines: Vec<String>,
     comments: Vec<Annotation>,
+    /// Formatting, coarse: every run of a paragraph a range touches.
+    looks: Vec<(u32, MarkChange)>,
+    /// Paragraph styles given, by paragraph.
+    styles: Vec<(u32, String)>,
+}
+
+/// A mark change made on a run's marks.
+fn apply_mark(m: &mut Marks, c: &MarkChange) {
+    match c {
+        MarkChange::Bold(b) => m.bold = *b,
+        MarkChange::Italic(b) => m.italic = *b,
+        MarkChange::Underline(u) => m.underline = u.clone(),
+        MarkChange::Strike(b) => m.strike = *b,
+        MarkChange::Script(s) => m.script = *s,
+        MarkChange::Color(c) => m.color = *c,
+        MarkChange::Highlight(h) => m.highlight = *h,
+        MarkChange::Size(s) => m.size = *s,
+        MarkChange::Face(f) => m.face = f.clone(),
+        MarkChange::Clear => *m = Marks::default(),
+    }
 }
 
 #[derive(Default)]
 pub struct Doc {
     state: State,
     saved: Vec<String>,
+    /// The formatting and styles given when it was saved.
+    saved_looks: (usize, usize),
     undo: Vec<State>,
     redo: Vec<State>,
     batch: Option<usize>,
@@ -66,7 +88,7 @@ impl Viewer for Flows {
             saved: lines.clone(),
             state: State {
                 lines,
-                comments: Vec::new(),
+                ..State::default()
             },
             author: "Someone".into(),
             ..Doc::default()
@@ -202,12 +224,29 @@ impl Doc {
             } else {
                 (FlowRole::Body, 0, 0, "Normal", None)
             };
-            let (text, runs) = runs(line, base, &self.state.comments, index.unwrap_or(0));
+            let (text, mut runs) = runs(line, base, &self.state.comments, index.unwrap_or(0));
+            let mut style = style.to_string();
+            let (mut role, mut level) = (role, level);
+            if let Some(ix) = index {
+                for (_, c) in self.state.looks.iter().filter(|(p, _)| *p == ix) {
+                    for r in runs.iter_mut().filter(|r| r.piece == Piece::Text) {
+                        apply_mark(&mut r.marks, c);
+                    }
+                }
+                if let Some((_, s)) = self.state.styles.iter().rev().find(|(p, _)| *p == ix) {
+                    style = s.clone();
+                    (role, level) = if s == "Heading 1" {
+                        (FlowRole::Heading, 1)
+                    } else {
+                        (FlowRole::Body, 0)
+                    };
+                }
+            }
             let p = FlowParagraph {
                 index,
                 role,
                 level,
-                style: style.into(),
+                style,
                 label,
                 text,
                 runs,
@@ -297,10 +336,12 @@ impl ViewerDocument for Doc {
 
     fn modified(&self) -> bool {
         self.state.lines != self.saved
+            || (self.state.looks.len(), self.state.styles.len()) != self.saved_looks
     }
 
     fn save(&mut self) -> Result<kalem_viewer::SaveOutput> {
         self.saved = self.state.lines.clone();
+        self.saved_looks = (self.state.looks.len(), self.state.styles.len());
         Ok(kalem_viewer::SaveOutput {
             bytes: (self.state.lines.join("\n") + "\n").into_bytes(),
             losses: Vec::new(),
@@ -385,12 +426,46 @@ impl ViewerDocument for Doc {
     }
 
     fn flow_styles(&mut self) -> Vec<FlowStyle> {
-        vec![FlowStyle {
-            id: "Normal".into(),
-            name: "Normal".into(),
-            kind: FlowStyleKind::Paragraph,
-            shown: true,
-        }]
+        let style = |name: &str, kind, shown| FlowStyle {
+            id: name.into(),
+            name: name.into(),
+            kind,
+            shown,
+        };
+        vec![
+            style("Quote", FlowStyleKind::Paragraph, true),
+            style("Heading 1", FlowStyleKind::Paragraph, true),
+            style("Normal", FlowStyleKind::Paragraph, true),
+            style("Strong", FlowStyleKind::Character, true),
+            style("Hidden", FlowStyleKind::Paragraph, false),
+        ]
+    }
+
+    fn flow_set_marks(
+        &mut self,
+        _unit: usize,
+        from: FlowPlace,
+        to: FlowPlace,
+        changes: &[MarkChange],
+    ) -> Result<()> {
+        self.step();
+        for p in from.paragraph..=to.paragraph {
+            for c in changes {
+                self.state.looks.push((p, c.clone()));
+            }
+        }
+        Ok(())
+    }
+
+    fn flow_set_style(&mut self, _unit: usize, from: u32, to: u32, style: &str) -> Result<()> {
+        if !self.flow_styles().iter().any(|s| s.id == style) {
+            return Err(ViewerError(format!("no style {style}")));
+        }
+        self.step();
+        for p in from..=to {
+            self.state.styles.push((p, style.to_string()));
+        }
+        Ok(())
     }
 
     fn has_history(&self) -> bool {

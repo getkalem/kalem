@@ -113,6 +113,26 @@ does, in the body, a table cell, the header, the footer and the notes:
   the date and an ID of its own. The author is the setting
   =user.name=, else the system account's name.
 
+The commands of the /Format/ menu and the toolbar change the look of
+the selected text, or of the word at the cursor:
+
+| Command              | What it writes                                                     |
+|----------------------+--------------------------------------------------------------------|
+| Bold, Italic, Underline, Strike Through | =w:b= and =w:bCs=, =w:i= and =w:iCs=, =w:u=, =w:strike= in each run's =w:rPr=; off again, taken away, and written off (=w:val="0"=) where a style still turns it on |
+| Superscript, Subscript | =w:vertAlign=                                                    |
+| Font, Font Size      | =w:rFonts= (=w:ascii= and =w:hAnsi=, the theme's fonts that would win taken away), =w:sz= and =w:szCs= in half points |
+| Text Color           | =w:color=; Automatic takes it away                                 |
+| Highlight Color      | =w:highlight= for the sixteen colors Word names, else a shading (=w:shd=) |
+| Clear Formatting     | The run's direct look taken away; its character style, language and the like kept |
+| Paragraph Style      | =w:pStyle= first in the paragraph's =w:pPr=; none for the default style, as Word writes Normal |
+
+A run is cut where the range starts or ends inside it; every property
+goes where the schema's sequence puts it, since Word repairs a file
+whose properties are out of order. In a document that tracks changes,
+each run's old properties are kept in a =w:rPrChange= and each
+paragraph's in a =w:pPrChange=: Accept Change and Reject Change keep
+or undo them.
+
 The commands of the /Review/ category act on the annotations:
 
 | Command              | What it does                                                       |
@@ -178,8 +198,8 @@ format is refused, saying so.
 * Not implemented
 
 - Section breaks are not marked in the text.
-- Formatting edits (bold, styles, lists), and pictures, links, tables
-  and notes inserted.
+- Lists, alignment, indents and spacing edited; character styles
+  given; pictures, links, tables and notes inserted.
 - Text boxes edited.
 - Word opening every edited file without a repair prompt, checked by
   hand.

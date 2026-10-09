@@ -330,6 +330,10 @@ pub struct Editor {
     pub hints_drawn: bool,
     /// The document's viewer stopped and it is closing (wasm_todo W8).
     stopped: bool,
+    /// The version of a document of flowing text's flow its lines were
+    /// last measured at: a change of look alone (a size, a style) leaves
+    /// the text as it was, and its lines are measured again.
+    flow_version: Option<u64>,
     /// IME composition in progress.
     pub marked: Option<Range<usize>>,
     /// Lines as last painted, by source line.
@@ -517,6 +521,7 @@ impl Editor {
             pending: Vec::new(),
             pending_at: None,
             stopped: false,
+            flow_version: None,
             resume_input: None,
             mark_picker: false,
             prefix: None,
@@ -3747,6 +3752,16 @@ impl Editor {
         if let Some(n) = self.doc.take_notice() {
             cx.emit(DocEvent::Notice(n, true));
             cx.notify();
+        }
+        // The flow's look changed (formatting, a style): every line
+        // measured again, its height may have changed with its size.
+        let version = self.doc.flow.as_deref().map(|f| f.version);
+        if version != self.flow_version {
+            if self.flow_version.is_some() {
+                self.list.remeasure_items(0..self.visible.len());
+                cx.notify();
+            }
+            self.flow_version = version;
         }
         self.tick_palette(cx);
         // Language servers: the document in step, their answers shown.

@@ -86,7 +86,7 @@ fn a_flow_crosses_to_the_host() {
     // A range at a time.
     assert_eq!(d.flow_items(0, 1, 2), items[1..3]);
     assert!(d.flow_items(0, 100, 5).is_empty());
-    assert_eq!(d.flow_styles()[0].name, "Normal");
+    assert!(d.flow_styles().iter().any(|s| s.name == "Normal"));
     assert!(d.flow_picture(0, "none", 64).is_err());
 }
 
@@ -141,10 +141,38 @@ fn a_flow_is_edited_and_undone_through_the_host() {
     assert!(d.redo().unwrap());
     assert!(d.undo().unwrap());
     assert!(!d.modified());
-    assert!(
-        d.flow_set_marks(0, FlowPlace::default(), FlowPlace::default(), &[])
-            .is_err()
-    );
+    // The look of text and a paragraph's style cross too, each a step.
+    d.flow_set_marks(
+        0,
+        FlowPlace::default(),
+        FlowPlace {
+            paragraph: 0,
+            offset: 2,
+        },
+        &[
+            kalem_viewer::MarkChange::Bold(true),
+            kalem_viewer::MarkChange::Color(Some([1, 2, 3])),
+            kalem_viewer::MarkChange::Script(kalem_viewer::Script::Superscript),
+            kalem_viewer::MarkChange::Face(Some("Georgia".into())),
+        ],
+    )
+    .unwrap();
+    d.flow_set_style(0, 0, 0, "Heading 1").unwrap();
+    let first = d
+        .flow_items(0, 0, 40)
+        .into_iter()
+        .find_map(|i| match i {
+            FlowItem::Paragraph(p) if p.index == Some(0) => Some(p),
+            _ => None,
+        })
+        .unwrap();
+    let m = &first.runs[0].marks;
+    assert!(m.bold && m.color == Some([1, 2, 3]) && m.face.as_deref() == Some("Georgia"));
+    assert_eq!(m.script, kalem_viewer::Script::Superscript);
+    assert_eq!(first.style, "Heading 1");
+    assert!(d.flow_set_style(0, 0, 0, "Nonesuch").is_err());
+    assert!(d.undo().unwrap() && d.undo().unwrap());
+    assert!(!d.modified());
     let out = d.save().unwrap();
     assert_eq!(String::from_utf8(out.bytes).unwrap(), DOC);
 }

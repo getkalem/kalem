@@ -250,3 +250,161 @@ fn a_comment_edited_from_the_palette() {
     .unwrap_err();
     assert!(!e.is_empty());
 }
+
+/// Runs command `id` on `d`: its result, and what it asks the editor.
+fn run_command(
+    d: &mut DocumentState,
+    id: &str,
+    args: serde_json::Value,
+) -> (Result<(), String>, Vec<kalem_core::command::Request>) {
+    let config = kalem_core::Config::default();
+    let reg = kalem_core::CommandRegistry::with_builtins();
+    let mut clip = kalem_core::command::Clipboard::default();
+    let mut ctx = kalem_core::EditorContext {
+        document: Some(d),
+        clipboard: &mut clip,
+        config: &config,
+        now: Instant::now(),
+        clock: jiff::civil::date(2026, 10, 10).at(10, 0, 0, 0),
+        messages: Vec::new(),
+        requests: Vec::new(),
+    };
+    let r = reg.execute(id, &mut ctx, &args).map_err(|e| e.to_string());
+    (r, ctx.requests)
+}
+
+/// The titles of a list the command offers.
+fn offered(requests: &[kalem_core::command::Request]) -> Vec<String> {
+    requests
+        .iter()
+        .find_map(|r| match r {
+            kalem_core::command::Request::Choose(items) => {
+                Some(items.iter().map(|i| i.title.clone()).collect())
+            }
+            _ => None,
+        })
+        .unwrap_or_default()
+}
+
+#[test]
+fn formatting_from_the_menus_and_the_toolbar() {
+    use serde_json::json;
+    let (mut d, _) = open(DOC);
+    let at = d.text().as_str().find("Plain").unwrap();
+    d.selection = Selection::caret(at + 2);
+    let bold = |d: &DocumentState| {
+        let f = d.flow.as_deref().unwrap();
+        f.run_at(at + 2).unwrap().marks.bold
+    };
+    // Bold on the word at the cursor, then off again: a toggle.
+    assert!(!bold(&d));
+    run_command(&mut d, "flow.format.bold", json!({}))
+        .0
+        .unwrap();
+    assert!(bold(&d));
+    assert!(d.is_modified());
+    run_command(&mut d, "flow.format.bold", json!({}))
+        .0
+        .unwrap();
+    assert!(!bold(&d));
+    // Lists to pick from, then the pick.
+    let (r, asked) = run_command(&mut d, "flow.format.font", json!({}));
+    r.unwrap();
+    let fonts = offered(&asked);
+    assert!(
+        fonts.contains(&"Calibri".to_string()) && fonts.last().unwrap().ends_with('…'),
+        "{fonts:?}"
+    );
+    run_command(&mut d, "flow.format.font", json!({ "value": "Georgia" }))
+        .0
+        .unwrap();
+    run_command(&mut d, "flow.format.fontSize", json!({ "value": "14" }))
+        .0
+        .unwrap();
+    run_command(&mut d, "flow.format.color", json!({ "color": "#C00000" }))
+        .0
+        .unwrap();
+    run_command(
+        &mut d,
+        "flow.format.highlight",
+        json!({ "color": "#FFFF00" }),
+    )
+    .0
+    .unwrap();
+    let (style, marks) = d.flow.as_deref().unwrap().look_at(at + 2).unwrap();
+    assert_eq!(style, "Normal");
+    assert_eq!(marks.face.as_deref(), Some("Georgia"));
+    assert_eq!(marks.size, Some(14.0));
+    assert_eq!(marks.color, Some([0xC0, 0, 0]));
+    assert_eq!(marks.highlight, Some([0xFF, 0xFF, 0]));
+    let (r, _) = run_command(&mut d, "flow.format.fontSize", json!({ "value": "big" }));
+    assert!(r.unwrap_err().contains("big"));
+    run_command(&mut d, "flow.format.clear", json!({}))
+        .0
+        .unwrap();
+    let (_, marks) = d.flow.as_deref().unwrap().look_at(at + 2).unwrap();
+    assert_eq!(marks.size, None);
+    // The paragraph styles shown, the default first, the headings next.
+    let (r, asked) = run_command(&mut d, "flow.format.style", json!({}));
+    r.unwrap();
+    assert_eq!(offered(&asked), ["Normal", "Heading 1", "Quote"]);
+    run_command(&mut d, "flow.format.style", json!({ "style": "Heading 1" }))
+        .0
+        .unwrap();
+    let (style, _) = d.flow.as_deref().unwrap().look_at(at + 2).unwrap();
+    assert_eq!(style, "Heading 1");
+    // Undone through the plugin's history.
+    assert!(d.undo().is_some());
+    let (style, _) = d.flow.as_deref().unwrap().look_at(at + 2).unwrap();
+    assert_eq!(style, "Normal");
+    // Nowhere near a word: said so.
+    d.selection = Selection::caret(0);
+    let line_end = d.text().as_str().find('\n').unwrap();
+    d.selection = Selection::caret(line_end);
+    let _ = run_command(&mut d, "flow.format.italic", json!({}));
+}
+
+#[test]
+fn the_word_commands_offered_where_they_serve() {
+    let (d, _) = open(DOC);
+    let reg = kalem_core::CommandRegistry::with_builtins();
+    let flow = d.document_context();
+    let meta = kalem_core::Metadata {
+        path: None,
+        mode: DocumentMode::Org,
+        line_ending: kalem_core::LineEnding::Lf,
+        bom: false,
+        encoding: kalem_core::encoding_rs::UTF_8,
+        lossy: false,
+    };
+    let org =
+        DocumentState::new("* A heading\n", meta, Arc::new(Settings::default())).document_context();
+    for id in [
+        "flow.format.bold",
+        "flow.format.font",
+        "flow.format.style",
+        "flow.comment.edit",
+    ] {
+        assert!(reg.offered(id, &flow), "{id} in a flowing document");
+        assert!(!reg.offered(id, &org), "{id} in Org");
+    }
+    // In the menus: the Format menu's and the Review menu's.
+    let menus = kalem_core::menus::menus();
+    let ids = |name: &str| -> Vec<String> {
+        menus
+            .iter()
+            .find(|m| m.name == name)
+            .map(|m| {
+                m.entries
+                    .iter()
+                    .filter_map(|e| match e {
+                        kalem_core::menus::MenuEntry::Command { id, .. } => Some(id.clone()),
+                        _ => None,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    assert!(ids("Format").contains(&"flow.format.highlight".to_string()));
+    assert!(ids("Review").contains(&"flow.change.acceptAll".to_string()));
+}

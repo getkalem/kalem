@@ -77,5 +77,31 @@ fn a_flowing_document_is_drawn_and_typed_into(cx: &mut TestAppContext) {
     });
     assert!(text.contains("Very Plain and bold"), "{text}");
     assert!(modified);
+    // The toolbar's tools of a word processor: the style, the typeface
+    // and the size at the cursor, and the marks; Bold clicked makes the
+    // word at the cursor bold (the fake: its paragraph).
+    cx.update(|window, _| window.refresh());
+    cx.run_until_parked();
+    for name in [
+        "tool-flow-style",
+        "tool-flow-font",
+        "tool-flow-size",
+        "tool-flow-bold",
+        "tool-flow-highlight",
+        "tool-flow-comment",
+    ] {
+        assert!(cx.debug_bounds(name).is_some(), "{name}");
+    }
+    let b = cx.debug_bounds("tool-flow-bold").unwrap();
+    cx.simulate_click(b.center(), gpui::Modifiers::none());
+    cx.run_until_parked();
+    let plain_bold = ws.read_with(cx, |ws, cx| {
+        let e = ws.editor.read(cx);
+        e.line_view(1)
+            .runs
+            .iter()
+            .any(|r| r.text.contains("Plain") && r.style.bold)
+    });
+    assert!(plain_bold);
     let _ = std::fs::remove_dir_all(&dir);
 }
