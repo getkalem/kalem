@@ -266,7 +266,10 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
     could be split as Windows's were, but a free plan runs 5 macOS jobs
     at once, which dependabot's pull requests would then fill.
   - The owner asked for the split all the same (2026-10-09): macOS's
-    tests run in two halves too, as Windows's do.
+    tests run in two halves too, as Windows's do (`8baf877`). Its
+    halves took 6.3 and 7.1 minutes against the whole's 10.4; the run
+    still took 10.6, a Windows half taking 10.5 on a slow runner, with
+    binary size and the differential tests at 9.
 
 ## Results
 
@@ -281,3 +284,4 @@ run before it, so `cd1a67e`'s includes a wait):
 | 37892244068, C4 | `0f44f7b` | warm | test (ubuntu) 13.4 min | 13.4 min |
 | 37896269232, C4 | `2fa650a` | warm | test (windows) 14.2 min | 14.3 min |
 | 37897778896, C7 | `bd1b238` | warm | test (windows, 1/2) and test (macos) 10.4 min | 10.6 min |
+| 37910670254, macOS in halves | `8baf877` | warm | test (windows, 2/2) 10.5 min | 10.6 min |
