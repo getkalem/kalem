@@ -115,12 +115,6 @@ jobs:
       # Doc tests are not nextest's; they run after a failure too.
       - if: ${{ !cancelled() }}
         run: cargo test --workspace --doc
-      # A terminal-only Kalem with the bundled plugins built in lists and
-      # runs them (wasm_todo W5), a combination of features the workspace
-      # does not build. The components' other tests run above on every
-      # runner (they had a job of their own, docs/ci_todo.md, C2).
-      - if: ${{ !cancelled() && runner.os == 'Linux' }}
-        run: cargo nextest run --profile ci -p kalem-editor --no-default-features --features tui,components --test components
 
   msrv:
     name: minimum supported Rust version
@@ -142,6 +136,26 @@ jobs:
           sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
             libx11-xcb-dev libxcb1-dev libfontconfig-dev libfreetype-dev libvulkan-dev
       - run: cargo check --workspace
+
+  terminal-components:
+    name: terminal-only Kalem with the bundled plugins
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # The Ubuntu test job's cache, restored and never saved: the
+      # libraries in common come from it, and a cache of its own would
+      # not fit in GitHub's 10 GB (docs/ci_todo.md, C7).
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: test
+          save-if: false
+      # A terminal-only Kalem with the bundled plugins built in lists and
+      # runs them (wasm_todo W5), a combination of features the test jobs
+      # do not build; the components' other tests run there. A step of
+      # the Ubuntu test job, it made that job the longest by minutes.
+      - run: cargo test -p kalem-editor --no-default-features --features tui,components --test components
 
   binary-size:
     name: binary size
