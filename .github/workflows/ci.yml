@@ -4,6 +4,15 @@ on:
   push:
     branches: [main]
   pull_request:
+  # A branch measured without a pull request (docs/ci_todo.md):
+  # `gh workflow run ci.yml --ref BRANCH`.
+  workflow_dispatch:
+
+# The Rust caches are saved by `main`'s runs only (`save-if` below).
+# GitHub keeps 10 GB of caches per repository and drops the least
+# recently used; dependabot's pull requests, saving copies of their own,
+# pushed every test cache of `main` out (docs/ci_todo.md, C1). A pull
+# request or a branch still restores `main`'s.
 
 # A pull request's new push cancels its old run. On main every run is
 # let finish (a newer push waits behind it), so main always has a
@@ -41,6 +50,8 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Linux libraries for the graphical editor (gpui)
         if: runner.os == 'Linux'
         run: |
@@ -69,6 +80,8 @@ jobs:
         with:
           tool: wasm-tools
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Linux libraries for the graphical editor (gpui)
         if: runner.os == 'Linux'
         run: |
@@ -99,6 +112,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.96
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Linux libraries for the graphical editor (gpui)
         if: runner.os == 'Linux'
         run: |
@@ -115,6 +130,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       # No windowing or GPU libraries: the build must not need them.
       - run: cargo build -p kalem-editor --no-default-features --features tui
       - name: No gpui in the dependency tree
@@ -128,6 +145,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       # wasm_todo W9: the released components components.toml pins,
       # downloaded and checked, bound by this checkout's plugin host.
       - run: cargo test -p kalem-components --features embed,viewers
@@ -145,6 +164,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Linux libraries for the graphical editor (gpui)
         run: |
           sudo apt-get update
@@ -166,6 +187,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
       - uses: Swatinem/rust-cache@v2
         with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
           workspaces: fuzz
       - run: cargo install cargo-fuzz --locked
       # rust-toolchain.toml asks for stable; the fuzzer needs nightly.
@@ -195,6 +217,8 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo build --release -p latex-model --example labels
       - run: cargo build --release -p kalem-core --example latex_shown --example latex_edits
       # Random documents: every label numbered as pdflatex numbers it.
@@ -231,6 +255,8 @@ jobs:
           version: "30.1"
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo build --release -p kalem-editor --no-default-features --features tui
       - name: Core corpus
         run: |

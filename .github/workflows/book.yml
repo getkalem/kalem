@@ -29,7 +29,10 @@ jobs:
           # The base branch too, for the chapters of the changed code.
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
+      # Saved by `main`'s runs only, as in CI (docs/ci_todo.md, C1).
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       # The terminal-only build: no windowing libraries needed.
       - run: cargo build --release -p kalem-editor --no-default-features --features tui
       - name: Check the Book
