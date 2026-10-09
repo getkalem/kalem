@@ -1,0 +1,199 @@
+The =docx= plugin of =getkalem/plugins= opens Word documents as
+themselves: the file is a package of WordprocessingML parts, and the
+plugin reads, edits and writes those parts, never a conversion of
+them. Kalem lays the paragraphs out itself, through the plugin API's
+=flow= interface, and reviews the comments and tracked changes through
+its =annotations= interface (see [[file:plugins.org][Plugins]], "Viewers of flowing text").
+The plugin is installed from the plugin list; its README and its work
+list (=plugins/docx/docx_todo.md=) are kept with it.
+
+* The standard and the oracle
+
+- *The standard* is ECMA-376 part 1, WordprocessingML, in its
+  transitional namespace (the strict one is read as it), with the
+  =w14=, =w15= and =w16= additions Word writes read and kept.
+- *The oracle* is Word 2016 and later (Microsoft 365): "as Word writes
+  it" is how each edit is written, element order following the
+  schema's sequences, which Word checks. Word cannot be driven from a
+  script past its file access prompt, so it is checked by hand.
+- *LibreOffice Writer* 7.3 is the second oracle, by hand too: =soffice
+  --convert-to txt= and =--convert-to docx= open the edited files,
+  show the edits and keep the tracked insertions and deletions with
+  their authors.
+- *The corpus* has four files from three producers: python-docx over
+  its default template, a package written part by part with every
+  construct the plugin reads, and each of the two saved again by
+  LibreOffice. The tests check that each saves back byte for byte, and
+  what each edit changes.
+
+* Which files
+
+=.docx=, =.docm=, =.dotx= and =.dotm=. A file with one of these
+extensions that starts as a ZIP archive is the plugin's at once; one
+that does not is tried as a document encrypted with a password to
+open, which Word writes as a compound file. A file of another
+extension is not the plugin's whatever it holds.
+
+* What is read
+
+- *The package* through its relationships, never by a part's name: the
+  body, the headers and footers, the footnotes and endnotes, the
+  comments, the styles, the numbering, the settings and the theme.
+  Every element is read with its byte span; an element the plugin does
+  not know is kept with its span and shown by name.
+- *Styles* as 17.7.2 puts them together: the document defaults, the
+  table style and its conditional formats as =w:tblLook= turns them
+  on, the numbering level, the paragraph style and its =basedOn=
+  chain, the character style, then direct formatting; the toggle
+  properties combined across style kinds as 17.7.3 says. Theme fonts
+  and colors are resolved, a tint or shade computed as Word computes
+  it.
+- *Lists* counted as Word counts them: instances of one abstract
+  definition counting together, =w:startOverride=, =w:lvlRestart=,
+  legal numbering, levels linked to styles; labels in every common
+  number format, bullets in Symbol and Wingdings as the Unicode
+  characters they draw.
+- *Fields* show their results, simple and complex, nested;
+  =HYPERLINK= fields and =w:hyperlink= are links. Notes are numbered
+  in order of reference as =w:footnotePr= and =w:endnotePr= say.
+- *Comments* with their ranges, and *tracked changes*: insertions,
+  deletions, moves, formatting changes of runs and paragraphs, and
+  paragraph marks inserted or deleted, each with its author and date.
+- *A password to open* ([MS-OFFCRYPTO]): agile encryption, Word
+  2010's and later's, is read and written, and Word 2007's standard
+  encryption is read. Kalem asks for the password, hidden as typed.
+
+* What is shown
+
+Word's web layout, without pages: a document of the editor whose lines
+are the paragraphs, in both editors.
+
+- Each paragraph is a line, drawn with its runs' look: bold, italic,
+  underline, strike, caps and small caps, raised and lowered text,
+  color, highlight and typeface; a size in proportion to the body
+  text's, so a heading is larger than the text around it. A list item
+  has its label before it; a heading is in the outline.
+- A tab, a line break, a page break and a column break are one
+  character each in the paragraph's line; a picture, a note's mark and
+  an object are one object character.
+- A table row whose cells hold one paragraph each is one line, its
+  cells apart by tabs and the line marked =▏= at its start. A row with
+  more in a cell shows a paragraph a line, the row's first marked =▏=
+  and each further cell's first =▏┆=. A nested table's paragraphs are
+  shown in the cell that holds it.
+- The first section's header comes before the body, marked =Header ▏=,
+  and its footer after it, marked =Footer ▏=. Footnotes and endnotes
+  follow, each marked with its number. A text box follows the
+  paragraph it is anchored in, marked =▕=.
+- Charts, shapes, SmartArt, equations and embedded objects are shown
+  by name, as placeholders.
+- Text a comment is on is highlighted; inserted text is underlined in
+  green and deleted text struck through in red. The status bar says
+  the comment at the cursor with its author, or who made the change
+  there.
+
+* What is edited
+
+Typing, Enter, Backspace and Delete edit the document as typing in Word
+does, in the body, a table cell, the header, the footer and the notes:
+
+- Typed text goes into the run before it and takes its look; over a
+  selection it takes the look of the selection's first character. A
+  deletion shortens, empties or removes the runs it covers.
+- Enter splits the paragraph, the elements open where it splits with
+  it; after a heading the new paragraph takes the style's next style.
+  Backspace at a paragraph's start joins it to the one before; a
+  deletion across paragraphs is one edit.
+- Each of Kalem's edits is one step of the document's own history:
+  Undo and Redo go through it, and undoing everything saves the file as
+  it was opened, byte for byte.
+- In a document that tracks changes, typed text is written as an
+  insertion, deleted text kept as a deletion, and Enter and Backspace
+  mark the paragraph mark inserted or deleted, each with the author,
+  the date and an ID of its own. The author is the setting
+  =user.name=, else the system account's name.
+
+The commands of the /Review/ category act on the annotations:
+
+| Command              | What it does                                                       |
+|----------------------+--------------------------------------------------------------------|
+| Next Change, Previous Change | Moves to the next or the previous tracked change           |
+| Accept Change        | Keeps the change at the cursor: an insertion's text stays, a deletion's goes, a deleted paragraph mark joins its paragraphs (in the body only), a formatting change keeps the new look |
+| Reject Change        | Undoes it: an insertion's text goes, a deletion's text comes back, a formatting change restores the old look |
+| Accept All Changes, Reject All Changes | The same for every change, in every part of the document |
+| Track Changes        | Turns tracking on or off (=w:trackRevisions= in the settings)       |
+| Next Comment, Previous Comment | Moves to the next or the previous comment                |
+
+What is not edited says why when it is tried: deleted text of a
+tracked change, a field's result, a note's mark, a check box, text
+drawn two ways in the file (=mc:AlternateContent=), a paragraph of a
+text box, an edit across a table's cells, a join across a section
+break, and every edit of a document whose protection is enforced. New
+Comment, Reply to Comment, Resolve Comment and Delete Comment are
+refused by the plugin until it writes comments.
+
+* What is written
+
+Only the paragraphs an edit touched are written again; every other
+byte of the part, and every other entry of the ZIP archive with its
+local header, is copied as it was. A save without edits returns the
+file unchanged. Nothing is written that ECMA-376 does not define: no
+=rsid= invented, no property Word would not write. A document opened
+with a password is saved encrypted again with it.
+
+* Export and conversion
+
+None. Save As writes the document in its own format only; another
+format is refused, saying so.
+
+* Known differences
+
+- No pages: the layout is Word's web layout, without pages, columns
+  or the page's size.
+- Only the first section's header and footer are shown, once.
+- Pictures are not drawn: each is an object character in its
+  paragraph.
+- Comments are highlighted in the text, not shown in a margin.
+- Ordinal and cardinal list labels are in English whatever the
+  document's language.
+- LibreOffice drops a paragraph mark inserted as a tracked change when
+  it saves the document again; Word keeps it.
+
+* Not implemented
+
+- Section breaks are not marked in the text.
+- Formatting edits (bold, styles, lists), comments added, answered,
+  resolved and deleted, and pictures, links, tables and notes inserted.
+- Text boxes edited.
+- Word opening every edited file without a repair prompt, checked by
+  hand.
+- Pages and printing.
+
+* Limits and performance
+
+Measured on 2026-10-09 on an Apple M1 Max, with the plugin's library in
+a release build: a document of 20,000 paragraphs (4.4 MB of
+=document.xml=) is opened and laid out as blocks in 0.18 s in 82 MB;
+an edit there and the save take 0.17 s. The component is 900 kB. Kalem
+fetches a document's items from it 2,048 at a time; its layout of a
+document that large in the editors is not measured yet.
+
+* Code and tests
+
+- The plugin: =plugins/docx= of =getkalem/plugins=: =document.rs= (the
+  document and its edits), =story.rs=, =styles.rs=, =numbering.rs=,
+  =props.rs=, =flow.rs= (the view), =edit.rs= (runs rewritten),
+  =review.rs= (changes accepted and rejected), =contract.rs= (the flow
+  and its annotations), =viewer.rs= (the plugin as Kalem's viewer); the
+  Office layer it shares with the workbook plugin in =crates/ooxml=.
+- Its tests: =tests/docx.rs=, =tests/conformance.rs= (the corpus saved
+  back byte for byte), =tests/viewer.rs=, =tests/contract.rs=; the
+  corpus in =tests/corpus/=, made by =make.py=.
+- Kalem's half: the interfaces in =crates/kalem-plugin/wit/flow.wit= and
+  =annotations.wit=, the contract in =crates/kalem-viewer/src/flow.rs=,
+  the document of the editor in =crates/kalem-core/src/flow.rs=, the
+  Review commands in =crates/kalem-core/src/builtin.rs=; its tests in
+  =crates/kalem-core/tests/flow.rs=, =crates/kalem-script/tests/flow.rs=
+  and both editors' =tests/flow.rs=, and
+  =crates/kalem-cli/tests/flow_component.rs=, which opens, edits and
+  saves a real document through the plugin's component when given one.

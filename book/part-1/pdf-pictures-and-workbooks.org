@@ -42,6 +42,12 @@ cells, and with colors off shows its text.
   asks for it, and is saved encrypted again with it (saved as =.ods=, it
   is not encrypted, and Kalem says so).
 
+Word documents (=.docx=, =.docm=, =.dotx=, =.dotm=) open through the
+=docx= plugin, installed from the plugin list: as a document of the
+editor, each paragraph a line with its style, typed into as text, its
+comments and tracked changes reviewed with the commands of the /Review/
+category. [[file:../part-3/word-documents.org][Word documents]] has the details.
+
 A viewer that fails, runs past its time or out of its memory stops: the
 editor closes its document at once and says why, and goes on. A viewer
 that stops three times is turned off until it is updated;
