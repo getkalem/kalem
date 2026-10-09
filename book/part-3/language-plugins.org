@@ -219,7 +219,14 @@ env = { ELS_INSTALL_PREFIX = "/opt/elixir-ls" }
 * What the editor does with a server
 
 A server starts when the first file it serves opens and stops when the
-last one closes. Kalem keeps it in step: the whole text when a file
+last one closes. A file a server named in an answer outside its root (a
+definition in Rust's standard library, a dependency's source, a
+system header) is served by that server when it opens, since it knows
+the file as part of its project; a root of the file's own would start
+another server there (a crate from crates.io has its own =Cargo.lock=,
+and rust-analyzer started in the standard library's folder cannot load
+it). A server already running in the file's own root serves it
+instead. Kalem keeps it in step: the whole text when a file
 opens, then each change as the range it replaced (as UTF-16 or UTF-8
 positions, whichever the server takes; Kalem's own offsets are bytes),
 and the save. Nothing waits for a server on the editor's thread: an

@@ -69,6 +69,12 @@ fn setup() -> (PathBuf, PathBuf) {
     std::fs::write(project.join("root.marker"), "").unwrap();
     let file = project.join("src/a.fk");
     std::fs::write(&file, "one  two bad\n😀 x\n").unwrap();
+    // A library beside the project, a root of its own (as the standard
+    // library's folder and a dependency's sources have a `Cargo.lock`):
+    // the fake server names its file among the references.
+    std::fs::create_dir_all(dir.join("library")).unwrap();
+    std::fs::write(dir.join("library/root.marker"), "").unwrap();
+    std::fs::write(dir.join("library/lib.fk"), "lib\n").unwrap();
     kalem_core::languages::load_from(&[dir.join("plugins")]);
     (dir, file)
 }
@@ -520,6 +526,44 @@ fn main() {
             .unwrap_err()
             .contains("language plugin")
     );
+
+    // A file the server names outside its root, which would be a root of
+    // its own: served by that server when it opens, not by another
+    // started there.
+    lsp::request(&doc, Kind::References).unwrap();
+    let lib = match outcome(&file, doc.version()) {
+        Outcome::Places { places, .. } => {
+            places
+                .into_iter()
+                .find(|p| p.path.ends_with("library/lib.fk"))
+                .expect("the library's file among the references")
+                .path
+        }
+        o => panic!("{o:?}"),
+    };
+    assert_eq!(
+        kalem_lsp::find_root(&lib, &["root.marker".to_string()], false),
+        Some(dunce::canonicalize(dir.join("library")).unwrap()),
+        "a root of its own"
+    );
+    let lib_doc = DocumentState::open(
+        &lib,
+        Arc::new(org_model::Settings::default()),
+        &org_syntax::ParseContext::default(),
+    )
+    .unwrap();
+    lsp::sync(&lib_doc);
+    until("the library's file served", || {
+        lsp::can(&lib_doc, Kind::Hover).then_some(())
+    });
+    let served = lsp::describe(&lib_doc).unwrap();
+    assert!(
+        served.contains("real-project") && !served.contains("library"),
+        "{served}"
+    );
+    assert_eq!(lsp::report().len(), 1, "one server: {:?}", lsp::report());
+    lsp::closed(&lib);
+    println!("test named files ... ok");
 
     // A server that does not start (a toolchain's proxy for a component
     // not installed, found on the PATH all the same): not started again,
