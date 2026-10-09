@@ -125,6 +125,8 @@ The commands of the /Review/ category act on the annotations:
 | Next Comment, Previous Comment | Moves to the next or the previous comment                |
 | New Comment (Ctrl+Alt+M) | Puts a comment on the selected text, in the body or a note: its range's start and end around the text, a run split where the range starts or ends inside it, a run with its reference after the end |
 | Reply to Comment     | Answers the comment at the cursor: a comment anchored on the same text and named as its answer; an answer to an answer answers the first comment, as in Word |
+| Resolve Comment      | Marks the thread at the cursor done, or open again: the mark is on its first comment, and its answers show resolved with it |
+| Delete Comment       | Takes the comment at the cursor away with its answers (an answer alone, when it is one): its range, its reference and the comment; the runs a range split stay split, as in Word |
 
 What is not edited says why when it is tried: deleted text of a
 tracked change, a field's result, a note's mark, a check box, text
@@ -132,9 +134,8 @@ drawn two ways in the file (=mc:AlternateContent=), a paragraph of a
 text box, an edit across a table's cells, a join across a section
 break, and every edit of a document whose protection is enforced (a
 document protected for comments takes comments, as in Word). A comment
-in a header or a footer is refused, as Word keeps none there. Resolve
-Comment and Delete Comment are refused by the plugin until it writes
-them.
+in a header or a footer is refused, as Word keeps none there. A
+comment's text is not edited yet.
 
 * What is written
 
@@ -147,7 +148,11 @@ to a document without comments adds the comments part, with its
 relationship and content type; an answer adds the extended comments
 part (=commentsExtended.xml=) the same way when there is none, and its
 entry names the answered comment's last paragraph by its =w14:paraId=,
-which is given one when it has none. A document opened with a
+which is given one when it has none. Resolving writes =w15:done= in
+that part, made the same way. Deleting a comment takes its entries out
+of the parts Word keeps beside the comments (=commentsExtended.xml=,
+=commentsIds.xml=, =commentsExtensible.xml=); the comments part stays
+when its last comment goes. A document opened with a
 password is saved encrypted again with it.
 
 * Export and conversion
@@ -173,8 +178,8 @@ format is refused, saying so.
 * Not implemented
 
 - Section breaks are not marked in the text.
-- Formatting edits (bold, styles, lists), comments resolved, edited
-  and deleted, and pictures, links, tables and notes inserted.
+- Formatting edits (bold, styles, lists), a comment's text edited, and
+  pictures, links, tables and notes inserted.
 - Text boxes edited.
 - Word opening every edited file without a repair prompt, checked by
   hand.
