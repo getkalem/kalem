@@ -182,6 +182,22 @@ fn main() {
         }
         o => panic!("{o:?}"),
     }
+    // Nothing to change: said as formatted for an empty list, as no
+    // change for `null` (rust-analyzer's answer when rustfmt fails).
+    lsp::sync(&doc);
+    let said = |doc: &DocumentState| {
+        lsp::request(doc, Kind::Format).unwrap();
+        match until("the answer", || {
+            lsp::take_outcomes(&file, doc.version()).into_iter().next()
+        }) {
+            Outcome::Message { text, error: false } => text,
+            o => panic!("{o:?}"),
+        }
+    };
+    assert_eq!(said(&doc), "Already formatted");
+    edit(&mut doc, 0..0, "UNREADABLE ");
+    assert_eq!(said(&doc), "FakeLS changed nothing");
+    edit(&mut doc, 0.."UNREADABLE ".len(), "");
     println!("test format ... ok");
 
     // Completion: the server's items on the completer contract.

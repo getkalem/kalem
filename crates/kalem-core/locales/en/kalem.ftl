@@ -1673,6 +1673,7 @@ lsp-edit-label = Language Server Edit
 lsp-edit-applied = { $changes } changes; { $written } files written
 lsp-outside-root = No language server outside a project (no { $markers } in the folders above)
 lsp-formatted = Already formatted
+lsp-format-unchanged = { $server } changed nothing
 lsp-overlapping = { $server }: overlapping edits
 lsp-format-stale = The document changed meanwhile; formatting skipped
 lsp-what-documentation = documentation

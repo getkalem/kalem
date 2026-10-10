@@ -268,7 +268,12 @@ list to choose from; one definition is a jump. The status bar shows
 the problem on the cursor's line, else the server's work in progress
 (ElixirLS compiling), else the counts of errors and warnings.
 Formatting is applied as one undoable change, and only when the
-document has not changed since it was asked.
+document has not changed since it was asked. A server that answers
+with no edits is said to have changed nothing, not to have found the
+file formatted: rust-analyzer answers so when the file is formatted,
+and also when rustfmt fails (not installed for the project's
+toolchain, or a syntax error), which its log tells
+(=kalem lsp check --log=).
 
 A server's problems come two ways, and Kalem takes both: those it sends
 on its own, and those it gives when asked (the protocol's pull model).

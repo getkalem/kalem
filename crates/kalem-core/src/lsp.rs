@@ -1350,6 +1350,14 @@ fn outcome(
                 edits,
                 label: crate::l10n::tr(&crate::l10n::command_key("edit.formatDocument")),
             },
+            // No edits: "already formatted" when the server says so with
+            // an empty list; `null` is also what rust-analyzer answers
+            // when rustfmt fails (not installed for the toolchain, a
+            // syntax error), so it is said as no change, not as formatted.
+            Some(_) if v.is_null() => Outcome::Message {
+                text: crate::tr!("lsp-format-unchanged", server = a.client.name()),
+                error: false,
+            },
             Some(_) => Outcome::Message {
                 text: crate::tr!("lsp-formatted"),
                 error: false,

@@ -1586,6 +1586,7 @@ lsp-edit-label = Dil Sunucusu Düzenlemesi
 lsp-edit-applied = { $changes } değişiklik; { $written } dosya yazıldı
 lsp-outside-root = Proje dışında dil sunucusu yok (üstteki klasörlerde { $markers } yok)
 lsp-formatted = Zaten biçimli
+lsp-format-unchanged = { $server } hiçbir şeyi değiştirmedi
 lsp-overlapping = { $server }: çakışan düzenlemeler
 lsp-format-stale = Belge bu arada değişti; biçimlendirme atlandı
 lsp-what-documentation = belgelendirme
