@@ -127,6 +127,9 @@ pub(crate) enum ImageKey {
     /// A formula (a fragment with its delimiters, or an environment),
     /// with the document's macros.
     Math { source: String, macros: String },
+    /// A picture of a document of flowing text, by its ID, so many
+    /// pixels wide and high.
+    Picture(String, u32, u32),
 }
 
 /// Images shown in the terminal, by file or formula, with their size in
@@ -146,6 +149,9 @@ pub struct Images {
     cache: HashMap<ImageKey, Option<ImageEntry>>,
     /// The macros of `#+LATEX_HEADER` lines, by document version.
     macros: Option<(u64, String)>,
+    /// Pixels given rather than read: a document's pictures, which its
+    /// plugin draws.
+    given: HashMap<ImageKey, image::DynamicImage>,
 }
 
 struct ImageEntry {
@@ -283,6 +289,7 @@ impl Images {
                 image::RgbaImage::from_raw(img.width, img.height, rgba)
                     .map(image::DynamicImage::ImageRgba8)
             }
+            ImageKey::Picture(..) => None,
         }
     }
 
@@ -292,7 +299,11 @@ impl Images {
         let picker = self.picker.as_ref()?;
         if !self.cache.contains_key(key) {
             let f = picker.font_size();
-            let entry = self.load(key, f.height.max(1) as f32).map(|img| {
+            let img = match self.given.remove(key) {
+                Some(img) => Some(img),
+                None => self.load(key, f.height.max(1) as f32),
+            };
+            let entry = img.map(|img| {
                 #[expect(clippy::expect_used, reason = "checked at the start of `size`")]
                 let picker = self.picker.as_ref().expect("a picker");
                 let (cw, ch) = (f.width.max(1) as f32, f.height.max(1) as f32);
@@ -744,6 +755,9 @@ impl<'a> Layout<'a> {
         if self.doc.latex().is_some() && !self.source {
             return self.latex_image(line);
         }
+        if let Some(f) = self.doc.flow.as_deref() {
+            return self.flow_image(line, f);
+        }
         // A Markdown formula over several lines, on its first line.
         if self.doc.meta.mode == kalem_core::DocumentMode::Markdown && !self.source {
             self.images.borrow().picker.as_ref()?;
@@ -796,9 +810,57 @@ impl<'a> Layout<'a> {
         };
         let limit = match &key {
             ImageKey::File(_, cols) => *cols,
-            ImageKey::Math { .. } => self.width.get(),
+            ImageKey::Math { .. } | ImageKey::Picture(..) => self.width.get(),
         };
         let (rows, cols) = images.size(&key, limit)?;
+        Some((key, label, rows, cols))
+    }
+
+    /// [`Layout::image`] in a document of flowing text: a picture alone on
+    /// its line, away from the cursor, as its plugin draws it, as large
+    /// beside the text as in the document (its body text a cell high).
+    fn flow_image(
+        &self,
+        line: usize,
+        flow: &kalem_core::flow::FlowState,
+    ) -> Option<(ImageKey, String, u16, u16)> {
+        let cell = self.images.borrow().picker.as_ref()?.font_size();
+        let range = self.range(line);
+        if range.start <= self.cursor && self.cursor <= range.end {
+            return None;
+        }
+        let v = kalem_core::flow::line_view(flow, range);
+        let mut found = None;
+        for r in &v.runs {
+            match &r.widget {
+                Some(view::Widget::Picture { id, size }) if found.is_none() => {
+                    found = Some((id.clone(), *size, r.text.clone()));
+                }
+                None if r.text.trim().is_empty() => {}
+                _ => return None,
+            }
+        }
+        let (id, (w, h), label) = found?;
+        let body = flow.body_size();
+        let per_point = cell.height.max(1) as f32 / if body > 0.0 { body } else { 11.0 };
+        let (w, h) = (
+            (w as f32 / 100.0 * per_point).round().max(1.0) as u32,
+            (h as f32 / 100.0 * per_point).round().max(1.0) as u32,
+        );
+        let key = ImageKey::Picture(id.clone(), w, h);
+        let mut images = self.images.borrow_mut();
+        if !images.cache.contains_key(&key) {
+            let b = flow.picture(&id, w.max(h))?;
+            let img = image::RgbaImage::from_raw(b.width, b.height, b.rgba.as_ref().clone())?;
+            let img = image::DynamicImage::ImageRgba8(img);
+            let img = if img.width() > w || img.height() > h {
+                img.resize_exact(w, h, image::imageops::FilterType::Triangle)
+            } else {
+                img
+            };
+            images.given.insert(key.clone(), img);
+        }
+        let (rows, cols) = images.size(&key, self.width.get())?;
         Some((key, label, rows, cols))
     }
 
@@ -848,7 +910,7 @@ impl<'a> Layout<'a> {
         };
         let limit = match &key {
             ImageKey::File(_, cols) => *cols,
-            ImageKey::Math { .. } => self.width.get(),
+            ImageKey::Math { .. } | ImageKey::Picture(..) => self.width.get(),
         };
         let (rows, cols) = images.size(&key, limit)?;
         Some((key, label, rows, cols))

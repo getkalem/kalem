@@ -27,7 +27,7 @@ fn a_flowing_document_is_drawn_and_typed_into(cx: &mut TestAppContext) {
     // The NUL makes the file binary: Kalem asks its viewers for it.
     std::fs::write(
         &file,
-        b"# Title\nPlain and *bold* text^\n- an item\n|a|b|\n---\nThe note.\n\0\n",
+        b"# Title\nPlain and *bold* text^\n- an item\n|a|b|\n---\n@\nThe note.\n\0\n",
     )
     .unwrap();
     let settings = dir.join("settings.toml");
@@ -58,6 +58,26 @@ fn a_flowing_document_is_drawn_and_typed_into(cx: &mut TestAppContext) {
         )
     });
     assert_eq!(mode, DocumentMode::Flow);
+    // The picture, drawn by the plugin as large beside the text as in the
+    // document: 24 by 12 points, with body text of 11 points shown 11
+    // pixels high.
+    let drawn = ws.update_in(cx, |ws, _window, cx| {
+        ws.editor.update(cx, |e, _| {
+            e.flow_picture("red", (2400, 1200), gpui::px(11.0), 2.0)
+                .map(|(image, size)| (image.size(0), size))
+        })
+    });
+    let (pixels, size) = drawn.expect("the picture drawn");
+    assert_eq!(size, gpui::size(gpui::px(24.0), gpui::px(12.0)));
+    assert_eq!((pixels.width.0, pixels.height.0), (48, 24));
+    assert!(ws.read_with(cx, |ws, cx| {
+        ws.editor
+            .read(cx)
+            .line_view(5)
+            .runs
+            .iter()
+            .any(|r| matches!(r.widget, Some(kalem_core::view::Widget::Picture { .. })))
+    }));
     assert_eq!(heading, 1);
     assert!(bold);
     assert_eq!(label, "• an item");

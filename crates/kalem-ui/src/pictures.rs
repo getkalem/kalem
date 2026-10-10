@@ -33,6 +33,20 @@ impl std::fmt::Debug for Pictures {
     }
 }
 
+/// A picture a plugin drew, ready to draw.
+pub fn from_bitmap(b: &kalem_viewer::Bitmap) -> Option<Picture> {
+    let mut bgra = b.rgba.as_ref().clone();
+    for p in bgra.as_chunks_mut::<4>().0 {
+        p.swap(0, 2);
+    }
+    let buf = image::RgbaImage::from_raw(b.width, b.height, bgra)?;
+    Some((
+        Arc::new(RenderImage::new(vec![image::Frame::new(buf)])),
+        b.width,
+        b.height,
+    ))
+}
+
 impl Pictures {
     /// The picture in `file`, or `None` when it cannot be read.
     pub fn get(&self, file: &Path) -> Option<Picture> {

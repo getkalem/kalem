@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- Pictures of documents of flowing text (a Word document) are drawn, in both editors, as large beside the text as in the document and no wider than the text, through the plugin's `render-picture`. In the terminal a picture alone on its line is drawn when the terminal draws pictures and the cursor is elsewhere; otherwise its alternative text shows, as before.
 - The plugin API is 0.2.9: `flow-3`, exported with `flow`, says what changed in a unit's flow since a version (`changes`: a run of items replaced, the paragraphs after it numbered on), so that after an edit Kalem fetches the items that changed rather than the whole flow. A plugin without it has its flow read whole, as before. `flow-2.wit` of 0.2.8 is frozen.
 
 ### Fixed

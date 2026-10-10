@@ -415,6 +415,9 @@ pub struct Editor {
     pub cite_preview: kalem_core::cite::Preview,
     /// The entry cited under the mouse, and where the mouse is.
     pub cite_hover: Option<(Point<Pixels>, String)>,
+    /// Pictures of a document of flowing text, as drawn, by ID and the
+    /// longest side asked for.
+    flow_pictures: HashMap<(String, u32), Option<crate::pictures::Picture>>,
     /// The file manager's context menu, where it opened (T2.7e.17).
     pub context_menu: Option<(Point<Pixels>, Vec<kalem_core::dired::ContextItem>)>,
     /// The context menu's item under the pointer.
@@ -565,6 +568,7 @@ impl Editor {
             formula_refs: Vec::new(),
             cite_preview: Default::default(),
             cite_hover: None,
+            flow_pictures: HashMap::new(),
             context_menu: None,
             menu_hover: None,
             math: true,
@@ -3631,6 +3635,42 @@ impl Editor {
         self.shared.pictures.get_tinted(&file, tint)
     }
 
+    /// Picture `id` of a document of flowing text, `size` hundredths of a
+    /// point wide and high, as its plugin draws it: the image and its size
+    /// in the line, in proportion to the text as in the document (its
+    /// body text shown at `base`), drawn for `scale` pixels a point.
+    pub fn flow_picture(
+        &mut self,
+        id: &str,
+        size: (u32, u32),
+        base: Pixels,
+        scale: f32,
+    ) -> Option<(Arc<gpui::RenderImage>, gpui::Size<Pixels>)> {
+        let flow = self.doc.flow.as_deref()?;
+        let body = flow.body_size();
+        let per_point = f32::from(base) / if body > 0.0 { body } else { 11.0 };
+        let (w, h) = (
+            size.0 as f32 / 100.0 * per_point,
+            size.1 as f32 / 100.0 * per_point,
+        );
+        if w < 1.0 || h < 1.0 {
+            return None;
+        }
+        let need = (w.max(h) * scale).ceil() as u32;
+        let key = (id.to_string(), need.clamp(32, 4096).next_power_of_two());
+        if !self.flow_pictures.contains_key(&key) {
+            let drawn = flow
+                .picture(id, need)
+                .and_then(|b| crate::pictures::from_bitmap(&b));
+            if self.flow_pictures.len() >= 256 {
+                self.flow_pictures.clear();
+            }
+            self.flow_pictures.insert(key.clone(), drawn);
+        }
+        let (image, _, _) = self.flow_pictures.get(&key)?.clone()?;
+        Some((image, gpui::size(px(w), px(h))))
+    }
+
     /// Dragging extends the selection.
     pub fn mouse_move(
         &mut self,
@@ -4514,7 +4554,7 @@ fn a11y_line(view: &LineView) -> (String, Vec<(usize, usize, bool)>) {
             }),
             Some(Widget::Math { source, .. }) => text.push_str(&kalem_core::math::unicode(source)),
             Some(Widget::Image { path, .. }) => text.push_str(&format!("image {path}")),
-            Some(Widget::TocRow { .. }) | None => text.push_str(&r.text),
+            Some(Widget::TocRow { .. } | Widget::Picture { .. }) | None => text.push_str(&r.text),
         }
         d += r.text.len();
     }

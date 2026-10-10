@@ -251,7 +251,11 @@ document of twenty thousand paragraphs takes a millisecond or two. A
 plugin without it, or one that cannot tell, has its flow read whole. A paragraph's *edit text* counts a
 tab, a line break (U+000B), a page break (U+000C), a column break
 (U+000E) and an object (U+FFFC, a picture, a note's mark) as one
-character each.
+character each. A run that is a picture names it and gives its size in
+points; Kalem asks the plugin for its pixels (=render-picture=, no more
+than it shows them, in powers of two so that a zoom seldom asks again),
+keeps them, and draws the picture in its line, in proportion to the body
+text as in the document; one the plugin cannot draw shows its text.
 
 The look of the text is changed as a word processor changes it, through
 =set-marks= (bold, italic, underline, strikethrough, raised or lowered,

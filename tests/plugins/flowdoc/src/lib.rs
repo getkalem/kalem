@@ -175,8 +175,9 @@ impl Viewer for Flows {
     }
 }
 
-/// A line's runs: `*bold*` bold, `^` a note's mark, the rest text; the
-/// line's edit text, `^` as the object character.
+/// A line's runs: `*bold*` bold, `^` a note's mark, `@` a picture (a red
+/// bar, twice as wide as high), the rest text; the line's edit text, `^`
+/// and `@` as the object character.
 fn runs(line: &str, base: usize, comments: &[Annotation], index: u32) -> (String, Vec<FlowRun>) {
     let mut text = String::new();
     let mut out = Vec::new();
@@ -231,6 +232,22 @@ fn runs(line: &str, base: usize, comments: &[Annotation], index: u32) -> (String
                     },
                     source: start..text.len() as u32,
                     locked: Some("a note's mark".into()),
+                    ..FlowRun::default()
+                });
+            }
+            '@' => {
+                flush(&mut cur, &mut text, &mut out, bold);
+                let start = text.len() as u32;
+                text.push(kalem_viewer::OBJECT);
+                out.push(FlowRun {
+                    text: "[Picture: A red bar]".into(),
+                    piece: Piece::Picture(kalem_viewer::FlowPicture {
+                        id: "red".into(),
+                        width: 24.0,
+                        height: 12.0,
+                        alt: "A red bar".into(),
+                    }),
+                    source: start..text.len() as u32,
                     ..FlowRun::default()
                 });
             }
@@ -460,6 +477,17 @@ impl ViewerDocument for Doc {
     fn flow_changes(&mut self, _unit: usize, since: u64) -> Option<FlowChange> {
         let old = &self.given.iter().find(|(v, _)| *v == since)?.1;
         Some(change(old, &self.items()))
+    }
+
+    fn flow_picture(&mut self, _unit: usize, id: &str, max: u32) -> Result<kalem_viewer::Bitmap> {
+        if id != "red" {
+            return Err(ViewerError(format!("No picture {id}")));
+        }
+        // At most 48 by 24 pixels, red.
+        let w = max.clamp(2, 48);
+        let h = w / 2;
+        let rgba = [200u8, 30, 30, 255].repeat((w * h) as usize);
+        Ok(kalem_viewer::Bitmap::new(w, h, rgba))
     }
 
     fn flow_items(&mut self, _unit: usize, from: u32, count: u32) -> Vec<FlowItem> {

@@ -17,6 +17,7 @@
 
 use std::collections::HashMap;
 use std::ops::Range;
+use std::sync::{Arc, Mutex};
 
 use kalem_viewer::{
     Annotation, AnnotationKind, AsideKind, FlowAlign, FlowItem, FlowParagraph, FlowPlace, FlowRole,
@@ -25,7 +26,7 @@ use kalem_viewer::{
 };
 use org_edit::Transaction;
 
-use crate::view::{LineRole, LineView, OutlineItem, Run, Style};
+use crate::view::{LineRole, LineView, OutlineItem, Run, Style, Widget};
 use crate::viewer::ViewerState;
 
 /// A list item's kind as its label shows it: `Some(true)` numbered,
@@ -105,6 +106,10 @@ pub struct FlowLine {
     pub row: bool,
 }
 
+/// The pictures a plugin drew, by ID and the longest side asked for;
+/// `None` for one it could not.
+type Pictures = HashMap<(String, u32), Option<Arc<kalem_viewer::Bitmap>>>;
+
 /// A document's flow unit as the editor shows and edits it.
 #[derive(Debug)]
 pub struct FlowState {
@@ -134,6 +139,8 @@ pub struct FlowState {
     body_size: f32,
     /// How much body text there is of each size (in half points).
     sizes: HashMap<u32, isize>,
+    /// The pictures the plugin drew.
+    pictures: Mutex<Pictures>,
     /// The unit's annotations, by ID.
     pub annotations: HashMap<String, Annotation>,
     /// Whether edits are written as tracked changes; `None` for a format
@@ -420,6 +427,7 @@ impl FlowState {
             changed: None,
             body_size: 0.0,
             sizes: HashMap::new(),
+            pictures: Mutex::default(),
             annotations: HashMap::new(),
             tracking: None,
         };
@@ -640,6 +648,38 @@ impl FlowState {
         }
         self.body_size = size;
         true
+    }
+
+    /// Picture `id` as the plugin draws it, at least `size` pixels on its
+    /// longer side when it is that large (asked for in powers of two, so
+    /// that a change of zoom seldom asks again), kept for the next time;
+    /// `None` when the plugin cannot draw it (a format it does not
+    /// decode, a picture linked from elsewhere).
+    pub fn picture(&self, id: &str, size: u32) -> Option<Arc<kalem_viewer::Bitmap>> {
+        let max = size.clamp(32, 4096).next_power_of_two();
+        let key = (id.to_string(), max);
+        if let Some(p) = self.pictures.lock().ok()?.get(&key) {
+            return p.clone();
+        }
+        let drawn = self
+            .viewer
+            .doc()
+            .flow_picture(self.unit, id, max)
+            .ok()
+            .map(Arc::new);
+        let mut pictures = self.pictures.lock().ok()?;
+        // Pictures of a few sizes at a time: the oldest sizes forgotten.
+        if pictures.len() >= 256 {
+            pictures.clear();
+        }
+        pictures.insert(key, drawn.clone());
+        drawn
+    }
+
+    /// The size of body text, in points, which the others are shown in
+    /// ratio to; 0 when there is none.
+    pub fn body_size(&self) -> f32 {
+        self.body_size
     }
 
     /// The text shown.
@@ -1436,12 +1476,23 @@ pub fn line_view(f: &FlowState, range: Range<usize>) -> LineView {
                 }
             };
             let verbatim = shown == source;
+            // A picture the plugin draws; its text when it cannot.
+            let widget = match &r.piece {
+                Piece::Picture(pic) if !pic.id.is_empty() => Some(Widget::Picture {
+                    id: pic.id.clone(),
+                    size: (
+                        (pic.width.max(0.0) * 100.0).round() as u32,
+                        (pic.height.max(0.0) * 100.0).round() as u32,
+                    ),
+                }),
+                _ => None,
+            };
             v.runs.push(Run {
                 src: start + a..start + b,
                 text: shown,
                 verbatim,
                 style,
-                widget: None,
+                widget,
             });
             at = b;
         }

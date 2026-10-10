@@ -598,3 +598,32 @@ fn rules_drawn_across_and_colors_marked_as_the_documents() {
             .all(|r| r.style.rich.paper)
     );
 }
+
+/// A picture is a widget the plugin draws: asked for in powers of two of
+/// the size needed, and kept.
+#[test]
+fn pictures_drawn_by_the_plugin() {
+    let (d, _) = open("A picture: @\n@\nThe note.\n");
+    let f = d.flow.as_deref().unwrap();
+    let text = d.text().as_str().to_string();
+    let start = text.find('\n').unwrap() + 1;
+    let end = start + text[start..].find('\n').unwrap();
+    let v = kalem_core::flow::line_view(f, start..end);
+    let pic = v
+        .runs
+        .iter()
+        .find_map(|r| match &r.widget {
+            Some(kalem_core::view::Widget::Picture { id, size }) => Some((id.clone(), *size)),
+            _ => None,
+        })
+        .expect("a picture");
+    assert_eq!(pic, ("red".to_string(), (2400, 1200)));
+    assert_eq!(v.display(), "[Picture: A red bar]");
+    // 40 pixels asked: 64 at most drawn, which the fake makes 48 by 24.
+    let b = f.picture("red", 40).unwrap();
+    assert_eq!((b.width, b.height), (48, 24));
+    let small = f.picture("red", 10).unwrap();
+    assert_eq!((small.width, small.height), (32, 16));
+    assert!(Arc::ptr_eq(&f.picture("red", 50).unwrap(), &b));
+    assert!(f.picture("blue", 40).is_none());
+}

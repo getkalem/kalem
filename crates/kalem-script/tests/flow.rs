@@ -88,6 +88,10 @@ fn a_flow_crosses_to_the_host() {
     assert!(d.flow_items(0, 100, 5).is_empty());
     assert!(d.flow_styles().iter().any(|s| s.name == "Normal"));
     assert!(d.flow_picture(0, "none", 64).is_err());
+    // A picture's pixels cross too.
+    let b = d.flow_picture(0, "red", 20).unwrap();
+    assert_eq!((b.width, b.height), (20, 10));
+    assert_eq!(&b.rgba[..4], &[200, 30, 30, 255]);
 }
 
 #[test]
