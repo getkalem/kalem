@@ -3028,6 +3028,10 @@ impl DocumentState {
                 || crate::formatters::has_formatter(self),
         );
         c.flag("hasLanguageServer", crate::lsp::serves(self));
+        // The server's own requests it has: `server:code.expandMacro`.
+        for id in crate::lsp::requests(self) {
+            c.flag(&format!("server:{id}"), true);
+        }
         if self.meta.mode == DocumentMode::Markdown
             && let Some(md) = crate::markdown::ready(self)
         {
