@@ -565,6 +565,52 @@ fn main() {
     lsp::closed(&lib);
     println!("test named files ... ok");
 
+    // A server that gives some diagnostics only when asked, as
+    // rust-analyzer gives its own (cargo's pushed): asked for, and shown
+    // with those it pushes, each once.
+    kalem_core::languages::set_user_settings(Some(&serde_json::json!({
+        "org.example.fake": {"servers": {"f": {"env": {"KALEM_LSP_FAKE": "pull"}}}}
+    })));
+    lsp::restart(&doc).unwrap();
+    until("the server asked of", || {
+        lsp::can(&doc, Kind::Hover).then_some(())
+    });
+    edit(&mut doc, 0..0, "TODO bad ");
+    let text = doc.text().as_str().to_string();
+    let (todo, bad) = (text.matches("TODO").count(), text.matches("bad").count());
+    until("pushed and given", || {
+        let d = lsp::diagnostics(&file);
+        let n = |m: &str| d.iter().filter(|x| x.message == m).count();
+        (n("TODO found") == todo && n("bad found") == bad && d.len() == todo + bad).then_some(())
+    });
+    kalem_core::languages::set_user_settings(None);
+    lsp::restart(&doc).unwrap();
+    until("the server again", || {
+        lsp::can(&doc, Kind::Hover).then_some(())
+    });
+    println!("test given when asked ... ok");
+
+    // A server busy loading the project cancels what it is asked
+    // ("content modified"): asked again, the answer shown, not the error.
+    kalem_core::languages::set_user_settings(Some(&serde_json::json!({
+        "org.example.fake": {"servers": {"f": {"env": {"KALEM_LSP_FAKE": "busy"}}}}
+    })));
+    lsp::restart(&doc).unwrap();
+    until("the busy server", || {
+        lsp::can(&doc, Kind::Hover).then_some(())
+    });
+    lsp::request(&doc, Kind::Hover).unwrap();
+    match outcome(&file, doc.version()) {
+        Outcome::Hover { text, .. } => assert!(text.starts_with("at "), "{text}"),
+        o => panic!("{o:?}"),
+    }
+    kalem_core::languages::set_user_settings(None);
+    lsp::restart(&doc).unwrap();
+    until("the server again", || {
+        lsp::can(&doc, Kind::Hover).then_some(())
+    });
+    println!("test asked again ... ok");
+
     // A server that does not start (a toolchain's proxy for a component
     // not installed, found on the PATH all the same): not started again,
     // and said at once in its own words, with the plugin's install text.

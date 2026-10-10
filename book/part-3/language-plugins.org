@@ -270,6 +270,16 @@ the problem on the cursor's line, else the server's work in progress
 Formatting is applied as one undoable change, and only when the
 document has not changed since it was asked.
 
+A server's problems come two ways, and Kalem takes both: those it sends
+on its own, and those it gives when asked (the protocol's pull model).
+rust-analyzer does both: cargo's errors and clippy's come as the check
+on save ends, its own (type mismatches, names, unresolved imports, a
+file no module includes) when Kalem asks, after the file opens, after
+each change once the server has answered the last question, and when
+the server says they changed. A server busy loading the project may
+cancel a question ("content modified"); Kalem asks again after half a
+second, one and two, and says it is still busy only after that.
+
 Problems are underlined in the text, errors and warnings as probably
 wrong and the rest as style; the line's number is colored in the
 gutter, and the message shows under the mouse. The problems list

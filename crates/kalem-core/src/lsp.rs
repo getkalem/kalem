@@ -374,7 +374,19 @@ struct Action {
     pending: Pending,
     client: Arc<Client>,
     started: Instant,
+    /// What was asked, sent again when the server answers that its state
+    /// changed under it ([`kalem_lsp::CONTENT_MODIFIED`]).
+    params: Value,
+    /// How many times it was asked again.
+    retries: u32,
+    /// When to ask again.
+    retry_at: Option<Instant>,
 }
+
+/// How many times a request the server cancelled is asked again (after
+/// half a second, one, two): rust-analyzer cancels what it is asked while
+/// it loads the project.
+const RETRIES: u32 = 3;
 
 #[derive(Default)]
 struct Service {
@@ -954,7 +966,15 @@ impl Service {
         let mut finished = Vec::new();
         let mut i = 0;
         while i < self.actions.len() {
-            let a = &self.actions[i];
+            let a = &mut self.actions[i];
+            if let Some(at) = a.retry_at {
+                if at <= Instant::now() {
+                    a.retry_at = None;
+                    a.pending = a.client.request(a.kind.method(), a.params.clone());
+                }
+                i += 1;
+                continue;
+            }
             let answer = match a.pending.poll() {
                 Some(r) => Some(r),
                 None if a.started.elapsed() > TIMEOUT => {
@@ -966,8 +986,30 @@ impl Service {
                 }
                 None => None,
             };
+            let cancelled = |r: &Answered| {
+                matches!(r, Err(e) if e.code == kalem_lsp::CONTENT_MODIFIED
+                    || e.code == kalem_lsp::SERVER_CANCELLED)
+            };
             match answer {
                 None => i += 1,
+                // Asked again while the document is as it was asked
+                // about: the server was busy (loading the project).
+                Some(r)
+                    if cancelled(&r)
+                        && a.retries < RETRIES
+                        && self.docs.get(&a.path).is_some_and(|d| d.text == a.text) =>
+                {
+                    a.retry_at = Some(Instant::now() + Duration::from_millis(500 << a.retries));
+                    a.retries += 1;
+                    i += 1;
+                }
+                Some(r) if cancelled(&r) => {
+                    let busy = Err(kalem_lsp::RpcError {
+                        code: kalem_lsp::CONTENT_MODIFIED,
+                        message: crate::tr!("lsp-busy"),
+                    });
+                    finished.push((self.actions.remove(i), busy));
+                }
                 Some(r) => finished.push((self.actions.remove(i), r)),
             }
         }
@@ -1776,7 +1818,7 @@ impl Service {
             Kind::ResolveAction => extra.clone(),
             _ => json!({ "textDocument": td, "position": position() }),
         };
-        let pending = c.request(kind.method(), params);
+        let pending = c.request(kind.method(), params.clone());
         let text = d.text.clone();
         self.actions.push(Action {
             kind,
@@ -1787,6 +1829,9 @@ impl Service {
             pending,
             client: c,
             started: Instant::now(),
+            params,
+            retries: 0,
+            retry_at: None,
         });
         Ok(())
     }

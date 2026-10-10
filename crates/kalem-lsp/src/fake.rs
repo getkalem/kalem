@@ -6,7 +6,13 @@
 //! (answers it with an error); `crash`
 //! (exits with 3 on the first `didOpen`); `garbage` (a malformed message
 //! first); `absent` (exits with 1 at once, its reason on standard error,
-//! as a toolchain's proxy for a component not installed does). In
+//! as a toolchain's proxy for a component not installed does); `pull`
+//! (as rust-analyzer: the warnings on `TODO` pushed, the errors on `bad`
+//! given only when asked, `textDocument/diagnostic`, "unchanged" when the
+//! client has the report already; a save adds a note to them, and the
+//! server asks the client to ask again); `busy` (its first two hovers
+//! answered "content modified", as rust-analyzer answers while it loads a
+//! project). In
 //! `normal`, a change whose text contains `CRASH` exits with 4, and the
 //! references of anything are the document's first line and, when the
 //! folder beside the root has a `library/lib.fk`, that file's (a
@@ -22,10 +28,10 @@ use serde_json::{Value, json};
 use crate::position::{Encoding, byte_range, position};
 use crate::rpc;
 
-fn diagnostics(uri: &Value, text: &str) -> Value {
-    // A warning on every `TODO`, an error on every `bad`.
+/// A diagnostic on every one of `words`, with its severity.
+fn found(text: &str, words: &[(&str, i64)]) -> Vec<Value> {
     let mut list = Vec::new();
-    for (word, severity) in [("TODO", 2), ("bad", 1)] {
+    for (word, severity) in words {
         for (at, _) in text.match_indices(word) {
             list.push(json!({
                 "range": { "start": position(text, at, Encoding::Utf16).to_json(),
@@ -34,8 +40,17 @@ fn diagnostics(uri: &Value, text: &str) -> Value {
             }));
         }
     }
+    list
+}
+
+fn publish(uri: &Value, list: &[Value]) -> Value {
     json!({"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics",
            "params": {"uri": uri, "diagnostics": list}})
+}
+
+/// A warning on every `TODO`, an error on every `bad`.
+fn diagnostics(uri: &Value, text: &str) -> Value {
+    publish(uri, &found(text, &[("TODO", 2), ("bad", 1)]))
 }
 
 /// A file's URI with links resolved, as Expert names files.
@@ -61,6 +76,14 @@ pub fn serve(behavior: &str) {
     let mut out = std::io::stdout();
     let mut texts: HashMap<String, String> = HashMap::new();
     let mut root: Option<std::path::PathBuf> = None;
+    // `pull`: the words pushed, and whether a save has been seen.
+    let pushed: &[(&str, i64)] = if behavior == "pull" {
+        &[("TODO", 2)]
+    } else {
+        &[("TODO", 2), ("bad", 1)]
+    };
+    let mut saved = false;
+    let mut busy = if behavior == "busy" { 2 } else { 0 };
     let send = |out: &mut std::io::Stdout, v: Value| {
         let _ = rpc::write(out, &v);
     };
@@ -86,22 +109,24 @@ pub fn serve(behavior: &str) {
                     );
                     continue;
                 }
-                send(
-                    &mut out,
-                    json!({"jsonrpc": "2.0", "id": id, "result": {"capabilities": {
-                        "positionEncoding": "utf-16",
-                        "textDocumentSync": {"openClose": true, "change": 2, "save": {"includeText": true}},
-                        "hoverProvider": true,
-                        "definitionProvider": true,
-                        "referencesProvider": true,
-                        "documentFormattingProvider": true,
-                        "completionProvider": {"triggerCharacters": ["."], "resolveProvider": true},
-                        "signatureHelpProvider": {"triggerCharacters": ["(", ","]},
-                        "renameProvider": true,
-                        "codeActionProvider": true,
-                        "executeCommandProvider": {"commands": ["fake.cmd"]},
-                    }}}),
-                );
+                let mut answer = json!({"jsonrpc": "2.0", "id": id, "result": {"capabilities": {
+                    "positionEncoding": "utf-16",
+                    "textDocumentSync": {"openClose": true, "change": 2, "save": {"includeText": true}},
+                    "hoverProvider": true,
+                    "definitionProvider": true,
+                    "referencesProvider": true,
+                    "documentFormattingProvider": true,
+                    "completionProvider": {"triggerCharacters": ["."], "resolveProvider": true},
+                    "signatureHelpProvider": {"triggerCharacters": ["(", ","]},
+                    "renameProvider": true,
+                    "codeActionProvider": true,
+                    "executeCommandProvider": {"commands": ["fake.cmd"]},
+                }}});
+                if behavior == "pull" {
+                    answer["result"]["capabilities"]["diagnosticProvider"] =
+                        json!({"interFileDependencies": false, "workspaceDiagnostics": false});
+                }
+                send(&mut out, answer);
                 if behavior == "chatty" {
                     // A line of its standard error that is not UTF-8,
                     // then one that is: both reach the log.
@@ -146,7 +171,7 @@ pub fn serve(behavior: &str) {
                     std::process::exit(3);
                 }
                 let text = p["textDocument"]["text"].as_str().unwrap_or("").to_string();
-                send(&mut out, diagnostics(&json!(real(&uri)), &text));
+                send(&mut out, publish(&json!(real(&uri)), &found(&text, pushed)));
                 texts.insert(uri, text);
             }
             "textDocument/didChange" => {
@@ -172,7 +197,53 @@ pub fn serve(behavior: &str) {
                     let other = crate::uri::from_path(&path.with_file_name("other.fk"));
                     send(&mut out, diagnostics(&json!(other), "bad"));
                 }
-                send(&mut out, diagnostics(&json!(real(&uri)), text));
+                send(&mut out, publish(&json!(real(&uri)), &found(text, pushed)));
+            }
+            "textDocument/diagnostic" => {
+                let text = texts.get(&uri).cloned().unwrap_or_default();
+                let mut items = found(&text, &[("bad", 1)]);
+                if saved {
+                    items.push(json!({
+                        "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 1}},
+                        "severity": 3, "source": "fake", "message": "saved",
+                    }));
+                }
+                let report = {
+                    use std::hash::{Hash, Hasher};
+                    let mut h = std::collections::hash_map::DefaultHasher::new();
+                    (&text, saved).hash(&mut h);
+                    format!("{:x}", h.finish())
+                };
+                let result = if p["previousResultId"].as_str() == Some(report.as_str()) {
+                    send(
+                        &mut out,
+                        json!({"jsonrpc": "2.0", "method": "window/logMessage",
+                            "params": {"type": 3, "message": "diagnostics unchanged"}}),
+                    );
+                    json!({"kind": "unchanged", "resultId": report})
+                } else {
+                    json!({"kind": "full", "resultId": report, "items": items})
+                };
+                send(
+                    &mut out,
+                    json!({"jsonrpc": "2.0", "id": id, "result": result}),
+                );
+            }
+            "textDocument/didSave" => {
+                if behavior == "pull" {
+                    saved = true;
+                    send(
+                        &mut out,
+                        json!({"jsonrpc": "2.0", "id": 903, "method": "workspace/diagnostic/refresh"}),
+                    );
+                }
+            }
+            "textDocument/hover" if busy > 0 => {
+                busy -= 1;
+                send(
+                    &mut out,
+                    json!({"jsonrpc": "2.0", "id": id, "error": {"code": -32801, "message": "content modified"}}),
+                );
             }
             "textDocument/hover" => {
                 let pos = &p["position"];

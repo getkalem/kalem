@@ -1653,6 +1653,7 @@ lsp-stopped-restarting = { $server } stopped ({ $code }); restarting
 lsp-nothing = { $server }: no { $what }
 lsp-not-provided = { $server } does not provide { $what }
 lsp-no-answer = no answer in time
+lsp-busy = still busy (loading the project); ask again in a moment
 lsp-formatter-missing = The formatter { $program } is not installed
 lsp-formatter-failed = { $command }: { $reason }
 fmt-none = No formatter for { $kind } files: set one as formatters.{ $key } in the settings
