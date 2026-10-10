@@ -6,12 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.8] - 2026-10-10
+
 ### Added
 - Pictures of documents of flowing text (a Word document) are drawn, in both editors, as large beside the text as in the document and no wider than the text, through the plugin's `render-picture`. In the terminal a picture alone on its line is drawn when the terminal draws pictures and the cursor is elsewhere; otherwise its alternative text shows, as before.
 - The plugin API is 0.2.9: `flow-3`, exported with `flow`, says what changed in a unit's flow since a version (`changes`: a run of items replaced, the paragraphs after it numbered on), so that after an edit Kalem fetches the items that changed rather than the whole flow. A plugin without it has its flow read whole, as before. `flow-2.wit` of 0.2.8 is frozen.
 
 ### Fixed
-- Typing in a long document of flowing text (a Word document) was slow: each keystroke read every paragraph again from the plugin and measured every line again, two thirds of a second in a document of 20,000 paragraphs. Kalem now fetches the paragraphs the plugin says changed and lays out their lines again, nothing else: with the Word plugin's next release a keystroke there takes 1.4 ms.
+- Typing in a long document of flowing text (a Word document) was slow: each keystroke read every paragraph again from the plugin and measured every line again, two thirds of a second in a document of 20,000 paragraphs. Kalem now fetches the paragraphs the plugin says changed and lays out their lines again, nothing else: with the Word plugin 0.0.6 a keystroke there takes 1.4 ms.
 
 ## [0.6.7] - 2026-10-10
 
