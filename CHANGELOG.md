@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - `kalem plugin check` checks the installed extension plugins too: each is loaded and bound to the plugin API as starting it would, without being activated, and reported as running or with why it cannot, the check failing with it. Only viewers were checked, so the *Released plugins* workflow installed an extension plugin such as graph and never tried it.
+- LaTeX: case changes inside case changes show what pdflatex typesets. The innermost decides, a letter's command changing as a command (`\MakeUppercase{\MakeLowercase{\ss}}` keeps its ß), but Œ and œ take the outermost `\MakeUppercase` or `\MakeLowercase`'s case, as LaTeX lets `\OE` and `\oe` be one another for the whole of its argument (`\MakeLowercase{\MakeUppercase{\OE}}` is œ).
 
 ## [0.6.11] - 2026-10-10
 

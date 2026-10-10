@@ -2173,6 +2173,49 @@ fn change_case(s: &str, upper: bool) -> String {
         .collect()
 }
 
+/// Whether the source of a run is a command that typesets a letter
+/// (`\ss`, `\AE`, `\i`), which TeX's primitive case changes leave alone.
+fn typeset_letter(src: &str) -> bool {
+    let name: String = src
+        .trim_start_matches('\\')
+        .chars()
+        .take_while(char::is_ascii_alphabetic)
+        .collect();
+    src.contains("\\i") || src.contains("\\j") || word(&name).is_some()
+}
+
+/// `s` under the case changes `around` (upper or not, and whether TeX's
+/// primitive), the outermost first, nested as LaTeX nests them. Each
+/// changes what the ones outside it made, so the innermost decides; a
+/// letter a command typesets (`command`) is changed as its command is,
+/// into its pair (`\ss` to `\SS`) and back, so `\MakeUppercase{
+/// \MakeLowercase{\ss}}` keeps its ß, and the primitives leave it alone.
+/// But Œ and œ (`\OE`, `\oe` or the characters) take the outermost
+/// `\MakeUppercase` or `\MakeLowercase`'s case whatever the ones inside
+/// say: LaTeX's lets `\OE` be `\oe` (and `\oe` be `\OE`) for the whole
+/// of its argument, the case changes inside it included.
+fn nested_case(s: &str, around: &[(bool, bool)], command: bool) -> String {
+    let outermost = around
+        .iter()
+        .find(|(_, primitive)| !primitive)
+        .map(|(upper, _)| *upper);
+    let levels: Vec<bool> = around
+        .iter()
+        .filter(|(_, primitive)| !(command && *primitive))
+        .map(|(upper, _)| *upper)
+        .collect();
+    s.chars()
+        .map(|c| {
+            let one = c.to_string();
+            match (outermost, c) {
+                (Some(upper), '\u{152}' | '\u{153}') => change_case(&one, upper),
+                _ if command => levels.last().map_or(one.clone(), |&u| change_case(&one, u)),
+                _ => levels.iter().fold(one, |t, &u| change_case(&t, u)),
+            }
+        })
+        .collect()
+}
+
 /// Where the group at `at` ends, when it does before `limit`: the
 /// argument of `\MakeUppercase{x {y}}`.
 fn group_end(text: &str, at: usize, limit: usize) -> Option<usize> {
@@ -5203,27 +5246,19 @@ fn unflagged_line_view(
         }
     }
     v.runs = b.runs;
-    for (range, upper, primitive) in &cases {
-        for r in &mut v.runs {
-            // A letter a command typesets, under the primitive: unchanged.
-            let letter = || {
-                let src = &text[r.src.clone()];
-                let name: String = src
-                    .trim_start_matches('\\')
-                    .chars()
-                    .take_while(char::is_ascii_alphabetic)
-                    .collect();
-                src.contains("\\i") || src.contains("\\j") || word(&name).is_some()
-            };
-            if range.start <= r.src.start
-                && r.src.end <= range.end
-                && !r.style.dim
-                && !(*primitive && !r.verbatim && letter())
-            {
-                r.text = change_case(&r.text, *upper);
-                r.verbatim &= r.text.len() == r.src.len();
-            }
+    for r in &mut v.runs {
+        // The case changes around the run, the outermost first.
+        let around: Vec<(bool, bool)> = cases
+            .iter()
+            .filter(|(range, _, _)| range.start <= r.src.start && r.src.end <= range.end)
+            .map(|(_, upper, primitive)| (*upper, *primitive))
+            .collect();
+        if around.is_empty() || r.style.dim {
+            continue;
         }
+        let command = !r.verbatim && typeset_letter(&text[r.src.clone()]);
+        r.text = nested_case(&r.text, &around, command);
+        r.verbatim &= r.text.len() == r.src.len();
     }
     for r in &mut v.runs {
         if dimmed
@@ -9045,6 +9080,15 @@ mod tests {
             ("\\uppercase{x \\ss{} \\'e}", "X ß É"),
             ("\\MakeUppercase{\\textmu}", "µ"),
             ("\\MakeLowercase{\\textohm {\\={E}}}", "\u{2126}ē"),
+            // Nested, the innermost decides, a letter's command changed
+            // as a command (ß kept); but Œ and œ the outermost's.
+            ("\\MakeLowercase{\\MakeUppercase{a}}", "A"),
+            ("\\MakeUppercase{\\MakeLowercase{\\ss{}}}", "ß"),
+            ("\\MakeUppercase{\\MakeLowercase{ß}}", "ss"),
+            ("\\MakeLowercase{\\MakeUppercase{\\OE{}}}", "œ"),
+            ("\\MakeUppercase{\\MakeLowercase{œ}}", "Œ"),
+            ("\\lowercase{\\MakeUppercase{\\MakeLowercase{\\OE{}}}}", "Œ"),
+            ("\\MakeLowercase{x\\MakeUppercase{\\OE{} y}\\OE{}}", "xœ Yœ"),
             ("\\c C---x", "Ç—x"),
             ("x \\S\\", "x § "),
         ];
