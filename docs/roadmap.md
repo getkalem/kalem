@@ -345,8 +345,10 @@ Programmers (LSP and plugins)
   File, Reload Project, Join Lines, Move Item Up and Down, Structural
   Search and Replace, and Enter's new line by the server's, in the
   same undo step); a server's state in the status bar (the manifest's
-  `status`, with the `capabilities` that ask for it). The Book's
-  chapter "Rust". Open for Rust: automatic imports, lenses, run and
+  `status`, with the `capabilities` that ask for it); servers beside a
+  language's own (`alongside`: Taplo and crates-lsp for `Cargo.toml`);
+  the project's run and test commands (`SPC p R`, `SPC p T`). The
+  Book's chapter "Rust". Open for Rust: automatic imports, lenses, run and
   test, servers in source blocks.)
 - [x] R5.12e The Elixir plugin and the language server client,
   reviewed (owner, 2026-10-04: "code quality, performance, what is

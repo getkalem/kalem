@@ -1179,7 +1179,7 @@ command = "project.recentFiles"
 doom = "SPC p R"
 keys = "space p shift+r"
 what = "Run the project"
-reason = "Not yet: a run command per project (a setting)"
+command = "project.run"
 
 [[key]]
 doom = "SPC p s"
@@ -1197,7 +1197,7 @@ command = "project.todos"
 doom = "SPC p T"
 keys = "space p shift+t"
 what = "Test the project"
-reason = "Waits for the language packs' test commands (3.8)"
+command = "project.test"
 
 [[key]]
 doom = "SPC p x"

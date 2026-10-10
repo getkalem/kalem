@@ -51,10 +51,21 @@ pub(crate) fn status(file: Option<&Path>) -> Result<ExitCode> {
     for p in &plugins {
         println!("{} {} ({}) in {}", p.id, p.version, p.name, p.dir.display());
         for l in &p.languages {
+            let files: Vec<String> = l
+                .extensions
+                .iter()
+                .map(|e| format!(".{e}"))
+                .chain(l.filenames.iter().cloned())
+                .collect();
+            let beside = if l.alongside.is_empty() {
+                String::new()
+            } else {
+                format!(" (beside it: {})", l.alongside.join(", "))
+            };
             println!(
-                "  {}: .{} → {}",
+                "  {}: {} → {}{beside}",
                 l.name,
-                l.extensions.join(", ."),
+                files.join(", "),
                 l.servers.join(", ")
             );
         }
@@ -88,7 +99,45 @@ pub(crate) fn status(file: Option<&Path>) -> Result<ExitCode> {
         plugin.id,
         root.display()
     );
-    match languages::resolve_server(&plugin, &lang, Some(&root)) {
+    let code = own_server(&plugin, &lang, &root)?;
+    // The servers beside it: one not installed is said, the exit code is
+    // the language's own server's.
+    for key in languages::alongside(&plugin, &lang) {
+        let Some(spec) = plugin.server(&key) else {
+            continue;
+        };
+        let root = kalem_lsp::find_root(&abs, &spec.root_markers, spec.root_outermost)
+            .unwrap_or_else(|| root.clone());
+        match languages::resolve_key(&plugin, &key, Some(&root)) {
+            Some(Ok((s, program, args))) => {
+                println!(
+                    "  beside it: {} — {} {}",
+                    s.name,
+                    program.display(),
+                    args.join(" ")
+                );
+                match languages::server_version(&s, &program, &root) {
+                    Some(Ok(v)) => println!("  version: {v}"),
+                    Some(Err(why)) => println!("  does not run: {why}"),
+                    None => {}
+                }
+            }
+            Some(Err(why)) => println!("  beside it: {why}"),
+            None => {}
+        }
+    }
+    Ok(code)
+}
+
+/// The language's own server for `lang` in `root`, printed: its program,
+/// its version or why it does not run, or why there is none.
+fn own_server(
+    plugin: &languages::Plugin,
+    lang: &languages::LanguageSpec,
+    root: &Path,
+) -> Result<ExitCode> {
+    let root = root.to_path_buf();
+    match languages::resolve_server(plugin, lang, Some(&root)) {
         Resolved::Found(s, program, args) => {
             println!(
                 "  server: {} — {} {}",

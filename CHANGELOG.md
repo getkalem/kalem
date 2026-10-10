@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- Run Project and Test Project (`SPC p R`, `SPC p T` with Vim keys), and Test at Cursor: the language plugin's run and test commands (`cargo run` and `cargo test` for Rust, `mix test FILE:LINE` for the test at the cursor in Elixir) run in the project's root, their output in a read-only document as it comes and how they ended in its last line and the status bar. Running the same command again, or closing its document, stops the one under way. Where the file's language gives no command, one is asked for and run in the shell.
+- Language plugins: servers beside a language's own (`alongside` in the manifest), a linter beside the type server: each gets the language's files, their problems are shown with the first's, completion and code actions join theirs, and a question one server answers goes to the first that has it. The Rust plugin serves `Cargo.toml` with Taplo (its keys from Cargo's schema) and crates-lsp beside it (the crates' versions). `servers.KEY.enabled = false` in a plugin's settings turns one off; Language Server Status and `kalem lsp status` name them.
+
+### Changed
+- A language server's problems are underlined in three colors: errors in red, warnings in orange (yellow in the terminal), information and hints in blue. Errors and warnings were both red. A problem over several lines is underlined on each of them, not on its first only. LaTeX's checks keep their red and blue.
+
 ## [0.6.11] - 2026-10-10
 
 ### Added

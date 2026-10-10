@@ -290,15 +290,16 @@ fn ansi256(r: u8, g: u8, b: u8) -> u8 {
 
 pub(crate) fn style_base(s: &ViewStyle, heading: u8, caps: &Caps) -> Style {
     let mut st = Style::default();
-    // Under a diagnostic: underlined, red for a warning, blue for style
-    // (terminals that know underline colors show them).
-    if let Some(warning) = s.flagged {
+    // Under a diagnostic: underlined, red for what is wrong, yellow for a
+    // warning, blue for style (terminals that know underline colors show
+    // them).
+    if let Some(flag) = s.flagged {
         st = st.add_modifier(Modifier::UNDERLINED);
         if !caps.no_color {
-            st = st.underline_color(if warning {
-                Color::LightRed
-            } else {
-                Color::LightBlue
+            st = st.underline_color(match flag {
+                kalem_core::view::Flag::Wrong => Color::LightRed,
+                kalem_core::view::Flag::Warning => Color::Yellow,
+                kalem_core::view::Flag::Style => Color::LightBlue,
             });
         }
     }

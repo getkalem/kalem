@@ -20,7 +20,8 @@
 //! `A` of the document, in the selection when there is one, made `B`; a
 //! query without `A` refused). Told it may (the client's capability
 //! `experimental.fakeStatus`), it says its state in `fake/status`: half
-//! working while a document has `HALF`, busy while one has `BUSY`. In
+//! working while a document has `HALF`, busy while one has `BUSY`.
+//! `beside` is another server for the same files ([`serve_beside`]). In
 //! `normal`, a change whose text contains `CRASH` exits with 4, and the
 //! references of anything are the document's first line and, when the
 //! folder beside the root has a `library/lib.fk`, that file's (a
@@ -36,14 +37,21 @@ use serde_json::{Value, json};
 use crate::position::{Encoding, byte_range, position};
 use crate::rpc;
 
-/// A diagnostic on every one of `words`, with its severity.
+/// A diagnostic on every one of `words`, with its severity; on `SPAN`,
+/// from it to the end of the next line (a problem over two lines).
 fn found(text: &str, words: &[(&str, i64)]) -> Vec<Value> {
     let mut list = Vec::new();
     for (word, severity) in words {
         for (at, _) in text.match_indices(word) {
+            let end = if *word == "SPAN" {
+                let next = text[at..].find('\n').map_or(text.len(), |i| at + i + 1);
+                text[next..].find('\n').map_or(text.len(), |i| next + i)
+            } else {
+                at + word.len()
+            };
             list.push(json!({
                 "range": { "start": position(text, at, Encoding::Utf16).to_json(),
-                           "end": position(text, at + word.len(), Encoding::Utf16).to_json() },
+                           "end": position(text, end, Encoding::Utf16).to_json() },
                 "severity": severity, "source": "fake", "message": format!("{word} found"),
             }));
         }
@@ -68,8 +76,88 @@ fn real(uri: &str) -> String {
         .map_or_else(|| uri.to_string(), |p| crate::uri::from_path(&p))
 }
 
+/// A server beside another (`beside`), as a linter serves files a type
+/// server serves too: a warning on every `LINT` (its source `lint`), one
+/// completion (`lintword`), one code action ("Fix lint"), nothing else.
+fn serve_beside() {
+    let stdin = std::io::stdin();
+    let mut r = BufReader::new(stdin.lock());
+    let mut out = std::io::stdout();
+    let mut texts: HashMap<String, String> = HashMap::new();
+    let send = |out: &mut std::io::Stdout, v: Value| {
+        let _ = rpc::write(out, &v);
+    };
+    let lint = |uri: &str, text: &str| {
+        let list: Vec<Value> = text
+            .match_indices("LINT")
+            .map(|(at, w)| {
+                json!({
+                    "range": { "start": position(text, at, Encoding::Utf16).to_json(),
+                               "end": position(text, at + w.len(), Encoding::Utf16).to_json() },
+                    "severity": 2, "source": "lint", "message": "LINT is a lint",
+                })
+            })
+            .collect();
+        publish(&json!(real(uri)), &list)
+    };
+    while let Ok(Some(msg)) = rpc::read(&mut r) {
+        let id = msg.get("id").cloned();
+        let p = &msg["params"];
+        let uri = p["textDocument"]["uri"].as_str().unwrap_or("").to_string();
+        match msg["method"].as_str().unwrap_or("") {
+            "initialize" => send(
+                &mut out,
+                json!({"jsonrpc": "2.0", "id": id, "result": {"capabilities": {
+                    "positionEncoding": "utf-16",
+                    "textDocumentSync": {"openClose": true, "change": 1},
+                    "completionProvider": {},
+                    "codeActionProvider": true,
+                }}}),
+            ),
+            "textDocument/didOpen" | "textDocument/didChange" => {
+                let text = p["textDocument"]["text"]
+                    .as_str()
+                    .or_else(|| p["contentChanges"][0]["text"].as_str())
+                    .unwrap_or("")
+                    .to_string();
+                send(&mut out, lint(&uri, &text));
+                texts.insert(uri, text);
+            }
+            "textDocument/completion" => send(
+                &mut out,
+                json!({"jsonrpc": "2.0", "id": id, "result": [{"label": "lintword", "sortText": "0"}]}),
+            ),
+            "textDocument/codeAction" => send(
+                &mut out,
+                json!({"jsonrpc": "2.0", "id": id, "result": [
+                    {"title": "Fix lint", "kind": "quickfix", "edit": {"changes": {uri.clone(): []}}}
+                ]}),
+            ),
+            "shutdown" => send(
+                &mut out,
+                json!({"jsonrpc": "2.0", "id": id, "result": null}),
+            ),
+            "exit" => std::process::exit(0),
+            _ => {
+                if let Some(id) = id
+                    && msg.get("method").is_some()
+                {
+                    send(
+                        &mut out,
+                        json!({"jsonrpc": "2.0", "id": id, "error": {"code": -32601, "message": "not here"}}),
+                    );
+                }
+            }
+        }
+    }
+}
+
 /// Serves on standard input and output until `exit`.
 pub fn serve(behavior: &str) {
+    if behavior == "beside" {
+        serve_beside();
+        return;
+    }
     if behavior == "absent" {
         let mut err = std::io::stderr();
         let _ = writeln!(
@@ -88,7 +176,7 @@ pub fn serve(behavior: &str) {
     let pushed: &[(&str, i64)] = if behavior == "pull" {
         &[("TODO", 2)]
     } else {
-        &[("TODO", 2), ("bad", 1)]
+        &[("TODO", 2), ("bad", 1), ("SPAN", 3)]
     };
     let mut saved = false;
     let mut busy = if behavior == "busy" { 2 } else { 0 };

@@ -815,7 +815,9 @@ its line unless the plugin puts it elsewhere. There is nothing to undo
 and no file to save. A command run in it finds the cursor with
 =editor::selected=, and which document it is with =documents::current=.
 Once the user closes it, the plugin's next write is refused, and the
-plugin forgets it.
+plugin forgets it. Kalem shows the output of the project's run and
+test commands (=SPC p R=, =SPC p T=) in such a document of its own,
+kind =kalem-output=, and stops the command when it is closed.
 
 Its keys there are bound with a when-clause naming the kind:
 =textType == git-status && (vimCommand || !vimActive)= applies in Vim's

@@ -43,8 +43,16 @@ pub struct LanguageSpec {
     pub line_comment: Option<String>,
     /// The block comment tokens.
     pub block_comment: Option<(String, String)>,
-    /// The servers in order of preference (keys of the plugin's servers).
+    /// The servers in order of preference (keys of the plugin's servers):
+    /// the first found serves the language's files.
     pub servers: Vec<String>,
+    /// Servers that serve the files beside it (`alongside`): a linter
+    /// beside the type server (ruff beside basedpyright), a server of one
+    /// part of the file (crates-lsp's versions in a `Cargo.toml`, beside
+    /// taplo). Their diagnostics, completions and code actions join the
+    /// first's; a question one server answers goes to the first that
+    /// has it, the language's own server first.
+    pub alongside: Vec<String>,
 }
 
 /// A language server a plugin can start.
@@ -267,6 +275,7 @@ pub fn parse_manifest(dir: &Path, text: &str) -> Result<Option<Plugin>, String> 
                     _ => None,
                 },
                 servers: strings(&l["servers"]),
+                alongside: strings(&l["alongside"]),
                 id: lid,
             })
         })
@@ -711,37 +720,10 @@ pub fn resolve_server(plugin: &Plugin, lang: &LanguageSpec, root: Option<&Path>)
     };
     let mut missing = Vec::new();
     for key in keys {
-        let Some(spec) = plugin.server(key) else {
-            continue;
-        };
-        let mut spec = spec.clone();
-        let over = &user["servers"][key.as_str()];
-        let command = strings(&over["command"]);
-        if !command.is_empty() {
-            spec.command = command;
-            spec.candidates.clear();
-        }
-        spec.env.extend(env_pairs(&over["env"]));
-        let Some((program, args)) = spec.command.split_first() else {
-            continue;
-        };
-        let candidates = std::iter::once(program.clone()).chain(spec.candidates.iter().cloned());
-        let found = candidates
-            .into_iter()
-            .find_map(|c| kalem_lsp::find_program(&c, root, &spec.local_dirs));
-        match found {
-            Some(path) => {
-                let args = args.to_vec();
-                return Resolved::Found(Box::new(spec), path, args);
-            }
-            None => missing.push(match &spec.install {
-                Some(how) => crate::tr!(
-                    "lsp-not-installed-how",
-                    server = spec.name.as_str(),
-                    how = how.as_str()
-                ),
-                None => crate::tr!("lsp-not-installed", server = spec.name.as_str()),
-            }),
+        match resolve_key(plugin, key, root) {
+            Some(Ok((spec, path, args))) => return Resolved::Found(spec, path, args),
+            Some(Err(why)) => missing.push(why),
+            None => {}
         }
     }
     if missing.is_empty() {
@@ -753,6 +735,60 @@ pub fn resolve_server(plugin: &Plugin, lang: &LanguageSpec, root: Option<&Path>)
     } else {
         Resolved::Missing(missing.join("; "))
     }
+}
+
+/// Server `key` of `plugin` with the user's `servers.KEY` settings
+/// (`command`, `env`) over the manifest's: its program found, with its
+/// arguments, or what to do to install it; `None` when the plugin has no
+/// such server or no command for it.
+#[allow(clippy::type_complexity)]
+pub fn resolve_key(
+    plugin: &Plugin,
+    key: &str,
+    root: Option<&Path>,
+) -> Option<Result<(Box<ServerSpec>, PathBuf, Vec<String>), String>> {
+    let mut spec = plugin.server(key)?.clone();
+    let user = user_settings(&plugin.id);
+    let over = &user["servers"][key];
+    let command = strings(&over["command"]);
+    if !command.is_empty() {
+        spec.command = command;
+        spec.candidates.clear();
+    }
+    spec.env.extend(env_pairs(&over["env"]));
+    let (program, args) = spec.command.split_first()?;
+    let args = args.to_vec();
+    let candidates = std::iter::once(program.clone()).chain(spec.candidates.iter().cloned());
+    let found = candidates
+        .into_iter()
+        .find_map(|c| kalem_lsp::find_program(&c, root, &spec.local_dirs));
+    Some(match found {
+        Some(path) => Ok((Box::new(spec), path, args)),
+        None => Err(match &spec.install {
+            Some(how) => crate::tr!(
+                "lsp-not-installed-how",
+                server = spec.name.as_str(),
+                how = how.as_str()
+            ),
+            None => crate::tr!("lsp-not-installed", server = spec.name.as_str()),
+        }),
+    })
+}
+
+/// The servers that serve `lang`'s files beside its own (`alongside`),
+/// by key: none when the user turned the plugin's servers off, none of
+/// those the user turned off (`servers.KEY.enabled = false`).
+pub fn alongside(plugin: &Plugin, lang: &LanguageSpec) -> Vec<String> {
+    let user = user_settings(&plugin.id);
+    if user["server"].as_str() == Some("off") {
+        return Vec::new();
+    }
+    lang.alongside
+        .iter()
+        .filter(|k| plugin.server(k).is_some())
+        .filter(|k| user["servers"][k.as_str()]["enabled"].as_bool() != Some(false))
+        .cloned()
+        .collect()
 }
 
 /// How long [`server_version`] waits for the program to end, in seconds.

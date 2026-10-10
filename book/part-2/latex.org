@@ -1192,7 +1192,10 @@ to the next and previous cell. A table that is not simple stays source.
 
 =kalem check FILE.tex= and the editors report the same diagnostics
 (=latex_check=). Each has a stable code and a severity: /warning/
-(probably wrong, a red wavy line) or /info/ (style, a blue one).
+(probably wrong, a red wavy line) or /info/ (style, a blue one). A
+language server's warnings, in code, are orange instead (the chapter
+[[file:../part-3/language-plugins.org][Language plugins]]): the checks'
+warnings keep the red of errors.
 
 | Code                         | Severity                    | When                                                                                                                                                               | Fix                                                                                                                                                           |
 |------------------------------+-----------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------|

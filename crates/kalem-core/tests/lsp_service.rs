@@ -49,8 +49,12 @@ fn setup() -> (PathBuf, PathBuf) {
     let exe = std::env::current_exe().unwrap();
     let manifest = serde_json::json!({
         "id": "org.example.fake", "name": "Fake", "version": "1",
-        "languages": [{"id": "fakelang", "name": "Fake", "extensions": ["fk"], "servers": ["f"]}],
-        "commands": {"format": [exe, "--fake-format", "{file}"]},
+        "languages": [{"id": "fakelang", "name": "Fake", "extensions": ["fk"], "servers": ["f"]},
+                      {"id": "fakelang", "name": "Fake with a linter", "extensions": ["fkb"],
+                       "servers": ["f"], "alongside": ["lint", "nolint"]}],
+        "commands": {"format": [exe, "--fake-format", "{file}"],
+                     "run": [exe, "--fake-run"],
+                     "test": [exe, "--fake-test", "{file}:{line}"]},
         "requests": {
             "code.expandMacro": {"method": "fake/expand", "shape": "text",
                                  "answer": ["/expansion"], "title": "/name", "language": "elixir"},
@@ -64,7 +68,11 @@ fn setup() -> (PathBuf, PathBuf) {
                                                  "parseOnly": false, "selections": "{selections}"}},
             "edit.newline": {"method": "fake/onEnter", "shape": "edits"}
         },
-        "servers": {"f": {"name": "FakeLS", "command": [exe], "env": {"KALEM_LSP_FAKE": "normal"},
+        "servers": {"lint": {"name": "FakeLint", "command": [exe], "env": {"KALEM_LSP_FAKE": "beside"},
+                             "rootMarkers": ["root.marker"]},
+                    "nolint": {"name": "NoLint", "command": ["kalem-no-such-linter"],
+                               "install": "get NoLint"},
+                    "f": {"name": "FakeLS", "command": [exe], "env": {"KALEM_LSP_FAKE": "normal"},
                           "install": "get FakeLS",
                           "capabilities": {"experimental": {"fakeStatus": true}},
                           "status": {"method": "fake/status", "text": "/message", "level": "/health",
@@ -114,6 +122,27 @@ fn main() {
         }
         print!("{text}");
         return;
+    }
+    // The plugin's run command: two lines, one of them on standard error,
+    // and, asked to, a wait that only a stop ends.
+    if std::env::args().any(|a| a == "--fake-run") {
+        println!("running");
+        #[allow(clippy::print_stderr)]
+        {
+            eprintln!("a warning");
+        }
+        if std::env::args().any(|a| a == "--wait") {
+            std::thread::sleep(Duration::from_secs(60));
+        }
+        return;
+    }
+    // Its test command: the place it was given, and a failure.
+    if let Some(i) = std::env::args().position(|a| a == "--fake-test") {
+        println!(
+            "testing {}",
+            std::env::args().nth(i + 1).unwrap_or_default()
+        );
+        std::process::exit(3);
     }
     if let Ok(b) = std::env::var("KALEM_LSP_FAKE") {
         kalem_lsp::fake::serve(&b);
@@ -366,6 +395,58 @@ fn main() {
     });
     println!("test format command ... ok");
 
+    // The project's run and test commands: the plugin's, `{file}` and
+    // `{line}` filled in, run in the project's root, their output in a
+    // document as it comes (standard error too) with how it ended, the
+    // status bar told; a run whose document is closed is stopped.
+    let (test, root) = lsp::plugin_command(&doc, "test").unwrap();
+    assert!(
+        root.ends_with("real-project") || root.ends_with("project"),
+        "{root:?}"
+    );
+    let line = doc.text().line_of(doc.selection.head) + 1;
+    let place = format!("{}:{line}", file.display());
+    assert_eq!(test[2], place);
+    let output = |n: u64| kalem_core::extensions::generated(n).map(|g| g.text);
+    let finished = || {
+        until("the run's end", || {
+            kalem_core::jobs::take_finished().into_iter().next()
+        })
+    };
+    let n = kalem_core::runs::start(test, root.clone()).unwrap();
+    let end = finished();
+    assert!(
+        end.error && end.message.ends_with(": exit status 3"),
+        "{end:?}"
+    );
+    let text = output(n).unwrap();
+    assert!(text.contains(&format!("testing {place}")), "{text}");
+    assert!(text.ends_with(": exit status 3\n"), "{text}");
+    let (run, root) = lsp::plugin_command(&doc, "run").unwrap();
+    let n = kalem_core::runs::start(run.clone(), root.clone()).unwrap();
+    let end = finished();
+    assert!(!end.error && end.message.ends_with(": done"), "{end:?}");
+    let text = output(n).unwrap();
+    assert!(
+        text.contains("running") && text.contains("a warning"),
+        "{text}"
+    );
+    let mut waits = run;
+    waits.push("--wait".into());
+    let n = kalem_core::runs::start(waits, root).unwrap();
+    until("the run's output", || {
+        output(n).filter(|t| t.contains("running")).map(|_| ())
+    });
+    kalem_core::extensions::generated_closed(n);
+    let end = finished();
+    assert!(end.error && end.message.ends_with(": stopped"), "{end:?}");
+    assert_eq!(kalem_core::runs::running(), 0);
+    // A program not installed is said as such.
+    let why =
+        kalem_core::runs::start(vec!["kalem-no-such-program".into()], dir.clone()).unwrap_err();
+    assert_eq!(why, "kalem-no-such-program is not installed");
+    println!("test the project's run and test commands ... ok");
+
     // A setting changed reaches the running server.
     kalem_core::languages::set_user_settings(Some(&serde_json::json!({
         "org.example.fake": {"settings": {"elixirLS": {"x": 9}}}
@@ -385,15 +466,53 @@ fn main() {
     let mut v =
         kalem_core::view::plain_line_view(doc.text().as_str(), doc.text().line_range(0), None);
     lsp::flag_diagnostics(&doc, &mut v);
-    let flagged: Vec<&str> = v
+    // The warning on `TODO` as a warning, the error on `bad` as wrong.
+    let flagged: Vec<(&str, kalem_core::view::Flag)> = v
         .runs
         .iter()
-        .filter(|r| r.style.flagged == Some(true))
-        .map(|r| r.text.as_str())
+        .filter_map(|r| Some((r.text.as_str(), r.style.flagged?)))
         .collect();
-    assert_eq!(flagged, ["TODO", "bad"], "{:?}", v.runs);
+    assert_eq!(
+        flagged,
+        [
+            ("TODO", kalem_core::view::Flag::Warning),
+            ("bad", kalem_core::view::Flag::Wrong)
+        ],
+        "{:?}",
+        v.runs
+    );
     assert_eq!(lsp::line_mark(&doc, 0), Some(lsp::Severity::Error));
     assert_eq!(lsp::line_mark(&doc, 1), None);
+    // A problem over two lines, flagged on both: the second from its
+    // start, as style (an information).
+    let n = doc.text().len();
+    edit(&mut doc, n..n, "SPAN one\ntwo three\n");
+    let second = doc.text().line_count() - 2;
+    let v = until("a problem over two lines", || {
+        let mut v = kalem_core::view::plain_line_view(
+            doc.text().as_str(),
+            doc.text().line_range(second),
+            None,
+        );
+        lsp::flag_diagnostics(&doc, &mut v);
+        v.runs
+            .iter()
+            .any(|r| r.style.flagged.is_some())
+            .then_some(v)
+    });
+    let spans: Vec<(&str, Option<kalem_core::view::Flag>)> = v
+        .runs
+        .iter()
+        .map(|r| (r.text.as_str(), r.style.flagged))
+        .collect();
+    assert_eq!(
+        spans,
+        [("two three", Some(kalem_core::view::Flag::Style))],
+        "{:?}",
+        v.runs
+    );
+    assert!(doc.undo().is_some());
+    lsp::sync(&doc);
     let bad = doc.text().as_str().find("bad").unwrap();
     assert_eq!(
         lsp::diagnostic_at(&doc, bad + 1).as_deref(),
@@ -925,6 +1044,85 @@ fn main() {
         lsp::can(&doc, Kind::Hover).then_some(())
     });
     println!("test did not start ... ok");
+
+    // A second server for the same files (a linter beside the type
+    // server): kept in step, its problems with the first's, its
+    // completions and code actions joined to the first's, a question only
+    // the first answers asked of it; one not installed said by Language
+    // Server Status; it stops with its last document.
+    let lint_file = file.with_file_name("b.fkb");
+    std::fs::write(&lint_file, "LINT bad\nx\n").unwrap();
+    let mut b = DocumentState::open(
+        &lint_file,
+        Arc::new(org_model::Settings::default()),
+        &org_syntax::ParseContext::default(),
+    )
+    .unwrap();
+    lsp::sync(&b);
+    let sources = |b: &DocumentState| {
+        let mut s: Vec<(String, String)> = lsp::diagnostics(b.meta.path.as_deref().unwrap())
+            .into_iter()
+            .map(|d| (d.source.unwrap_or_default(), d.message))
+            .collect();
+        s.sort();
+        s
+    };
+    until("both servers' problems", || {
+        (sources(&b).len() == 2).then_some(())
+    });
+    assert_eq!(
+        sources(&b),
+        [
+            ("fake".to_string(), "bad found".to_string()),
+            ("lint".to_string(), "LINT is a lint".to_string())
+        ]
+    );
+    // Changes reach both: the lint goes with its word.
+    edit(&mut b, 0..5, "");
+    until("the lint gone", || {
+        (sources(&b) == [("fake".to_string(), "bad found".to_string())]).then_some(())
+    });
+    let said = lsp::describe(&b).unwrap();
+    assert!(said.contains("FakeLint beside it"), "{said}");
+    assert!(
+        said.contains("NoLint is not installed (get NoLint)"),
+        "{said}"
+    );
+    let reg = kalem_core::completers::Registry::with_builtins();
+    b.selection = org_edit::Selection::caret(1);
+    let labels: Vec<String> = reg
+        .complete(&mut b, true, Duration::from_secs(5))
+        .into_iter()
+        .filter(|i| i.source == "lsp")
+        .map(|i| i.label)
+        .collect();
+    assert_eq!(labels, ["greet/1", "goodbye/0", "lintword"]);
+    lsp::code_actions(&b).unwrap();
+    match until("the code actions of both", || {
+        lsp::take_outcomes(&lint_file, b.version())
+            .into_iter()
+            .next()
+    }) {
+        Outcome::Choose(items) => {
+            let titles: Vec<&str> = items.iter().map(|i| i.title.as_str()).collect();
+            assert_eq!(titles, ["Mark the start", "Run a command", "Fix lint"]);
+        }
+        o => panic!("{o:?}"),
+    }
+    lsp::request(&b, Kind::Hover).unwrap();
+    assert!(matches!(
+        until("the first server's documentation", || {
+            lsp::take_outcomes(&lint_file, b.version())
+                .into_iter()
+                .next()
+        }),
+        Outcome::Hover { .. }
+    ));
+    assert!(lsp::report().iter().any(|l| l.starts_with("FakeLint")));
+    lsp::closed(&lint_file);
+    std::thread::sleep(Duration::from_millis(300));
+    assert!(!lsp::report().iter().any(|l| l.starts_with("FakeLint")));
+    println!("test a second server beside the first ... ok");
 
     lsp::closed(&file);
     assert!(!lsp::serves(&doc));

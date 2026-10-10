@@ -57,6 +57,18 @@ the =PATH= whether or not the component is installed; without it,
 =status= says that it does not run and rustup's reason, and the editor
 says that it did not start, with these ways to install it.
 
+* Cargo.toml
+
+A =Cargo.toml= is served by two servers beside each other: Taplo
+(=brew install taplo=) completes and documents its keys from
+SchemaStore's Cargo schema and formats it, and crates-lsp (=cargo
+install crates-lsp --locked=) completes a crate's versions and says
+when a newer one is out or a crate does not exist, from crates.io.
+Both need the network; either runs without the other, and =kalem lsp
+status Cargo.toml= says which are found. Another =.toml= file stays
+Kalem's TOML. Taplo 0.10 cannot read SchemaStore's catalog any more and
+logs so; the plugin gives it the Cargo schema by name instead.
+
 * Known differences
 
 Checked against rust-analyzer 1.99.0 (b940084d 2026-09-28) on Rust
@@ -89,15 +101,18 @@ repository.
   has the keywords' color (=storage.type=); every variable is colored.
 - Open Documentation in the Browser gives docs.rs's address for any
   crate, which docs.rs has only once the crate is published.
+- rust-analyzer's state shows in the status bar only while it works
+  in part ("cargo check failed to start" for a project whose
+  dependencies Cargo cannot read). Enter in a =//= or =///= comment
+  goes on with it as rust-analyzer makes the new line, unless typing
+  went on before it answered. Structural Search and Replace puts a
+  placeholder's expression in parentheses in the replacement.
 
 * Not implemented
 
 The test at the cursor, and rust-analyzer's Run and Run Test above
 =main= and each test, wait for code lenses; the project's =cargo run=
-and =cargo test= are named for =SPC p R= and =SPC p T=, which do not
-exist yet. No debugger: Kalem has none. rust-analyzer's state in the
-status bar, structural search and replace, and Enter continuing a
-=///= comment are not offered, nor its syntax tree (which it answers
-for VS Code's own view). Rust source blocks in Org and Markdown are
-highlighted, not served. The keys and crate versions of =Cargo.toml=
-are not completed: that is a second server for the same file.
+and =cargo test= run with =SPC p R= and =SPC p T=, in the workspace's
+root. No debugger: Kalem has none. rust-analyzer's syntax tree is not
+offered (it answers it for VS Code's own view). Rust source blocks in
+Org and Markdown are highlighted, not served.

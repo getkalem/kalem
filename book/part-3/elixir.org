@@ -73,5 +73,6 @@ OTP 28, with the plugin's corpus project.
 * Not implemented
 
 No embedded =iex=: Kalem ships no REPL (D28), and a terminal is one key
-away. Running the test at the cursor (=mix test FILE:LINE=) and the
-project's tests waits for the project's run and test keys (T2.7i.8).
+away. The test at the cursor (=mix test FILE:LINE=) runs with Test at
+Cursor, the project's tests with Test Project (=SPC p T=), their output
+in a document; the plugin gives =mix test= for both.
