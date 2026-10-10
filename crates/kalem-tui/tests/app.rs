@@ -4787,6 +4787,48 @@ fn line_search_in_the_file_manager() {
     t.key(KeyCode::Esc, KeyModifiers::NONE);
 }
 
+/// `editor.format_on_save`: Save runs the type's formatter first
+/// (`formatters.foo`), and the file holds the formatted text; when the
+/// formatter fails the file is saved as it is and the status bar says
+/// why.
+#[cfg(unix)]
+#[test]
+fn format_on_save() {
+    let config = Config::from_layers(&[(
+        Layer::User,
+        None,
+        "editor.format_on_save = true
+[formatters]
+foo = \"tr a-z A-Z\"\n",
+    )]);
+    // What `apply_process_settings` does for the table at startup and on
+    // a reload (the rest of it would change the process under the other
+    // tests).
+    kalem_core::formatters::set_user_table(config.get("formatters"));
+    let mut t = with_file("hello\n", "f.foo", config, (70, 8));
+    t.at(0);
+    t.app.run_command("app.save", serde_json::Value::Null);
+    let path = t.app.doc.meta.path.clone().unwrap();
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "HELLO\n");
+    assert_eq!(t.app.doc.text().as_str(), "HELLO\n");
+    // The formatter fails: saved all the same, the reason shown.
+    let config = Config::from_layers(&[(
+        Layer::User,
+        None,
+        "editor.format_on_save = true\n[formatters]\nfoo = \"sh -c 'echo boom >&2; exit 1'\"\n",
+    )]);
+    kalem_core::formatters::set_user_table(config.get("formatters"));
+    let mut t = with_file("hello\n", "g.foo", config, (70, 8));
+    t.at(0);
+    t.typ("x");
+    t.app.run_command("app.save", serde_json::Value::Null);
+    let path = t.app.doc.meta.path.clone().unwrap();
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "xhello\n");
+    let shown = screen(&mut t).join("\n");
+    assert!(shown.contains("boom"), "{shown}");
+    kalem_core::formatters::set_user_table(None);
+}
+
 /// Doom's `SPC t r`: the document refuses edits, the cursor still moves
 /// (T2.7i.6).
 #[test]

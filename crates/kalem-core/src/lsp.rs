@@ -1761,6 +1761,13 @@ fn format_command(doc: &DocumentState) -> Option<(Vec<String>, PathBuf)> {
     Some((cmd, root_of(&real, &plugin, &lang)))
 }
 
+/// The formatter command of `doc`'s language plugin (`commands.format`)
+/// with `{file}` filled in, as a formatter to run.
+pub fn plugin_formatter(doc: &DocumentState) -> Option<crate::formatters::Formatter> {
+    let (command, dir) = format_command(doc)?;
+    Some(crate::formatters::Formatter { command, dir })
+}
+
 /// Formats `doc` with its language plugin's formatter command
 /// ([`format_with`]).
 pub fn format_with_command(doc: &DocumentState) -> Result<(), String> {

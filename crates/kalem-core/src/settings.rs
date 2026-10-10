@@ -211,6 +211,12 @@ pub const SPECS: &[Spec] = &[
         description: "Remove the blanks at the ends of lines when saving (not in CSV and Markdown files)",
     },
     Spec {
+        key: "editor.format_on_save",
+        kind: Kind::Bool,
+        default: "false",
+        description: "Format the document when saving, as Format Document does, with the formatter of its type (the one set in `formatters`, a language plugin's, the language's usual program, Kalem's own for Org and LaTeX); a formatter that fails leaves the text as it is and says why, the file saved all the same",
+    },
+    Spec {
         key: "editor.line_numbers",
         kind: Kind::Bool,
         default: "true",

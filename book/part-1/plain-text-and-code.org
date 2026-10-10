@@ -41,7 +41,10 @@ extension (=rs=), a mode (=markdown=) or a file name
 file's path, or =off=. For a type with no formatter known, such as a
 workbook or a picture, the command says so and names the setting that
 would add one; a program not installed is named in the status bar. =kalem fmt FILE= formats the same
-way from the command line.
+way from the command line. The setting =editor.format_on_save= (off by
+default) formats the document the same way each time it is saved; a
+formatter that fails leaves the text as it is, the file is saved all the
+same, and the status bar says why.
 
 The kind of a file comes from, in order: your choice with /Set
 Document Mode/ (remembered in the workspace settings), a mode line

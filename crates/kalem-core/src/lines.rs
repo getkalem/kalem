@@ -497,11 +497,19 @@ impl crate::DocumentState {
         }
     }
 
-    /// What saving does first, as the settings say: the blanks at the ends
-    /// of lines removed (`editor.trim_trailing_whitespace`), except in CSV
+    /// What saving does first, as the settings say: the document
+    /// formatted with its type's formatter (`editor.format_on_save`,
+    /// [`crate::formatters::on_save`]), then the blanks at the ends of
+    /// lines removed (`editor.trim_trailing_whitespace`), except in CSV
     /// (trailing tabs are empty fields, blanks part of values) and
-    /// Markdown (two trailing spaces are a hard line break).
-    pub fn before_save(&mut self, config: &crate::settings::Config, now: std::time::Instant) {
+    /// Markdown (two trailing spaces are a hard line break). A formatter's
+    /// failure comes back to be shown; the save goes on.
+    pub fn before_save(
+        &mut self,
+        config: &crate::settings::Config,
+        now: std::time::Instant,
+    ) -> Option<String> {
+        let not_formatted = crate::formatters::on_save(self, config, now);
         if config.bool("editor.trim_trailing_whitespace")
             && self.dired.is_none()
             && !matches!(
@@ -512,6 +520,7 @@ impl crate::DocumentState {
         {
             self.apply(&tx, org_edit::ChangeKind::Command, now);
         }
+        not_formatted
     }
 }
 

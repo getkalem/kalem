@@ -2842,7 +2842,7 @@ impl App {
             self.message(tr!("msg-not-saved", reason = reason), true);
             return;
         }
-        self.doc.before_save(&self.config, Instant::now());
+        let mut not_formatted = self.doc.before_save(&self.config, Instant::now());
         self.after_change(true);
         match self.doc.save(self.config.save_options(), force) {
             Ok(()) => {
@@ -2854,10 +2854,14 @@ impl App {
                     path: path.clone(),
                 });
                 kalem_core::lsp::saved(&self.doc);
-                self.message(
-                    tr!("msg-saved-as", path = path.display().to_string()),
-                    false,
-                );
+                // Saved, but not formatted: the reason, over the plain word.
+                match not_formatted.take() {
+                    Some(m) => self.message(m, true),
+                    None => self.message(
+                        tr!("msg-saved-as", path = path.display().to_string()),
+                        false,
+                    ),
+                }
                 // A LaTeX document builds on save when asked to; one
                 // saved while a build runs is built when it ends.
                 if self.doc.latex().is_some() && self.config.bool("latex.build_on_save") {
@@ -5077,7 +5081,7 @@ impl App {
             self.message(tr!("msg-not-saved", reason = reason), true);
             return;
         }
-        self.doc.before_save(&self.config, Instant::now());
+        let mut not_formatted = self.doc.before_save(&self.config, Instant::now());
         self.after_change(true);
         match self.doc.save_as(&path, self.config.save_options()) {
             Ok(()) => {
@@ -5098,10 +5102,14 @@ impl App {
                     self.refresh_vim();
                     self.dirty = true;
                 }
-                self.message(
-                    tr!("msg-saved-as", path = path.display().to_string()),
-                    false,
-                );
+                // Saved, but not formatted: the reason, over the plain word.
+                match not_formatted.take() {
+                    Some(m) => self.message(m, true),
+                    None => self.message(
+                        tr!("msg-saved-as", path = path.display().to_string()),
+                        false,
+                    ),
+                }
             }
             Err(e) => self.message(tr!("msg-not-saved", reason = e.to_string()), true),
         }

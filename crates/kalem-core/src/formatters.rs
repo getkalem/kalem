@@ -349,7 +349,12 @@ pub fn names_of(path: Option<&Path>, mode: &DocumentMode, first_line: Option<&st
             }
         }
         DocumentMode::Text { language: None } => {}
-        DocumentMode::Binary | DocumentMode::Viewer | DocumentMode::Directory => return Vec::new(),
+        // No text of its own to format: a viewer's document, a document
+        // of flowing text (its plugin writes it), a listing.
+        DocumentMode::Binary
+        | DocumentMode::Viewer
+        | DocumentMode::Flow
+        | DocumentMode::Directory => return Vec::new(),
         m => add(m.name().to_string()),
     }
     if let Some(p) = path {
@@ -549,6 +554,69 @@ pub fn run(program: &Path, args: &[String], dir: &Path, text: &str) -> Result<St
         });
     }
     String::from_utf8(out.stdout).map_err(|e| e.to_string())
+}
+
+/// The text of `doc` formatted now, through the formatter Format Document
+/// would run, but for a language server's (which answers later): the
+/// user's, the language plugin's `commands.format`, a language pack's,
+/// the type's usual program, or Kalem's own for Org and LaTeX. `Ok(None)`
+/// when the type has none; `Err` why it failed.
+pub fn format_sync(doc: &DocumentState) -> Result<Option<String>, String> {
+    let text = doc.text().as_str();
+    if let Some(f) = user_formatter(doc) {
+        return format_now(&f, text).map(Some);
+    }
+    if let Some(f) = crate::lsp::plugin_formatter(doc) {
+        return format_now(&f, text).map(Some);
+    }
+    if let Some(f) = crate::packs::format(doc) {
+        return match f {
+            crate::packs::Formatted::Text(t) => Ok(Some(t)),
+            crate::packs::Formatted::Refused(d) => Err(d.message),
+        };
+    }
+    if let Some(f) = default_formatter(doc) {
+        return format_now(&f, text).map(Some);
+    }
+    Ok(match doc.meta.mode {
+        DocumentMode::Latex => Some(match &doc.meta.path {
+            Some(p) => crate::latex_fmt::format_file(p, text, false),
+            None => crate::latex_fmt::format(text, false),
+        }),
+        DocumentMode::Org => Some(org_edit::format::format(&org_model::Document::new(
+            org_syntax::parse(text),
+        ))),
+        _ => None,
+    })
+}
+
+/// Formats `doc` before it is saved when `editor.format_on_save` is on
+/// ([`format_sync`]). A failure leaves the text as it is and comes back
+/// to be shown; the save goes on.
+pub fn on_save(
+    doc: &mut DocumentState,
+    config: &crate::settings::Config,
+    now: std::time::Instant,
+) -> Option<String> {
+    if !config.bool("editor.format_on_save")
+        || doc.dired.is_some()
+        || doc.viewer.is_some()
+        || doc.meta.path.is_none()
+    {
+        return None;
+    }
+    match format_sync(doc) {
+        Ok(Some(new)) => {
+            if let Some(tx) =
+                crate::lines::replace_differing(doc.text().as_str(), &new, "Format Document")
+            {
+                doc.apply(&tx, org_edit::ChangeKind::Command, now);
+            }
+            None
+        }
+        Ok(None) => None,
+        Err(why) => Some(crate::tr!("fmt-on-save-failed", reason = why)),
+    }
 }
 
 /// Formats `text` with `f` now (for `kalem fmt`): the formatted text, or

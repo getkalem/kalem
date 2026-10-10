@@ -458,6 +458,9 @@ pub struct Editor {
     disk_checked: Instant,
     /// A change on disk was reported and is not resolved.
     disk_conflict: bool,
+    /// The save before formatted nothing, and why: shown in place of the
+    /// saved message (`editor.format_on_save`).
+    not_formatted: Option<String>,
     /// The other pane of a split view (T1.5.14). The fields above from
     /// `list` to `source` are the active pane's; the two trade places when
     /// the other one is drawn or clicked.
@@ -585,6 +588,7 @@ impl Editor {
             windowed: RefCell::default(),
             disk_checked: Instant::now(),
             disk_conflict: false,
+            not_formatted: None,
         };
         e.refresh_vim();
         e.shared
@@ -2124,7 +2128,7 @@ impl Editor {
             self.message(tr!("msg-not-saved", reason = reason), true);
             return false;
         }
-        self.doc.before_save(&self.shared.config, Instant::now());
+        self.not_formatted = self.doc.before_save(&self.shared.config, Instant::now());
         self.after_change(cx);
         true
     }
@@ -2150,7 +2154,10 @@ impl Editor {
             });
         kalem_core::lsp::saved(&self.doc);
         self.disk_conflict = false;
-        if let Some(m) = message {
+        // Saved, but not formatted: the reason, over the plain word.
+        if let Some(m) = self.not_formatted.take() {
+            self.message(m, true);
+        } else if let Some(m) = message {
             self.message(m, false);
         }
         if let Some(window) = window
