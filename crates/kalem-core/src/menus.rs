@@ -147,6 +147,7 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("markdown.convertToOrg"),
                 // Workbooks.
                 item("viewer.grid.saveSheetAsCsv"),
+                item("viewer.grid.exportText"),
                 item("viewer.grid.exportPdf"),
                 MenuEntry::Separator,
                 item("app.save"),

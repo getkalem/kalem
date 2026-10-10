@@ -5287,18 +5287,26 @@ impl ViewerState {
     /// range's values as shown, a field quoted when it holds a comma, a
     /// quote or a line break, lines ending in CR LF.
     pub fn sheet_csv(&mut self) -> String {
+        format!("\u{feff}{}", self.sheet_text(','))
+    }
+
+    /// The sheet shown as delimited text, as Excel's CSV and Text types
+    /// write it: the used range's values as shown, `delimiter` between
+    /// them, a field quoted when it holds the delimiter, a quote or a line
+    /// break, lines ending in CR LF.
+    pub fn sheet_text(&mut self, delimiter: char) -> String {
         let Some(l) = self.grid_layout() else {
             return String::new();
         };
         let (rows, cols) = (l.rows, l.cols);
         let field = |t: &str| {
-            if t.contains([',', '"', '\n', '\r']) {
+            if t.contains([delimiter, '"', '\n', '\r']) {
                 format!("\"{}\"", t.replace('"', "\"\""))
             } else {
                 t.to_owned()
             }
         };
-        let mut out = String::from("\u{feff}");
+        let mut out = String::new();
         let mut row = 0;
         while row < rows {
             let to = (row + 1000).min(rows);
@@ -5314,7 +5322,7 @@ impl ViewerState {
             }
             for line in grid {
                 let fields: Vec<String> = line.iter().map(|t| field(t)).collect();
-                out.push_str(&fields.join(","));
+                out.push_str(&fields.join(&delimiter.to_string()));
                 out.push_str("\r\n");
             }
             row = to;
@@ -10821,6 +10829,224 @@ fn save_sheet_csv(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comm
     Ok(())
 }
 
+/// The types Export as CSV or Text writes, as Excel's Save As has them:
+/// key, title, delimiter, encoding (UTF-8 with its mark, or a Windows
+/// code page) and extension.
+const TEXT_TYPES: &[(&str, &str, char, &str, &str)] = &[
+    ("utf8", "CSV UTF-8 (comma delimited)", ',', "utf-8", "csv"),
+    (
+        "utf8-semicolon",
+        "CSV UTF-8 (semicolon delimited)",
+        ';',
+        "utf-8",
+        "csv",
+    ),
+    ("tab", "Text UTF-8 (tab delimited)", '\t', "utf-8", "txt"),
+    (
+        "windows-1254",
+        "CSV Turkish, Windows-1254 (semicolon delimited)",
+        ';',
+        "windows-1254",
+        "csv",
+    ),
+    (
+        "windows-1252",
+        "CSV Western, Windows-1252 (comma delimited)",
+        ',',
+        "windows-1252",
+        "csv",
+    ),
+];
+
+/// Text in an encoding of [`TEXT_TYPES`]: UTF-8 with its byte order mark,
+/// or a code page with `?` for a character it lacks, as Excel writes one.
+pub fn encode_text(text: &str, encoding: &str) -> Vec<u8> {
+    let Some(enc) =
+        encoding_rs::Encoding::for_label(encoding.as_bytes()).filter(|e| *e != encoding_rs::UTF_8)
+    else {
+        let mut out = "\u{feff}".as_bytes().to_vec();
+        out.extend_from_slice(text.as_bytes());
+        return out;
+    };
+    let mut encoder = enc.new_encoder();
+    let mut out = Vec::with_capacity(text.len() + 16);
+    let mut buf = [0u8; 4096];
+    let mut rest = text;
+    loop {
+        let (r, read, written) = encoder.encode_from_utf8_without_replacement(rest, &mut buf, true);
+        out.extend_from_slice(&buf[..written]);
+        rest = &rest[read..];
+        match r {
+            encoding_rs::EncoderResult::InputEmpty => break,
+            encoding_rs::EncoderResult::OutputFull => {}
+            encoding_rs::EncoderResult::Unmappable(_) => out.push(b'?'),
+        }
+    }
+    out
+}
+
+/// Export as CSV or Text: the type asked (Excel's CSV UTF-8, semicolons,
+/// tabs, a Windows code page), then the sheet shown or every visible
+/// worksheet, each to its own file, then where (a file, or the folder
+/// for every sheet, beside the workbook by default); files already there
+/// replaced after asking. The workbook is left as it is.
+fn export_text(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.exportText";
+    let step = |key: &str, value: &str| {
+        let mut a = args.clone();
+        a[key] = serde_json::json!(value);
+        a
+    };
+    let Some(&(kind, _, delimiter, encoding, ext)) = args
+        .get("type")
+        .and_then(|t| t.as_str())
+        .and_then(|t| TEXT_TYPES.iter().find(|x| x.0 == t))
+    else {
+        let items = TEXT_TYPES
+            .iter()
+            .map(|(k, title, ..)| menu_item(ID, step("type", k), title, "Export as CSV or Text"))
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    let Some(doc) = ctx.document.as_deref_mut() else {
+        return Ok(());
+    };
+    let book = doc.meta.path.clone();
+    let Some(v) = doc.viewer.as_deref_mut() else {
+        return Ok(());
+    };
+    // The visible worksheets: units with a grid, not hidden.
+    let shown = v.unit;
+    let mut sheets = Vec::new();
+    for u in 0..v.structure().units.len() {
+        let label = v.structure().units[u].label.clone();
+        if label.ends_with(" (hidden)") {
+            continue;
+        }
+        v.go_to(u);
+        if v.grid_layout().is_some_and(|l| l.editable) {
+            sheets.push((u, label));
+        }
+    }
+    v.go_to(shown);
+    let label = v.structure().units[shown].label.clone();
+    let every = match args.get("sheets").and_then(|x| x.as_str()) {
+        Some("all") => true,
+        Some(_) => false,
+        None if sheets.len() > 1 => {
+            ctx.requests.push(Request::Choose(vec![
+                menu_item(
+                    ID,
+                    step("sheets", "this"),
+                    &format!("This Sheet ({label})"),
+                    kind,
+                ),
+                menu_item(
+                    ID,
+                    step("sheets", "all"),
+                    "Every Sheet, Each to Its Own File",
+                    kind,
+                ),
+            ]));
+            return Ok(());
+        }
+        None => false,
+    };
+    let stem = book
+        .as_ref()
+        .and_then(|p| p.file_stem())
+        .map_or("Book".into(), |s| s.to_string_lossy().into_owned());
+    let dir = book
+        .as_ref()
+        .and_then(|p| p.parent())
+        .map(std::path::Path::to_path_buf);
+    let file_name = |sheet: &str| {
+        let safe: String = sheet
+            .chars()
+            .map(|c| {
+                if matches!(c, '/' | '\\' | ':') {
+                    '_'
+                } else {
+                    c
+                }
+            })
+            .collect();
+        format!("{stem} - {safe}.{ext}")
+    };
+    let Some(path) = text_arg(args, "value") else {
+        let default = if every {
+            dir.as_ref().map_or(".".into(), |d| d.display().to_string())
+        } else {
+            let name = file_name(&label);
+            dir.as_ref()
+                .map_or(name.clone(), |d| d.join(&name).display().to_string())
+        };
+        let mut a = args.clone();
+        a["value_default"] = serde_json::json!(default);
+        return ask_more(ctx, ID, &a, "value");
+    };
+    let mut target = std::path::PathBuf::from(crate::settings::expand_home(path.trim()));
+    if target.is_relative()
+        && let Some(d) = &dir
+    {
+        target = d.join(target);
+    }
+    let files: Vec<(usize, std::path::PathBuf)> = if every {
+        sheets
+            .iter()
+            .map(|(u, name)| (*u, target.join(file_name(name))))
+            .collect()
+    } else {
+        if target.extension().is_none() {
+            target.set_extension(ext);
+        }
+        vec![(shown, target.clone())]
+    };
+    let there = files.iter().filter(|(_, f)| f.exists()).count();
+    let confirmed = args.get("confirmed").and_then(serde_json::Value::as_bool) == Some(true);
+    if there > 0 && !confirmed {
+        let question = if there == 1 {
+            let f = files.iter().find(|(_, f)| f.exists()).map(|(_, f)| f);
+            let name = f
+                .and_then(|f| f.file_name())
+                .map_or(String::new(), |f| f.to_string_lossy().into_owned());
+            format!("{name} exists: replace it?")
+        } else {
+            format!("{there} of the files exist: replace them?")
+        };
+        let mut a = args.clone();
+        a["confirmed"] = serde_json::json!(true);
+        ctx.requests.push(Request::Choose(vec![
+            menu_item(ID, a, "Replace", &question),
+            menu_item(
+                "viewer.grid.cancel",
+                serde_json::json!({}),
+                "Cancel",
+                &question,
+            ),
+        ]));
+        return Ok(());
+    }
+    if every {
+        std::fs::create_dir_all(&target)
+            .map_err(|e| crate::command::CommandError::new(e.to_string()))?;
+    }
+    for (u, file) in &files {
+        v.go_to(*u);
+        let text = v.sheet_text(delimiter);
+        std::fs::write(file, encode_text(&text, encoding))
+            .map_err(|e| crate::command::CommandError::new(e.to_string()))?;
+    }
+    v.go_to(shown);
+    ctx.messages.push(if every {
+        format!("{} sheets saved in {}", files.len(), target.display())
+    } else {
+        format!("{label} saved as {}", target.display())
+    });
+    Ok(())
+}
+
 /// Today's date (`time` off) or the time now, as typed into a cell.
 fn now_entry(time: bool) -> String {
     let now = jiff::Zoned::now().datetime();
@@ -15895,6 +16121,13 @@ fn grid_commands() -> Vec<Command> {
             &["ctrl+shift+'", "g v"],
             IN_GRID,
             |ctx, _| from_above(ctx, true),
+        ),
+        cmd(
+            "viewer.grid.exportText",
+            "Export as CSV or Text",
+            &[],
+            IN_GRID,
+            export_text,
         ),
         cmd(
             "viewer.grid.saveSheetAsCsv",

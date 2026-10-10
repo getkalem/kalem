@@ -2663,6 +2663,86 @@ fn sheet_saved_as_csv() {
 }
 
 #[test]
+fn sheets_exported_as_csv_or_text() {
+    let mut t = T::open("export-text");
+    // The types asked first, then this sheet or every one.
+    t.app.run_command("viewer.grid.exportText", json!({}));
+    let s = t.screen();
+    assert!(
+        s.contains("CSV UTF-8 (semicolon delimited)") && s.contains("Windows-1254"),
+        "{s}"
+    );
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.exportText",
+        json!({ "type": "utf8-semicolon" }),
+    );
+    assert!(
+        t.screen().contains("Every Sheet, Each to Its Own File"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.exportText",
+        json!({ "type": "utf8-semicolon", "sheets": "this", "value": "semi" }),
+    );
+    let text = std::fs::read_to_string(t.dir.join("semi.csv")).unwrap();
+    let mut lines = text.split("\r\n");
+    assert_eq!(
+        lines.next().unwrap(),
+        "\u{feff}Item;Q1;Q2;Total;;Merged note;"
+    );
+    assert!(
+        lines
+            .next()
+            .unwrap()
+            .starts_with("Rent;1,200.00;1,200.00;2,400.00")
+    );
+    // A Windows code page: its bytes, `?` for a character it lacks.
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 6, "col": 0, "value": "Kâr şu 日" }),
+    );
+    t.app.run_command(
+        "viewer.grid.exportText",
+        json!({ "type": "windows-1254", "sheets": "this", "value": "tr" }),
+    );
+    let bytes = std::fs::read(t.dir.join("tr.csv")).unwrap();
+    assert!(
+        bytes.windows(8).any(|w| w == b"K\xe2r \xfeu ?"),
+        "{bytes:?}"
+    );
+    // Every visible worksheet, each to its own tab-delimited file.
+    t.app.run_command(
+        "viewer.grid.exportText",
+        json!({ "type": "tab", "sheets": "all", "value": "sheets" }),
+    );
+    let made: Vec<String> = std::fs::read_dir(t.dir.join("sheets"))
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert!(made.iter().any(|f| f == "budget - Budget.txt"), "{made:?}");
+    assert!(made.len() >= 2, "{made:?}");
+    let budget = std::fs::read_to_string(t.dir.join("sheets/budget - Budget.txt")).unwrap();
+    assert!(
+        budget.starts_with("\u{feff}Item\tQ1\tQ2\tTotal"),
+        "{budget}"
+    );
+    // Again: asked before the files are replaced.
+    t.app.run_command(
+        "viewer.grid.exportText",
+        json!({ "type": "tab", "sheets": "all", "value": "sheets" }),
+    );
+    assert!(
+        t.screen().contains("files exist: replace them?"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+}
+
+#[test]
 fn typing_into_cells() {
     let mut t = T::open("typing");
     let input = |t: &mut T, r: u32, c: u32| {

@@ -1392,6 +1392,7 @@ cmd-viewer-grid-deleteName = Adı Sil
 cmd-viewer-grid-showFormulas = Formülleri Göster
 cmd-viewer-grid-calculateNow = Şimdi Hesapla
 cmd-viewer-grid-saveSheetAsCsv = Sayfayı CSV Olarak Kaydet
+cmd-viewer-grid-exportText = CSV veya Metin Olarak Dışa Aktar
 cmd-viewer-grid-insertDate = Bugünün Tarihini Ekle
 cmd-viewer-grid-insertTime = Saati Ekle
 cmd-viewer-grid-formulaFromAbove = Üstteki Formülü Kopyala

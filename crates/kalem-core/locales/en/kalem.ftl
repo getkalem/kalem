@@ -1476,6 +1476,7 @@ cmd-viewer-grid-deleteName = Delete Name
 cmd-viewer-grid-showFormulas = Show Formulas
 cmd-viewer-grid-calculateNow = Calculate Now
 cmd-viewer-grid-saveSheetAsCsv = Save Sheet as CSV
+cmd-viewer-grid-exportText = Export as CSV or Text
 cmd-viewer-grid-insertDate = Insert Today's Date
 cmd-viewer-grid-insertTime = Insert the Time
 cmd-viewer-grid-formulaFromAbove = Copy Formula from Above
