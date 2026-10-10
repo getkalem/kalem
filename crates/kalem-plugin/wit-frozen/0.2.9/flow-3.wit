@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.10;
+package kalem:plugin@0.2.9;
 
 /// What changed in a document of flowing text (API 0.2.9). After an
 /// edit the host reads the flow again; a long document has tens of

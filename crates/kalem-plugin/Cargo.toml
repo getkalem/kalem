@@ -23,6 +23,9 @@ grid = []
 # the `flow` interface too (API 0.2.7). With `grid`, the `full-viewer`
 # world, which exports both.
 flow = []
+# The `extension-layer` world: an extension plugin exporting the `layer`
+# interface too, layers over a mode's view (API 0.2.10).
+layer = []
 
 [dev-dependencies]
 toml_edit = { version = "0.25", default-features = false, features = ["parse"] }

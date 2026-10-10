@@ -115,33 +115,15 @@ impl kalem::plugin::files::Host for Files {}
 
 impl kalem::plugin::clock::Host for Files {
     fn now(&mut self) -> i64 {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| d.as_millis() as i64)
+        crate::time::now()
     }
 
     fn timezone(&mut self) -> String {
-        jiff::tz::TimeZone::system()
-            .iana_name()
-            .unwrap_or("UTC")
-            .to_string()
+        crate::time::timezone()
     }
 
-    /// The system's secure random source: a workbook's `RAND()`, and an
-    /// encrypted workbook's salts and key.
     fn random(&mut self) -> u64 {
-        use std::hash::{BuildHasher, Hasher};
-        use std::sync::atomic::{AtomicU64, Ordering};
-        if let Ok(n) = getrandom::u64() {
-            return n;
-        }
-        // Without one, keys random for each process, a counter and the
-        // time hashed.
-        static N: AtomicU64 = AtomicU64::new(0);
-        let mut h = std::collections::hash_map::RandomState::new().build_hasher();
-        h.write_u64(N.fetch_add(1, Ordering::Relaxed));
-        h.write_i64(self.now());
-        h.finish()
+        crate::time::random()
     }
 }
 

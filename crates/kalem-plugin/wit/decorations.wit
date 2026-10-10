@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.9;
+package kalem:plugin@0.2.10;
 
 /// Marks beside the lines of files (API 0.2.5; T3.1.9c's first part): the
 /// git plugin's added, changed and removed lines. A plugin sets a file's

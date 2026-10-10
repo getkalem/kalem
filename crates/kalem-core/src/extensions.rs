@@ -61,6 +61,18 @@ pub trait Extensions: Send {
 
     /// Hands how run `run` ended to the plugin that started it.
     fn process_done(&mut self, run: u64, result: Result<ProcessExit, String>);
+
+    /// The overlays plugin `plugin`'s layer `layer` gives a document of
+    /// `path` with `text` (`crate::layers`, API 0.2.10).
+    fn overlays(
+        &mut self,
+        _plugin: &str,
+        _layer: &str,
+        _path: Option<&std::path::Path>,
+        _text: &str,
+    ) -> crate::layers::Outcome {
+        crate::layers::Outcome::Failed
+    }
 }
 
 /// A document a plugin writes (`documents`, plugin API 0.2.5), as the
@@ -515,6 +527,24 @@ fn changed() {
 /// Installs the plugins (once, at start).
 pub fn install(extensions: Box<dyn Extensions>) {
     *INSTALLED.lock().unwrap_or_else(|e| e.into_inner()) = Some(extensions);
+    // The layers' overlays are asked of the plugins while the editors
+    // draw: while a call of theirs runs, the drawing asks again later
+    // rather than wait.
+    crate::layers::set_provider(std::sync::Arc::new(
+        |spec: &crate::layers::LayerSpec, path: Option<&std::path::Path>, text: &str| {
+            match INSTALLED.try_lock() {
+                Ok(mut installed) => match installed.as_mut() {
+                    Some(x) => x.overlays(&spec.plugin, &spec.id, path, text),
+                    None => crate::layers::Outcome::Failed,
+                },
+                Err(std::sync::TryLockError::Poisoned(e)) => match e.into_inner().as_mut() {
+                    Some(x) => x.overlays(&spec.plugin, &spec.id, path, text),
+                    None => crate::layers::Outcome::Failed,
+                },
+                Err(std::sync::TryLockError::WouldBlock) => crate::layers::Outcome::Busy,
+            }
+        },
+    ));
 }
 
 /// Changes each time the plugins' commands or bindings change: an editor

@@ -18,9 +18,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use wasmtime::component::{HasSelf, Resource, ResourceTable};
 
 mod bindings {
+    // `extension-layer`: the `extension` world and the `layer` interface
+    // it may export (API 0.2.10), bound one by one (`Extension::new`).
     wasmtime::component::bindgen!({
         path: "../kalem-plugin/wit",
-        world: "extension",
+        world: "extension-layer",
         with: {
             "kalem:plugin/kalem.disposable": super::Registration,
         },
@@ -28,10 +30,12 @@ mod bindings {
 }
 
 pub use api::{CommandSpec, Event, EventKind, Reply, Scope};
+pub use bindings::exports::kalem::plugin::layer;
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
 pub use bindings::kalem::plugin::{
-    decorations, diagnostics, documents, editor, fs, http, net, process, settings, styled_documents,
+    clock, decorations, diagnostics, documents, editor, fs, http, layers, net, process, settings,
+    styled_documents,
 };
 
 /// An edit a plugin asked for, applied when its command returns, its
@@ -373,6 +377,10 @@ pub trait Editor: Send + 'static {
 
     /// The folders of the projects, where `fs:*:workspace` reaches.
     fn workspace(&mut self) -> Vec<std::path::PathBuf>;
+
+    /// What plugin `plugin`'s layers show changed: the documents they
+    /// serve ask again (`layers.refresh`, API 0.2.10).
+    fn refresh_layers(&mut self, _plugin: &str) {}
 
     /// Sends `request` (its URL granted) for plugin `plugin`; the response
     /// goes to [`Extension::respond`] with `id`.
@@ -719,6 +727,27 @@ impl Session {
                 if write { "write" } else { "read" }
             ))
         }
+    }
+}
+
+impl clock::Host for Session {
+    fn now(&mut self) -> i64 {
+        crate::time::now()
+    }
+
+    fn timezone(&mut self) -> String {
+        crate::time::timezone()
+    }
+
+    fn random(&mut self) -> u64 {
+        crate::time::random()
+    }
+}
+
+impl layers::Host for Session {
+    fn refresh(&mut self) {
+        let plugin = self.plugin.clone();
+        self.editor.refresh_layers(&plugin);
     }
 }
 
@@ -1320,7 +1349,9 @@ pub fn kind(event: &Event) -> EventKind {
 /// registered.
 pub struct Extension {
     instance: crate::Instance<Session>,
-    api: bindings::Extension,
+    api: bindings::exports::kalem::plugin::plugin::Guest,
+    /// The `layer` interface, when the component exports it (API 0.2.10).
+    layer: Option<layer::Guest>,
 }
 
 impl std::fmt::Debug for Extension {
@@ -1383,6 +1414,16 @@ impl Extension {
             |d: &mut crate::Data<Session>| &mut d.user,
         )
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        // The time and layers' refresh (API 0.2.10), without a permission.
+        clock::add_to_linker::<_, HasSelf<Session>>(&mut linker, |d: &mut crate::Data<Session>| {
+            &mut d.user
+        })
+        .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        layers::add_to_linker::<_, HasSelf<Session>>(
+            &mut linker,
+            |d: &mut crate::Data<Session>| &mut d.user,
+        )
+        .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
         if grants.fs() {
             fs::add_to_linker::<_, HasSelf<Session>>(
                 &mut linker,
@@ -1416,21 +1457,63 @@ impl Extension {
             running: BTreeSet::new(),
         };
         let mut instance = plugin.instantiate(host, &linker, session, limits)?;
-        let api = instance.bindings(|store, i| bindings::Extension::new(store, i))?;
-        Ok(Extension { instance, api })
+        // `plugin` alone, not the whole world: a component of an earlier
+        // 0.2.x exports no `layer`, one of now may (as the viewers' extra
+        // interfaces are bound).
+        let api = instance.bindings(|store, i| {
+            let pre = i.instance_pre(&*store);
+            bindings::exports::kalem::plugin::plugin::GuestIndices::new(&pre)?.load(&mut *store, i)
+        })?;
+        let layer = instance.bindings(|store, i| {
+            let pre = i.instance_pre(&*store);
+            let name = format!("kalem:plugin/layer@{}", crate::API_VERSION);
+            if pre.component().get_export_index(None, &name).is_none() {
+                return Ok(None);
+            }
+            layer::GuestIndices::new(&pre)?
+                .load(&mut *store, i)
+                .map(Some)
+        })?;
+        Ok(Extension {
+            instance,
+            api,
+            layer,
+        })
     }
 
     /// Calls the plugin's `activate`: it registers its commands, keys and
     /// subscriptions. Its own refusal is the inner error.
     pub fn activate(&mut self) -> crate::Result<Result<(), String>> {
-        let p = self.api.kalem_plugin_plugin();
+        let p = &self.api;
         self.instance.run(|s| p.call_activate(s))
+    }
+
+    /// Whether the plugin exports layers (API 0.2.10).
+    pub fn has_layers(&self) -> bool {
+        self.layer.is_some()
+    }
+
+    /// The overlays of the plugin's layer `id` for a document of `path`
+    /// with `text`; `None` when the plugin exports no layer.
+    pub fn overlays(
+        &mut self,
+        id: &str,
+        path: Option<&str>,
+        text: &str,
+    ) -> crate::Result<Option<layer::OverlaySet>> {
+        let Some(l) = &self.layer else {
+            return Ok(None);
+        };
+        let path = path.map(str::to_string);
+        self.instance
+            .run(|s| l.call_overlays(s, id, path.as_deref(), text))
+            .map(Some)
     }
 
     /// Calls the plugin's `deactivate`, then takes back everything it
     /// registered, whether the call succeeded or not.
     pub fn deactivate(&mut self) -> crate::Result<()> {
-        let p = self.api.kalem_plugin_plugin();
+        let p = &self.api;
         let out = self.instance.run(|s| p.call_deactivate(s));
         let session = self.instance.data_mut();
         let ids: Vec<u64> = session.registered.keys().copied().collect();
@@ -1449,7 +1532,7 @@ impl Extension {
 
     /// Runs the plugin's command `id` with `args` as JSON.
     pub fn run_command(&mut self, id: &str, args: &str) -> crate::Result<Result<String, String>> {
-        let p = self.api.kalem_plugin_plugin();
+        let p = &self.api;
         self.instance.run(|s| p.call_run_command(s, id, args))
     }
 
@@ -1474,7 +1557,7 @@ impl Extension {
             .filter(|(_, w)| **w == What::Subscription(k))
             .map(|(id, _)| *id)
             .collect();
-        let p = self.api.kalem_plugin_plugin();
+        let p = &self.api;
         for id in subscriptions {
             if let Reply::Veto(why) = self.instance.run(|s| p.call_on_event(s, id, event))? {
                 return Ok(Reply::Veto(why));
@@ -1489,7 +1572,7 @@ impl Extension {
         if !self.instance.data_mut().asked.remove(&request) {
             return Ok(false);
         }
-        let p = self.api.kalem_plugin_plugin();
+        let p = &self.api;
         self.instance
             .run(|s| p.call_on_answer(s, request, &answer))?;
         Ok(true)
@@ -1511,7 +1594,7 @@ impl Extension {
         {
             return Ok(false);
         }
-        let p = self.api.kalem_plugin_plugin();
+        let p = &self.api;
         self.instance
             .run(|s| p.call_on_panel(s, panel, key, event))?;
         Ok(true)
@@ -1528,7 +1611,7 @@ impl Extension {
         {
             return Ok(false);
         }
-        let p = self.api.kalem_plugin_plugin();
+        let p = &self.api;
         self.instance.run(|s| p.call_on_setting(s, key, own))?;
         Ok(true)
     }
@@ -1556,7 +1639,7 @@ impl Extension {
         if !self.instance.data_mut().fetching.remove(&id) {
             return Ok(false);
         }
-        let p = self.api.kalem_plugin_plugin();
+        let p = &self.api;
         self.instance
             .run(|s| p.call_on_response(s, id, response.as_ref().map_err(String::as_str)))?;
         Ok(true)
@@ -1572,7 +1655,7 @@ impl Extension {
         if !self.instance.data_mut().running.remove(&run) {
             return Ok(false);
         }
-        let p = self.api.kalem_plugin_plugin();
+        let p = &self.api;
         self.instance
             .run(|s| p.call_on_process(s, run, result.as_ref().map_err(String::as_str)))?;
         Ok(true)

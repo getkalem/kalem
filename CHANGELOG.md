@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- Layers over a mode's view (plugin API 0.2.10): a plugin changes how Markdown and Org documents are drawn without parsing them again, hiding, replacing or styling ranges of the text away from the cursor and hiding or folding whole lines, as its manifest's `layers` declare for the folders holding a marker (`logseq/config.edn`, `.obsidian`). The source view shows the text as it is. The plugin API's `layer` export and `layers.refresh` import; an extension plugin of an earlier version loads as before.
+- Extension plugins may read the clock (plugin API 0.2.10's `clock`, as viewers do): the time, the time zone and random bits.
+
 ### Fixed
 - The plugin `kalem plugin new` starts is a viewer of a format that is not text: a picture whose first bytes are `DOTS` and a NUL, which its manifest declares (`"applies": {"magic": ["44 4F 54 53 00"]}`), then rows of `#` and `.`. Its pictures were text before, and Kalem opens a text file in a mode, never in a viewer, so they opened as text and `kalem view` refused them. A test of the template checks that the manifest declares the bytes the viewer reads, and the Book's "Plugins in practice" says how to make a picture with `printf` and open it.
 

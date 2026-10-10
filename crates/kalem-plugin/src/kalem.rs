@@ -36,6 +36,17 @@ pub trait Plugin {
     /// Called before the plugin is unloaded; what it registered is taken
     /// back after.
     fn deactivate() {}
+
+    /// The overlays of the plugin's layer `layer` (its manifest's
+    /// `layers`) for the document of `path` with `text` (API 0.2.10, the
+    /// feature `layer`); none by default.
+    #[cfg(feature = "layer")]
+    fn overlays(_layer: &str, _path: Option<&str>, _text: &str) -> crate::layer::OverlaySet {
+        crate::layer::OverlaySet {
+            spans: Vec::new(),
+            lines: Vec::new(),
+        }
+    }
 }
 
 type CommandFn = Box<dyn FnMut(&str) -> Result<String, String>>;
@@ -396,6 +407,34 @@ macro_rules! export_plugin {
             }
         }
 
+        $crate::__export_layer!($plugin);
+
         $crate::extension::export_extension!(__KalemPlugin);
     };
+}
+
+/// The `layer` interface of [`export_plugin!`] with the feature `layer`.
+#[cfg(feature = "layer")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_layer {
+    ($plugin:ty) => {
+        impl $crate::extension::exports::kalem::plugin::layer::Guest for __KalemPlugin {
+            fn overlays(
+                layer: ::std::string::String,
+                path: ::std::option::Option<::std::string::String>,
+                text: ::std::string::String,
+            ) -> $crate::layer::OverlaySet {
+                <$plugin as $crate::kalem::Plugin>::overlays(&layer, path.as_deref(), &text)
+            }
+        }
+    };
+}
+
+/// Nothing without the feature `layer`.
+#[cfg(not(feature = "layer"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_layer {
+    ($plugin:ty) => {};
 }

@@ -1350,6 +1350,8 @@ pub enum BlockKind {
     Math,
     /// Blank lines not after any element (the start of the document).
     Blank,
+    /// Lines a layer hides away from the cursor (`crate::layers`).
+    Hidden,
     /// Anything else.
     Other,
 }
@@ -1668,6 +1670,10 @@ pub fn visible(text: &str, blocks: &[Block], folds: &Folds, cursor: usize) -> Vi
     while i < shown.len() {
         let b = shown[i];
         match b.kind {
+            // A layer's hidden lines: shown only with the cursor in them.
+            BlockKind::Hidden if !inside(b, b) => {
+                out.folded.insert(b.range.start);
+            }
             BlockKind::Properties | BlockKind::Drawer
                 if !inside(b, b) && first_line_end(b) < b.content_end =>
             {

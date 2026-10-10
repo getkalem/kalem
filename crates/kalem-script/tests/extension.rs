@@ -40,6 +40,8 @@ struct State {
     styles: Vec<(u64, u64, String, bool)>,
     /// The marks plugins set: plugin, then line and kind, by file.
     gutters: BTreeMap<std::path::PathBuf, (String, Vec<(u32, String)>)>,
+    /// The plugins that said their layers changed.
+    refreshed: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -48,7 +50,7 @@ struct Fake(Arc<Mutex<State>>);
 impl Editor for Fake {
     fn add_command(&mut self, plugin: &str, spec: &CommandSpec) -> Result<(), String> {
         assert!(
-            plugin == "counter" || plugin == "reach" || plugin == "run",
+            plugin == "counter" || plugin == "reach" || plugin == "run" || plugin == "layered",
             "{plugin}"
         );
         let mut s = self.0.lock().unwrap();
@@ -61,6 +63,10 @@ impl Editor for Fake {
 
     fn remove_command(&mut self, id: &str) {
         self.0.lock().unwrap().commands.remove(id);
+    }
+
+    fn refresh_layers(&mut self, plugin: &str) {
+        self.0.lock().unwrap().refreshed.push(plugin.to_string());
     }
 
     fn add_binding(
@@ -1044,4 +1050,68 @@ fn a_plugins_document_is_styled() {
             (3, 8, "Color::Green".to_string(), true)
         ]
     );
+}
+
+/// A plugin exporting a layer (API 0.2.10): the overlays it gives, its
+/// refresh, and the clock it reads; a plugin without the export has no
+/// layer.
+#[test]
+fn a_layer_and_the_clock() {
+    let Some(bytes) = common::component("layered") else {
+        return;
+    };
+    let host = Host::new(None).unwrap();
+    let plugin = host.load(&bytes).unwrap();
+    let fake = Fake::default();
+    let mut ext = Extension::new(
+        &host,
+        &plugin,
+        "layered",
+        Box::new(fake.clone()),
+        Grants::default(),
+        Limits::default(),
+    )
+    .unwrap();
+    ext.activate().unwrap().unwrap();
+    assert!(ext.has_layers());
+    let text = "- see ((ab)) #tag\n  id:: 1\n- two\n";
+    let set = ext.overlays("ids", Some("/g/a.md"), text).unwrap().unwrap();
+    assert_eq!(set.lines.len(), 1);
+    assert_eq!((set.lines[0].start, set.lines[0].end), (18, 27));
+    assert!(matches!(
+        set.lines[0].effect,
+        kalem_script::extension::layer::LineEffect::Hidden
+    ));
+    assert_eq!(set.spans.len(), 2);
+    assert_eq!((set.spans[0].start, set.spans[0].end), (6, 12));
+    match &set.spans[0].effect {
+        kalem_script::extension::layer::SpanEffect::Replace(r) => {
+            assert_eq!(r.text, "AB");
+            assert!(
+                r.style
+                    .contains(kalem_script::extension::layer::SpanStyle::LINK)
+            );
+        }
+        e => panic!("{e:?}"),
+    }
+    // Another layer's name, or a document without a file: nothing.
+    let none = ext
+        .overlays("other", Some("/g/a.md"), text)
+        .unwrap()
+        .unwrap();
+    assert!(none.spans.is_empty() && none.lines.is_empty());
+    // The clock and the refresh.
+    let answer: serde_json::Value =
+        serde_json::from_str(&ext.run_command("layered.now", "null").unwrap().unwrap()).unwrap();
+    assert!(
+        answer["now"].as_i64().unwrap() > 1_790_000_000_000,
+        "{answer}"
+    );
+    assert!(!answer["zone"].as_str().unwrap().is_empty());
+    assert_eq!(fake.0.lock().unwrap().refreshed, ["layered"]);
+    // A plugin built without the feature exports no layer.
+    if let Some((mut counter, _)) = counter(Limits::default()) {
+        assert!(!counter.has_layers());
+        assert!(counter.overlays("ids", None, text).unwrap().is_none());
+    }
 }
