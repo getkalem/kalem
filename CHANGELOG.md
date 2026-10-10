@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.13] - 2026-10-10
+
 ### Added
 - The plugin API is 0.2.11: an extension plugin may offer completions. Its manifest declares its completers (`"completers": [{"id", "types", "layers", "triggers", "word", "replaces", "priority"}]`) and it exports the `completer` interface (the world `extension-completer`, `kalem-plugin`'s feature `completer`); Kalem asks it when a trigger fires as the user types, or on Ctrl+Space, and shows its items in the one menu with its own completers', ranked with them. A completer may stand in for Kalem's own (`wiki`, `words`) where it gives items, and may serve only the documents its plugin's layers serve. For the graph plugin's pages, tags and blocks after `[[`, `#` and `((` in a Logseq graph or an Obsidian vault.
 - The plugin API's `clock-2` import for extension plugins: the offset of the user's time zone at an instant, so that a plugin knows the local day and time (the graph plugin no longer asks for today's date). A plugin built against 0.2.10 loads as before; `layer.wit` of 0.2.10 is frozen (`wit-frozen/0.2.10`).
