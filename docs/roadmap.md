@@ -429,6 +429,10 @@ Programmers (LSP and plugins)
 - [ ] R5.14 Plugin developer experience: the template (T3.3.1), hot
   reload (T3.2.2), the inspection panel (T3.2.1), API docs generated from
   the WIT into Part III (T3.3.4). M
+  (2026-10-10: the template's sample format is one that is not text,
+  `DOTS` and a NUL then rows of `#` and `.`, declared by its first bytes
+  in `applies`, since a viewer is never given a text file; `kalem plugin
+  new` and getkalem/plugins' `template/` alike)
 - [ ] R5.15 A `git` plugin (T2.7i.11): status, blame, stage, commit, log
   through the `process` permission, on Doom's `SPC g` keys. M
 

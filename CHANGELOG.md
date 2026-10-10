@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- The plugin `kalem plugin new` starts is a viewer of a format that is not text: a picture whose first bytes are `DOTS` and a NUL, which its manifest declares (`"applies": {"magic": ["44 4F 54 53 00"]}`), then rows of `#` and `.`. Its pictures were text before, and Kalem opens a text file in a mode, never in a viewer, so they opened as text and `kalem view` refused them. A test of the template checks that the manifest declares the bytes the viewer reads, and the Book's "Plugins in practice" says how to make a picture with `printf` and open it.
+
 ## [0.6.10] - 2026-10-10
 
 ### Added

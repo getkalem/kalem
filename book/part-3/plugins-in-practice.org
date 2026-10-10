@@ -84,18 +84,36 @@ its own in =NAME/=:
 #+begin_src sh
 kalem plugin new dots
 cd dots
-cargo test                 # the test that comes with it, natively
+cargo test                 # the tests that come with it, natively
 kalem plugin build         # dist/dots.wasm, the component
 kalem plugin dev           # installed, and built again as you work
 #+end_src
 
-What you get is a working viewer of a small format, a picture drawn in
-text (=#= and =.=), so that a =.dots= file opens in Kalem at once, as a
-picture in the window and in the terminal. Its two files:
+What you get is a working viewer of a small format. A viewer's format
+is one that is not text: Kalem opens every text file in a mode, as text
+to edit, even one a viewer could show (an SVG drawing is XML), and hands
+a file to a viewer only when it is not text, as a NUL byte among its
+first bytes shows. So the template's format is a picture whose first
+bytes are =DOTS= and a NUL, then its rows, =#= a dark cell and =.= a
+light one, a line a row. With the plugin installed (by
+=kalem plugin dev=, say), make one and open it:
 
-- =plugin.json=: the plugin's id, name, version, what it opens
-  (="opens": [".dots"]=), its permissions (a viewer needs none) and its
-  limits.
+#+begin_src sh
+printf 'DOTS\0.##.\n#..#\n.##.\n' > a.dots
+kalem view a.dots          # its rows and its information, printed
+kalem a.dots               # the picture, in the window or the terminal
+#+end_src
+
+A =.dots= file of =#= and =.= alone is text: it opens as text to edit,
+and =kalem view= says that no installed plugin opens it. A format that
+is text is a language plugin's or an extension plugin's (see
+[[*Beyond viewers][Beyond viewers]]), not a viewer's. The plugin's two files:
+
+- =plugin.json=: the plugin's id, name, version, what it opens (its
+  extension, ="opens": [".dots"]=, and its first bytes,
+  ="applies": {"magic": ["44 4F 54 53 00"]}=, so that a file of the
+  format opens whatever its name), its permissions (a viewer needs
+  none) and its limits.
 - =src/lib.rs=: the viewer, and the document it opens. Which files are
   its own is the manifest's to say (=opens=, and =applies= for first
   bytes, whole names or markers: see the chapter on plugins), not its
@@ -107,7 +125,9 @@ picture in the window and in the terminal. Its two files:
   asked (=render=: pixels, at the scale asked, in the theme's colors)
   and gives its text (=text=, for search, copying and the terminal) and
   its information panel (=info=). Each part is marked in the file;
-  replace the picture with your format.
+  replace the picture with your format, and its first bytes (=MAGIC=)
+  with your format's, in the file and in =plugin.json= alike: a test
+  checks that the manifest declares them.
 
 Tests run natively with =cargo test=, as for any crate; the same code is
 the component Kalem runs. The contract has more than the skeleton uses,

@@ -431,7 +431,8 @@ fn standalone_manifest(name: &str) -> String {
   "api": "^0.2.1",
   "activation": ["onDocument"],
   "permissions": [],
-  "opens": [".{name}"]
+  "opens": [".{name}"],
+  "applies": {{"magic": ["44 4F 54 53 00"]}}
 }}
 "#,
         title = title(name)
@@ -451,8 +452,12 @@ const LIB_RS: &str = r#"//! Template: a Kalem plugin that opens `.template` file
 //! plugin build`, `kalem plugin dev`), where it sees nothing but the file
 //! Kalem hands it.
 //!
-//! As it starts, a file is a picture drawn in text, `#` a dark cell and
-//! `.` a light one, a line a row:
+//! A viewer's format is one that is not text: Kalem opens a text file in
+//! a mode, as text to edit, never in a viewer. As it starts, a file is a
+//! picture whose first bytes are `DOTS` and a NUL byte (`MAGIC`, which
+//! `plugin.json` declares in `applies`), then its rows, `#` a dark cell
+//! and `.` a light one, a line a row, as
+//! `printf 'DOTS\0.##.\n#..#\n.##.\n' > a.template` writes one:
 //!
 //! ```text
 //! .##.
@@ -460,7 +465,8 @@ const LIB_RS: &str = r#"//! Template: a Kalem plugin that opens `.template` file
 //! .##.
 //! ```
 //!
-//! Replace `Doc`, `parse` and the drawing with your format.
+//! Replace `MAGIC`, `Doc`, `parse` and the drawing with your format, and
+//! the first bytes `plugin.json` declares with its own.
 
 use kalem_viewer::{
     Bitmap, Detection, FileHandle, InfoField, RenderRequest, Rendered, Result, Structure, Unit,
@@ -480,6 +486,12 @@ struct Doc {
 /// A cell's side in pixels at scale 1.
 const CELL: f32 = 8.0;
 
+/// The format's first bytes: a NUL, which no text has, makes Kalem take
+/// the file for one that is not text. `plugin.json` declares them as
+/// pairs of hexadecimal digits (`"applies": {"magic": ["44 4F 54 53 00"]}`),
+/// so that a file of the format opens whatever its name.
+const MAGIC: &[u8] = b"DOTS\0";
+
 impl Viewer for TemplateViewer {
     fn id(&self) -> &str {
         "template"
@@ -495,8 +507,12 @@ impl Viewer for TemplateViewer {
 
     /// Whether `name`, starting with `head` (its first bytes), is a file of
     /// this viewer: by its content when the format has a signature, else
-    /// by its extension.
-    fn detect(&self, name: &str, _head: &[u8]) -> Detection {
+    /// by its extension. Kalem does not ask it: `plugin.json` declares the
+    /// same (`opens`, `applies`).
+    fn detect(&self, name: &str, head: &[u8]) -> Detection {
+        if head.starts_with(MAGIC) {
+            return Detection::Magic;
+        }
         let ext = name.rsplit('.').next().unwrap_or_default();
         if ext.eq_ignore_ascii_case("template") {
             Detection::Extension
@@ -508,17 +524,20 @@ impl Viewer for TemplateViewer {
     /// Reads the file (`read_all`, or `read_at` for a piece of a large
     /// one) and makes the document.
     fn open(&self, file: FileHandle) -> Result<Box<dyn ViewerDocument>> {
-        let text = String::from_utf8(file.read_all()?).map_err(|e| ViewerError(e.to_string()))?;
         Ok(Box::new(Doc {
-            rows: parse(&text)?,
+            rows: parse(&file.read_all()?)?,
             name: file.name().to_owned(),
         }))
     }
 }
 
-/// The rows of a picture in text, `#` dark and `.` light, each as wide as
-/// the widest.
-fn parse(text: &str) -> Result<Vec<Vec<bool>>> {
+/// The rows of a picture after its first bytes, `#` dark and `.` light,
+/// each as wide as the widest.
+fn parse(bytes: &[u8]) -> Result<Vec<Vec<bool>>> {
+    let Some(body) = bytes.strip_prefix(MAGIC) else {
+        return Err(ViewerError("Not a picture: no DOTS at its start".into()));
+    };
+    let text = String::from_utf8_lossy(body);
     if let Some(c) = text.chars().find(|c| !matches!(c, '#' | '.' | '\n' | '\r')) {
         return Err(ViewerError(format!("Not a picture: {c:?} in it")));
     }
@@ -581,8 +600,8 @@ impl ViewerDocument for Doc {
         Ok(Rendered::Bitmap(Bitmap::new(w, h, rgba)))
     }
 
-    /// The unit's text, for search, copying and the terminal: the picture
-    /// as written.
+    /// The unit's text, for search, copying and the terminal: the rows as
+    /// written.
     fn text(&self, _unit: usize) -> String {
         self.rows
             .iter()
@@ -618,7 +637,9 @@ mod tests {
 
     #[test]
     fn a_picture_is_read_and_drawn() {
-        let rows = parse(".#\n#.\n").unwrap();
+        let file = b"DOTS\0.#\n#.\n";
+        assert_eq!(TemplateViewer.detect("a", file), Detection::Magic);
+        let rows = parse(file).unwrap();
         assert_eq!(rows, vec![vec![false, true], vec![true, false]]);
         let mut doc = Doc {
             rows,
@@ -631,7 +652,16 @@ mod tests {
         let Rendered::Bitmap(b) = doc.render(0, request).unwrap();
         assert_eq!((b.width, b.height), (2, 2));
         assert_eq!(doc.text(0), ".#\n#.");
-        assert!(parse("x").is_err());
+        assert!(parse(b"DOTS\0x").is_err());
+        assert!(parse(b".#\n#.\n").is_err(), "text, without the first bytes");
+    }
+
+    /// Kalem knows a file by what `plugin.json` declares, not by `detect`.
+    #[test]
+    fn the_manifest_declares_the_first_bytes() {
+        let hex: Vec<String> = MAGIC.iter().map(|b| format!("{b:02X}")).collect();
+        let manifest = include_str!("../plugin.json");
+        assert!(manifest.contains(&hex.join(" ")), "applies.magic: {hex:?}");
     }
 }
 "#;
@@ -645,7 +675,7 @@ fn readme_text(name: &str, in_repository: bool) -> String {
     format!(
         r#"# {title}
 
-A Kalem plugin: a viewer of `.{name}` files. As it starts, a file is a picture drawn in text (`#` and `.`); `src/lib.rs` says where each part of the contract goes. Describe what the plugin does in `plugin.json` (the fields are those of section 11.5 of Kalem's design document) and here.
+A Kalem plugin: a viewer of `.{name}` files. A viewer's format is one that is not text, since Kalem opens a text file in a mode, never in a viewer; as it starts, a file is a small picture, the bytes `DOTS` and a NUL (the first bytes `plugin.json` declares in `applies`), then rows of `#` and `.`. `src/lib.rs` says where each part of the contract goes. Describe what the plugin does in `plugin.json` (the fields are those of section 11.5 of Kalem's design document) and here.
 
 ```sh
 {test}
@@ -655,6 +685,13 @@ kalem plugin build
 `kalem plugin build` compiles the crate for `wasm32-unknown-unknown` (install it once with `rustup target add wasm32-unknown-unknown`) and writes the component to the path `main` names in `plugin.json`. It imports only what Kalem's API names; a build for `wasm32-wasip2` would import WASI interfaces Kalem does not grant.
 
 While writing it, `kalem plugin dev` builds and installs it again whenever its sources change: a Kalem running opens files with the new build, and a panic in Kalem's log reads as a backtrace of the plugin's functions. The unit tests run natively, with `cargo test`.
+
+Once it is installed, a picture made with `printf` opens in it, in the window and in the terminal (`kalem a.{name}`), and `kalem view` prints its rows and its information:
+
+```sh
+printf 'DOTS\0.##.\n#..#\n.##.\n' > a.{name}
+kalem view a.{name}
+```
 "#,
         title = title(name)
     )
@@ -691,6 +728,15 @@ mod tests {
         let m = manifest(&p).unwrap();
         assert_eq!(m["id"], "org.example.word-count");
         assert_eq!(m["main"], "dist/word-count.wasm");
+        // Its pictures are not text, so Kalem hands them to it, by their
+        // extension or by their first bytes; a text one it never does.
+        let applies = crate::applies::Applies::of(&m);
+        let picture = b"DOTS\0.#\n#.\n";
+        for name in ["/a/b.word-count", "/a/b"] {
+            assert!(applies.serves(Path::new(name), Some(picture)).is_some());
+        }
+        let text = Some(&b".#\n#.\n"[..]);
+        assert!(applies.serves(Path::new("/a/b.word-count"), text).is_none());
         assert!(new("word-count", &d).unwrap_err().contains("exists"));
         assert!(new("Bad", &d).is_err());
         let _ = std::fs::remove_dir_all(d);
