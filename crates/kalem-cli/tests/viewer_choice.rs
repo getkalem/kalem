@@ -19,16 +19,23 @@ fn pages_viewer() -> Option<std::sync::Arc<dyn kalem_viewer::Viewer>> {
     kalem_core::viewer::find("three.pages", b"PAGES\0")
 }
 
-/// Waits for the watcher to choose again until `done`, for up to 15 s.
+/// Waits for the watcher to choose again until `done`, for up to 15 s;
+/// `done` is asked once a round, and may take what it looks at ([`told`]).
 fn until(done: impl Fn() -> bool) -> bool {
     let end = Instant::now() + Duration::from_secs(15);
-    while !done() && Instant::now() < end {
+    loop {
+        if done() {
+            return true;
+        }
+        if Instant::now() >= end {
+            return false;
+        }
         std::thread::sleep(Duration::from_millis(100));
     }
-    done()
 }
 
-/// Whether a notice since the last look says `text`.
+/// Whether a notice since the last look says `text`; the notices looked
+/// at are taken.
 fn told(text: &str) -> bool {
     kalem_core::jobs::take_notices()
         .iter()
@@ -93,7 +100,12 @@ fn viewers_follow_installs_stops_and_removals_without_a_restart() {
         until(|| pages_viewer().is_some()),
         "the copy installed is used"
     );
-    assert!(told("Pages 1.0.0"));
+    // The watcher's thread registers the viewer before it posts the
+    // notice: waited for too, not read at once.
+    assert!(
+        until(|| told("Pages 1.0.0")),
+        "the user is told which copy opens them"
+    );
     // By the first bytes its manifest declares, with no extension: Kalem
     // chooses by the declaration, the plugin's code not asked.
     let bare = dir.join("three");
@@ -116,7 +128,10 @@ fn viewers_follow_installs_stops_and_removals_without_a_restart() {
     // them again, still with no restart.
     install(&dir, &wasm, "1.0.1");
     assert!(until(|| pages_viewer().is_some()), "the update is used");
-    assert!(told("Pages 1.0.1"));
+    assert!(
+        until(|| told("Pages 1.0.1")),
+        "the user is told of the update"
+    );
     assert!(pages_viewer().unwrap().open(FileHandle::new(&file)).is_ok());
 
     // Chosen again with nothing changed (`kalem plugin enable`): the same
