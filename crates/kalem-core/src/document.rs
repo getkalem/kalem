@@ -290,6 +290,9 @@ pub struct DocumentState {
     gutter_seen: (u64, u64),
     /// The version control holding its file, found for that path.
     vcs: std::cell::RefCell<Option<(PathBuf, Option<&'static str>)>>,
+    /// The overlays of the layer serving it (`crate::layers`), as last
+    /// asked.
+    layer: std::cell::RefCell<Option<crate::layers::Cached>>,
     /// A CSV document's filter (view state): only the rows with a field
     /// holding this text show (`crate::csv::filtered`).
     pub csv_filter: Option<String>,
@@ -496,6 +499,7 @@ impl DocumentState {
             gutter: Vec::new(),
             gutter_seen: (0, 0),
             vcs: std::cell::RefCell::new(None),
+            layer: std::cell::RefCell::new(None),
             csv_filter: None,
             csv_filter_column: None,
             csv_frozen: std::cell::RefCell::new(None),
@@ -1569,6 +1573,44 @@ impl DocumentState {
         if c != col && col >= rec.fields.len() && col < layout.widths.len() {
             self.select_csv_virtual(col);
         }
+    }
+
+    /// The overlays of the layer serving this document (`crate::layers`),
+    /// asked once per version of its text and generation of the layers;
+    /// `None` when no layer serves it.
+    pub fn overlays(&self) -> Option<std::sync::Arc<crate::layers::Overlays>> {
+        if !crate::layers::any() {
+            return None;
+        }
+        let generation = crate::layers::generation();
+        if let Some(c) = &*self.layer.borrow()
+            && c.version == self.version
+            && c.generation == generation
+            && c.path == self.meta.path
+        {
+            return c.overlays.clone();
+        }
+        let spec = crate::layers::layer_for(self.meta.path.as_deref(), self.meta.mode.name());
+        let overlays = match spec {
+            None => None,
+            Some(spec) => {
+                match crate::layers::compute(&spec, self.meta.path.as_deref(), self.text().as_str())
+                {
+                    crate::layers::Outcome::Done(o) if o.is_empty() => None,
+                    crate::layers::Outcome::Done(o) => Some(std::sync::Arc::new(o)),
+                    crate::layers::Outcome::Failed => None,
+                    // Asked again at the next drawing.
+                    crate::layers::Outcome::Busy => return None,
+                }
+            }
+        };
+        *self.layer.borrow_mut() = Some(crate::layers::Cached {
+            version: self.version,
+            generation,
+            path: self.meta.path.clone(),
+            overlays: overlays.clone(),
+        });
+        overlays
     }
 
     /// The version of the text, incremented by every change.
@@ -2843,7 +2885,21 @@ impl DocumentState {
             c.set("editorLanguage", Value::Str(l.clone()));
         }
         c.set("textType", Value::Str(self.document_type()));
+        if let Some(l) = self.layer_name() {
+            c.set("editorLayer", Value::Str(l));
+        }
         c
+    }
+
+    /// The layer serving this document (`crate::layers`), named as the
+    /// when-clause key `editorLayer` names it: its plugin and its ID,
+    /// `graph.logseq`.
+    pub fn layer_name(&self) -> Option<String> {
+        if !crate::layers::any() {
+            return None;
+        }
+        crate::layers::layer_for(self.meta.path.as_deref(), self.meta.mode.name())
+            .map(|l| format!("{}.{}", l.plugin, l.id))
     }
 
     /// The type of the text at the cursor (§11.2), innermost first: in an
@@ -3066,6 +3122,9 @@ impl DocumentState {
             c.flag("inMarkdownItem", crate::markdown::in_item(&md, at));
         }
         c.set("textType", Value::Str(self.text_type()));
+        if let Some(l) = self.layer_name() {
+            c.set("editorLayer", Value::Str(l));
+        }
         let Some((parse, _)) = self.parse() else {
             return c;
         };

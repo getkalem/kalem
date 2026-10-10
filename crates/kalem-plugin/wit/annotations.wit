@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.9;
+package kalem:plugin@0.2.10;
 
 /// What people wrote *about* a document rather than in it (API 0.2.7,
 /// design §11.13): comments, and the tracked changes of a review. Apart

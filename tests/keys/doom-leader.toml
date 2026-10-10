@@ -1682,10 +1682,130 @@ what = "Active clocks"
 reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 
 [[key]]
-doom = "SPC n r"
-keys = "space n r"
-what = "Roam"
-reason = "Org Roam is not part of Kalem"
+doom = "SPC n r a"
+keys = "space n r a"
+what = "Open a random note"
+reason = "Needs the graph plugin of =getkalem/plugins= (Logseq graphs and Obsidian vaults; not in the core, D29)"
+
+[[key]]
+doom = "SPC n r f"
+keys = "space n r f"
+what = "Find a note"
+reason = "Needs the graph plugin of =getkalem/plugins= (Logseq graphs and Obsidian vaults; not in the core, D29)"
+
+[[key]]
+doom = "SPC n r F"
+keys = "space n r shift+f"
+what = "Find a reference"
+reason = "Not yet: Org Roam's references (ROAM_REFS) have no counterpart in Logseq or Obsidian"
+
+[[key]]
+doom = "SPC n r g"
+keys = "space n r g"
+what = "Show the graph"
+reason = "Needs the graph plugin of =getkalem/plugins= (Logseq graphs and Obsidian vaults; not in the core, D29)"
+
+[[key]]
+doom = "SPC n r i"
+keys = "space n r i"
+what = "Insert a link to a note"
+reason = "Needs the graph plugin of =getkalem/plugins= (Logseq graphs and Obsidian vaults; not in the core, D29)"
+
+[[key]]
+doom = "SPC n r n"
+keys = "space n r n"
+what = "Capture to a note"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+doom = "SPC n r r"
+keys = "space n r r"
+what = "Toggle the backlinks"
+reason = "Needs the graph plugin of =getkalem/plugins= (Logseq graphs and Obsidian vaults; not in the core, D29)"
+
+[[key]]
+doom = "SPC n r R"
+keys = "space n r shift+r"
+what = "The backlinks as a document"
+reason = "Needs the graph plugin of =getkalem/plugins= (Logseq graphs and Obsidian vaults; not in the core, D29)"
+
+[[key]]
+doom = "SPC n r s"
+keys = "space n r s"
+what = "Read the graph again"
+reason = "Needs the graph plugin of =getkalem/plugins= (Logseq graphs and Obsidian vaults; not in the core, D29)"
+
+[[key]]
+doom = "SPC n r d b"
+keys = "space n r d b"
+what = "The previous daily note"
+reason = "Needs the graph plugin of =getkalem/plugins= (Logseq graphs and Obsidian vaults; not in the core, D29)"
+
+[[key]]
+doom = "SPC n r d d"
+keys = "space n r d d"
+what = "The daily note of a date"
+reason = "Needs the graph plugin of =getkalem/plugins= (Logseq graphs and Obsidian vaults; not in the core, D29)"
+
+[[key]]
+doom = "SPC n r d D"
+keys = "space n r d shift+d"
+what = "Capture to a date"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+doom = "SPC n r d f"
+keys = "space n r d f"
+what = "The next daily note"
+reason = "Needs the graph plugin of =getkalem/plugins= (Logseq graphs and Obsidian vaults; not in the core, D29)"
+
+[[key]]
+doom = "SPC n r d m"
+keys = "space n r d m"
+what = "Tomorrow's daily note"
+reason = "Needs the graph plugin of =getkalem/plugins= (Logseq graphs and Obsidian vaults; not in the core, D29)"
+
+[[key]]
+doom = "SPC n r d M"
+keys = "space n r d shift+m"
+what = "Capture to tomorrow"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+doom = "SPC n r d n"
+keys = "space n r d n"
+what = "Capture to today"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+doom = "SPC n r d t"
+keys = "space n r d t"
+what = "Today's daily note"
+reason = "Needs the graph plugin of =getkalem/plugins= (Logseq graphs and Obsidian vaults; not in the core, D29)"
+
+[[key]]
+doom = "SPC n r d T"
+keys = "space n r d shift+t"
+what = "Capture to today"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+doom = "SPC n r d y"
+keys = "space n r d y"
+what = "Yesterday's daily note"
+reason = "Needs the graph plugin of =getkalem/plugins= (Logseq graphs and Obsidian vaults; not in the core, D29)"
+
+[[key]]
+doom = "SPC n r d Y"
+keys = "space n r d shift+y"
+what = "Capture to yesterday"
+reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
+
+[[key]]
+doom = "SPC n r d -"
+keys = "space n r d -"
+what = "The daily notes' folder"
+reason = "Needs the graph plugin of =getkalem/plugins= (Logseq graphs and Obsidian vaults; not in the core, D29)"
 
 [[key]]
 doom = "SPC n s"
@@ -1697,7 +1817,7 @@ command = "notes.search"
 doom = "SPC n S"
 keys = "space n shift+s"
 what = "Search the notes' headings"
-reason = "Not yet: the headings of the notes folder; =SPC n s= searches its text"
+reason = "Not yet for the notes folder (=SPC n s= searches its text); in a Logseq graph or an Obsidian vault, the graph plugin's Find Heading"
 
 [[key]]
 doom = "SPC n f"

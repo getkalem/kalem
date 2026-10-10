@@ -1,0 +1,92 @@
+package kalem:plugin@0.2.10;
+
+/// Layers over a mode's view (API 0.2.10; `kalem_core::layers`): what a
+/// plugin changes in the way a core mode draws a document, without
+/// parsing it again. A layer serves the documents of some modes under a
+/// folder holding one of its markers, as the plugin's manifest declares
+/// (`"layers": [{"id": "graph.logseq", "markers": ["logseq/config.edn"],
+/// "modes": ["markdown", "org"]}]`); for such a document the editor asks
+/// it for overlays, by byte range of the text, and draws the line as the
+/// mode draws it with the overlays applied: Logseq's block properties
+/// and references, Obsidian's callouts and comments, Pandoc's and MyST's
+/// extensions, each a layer over the core's Markdown.
+///
+/// A layer is asked once for each version of a document's text, and
+/// again after [`layers.refresh`]. It is asked while the editor draws:
+/// it must answer quickly, from the text and what the plugin knows, and
+/// use neither the `editor` interface nor a question to the user.
+interface layer {
+    /// How a span is drawn: these parts added to the mode's own.
+    flags span-style {
+        bold,
+        italic,
+        underline,
+        strike,
+        code,
+        link,
+        dim,
+        tag,
+        todo,
+        done,
+        timestamp,
+        priority,
+    }
+
+    /// Text shown in place of a span.
+    record replacement {
+        text: string,
+        style: span-style,
+    }
+
+    /// What a span becomes.
+    variant span-effect {
+        /// Hidden away from the cursor, as a mode's markers are.
+        hide,
+        /// Shown as other text away from the cursor.
+        replace(replacement),
+        /// Drawn in a style, always.
+        style(span-style),
+    }
+
+    /// A span of the text: bytes `start` to `end` (left out).
+    record span {
+        start: u64,
+        end: u64,
+        effect: span-effect,
+    }
+
+    /// What whole lines become.
+    enum line-effect {
+        /// Not shown away from the cursor.
+        hidden,
+        /// Folded to their first line away from the cursor, as a drawer.
+        folded,
+    }
+
+    /// Whole lines: from a line's start to the start of the line after
+    /// the last (a range inside lines is widened to them).
+    record lines {
+        start: u64,
+        end: u64,
+        effect: line-effect,
+    }
+
+    /// What a layer changes; spans and lines in order, not overlapping
+    /// (an overlapping one is left out).
+    record overlay-set {
+        spans: list<span>,
+        lines: list<lines>,
+    }
+
+    /// The overlays of layer `layer` (an ID of the manifest's `layers`)
+    /// for the document of file `path` (none for one not saved yet) with
+    /// `text`.
+    overlays: func(layer: string, path: option<string>, text: string) -> overlay-set;
+}
+
+/// What a plugin with layers tells the editor.
+interface layers {
+    /// What the plugin's layers show changed (a file a document refers
+    /// to): every document a layer serves asks again.
+    refresh: func();
+}

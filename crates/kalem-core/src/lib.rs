@@ -55,6 +55,7 @@ pub mod latex_mode;
 pub mod latex_table;
 pub mod latex_templates;
 pub mod latex_view;
+pub mod layers;
 pub mod layout;
 pub mod line_edit;
 pub mod line_search;

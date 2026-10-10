@@ -175,6 +175,10 @@ impl Editor for Bridge {
         kalem_core::extensions::workspace()
     }
 
+    fn refresh_layers(&mut self, _plugin: &str) {
+        kalem_core::layers::refresh();
+    }
+
     fn document(&mut self) -> Option<Box<dyn x::DocumentAccess + '_>> {
         kalem_core::plugin_doc::with_document(|_| ())?;
         Some(Box::new(Document))
@@ -573,6 +577,94 @@ struct Loaded {
     menus: Vec<kalem_core::extensions::PluginMenu>,
     /// The buttons its manifest adds to the toolbar, once it runs.
     buttons: Vec<kalem_core::extensions::PluginButton>,
+    /// The layers its manifest declares, once it runs (API 0.2.10).
+    layers: Vec<kalem_core::layers::LayerSpec>,
+}
+
+/// A manifest's `layers` for plugin `id` (its short ID): each an ID, the
+/// markers a document's folder or one above it must hold, and the modes
+/// it serves; one without an ID, markers or modes is left out.
+fn manifest_layers(id: &str, m: &serde_json::Value) -> Vec<kalem_core::layers::LayerSpec> {
+    let strings = |v: &serde_json::Value| -> Vec<String> {
+        v.as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|e| e.as_str().map(str::to_string))
+                    .filter(|s| !s.trim().is_empty() && !s.contains(".."))
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    m["layers"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|l| {
+                    let spec = kalem_core::layers::LayerSpec {
+                        plugin: id.to_string(),
+                        id: l["id"].as_str()?.to_string(),
+                        markers: strings(&l["markers"]),
+                        modes: strings(&l["modes"]),
+                    };
+                    (!spec.markers.is_empty() && !spec.modes.is_empty()).then_some(spec)
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// A layer's overlays as the core's.
+fn overlays(set: x::layer::OverlaySet) -> kalem_core::layers::Overlays {
+    use kalem_core::layers::{LineEffect, Lines, Overlays, Span, SpanEffect};
+    use x::layer::SpanStyle as F;
+    let style = |f: F| kalem_core::view::Style {
+        bold: f.contains(F::BOLD),
+        italic: f.contains(F::ITALIC),
+        underline: f.contains(F::UNDERLINE),
+        strike: f.contains(F::STRIKE),
+        code: f.contains(F::CODE),
+        link: f.contains(F::LINK),
+        dim: f.contains(F::DIM),
+        tag: f.contains(F::TAG),
+        todo: if f.contains(F::DONE) {
+            Some(true)
+        } else if f.contains(F::TODO) {
+            Some(false)
+        } else {
+            None
+        },
+        timestamp: f.contains(F::TIMESTAMP),
+        priority: f.contains(F::PRIORITY),
+        ..kalem_core::view::Style::default()
+    };
+    Overlays {
+        spans: set
+            .spans
+            .into_iter()
+            .map(|s| Span {
+                range: s.start as usize..s.end as usize,
+                effect: match s.effect {
+                    x::layer::SpanEffect::Hide => SpanEffect::Hide,
+                    x::layer::SpanEffect::Replace(r) => SpanEffect::Replace {
+                        text: r.text,
+                        style: style(r.style),
+                    },
+                    x::layer::SpanEffect::Style(f) => SpanEffect::Style(style(f)),
+                },
+            })
+            .collect(),
+        lines: set
+            .lines
+            .into_iter()
+            .map(|l| Lines {
+                range: l.start as usize..l.end as usize,
+                effect: match l.effect {
+                    x::layer::LineEffect::Hidden => LineEffect::Hidden,
+                    x::layer::LineEffect::Folded => LineEffect::Folded,
+                },
+            })
+            .collect(),
+    }
 }
 
 /// A manifest's `menus` for plugin `id` (its short ID): each a title, a
@@ -681,6 +773,11 @@ impl Plugins {
                 for b in l.buttons.clone() {
                     kalem_core::extensions::add_button(b);
                 }
+                if l.extension.as_ref().is_some_and(Extension::has_layers) {
+                    for layer in l.layers.clone() {
+                        kalem_core::layers::register(layer);
+                    }
+                }
             }
             Err(e) => {
                 l.failed = true;
@@ -701,11 +798,42 @@ impl Plugins {
         kalem_core::extensions::clear_gutter(&l.id, None);
         kalem_core::extensions::remove_menus(&l.id);
         kalem_core::extensions::remove_buttons(&l.id);
+        kalem_core::layers::remove_plugin(&l.id);
         kalem_core::jobs::notice(format!("The plugin {} was stopped: {error}", l.id), true);
     }
 }
 
 impl kalem_core::extensions::Extensions for Plugins {
+    fn overlays(
+        &mut self,
+        plugin: &str,
+        layer: &str,
+        path: Option<&std::path::Path>,
+        text: &str,
+    ) -> kalem_core::layers::Outcome {
+        use kalem_core::layers::Outcome;
+        let Some(i) = self
+            .list
+            .iter()
+            .position(|l| l.id == plugin && l.extension.is_some())
+        else {
+            return Outcome::Failed;
+        };
+        PLUGIN.with(|p| p.set(i as u64 + 1));
+        let path = path.map(|p| p.to_string_lossy().into_owned());
+        let Some(ext) = self.list[i].extension.as_mut() else {
+            return Outcome::Failed;
+        };
+        match ext.overlays(layer, path.as_deref(), text) {
+            Ok(Some(set)) => Outcome::Done(overlays(set)),
+            Ok(None) => Outcome::Failed,
+            Err(e) => {
+                self.fail(i, &e);
+                Outcome::Failed
+            }
+        }
+    }
+
     fn run(&mut self, id: &str, args: &str) -> Result<(), String> {
         let Some(i) = self.list.iter().position(|l| {
             l.extension
@@ -1061,6 +1189,7 @@ fn installed() -> Vec<Loaded> {
         list.push(Loaded {
             menus: manifest_menus(&id, &m),
             buttons: manifest_buttons(&id, &m),
+            layers: manifest_layers(&id, &m),
             id,
             full: p.id.clone(),
             grants: x::Grants::from_permissions(&strings(&m["permissions"])),
@@ -1103,6 +1232,50 @@ pub(crate) fn load() {
             }
             kalem_core::extensions::install(Box::new(plugins));
         });
+}
+
+/// Loads and starts the installed extension plugin `name` (its manifest's
+/// ID, or the short one its commands start with) on this thread, whatever
+/// its activation, and offers it alone to the core: `kalem run`. Its
+/// short ID, or why it cannot run.
+pub(crate) fn load_one(name: &str) -> Result<String, String> {
+    let list: Vec<Loaded> = installed()
+        .into_iter()
+        .filter(|l| l.full == name || l.id == name)
+        .collect();
+    let Some(id) = list.first().map(|l| l.id.clone()) else {
+        let known: Vec<String> = installed().into_iter().map(|l| l.full).collect();
+        return Err(if known.is_empty() {
+            format!("No extension plugin {name} is installed (kalem plugin install {name})")
+        } else {
+            format!(
+                "No extension plugin {name} is installed; these are: {}",
+                known.join(", ")
+            )
+        });
+    };
+    // Started already in this process.
+    let source = kalem_core::command::CommandSource::Plugin(id.clone());
+    if kalem_core::extensions::commands()
+        .iter()
+        .any(|c| c.source == source)
+    {
+        return Ok(id);
+    }
+    let cache = kalem_core::logging::state_dir().map(|d| d.join("plugin-cache"));
+    let host = Arc::new(Host::new(cache).map_err(|e| format!("Plugins cannot run: {e}"))?);
+    let mut plugins = Plugins { host, list };
+    plugins.activate(0);
+    if plugins.list[0].extension.is_none() {
+        let why = kalem_core::jobs::take_notices()
+            .into_iter()
+            .map(|(t, _)| t)
+            .collect::<Vec<_>>()
+            .join("; ");
+        return Err(why);
+    }
+    kalem_core::extensions::install(Box::new(plugins));
+    Ok(id)
 }
 
 #[cfg(test)]

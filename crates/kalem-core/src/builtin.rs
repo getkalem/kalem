@@ -202,7 +202,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("plugin.removeConfirmed", object(&[("id", "string", true)])),
         ("file.rename", object(&[("target", "string", false)])),
         ("app.terminal", object(&[("project", "boolean", false)])),
-        ("file.reveal", object(&[("project", "boolean", false)])),
+        (
+            "file.reveal",
+            object(&[("project", "boolean", false), ("path", "string", false)]),
+        ),
         ("settings.set", object(&[("key", "string", true)])),
         (
             "settings.item",
@@ -222,7 +225,11 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         (
             "search.folder",
-            object(&[("path", "string", false), ("ask", "boolean", false)]),
+            object(&[
+                ("path", "string", false),
+                ("ask", "boolean", false),
+                ("ignore", "array", false),
+            ]),
         ),
         ("file.copy", object(&[("target", "string", false)])),
         ("org.property.delete", object(&[("key", "string", true)])),
@@ -8976,7 +8983,19 @@ fn plain_commands() -> Vec<Command> {
                         path = dir.display().to_string()
                     )));
                 }
-                request(ctx, Request::SearchIn(dir))
+                // Patterns a caller (a plugin's graph, say) leaves out besides
+                // the folder's own: its application's folders, backups.
+                let ignore = args
+                    .get("ignore")
+                    .and_then(Value::as_array)
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(Value::as_str)
+                            .map(str::to_string)
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                request(ctx, Request::SearchIn { dir, ignore })
             },
         ),
         // Doom's `SPC p` (T2.7i.8).
@@ -9613,7 +9632,13 @@ fn plain_commands() -> Vec<Command> {
             None,
             |ctx, _| {
                 let dir = notes_folder(ctx)?;
-                request(ctx, Request::SearchIn(dir))
+                request(
+                    ctx,
+                    Request::SearchIn {
+                        dir,
+                        ignore: Vec::new(),
+                    },
+                )
             },
         ),
         // Doom's `SPC n F`: the notes folder in the file manager.
@@ -10132,6 +10157,22 @@ fn plain_commands() -> Vec<Command> {
             &[],
             None,
             |ctx, args| {
+                // A path named (by a plugin, for a file Kalem does not
+                // open): shown in its folder.
+                if let Some(p) = args.get("path").and_then(Value::as_str) {
+                    let path = std::path::PathBuf::from(crate::settings::expand_home(p));
+                    if !path.exists() {
+                        return Err(CommandError::new(crate::tr!(
+                            "msg-md-missing-file",
+                            path = path.display().to_string()
+                        )));
+                    }
+                    let path = std::path::absolute(&path).unwrap_or(path);
+                    return request(
+                        ctx,
+                        Request::OpenLink(crate::input::LinkAction::Reveal(path)),
+                    );
+                }
                 let doc = ctx.doc()?;
                 let file = doc
                     .meta
@@ -13173,6 +13214,45 @@ mod tests {
             matches!(&req[..], [Request::OpenLink(Reveal(p))] if !p.ends_with("notes") && dir.ends_with(p.file_name().unwrap())),
             "{req:?}"
         );
+        // A path named, as a plugin names a file Kalem does not open; a
+        // path that is not there refused.
+        let board = dir.join("notes/Board.canvas");
+        std::fs::write(&board, "{}").unwrap();
+        let req = run(
+            &mut d,
+            "file.reveal",
+            json!({ "path": board.display().to_string() }),
+        );
+        assert!(
+            matches!(&req[..], [Request::OpenLink(Reveal(p))] if *p == board),
+            "{req:?}"
+        );
+        let mut ctx = EditorContext {
+            document: Some(&mut d),
+            clipboard: &mut Clipboard::default(),
+            config: &config,
+            now: Instant::now(),
+            clock: jiff::civil::date(2026, 9, 30).at(9, 0, 0, 0),
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        let gone = dir.join("notes/gone.canvas").display().to_string();
+        assert!(
+            reg.execute("file.reveal", &mut ctx, &json!({ "path": gone }))
+                .is_err()
+        );
+        // A folder searched, with patterns left out besides its own.
+        let req = run(
+            &mut d,
+            "search.folder",
+            json!({ "path": dir.display().to_string(), "ignore": ["/logseq/", 3] }),
+        );
+        assert!(
+            matches!(&req[..], [Request::SearchIn { dir: p, ignore }] if *p == dir && *ignore == ["/logseq/"]),
+            "{req:?}"
+        );
+        let req = run(&mut d, "notes.search", json!({}));
+        assert!(matches!(&req[..], [Request::SearchIn { ignore, .. }] if ignore.is_empty()));
         // `SPC n F`: the notes folder in the file manager.
         let req = run(&mut d, "notes.browse", json!({}));
         assert!(matches!(&req[..], [Request::Open { path: Some(p) }] if p.ends_with("notes")));

@@ -11,6 +11,7 @@ plugins (D25). This chapter says where each contract stands today.
 | Highlighters   | syntect with the built-in syntax definitions, and language plugins' (no code)                                                 | =kalem-highlight/src/lib.rs=   | T3.1.9g           |
 | Document modes | The contract with its conformance check; CSV, Markdown, LaTeX and Org on it, the editors drawing each mode through =mode_view= | =kalem-core/src/modes.rs=      | T2.7c.10, T3.1.9g |
 | Language packs | Implemented and wired; no pack built in                                                                                        | =kalem-core/src/packs.rs=      | T3.1.9c, T3.1.9e  |
+| Layers         | Implemented: a plugin's overlays over Markdown and Org, applied by =mode_view=; the graph plugin's                                | =kalem-core/src/layers.rs=     | API 0.2.10 =layer= |
 
 * Completers
 
@@ -197,6 +198,54 @@ sample passes =modes::check=. Both editors draw each mode through
 =kalem_core::mode_view=, one trait for a mode's lines, blocks and
 outline. Still to come: the plugin side, =kalem::modes::register=
 (T3.1.9g).
+
+* Layers over a mode
+
+A /layer/ changes how a mode draws a document without parsing it
+again: a plugin that knows a dialect of Markdown or Org (Logseq's
+blocks and properties, Obsidian's callouts, block ids and comments)
+says what its constructs become, and the mode draws the rest as it
+always does, its tables, links, formulas and pictures included. It is
+the way every "Markdown plus" is a plugin without a second Markdown
+parser.
+
+A plugin declares its layers in its manifest:
+
+#+begin_src json
+"layers": [
+  { "id": "logseq", "markers": ["logseq/config.edn"], "modes": ["markdown", "org"] },
+  { "id": "obsidian", "markers": [".obsidian"], "modes": ["markdown"] }
+]
+#+end_src
+
+A layer serves the documents of its modes whose folder, or a folder
+above it, holds one of its markers. For such a document Kalem asks the
+plugin's =layer= export (API 0.2.10) for /overlays/, by byte range of the
+text, once for each version of the text, and draws each line as its
+mode draws it with them applied:
+
+| Overlay         | Away from the cursor                          | With the cursor in it   |
+|-----------------+-----------------------------------------------+-------------------------|
+| A span hidden   | Not shown, as a mode's markers                | The source              |
+| A span replaced | Shown as the layer's text, in its style       | The source              |
+| A span styled   | Drawn in the style (bold, a tag, a keyword…)  | The same                |
+| Lines hidden    | Not shown at all                              | Shown                   |
+| Lines folded    | Folded to their first line, as a drawer       | Shown                   |
+
+The setting =editor.show_source_markers= rules them as it rules a
+mode's markers (=always= shows hidden and replaced spans as source,
+=never= never does). The source view (Show Source) shows the text as it
+is. A span that would cut a run the mode already replaced (a wiki
+link showing its title) is left out; overlapping spans and lines are
+left out after the first. A layer asked while a plugin's call runs
+answers at the next drawing; one that fails leaves the document as its
+mode draws it. A plugin calls =layers.refresh= when what its layers
+show depends on other files that changed (a block reference showing
+its block's text): every document a layer serves asks again.
+
+The contract is =kalem_core::layers=; the plugin's side is
+=kalem_plugin::layer= with the feature =layer=, whose =Plugin= trait
+answers =overlays(layer, path, text)=.
 
 * Highlighters
 

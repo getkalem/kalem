@@ -201,8 +201,15 @@ pub enum Request {
     Pick(PickKind),
     /// Search the text of the project's files.
     SearchProject,
-    /// Search the text of the files under a folder.
-    SearchIn(std::path::PathBuf),
+    /// Search the text of the files under a folder: the folder's project
+    /// leaves out what it ignores, and `ignore` (gitignore patterns,
+    /// relative to the folder) more.
+    SearchIn {
+        /// The folder.
+        dir: std::path::PathBuf,
+        /// Patterns left out besides the project's.
+        ignore: Vec<String>,
+    },
     /// Show or hide the list of open files.
     OpenFiles,
     /// Change the project list, or act on the project's documents.
@@ -327,7 +334,7 @@ impl Request {
                 | Request::HelpBindings
                 | Request::Pick(_)
                 | Request::SearchProject
-                | Request::SearchIn(_)
+                | Request::SearchIn { .. }
                 | Request::SearchLines { .. }
                 | Request::PickProject(_)
                 | Request::SearchProjectFor(_)

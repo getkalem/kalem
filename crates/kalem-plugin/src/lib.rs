@@ -86,7 +86,9 @@ pub mod viewer {
 
 /// The `extension` world (design §11.2 to §11.4): a plugin adding
 /// commands and keys and hearing events. [`kalem`] is its Rust side in the
-/// shape of §11.4.
+/// shape of §11.4. With the feature `layer`, the `extension-layer` world
+/// instead: the same, and the `layer` interface of layers over a mode's
+/// view (API 0.2.10; [`layer`]).
 #[allow(
     missing_debug_implementations,
     unreachable_pub,
@@ -94,6 +96,7 @@ pub mod viewer {
     rust_2018_idioms
 )]
 pub mod extension {
+    #[cfg(not(feature = "layer"))]
     wit_bindgen::generate!({
         path: "wit",
         world: "extension",
@@ -101,14 +104,24 @@ pub mod extension {
         export_macro_name: "export_extension",
         default_bindings_module: "kalem_plugin::extension",
     });
+    #[cfg(feature = "layer")]
+    wit_bindgen::generate!({
+        path: "wit",
+        world: "extension-layer",
+        pub_export_macro: true,
+        export_macro_name: "export_extension",
+        default_bindings_module: "kalem_plugin::extension",
+    });
 }
 
 pub mod adapter;
+pub mod clock;
 pub mod decorations;
 pub mod documents;
 pub mod editor;
 pub mod fs;
 pub mod kalem;
+pub mod layer;
 pub mod net;
 pub mod process;
 pub mod settings;

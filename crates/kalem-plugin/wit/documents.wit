@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.9;
+package kalem:plugin@0.2.10;
 
 /// Documents a plugin writes (API 0.2.5): read-only text the editor shows
 /// as a document of its own, as the file manager's listing is (design

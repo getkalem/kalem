@@ -51,7 +51,8 @@ pub struct EditorView {
     /// Vim's block selection, a range per line, painted as selected.
     pub block: Vec<Range<usize>>,
     drawn: Option<Drawn<WidgetAt>>,
-    blocks: Option<(u64, Arc<Vec<Block>>)>,
+    /// The blocks, with what they were made for (`mode_view::view_key`).
+    blocks: Option<(kalem_core::mode_view::ViewKey, Arc<Vec<Block>>)>,
     /// Tables drawn as grids, by their start, for the text version.
     grids: GridCache,
     /// Highlighted source blocks, by their start, for the text version.
@@ -2033,7 +2034,7 @@ impl EditorView {
 
     /// The blocks of the document's current text.
     fn blocks(&mut self, doc: &DocumentState) -> Arc<Vec<Block>> {
-        let version = doc.version();
+        let version = kalem_core::mode_view::view_key(doc);
         if let Some((v, b)) = &self.blocks
             && *v == version
         {

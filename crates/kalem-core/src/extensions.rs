@@ -61,6 +61,18 @@ pub trait Extensions: Send {
 
     /// Hands how run `run` ended to the plugin that started it.
     fn process_done(&mut self, run: u64, result: Result<ProcessExit, String>);
+
+    /// The overlays plugin `plugin`'s layer `layer` gives a document of
+    /// `path` with `text` (`crate::layers`, API 0.2.10).
+    fn overlays(
+        &mut self,
+        _plugin: &str,
+        _layer: &str,
+        _path: Option<&std::path::Path>,
+        _text: &str,
+    ) -> crate::layers::Outcome {
+        crate::layers::Outcome::Failed
+    }
 }
 
 /// A document a plugin writes (`documents`, plugin API 0.2.5), as the
@@ -515,6 +527,24 @@ fn changed() {
 /// Installs the plugins (once, at start).
 pub fn install(extensions: Box<dyn Extensions>) {
     *INSTALLED.lock().unwrap_or_else(|e| e.into_inner()) = Some(extensions);
+    // The layers' overlays are asked of the plugins while the editors
+    // draw: while a call of theirs runs, the drawing asks again later
+    // rather than wait.
+    crate::layers::set_provider(std::sync::Arc::new(
+        |spec: &crate::layers::LayerSpec, path: Option<&std::path::Path>, text: &str| {
+            match INSTALLED.try_lock() {
+                Ok(mut installed) => match installed.as_mut() {
+                    Some(x) => x.overlays(&spec.plugin, &spec.id, path, text),
+                    None => crate::layers::Outcome::Failed,
+                },
+                Err(std::sync::TryLockError::Poisoned(e)) => match e.into_inner().as_mut() {
+                    Some(x) => x.overlays(&spec.plugin, &spec.id, path, text),
+                    None => crate::layers::Outcome::Failed,
+                },
+                Err(std::sync::TryLockError::WouldBlock) => crate::layers::Outcome::Busy,
+            }
+        },
+    ));
 }
 
 /// Changes each time the plugins' commands or bindings change: an editor
@@ -698,11 +728,34 @@ pub fn set_own_setting(id: &str, key: &str, value: &Value) -> Result<(), String>
 /// The folders of the projects Kalem knows, where a plugin's
 /// `fs:*:workspace` permission reaches.
 pub fn workspace() -> Vec<std::path::PathBuf> {
-    kalem_project::Projects::load(crate::projects::list_file())
-        .list
-        .into_iter()
-        .map(|p| p.root)
-        .collect()
+    let mut list: Vec<std::path::PathBuf> =
+        kalem_project::Projects::load(crate::projects::list_file())
+            .list
+            .into_iter()
+            .map(|p| p.root)
+            .collect();
+    list.extend(
+        NAMED
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+            .cloned(),
+    );
+    list
+}
+
+/// Folders the user named for this process (`kalem run`'s files),
+/// counted with the projects.
+static NAMED: Mutex<Vec<std::path::PathBuf>> = Mutex::new(Vec::new());
+
+/// Counts folder `dir` with the projects in the plugins' workspace for
+/// the rest of the process: a folder `kalem run` was given, or a given
+/// file's.
+pub fn name_folder(dir: std::path::PathBuf) {
+    let mut named = NAMED.lock().unwrap_or_else(|e| e.into_inner());
+    if !named.contains(&dir) {
+        named.push(dir);
+    }
 }
 
 /// The runs going, by number: the flag that stops each.
@@ -1097,6 +1150,12 @@ pub fn ask(request: u64, question: Question) {
     let mut s = state();
     s.asking.insert(request);
     s.questions.push((request, question));
+}
+
+/// The questions waiting, taken: for an editor without a window (`kalem
+/// run`), which answers each itself; they wait for [`answer`] still.
+pub fn take_questions() -> Vec<(u64, Question)> {
+    std::mem::take(&mut state().questions)
 }
 
 /// Closes question `request` unanswered (its plugin went).

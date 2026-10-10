@@ -9,6 +9,8 @@ mod export;
 mod fmt;
 pub(crate) mod lsp;
 pub(crate) mod plugin;
+#[cfg(feature = "plugins")]
+pub(crate) mod run;
 mod table;
 
 use std::io::Write;

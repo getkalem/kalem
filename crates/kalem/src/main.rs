@@ -21,6 +21,7 @@ const SUBCOMMANDS: &[&str] = &[
     "export",
     "import",
     "query",
+    "run",
     "table",
     "latex",
     "book",
@@ -33,8 +34,13 @@ const SUBCOMMANDS: &[&str] = &[
 
 fn main() -> ExitCode {
     let args: Vec<OsString> = std::env::args_os().collect();
-    kalem_cli::bundled_plugins();
     let first = args.get(1).and_then(|a| a.to_str());
+    // Batch mode starts the one plugin it runs itself.
+    if first == Some("run") {
+        kalem_cli::bundled_viewers();
+    } else {
+        kalem_cli::bundled_plugins();
+    }
     match first {
         Some("tui" | "-t") => tui(&args[2..]),
         Some("gui") => gui(&args[2..]),

@@ -64,12 +64,47 @@ pub fn line_view(
         v.mono = doc.meta.mode != DocumentMode::Org;
         return v;
     }
-    view_of(doc, source).line_view(doc, range, cursor, paragraph)
+    let mut v = view_of(doc, source).line_view(doc, range, cursor, paragraph);
+    // A layer's overlays, on the document as it reads (`crate::layers`).
+    if !source && let Some(o) = doc.overlays() {
+        crate::layers::apply_line(&mut v, &o, cursor);
+    }
+    v
 }
 
-/// The blocks of `doc` (folding works on them whichever view shows it).
+/// The blocks of `doc` (folding works on them whichever view shows it),
+/// cut where a layer hides or folds lines.
 pub fn blocks(doc: &DocumentState) -> Vec<Block> {
-    view_of(doc, false).blocks(doc)
+    let blocks = view_of(doc, false).blocks(doc);
+    match doc.overlays() {
+        Some(o) if !o.lines.is_empty() => {
+            // A mode that gives no blocks shows every line; one block of
+            // the whole text, to be cut.
+            let blocks = if blocks.is_empty() {
+                let len = doc.text().len();
+                vec![Block {
+                    kind: crate::view::BlockKind::Paragraph,
+                    range: 0..len,
+                    content_end: len,
+                    depth: 0,
+                    headline: None,
+                }]
+            } else {
+                blocks
+            };
+            crate::layers::apply_blocks(blocks, &o)
+        }
+        _ => blocks,
+    }
+}
+
+/// What the blocks and the views of a document depend on: its text's
+/// version and the layers' generation.
+pub type ViewKey = (u64, u64);
+
+/// The [`ViewKey`] of `doc`. The editors keep its blocks by it.
+pub fn view_key(doc: &DocumentState) -> ViewKey {
+    (doc.version(), crate::layers::generation())
 }
 
 /// The outline of `doc`: its mode's, or else its language pack's or its

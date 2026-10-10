@@ -694,13 +694,18 @@ impl Keymap {
             .first()
             .is_some_and(|c| c.key == "space" && c.mods == crate::keys::Modifiers::default());
         if leader {
-            if pressed.0.len() == 1 {
-                for (k, label) in parts.iter_mut() {
-                    if label.starts_with('+')
-                        && let Some(name) = doom_group(k)
-                    {
-                        *label = format!("+{name}");
-                    }
+            // The keys after the leader, as Doom names its groups by them.
+            let path: Vec<String> = pressed.0[1..].iter().map(ToString::to_string).collect();
+            let named = |next: &str| {
+                let mut p: Vec<&str> = path.iter().map(String::as_str).collect();
+                p.push(next);
+                doom_group(&p)
+            };
+            for (k, label) in parts.iter_mut() {
+                if label.starts_with('+')
+                    && let Some(name) = named(k)
+                {
+                    *label = format!("+{name}");
                 }
             }
             for row in crate::key_tables::doom_leader() {
@@ -719,7 +724,7 @@ impl Keymap {
                     continue;
                 }
                 let label = if keys.0.len() > pressed.0.len() + 1 {
-                    format!("+{}", doom_group(&next).unwrap_or("…"))
+                    format!("+{}", named(&next).unwrap_or("…"))
                 } else if reason.starts_with("Needs") {
                     format!("{} ({})", row.what, crate::tr!("which-key-plugin"))
                 } else {
@@ -822,7 +827,15 @@ pub fn hints_due(
 }
 
 /// Doom Emacs's name for the group of leader keys after `key`.
-fn doom_group(key: &str) -> Option<&'static str> {
+/// Doom's name for the group of keys `path` after the leader: `notes` for
+/// `n`, `roam` for `n r`.
+fn doom_group(path: &[&str]) -> Option<&'static str> {
+    let key = match path {
+        [key] => *key,
+        ["n", "r"] => return Some("roam"),
+        ["n", "r", "d"] => return Some("by date"),
+        _ => return None,
+    };
     Some(match key {
         "b" => "buffer",
         "f" => "file",
@@ -910,6 +923,18 @@ mod tests {
         assert_eq!(label("b").as_deref(), Some("+buffer"));
         // A Doom key Kalem does not bind yet, marked.
         assert_eq!(label("shift+x").as_deref(), Some("Capture (later)"));
+        // Doom's groups below the first key: org-roam's, which the graph
+        // plugin binds, and its dates.
+        let items = m.which_key(&reg, &keys("space n"), &ctx);
+        let label = |k: &str| items.iter().find(|i| i.0 == k).map(|i| i.1.clone());
+        assert_eq!(label("r").as_deref(), Some("+roam"));
+        let items = m.which_key(&reg, &keys("space n r"), &ctx);
+        let label = |k: &str| items.iter().find(|i| i.0 == k).map(|i| i.1.clone());
+        assert_eq!(label("d").as_deref(), Some("+by date"));
+        assert!(
+            label("f").is_some_and(|l| l.starts_with("Find a note (")),
+            "{items:?}"
+        );
     }
 
     #[test]

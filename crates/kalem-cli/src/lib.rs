@@ -15,6 +15,12 @@ mod commands;
 #[cfg(feature = "plugins")]
 mod extensions;
 
+/// Batch mode, `kalem run`, for the tests: [`commands::run::run`] and the
+/// loop it runs each file through.
+#[cfg(feature = "plugins")]
+#[doc(hidden)]
+pub use commands::run::{Outcome as RunOutcome, drive as run_drive, run as run_batch};
+
 /// Kalem: a fast editor for plain-text documents, shown as they read and
 /// kept byte for byte: Org, LaTeX, CSV, BibTeX and code.
 #[derive(Debug, Parser)]
@@ -349,6 +355,29 @@ enum Command {
         #[command(subcommand)]
         action: PluginAction,
     },
+    /// Run an installed plugin's command without a window, as the editors
+    /// run it (`kalem run graph graph.pages ~/notes`): against each FILE
+    /// (a folder as its listing), or once without one. The documents it
+    /// writes are printed; its notices go to standard error; a prompt
+    /// takes the text it offers, a choice nothing, a confirmation no; a
+    /// file it changed is saved.
+    #[cfg(feature = "plugins")]
+    Run {
+        /// The plugin: its ID (`org.kalem.graph`) or its commands' prefix
+        /// (`graph`).
+        plugin: String,
+        /// The command (`graph.pages`).
+        command: String,
+        /// Files or folders.
+        #[arg(value_name = "FILE")]
+        files: Vec<PathBuf>,
+        /// The command's arguments, as JSON (`{"text": "x"}`).
+        #[arg(long)]
+        args: Option<String>,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t = Format::Text)]
+        format: Format,
+    },
     /// Language servers: `kalem lsp status`, `kalem lsp check FILE`,
     /// `kalem lsp ask REQUEST FILE [LINE:COLUMN]`.
     Lsp {
@@ -487,6 +516,13 @@ pub fn bundled_plugins() {
         choose_viewers(true);
         extensions::load();
     }
+}
+
+/// The viewers chosen, as [`bundled_plugins`] chooses them, without
+/// starting the extension plugins: `kalem run` starts the one it runs.
+pub fn bundled_viewers() {
+    #[cfg(feature = "plugins")]
+    choose_viewers(true);
 }
 
 /// Chooses the viewers again ([`choose_viewers`]): after a plugin was
@@ -1089,6 +1125,22 @@ where
             PluginAction::Remove { id } => commands::plugin::remove(&id),
             PluginAction::Enable { id } => commands::plugin::enable(&id),
         },
+        #[cfg(feature = "plugins")]
+        Command::Run {
+            plugin,
+            command,
+            files,
+            args,
+            format,
+        } => commands::run::run(
+            &plugin,
+            &command,
+            &files,
+            args.as_deref(),
+            matches!(format, Format::Json),
+            &mut std::io::stdout().lock(),
+            &mut std::io::stderr().lock(),
+        ),
         Command::Lsp { action } => match action {
             LspAction::Status { file } => commands::lsp::status(file.as_deref()),
             LspAction::Check {

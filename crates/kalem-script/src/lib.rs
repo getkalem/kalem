@@ -29,8 +29,10 @@
 /// import and the `on-process` export of the `extension` world, 0.2.5
 /// the `documents` and `decorations` imports, 0.2.6 the
 /// `styled-documents` import, 0.2.7 the `flow` and `annotations`
-/// exports, 0.2.8 the `flow-2` export, 0.2.9 the `flow-3` export.
-pub const API_VERSION: &str = "0.2.9";
+/// exports, 0.2.8 the `flow-2` export, 0.2.9 the `flow-3` export, 0.2.10
+/// for extensions the `clock` and `layers` imports and the `layer`
+/// export.
+pub const API_VERSION: &str = "0.2.10";
 
 /// Whether a manifest's `api` requirement (`^0.2`, `0.2`, `^0.2.1`)
 /// names this host's API: the same `0.MINOR` before 1.0 (the same major
@@ -74,6 +76,42 @@ pub use wasmtime::component::Linker;
 
 pub mod extension;
 pub mod viewer;
+
+/// The `clock` interface's answers, the same for viewers and, since API
+/// 0.2.9, extensions: the time, the user's time zone, random bits.
+pub(crate) mod time {
+    /// Milliseconds since January 1, 1970, UTC.
+    pub(crate) fn now() -> i64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis() as i64)
+    }
+
+    /// The user's time zone, or `UTC`.
+    pub(crate) fn timezone() -> String {
+        jiff::tz::TimeZone::system()
+            .iana_name()
+            .unwrap_or("UTC")
+            .to_string()
+    }
+
+    /// The system's secure random source: a workbook's `RAND()`, an
+    /// encrypted workbook's salts and key, a block's new ID.
+    pub(crate) fn random() -> u64 {
+        use std::hash::{BuildHasher, Hasher};
+        use std::sync::atomic::{AtomicU64, Ordering};
+        if let Ok(n) = getrandom::u64() {
+            return n;
+        }
+        // Without one, keys random for each process, a counter and the
+        // time hashed.
+        static N: AtomicU64 = AtomicU64::new(0);
+        let mut h = std::collections::hash_map::RandomState::new().build_hasher();
+        h.write_u64(N.fetch_add(1, Ordering::Relaxed));
+        h.write_i64(now());
+        h.finish()
+    }
+}
 
 /// How often the time budget's clock ticks while a call runs.
 pub const TICK: Duration = Duration::from_millis(10);
@@ -764,8 +802,9 @@ mod tests {
         assert!(super::api_compatible(None));
         assert!(!super::api_compatible(Some("^0.1")));
         assert!(!super::api_compatible(Some("^1.0")));
+        assert!(super::api_compatible(Some("^0.2.10")));
         // Built against a later 0.2.x: it may import what this host lacks.
-        assert!(!super::api_compatible(Some("^0.2.10")));
+        assert!(!super::api_compatible(Some("^0.2.99")));
     }
 
     /// An empty folder of the test's own.

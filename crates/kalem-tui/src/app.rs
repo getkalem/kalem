@@ -1986,15 +1986,16 @@ impl App {
                     p.input_changed();
                 }
             }
-            Request::SearchIn(dir) => {
+            Request::SearchIn { dir, ignore } => {
                 // The project's search when the folder is one, else the
-                // folder's.
-                let project = self
+                // folder's; what the request leaves out besides.
+                let mut project = self
                     .projects
                     .list
                     .get(&dir)
                     .cloned()
                     .unwrap_or_else(|| kalem_core::projects::Project::new(dir));
+                project.ignore.extend(ignore);
                 self.completion = None;
                 self.palette = Some(Palette::searching(ProjectSearch::new(&project, "")));
                 self.dirty = true;

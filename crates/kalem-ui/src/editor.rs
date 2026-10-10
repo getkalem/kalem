@@ -317,7 +317,8 @@ pub struct Editor {
     pub folds: Folds,
     /// Where Shift+Tab's global cycle is: overview, contents or everything.
     global_fold: view::Visibility,
-    blocks: Option<(u64, Arc<Vec<Block>>)>,
+    /// The blocks, with what they were made for (`mode_view::view_key`).
+    blocks: Option<(kalem_core::mode_view::ViewKey, Arc<Vec<Block>>)>,
     /// Blocks shown as their first line away from the cursor.
     pub folded_blocks: HashSet<usize>,
     /// Colors and fonts.
@@ -763,7 +764,7 @@ impl Editor {
 
     /// The blocks of the current text (none while a full parse runs).
     pub fn blocks(&mut self) -> Arc<Vec<Block>> {
-        let version = self.doc.version();
+        let version = kalem_core::mode_view::view_key(&self.doc);
         if let Some((v, b)) = &self.blocks
             && *v == version
         {
@@ -1731,7 +1732,7 @@ impl Editor {
                 kalem_core::projects::After::Open,
             )),
             Request::SearchProject => cx.emit(DocEvent::Search(None)),
-            Request::SearchIn(dir) => self.open_search_in(&dir, cx),
+            Request::SearchIn { dir, ignore } => self.open_search_in(&dir, &ignore, cx),
             Request::OpenFiles => cx.emit(DocEvent::ToggleFiles),
             Request::Project(r) => self.project_request(r, cx),
             Request::Documents(r) => cx.emit(DocEvent::Documents(r)),

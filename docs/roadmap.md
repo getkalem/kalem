@@ -289,8 +289,18 @@ Writers (Org and Markdown)
 - R5.3 Withdrawn (owner, 2026-10-04) with Kalem's own format.
 - [ ] R5.4 Presentations: Beamer and reveal.js export (T3.6.2, T3.6.3),
   a template picker (T3.6.4). M
-- [ ] R5.5 Obsidian vaults as themselves (T2.7c.12): wiki links across
-  the vault, backlinks, the vault's folder as a project. M
+- [ ] R5.5 Logseq graphs and Obsidian vaults as themselves, in the
+  `graph` plugin of getkalem/plugins (`plugins/graph/graph_todo.md`),
+  not in the core (owner, 2026-10-10): pages, journals, backlinks,
+  block references, tags, tasks and simple queries indexed, the notes
+  edited as an outliner, `logseq/` and `.obsidian/` never written; a
+  Logseq database graph's Markdown Mirror read only. The core's part:
+  layers over a mode's view and the clock for extension plugins
+  (plugin API 0.2.10), Search in Folder's `ignore`, `file.reveal`'s
+  `path` and `kalem run` (T3.1.16), on the branch `graph-mode`; wiki
+  links stay the core's (T2.7c.9), the Obsidian half of T2.7c.12 is
+  the plugin's layer. The plugin's 0.1.0 runs on Kalem 0.6.8 without
+  the layer; its 0.2.0 needs the release with API 0.2.10. M
 - [ ] R5.6 Babel (T3.4.1–T3.4.9): header arguments, executors for shell,
   Python, R and gnuplot behind the plugin host's trust model, results
   blocks, tangling. L (after the plugin permissions, R5.11)

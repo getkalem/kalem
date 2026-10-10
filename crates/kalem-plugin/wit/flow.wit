@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.9;
+package kalem:plugin@0.2.10;
 
 /// Documents of flowing text (API 0.2.7, design §11.13, D54): word
 /// processing documents (Word's, OpenDocument's, RTF), e-books, web pages
