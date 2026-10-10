@@ -5,7 +5,7 @@ It is declarative (D57): a manifest, Sublime syntax files and
 settings, and no code. Kalem's core reads the manifest, adds the
 syntaxes to its highlighter and runs the servers through its one
 language server client, so a language plugin needs no WebAssembly
-runtime and works today. The first is [[file:elixir.org][Elixir]].
+runtime and works today. The first is [[file:elixir.org][Elixir]]; [[file:rust.org][Rust]] followed.
 
 | Part                  | Where                           | State                                                       |
 |-----------------------+---------------------------------+-------------------------------------------------------------|
@@ -179,7 +179,15 @@ Beside the fields every plugin has (=id=, =name=, =version=,
   progress in the status bar. =settings= answer the
   server's =workspace/configuration= requests and are sent once after
   it starts. =install= is what the status bar says when no candidate is
-  found: Kalem never installs a server by itself.
+  found, or when the one found does not start: Kalem never installs a
+  server by itself. =version= are the arguments that make the program
+  print its version and end (=["--version"]= for rust-analyzer);
+  =kalem lsp status= runs them, in the root and with the server's
+  environment, and prints the version or why the program does not run.
+  A program found is not always one that runs: rustup puts a
+  =rust-analyzer= on the =PATH= whether or not the component is
+  installed. Leave =version= out when the program would not end (a
+  script that starts the server whatever it is asked).
 - =commands.format= formats a document when no server formats it: the
   text on its standard input, the formatted text on its output, run in
   the background, ={file}= filled in. It is optional: a plugin states a
@@ -187,6 +195,37 @@ Beside the fields every plugin has (=id=, =name=, =version=,
   the =formatters= setting for the type comes before the plugin's; when
   a plugin has none, the language's usual program runs when it is
   installed (the chapter [[file:../part-1/plain-text-and-code.org][Plain text and code]]).
+- =requests= give a server's own requests to Kalem's commands, which
+  know the shapes of questions and answers, not the methods, so one
+  command serves every server that has such a request:
+
+  #+begin_src json
+  "requests": {
+    "code.expandMacro": { "method": "rust-analyzer/expandMacro", "shape": "text",
+                          "answer": ["/expansion"], "title": "/name", "language": "rust" },
+    "code.openDocs": { "method": "experimental/externalDocs", "shape": "url" },
+    "code.moveItemUp": { "method": "experimental/moveItem", "params": "range",
+                         "extra": { "direction": "Up" }, "shape": "edits" }
+  }
+  #+end_src
+
+  =params= is what is asked about: =position= (the document and the
+  cursor, the default), =document=, =range= (the selection), =ranges=
+  (the selection in a list) or =none=, with =extra= fields added.
+  =shape= is what the answer is: =text= (shown as documentation is,
+  under its =title=, highlighted as =language=), =url= (an =http= or
+  =https= page, opened in the browser), =location= (gone to), =edits=
+  (applied to the document as one undoable change) or =none=.
+  =answer= is where the text or address is in the answer (JSON
+  pointers tried in order, the whole answer by default); =server=
+  names the one of the plugin's servers that has the request. The
+  commands: Expand Macro (=code.expandMacro=), Open Documentation in
+  the Browser (=code.openDocs=), Go to Parent Module
+  (=code.parentModule=), Go to Project File (=code.openManifest=),
+  Reload Project (=code.reloadProject=), Join Lines (Language Server)
+  (=code.joinLines=), Move Item Up and Down (=code.moveItemUp=,
+  =code.moveItemDown=), each in the palette where the document's
+  server has it.
 
 * Settings
 
@@ -211,14 +250,28 @@ env = { ELS_INSTALL_PREFIX = "/opt/elixir-ls" }
 * What the editor does with a server
 
 A server starts when the first file it serves opens and stops when the
-last one closes. Kalem keeps it in step: the whole text when a file
+last one closes. A file a server named in an answer outside its root (a
+definition in Rust's standard library, a dependency's source, a
+system header) is served by that server when it opens, since it knows
+the file as part of its project; a root of the file's own would start
+another server there (a crate from crates.io has its own =Cargo.lock=,
+and rust-analyzer started in the standard library's folder cannot load
+it). A server already running in the file's own root serves it
+instead. Kalem keeps it in step: the whole text when a file
 opens, then each change as the range it replaced (as UTF-16 or UTF-8
 positions, whichever the server takes; Kalem's own offsets are bytes),
 and the save. Nothing waits for a server on the editor's thread: an
 answer arrives while you type, and a server that never answers costs
 nothing but its silence. A server that exits is started again after
 half a second, then one, two, four seconds; after five failures it
-stays stopped, and the status bar says so.
+stays stopped, and the status bar says so. A server whose process ends
+before it answers =initialize= is not started again, since it would end
+the same way (a toolchain's proxy for a component not installed, a
+version manager's shim with no version chosen, =initialize= refused, no
+answer in two minutes): the status bar says at once why, in the
+server's words (the last lines it wrote on its standard error) and
+with the plugin's =install= text. Restart Server
+(=code.restartServer=) tries again once it is mended.
 
 | Feature                          | Vim profile        | Word-like profile | Command                                 |
 |----------------------------------+--------------------+-------------------+-----------------------------------------|
@@ -246,7 +299,22 @@ list to choose from; one definition is a jump. The status bar shows
 the problem on the cursor's line, else the server's work in progress
 (ElixirLS compiling), else the counts of errors and warnings.
 Formatting is applied as one undoable change, and only when the
-document has not changed since it was asked.
+document has not changed since it was asked. A server that answers
+with no edits is said to have changed nothing, not to have found the
+file formatted: rust-analyzer answers so when the file is formatted,
+and also when rustfmt fails (not installed for the project's
+toolchain, or a syntax error), which its log tells
+(=kalem lsp check --log=).
+
+A server's problems come two ways, and Kalem takes both: those it sends
+on its own, and those it gives when asked (the protocol's pull model).
+rust-analyzer does both: cargo's errors and clippy's come as the check
+on save ends, its own (type mismatches, names, unresolved imports, a
+file no module includes) when Kalem asks, after the file opens, after
+each change once the server has answered the last question, and when
+the server says they changed. A server busy loading the project may
+cancel a question ("content modified"); Kalem asks again after half a
+second, one and two, and says it is still busy only after that.
 
 Problems are underlined in the text, errors and warnings as probably
 wrong and the rest as style; the line's number is colored in the
@@ -264,17 +332,21 @@ fetched) are told to the server, which compiles again.
 * On the command line
 
 #+begin_src sh
-kalem lsp status lib/hello.ex          # the plugins, and what serves the file
+kalem lsp status lib/hello.ex          # the plugins, what serves the file, its version
 kalem lsp check lib/*.ex               # the servers' diagnostics; exits 1 on errors
 kalem lsp check --format json lib/hello.ex
 kalem lsp check --log lib/hello.ex     # and the server's log on standard error
 kalem lsp ask hover lib/hello.ex 6:40  # documentation at line 6, column 40
 kalem lsp ask definition lib/hello.ex 6:40
 kalem lsp ask format lib/hello.ex      # the formatted text
+kalem lsp ask code.expandMacro src/main.rs 12:16   # a server's own request, by its command
 #+end_src
 
+=status= starts no server; it runs a server's =version= when the
+plugin gives one, and exits 1 when the program found does not run.
 =check= and =ask= start the server, wait until it is ready and quiet
-(=--wait= seconds at most), ask, and stop it.
+(=--wait= seconds at most), ask, and stop it; a server that does not
+start is said at once.
 
 * Not implemented yet
 

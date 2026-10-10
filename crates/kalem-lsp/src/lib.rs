@@ -24,7 +24,9 @@ pub mod position;
 pub mod rpc;
 pub mod uri;
 
-pub use client::{Client, Edit, Event, Pending, RpcError, ServerConfig, Wake};
+pub use client::{
+    CONTENT_MODIFIED, Client, Edit, Event, Pending, RpcError, SERVER_CANCELLED, ServerConfig, Wake,
+};
 pub use position::{Encoding, Position};
 
 use std::path::{Path, PathBuf};

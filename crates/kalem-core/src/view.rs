@@ -107,6 +107,14 @@ pub enum Widget {
         /// The heading's start.
         start: usize,
     },
+    /// A picture of a document its plugin lays out (a Word document's),
+    /// which the plugin draws ([`crate::flow::FlowState::picture`]).
+    Picture {
+        /// Its name for the plugin.
+        id: String,
+        /// Its width and height, in hundredths of a point.
+        size: (u32, u32),
+    },
 }
 
 /// The width of an image, from `#+ATTR_ORG: :width` (`300`, `300px`,

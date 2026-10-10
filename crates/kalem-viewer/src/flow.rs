@@ -33,6 +33,30 @@ pub struct FlowLayout {
     pub editable: bool,
 }
 
+/// What changed in a unit's flow between two of its versions (API 0.2.9,
+/// the `flow-3` interface): the items from `from` on, `removed` of them
+/// then, are `added` items now; the items after them are as they were,
+/// but each of their paragraphs' index moved by `shift`. A host keeping
+/// the items fetches the ones changed, not the whole flow again.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct FlowChange {
+    /// The first item changed.
+    pub from: u32,
+    /// How many items it replaced.
+    pub removed: u32,
+    /// How many items are there now.
+    pub added: u32,
+    /// How far the paragraphs' indexes after them moved.
+    pub shift: i32,
+}
+
+impl FlowChange {
+    /// Nothing changed.
+    pub fn is_none(&self) -> bool {
+        self.removed == 0 && self.added == 0 && self.shift == 0
+    }
+}
+
 /// What a paragraph is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FlowRole {

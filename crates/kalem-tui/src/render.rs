@@ -556,6 +556,10 @@ pub fn glyphs(
                 (kalem_core::view::image_label(&run.text, path), false)
             }
             Some(Widget::TocRow { .. }) => (run.text.clone(), false),
+            Some(Widget::Picture { .. }) => {
+                style = style.add_modifier(Modifier::DIM);
+                (run.text.clone(), false)
+            }
             None if run.text == "•" && caps.ascii => ("-".to_string(), false),
             None if (run.style.superscript || run.style.subscript) && !run.verbatim => {
                 (run.text.clone(), false)

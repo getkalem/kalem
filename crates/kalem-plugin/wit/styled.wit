@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.8;
+package kalem:plugin@0.2.9;
 
 /// Documents a plugin writes, their text styled (API 0.2.6): what
 /// `documents` shows, with colors and emphasis on stretches of the text,

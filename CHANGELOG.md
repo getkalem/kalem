@@ -16,9 +16,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The Book's chapter "Workbooks" (Part III): the standard and the oracle, what the workbook plugin reads, shows, edits, computes and writes, its macros, exports, known differences and limits, measured.
 - A workbook's comment edited: Comments offers Edit Comment and Edit Reply for the thread at the cursor, the text it has offered, when the workbook's plugin gives its comments through the plugin API's annotations (the xlsx plugin's next release).
 - The status bar sums a workbook's selection as Excel's can: after its Average, Count and Sum, the Min and Max, and the Numerical Count when some of the values are not numbers (last, so that a narrow terminal cuts them first).
+- Pictures of documents of flowing text (a Word document) are drawn, in both editors, as large beside the text as in the document and no wider than the text, through the plugin's `render-picture`. In the terminal a picture alone on its line is drawn when the terminal draws pictures and the cursor is elsewhere; otherwise its alternative text shows, as before.
+- The plugin API is 0.2.9: `flow-3`, exported with `flow`, says what changed in a unit's flow since a version (`changes`: a run of items replaced, the paragraphs after it numbered on), so that after an edit Kalem fetches the items that changed rather than the whole flow. A plugin without it has its flow read whole, as before. `flow-2.wit` of 0.2.8 is frozen.
 
 ### Fixed
 - A workbook's Edit menu offered the text's Find, Find and Replace, Select All and Toggle Comment, which did nothing in its cells: it now offers the grid's Find, Replace and Select All (Ctrl+F, Ctrl+H and Ctrl+A ran them already). The commands on a text (the line commands, Go to Matching Bracket, Trim Trailing Whitespace, Go to Line, Source View, Reopen and Save with Encoding) are no longer offered for a workbook, a PDF or a picture, in the menus or by their keys.
+- Typing in a long document of flowing text (a Word document) was slow: each keystroke read every paragraph again from the plugin and measured every line again, two thirds of a second in a document of 20,000 paragraphs. Kalem now fetches the paragraphs the plugin says changed and lays out their lines again, nothing else: with the Word plugin's next release a keystroke there takes 1.4 ms.
+
+## [0.6.7] - 2026-10-10
+
+### Added
+- Language plugins: a server's `version` in the manifest (`["--version"]` for rust-analyzer). `kalem lsp status` runs it in the project's root and prints the server's version, or why the program found does not run (rustup's `rust-analyzer` when the component is not installed is on the PATH all the same), with the plugin's install text.
+- Language plugins: a server's own requests through commands any server with such a request serves, given in the manifest's `requests`: Expand Macro, Open Documentation in the Browser, Go to Parent Module, Go to Project File, Reload Project, Join Lines (Language Server), Move Item Up and Down. The Rust plugin gives rust-analyzer's to them. `kalem lsp ask code.expandMacro FILE LINE:COL` asks one from the command line.
+
+### Fixed
+- Language servers: a server whose process ends before it answers `initialize` (rustup's proxy for a component not installed, a version manager's shim with no version chosen) was started again five times over half a minute, and Kalem then gave up saying only its exit code (`Some(1)`). It is not started again: the status bar, the `SPC c` keys and `kalem lsp check` say at once why, in the server's words (the last lines it wrote on its standard error), with the plugin's install text; Restart Server tries again. The give-up notice named a `kalem lsp log` command that does not exist; it names `kalem lsp check --log`.
+- Language servers: a file a server named outside its project, opened from a definition or a reference (Rust's standard library, a dependency's source), started another server in the file's own folder. For Rust that was a rust-analyzer in the standard library's folder, which cannot load it, so nothing answered there. The server that named the file now serves it, unless one already runs in the file's own folder.
+- Language servers: the diagnostics a server gives only when asked (the protocol's pull model) never reached Kalem. rust-analyzer gives its own diagnostics that way (type mismatches, naming, unresolved imports, a file no module includes), so Kalem showed only cargo's. Kalem now asks for them after a file opens and after its changes, and when the server says they changed, and shows them with the others.
+- Language servers: a question asked while a server was loading the project (rust-analyzer, at its start) could come back as the error "content modified". It is asked again a few times, and only then said, as "still busy".
+- Format Document said "Already formatted" when a server answered with no edits, also when it had not formatted at all: rust-analyzer answers so when rustfmt is not installed for the project's toolchain or the file has a syntax error. Such an answer is now said as the server having changed nothing.
 
 ## [0.6.6] - 2026-10-10
 

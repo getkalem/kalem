@@ -88,3 +88,60 @@ fn a_flowing_document_is_shown_and_edited() {
     let saved = std::fs::read_to_string(&file).unwrap();
     assert!(saved.contains("Very Plain and bold text^"), "{saved}");
 }
+
+/// A picture alone on its line, as the plugin draws it: its text without
+/// a graphics protocol, the image over its rows with one, its text again
+/// with the cursor on it.
+#[test]
+fn a_picture_is_drawn_by_its_plugin() {
+    kalem_core::viewer::register(Arc::new(flowdoc::Flows));
+    let dir = std::env::temp_dir().join(format!("kalem-tui-flow-pic-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("a.flow");
+    std::fs::write(&file, b"Above\n@\nBelow\nThe note.\n\0\n").unwrap();
+    std::fs::write(dir.join("notes.org"), "* Notes\n").unwrap();
+    let mut app = App::with_keymap(
+        Some(&dir.join("notes.org")),
+        Config::default(),
+        Caps::full(),
+        &[],
+        Vec::new(),
+    )
+    .unwrap();
+    app.open_path(&file, None);
+    app.doc.move_cursor(0, false);
+    let mut term = Terminal::new(TestBackend::new(60, 16)).unwrap();
+    let mut draw = |app: &mut App| {
+        term.draw(|f| app.draw(f)).unwrap();
+        term.backend().buffer().clone()
+    };
+    let row = |buf: &ratatui::buffer::Buffer, y: u16| -> String {
+        (0..buf.area.width)
+            .map(|x| buf[(x, y)].symbol().to_string())
+            .collect()
+    };
+    let buf = draw(&mut app);
+    assert!(
+        row(&buf, 1).contains("[Picture: A red bar]"),
+        "{}",
+        row(&buf, 1)
+    );
+    let mut picker = ratatui_image::picker::Picker::halfblocks();
+    picker.set_protocol_type(ratatui_image::picker::ProtocolType::Kitty);
+    app.editor.images.borrow_mut().picker = Some(picker);
+    // The picture over two rows, kitty's escape in the first.
+    let buf = draw(&mut app);
+    assert!(row(&buf, 1).contains("\x1b_G"), "{:?}", row(&buf, 1));
+    assert!(!row(&buf, 1).contains("[Picture"));
+    assert!(row(&buf, 3).contains("Below"), "{}", row(&buf, 3));
+    // The cursor on the picture's line: its text.
+    let at = app.doc.text().as_str().find('\u{FFFC}').unwrap();
+    app.doc.move_cursor(at, false);
+    let buf = draw(&mut app);
+    assert!(
+        row(&buf, 1).contains("[Picture: A red bar]"),
+        "{}",
+        row(&buf, 1)
+    );
+}

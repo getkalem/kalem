@@ -14,7 +14,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
@@ -156,6 +156,32 @@ pub type Wake = Arc<dyn Fn() + Send + Sync>;
 /// (when the server says), and the list.
 type Published = (Option<i64>, Vec<Value>);
 
+/// A document's diagnostics as the server gave them when asked
+/// (`textDocument/diagnostic`, the protocol's pull model, which
+/// rust-analyzer uses for its own while it pushes cargo's), and the asking.
+#[derive(Debug, Default)]
+struct Pulled {
+    /// The document's version they were asked for.
+    version: Option<i64>,
+    items: Vec<Value>,
+    /// The server's name for the report, sent back so that it may answer
+    /// "unchanged".
+    result_id: Option<String>,
+    /// The request under way, and the version it asks about.
+    asking: Option<(Pending, Option<i64>)>,
+    /// Asked again once the request under way is answered: the document
+    /// changed meanwhile, or the server said its diagnostics changed.
+    again: bool,
+    /// Not asked again before this (a request the server cancelled).
+    not_before: Option<Instant>,
+}
+
+/// The server cancelled the request (LSP 3.17): ask again.
+pub const SERVER_CANCELLED: i64 = -32802;
+/// The server's state changed under the request (a project loaded, a
+/// document changed): ask again, and do not show it (LSP 3.17).
+pub const CONTENT_MODIFIED: i64 = -32801;
+
 /// One edit of a document: bytes replaced by a text.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Edit {
@@ -168,6 +194,8 @@ pub struct Edit {
 #[derive(Default)]
 struct State {
     ready: bool,
+    /// Why `initialize` failed, when the server refused it.
+    refused: Option<String>,
     /// Messages written before the server answered `initialize`.
     queued: Vec<Value>,
     capabilities: Value,
@@ -191,6 +219,8 @@ struct Inner {
     /// Diagnostics by document: the document's version they were made
     /// for (when the server says), and the list.
     diagnostics: Mutex<HashMap<String, Published>>,
+    /// Diagnostics given when asked, by document as the editor names it.
+    pulled: Mutex<HashMap<String, Pulled>>,
     /// Counts the diagnostics published, so readers know when theirs are
     /// out of date.
     published: AtomicU64,
@@ -199,6 +229,8 @@ struct Inner {
     progress: Mutex<Vec<(String, String, String)>>,
     events: Mutex<VecDeque<Event>>,
     log: Mutex<VecDeque<String>>,
+    /// Ends when its standard error has been read to its end.
+    stderr_read: Mutex<Option<mpsc::Receiver<()>>>,
     wake: Wake,
     shutting_down: AtomicBool,
 }
@@ -460,6 +492,106 @@ impl Inner {
     fn notify(&self, method: &str, params: Value) {
         self.send(message(method, params), false);
     }
+
+    /// The server gives diagnostics when asked (`diagnosticProvider`).
+    fn gives_when_asked(&self) -> bool {
+        let st = self.state.read().expect("state");
+        st.ready
+            && !matches!(
+                st.capabilities.get("diagnosticProvider"),
+                None | Some(Value::Null) | Some(Value::Bool(false))
+            )
+    }
+
+    /// Asks for the diagnostics of `uri`, an open document, or asks again
+    /// once the request under way is answered: one at a time per
+    /// document, so typing costs one request and one more at most.
+    fn pull(self: &Arc<Self>, uri: &str) {
+        if !self.gives_when_asked() {
+            return;
+        }
+        let Some(version) = self.versions.lock().expect("versions").get(uri).copied() else {
+            return;
+        };
+        let mut all = self.pulled.lock().expect("pulled");
+        let p = all.entry(uri.to_string()).or_default();
+        if p.asking.is_some() {
+            p.again = true;
+            return;
+        }
+        let mut params = json!({ "textDocument": { "uri": uri } });
+        if let Some(id) = &p.result_id {
+            params["previousResultId"] = json!(id);
+        }
+        p.asking = Some((
+            self.request("textDocument/diagnostic", params, false),
+            Some(version),
+        ));
+        p.again = false;
+        p.not_before = None;
+    }
+
+    /// Asks for the diagnostics of every open document.
+    fn pull_all(self: &Arc<Self>) {
+        let uris: Vec<String> = self
+            .versions
+            .lock()
+            .expect("versions")
+            .keys()
+            .cloned()
+            .collect();
+        for uri in uris {
+            self.pull(&uri);
+        }
+    }
+
+    /// The answers come: their reports kept ("unchanged" keeps the one
+    /// before), and documents asked about again where they must be.
+    fn poll_pulls(self: &Arc<Self>) {
+        let now = Instant::now();
+        let mut changed = Vec::new();
+        let mut again = Vec::new();
+        {
+            let mut all = self.pulled.lock().expect("pulled");
+            for (uri, p) in all.iter_mut() {
+                if let Some((pending, version)) = &p.asking {
+                    let Some(answer) = pending.poll() else {
+                        continue;
+                    };
+                    let version = *version;
+                    p.asking = None;
+                    match answer {
+                        Ok(r) => {
+                            if r["kind"] != "unchanged" {
+                                p.items = r["items"].as_array().cloned().unwrap_or_default();
+                            }
+                            p.result_id = r["resultId"].as_str().map(str::to_string);
+                            p.version = version;
+                            changed.push(uri.clone());
+                        }
+                        Err(e) if e.code == SERVER_CANCELLED || e.code == CONTENT_MODIFIED => {
+                            p.again = true;
+                            p.not_before = Some(now + Duration::from_millis(300));
+                        }
+                        Err(e) => self.log(format!("[client] diagnostics of {uri}: {e}")),
+                    }
+                }
+                if p.asking.is_none() && p.again && p.not_before.is_none_or(|t| t <= now) {
+                    again.push(uri.clone());
+                }
+            }
+        }
+        if !changed.is_empty() {
+            self.end_log_work();
+            self.published.fetch_add(1, Ordering::Relaxed);
+            for uri in changed {
+                self.event(Event::Diagnostics { uri });
+            }
+        }
+        for uri in again {
+            self.pull(&uri);
+        }
+    }
 }
 
 /// A request or notification: without `params` when there are none
@@ -538,10 +670,12 @@ fn client_capabilities() -> Value {
             "didChangeWatchedFiles": { "dynamicRegistration": false },
             "applyEdit": true,
             "workspaceEdit": { "documentChanges": true },
+            "diagnostics": { "refreshSupport": true },
         },
         "window": { "workDoneProgress": true, "showMessage": {} },
         "textDocument": {
             "synchronization": { "didSave": true, "willSave": false, "willSaveWaitUntil": false },
+            "diagnostic": { "dynamicRegistration": false, "relatedDocumentSupport": false },
             "publishDiagnostics": { "relatedInformation": false, "versionSupport": true },
             "hover": { "contentFormat": ["markdown", "plaintext"] },
             "completion": {
@@ -604,6 +738,7 @@ impl Client {
         let stdout = child.stdout.take().expect("piped stdout");
         let stderr = child.stderr.take().expect("piped stderr");
         let (writer, outbox) = mpsc::channel::<Value>();
+        let (stderr_done, stderr_read) = mpsc::channel::<()>();
         let inner = Arc::new(Inner {
             settings: RwLock::new(config.settings.clone()),
             config,
@@ -614,10 +749,12 @@ impl Client {
             state: RwLock::new(State::default()),
             versions: Mutex::new(HashMap::new()),
             diagnostics: Mutex::new(HashMap::new()),
+            pulled: Mutex::new(HashMap::new()),
             published: AtomicU64::new(0),
             progress: Mutex::new(Vec::new()),
             events: Mutex::new(VecDeque::new()),
             log: Mutex::new(VecDeque::new()),
+            stderr_read: Mutex::new(Some(stderr_read)),
             wake,
             shutting_down: AtomicBool::new(false),
         });
@@ -645,6 +782,9 @@ impl Client {
             std::thread::Builder::new()
                 .name(format!("lsp-err:{name}"))
                 .spawn(move || {
+                    // Dropped at the end: the exit waits for the reason a
+                    // server wrote before it ended.
+                    let _done = stderr_done;
                     // Read to its end whatever it holds: a line that is
                     // not UTF-8 (a compiler's message in another locale)
                     // must not close the pipe the server still writes to.
@@ -737,6 +877,49 @@ impl Client {
         self.inner.state.read().expect("state").exited
     }
 
+    /// It answered `initialize`, whether or not it has exited since. A
+    /// server whose process ended before is one that did not start.
+    pub fn started(&self) -> bool {
+        self.inner.state.read().expect("state").ready
+    }
+
+    /// Why it did not start, in its own words: the error it answered
+    /// `initialize` with, else the last lines it wrote on its standard
+    /// error (read to its end by the time its exit is an event: a proxy's
+    /// message is all it writes, a crash's reason comes after its log).
+    pub fn why_not_started(&self) -> Option<String> {
+        if let Some(r) = &self.inner.state.read().expect("state").refused {
+            return Some(r.clone());
+        }
+        let mut lines: Vec<String> = self
+            .standard_error()
+            .into_iter()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty())
+            .collect();
+        lines.drain(..lines.len().saturating_sub(3));
+        if lines.is_empty() {
+            return None;
+        }
+        let mut why = lines.join(" ");
+        if why.chars().count() > 300 {
+            why = why.chars().take(299).collect::<String>() + "…";
+        }
+        Some(why)
+    }
+
+    /// The lines it wrote on its standard error, as far as the log keeps
+    /// them.
+    pub fn standard_error(&self) -> Vec<String> {
+        self.inner
+            .log
+            .lock()
+            .expect("log")
+            .iter()
+            .filter_map(|l| l.strip_prefix("[stderr] ").map(str::to_string))
+            .collect()
+    }
+
     /// The server's capabilities (null before it is ready).
     pub fn capabilities(&self) -> Value {
         self.inner.state.read().expect("state").capabilities.clone()
@@ -792,28 +975,48 @@ impl Client {
             .collect()
     }
 
-    /// The diagnostics last published for `uri`.
+    /// The diagnostics of `uri`: those last published, and those the
+    /// server last gave when asked (a server may do both, as
+    /// rust-analyzer does: cargo's pushed, its own given when asked).
     pub fn diagnostics(&self, uri: &str) -> Vec<Value> {
-        self.inner
+        let mut list = self
+            .inner
             .diagnostics
             .lock()
             .expect("diagnostics")
             .get(&crate::uri::normalize(uri))
             .map(|(_, l)| l.clone())
-            .unwrap_or_default()
+            .unwrap_or_default();
+        if let Some(p) = self.inner.pulled.lock().expect("pulled").get(uri) {
+            list.extend(p.items.iter().cloned());
+        }
+        list
     }
 
     /// Every document's published diagnostics, by URI (the project's files
     /// the server checks, open or not).
     pub fn all_published(&self) -> Vec<(String, Vec<Value>)> {
-        self.inner
+        let mut all: Vec<(String, Vec<Value>)> = self
+            .inner
             .diagnostics
             .lock()
             .expect("diagnostics")
             .iter()
             .filter(|(_, (_, l))| !l.is_empty())
             .map(|(k, (_, l))| (k.clone(), l.clone()))
-            .collect()
+            .collect();
+        // And those given when asked, of the open documents.
+        for (uri, p) in self.inner.pulled.lock().expect("pulled").iter() {
+            if p.items.is_empty() {
+                continue;
+            }
+            let key = crate::uri::normalize(uri);
+            match all.iter_mut().find(|(k, _)| *k == key) {
+                Some((_, l)) => l.extend(p.items.iter().cloned()),
+                None => all.push((key, p.items.clone())),
+            }
+        }
+        all
     }
 
     /// How many times diagnostics were published: a reader's copy is up
@@ -826,13 +1029,26 @@ impl Client {
     /// the one sent since: their places may have moved. Servers that do not
     /// say the version are taken at their word.
     pub fn diagnostics_stale(&self, uri: &str) -> bool {
-        let made_for = self
+        let pushed_for = self
             .inner
             .diagnostics
             .lock()
             .expect("diagnostics")
             .get(&crate::uri::normalize(uri))
             .and_then(|(v, _)| *v);
+        let pulled_for = self
+            .inner
+            .pulled
+            .lock()
+            .expect("pulled")
+            .get(uri)
+            .filter(|p| !p.items.is_empty())
+            .and_then(|p| p.version);
+        // The older of the two: either list's places may have moved.
+        let made_for = match (pushed_for, pulled_for) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (a, b) => a.or(b),
+        };
         let now = self
             .inner
             .versions
@@ -877,6 +1093,7 @@ impl Client {
                 "textDocument": { "uri": uri, "languageId": language_id, "version": 1, "text": text }
             }),
         );
+        self.inner.pull(uri);
     }
 
     /// A document changed from `before` by `edits` (in order) to `after`.
@@ -923,6 +1140,7 @@ impl Client {
                 "contentChanges": changes,
             }),
         );
+        self.inner.pull(uri);
     }
 
     /// A document was saved.
@@ -960,6 +1178,7 @@ impl Client {
             .lock()
             .expect("diagnostics")
             .remove(&crate::uri::normalize(uri));
+        self.inner.pulled.lock().expect("pulled").remove(uri);
         self.inner.published.fetch_add(1, Ordering::Relaxed);
     }
 
@@ -1020,24 +1239,31 @@ fn reader(inner: Arc<Inner>, stdout: std::process::ChildStdout, init: Pending) {
             (None, Some(_)) => inner.on_response(&msg),
             (None, None) => {}
         }
+        // The server's diagnostics changed: asked for again.
+        if method == Some("workspace/diagnostic/refresh") {
+            inner.pull_all();
+        }
         if let Some(p) = &init
             && let Some(answer) = p.poll()
         {
             init = None;
             match answer {
-                Ok(v) => initialized(&inner, &v),
+                Ok(v) => {
+                    initialized(&inner, &v);
+                    // The documents opened before it was ready.
+                    inner.pull_all();
+                }
                 Err(e) => {
                     inner.log(format!("[client] initialize failed: {e}"));
-                    inner.event(Event::Message {
-                        level: 1,
-                        text: format!("{} did not start: {}", inner.config.name, e.message),
-                    });
-                    // A server that cannot start is ended, not left
-                    // "starting": its exit follows as for a crash.
+                    // Said with its exit, which follows: a server that
+                    // cannot start is ended, not left "starting".
+                    inner.state.write().expect("state").refused = Some(e.message.clone());
                     let _ = inner.child.lock().expect("child").kill();
                 }
             }
         }
+        // Answers to the diagnostics asked for, among the messages read.
+        inner.poll_pulls();
     }
     // The output closes as the process ends; its exit status follows a
     // moment later (more than 400 ms on a busy Windows machine).
@@ -1053,6 +1279,12 @@ fn reader(inner: Arc<Inner>, stdout: std::process::ChildStdout, init: Pending) {
         }
     }
     inner.progress.lock().expect("progress").clear();
+    // Its standard error read to its end first (a moment at most: a
+    // process it started may hold the pipe), so that whoever sees the
+    // exit finds the reason the server wrote.
+    if let Some(done) = inner.stderr_read.lock().expect("stderr").take() {
+        let _ = done.recv_timeout(Duration::from_millis(500));
+    }
     if !inner.shutting_down.load(Ordering::SeqCst) {
         inner.log(format!("[client] the server exited ({code:?})"));
     }

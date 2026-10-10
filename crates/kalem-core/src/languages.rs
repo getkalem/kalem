@@ -75,11 +75,49 @@ pub struct ServerSpec {
     pub initialization_options: Value,
     /// Its settings, before the user's.
     pub settings: Value,
-    /// How to install it, said when it is not found.
+    /// How to install it, said when it is not found or does not start.
     pub install: Option<String>,
     /// Log lines that start and end work the server tells only in its log
     /// (`busyLog`: `{"start": [...], "done": [...]}`).
     pub busy_log: (Vec<String>, Vec<String>),
+    /// The arguments that make its program print its version and end
+    /// (`version`: `["--version"]`), for [`server_version`]; none when
+    /// the manifest gives none, since a server's program may not end
+    /// when it is asked something it does not know.
+    pub version: Vec<String>,
+}
+
+/// A request of a server's own that one of Kalem's commands sends (the
+/// manifest's `requests`, keyed by the command): rust-analyzer's
+/// `rust-analyzer/expandMacro` for `code.expandMacro`. Kalem knows the
+/// shapes of the questions and of the answers, not the methods, so the
+/// same command serves every server that has such a request.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RequestSpec {
+    /// Kalem's command: `code.expandMacro`.
+    pub command: String,
+    /// The server it is sent to (a key of the plugin's servers); any of
+    /// the plugin's when none is named.
+    pub server: Option<String>,
+    /// The method: `rust-analyzer/expandMacro`.
+    pub method: String,
+    /// What is asked about (`params`): `position` (the document and the
+    /// cursor), `document`, `range` (the selection), `ranges` (the
+    /// selection in a list) or `none`.
+    pub params: String,
+    /// Fields added to the question (`extra`): `{"direction": "Up"}`.
+    pub extra: Value,
+    /// What the answer is (`shape`): `text` (shown as documentation is),
+    /// `url` (opened in the browser), `location` (gone to), `edits`
+    /// (applied to the document) or `none`.
+    pub shape: String,
+    /// Where the answer's text or URL is (`answer`): JSON pointers tried
+    /// in order, `""` for the whole answer.
+    pub answer: Vec<String>,
+    /// Where its title is (`title`), a JSON pointer.
+    pub title: Option<String>,
+    /// The language a text answer is highlighted as (`language`).
+    pub language: Option<String>,
 }
 
 /// A loaded language plugin.
@@ -102,12 +140,21 @@ pub struct Plugin {
     pub commands: HashMap<String, Vec<String>>,
     /// The syntaxes it added.
     pub syntaxes: Vec<String>,
+    /// Its servers' own requests, by Kalem's command.
+    pub requests: Vec<RequestSpec>,
 }
 
 impl Plugin {
     /// The server with key `key`.
     pub fn server(&self, key: &str) -> Option<&ServerSpec> {
         self.servers.iter().find(|s| s.key == key)
+    }
+
+    /// The request command `command` sends to its server `server`.
+    pub fn request(&self, command: &str, server: &str) -> Option<&RequestSpec> {
+        self.requests
+            .iter()
+            .find(|r| r.command == command && r.server.as_deref().is_none_or(|s| s == server))
     }
 }
 
@@ -182,6 +229,7 @@ pub fn parse_manifest(dir: &Path, text: &str) -> Result<Option<Plugin>, String> 
                     initialization_options: s["initializationOptions"].clone(),
                     settings: s["settings"].clone(),
                     install: s["install"].as_str().map(str::to_string),
+                    version: strings(&s["version"]),
                     busy_log: (
                         strings(&s["busyLog"]["start"]),
                         strings(&s["busyLog"]["done"]),
@@ -194,6 +242,29 @@ pub fn parse_manifest(dir: &Path, text: &str) -> Result<Option<Plugin>, String> 
         .as_object()
         .map(|o| o.iter().map(|(k, v)| (k.clone(), strings(v))).collect())
         .unwrap_or_default();
+    let requests = m["requests"]
+        .as_object()
+        .map(|o| {
+            o.iter()
+                .filter_map(|(command, r)| {
+                    Some(RequestSpec {
+                        command: command.clone(),
+                        server: r["server"].as_str().map(str::to_string),
+                        method: r["method"].as_str()?.to_string(),
+                        params: r["params"].as_str().unwrap_or("position").to_string(),
+                        extra: r["extra"].clone(),
+                        shape: r["shape"].as_str().unwrap_or("text").to_string(),
+                        answer: match strings(&r["answer"]) {
+                            a if a.is_empty() => vec![String::new()],
+                            a => a,
+                        },
+                        title: r["title"].as_str().map(str::to_string),
+                        language: r["language"].as_str().map(str::to_string),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     Ok(Some(Plugin {
         name: m["name"].as_str().unwrap_or(&id).to_string(),
         version: m["version"].as_str().unwrap_or("").to_string(),
@@ -203,6 +274,7 @@ pub fn parse_manifest(dir: &Path, text: &str) -> Result<Option<Plugin>, String> 
         servers,
         commands,
         syntaxes: Vec::new(),
+        requests,
     }))
 }
 
@@ -635,9 +707,185 @@ pub fn resolve_server(plugin: &Plugin, lang: &LanguageSpec, root: Option<&Path>)
     }
 }
 
+/// How long [`server_version`] waits for the program to end, in seconds.
+const VERSION_WAIT: u32 = 5;
+
+/// What the program found for `spec` says its version is: the manifest's
+/// `version` arguments run in `root`, with the server's environment (so a
+/// toolchain's proxy, rustup's or pyenv's, picks the project's toolchain),
+/// and the first line it prints. `Err` says why it does not run, in its
+/// own words when it wrote any on its standard error: a program found
+/// is not always one that runs (rustup's proxy for a component not
+/// installed is on the `PATH` all the same). `None` when the manifest
+/// gives no `version`.
+pub fn server_version(
+    spec: &ServerSpec,
+    program: &Path,
+    root: &Path,
+) -> Option<Result<String, String>> {
+    use std::io::Read;
+    use std::process::{Command, Stdio};
+    if spec.version.is_empty() {
+        return None;
+    }
+    let mut cmd = Command::new(program);
+    cmd.args(&spec.version)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    if root.is_dir() {
+        cmd.current_dir(root);
+    }
+    for (k, v) in &spec.env {
+        cmd.env(k, v);
+    }
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(e) => return Some(Err(e.to_string())),
+    };
+    let read = |pipe: Option<Box<dyn Read + Send>>| {
+        std::thread::spawn(move || {
+            let mut text = String::new();
+            if let Some(mut p) = pipe {
+                let mut bytes = Vec::new();
+                let _ = p.read_to_end(&mut bytes);
+                text = String::from_utf8_lossy(&bytes).into_owned();
+            }
+            text
+        })
+    };
+    let out = read(
+        child
+            .stdout
+            .take()
+            .map(|p| Box::new(p) as Box<dyn Read + Send>),
+    );
+    let err = read(
+        child
+            .stderr
+            .take()
+            .map(|p| Box::new(p) as Box<dyn Read + Send>),
+    );
+    let start = std::time::Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break Some(status),
+            Ok(None) if start.elapsed().as_secs() < u64::from(VERSION_WAIT) => {
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                break None;
+            }
+        }
+    };
+    let Some(status) = status else {
+        // Its output is not waited for: a process it started may hold
+        // the pipes.
+        return Some(Err(crate::tr!(
+            "lsp-version-no-answer",
+            seconds = VERSION_WAIT
+        )));
+    };
+    let out = out.join().unwrap_or_default();
+    let err = err.join().unwrap_or_default();
+    let first = |t: &str| {
+        t.lines()
+            .map(str::trim)
+            .find(|l| !l.is_empty())
+            .map(str::to_string)
+    };
+    Some(if status.success() {
+        first(&out)
+            .or_else(|| first(&err))
+            .ok_or_else(|| exit_text(status.code()))
+    } else {
+        let lines: Vec<&str> = err
+            .lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+            .take(3)
+            .collect();
+        Err(if lines.is_empty() {
+            exit_text(status.code())
+        } else {
+            lines.join(" ")
+        })
+    })
+}
+
+/// A process's end in words: its exit code, or the signal that ended it.
+pub fn exit_text(code: Option<i32>) -> String {
+    match code {
+        Some(code) => crate::tr!("lsp-exit-code", code = code),
+        None => crate::tr!("lsp-exit-signal"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A server's own requests (`requests`): keyed by Kalem's command,
+    /// asked about the cursor and answered as text unless said otherwise,
+    /// the whole answer read unless pointers say where; one naming a
+    /// server only for it; one without a method left out.
+    #[test]
+    fn requests_read() {
+        let p = parse_manifest(
+            Path::new("/p"),
+            r#"{"id": "x", "languages": [], "requests": {
+                "code.expandMacro": {"method": "s/expand", "answer": ["/expansion"],
+                                     "title": "/name", "language": "rust"},
+                "code.reloadProject": {"server": "a", "method": "s/reload", "params": "none",
+                                       "shape": "none", "extra": {"all": true}},
+                "code.nothing": {"shape": "text"}
+            }}"#,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(p.requests.len(), 2);
+        let r = p.request("code.expandMacro", "any").unwrap();
+        assert_eq!((r.params.as_str(), r.shape.as_str()), ("position", "text"));
+        assert_eq!(r.answer, ["/expansion"]);
+        assert_eq!(
+            (r.title.as_deref(), r.language.as_deref()),
+            (Some("/name"), Some("rust"))
+        );
+        assert!(p.request("code.reloadProject", "b").is_none());
+        let r = p.request("code.reloadProject", "a").unwrap();
+        assert_eq!(r.answer, [""]);
+        assert_eq!(r.extra, serde_json::json!({"all": true}));
+    }
+
+    /// A server's `version`: read from the manifest; its program's first
+    /// line when it runs, its standard error's lines when it does not, its
+    /// exit code when it says nothing; none without `version`.
+    #[cfg(unix)]
+    #[test]
+    fn server_version_runs_or_says_why() {
+        let p = parse_manifest(
+            Path::new("/p"),
+            r#"{"id": "x", "languages": [], "servers": {"s": {"command": ["sh"],
+                "version": ["-c", "echo 'fake 1.2' && echo more"]}}}"#,
+        )
+        .unwrap()
+        .unwrap();
+        let mut s = p.server("s").unwrap().clone();
+        assert_eq!(s.version, ["-c", "echo 'fake 1.2' && echo more"]);
+        let (sh, root) = (Path::new("/bin/sh"), std::env::temp_dir());
+        assert_eq!(server_version(&s, sh, &root), Some(Ok("fake 1.2".into())));
+        s.version[1] = "echo 'error: not installed' >&2; echo 'help: get it' >&2; exit 1".into();
+        assert_eq!(
+            server_version(&s, sh, &root),
+            Some(Err("error: not installed help: get it".into()))
+        );
+        s.version[1] = "exit 3".into();
+        assert_eq!(server_version(&s, sh, &root), Some(Err(exit_text(Some(3)))));
+        s.version.clear();
+        assert_eq!(server_version(&s, sh, &root), None);
+    }
 
     const MANIFEST: &str = r#"{
       "id": "org.example.lang", "name": "Lang", "version": "1",

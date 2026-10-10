@@ -314,10 +314,27 @@ Programmers (LSP and plugins)
   T3.1.11): the consent prompt on first use of `fs`, `net` and `process`,
   per-plugin limits, a plugin's panic or timeout reported and the plugin
   disabled without taking the editor down; `SECURITY.md`. M
-- [ ] R5.12 Language plugins (T3.8.5–T3.8.6e): Python, Rust, Go, C/C++,
+- [~] R5.12 Language plugins (T3.8.5–T3.8.6e): Python, Rust, Go, C/C++,
   web and PHP as data-only plugins (manifest, syntax, server); the LSP
   client gains rename, code actions, signature help and a snippet engine
-  (T3.8.3); the `SPC c` map (T2.7i.10). L
+  (T3.8.3); the `SPC c` map (T2.7i.10). L (partly done, 2026-10-10:
+  Rust, `plugins/rust` in getkalem/plugins, its list `rust_todo.md`:
+  rust-analyzer at the nearest `Cargo.lock`, Sublime Text's current
+  Rust syntax over the built-in one, its settings for the panel,
+  rustfmt, and the client's features checked on a corpus workspace.
+  The client, from it, for every server: a server that ends before
+  it answers `initialize` is not restarted and says why in its own
+  words with the plugin's install text, and a server's `version` is
+  run by `kalem lsp status`; a file a server named outside its root
+  is served by that server; diagnostics given only when asked (the
+  pull model, rust-analyzer's own) are asked for; a request cancelled
+  while the server loads is asked again; a formatting answer of
+  `null` is said as no change; a server's own requests by Kalem's
+  commands (the manifest's `requests`: Expand Macro, Open
+  Documentation in the Browser, Go to Parent Module, Go to Project
+  File, Reload Project, Join Lines, Move Item Up and Down). The
+  Book's chapter "Rust". Open for Rust: automatic imports, lenses,
+  run and test, servers in source blocks.)
 - [x] R5.12e The Elixir plugin and the language server client,
   reviewed (owner, 2026-10-04: "code quality, performance, what is
   missing; a list, then in order"). Bugs first, then speed, then

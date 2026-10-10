@@ -76,6 +76,15 @@ are the paragraphs, in both editors.
 - A tab, a line break, a page break and a column break are one
   character each in the paragraph's line; a picture, a note's mark and
   an object are one object character.
+- A picture is drawn where it is, as large beside the text as in the
+  document, and no wider than the text: in a PNG, JPEG, GIF, BMP, TIFF
+  or WebP file, or an SVG drawing through the PNG Word keeps of it. A
+  floating picture is drawn in its paragraph's line. In the terminal a
+  picture alone on its line is drawn over as many rows as it takes when
+  the terminal draws pictures (kitty's, iTerm2's or sixel graphics) and
+  the cursor is elsewhere; otherwise, and for a picture in EMF or WMF
+  or one linked from outside the document, its alternative text shows,
+  =[Picture: …]=.
 - A table row whose cells hold one paragraph each is one line, its
   cells apart by tabs and the line marked =▏= at its start. A row with
   more in a cell shows a paragraph a line, the row's first marked =▏=
@@ -198,8 +207,8 @@ format is refused, saying so.
 - No pages: the layout is Word's web layout, without pages, columns
   or the page's size.
 - Only the first section's header and footer are shown, once.
-- Pictures are not drawn: each is an object character in its
-  paragraph.
+- Pictures in EMF or WMF, Windows's own drawings, are not drawn; a
+  picture's crop, rotation and effects are not applied.
 - Comments are highlighted in the text, not shown in a margin.
 - Ordinal and cardinal list labels are in English whatever the
   document's language.
@@ -223,10 +232,22 @@ format is refused, saying so.
 Measured on 2026-10-09 on an Apple M1 Max, with the plugin's library in
 a release build: a document of 20,000 paragraphs (4.4 MB of
 =document.xml=) is opened and laid out as blocks in 0.18 s in 82 MB;
-an edit there and the save take 0.17 s. The component is 1.0 MB as
-released, its functions' names kept for backtraces. Kalem
-fetches a document's items from it 2,048 at a time; its layout of a
-document that large in the editors is not measured yet.
+the save takes 7 ms. The component is 1.1 MB as released, its
+functions' names kept for backtraces. Kalem fetches a document's items
+from it 2,048 at a time when it opens one; the document of 20,000
+paragraphs opens in Kalem in 0.34 s.
+
+An edit does not walk the document again. The plugin keeps the body as
+it walked it, and every sixteen paragraphs where the walk was (the
+lists' counts, the fields and comments open); an edit walks again from
+the last such place before it until the walk is where it was before,
+usually a few paragraphs on, and the paragraphs after it are those of
+before. Kalem then fetches the items the plugin says changed (=flow-3=,
+API 0.2.9) and lays out their lines again. Measured on 2026-10-10 with
+the component in Kalem, a character typed in the middle of the
+document of 20,000 paragraphs takes 1.4 ms from the keystroke to the
+text shown (0.66 s before); Enter 4.6 ms, Backspace joining two
+paragraphs 2.3 ms, Undo 3.5 ms.
 
 * Code and tests
 

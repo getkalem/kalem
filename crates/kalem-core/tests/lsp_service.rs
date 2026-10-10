@@ -51,7 +51,17 @@ fn setup() -> (PathBuf, PathBuf) {
         "id": "org.example.fake", "name": "Fake", "version": "1",
         "languages": [{"id": "fakelang", "name": "Fake", "extensions": ["fk"], "servers": ["f"]}],
         "commands": {"format": [exe, "--fake-format", "{file}"]},
+        "requests": {
+            "code.expandMacro": {"method": "fake/expand", "shape": "text",
+                                 "answer": ["/expansion"], "title": "/name", "language": "elixir"},
+            "code.openDocs": {"method": "fake/docs", "shape": "url"},
+            "code.parentModule": {"method": "fake/parent", "shape": "location"},
+            "code.joinLines": {"method": "fake/join", "params": "ranges", "shape": "edits"},
+            "code.reloadProject": {"server": "f", "method": "fake/reload", "params": "none", "shape": "none"},
+            "code.moveItemUp": {"server": "another", "method": "fake/move", "shape": "edits"}
+        },
         "servers": {"f": {"name": "FakeLS", "command": [exe], "env": {"KALEM_LSP_FAKE": "normal"},
+                          "install": "get FakeLS",
                           "rootMarkers": ["root.marker"], "requireRoot": true,
                           "settings": {"elixirLS": {"x": 1}}}}
     });
@@ -68,6 +78,12 @@ fn setup() -> (PathBuf, PathBuf) {
     std::fs::write(project.join("root.marker"), "").unwrap();
     let file = project.join("src/a.fk");
     std::fs::write(&file, "one  two bad\n😀 x\n").unwrap();
+    // A library beside the project, a root of its own (as the standard
+    // library's folder and a dependency's sources have a `Cargo.lock`):
+    // the fake server names its file among the references.
+    std::fs::create_dir_all(dir.join("library")).unwrap();
+    std::fs::write(dir.join("library/root.marker"), "").unwrap();
+    std::fs::write(dir.join("library/lib.fk"), "lib\n").unwrap();
     kalem_core::languages::load_from(&[dir.join("plugins")]);
     (dir, file)
 }
@@ -175,6 +191,22 @@ fn main() {
         }
         o => panic!("{o:?}"),
     }
+    // Nothing to change: said as formatted for an empty list, as no
+    // change for `null` (rust-analyzer's answer when rustfmt fails).
+    lsp::sync(&doc);
+    let said = |doc: &DocumentState| {
+        lsp::request(doc, Kind::Format).unwrap();
+        match until("the answer", || {
+            lsp::take_outcomes(&file, doc.version()).into_iter().next()
+        }) {
+            Outcome::Message { text, error: false } => text,
+            o => panic!("{o:?}"),
+        }
+    };
+    assert_eq!(said(&doc), "Already formatted");
+    edit(&mut doc, 0..0, "UNREADABLE ");
+    assert_eq!(said(&doc), "FakeLS changed nothing");
+    edit(&mut doc, 0.."UNREADABLE ".len(), "");
     println!("test format ... ok");
 
     // Completion: the server's items on the completer contract.
@@ -519,6 +551,199 @@ fn main() {
             .unwrap_err()
             .contains("language plugin")
     );
+
+    // The server's own requests, by the commands of Kalem's that send
+    // them, each answer as its shape says.
+    let mut got: Vec<String> = lsp::requests(&doc);
+    got.sort();
+    assert_eq!(
+        got,
+        [
+            "code.expandMacro",
+            "code.joinLines",
+            "code.openDocs",
+            "code.parentModule",
+            "code.reloadProject"
+        ],
+        "another server's request left out"
+    );
+    let when = |clause: &str| {
+        kalem_core::when::WhenClause::parse(clause)
+            .unwrap()
+            .eval(&doc.when_context())
+    };
+    assert!(when("server:code.expandMacro") && !when("server:code.moveItemUp"));
+    let answer = |doc: &DocumentState, command: &str| {
+        lsp::server_request(doc, command).unwrap();
+        until(command, || {
+            lsp::take_outcomes(&file, doc.version()).into_iter().next()
+        })
+    };
+    match answer(&doc, "code.expandMacro") {
+        Outcome::Hover { text, .. } => {
+            assert_eq!(text, "**greet!**\n\n```elixir\nfn greet() {}\n```")
+        }
+        o => panic!("{o:?}"),
+    }
+    assert_eq!(
+        answer(&doc, "code.openDocs"),
+        Outcome::Open {
+            url: "https://example.org/docs/greet".into()
+        }
+    );
+    match answer(&doc, "code.parentModule") {
+        Outcome::Jump(p) => assert_eq!((p.line, p.column), (1, 0)),
+        o => panic!("{o:?}"),
+    }
+    match answer(&doc, "code.reloadProject") {
+        Outcome::Message { text, error: false } => {
+            assert_eq!(text, "FakeLS: Reload Project done")
+        }
+        o => panic!("{o:?}"),
+    }
+    let lines = doc.text().as_str().lines().count();
+    match answer(&doc, "code.joinLines") {
+        Outcome::Edits { edits, label, .. } => {
+            assert_eq!(label, "Join Lines (Language Server)");
+            let tx = lsp::transaction(&edits, &label).unwrap();
+            doc.apply(&tx, org_edit::ChangeKind::Command, Instant::now());
+            assert_eq!(doc.text().as_str().lines().count(), lines - 1);
+            assert!(doc.undo().is_some());
+            lsp::sync(&doc);
+        }
+        o => panic!("{o:?}"),
+    }
+    let why = lsp::server_request(&doc, "code.moveItemUp").unwrap_err();
+    assert_eq!(why, "FakeLS does not provide Move Item Up");
+    println!("test requests of its own ... ok");
+
+    // A file the server names outside its root, which would be a root of
+    // its own: served by that server when it opens, not by another
+    // started there.
+    lsp::request(&doc, Kind::References).unwrap();
+    let lib = match outcome(&file, doc.version()) {
+        Outcome::Places { places, .. } => {
+            places
+                .into_iter()
+                .find(|p| p.path.ends_with("library/lib.fk"))
+                .expect("the library's file among the references")
+                .path
+        }
+        o => panic!("{o:?}"),
+    };
+    assert_eq!(
+        kalem_lsp::find_root(&lib, &["root.marker".to_string()], false),
+        Some(dunce::canonicalize(dir.join("library")).unwrap()),
+        "a root of its own"
+    );
+    let lib_doc = DocumentState::open(
+        &lib,
+        Arc::new(org_model::Settings::default()),
+        &org_syntax::ParseContext::default(),
+    )
+    .unwrap();
+    lsp::sync(&lib_doc);
+    until("the library's file served", || {
+        lsp::can(&lib_doc, Kind::Hover).then_some(())
+    });
+    // The project document's root, whatever it is called (on Unix the
+    // project is reached through a link, on Windows it is not).
+    let root = |d: &DocumentState| {
+        let s = lsp::describe(d).unwrap();
+        s.rsplit_once(" in ")
+            .map(|(_, r)| r.to_string())
+            .unwrap_or(s)
+    };
+    let served = root(&lib_doc);
+    assert_eq!(served, root(&doc));
+    assert!(!served.contains("library"), "{served}");
+    assert_eq!(lsp::report().len(), 1, "one server: {:?}", lsp::report());
+    lsp::closed(&lib);
+    println!("test named files ... ok");
+
+    // A server that gives some diagnostics only when asked, as
+    // rust-analyzer gives its own (cargo's pushed): asked for, and shown
+    // with those it pushes, each once.
+    kalem_core::languages::set_user_settings(Some(&serde_json::json!({
+        "org.example.fake": {"servers": {"f": {"env": {"KALEM_LSP_FAKE": "pull"}}}}
+    })));
+    lsp::restart(&doc).unwrap();
+    until("the server asked of", || {
+        lsp::can(&doc, Kind::Hover).then_some(())
+    });
+    edit(&mut doc, 0..0, "TODO bad ");
+    let text = doc.text().as_str().to_string();
+    let (todo, bad) = (text.matches("TODO").count(), text.matches("bad").count());
+    until("pushed and given", || {
+        let d = lsp::diagnostics(&file);
+        let n = |m: &str| d.iter().filter(|x| x.message == m).count();
+        (n("TODO found") == todo && n("bad found") == bad && d.len() == todo + bad).then_some(())
+    });
+    kalem_core::languages::set_user_settings(None);
+    lsp::restart(&doc).unwrap();
+    until("the server again", || {
+        lsp::can(&doc, Kind::Hover).then_some(())
+    });
+    println!("test given when asked ... ok");
+
+    // A server busy loading the project cancels what it is asked
+    // ("content modified"): asked again, the answer shown, not the error.
+    kalem_core::languages::set_user_settings(Some(&serde_json::json!({
+        "org.example.fake": {"servers": {"f": {"env": {"KALEM_LSP_FAKE": "busy"}}}}
+    })));
+    lsp::restart(&doc).unwrap();
+    until("the busy server", || {
+        lsp::can(&doc, Kind::Hover).then_some(())
+    });
+    lsp::request(&doc, Kind::Hover).unwrap();
+    match outcome(&file, doc.version()) {
+        Outcome::Hover { text, .. } => assert!(text.starts_with("at "), "{text}"),
+        o => panic!("{o:?}"),
+    }
+    kalem_core::languages::set_user_settings(None);
+    lsp::restart(&doc).unwrap();
+    until("the server again", || {
+        lsp::can(&doc, Kind::Hover).then_some(())
+    });
+    println!("test asked again ... ok");
+
+    // A server that does not start (a toolchain's proxy for a component
+    // not installed, found on the PATH all the same): not started again,
+    // and said at once in its own words, with the plugin's install text.
+    kalem_core::languages::set_user_settings(Some(&serde_json::json!({
+        "org.example.fake": {"servers": {"f": {"env": {"KALEM_LSP_FAKE": "absent"}}}}
+    })));
+    let _ = kalem_core::jobs::take_notices();
+    lsp::restart(&doc).unwrap();
+    let (said, _) = until("the reason", || {
+        kalem_core::jobs::take_notices()
+            .into_iter()
+            .find(|(text, error)| *error && text.contains("did not start"))
+    });
+    assert_eq!(
+        said,
+        "FakeLS did not start: error: 'fake' is not installed for the toolchain 'test' \
+         help: run `fake install` to install it (get FakeLS)"
+    );
+    // Past the first restart's backoff (half a second): nothing started.
+    let t = Instant::now();
+    while t.elapsed() < Duration::from_millis(1500) {
+        lsp::tick();
+        let notices = kalem_core::jobs::take_notices();
+        assert!(notices.is_empty(), "{notices:?}");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let why = lsp::request(&doc, Kind::Hover).unwrap_err();
+    assert_eq!(why, said);
+    // The status bar says it too.
+    assert_eq!(lsp::status(&file, 0).as_deref(), Some(said.as_str()));
+    // Mended, it starts when asked.
+    kalem_core::languages::set_user_settings(None);
+    lsp::restart(&doc).unwrap();
+    until("the server again", || {
+        lsp::can(&doc, Kind::Hover).then_some(())
+    });
+    println!("test did not start ... ok");
 
     lsp::closed(&file);
     assert!(!lsp::serves(&doc));

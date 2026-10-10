@@ -22,7 +22,7 @@ use kalem_lsp::{Client, Edit, Encoding, Event, Pending, Position, ServerConfig, 
 use serde_json::{Value, json};
 
 use crate::DocumentState;
-use crate::languages::{self, LanguageSpec, Plugin, Resolved};
+use crate::languages::{self, LanguageSpec, Plugin, RequestSpec, Resolved};
 
 /// A server: the plugin, the server's key, the root.
 type Key = (String, String, PathBuf);
@@ -249,6 +249,9 @@ pub enum Kind {
     CodeAction,
     /// A chosen code action's edit, fetched before it is applied.
     ResolveAction,
+    /// A request of the server's own, for one of Kalem's commands
+    /// ([`server_request`]).
+    Request,
 }
 
 impl Kind {
@@ -266,6 +269,8 @@ impl Kind {
             Kind::Rename => "textDocument/rename",
             Kind::CodeAction => "textDocument/codeAction",
             Kind::ResolveAction => "codeAction/resolve",
+            // Its method is the plugin's (`Action::method`).
+            Kind::Request => "",
         }
     }
 
@@ -282,6 +287,7 @@ impl Kind {
             Kind::Signature => "signatureHelpProvider",
             Kind::Rename => "renameProvider",
             Kind::CodeAction | Kind::ResolveAction => "codeActionProvider",
+            Kind::Request => "",
         }
     }
 
@@ -299,6 +305,7 @@ impl Kind {
             Kind::Signature => "lsp-what-signature",
             Kind::Rename => "lsp-what-rename",
             Kind::CodeAction | Kind::ResolveAction => "lsp-what-code-actions",
+            Kind::Request => "lsp-what-request",
         })
     }
 }
@@ -363,10 +370,20 @@ pub enum Outcome {
         /// The undo label.
         label: String,
     },
+    /// A web page to open in the browser (a server's link to the
+    /// documentation of the thing at the cursor).
+    Open {
+        /// Its address, `http` or `https`.
+        url: String,
+    },
 }
 
 struct Action {
     kind: Kind,
+    /// The method sent: the kind's, or a server's own request's.
+    method: String,
+    /// The server's own request it is, for [`Kind::Request`].
+    request: Option<RequestSpec>,
     path: PathBuf,
     version: u64,
     text: String,
@@ -374,7 +391,19 @@ struct Action {
     pending: Pending,
     client: Arc<Client>,
     started: Instant,
+    /// What was asked, sent again when the server answers that its state
+    /// changed under it ([`kalem_lsp::CONTENT_MODIFIED`]).
+    params: Value,
+    /// How many times it was asked again.
+    retries: u32,
+    /// When to ask again.
+    retry_at: Option<Instant>,
 }
+
+/// How many times a request the server cancelled is asked again (after
+/// half a second, one, two): rust-analyzer cancels what it is asked while
+/// it loads the project.
+const RETRIES: u32 = 3;
 
 #[derive(Default)]
 struct Service {
@@ -386,7 +415,15 @@ struct Service {
     /// Files no language plugin serves, not looked up again until the
     /// plugins or the settings change.
     unserved: std::collections::HashSet<PathBuf>,
+    /// Files a server named in its answers outside its root (a
+    /// definition in the standard library, a dependency's source), by
+    /// their real paths: the server that named each, which serves it
+    /// when it opens ([`Service::named_by`]).
+    named: HashMap<PathBuf, Key>,
 }
+
+/// Files [`Service::named`] keeps at most: past it, it starts again.
+const NAMED_MAX: usize = 20_000;
 
 /// An answer for a document, until its editor takes it or it expires.
 struct Answer {
@@ -573,15 +610,20 @@ impl Service {
         };
         let real = dunce::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
         let root = root_of(&real, &plugin, &language);
-        let outside = outside_root(&real, &plugin, &language);
-        let resolved = match &outside {
-            Some(why) => Resolved::Missing(why.clone()),
-            None => languages::resolve_server(&plugin, &language, Some(&root)),
-        };
-        let (key, missing) = match resolved {
-            Resolved::Found(spec, ..) => (Some((plugin.id.clone(), spec.key, root)), None),
-            Resolved::Off => (None, None),
-            Resolved::Missing(m) => (None, Some(m)),
+        let (key, missing) = match self.named_by(&real, &plugin, &language, &root) {
+            Some(key) => (Some(key), None),
+            None => {
+                let outside = outside_root(&real, &plugin, &language);
+                let resolved = match &outside {
+                    Some(why) => Resolved::Missing(why.clone()),
+                    None => languages::resolve_server(&plugin, &language, Some(&root)),
+                };
+                match resolved {
+                    Resolved::Found(spec, ..) => (Some((plugin.id.clone(), spec.key, root)), None),
+                    Resolved::Off => (None, None),
+                    Resolved::Missing(m) => (None, Some(m)),
+                }
+            }
         };
         let mut doc = Doc {
             uri: kalem_lsp::uri::from_path(&real),
@@ -766,6 +808,7 @@ pub fn tick() -> bool {
         if finished.is_empty() {
             return (changed, finished, HashMap::new(), HashMap::new());
         }
+        s.remember_named(&finished);
         let (aliases, open) = s.answer_context(&finished);
         (true, finished, aliases, open)
     });
@@ -841,7 +884,22 @@ impl Service {
                         );
                     }
                     Event::Exited { code } => {
-                        if let Some(why) = slot_exited(slot, code, now) {
+                        let why = if c.started() {
+                            slot_exited(slot, code, now)
+                        } else {
+                            // Ended by Kalem for its silence, or by itself.
+                            let reason = if slot.started.elapsed() >= INIT_TIMEOUT {
+                                Some(crate::tr!(
+                                    "lsp-no-initialize",
+                                    seconds =
+                                        u32::try_from(INIT_TIMEOUT.as_secs()).unwrap_or(u32::MAX)
+                                ))
+                            } else {
+                                c.why_not_started()
+                            };
+                            Some(slot_not_started(slot, &key, code, reason))
+                        };
+                        if let Some(why) = why {
                             gave_up.push((key.clone(), why));
                         }
                     }
@@ -925,7 +983,15 @@ impl Service {
         let mut finished = Vec::new();
         let mut i = 0;
         while i < self.actions.len() {
-            let a = &self.actions[i];
+            let a = &mut self.actions[i];
+            if let Some(at) = a.retry_at {
+                if at <= Instant::now() {
+                    a.retry_at = None;
+                    a.pending = a.client.request(&a.method, a.params.clone());
+                }
+                i += 1;
+                continue;
+            }
             let answer = match a.pending.poll() {
                 Some(r) => Some(r),
                 None if a.started.elapsed() > TIMEOUT => {
@@ -937,8 +1003,30 @@ impl Service {
                 }
                 None => None,
             };
+            let cancelled = |r: &Answered| {
+                matches!(r, Err(e) if e.code == kalem_lsp::CONTENT_MODIFIED
+                    || e.code == kalem_lsp::SERVER_CANCELLED)
+            };
             match answer {
                 None => i += 1,
+                // Asked again while the document is as it was asked
+                // about: the server was busy (loading the project).
+                Some(r)
+                    if cancelled(&r)
+                        && a.retries < RETRIES
+                        && self.docs.get(&a.path).is_some_and(|d| d.text == a.text) =>
+                {
+                    a.retry_at = Some(Instant::now() + Duration::from_millis(500 << a.retries));
+                    a.retries += 1;
+                    i += 1;
+                }
+                Some(r) if cancelled(&r) => {
+                    let busy = Err(kalem_lsp::RpcError {
+                        code: kalem_lsp::CONTENT_MODIFIED,
+                        message: crate::tr!("lsp-busy"),
+                    });
+                    finished.push((self.actions.remove(i), busy));
+                }
                 Some(r) => finished.push((self.actions.remove(i), r)),
             }
         }
@@ -949,6 +1037,9 @@ impl Service {
     /// servers name mapped to the editor's, and the texts of the open
     /// documents the answers point into (copied, so the answers are read
     /// without the lock).
+    ///
+    /// Before it, [`Service::remember_named`] keeps the files the answers
+    /// name outside their servers' roots.
     fn answer_context(
         &self,
         finished: &[(Action, Answered)],
@@ -972,6 +1063,94 @@ impl Service {
         }
         (aliases, open)
     }
+
+    /// Keeps the files the answers name outside the root of the server
+    /// that gave them, with that server's key ([`Service::named`]).
+    fn remember_named(&mut self, finished: &[(Action, Answered)]) {
+        for (a, r) in finished {
+            let Ok(v) = r else { continue };
+            let Some(key) = self.docs.get(&a.path).and_then(|d| d.key.clone()) else {
+                continue;
+            };
+            for l in features::locations(v) {
+                if l.path.starts_with(&key.2) {
+                    continue;
+                }
+                if self.named.len() >= NAMED_MAX {
+                    self.named.clear();
+                }
+                let real = dunce::canonicalize(&l.path).unwrap_or(l.path);
+                self.named.insert(real, key.clone());
+            }
+        }
+    }
+
+    /// The server that serves `real`, a file of `language` whose own root
+    /// is `root`, because it named it in an answer: a server of the same
+    /// plugin, running and serving the language, and none running in the
+    /// file's own root. Its own root would start another server where it
+    /// knows less: a crate's sources from crates.io have a `Cargo.lock`,
+    /// and so does the standard library's folder, which rust-analyzer
+    /// started there cannot load; the server that named the file knows
+    /// it as part of its project. The same holds for Go's module cache,
+    /// Python's `site-packages` and a C compiler's headers.
+    fn named_by(
+        &self,
+        real: &Path,
+        plugin: &Plugin,
+        language: &LanguageSpec,
+        root: &Path,
+    ) -> Option<Key> {
+        let running = |k: &Key| self.servers.get(k).is_some_and(|s| s.client.is_some());
+        let own = self
+            .servers
+            .keys()
+            .any(|k| k.0 == plugin.id && k.2 == root && running(k));
+        if own {
+            return None;
+        }
+        self.named
+            .get(real)
+            .filter(|k| k.0 == plugin.id && language.servers.contains(&k.1) && running(k))
+            .cloned()
+    }
+}
+
+/// A server's process ended before it answered `initialize`: it is not
+/// started again, since it would end the same way (a toolchain's proxy
+/// for a component not installed, a version manager's shim with no
+/// version chosen, an argument the program does not know, `initialize`
+/// refused), and the reason returned is the server's own, with the
+/// plugin's `install` text. `code.restartServer` tries again.
+fn slot_not_started(
+    slot: &mut Slot,
+    key: &Key,
+    code: Option<i32>,
+    reason: Option<String>,
+) -> String {
+    slot.client = None;
+    slot.retry_at = None;
+    let reason = reason.unwrap_or_else(|| languages::exit_text(code));
+    let install = languages::plugins()
+        .into_iter()
+        .find(|p| p.id == key.0)
+        .and_then(|p| p.server(&key.1).and_then(|s| s.install.clone()));
+    let why = match install {
+        Some(how) => crate::tr!(
+            "lsp-did-not-start-how",
+            server = slot.name.as_str(),
+            reason = reason,
+            how = how
+        ),
+        None => crate::tr!(
+            "lsp-did-not-start",
+            server = slot.name.as_str(),
+            reason = reason
+        ),
+    };
+    slot.failed = Some(why.clone());
+    notice(why.clone(), true);
+    why
 }
 
 /// A server's process ended: a restart is planned with backoff, or, past
@@ -982,7 +1161,7 @@ fn slot_exited(slot: &mut Slot, code: Option<i32>, now: Instant) -> Option<Strin
         slot.crashes = 0;
     }
     slot.crashes += 1;
-    let code = format!("{code:?}");
+    let code = languages::exit_text(code);
     if slot.crashes > MAX_CRASHES {
         let why = crate::tr!(
             "lsp-gave-up",
@@ -1188,6 +1367,14 @@ fn outcome(
                 edits,
                 label: crate::l10n::tr(&crate::l10n::command_key("edit.formatDocument")),
             },
+            // No edits: "already formatted" when the server says so with
+            // an empty list; `null` is also what rust-analyzer answers
+            // when rustfmt fails (not installed for the toolchain, a
+            // syntax error), so it is said as no change, not as formatted.
+            Some(_) if v.is_null() => Outcome::Message {
+                text: crate::tr!("lsp-format-unchanged", server = a.client.name()),
+                error: false,
+            },
             Some(_) => Outcome::Message {
                 text: crate::tr!("lsp-formatted"),
                 error: false,
@@ -1223,47 +1410,62 @@ fn outcome(
                 }
             }
         }
-        _ => {
-            let mut locs = features::locations(&v);
-            for l in &mut locs {
-                if let Some(p) = aliases.get(&l.path) {
-                    l.path = p.clone();
-                }
-            }
-            // The asking document's text as asked, the other open
-            // documents' as the editor has them, the rest from the disk.
-            let mut read: HashMap<PathBuf, String> = HashMap::new();
-            let places: Vec<Place> = locs
-                .iter()
-                .map(|l| {
-                    if l.path == a.path {
-                        return place(l, &a.text, a.enc);
-                    }
-                    if let Some(t) = open.get(&l.path) {
-                        return place(l, t, a.enc);
-                    }
-                    let t = read
-                        .entry(l.path.clone())
-                        .or_insert_with(|| std::fs::read_to_string(&l.path).unwrap_or_default());
-                    place(l, t, a.enc)
-                })
-                .collect();
-            match places.len() {
-                0 => nothing(),
-                1 if a.kind != Kind::References => places
-                    .into_iter()
-                    .next()
-                    .map_or_else(nothing, Outcome::Jump),
-                _ => Outcome::Places {
-                    title: match a.kind {
-                        Kind::References => crate::tr!("lsp-title-references"),
-                        Kind::Implementation => crate::tr!("lsp-title-implementations"),
-                        _ => crate::tr!("lsp-title-definitions"),
-                    },
-                    places,
-                },
-            }
+        Kind::Request => match &a.request {
+            Some(spec) => requested(a, spec, &v, aliases, open, nothing),
+            None => nothing(),
+        },
+        _ => located(a, &v, aliases, open, nothing),
+    }
+}
+
+/// The places of an answer that names locations (definitions,
+/// references, a server's own request whose answer is a place): one to
+/// jump to, or a list to choose from.
+fn located(
+    a: &Action,
+    v: &Value,
+    aliases: &HashMap<PathBuf, PathBuf>,
+    open: &HashMap<PathBuf, String>,
+    nothing: impl Fn() -> Outcome,
+) -> Outcome {
+    let mut locs = features::locations(v);
+    for l in &mut locs {
+        if let Some(p) = aliases.get(&l.path) {
+            l.path = p.clone();
         }
+    }
+    // The asking document's text as asked, the other open
+    // documents' as the editor has them, the rest from the disk.
+    let mut read: HashMap<PathBuf, String> = HashMap::new();
+    let places: Vec<Place> = locs
+        .iter()
+        .map(|l| {
+            if l.path == a.path {
+                return place(l, &a.text, a.enc);
+            }
+            if let Some(t) = open.get(&l.path) {
+                return place(l, t, a.enc);
+            }
+            let t = read
+                .entry(l.path.clone())
+                .or_insert_with(|| std::fs::read_to_string(&l.path).unwrap_or_default());
+            place(l, t, a.enc)
+        })
+        .collect();
+    match places.len() {
+        0 => nothing(),
+        1 if a.kind != Kind::References => places
+            .into_iter()
+            .next()
+            .map_or_else(nothing, Outcome::Jump),
+        _ => Outcome::Places {
+            title: match a.kind {
+                Kind::References => crate::tr!("lsp-title-references"),
+                Kind::Implementation => crate::tr!("lsp-title-implementations"),
+                _ => crate::tr!("lsp-title-definitions"),
+            },
+            places,
+        },
     }
 }
 
@@ -1656,10 +1858,12 @@ impl Service {
             Kind::ResolveAction => extra.clone(),
             _ => json!({ "textDocument": td, "position": position() }),
         };
-        let pending = c.request(kind.method(), params);
+        let pending = c.request(kind.method(), params.clone());
         let text = d.text.clone();
         self.actions.push(Action {
             kind,
+            method: kind.method().to_string(),
+            request: None,
             path: path.to_path_buf(),
             version,
             text,
@@ -1667,9 +1871,132 @@ impl Service {
             pending,
             client: c,
             started: Instant::now(),
+            params,
+            retries: 0,
+            retry_at: None,
         });
         Ok(())
     }
+
+    /// Sends `spec`, a request of the server's own, about the cursor `at`
+    /// or the selection `range` of `path`.
+    fn ask_request(
+        &mut self,
+        path: &Path,
+        spec: &RequestSpec,
+        at: usize,
+        range: Range<usize>,
+        version: u64,
+    ) -> Result<(), Option<String>> {
+        let Some(d) = self.docs.get(path) else {
+            return Err(None);
+        };
+        let c = match &d.opened_in {
+            Some(c) => c.clone(),
+            None => {
+                return Err(Some(d.missing.clone().unwrap_or_else(|| {
+                    crate::tr!("lsp-no-server-see", language = d.language.name.as_str())
+                })));
+            }
+        };
+        if c.has_exited() {
+            return Err(Some(crate::tr!("lsp-restarting", server = c.name())));
+        }
+        if !c.is_ready() {
+            return Err(Some(crate::tr!("lsp-starting", server = c.name())));
+        }
+        let enc = c.encoding();
+        let td = json!({ "uri": d.uri });
+        let range_json = || kalem_lsp::position::range_json(&d.text, range.clone(), enc);
+        let mut params = match spec.params.as_str() {
+            "none" => Value::Null,
+            "document" => json!({ "textDocument": td }),
+            "range" => json!({ "textDocument": td, "range": range_json() }),
+            "ranges" => json!({ "textDocument": td, "ranges": [range_json()] }),
+            _ => json!({
+                "textDocument": td,
+                "position": kalem_lsp::position::position(&d.text, at, enc).to_json(),
+            }),
+        };
+        if let (Some(p), Some(extra)) = (params.as_object_mut(), spec.extra.as_object()) {
+            for (k, v) in extra {
+                p.insert(k.clone(), v.clone());
+            }
+        }
+        let pending = c.request(&spec.method, params.clone());
+        self.actions.push(Action {
+            kind: Kind::Request,
+            method: spec.method.clone(),
+            request: Some(spec.clone()),
+            path: path.to_path_buf(),
+            version,
+            text: d.text.clone(),
+            enc,
+            pending,
+            client: c,
+            started: Instant::now(),
+            params,
+            retries: 0,
+            retry_at: None,
+        });
+        Ok(())
+    }
+}
+
+/// Sends the request of its server's own that Kalem's `command`
+/// (`code.expandMacro`) stands for in the plugin of `doc`, about the
+/// cursor or the selection; the answer comes back through
+/// [`take_outcomes`] as its shape says (documentation, a page to open, a
+/// place, edits, a message).
+pub fn server_request(doc: &DocumentState, command: &str) -> Result<(), String> {
+    sync(doc);
+    let path = code_file(doc).ok_or_else(|| no_server(doc))?.to_path_buf();
+    let sel = &doc.selection;
+    let (at, range) = (sel.head, sel.anchor.min(sel.head)..sel.anchor.max(sel.head));
+    let version = doc.version();
+    with(|s| {
+        let d = s.docs.get(&path).ok_or_else(|| no_server(doc))?;
+        let server = d.key.as_ref().map(|k| k.1.clone()).unwrap_or_default();
+        let name = d
+            .opened_in
+            .as_ref()
+            .map_or_else(|| d.plugin.name.clone(), |c| c.name().to_string());
+        let spec = d.plugin.request(command, &server).cloned().ok_or_else(|| {
+            crate::tr!(
+                "lsp-not-provided",
+                server = name.as_str(),
+                what = crate::l10n::tr(&crate::l10n::command_key(command))
+            )
+        })?;
+        match s.ask_request(&path, &spec, at, range, version) {
+            Err(None) => Err(no_server(doc)),
+            Err(Some(why)) => Err(why),
+            Ok(()) => Ok(()),
+        }
+    })
+}
+
+/// The commands of Kalem's that the server of `doc` has a request of its
+/// own for (`code.expandMacro`, …), for the when-clauses
+/// (`server:code.expandMacro`).
+pub fn requests(doc: &DocumentState) -> Vec<String> {
+    let Some(path) = code_file(doc) else {
+        return Vec::new();
+    };
+    with(|s| {
+        let Some(d) = s.docs.get(path) else {
+            return Vec::new();
+        };
+        let Some(key) = d.key.as_ref().filter(|_| d.opened_in.is_some()) else {
+            return Vec::new();
+        };
+        d.plugin
+            .requests
+            .iter()
+            .filter(|r| r.server.as_deref().is_none_or(|s| s == key.1))
+            .map(|r| r.command.clone())
+            .collect()
+    })
 }
 
 /// Why no server answers for `doc`: no plugin for its kind of file.
@@ -2480,4 +2807,90 @@ pub fn describe(doc: &DocumentState) -> Option<String> {
             ),
         })
     })
+}
+
+/// The answer to a server's own request ([`Kind::Request`]), as its
+/// shape says: documentation (`text`), a page to open (`url`), a place
+/// (`location`), edits of the document (`edits`), or a message (`none`).
+fn requested(
+    a: &Action,
+    spec: &RequestSpec,
+    v: &Value,
+    aliases: &HashMap<PathBuf, PathBuf>,
+    open: &HashMap<PathBuf, String>,
+    nothing: impl Fn() -> Outcome,
+) -> Outcome {
+    let at = |pointer: &str| {
+        v.pointer(pointer)
+            .and_then(Value::as_str)
+            .map(str::to_string)
+    };
+    let answer = || spec.answer.iter().find_map(|p| at(p));
+    let title = crate::l10n::tr(&crate::l10n::command_key(&spec.command));
+    match spec.shape.as_str() {
+        "text" => match answer().filter(|t| !t.trim().is_empty()) {
+            Some(text) => {
+                let heading = spec.title.as_deref().and_then(at).unwrap_or_default();
+                let fence = if text.contains("```") { "~~~" } else { "```" };
+                let lang = spec.language.as_deref().unwrap_or_default();
+                let mut md = String::new();
+                if !heading.is_empty() {
+                    md.push_str(&format!("**{heading}**\n\n"));
+                }
+                md.push_str(&format!("{fence}{lang}\n{}\n{fence}", text.trim_end()));
+                Outcome::Hover {
+                    path: a.path.clone(),
+                    text: md,
+                }
+            }
+            None => nothing(),
+        },
+        // Only the web's: a server's answer opens no local program.
+        "url" => match spec
+            .answer
+            .iter()
+            .filter_map(|p| at(p))
+            .find(|u| u.starts_with("https://") || u.starts_with("http://"))
+        {
+            Some(url) => Outcome::Open { url },
+            None => nothing(),
+        },
+        "location" => located(a, v, aliases, open, nothing),
+        "edits" => {
+            // Snippet edits (rust-analyzer's `$0`) as plain text.
+            let plain = match v {
+                Value::Array(list) => Value::Array(
+                    list.iter()
+                        .map(|e| {
+                            let mut e = e.clone();
+                            if e["insertTextFormat"] == 2
+                                && let Some(t) = e["newText"].as_str()
+                            {
+                                e["newText"] = Value::from(features::strip_snippet(t));
+                            }
+                            e
+                        })
+                        .collect(),
+                ),
+                other => other.clone(),
+            };
+            match features::text_edits(&a.text, &plain, a.enc) {
+                Some(edits) if !edits.is_empty() => Outcome::Edits {
+                    path: a.path.clone(),
+                    version: a.version,
+                    edits,
+                    label: title,
+                },
+                Some(_) => nothing(),
+                None => Outcome::Message {
+                    text: crate::tr!("lsp-overlapping", server = a.client.name()),
+                    error: true,
+                },
+            }
+        }
+        _ => Outcome::Message {
+            text: crate::tr!("lsp-request-done", server = a.client.name(), what = title),
+            error: false,
+        },
+    }
 }

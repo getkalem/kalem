@@ -6101,6 +6101,93 @@ fn code_commands() -> Vec<Command> {
             None,
             |ctx, _| places(ctx, "Problems", crate::lsp::all_problems()),
         ),
+        // A server's own requests (the plugin's `requests`): one command
+        // each, shown where the document's server has the request.
+        cmd(
+            "code.expandMacro",
+            "Expand Macro",
+            "Code",
+            &[],
+            Some("server:code.expandMacro"),
+            |ctx, _| {
+                crate::lsp::server_request(ctx.doc()?, "code.expandMacro")
+                    .map_err(CommandError::new)
+            },
+        ),
+        cmd(
+            "code.openDocs",
+            "Open Documentation in the Browser",
+            "Code",
+            &[],
+            Some("server:code.openDocs"),
+            |ctx, _| {
+                crate::lsp::server_request(ctx.doc()?, "code.openDocs").map_err(CommandError::new)
+            },
+        ),
+        cmd(
+            "code.parentModule",
+            "Go to Parent Module",
+            "Code",
+            &[],
+            Some("server:code.parentModule"),
+            |ctx, _| {
+                crate::lsp::server_request(ctx.doc()?, "code.parentModule")
+                    .map_err(CommandError::new)
+            },
+        ),
+        cmd(
+            "code.openManifest",
+            "Go to Project File",
+            "Code",
+            &[],
+            Some("server:code.openManifest"),
+            |ctx, _| {
+                crate::lsp::server_request(ctx.doc()?, "code.openManifest")
+                    .map_err(CommandError::new)
+            },
+        ),
+        cmd(
+            "code.reloadProject",
+            "Reload Project",
+            "Code",
+            &[],
+            Some("server:code.reloadProject"),
+            |ctx, _| {
+                crate::lsp::server_request(ctx.doc()?, "code.reloadProject")
+                    .map_err(CommandError::new)
+            },
+        ),
+        cmd(
+            "code.joinLines",
+            "Join Lines (Language Server)",
+            "Code",
+            &[],
+            Some("server:code.joinLines"),
+            |ctx, _| {
+                crate::lsp::server_request(ctx.doc()?, "code.joinLines").map_err(CommandError::new)
+            },
+        ),
+        cmd(
+            "code.moveItemUp",
+            "Move Item Up",
+            "Code",
+            &[],
+            Some("server:code.moveItemUp"),
+            |ctx, _| {
+                crate::lsp::server_request(ctx.doc()?, "code.moveItemUp").map_err(CommandError::new)
+            },
+        ),
+        cmd(
+            "code.moveItemDown",
+            "Move Item Down",
+            "Code",
+            &[],
+            Some("server:code.moveItemDown"),
+            |ctx, _| {
+                crate::lsp::server_request(ctx.doc()?, "code.moveItemDown")
+                    .map_err(CommandError::new)
+            },
+        ),
         cmd(
             "code.restartServer",
             "Restart Language Server",

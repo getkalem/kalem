@@ -3324,6 +3324,14 @@ pub trait ViewerDocument: Send {
         Vec::new()
     }
 
+    /// What changed in a unit's flow since its version `since` (API
+    /// 0.2.9, the `flow-3` interface), so that after an edit the host
+    /// fetches the items that changed rather than the whole flow; `None`
+    /// when the viewer cannot tell, and the host fetches it whole.
+    fn flow_changes(&mut self, _unit: usize, _since: u64) -> Option<FlowChange> {
+        None
+    }
+
     /// A flow's picture ([`FlowPicture::id`]), at most `max` pixels on its
     /// longer side.
     fn flow_picture(&mut self, _unit: usize, id: &str, _max: u32) -> Result<Bitmap> {

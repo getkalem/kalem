@@ -242,10 +242,20 @@ of the plugin's history, and reads the paragraphs again. The plugin
 writes them in its format's own vocabulary or refuses them, saying why
 (deleted text of a tracked change, a field's result, a note's mark), and
 the editor shows the reason. Undo and redo are the plugin's; saving
-writes the bytes the plugin gives. A paragraph's *edit text* counts a
+writes the bytes the plugin gives. After an edit Kalem asks what changed
+since the version it holds (=flow-3='s =changes=, API 0.2.9): the items
+from one on, so many of them then, are so many now, and the paragraphs
+after them are numbered on by so much; it fetches those items and lays
+out their lines again, and nothing else, so that a keystroke in a
+document of twenty thousand paragraphs takes a millisecond or two. A
+plugin without it, or one that cannot tell, has its flow read whole. A paragraph's *edit text* counts a
 tab, a line break (U+000B), a page break (U+000C), a column break
 (U+000E) and an object (U+FFFC, a picture, a note's mark) as one
-character each.
+character each. A run that is a picture names it and gives its size in
+points; Kalem asks the plugin for its pixels (=render-picture=, no more
+than it shows them, in powers of two so that a zoom seldom asks again),
+keeps them, and draws the picture in its line, in proportion to the body
+text as in the document; one the plugin cannot draw shows its text.
 
 The look of the text is changed as a word processor changes it, through
 =set-marks= (bold, italic, underline, strikethrough, raised or lowered,
@@ -311,7 +321,7 @@ account's.
 * Versions of the plugin API
 
 The plugin API is the WIT package =kalem:plugin= (=crates/kalem-plugin/wit=),
-version 0.2.8; a component's manifest names the version it was built
+version 0.2.9; a component's manifest names the version it was built
 against (="api": "^0.2.1"=), and Kalem tries it when its own API is of
 the same 0.MINOR and no earlier. The rules, so that a plugin built once
 keeps working:
@@ -387,6 +397,15 @@ keeps working:
   refuses by default); a component built against 0.2.7 has none, and
   Kalem says so when its paragraphs are formatted. =flow.wit= and
   =annotations.wit= of 0.2.7 are frozen (=wit-frozen/0.2.7=).
+- 0.2.9 added the export =flow-3= to the =flow-viewer= and =full-viewer=
+  worlds: =changes= says what changed in a unit's flow since a version,
+  as a run of items replaced and the paragraphs after it numbered on,
+  so that after an edit the host fetches the items that changed rather
+  than the whole flow, which in a long document took most of a
+  keystroke's time. =kalem-plugin='s adapter exports it from the
+  contract (=flow_changes=, which answers none by default: the host then
+  reads the flow whole, as it does for a component built against 0.2.8).
+  =flow-2.wit= of 0.2.8 is frozen (=wit-frozen/0.2.8=).
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 - An addition is general, or it waits. It names what several plugins

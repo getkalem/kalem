@@ -1201,14 +1201,25 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
                 });
                 Some((Paint::Image(image), size(px(tw), px(th)), px(th)))
             }
-            Some(w @ (Widget::Math { .. } | Widget::Image { .. })) => {
+            Some(Widget::Picture { id, size: pt })
+                if let Some((image, sz)) =
+                    editor.flow_picture(id, *pt, base, window.scale_factor()) =>
+            {
+                // A document's picture at its size beside the text, fitted
+                // to the text width when laid out.
+                fit_next = Some(None);
+                Some((Paint::Image(image), sz, sz.height))
+            }
+            Some(w @ (Widget::Math { .. } | Widget::Image { .. } | Widget::Picture { .. })) => {
                 // A formula as Unicode when previews are off; an image's
-                // name until images (T1.5.7).
+                // name until images (T1.5.7); a picture the plugin cannot
+                // draw as its text.
                 let (shown, color) = match w {
                     Widget::Math { source, .. } => (kalem_core::math::unicode(source), theme.link),
                     Widget::Image { path, .. } => {
                         (kalem_core::view::image_label(&r.text, path), theme.muted)
                     }
+                    Widget::Picture { .. } => (r.text.clone(), theme.muted),
                     Widget::Checkbox(_) | Widget::TocRow { .. } => unreachable!("handled above"),
                 };
                 let mut run = text_run(&r.style, shown.len(), view.heading, mono, &theme);

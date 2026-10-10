@@ -59,6 +59,9 @@ pub use flowing::exports::kalem::plugin::annotations;
 /// The `flow-2` interface (API 0.2.8), as the host calls it.
 pub use flowing::exports::kalem::plugin::flow_2;
 
+/// The `flow-3` interface (API 0.2.9), as the host calls it.
+pub use flowing::exports::kalem::plugin::flow_3;
+
 /// The flow's and the annotations' types between the contract and the
 /// interfaces.
 #[allow(unreachable_pub, dead_code)]
@@ -66,11 +69,13 @@ mod flow_conv {
     use super::annotations as a;
     use super::flow as f;
     use super::flow_2 as f2;
+    use super::flow_3 as f3;
     use kalem_viewer as kv;
 
     include!("../../kalem-plugin/src/annotations_conv.rs");
     include!("../../kalem-plugin/src/flow_conv.rs");
     include!("../../kalem-plugin/src/flow2_conv.rs");
+    include!("../../kalem-plugin/src/flow3_conv.rs");
 }
 
 /// The grid's types between the contract and the interface.
@@ -187,6 +192,8 @@ pub struct Viewer {
     annotations: Option<annotations::Guest>,
     /// The `flow-2` exports (API 0.2.8): paragraphs' look and lists.
     flow2: Option<flow_2::Guest>,
+    /// The `flow-3` exports (API 0.2.9): what changed in a flow.
+    flow3: Option<flow_3::Guest>,
 }
 
 impl std::fmt::Debug for Viewer {
@@ -317,6 +324,18 @@ impl Viewer {
                     .map(Some)
             })
             .map_err(stale)?;
+        let flow3 = instance
+            .bindings(|store, i| {
+                let pre = i.instance_pre(&*store);
+                let name = format!("kalem:plugin/flow-3@{}", crate::API_VERSION);
+                if pre.component().get_export_index(None, &name).is_none() {
+                    return Ok(None);
+                }
+                flow_3::GuestIndices::new(&pre)?
+                    .load(&mut *store, i)
+                    .map(Some)
+            })
+            .map_err(stale)?;
         Ok(Viewer {
             instance,
             api,
@@ -326,6 +345,7 @@ impl Viewer {
             flow,
             annotations,
             flow2,
+            flow3,
         })
     }
 
@@ -442,6 +462,16 @@ impl Viewer {
         f: impl FnOnce(&flow::Guest, &mut wasmtime::Store<crate::Data<Files>>) -> wasmtime::Result<R>,
     ) -> Option<crate::Result<R>> {
         let g = self.flow.as_ref()?;
+        Some(self.instance.run(|s| f(g, s)))
+    }
+
+    /// Calls `f` with the plugin's `flow-3` functions (API 0.2.9); `None`
+    /// when it has none.
+    pub fn flow3<R>(
+        &mut self,
+        f: impl FnOnce(&flow_3::Guest, &mut wasmtime::Store<crate::Data<Files>>) -> wasmtime::Result<R>,
+    ) -> Option<crate::Result<R>> {
+        let g = self.flow3.as_ref()?;
         Some(self.instance.run(|s| f(g, s)))
     }
 
@@ -2452,6 +2482,14 @@ impl kalem_viewer::ViewerDocument for ComponentDocument {
         self.fl(|f, s, d| f.call_styles(s, d))
             .map(Cross::cross)
             .unwrap_or_default()
+    }
+
+    fn flow_changes(&mut self, unit: usize, since: u64) -> Option<kv::FlowChange> {
+        let doc = self.doc;
+        self.run(|v| v.flow3(|g, s| g.call_changes(s, doc, unit as u32, since)))
+            .and_then(|r| r.ok())
+            .flatten()
+            .cross()
     }
 
     fn flow_set_paragraphs(

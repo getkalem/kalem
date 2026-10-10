@@ -2,7 +2,7 @@
 //! `tests/plugins/flowdoc`, a viewer of the Rust contract exported with
 //! the `flow` and `annotations` interfaces, opened through the host as the
 //! contract again, so every value crosses the boundary both ways (API
-//! 0.2.7). Skipped where the `wasm32-unknown-unknown` target or
+//! 0.2.7, and what changed since a version, 0.2.9). Skipped where the `wasm32-unknown-unknown` target or
 //! `wasm-tools` is not installed.
 
 use std::sync::Arc;
@@ -88,6 +88,10 @@ fn a_flow_crosses_to_the_host() {
     assert!(d.flow_items(0, 100, 5).is_empty());
     assert!(d.flow_styles().iter().any(|s| s.name == "Normal"));
     assert!(d.flow_picture(0, "none", 64).is_err());
+    // A picture's pixels cross too.
+    let b = d.flow_picture(0, "red", 20).unwrap();
+    assert_eq!((b.width, b.height), (20, 10));
+    assert_eq!(&b.rgba[..4], &[200, 30, 30, 255]);
 }
 
 #[test]
@@ -106,6 +110,19 @@ fn a_flow_is_edited_and_undone_through_the_host() {
         other => panic!("{other:?}"),
     };
     assert!(para(&mut d, 1).starts_with("Simple and "));
+    // What changed since (API 0.2.9, `flow-3`): the paragraph.
+    let v1 = d.flow(0).unwrap().version;
+    assert_eq!(
+        d.flow_changes(0, v0),
+        Some(kalem_viewer::FlowChange {
+            from: 1,
+            removed: 1,
+            added: 1,
+            shift: 0
+        })
+    );
+    assert!(d.flow_changes(0, v1).is_some_and(|c| c.is_none()));
+    assert_eq!(d.flow_changes(0, v1 + 100), None);
     // "Simple and bold text" and the note's mark, three bytes.
     let e = d.flow_replace(0, 1, 20..23, "").unwrap_err();
     assert!(e.0.contains("note"), "{e:?}");

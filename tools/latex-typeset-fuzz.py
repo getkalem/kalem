@@ -237,7 +237,11 @@ def glyphs(d, name, text, n):
                              ("\xdf", "SS"),
                              # Double quotes as two single ones: whether two
                              # quotes join depends on the boxes between them.
-                             ("^^Q", "''"), ("^^P", "``")):
+                             ("^^Q", "''"), ("^^P", "``"),
+                             # The same for T1's low double quote, two commas
+                             # (`end ,{\em ,}` keeps them apart in TeX and
+                             # side by side in Kalem's text).
+                             ("^^R", ",,")):
             s = s.replace(lig, letters)
         # A cedilla or an ogonek, built beside its letter in either order.
         s = re.sub(r"\x0b|\^\^L", "", s)

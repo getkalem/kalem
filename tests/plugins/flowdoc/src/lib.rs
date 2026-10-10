@@ -1,15 +1,16 @@
 //! A fake document of flowing text of the Rust contract, exported through
-//! the adapter with the feature `flow` (API 0.2.7). A `.flow` file is a
-//! paragraph a line: `# ` a heading, `- ` a list item, `|a|b|` a table's
-//! row of one-paragraph cells, `---` a horizontal rule, `*word*` bold.
-//! Its last paragraph is a footnote that the first one's `^` marks.
-//! Comments and tracking live in the document, not the file.
+//! the adapter with the feature `flow` (API 0.2.7; what changed since a
+//! version, 0.2.9). A `.flow` file is a paragraph a line: `# ` a heading,
+//! `- ` a list item, `|a|b|` a table's row of one-paragraph cells, `---`
+//! a horizontal rule, `*word*` bold. Its last paragraph is a footnote
+//! that the first one's `^` marks. Comments and tracking live in the
+//! document, not the file.
 
 use kalem_viewer::{
     Anchor, Annotation, AnnotationKind, Aside, AsideKind, Detection, FileHandle, FlowAlign,
-    FlowCell, FlowItem, FlowLayout, FlowParagraph, FlowPlace, FlowRole, FlowRow, FlowRun,
-    FlowStyle, FlowStyleKind, FlowTable, ListKind, MarkChange, Marks, ParagraphChange, Piece,
-    RenderRequest, Rendered, Result, Structure, Unit, UnitKind, Viewer, ViewerDocument,
+    FlowCell, FlowChange, FlowItem, FlowLayout, FlowParagraph, FlowPlace, FlowRole, FlowRow,
+    FlowRun, FlowStyle, FlowStyleKind, FlowTable, ListKind, MarkChange, Marks, ParagraphChange,
+    Piece, RenderRequest, Rendered, Result, Structure, Unit, UnitKind, Viewer, ViewerDocument,
     ViewerError,
 };
 
@@ -92,6 +93,44 @@ pub struct Doc {
     version: u64,
     tracking: bool,
     author: String,
+    /// The items given at a few versions, to tell what changed since.
+    given: Vec<(u64, Vec<FlowItem>)>,
+}
+
+/// What changed from `old` to `new`: the items between those the same at
+/// the start and those the same at the end, the latter's indexes moved.
+fn change(old: &[FlowItem], new: &[FlowItem]) -> FlowChange {
+    let count = |items: &[FlowItem]| {
+        items
+            .iter()
+            .filter(|i| matches!(i, FlowItem::Paragraph(p) if p.index.is_some()))
+            .count() as i32
+    };
+    let shift = count(new) - count(old);
+    let same = old.iter().zip(new).take_while(|(a, b)| a == b).count();
+    let moved = |i: &FlowItem| {
+        let mut i = i.clone();
+        if let FlowItem::Paragraph(p) = &mut i
+            && let Some(x) = &mut p.index
+        {
+            *x = x.saturating_add_signed(shift);
+        }
+        i
+    };
+    let room = old.len().min(new.len()) - same;
+    let end = old
+        .iter()
+        .rev()
+        .zip(new.iter().rev())
+        .take(room)
+        .take_while(|(a, b)| moved(a) == **b)
+        .count();
+    FlowChange {
+        from: same as u32,
+        removed: (old.len() - same - end) as u32,
+        added: (new.len() - same - end) as u32,
+        shift,
+    }
 }
 
 impl Viewer for Flows {
@@ -136,8 +175,9 @@ impl Viewer for Flows {
     }
 }
 
-/// A line's runs: `*bold*` bold, `^` a note's mark, the rest text; the
-/// line's edit text, `^` as the object character.
+/// A line's runs: `*bold*` bold, `^` a note's mark, `@` a picture (a red
+/// bar, twice as wide as high), the rest text; the line's edit text, `^`
+/// and `@` as the object character.
 fn runs(line: &str, base: usize, comments: &[Annotation], index: u32) -> (String, Vec<FlowRun>) {
     let mut text = String::new();
     let mut out = Vec::new();
@@ -192,6 +232,22 @@ fn runs(line: &str, base: usize, comments: &[Annotation], index: u32) -> (String
                     },
                     source: start..text.len() as u32,
                     locked: Some("a note's mark".into()),
+                    ..FlowRun::default()
+                });
+            }
+            '@' => {
+                flush(&mut cur, &mut text, &mut out, bold);
+                let start = text.len() as u32;
+                text.push(kalem_viewer::OBJECT);
+                out.push(FlowRun {
+                    text: "[Picture: A red bar]".into(),
+                    piece: Piece::Picture(kalem_viewer::FlowPicture {
+                        id: "red".into(),
+                        width: 24.0,
+                        height: 12.0,
+                        alt: "A red bar".into(),
+                    }),
+                    source: start..text.len() as u32,
                     ..FlowRun::default()
                 });
             }
@@ -400,11 +456,38 @@ impl ViewerDocument for Doc {
     }
 
     fn flow(&mut self, unit: usize) -> Option<FlowLayout> {
-        (unit == 0).then(|| FlowLayout {
-            items: self.items().len() as u32,
+        if unit != 0 {
+            return None;
+        }
+        let items = self.items();
+        let n = items.len() as u32;
+        if self.given.last().is_none_or(|(v, _)| *v != self.version) {
+            self.given.push((self.version, items));
+            if self.given.len() > 4 {
+                self.given.remove(0);
+            }
+        }
+        Some(FlowLayout {
+            items: n,
             version: self.version,
             editable: true,
         })
+    }
+
+    fn flow_changes(&mut self, _unit: usize, since: u64) -> Option<FlowChange> {
+        let old = &self.given.iter().find(|(v, _)| *v == since)?.1;
+        Some(change(old, &self.items()))
+    }
+
+    fn flow_picture(&mut self, _unit: usize, id: &str, max: u32) -> Result<kalem_viewer::Bitmap> {
+        if id != "red" {
+            return Err(ViewerError(format!("No picture {id}")));
+        }
+        // At most 48 by 24 pixels, red.
+        let w = max.clamp(2, 48);
+        let h = w / 2;
+        let rgba = [200u8, 30, 30, 255].repeat((w * h) as usize);
+        Ok(kalem_viewer::Bitmap::new(w, h, rgba))
     }
 
     fn flow_items(&mut self, _unit: usize, from: u32, count: u32) -> Vec<FlowItem> {

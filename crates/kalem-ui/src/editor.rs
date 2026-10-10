@@ -415,6 +415,9 @@ pub struct Editor {
     pub cite_preview: kalem_core::cite::Preview,
     /// The entry cited under the mouse, and where the mouse is.
     pub cite_hover: Option<(Point<Pixels>, String)>,
+    /// Pictures of a document of flowing text, as drawn, by ID and the
+    /// longest side asked for.
+    flow_pictures: HashMap<(String, u32), Option<crate::pictures::Picture>>,
     /// The file manager's context menu, where it opened (T2.7e.17).
     pub context_menu: Option<(Point<Pixels>, Vec<kalem_core::dired::ContextItem>)>,
     /// The context menu's item under the pointer.
@@ -565,6 +568,7 @@ impl Editor {
             formula_refs: Vec::new(),
             cite_preview: Default::default(),
             cite_hover: None,
+            flow_pictures: HashMap::new(),
             context_menu: None,
             menu_hover: None,
             math: true,
@@ -3631,6 +3635,42 @@ impl Editor {
         self.shared.pictures.get_tinted(&file, tint)
     }
 
+    /// Picture `id` of a document of flowing text, `size` hundredths of a
+    /// point wide and high, as its plugin draws it: the image and its size
+    /// in the line, in proportion to the text as in the document (its
+    /// body text shown at `base`), drawn for `scale` pixels a point.
+    pub fn flow_picture(
+        &mut self,
+        id: &str,
+        size: (u32, u32),
+        base: Pixels,
+        scale: f32,
+    ) -> Option<(Arc<gpui::RenderImage>, gpui::Size<Pixels>)> {
+        let flow = self.doc.flow.as_deref()?;
+        let body = flow.body_size();
+        let per_point = f32::from(base) / if body > 0.0 { body } else { 11.0 };
+        let (w, h) = (
+            size.0 as f32 / 100.0 * per_point,
+            size.1 as f32 / 100.0 * per_point,
+        );
+        if w < 1.0 || h < 1.0 {
+            return None;
+        }
+        let need = (w.max(h) * scale).ceil() as u32;
+        let key = (id.to_string(), need.clamp(32, 4096).next_power_of_two());
+        if !self.flow_pictures.contains_key(&key) {
+            let drawn = flow
+                .picture(id, need)
+                .and_then(|b| crate::pictures::from_bitmap(&b));
+            if self.flow_pictures.len() >= 256 {
+                self.flow_pictures.clear();
+            }
+            self.flow_pictures.insert(key.clone(), drawn);
+        }
+        let (image, _, _) = self.flow_pictures.get(&key)?.clone()?;
+        Some((image, gpui::size(px(w), px(h))))
+    }
+
     /// Dragging extends the selection.
     pub fn mouse_move(
         &mut self,
@@ -3760,12 +3800,23 @@ impl Editor {
             cx.emit(DocEvent::Notice(n, true));
             cx.notify();
         }
-        // The flow's look changed (formatting, a style): every line
-        // measured again, its height may have changed with its size.
+        // The flow's look changed (formatting, a style): the lines the
+        // plugin changed measured again, a line's height may have changed
+        // with its size; every line when the size of body text did.
         let version = self.doc.flow.as_deref().map(|f| f.version);
         if version != self.flow_version {
+            let changed = self.doc.flow.as_deref_mut().and_then(|f| f.take_changed());
             if self.flow_version.is_some() {
-                self.list.remeasure_items(0..self.visible.len());
+                match changed {
+                    Some(lines) => {
+                        for l in lines {
+                            if let Some(i) = self.item_of(l) {
+                                self.list.remeasure_items(i..i + 1);
+                            }
+                        }
+                    }
+                    None => self.list.remeasure_items(0..self.visible.len()),
+                }
                 cx.notify();
             }
             self.flow_version = version;
@@ -4147,6 +4198,10 @@ impl Editor {
                 self.open_choice(kalem_core::lsp::place_items(&places), cx);
             }
             Outcome::Choose(items) => self.open_choice(items, cx),
+            Outcome::Open { url } => match kalem_core::system::open(std::path::Path::new(&url)) {
+                Ok(()) => self.message(tr!("lsp-opened", url = url.as_str()), false),
+                Err(e) => self.message(e, true),
+            },
             Outcome::Edits {
                 path,
                 version,
@@ -4499,7 +4554,7 @@ fn a11y_line(view: &LineView) -> (String, Vec<(usize, usize, bool)>) {
             }),
             Some(Widget::Math { source, .. }) => text.push_str(&kalem_core::math::unicode(source)),
             Some(Widget::Image { path, .. }) => text.push_str(&format!("image {path}")),
-            Some(Widget::TocRow { .. }) | None => text.push_str(&r.text),
+            Some(Widget::TocRow { .. } | Widget::Picture { .. }) | None => text.push_str(&r.text),
         }
         d += r.text.len();
     }

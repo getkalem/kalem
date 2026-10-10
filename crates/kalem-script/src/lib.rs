@@ -28,8 +28,9 @@
 /// `password` export, 0.2.3 the `formats` export, 0.2.4 the `process`
 /// import and the `on-process` export of the `extension` world, 0.2.5
 /// the `documents` and `decorations` imports, 0.2.6 the
-/// `styled-documents` import.
-pub const API_VERSION: &str = "0.2.8";
+/// `styled-documents` import, 0.2.7 the `flow` and `annotations`
+/// exports, 0.2.8 the `flow-2` export, 0.2.9 the `flow-3` export.
+pub const API_VERSION: &str = "0.2.9";
 
 /// Whether a manifest's `api` requirement (`^0.2`, `0.2`, `^0.2.1`)
 /// names this host's API: the same `0.MINOR` before 1.0 (the same major
@@ -764,7 +765,7 @@ mod tests {
         assert!(!super::api_compatible(Some("^0.1")));
         assert!(!super::api_compatible(Some("^1.0")));
         // Built against a later 0.2.x: it may import what this host lacks.
-        assert!(!super::api_compatible(Some("^0.2.9")));
+        assert!(!super::api_compatible(Some("^0.2.10")));
     }
 
     /// An empty folder of the test's own.
