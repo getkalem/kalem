@@ -3,12 +3,13 @@ updates:
   - package-ecosystem: cargo
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     # Each pull request runs all of CI, and dependabot rebases every open
-    # one when Cargo.lock moves on main: the week's minor and patch
-    # updates come as one pull request (docs/ci_todo.md, C3). Dependabot
-    # counts a 0.x crate's minor update (0.23 to 0.24) as major, as Cargo
-    # does, so the updates that can break still come one by one.
+    # one when Cargo.lock moves on main: the month's updates come as at
+    # most three pull requests (docs/ci_todo.md, C3 and C8), gpui's, the
+    # minor and patch updates', and the major updates'. Dependabot counts
+    # a 0.x crate's minor update (0.23 to 0.24) as major, as Cargo does, so
+    # the updates that can break come together, apart from the safe ones.
     groups:
       # gpui and its platform layer are one snapshot of a Zed release tag:
       # they move together (roadmap R2.7).
@@ -20,6 +21,12 @@ updates:
         patterns:
           - "*"
         update-types: ["minor", "patch"]
+      # One crate's break fails this pull request alone: fix it there, or
+      # ignore that version below until it is taken by hand.
+      cargo-major:
+        patterns:
+          - "*"
+        update-types: ["major"]
     # A version bump changes no chapter of the Book: the Book workflow
     # skips its check of the changed code's chapters on this label.
     labels: ["dependencies", "rust", "book-unchanged"]

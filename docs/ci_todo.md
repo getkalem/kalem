@@ -284,6 +284,20 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
     still took 10.6, a Windows half taking 10.5 on a slow runner, with
     binary size and the differential tests at 9.
 
+- [ ] **C8. Dependabot monthly, its major updates grouped too.** The
+  owner asked for it (2026-10-10): on 2026-10-10 nine dependabot pull
+  requests were open, and their runs held the runners while `main`'s
+  CI for `Version 0.6.10` and the release of `v0.6.9` waited in the
+  queue. Cargo's updates now come monthly, as Actions' do, and the
+  major updates (a 0.x crate's minor update among them: `getrandom`,
+  `fontdb`, `hayro-svg`, `wit-bindgen`) as one pull request of the
+  group `cargo-major`, beside the minor and patch updates' and gpui's.
+  A break in one crate fails the major group's pull request only: it is
+  fixed there, or that version ignored until it is taken by hand.
+  - *Done when* dependabot's run after the change opens at most three
+    Cargo pull requests and one for Actions, and closes the single ones
+    they replace.
+
 ## Results
 
 Start to finish, as GitHub shows a run (a push to `main` waits for the
