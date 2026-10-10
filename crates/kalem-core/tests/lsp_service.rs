@@ -404,9 +404,14 @@ fn main() {
         root.ends_with("real-project") || root.ends_with("project"),
         "{root:?}"
     );
+    // `{file}` is the document's path as the editor has it (with `\` on
+    // Windows), `{line}` the cursor's line: compared as a path and a
+    // number, not as text.
     let line = doc.text().line_of(doc.selection.head) + 1;
-    let place = format!("{}:{line}", file.display());
-    assert_eq!(test[2], place);
+    let place = test[2].clone();
+    let (given, at) = place.rsplit_once(':').unwrap();
+    assert_eq!(Path::new(given), file.as_path());
+    assert_eq!(at, line.to_string());
     let output = |n: u64| kalem_core::extensions::generated(n).map(|g| g.text);
     let finished = || {
         until("the run's end", || {
