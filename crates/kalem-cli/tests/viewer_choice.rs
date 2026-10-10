@@ -16,7 +16,7 @@ mod test_plugins;
 
 /// The viewer that opens a pages file now.
 fn pages_viewer() -> Option<std::sync::Arc<dyn kalem_viewer::Viewer>> {
-    kalem_core::viewer::find("three.pages", b"PAGES")
+    kalem_core::viewer::find("three.pages", b"PAGES\0")
 }
 
 /// Waits for the watcher to choose again until `done`, for up to 15 s.
@@ -49,6 +49,7 @@ fn install(dir: &Path, wasm: &[u8], version: &str) {
             "version": version,
             "main": "pages.wasm",
             "opens": [".pages"],
+            "applies": {"magic": ["50 41 47 45 53 00"]},
         })
         .to_string(),
     )
@@ -79,7 +80,8 @@ fn viewers_follow_installs_stops_and_removals_without_a_restart() {
         }
     }
     let file = dir.join("three.pages");
-    std::fs::write(&file, b"PAGES of a test").unwrap();
+    // A NUL byte: a file that is not text, which a viewer opens.
+    std::fs::write(&file, b"PAGES\0 of a test").unwrap();
     kalem_cli::bundled_plugins();
     assert!(pages_viewer().is_none(), "nothing opens pages yet");
     kalem_cli::watch_plugins();
@@ -92,6 +94,11 @@ fn viewers_follow_installs_stops_and_removals_without_a_restart() {
         "the copy installed is used"
     );
     assert!(told("Pages 1.0.0"));
+    // By the first bytes its manifest declares, with no extension: Kalem
+    // chooses by the declaration, the plugin's code not asked.
+    let bare = dir.join("three");
+    assert!(kalem_core::viewer::find_at(&bare, b"PAGES\0 of a test").is_some());
+    assert!(kalem_core::viewer::find_at(&bare, b"\0PAGES").is_none());
     let doc = pages_viewer()
         .unwrap()
         .open(FileHandle::new(&file))

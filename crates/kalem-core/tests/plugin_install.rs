@@ -63,7 +63,9 @@ fn child(work: &Path) {
             "id": "org.example.zedtest", "name": "Zed Test", "version": "1.0.0",
             "description": "A test language", "api": "^0.1", "permissions": ["subprocess"],
             "syntaxes": ["syntaxes/Zed.sublime-syntax"],
-            "languages": [{"id": "zedtest", "name": "Zed Test", "extensions": ["zedtest"], "servers": ["z"]}],
+            "languages": [{"id": "zedtest", "name": "Zed Test", "extensions": ["zedtest"],
+                           "filenames": ["Zedfile"], "shebangs": ["zed"], "servers": ["z"]}],
+            "applies": {"markers": ["zed.project"]},
             "servers": {"z": {"name": "ZedLS", "command": ["kalem-no-such-zed-ls"]}}
         })
         .to_string(),
@@ -134,6 +136,33 @@ fn child(work: &Path) {
     );
     assert!(kalem_core::languages::for_path(Path::new("/a/b.zedtest"), None).is_some());
     println!("test install ... ok");
+
+    // The files the index would name it for are those it now serves: its
+    // manifest read alike, as the index lists it and as it is installed.
+    let manifest: Value =
+        serde_json::from_str(&std::fs::read_to_string(plugin.join("plugin.json")).unwrap())
+            .unwrap();
+    let mut entry = manifest.clone();
+    entry["download"] = json!("https://example.com/zedtest.tar.gz");
+    let listed =
+        kalem_core::plugin_store::parse_index(&json!({ "plugins": [entry] }).to_string()).unwrap();
+    std::fs::create_dir_all(work.join("proj/src")).unwrap();
+    std::fs::write(work.join("proj/zed.project"), "").unwrap();
+    for (path, head, served) in [
+        (work.join("b.zedtest"), "fn x", true),
+        (work.join("Zedfile"), "x = 1", true),
+        (work.join("run"), "#!/usr/bin/env zed\nx", true),
+        (work.join("proj/src/notes.txt"), "a note", true),
+        (work.join("notes.txt"), "a note", false),
+        (work.join("run.sh"), "#!/bin/sh\nx", false),
+    ] {
+        let named =
+            !kalem_core::plugin_store::serving(&listed, &path, Some(head.as_bytes())).is_empty();
+        let routed = kalem_core::languages::for_path(&path, head.lines().next())
+            .is_some_and(|(p, _)| p.id == "org.example.zedtest");
+        assert_eq!((named, routed), (served, served), "{}", path.display());
+    }
+    println!("test routed as named ... ok");
 
     // Listed, managed, offered again as an update.
     let (_, req) = run(&reg, "plugin.list", json!({}));

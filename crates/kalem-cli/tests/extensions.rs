@@ -35,14 +35,17 @@ fn an_installed_plugin_adds_commands_the_registry_runs() {
     )
     .unwrap();
     // A plugin reaching files and the network, as its permissions allow:
-    // the project's folder, and this machine's address.
+    // the project's folder, and this machine's address. With no
+    // `activation`, it starts with the first file opened that it declares
+    // it serves (a text file in a folder holding `notes.txt`).
     let reach_dir = root.join("config/plugins/org.test.reach");
     std::fs::create_dir_all(&reach_dir).unwrap();
     std::fs::write(reach_dir.join("reach.wasm"), reach).unwrap();
     std::fs::write(
         reach_dir.join("plugin.json"),
         r#"{"id": "org.test.reach", "name": "Reach", "main": "reach.wasm",
-            "permissions": ["fs:read:workspace", "net:fetch:127.0.0.1"]}"#,
+            "permissions": ["fs:read:workspace", "net:fetch:127.0.0.1"],
+            "applies": {"extensions": [".txt"], "markers": ["notes.txt"]}}"#,
     )
     .unwrap();
     let project = root.join("project");
@@ -65,15 +68,33 @@ fn an_installed_plugin_adds_commands_the_registry_runs() {
     kalem_cli::bundled_plugins();
     // Started on a thread: its commands arrive.
     let start = Instant::now();
-    while !(kalem_core::extensions::known("counter.count")
-        && kalem_core::extensions::known("reach.last"))
-    {
+    while !kalem_core::extensions::known("counter.count") {
         let notices = kalem_core::jobs::take_notices();
         assert!(notices.is_empty(), "{notices:?}");
         assert!(start.elapsed() < Duration::from_secs(120), "never started");
         std::thread::sleep(Duration::from_millis(20));
     }
     assert!(kalem_core::extensions::generation() > before);
+
+    // The editors' bus hands its events to the plugins.
+    let mut bus = EventBus::new();
+    bus.subscribe(None, kalem_core::extensions::event);
+    // The plugin that serves some files starts with the first of them, not
+    // with another file, nor with Kalem.
+    assert!(!kalem_core::extensions::known("reach.last"));
+    let open = |path: std::path::PathBuf| Event::DocumentOpen {
+        doc: DocumentId(2),
+        path: Some(path),
+    };
+    bus.emit(&open(root.join("todo.txt")));
+    bus.emit(&open(project.join("plan.org")));
+    assert!(!kalem_core::extensions::known("reach.last"));
+    bus.emit(&open(project.join("draft.txt")));
+    let start = Instant::now();
+    while !kalem_core::extensions::known("reach.last") {
+        assert!(start.elapsed() < Duration::from_secs(120), "never started");
+        std::thread::sleep(Duration::from_millis(20));
+    }
 
     let registry = CommandRegistry::with_builtins();
     let count = registry.get("counter.count").expect("registered");
@@ -116,8 +137,6 @@ fn an_installed_plugin_adds_commands_the_registry_runs() {
 
     // The editors' bus hands its events to the plugin, which vetoes a save
     // to a lock file.
-    let mut bus = EventBus::new();
-    bus.subscribe(None, kalem_core::extensions::event);
     let save = |path: &str| Event::DocumentBeforeSave {
         doc: DocumentId(1),
         path: path.into(),

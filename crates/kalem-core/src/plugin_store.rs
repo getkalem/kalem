@@ -61,106 +61,48 @@ pub struct IndexEntry {
     pub sha256: Option<String>,
     /// `declarative` for a language plugin; a component otherwise.
     pub declarative: bool,
-    /// When it serves a file: what Kalem looks at, for every plugin
-    /// alike, to name the plugin for a file (T3.7.9).
+    /// The extensions a viewer opens (`opens`): a plugin that opens files
+    /// that are not text, as Kalem chooses installed viewers.
+    pub opens: Vec<String>,
+    /// When it serves a file ([`Applies::of`] of the entry): what Kalem
+    /// looks at, for every plugin alike, to name the plugin for a file,
+    /// and to hand it the file once installed (T3.7.9).
     pub applies: Applies,
     /// The index it is listed in.
     pub index: String,
 }
 
-/// When a plugin serves a file, as the index says it for every plugin
-/// alike, whatever its kind (a viewer, a language, an extension): one
-/// declaration and one test of it ([`serves`]), so that a plugin is named
-/// for exactly the files it says it serves.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct Applies {
-    /// The extensions of its files, in lower case with their dot
-    /// (`.xlsx`, `.rs`, `.html.eex`).
-    pub extensions: Vec<String>,
-    /// Files or folders that, in a file's folder or one above it, mean it
-    /// serves the file (`logseq/config.edn`, `.obsidian`).
-    pub markers: Vec<String>,
-}
+pub use crate::applies::{Applies, Kind, Serves};
 
-impl Applies {
-    /// An index entry's: its `applies`, else (an index written before it)
-    /// what a viewer `opens`, the extensions of the languages it serves
-    /// and its `markers`.
-    fn of(p: &Value) -> Applies {
-        let ext = |x: &str| {
-            let x = x.trim().trim_start_matches('.').to_lowercase();
-            (!x.is_empty()).then(|| format!(".{x}"))
-        };
-        let a = &p["applies"];
-        let (mut extensions, mut markers) = if a.is_object() {
-            (strings(&a["extensions"]), strings(&a["markers"]))
-        } else {
-            let mut x = strings(&p["opens"]);
-            for l in p["languages"]
-                .as_array()
-                .map(Vec::as_slice)
-                .unwrap_or_default()
-            {
-                x.extend(strings(&l["extensions"]));
-            }
-            (x, strings(&p["markers"]))
-        };
-        extensions = extensions.iter().filter_map(|x| ext(x)).collect();
-        extensions.dedup();
-        markers.retain(|m| !m.trim().is_empty());
-        Applies {
-            extensions,
-            markers,
-        }
+impl IndexEntry {
+    /// Whether it is a viewer: it opens files that are not text.
+    pub fn is_viewer(&self) -> bool {
+        !self.opens.is_empty()
     }
 }
 
-/// Why a plugin serves a file: the extension it lists, or a marker in the
-/// file's folder or one above it.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Serves {
-    /// Files of this extension (`.rs`).
-    Extension(String),
-    /// This folder holds the marker (`logseq/config.edn`).
-    Marker(PathBuf, String),
+/// Whether plugin `e` serves the file at `path` starting with `head`, by
+/// what it declares ([`Applies`]), and why.
+pub fn serves(e: &IndexEntry, path: &Path, head: Option<&[u8]>) -> Option<Serves> {
+    e.applies.serves(path, head)
 }
 
-/// Whether plugin `e` serves the file at `path`, by what it declares
-/// ([`Applies`]), and why.
-pub fn serves(e: &IndexEntry, path: &Path) -> Option<Serves> {
-    let name = path
-        .file_name()
-        .map(|n| n.to_string_lossy().to_lowercase())
-        .unwrap_or_default();
-    if let Some(x) = e
-        .applies
-        .extensions
-        .iter()
-        .find(|x| name.len() > x.len() && name.ends_with(x.as_str()))
-    {
-        return Some(Serves::Extension(x.clone()));
-    }
-    if e.applies.markers.is_empty() {
-        return None;
-    }
-    path.ancestors().skip(1).find_map(|dir| {
-        e.applies
-            .markers
-            .iter()
-            .find(|m| dir.join(m.as_str()).exists())
-            .map(|m| Serves::Marker(dir.to_path_buf(), m.clone()))
-    })
-}
-
-/// The released plugins of `index` that serve the file at `path`, with
-/// why, in the index's order: what Kalem names for a file it cannot open
+/// The released plugins of `index` that serve the file at `path` starting
+/// with `head`, with why, the surest first ([`Serves::strength`]), then in
+/// the index's order: what Kalem names for a file it cannot open
 /// ([`opening`]) and suggests for one it can ([`suggestion`]).
-pub fn serving<'a>(index: &'a [IndexEntry], path: &Path) -> Vec<(&'a IndexEntry, Serves)> {
-    index
+pub fn serving<'a>(
+    index: &'a [IndexEntry],
+    path: &Path,
+    head: Option<&[u8]>,
+) -> Vec<(&'a IndexEntry, Serves)> {
+    let mut found: Vec<(&IndexEntry, Serves)> = index
         .iter()
         .filter(|e| e.download.is_some())
-        .filter_map(|e| serves(e, path).map(|why| (e, why)))
-        .collect()
+        .filter_map(|e| serves(e, path, head).map(|why| (e, why)))
+        .collect();
+    found.sort_by_key(|f| std::cmp::Reverse(f.1.strength()));
+    found
 }
 
 /// A plugin downloaded and unpacked, waiting for the user's yes.
@@ -276,6 +218,7 @@ pub fn parse_index(text: &str) -> Result<Vec<IndexEntry>, String> {
                 download: p["download"].as_str().map(str::to_string),
                 sha256: p["sha256"].as_str().map(str::to_string),
                 declarative: p["kind"].as_str() == Some("declarative"),
+                opens: strings(&p["opens"]),
                 applies: Applies::of(p),
                 index: String::new(),
             })
@@ -283,11 +226,20 @@ pub fn parse_index(text: &str) -> Result<Vec<IndexEntry>, String> {
         .collect())
 }
 
-/// The released plugins of the index that serve the file at `path`, by
-/// what each declares ([`serves`]): what Kalem offers to install for a
-/// file that it cannot open yet (T3.7.9).
-pub fn opening<'a>(entries: &'a [IndexEntry], path: &std::path::Path) -> Vec<&'a IndexEntry> {
-    serving(entries, path).into_iter().map(|(e, _)| e).collect()
+/// The released viewers of the index that serve the file at `path`
+/// starting with `head`, by what each declares ([`serves`]), the surest
+/// first: what Kalem offers to install for a file that it cannot open yet
+/// (T3.7.9), and what opens it once installed ([`crate::viewer::find_at`]).
+pub fn opening<'a>(
+    entries: &'a [IndexEntry],
+    path: &std::path::Path,
+    head: Option<&[u8]>,
+) -> Vec<&'a IndexEntry> {
+    serving(entries, path, head)
+        .into_iter()
+        .filter(|(e, _)| e.is_viewer())
+        .map(|(e, _)| e)
+        .collect()
 }
 
 /// The index at `url`, its entries' sources and downloads written
@@ -1499,10 +1451,7 @@ pub fn remember_index(entries: &[IndexEntry]) {
                 "id": e.id, "name": e.name, "version": e.version,
                 "description": e.description, "permissions": e.permissions,
                 "source": e.source, "download": e.download, "sha256": e.sha256,
-                "applies": {
-                    "extensions": e.applies.extensions,
-                    "markers": e.applies.markers,
-                },
+                "opens": e.opens, "applies": e.applies.to_json(),
             });
             if e.declarative {
                 v["kind"] = serde_json::json!("declarative");
@@ -1536,16 +1485,19 @@ pub fn known_index() -> Vec<IndexEntry> {
     k.clone().unwrap_or_default()
 }
 
-/// The released plugin of `index` that serves the file at `path` ([`serves`])
-/// and is neither installed nor in `said` (suggested before), with why;
-/// the first in the index's order.
+/// The released plugin of `index` that serves the file at `path` starting
+/// with `head` ([`serves`]), and is neither installed nor in `said`
+/// (suggested before), with why: the surest, then the first in the
+/// index's order. A viewer serves no text file, so it is named for one
+/// only when it opens it ([`opening`]).
 pub fn suggestion<'a>(
     index: &'a [IndexEntry],
     path: &Path,
+    head: Option<&[u8]>,
     installed: &[String],
     said: &[String],
 ) -> Option<(&'a IndexEntry, Serves)> {
-    serving(index, path)
+    serving(index, path, head)
         .into_iter()
         .find(|(e, _)| !installed.contains(&e.id) && !said.contains(&e.id))
 }
@@ -1554,12 +1506,12 @@ fn said_file() -> Option<PathBuf> {
     crate::logging::state_dir().map(|d| d.join("plugins-suggested"))
 }
 
-/// When a text file opens in an editor: a plugin of the index that would
-/// serve it and is not installed said once in the status bar
-/// ([`crate::jobs::notice`]), never again for that plugin; Install
-/// Suggested Plugin installs it. Off with `plugins.suggest`, and outside
-/// an editor.
-pub fn suggest_for(path: &Path) {
+/// When a text file opens in an editor, starting with `head`: a plugin of
+/// the index that would serve it and is not installed said once in the
+/// status bar ([`crate::jobs::notice`]), never again for that plugin;
+/// Install Suggested Plugin installs it. Off with `plugins.suggest`, and
+/// outside an editor.
+pub fn suggest_for(path: &Path, head: &[u8]) {
     if !SUGGEST.load(std::sync::atomic::Ordering::Relaxed) {
         return;
     }
@@ -1572,7 +1524,7 @@ pub fn suggest_for(path: &Path) {
         .map(|t| t.lines().map(str::to_string).collect())
         .unwrap_or_default();
     let installed: Vec<String> = installed().into_iter().map(|i| i.id).collect();
-    let Some((e, why)) = suggestion(&index, path, &installed, &said) else {
+    let Some((e, why)) = suggestion(&index, path, Some(head), &installed, &said) else {
         return;
     };
     if let Some(p) = said_file() {
@@ -1587,22 +1539,30 @@ pub fn suggest_for(path: &Path) {
         *s = Some(e.id.clone());
     }
     let short = e.id.rsplit('.').next().unwrap_or(&e.id).to_string();
-    let message = match why {
-        Serves::Extension(x) => crate::tr!(
-            "plugin-suggest-extension",
-            name = e.name.as_str(),
-            extension = x,
-            short = short
-        ),
-        Serves::Marker(dir, marker) => crate::tr!(
+    let name = e.name.as_str();
+    let message = match (why.place, why.kind) {
+        (Some((dir, marker)), _) => crate::tr!(
             "plugin-suggest-marker",
-            name = e.name.as_str(),
+            name = name,
             folder = dir.file_name().map_or(dir.display().to_string(), |n| n
                 .to_string_lossy()
                 .into_owned()),
             marker = marker,
             short = short
         ),
+        (None, Some(Kind::Extension(x))) => crate::tr!(
+            "plugin-suggest-extension",
+            name = name,
+            extension = x,
+            short = short
+        ),
+        (None, Some(Kind::Filename(f))) => crate::tr!(
+            "plugin-suggest-filename",
+            name = name,
+            file = f,
+            short = short
+        ),
+        (None, _) => crate::tr!("plugin-suggest-file", name = name, short = short),
     };
     crate::jobs::notice(message, false);
 }
@@ -1626,50 +1586,68 @@ mod tests {
         let index = parse_index(
             r#"{"schema":1,"plugins":[
               {"id":"a.sheets","name":"Sheets","version":"1.0.0","download":"https://x/s.wasm",
-               "applies":{"extensions":[".xlsx", "XLSM"]}},
+               "opens":[".xlsx", "XLSM"]},
               {"id":"a.draft","name":"Draft","version":"0.1.0","download":null,
-               "applies":{"extensions":[".xlsx"]}},
+               "opens":[".xlsx"]},
               {"id":"a.rust","name":"Rust","version":"1.0.0","kind":"declarative",
                "download":"https://x/r.tar.gz",
                "languages":[{"id":"rust","extensions":["rs"]}]},
               {"id":"a.eex","name":"EEx","version":"1.0.0","download":"https://x/e.tar.gz",
                "applies":{"extensions":["html.eex"]}},
               {"id":"a.graph","name":"Graphs","version":"1.0.0","download":"https://x/g.wasm",
-               "applies":{"markers":["logseq/config.edn"]}}]}"#,
+               "layers":[{"id":"logseq","markers":["logseq/config.edn"]}]},
+              {"id":"a.pics","name":"Pictures","version":"1.0.0","download":"https://x/p.wasm",
+               "opens":[".png", ".svg"], "applies":{"magic":["89 50 4E 47"]}}]}"#,
         )
         .unwrap();
-        assert_eq!(index[0].applies.extensions, [".xlsx", ".xlsm"]);
-        // An index written before `applies`: from a language's extensions.
-        assert_eq!(index[2].applies.extensions, [".rs"]);
-        let ids = |path: &Path| -> Vec<String> {
-            opening(&index, path).iter().map(|e| e.id.clone()).collect()
+        assert_eq!(index[0].applies.rules[0].extensions, [".xlsx", ".xlsm"]);
+        assert!(index[0].is_viewer() && !index[2].is_viewer());
+        let ids = |path: &Path, head: &[u8]| -> Vec<String> {
+            opening(&index, path, Some(head))
+                .iter()
+                .map(|e| e.id.clone())
+                .collect()
         };
-        // Released plugins only, by extension in any case.
-        assert_eq!(ids(Path::new("/books/Budget.XLSX")), ["a.sheets"]);
-        assert_eq!(ids(Path::new("src/main.rs")), ["a.rust"]);
-        assert_eq!(ids(Path::new("page.html.eex")), ["a.eex"]);
-        assert!(ids(Path::new("notes.org")).is_empty());
-        assert!(ids(Path::new(".xlsx")).is_empty());
+        let png = b"\x89PNG\r\n\x1a\n\0\0";
+        // Released viewers only, by extension in any case, or by first bytes.
+        assert_eq!(ids(Path::new("/books/Budget.XLSX"), b""), ["a.sheets"]);
+        assert_eq!(ids(Path::new("/p/shot"), png), ["a.pics"]);
+        assert!(ids(Path::new("src/main.rs"), b"fn main() {}").is_empty());
+        assert!(ids(Path::new(".xlsx"), b"").is_empty());
         // A marker in the file's folder or above it.
         let dir = std::env::temp_dir().join(format!("kalem-applies-{}", std::process::id()));
         std::fs::create_dir_all(dir.join("logseq")).unwrap();
         std::fs::create_dir_all(dir.join("pages")).unwrap();
         std::fs::write(dir.join("logseq/config.edn"), "{}").unwrap();
         let page = dir.join("pages/Kalem.md");
-        assert_eq!(ids(&page), ["a.graph"]);
         assert_eq!(
-            serves(&index[4], &page),
-            Some(Serves::Marker(dir.clone(), "logseq/config.edn".into()))
+            serves(&index[4], &page, Some(b"- a")).and_then(|s| s.place),
+            Some((dir.clone(), "logseq/config.edn".into()))
         );
         // Suggested once: neither when installed nor when said before.
-        let s = |installed: &[&str], said: &[&str]| {
+        let s = |path: &Path, head: &[u8], installed: &[&str], said: &[&str]| {
             let i: Vec<String> = installed.iter().map(|x| x.to_string()).collect();
             let d: Vec<String> = said.iter().map(|x| x.to_string()).collect();
-            suggestion(&index, Path::new("lib.rs"), &i, &d).map(|(e, _)| e.id.clone())
+            suggestion(&index, path, Some(head), &i, &d).map(|(e, _)| e.id.clone())
         };
-        assert_eq!(s(&[], &[]).as_deref(), Some("a.rust"));
-        assert_eq!(s(&["a.rust"], &[]), None);
-        assert_eq!(s(&[], &["a.rust"]), None);
+        let rs = Path::new("lib.rs");
+        assert_eq!(s(rs, b"fn a() {}", &[], &[]).as_deref(), Some("a.rust"));
+        assert_eq!(s(rs, b"fn a() {}", &["a.rust"], &[]), None);
+        assert_eq!(s(rs, b"fn a() {}", &[], &["a.rust"]), None);
+        assert_eq!(
+            s(Path::new("page.html.eex"), b"<p>", &[], &[]).as_deref(),
+            Some("a.eex")
+        );
+        assert_eq!(s(&page, b"- a", &[], &[]).as_deref(), Some("a.graph"));
+        // A drawing in SVG is text: Kalem opens it, not the viewer.
+        assert_eq!(s(Path::new("a.svg"), b"<svg/>", &[], &[]), None);
+        // What is kept of the index reads back the same.
+        let kept = serde_json::json!({"plugins": [{
+            "id": "a.pics", "download": "https://x/p.wasm",
+            "opens": index[5].opens, "applies": index[5].applies.to_json(),
+        }]});
+        let again = parse_index(&kept.to_string()).unwrap();
+        assert_eq!(again[0].applies, index[5].applies);
         std::fs::remove_dir_all(&dir).ok();
     }
 

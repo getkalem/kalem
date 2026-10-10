@@ -440,7 +440,14 @@ Viewers
   (T3.7.9 partly done 2026-10-10: no viewer is built into Kalem; a file
   that is not text and that no installed plugin opens offers the plugins
   of the index that open it, to install, and the system's application;
-  wasm_todo W12.)
+  wasm_todo W12. Then one declaration for every kind of plugin,
+  `kalem_core::applies`: rules of extensions, whole names, magic bytes,
+  `#!` interpreters and markers, from the manifest's `opens`,
+  `languages`, `layers` and `applies`, which choose the installed viewer,
+  language plugin and `onFile` extension plugin for a file and name the
+  index's plugins for it, a viewer's `detect` no longer asked. Open: the
+  user's choice among several installed viewers remembered per
+  extension.)
 
 ## M6 Continuous
 

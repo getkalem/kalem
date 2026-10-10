@@ -22,7 +22,8 @@ use crate::command::{
     Command, CommandHandler, CommandResult, CommandSource, EditorContext, Request,
 };
 
-static VIEWERS: RwLock<Vec<Arc<dyn Viewer>>> = RwLock::new(Vec::new());
+/// The viewers installed, each with when it serves a file.
+static VIEWERS: RwLock<Vec<(Arc<dyn Viewer>, crate::applies::Applies)>> = RwLock::new(Vec::new());
 
 /// The last generation given out: unique over every document, so a
 /// frontend's texture of one file is never taken for another's.
@@ -32,38 +33,63 @@ fn next_generation() -> u64 {
     GENERATION.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1
 }
 
-/// Installs a viewer (a bundled plugin; the plugin loader of T3.1.12 for
-/// components). A viewer with the same identifier is replaced.
+/// Installs a viewer that serves the files of its extensions
+/// ([`Viewer::extensions`]) that are not text: one built into a test or a
+/// tool. A viewer with the same identifier is replaced.
 pub fn register(viewer: Arc<dyn Viewer>) {
+    let applies = crate::applies::Applies::opening(viewer.extensions());
+    register_applying(viewer, applies);
+}
+
+/// Installs a viewer that serves the files `applies` declares (a plugin's,
+/// read from its manifest by [`crate::applies::Applies::of`]). A viewer
+/// with the same identifier is replaced.
+pub fn register_applying(viewer: Arc<dyn Viewer>, applies: crate::applies::Applies) {
     if let Ok(mut all) = VIEWERS.write() {
-        all.retain(|v| v.id() != viewer.id());
-        all.push(viewer);
+        all.retain(|(v, _)| v.id() != viewer.id());
+        all.push((viewer, applies));
     }
 }
 
 /// Takes viewer `id` away: a plugin turned off (wasm_todo W8).
 pub fn unregister(id: &str) {
     if let Ok(mut all) = VIEWERS.write() {
-        all.retain(|v| v.id() != id);
+        all.retain(|(v, _)| v.id() != id);
     }
 }
 
 /// The viewers installed.
 pub fn viewers() -> Vec<Arc<dyn Viewer>> {
-    VIEWERS.read().map(|v| v.clone()).unwrap_or_default()
+    VIEWERS
+        .read()
+        .map(|v| v.iter().map(|(v, _)| v.clone()).collect())
+        .unwrap_or_default()
 }
 
-/// The viewer that opens the file named `name` starting with `head`: the
-/// surest, the first installed among equals.
+/// The viewer that opens the file named `name` starting with `head`
+/// ([`find_at`] with no folder; `head` empty when it is not known).
 pub fn find(name: &str, head: &[u8]) -> Option<Arc<dyn Viewer>> {
-    let mut best: Option<(kalem_viewer::Detection, Arc<dyn Viewer>)> = None;
-    for v in viewers() {
-        let d = v.detect(name, head);
-        if d > kalem_viewer::Detection::No && best.as_ref().is_none_or(|(b, _)| d > *b) {
-            best = Some((d, v));
+    find_at(Path::new(name), head)
+}
+
+/// The viewer that opens the file at `path` starting with `head`, by what
+/// each declares ([`crate::applies`]), the viewer never asked itself: the
+/// surest match ([`crate::applies::Serves::strength`]), the first
+/// installed among equals. The same test names the plugins of the index
+/// that would open it ([`crate::plugin_store::opening`]).
+pub fn find_at(path: &Path, head: &[u8]) -> Option<Arc<dyn Viewer>> {
+    let all = VIEWERS.read().ok()?;
+    let mut best: Option<(crate::applies::Strength, &Arc<dyn Viewer>)> = None;
+    for (v, applies) in all.iter() {
+        let Some(why) = applies.serves(path, Some(head)) else {
+            continue;
+        };
+        let s = why.strength();
+        if best.as_ref().is_none_or(|(b, _)| s > *b) {
+            best = Some((s, v));
         }
     }
-    best.map(|(_, v)| v)
+    best.map(|(_, v)| v.clone())
 }
 
 /// The outline of the document a viewer shows, for the outline panel:
@@ -163,11 +189,13 @@ fn render(
 /// text files open in a document mode even when a viewer could show them
 /// (an SVG drawing is XML).
 pub fn for_file(path: &Path) -> Option<Arc<dyn Viewer>> {
-    let head = FileHandle::new(path).read_at(0, 8192).ok()?;
+    let head = FileHandle::new(path)
+        .read_at(0, crate::applies::HEAD)
+        .ok()?;
     if !crate::mode::looks_binary(&head) {
         return None;
     }
-    find(&name_of(path), &head)
+    find_at(path, &head)
 }
 
 fn name_of(path: &Path) -> String {
@@ -18681,10 +18709,17 @@ mod tests {
     }
 
     #[test]
-    fn detection_prefers_magic() {
-        register(Arc::new(Pages(1)));
+    fn a_viewer_is_chosen_by_what_it_declares() {
+        let pages = |n| -> Arc<dyn Viewer> { Arc::new(Pages(n)) };
+        let declared = crate::applies::Applies::of(&serde_json::json!({
+            "opens": [".pages"], "applies": {"magic": ["50 41 47 45 53 00"]},
+        }));
+        register_applying(pages(1), declared);
         assert!(find("a.pages", b"PAGES\0").is_some());
-        assert!(find("a.txt", b"PAGES\0").is_some());
-        assert!(find("a.txt", b"hello").is_none());
+        assert!(find("a.txt", b"PAGES\0").is_some(), "by its first bytes");
+        assert!(find("a.txt", b"\0hello").is_none());
+        // Text is a mode's, whatever its name.
+        assert!(find("a.pages", b"hello").is_none());
+        assert!(find("a.pages", b"").is_some(), "not known: by its name");
     }
 }

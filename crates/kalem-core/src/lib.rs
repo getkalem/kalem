@@ -9,6 +9,7 @@
 #![warn(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 pub mod affiliated;
+pub mod applies;
 pub mod bibstyle;
 pub mod bibtex;
 pub mod bookmarks;

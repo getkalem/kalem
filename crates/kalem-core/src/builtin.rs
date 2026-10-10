@@ -6964,7 +6964,7 @@ fn new_file_target(
 }
 
 /// The released plugins of the indexes that open a file named `name` (by
-/// its extension) offered to install, read in the background, with the
+/// what each declares: its extension, its first bytes) offered to install, read in the background, with the
 /// system's application when `open` is a file: for a file Kalem cannot
 /// open yet (`plugin.forFile`), the file then opened; or for a command
 /// that needs such a plugin (New Workbook), `open` none. No plugin is
@@ -7009,7 +7009,16 @@ pub(crate) fn offer_plugins(ctx: &mut EditorContext<'_>, open: Option<String>, n
             };
             match read {
                 Ok(entries) => {
-                    let found = crate::plugin_store::opening(&entries, std::path::Path::new(&name));
+                    // Its first bytes, for the plugins that know a file
+                    // by them; a kind of file named alone has none.
+                    let head = open
+                        .as_ref()
+                        .and_then(|p| crate::applies::head_of(std::path::Path::new(p)));
+                    let found = crate::plugin_store::opening(
+                        &entries,
+                        std::path::Path::new(&name),
+                        head.as_deref(),
+                    );
                     let mut items: Vec<crate::palette::PaletteItem> = found
                         .iter()
                         .map(|e| {

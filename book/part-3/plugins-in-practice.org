@@ -96,9 +96,11 @@ picture in the window and in the terminal. Its two files:
 - =plugin.json=: the plugin's id, name, version, what it opens
   (="opens": [".dots"]=), its permissions (a viewer needs none) and its
   limits.
-- =src/lib.rs=: the viewer, and the document it opens. The viewer says
-  which files are its own (=detect=, by the file's first bytes or its
-  extension) and reads one (=open=; the file comes through a handle,
+- =src/lib.rs=: the viewer, and the document it opens. Which files are
+  its own is the manifest's to say (=opens=, and =applies= for first
+  bytes, whole names or markers: see the chapter on plugins), not its
+  =detect=, which Kalem does not ask. The viewer reads one (=open=; the
+  file comes through a handle,
   =read_all= or a piece at a time, since the plugin has no file system).
   The document says what the file holds (=structure=: one picture,
   pages, frames or sheets), how large a unit is (=size=), draws it when
