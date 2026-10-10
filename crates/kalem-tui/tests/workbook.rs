@@ -4055,6 +4055,11 @@ fn the_cells_menu_has_what_is_at_the_cursor() {
     // No link at B2: Link, not Remove Link.
     let s = menu(&mut t, (1, 1), "link");
     assert!(s.contains("Link") && !s.contains("Remove Link"), "{s}");
+    // Under the chart (G5), its items; not at B2.
+    let s = menu(&mut t, (4, 6), "chart:");
+    assert!(s.contains("Chart: Change Chart Type"), "{s}");
+    let s = menu(&mut t, (1, 1), "chart:");
+    assert!(!s.contains("Chart: Change Chart Type"), "{s}");
 }
 
 #[test]

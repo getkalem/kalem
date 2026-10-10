@@ -12395,9 +12395,12 @@ fn context_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
         v.go_to(u as usize);
     }
     // What is at the cursor, for the cells' items Excel shows only there:
-    // a table's, a pivot table's, a note's, a link's, a list's.
+    // a chart's, a picture's, a table's, a pivot table's, a note's, a
+    // link's, a list's.
     #[derive(Default)]
     struct At {
+        chart: bool,
+        drawing: bool,
         table: bool,
         pivot: bool,
         thread: bool,
@@ -12411,6 +12414,8 @@ fn context_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
         .and_then(|d| d.viewer.as_deref_mut())
     {
         Some(v) if on == "cells" => At {
+            chart: v.chart_at_cursor().is_some(),
+            drawing: v.drawing_at_cursor().is_some(),
             table: v.table_at_cursor().is_some(),
             pivot: v.pivot_at_cursor().is_some(),
             thread: v.cursor_cell().thread,
@@ -12474,7 +12479,28 @@ fn context_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
             ("viewer.grid.sheetList", "All Sheets"),
         ],
         _ => {
-            let mut l = vec![
+            // A chart or a picture over the cell: its items first, as
+            // Excel's menu on it.
+            let mut l = Vec::new();
+            if at.chart {
+                l.extend([
+                    ("viewer.grid.chartKind", "Chart: Change Chart Type…"),
+                    ("viewer.grid.chartTitle", "Chart: Title…"),
+                    ("viewer.grid.chartLegend", "Chart: Legend…"),
+                    ("viewer.grid.dataLabels", "Chart: Data Labels…"),
+                    ("viewer.grid.trendline", "Chart: Trendline…"),
+                    ("viewer.grid.moveChart", "Chart: Move Chart…"),
+                    ("viewer.grid.saveChartTemplate", "Chart: Save as Template…"),
+                    ("viewer.grid.deleteChart", "Chart: Delete"),
+                ]);
+            }
+            if at.drawing {
+                l.extend([
+                    ("viewer.grid.editShapeText", "Picture: Edit Text…"),
+                    ("viewer.grid.deleteDrawing", "Picture: Delete"),
+                ]);
+            }
+            l.extend([
                 ("edit.cut", "Cut"),
                 ("edit.copy", "Copy"),
                 ("edit.paste", "Paste"),
@@ -12495,7 +12521,7 @@ fn context_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
                 ("viewer.grid.sortDescending", "Sort Z to A"),
                 ("viewer.grid.sortByColor", "Sort by Color…"),
                 ("viewer.grid.customSort", "Custom Sort…"),
-            ];
+            ]);
             if at.table {
                 l.extend([
                     ("viewer.grid.totalRow", "Table: Total Row"),
