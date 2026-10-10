@@ -867,8 +867,11 @@ pub fn indent_item(text: &str, pos: usize, root: &SyntaxNode, deeper: bool) -> O
     }
     let (env, name) = list_at(root, pos).filter(|(_, n)| is_list(n))?;
     let indent = indent_of(line).to_string();
-    let item_line = format!("{}\n", line.trim_start());
-    let full = lr.start..(lr.end + 1).min(text.len());
+    // The item, its lines after the first too, moved whole: a group or
+    // an environment of it may go on to the next item or the list's end.
+    let (item, rest) = item_extent(text, &env, lr.clone())?;
+    let item_text = format!("{}\n", text[item.clone()].trim());
+    let rest = rest.unwrap_or_default();
     let mut tx = Transaction::new(if deeper { "Nest Item" } else { "Unnest Item" });
     if deeper {
         // Not the first item: there must be one before it to go under.
@@ -887,15 +890,16 @@ pub fn indent_item(text: &str, pos: usize, root: &SyntaxNode, deeper: bool) -> O
         let inner = format!("{indent}  ");
         if prev_line == format!("\\end{{{name}}}") {
             tx.replace(
-                prev..full.end,
-                format!("{inner}{item_line}{}", &text[prev..lr.start]),
+                prev..item.end,
+                format!("{inner}{item_text}{}{rest}", &text[prev..lr.start]),
             )
             .ok()?;
             let caret = prev + inner.len() + (pos - lr.start).saturating_sub(indent.len());
             return Some(tx.select(Selection::caret(caret)));
         }
-        let new = format!("{indent}\\begin{{{name}}}\n{inner}{item_line}{indent}\\end{{{name}}}\n");
-        tx.replace(full.clone(), new).ok()?;
+        let new =
+            format!("{indent}\\begin{{{name}}}\n{inner}{item_text}{indent}\\end{{{name}}}\n{rest}");
+        tx.replace(item.clone(), new).ok()?;
         let caret = lr.start
             + indent.len()
             + name.len()
@@ -912,30 +916,85 @@ pub fn indent_item(text: &str, pos: usize, root: &SyntaxNode, deeper: bool) -> O
     let outer_indent = indent
         .get(2..)
         .map_or(String::new(), |_| indent[..indent.len() - 2].to_string());
-    // Alone in its list: the list goes with it.
+    // Alone in its list: the list goes with it, what shares its first
+    // and last lines staying.
     let begin_line = line_range(text, es.start);
-    let only = text[span(&env.children().find(|c| c.kind() == K::BODY)?)]
-        .matches("\\item")
-        .count()
-        == 1;
+    // Its own items: those of a list inside them move with them.
+    let only = entries(&env, "\\item") == 1;
     if only {
         let whole = begin_line.start..(end_line.end + 1).min(text.len());
-        tx.replace(whole.clone(), format!("{outer_indent}{item_line}"))
-            .ok()?;
+        let before = text[begin_line.start..es.start].trim_end();
+        let after = text[es.end..end_line.end].trim();
+        let mut new = String::new();
+        if !before.trim().is_empty() {
+            new.push_str(before);
+            new.push('\n');
+        }
+        let at = whole.start + new.len();
+        new.push_str(&format!("{outer_indent}{item_text}"));
+        if !after.is_empty() {
+            new.push_str(&format!("{outer_indent}{after}\n"));
+        }
+        tx.replace(whole, new).ok()?;
         return Some(tx.select(Selection::caret(
-            whole.start + outer_indent.len() + (pos - lr.start).saturating_sub(indent.len()),
+            at + outer_indent.len() + (pos - lr.start).saturating_sub(indent.len()),
         )));
     }
-    tx.replace(full.clone(), "").ok()?;
-    tx.replace(
-        end_line.end + 1..end_line.end + 1,
-        format!("{outer_indent}{item_line}"),
-    )
-    .ok()?;
-    let caret = end_line.end + 1 - full.len()
+    tx.replace(item.clone(), rest.clone()).ok()?;
+    let at = (end_line.end + 1).min(text.len());
+    let lead = if at == end_line.end { "\n" } else { "" };
+    tx.replace(at..at, format!("{lead}{outer_indent}{item_text}"))
+        .ok()?;
+    let caret = at + lead.len() - item.len()
+        + rest.len()
         + outer_indent.len()
         + (pos - lr.start).saturating_sub(indent.len());
     Some(tx.select(Selection::caret(caret)))
+}
+
+/// The item of list `env` whose `\\item` is on line `lr`: from that line
+/// to the next item of the list or the list's end, and when it ends inside
+/// a line (a group or an environment of it closing there), the
+/// indentation what follows it there gets on its own line.
+fn item_extent(
+    text: &str,
+    env: &SyntaxNode,
+    lr: Range<usize>,
+) -> Option<(Range<usize>, Option<String>)> {
+    fn starts(n: &SyntaxNode, out: &mut Vec<usize>) {
+        for c in n.children() {
+            match c.kind() {
+                K::ENVIRONMENT => {}
+                K::COMMAND => {
+                    if latex_syntax::name(&c).as_deref() == Some("item") {
+                        out.push(span(&c).start);
+                    }
+                }
+                _ => starts(&c, out),
+            }
+        }
+    }
+    let body = env.children().find(|c| c.kind() == K::BODY)?;
+    let mut items = Vec::new();
+    starts(&body, &mut items);
+    let me = items
+        .iter()
+        .copied()
+        .find(|s| lr.start <= *s && *s <= lr.end)?;
+    let next = items.iter().copied().find(|s| *s > me);
+    let mut end = next.unwrap_or(span(&body).end);
+    end += text[end..].len() - text[end..].trim_start().len();
+    let line = line_range(text, end).start;
+    if line > lr.start && text[line..end].trim().is_empty() {
+        return Some((lr.start..line, None));
+    }
+    // What follows on the line: the next item, indented as this one, or
+    // the list's end, as its beginning.
+    let fill = match next {
+        Some(_) => indent_of(&text[lr.clone()]).to_string(),
+        None => indent_of(&text[line_range(text, span(env).start)]).to_string(),
+    };
+    Some((lr.start..end, Some(fill)))
 }
 
 /// Whether `pos` is in math (a formula or a math environment's body).
@@ -1771,5 +1830,44 @@ mod tests {
         assert!(indent_item(t, t.find("One").unwrap(), &root(t), true).is_none());
         let tx = indent_item(&s, s.find("Two").unwrap(), &root(&s), false).unwrap();
         assert_eq!(apply(&s, &tx).0, t);
+        // An item over several lines moves whole, a group of it with it.
+        let t = "\\begin{itemize}\n\\item One\n\\item Two \\textbf{a\nb}\n\\end{itemize}\n";
+        let tx = indent_item(t, t.find("Two").unwrap(), &root(t), true).unwrap();
+        let (s, _) = apply(t, &tx);
+        assert_eq!(
+            s,
+            "\\begin{itemize}\n\\item One\n\\begin{itemize}\n  \\item Two \\textbf{a\nb}\n\\end{itemize}\n\\end{itemize}\n"
+        );
+        let tx = indent_item(&s, s.find("Two").unwrap(), &root(&s), false).unwrap();
+        assert_eq!(apply(&s, &tx).0, t);
+        // An item with a list of its own: nested and unnested with it.
+        let t = "\\begin{itemize}\n  \\item One\n  \\item Two\n  \\begin{enumerate}\n    \\item a\n  \\end{enumerate}\n  \\item Three\n\\end{itemize}\n";
+        let tx = indent_item(t, t.find("Two").unwrap(), &root(t), true).unwrap();
+        let (s, _) = apply(t, &tx);
+        assert_eq!(
+            s,
+            "\\begin{itemize}\n  \\item One\n  \\begin{itemize}\n    \\item Two\n  \\begin{enumerate}\n    \\item a\n  \\end{enumerate}\n  \\end{itemize}\n  \\item Three\n\\end{itemize}\n"
+        );
+        let tx = indent_item(&s, s.find("Two").unwrap(), &root(&s), false).unwrap();
+        assert_eq!(apply(&s, &tx).0, t);
+        // The last item of a nested list whose group closes on the line of
+        // the list's end (the edit fuzz's seed 896): the group goes out
+        // with it, the end on a line of its own.
+        let t = "\\begin{itemize}\n  \\item First\n  \\begin{enumerate}\n    \\item One\n    \\item Tw\\texttt{o\n } \\end{enumerate}\n  \\item Third\n\\end{itemize}\n";
+        let at = t.find("Tw").unwrap();
+        let tx = indent_item(t, at, &root(t), false).unwrap();
+        let (s, caret) = apply(t, &tx);
+        assert_eq!(
+            s,
+            "\\begin{itemize}\n  \\item First\n  \\begin{enumerate}\n    \\item One\n  \\end{enumerate}\n  \\item Tw\\texttt{o\n }\n  \\item Third\n\\end{itemize}\n"
+        );
+        assert_eq!(&s[caret..caret + 2], "Tw");
+        // Nested again: in a list of its own kind, the one before it of
+        // another.
+        let tx = indent_item(&s, s.find("Tw").unwrap(), &root(&s), true).unwrap();
+        assert_eq!(
+            apply(&s, &tx).0,
+            "\\begin{itemize}\n  \\item First\n  \\begin{enumerate}\n    \\item One\n  \\end{enumerate}\n  \\begin{itemize}\n    \\item Tw\\texttt{o\n }\n  \\end{itemize}\n  \\item Third\n\\end{itemize}\n"
+        );
     }
 }

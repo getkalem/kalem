@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - Typing in a long document of flowing text (a Word document) was slow: each keystroke read every paragraph again from the plugin and measured every line again, two thirds of a second in a document of 20,000 paragraphs. Kalem now fetches the paragraphs the plugin says changed and lays out their lines again, nothing else: with the Word plugin 0.0.6 a keystroke there takes 1.4 ms.
+- LaTeX: Unnest Item (Shift+Tab) and Nest Item (Tab) moved only an item's first line. An item going on over more lines lost them to the item before, and one whose group or environment closed on a later line (`\texttt{…}` closing on the line of the list's `\end`) left a document LaTeX could not compile. The whole item now moves, with its lines and the lists inside it.
 
 ## [0.6.7] - 2026-10-10
 
