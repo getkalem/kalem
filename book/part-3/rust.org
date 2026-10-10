@@ -1,0 +1,103 @@
+The =rust= plugin of =getkalem/plugins= makes Kalem an editor for
+Rust. It is a [[file:language-plugins.org][language plugin]]: a manifest, a syntax and settings. Its
+own README lists the same and is kept with it.
+
+* What is followed
+
+- *The grammar* of the highlighter is Sublime Text's own Rust syntax,
+  from [[https://github.com/sublimehq/Packages][sublimehq/Packages]] at =7f74b54= (2026-02-11, MIT), unchanged:
+  the current editions (=async= and =.await=, let chains, raw
+  identifiers, C strings, =use<'a>=, every macro fragment specifier),
+  format strings with named widths, and the =#!= line and TOML
+  frontmatter of a single-file package. It takes =.rs= files and
+  =rust= source blocks from Kalem's built-in Rust syntax, which
+  predates =async=.
+- *The server is the oracle* for everything else: rust-analyzer.
+  Kalem shows what it says and changes nothing in it.
+
+| Files                                        | Language |
+|----------------------------------------------+----------|
+| =.rs=, =#!= with =cargo= or =rust-script=      | Rust     |
+
+=Cargo.toml= and =Cargo.lock= stay Kalem's TOML.
+
+* The project
+
+The root is the nearest folder up from the file with a =Cargo.lock=.
+Cargo writes the lock where it puts the workspace's root, so a
+workspace is one root and one server whatever member a file is in,
+and a workspace inside another folder with a =Cargo.toml= is a root of
+its own. A project never built has no lock yet: its file's folder is
+the root, rust-analyzer finds the =Cargo.toml= above it, and its first
+=cargo metadata= writes the lock. rust-analyzer runs in the root, so
+rustup honors the project's =rust-toolchain.toml=. A file of the
+standard library or of a dependency, reached by going to a
+definition, is served by the rust-analyzer that named it.
+
+A =.rs= file outside any Cargo project is served only when
+rust-analyzer's =linkedProjects= setting names it; a
+=.kalem/settings.toml= in its folder can:
+
+#+begin_src toml
+[plugins."org.kalem.rust".settings.rust-analyzer]
+linkedProjects = ["scratch.rs"]
+#+end_src
+
+* Installing a server
+
+| How                                                                                           |
+|-----------------------------------------------------------------------------------------------|
+| =rustup component add rust-analyzer=: the toolchain's own, the one =rust-toolchain.toml= names |
+| =brew install rust-analyzer=                                                                  |
+| A release from [[https://github.com/rust-lang/rust-analyzer/releases][rust-lang/rust-analyzer]], renamed =rust-analyzer= and put on the =PATH= |
+
+=kalem lsp status FILE= says which is used, where it was found and its
+version (=rust-analyzer --version=). rustup puts a =rust-analyzer= on
+the =PATH= whether or not the component is installed; without it,
+=status= says that it does not run and rustup's reason, and the editor
+says that it did not start, with these ways to install it.
+
+* Known differences
+
+Checked against rust-analyzer 1.99.0 (b940084d 2026-09-28) on Rust
+1.99.0, with the plugin's corpus workspace and with Kalem's own
+repository.
+
+- rust-analyzer gives its own diagnostics (type mismatches, names not
+  in snake case, unresolved imports, a file no module includes) only
+  when asked, after a file opens and after its changes; cargo's
+  (=cargo check=, or =clippy= by the setting =check.command=) come when
+  the project is loaded and after each save. An error both find, a
+  type mismatch, is listed twice, from =rustc= and from rust-analyzer,
+  as VS Code lists it.
+- A completion does not add its =use=: rust-analyzer offers an item
+  not imported only to an editor that fetches the import when the
+  item is taken, which Kalem does not do yet.
+- A rename is one undo step in each file it changes.
+- rust-analyzer answers Format Document with no edits both when the
+  file is formatted and when rustfmt fails (not installed for the
+  toolchain, a syntax error): Kalem says it changed nothing, and its
+  log (=kalem lsp check --log=) says why.
+- Kalem's own repository (24 crates): the first documentation and
+  completion 78 s after opening, 3.2 GB of memory once loaded, 4.4 GB
+  at the peak; completion in 7 to 90 ms after that; an edit sent to
+  the server in under 1.3 ms meanwhile. Edits made while it indexes
+  start the indexing over.
+- Highlighting: the names a declaration gives (a struct's, a trait's,
+  a constant's, a label) have no color, since Kalem maps no
+  =entity.name.struct= and kin to a color yet; a type where it is used
+  has the keywords' color (=storage.type=); every variable is colored.
+- Open Documentation in the Browser gives docs.rs's address for any
+  crate, which docs.rs has only once the crate is published.
+
+* Not implemented
+
+The test at the cursor, and rust-analyzer's Run and Run Test above
+=main= and each test, wait for code lenses; the project's =cargo run=
+and =cargo test= are named for =SPC p R= and =SPC p T=, which do not
+exist yet. No debugger: Kalem has none. rust-analyzer's state in the
+status bar, structural search and replace, and Enter continuing a
+=///= comment are not offered, nor its syntax tree (which it answers
+for VS Code's own view). Rust source blocks in Org and Markdown are
+highlighted, not served. The keys and crate versions of =Cargo.toml=
+are not completed: that is a second server for the same file.

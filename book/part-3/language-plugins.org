@@ -5,7 +5,7 @@ It is declarative (D57): a manifest, Sublime syntax files and
 settings, and no code. Kalem's core reads the manifest, adds the
 syntaxes to its highlighter and runs the servers through its one
 language server client, so a language plugin needs no WebAssembly
-runtime and works today. The first is [[file:elixir.org][Elixir]].
+runtime and works today. The first is [[file:elixir.org][Elixir]]; [[file:rust.org][Rust]] followed.
 
 | Part                  | Where                           | State                                                       |
 |-----------------------+---------------------------------+-------------------------------------------------------------|
