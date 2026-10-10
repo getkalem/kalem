@@ -1123,10 +1123,12 @@ pub mod flow {
     pub use crate::viewer::exports::kalem::plugin::annotations as a;
     pub use crate::viewer::exports::kalem::plugin::flow as f;
     pub use crate::viewer::exports::kalem::plugin::flow_2 as f2;
+    pub use crate::viewer::exports::kalem::plugin::flow_3 as f3;
 
     include!("annotations_conv.rs");
     include!("flow_conv.rs");
     include!("flow2_conv.rs");
+    include!("flow3_conv.rs");
 
     /// Calls `f` with the document behind the handle.
     pub fn with<R>(
@@ -1289,6 +1291,16 @@ macro_rules! __kalem_flow_exports {
                 $crate::adapter::flow::done($crate::adapter::flow::with(d, |x| {
                     x.flow_set_paragraphs(unit as usize, from, to, &changes)
                 }))
+            }
+        }
+        impl $crate::adapter::flow::f3::Guest for $t {
+            fn changes(
+                d: $crate::adapter::flow::f3::DocumentBorrow<'_>,
+                unit: u32,
+                since: u64,
+            ) -> ::std::option::Option<$crate::adapter::flow::f3::FlowChange> {
+                use $crate::adapter::flow::Cross;
+                $crate::adapter::flow::with(d, |x| x.flow_changes(unit as usize, since)).cross()
             }
         }
     };

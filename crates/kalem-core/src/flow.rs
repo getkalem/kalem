@@ -121,8 +121,19 @@ pub struct FlowState {
     /// Where each line starts in the text.
     starts: Vec<usize>,
     text: String,
+    /// Each line's first item, and whether the items are read from there
+    /// as from the start (outside tables and asides): where reading may
+    /// begin again.
+    places: Vec<(u32, bool)>,
+    /// How many items the flow has.
+    items: u32,
+    /// The lines changed since [`FlowState::take_changed`], which a
+    /// frontend measures again; all of them when `None`.
+    changed: Option<Range<usize>>,
     /// The size of body text, in points, the others are shown in ratio to.
     body_size: f32,
+    /// How much body text there is of each size (in half points).
+    sizes: HashMap<u32, isize>,
     /// The unit's annotations, by ID.
     pub annotations: HashMap<String, Annotation>,
     /// Whether edits are written as tracked changes; `None` for a format
@@ -136,36 +147,64 @@ fn line_text(p: &FlowParagraph) -> String {
     p.text.replace('\n', &kalem_viewer::LINE_BREAK.to_string())
 }
 
-/// The most common size of body text among `items`, in points.
-fn body_size(items: &[FlowItem]) -> f32 {
-    let mut counts: HashMap<u32, usize> = HashMap::new();
-    for i in items {
-        if let FlowItem::Paragraph(p) = i
-            && p.role == FlowRole::Body
-        {
-            for r in &p.runs {
-                if let Some(s) = r.marks.size {
-                    *counts.entry((s * 2.0).round() as u32).or_default() += r.text.len();
-                }
+/// How much body text of each size (in half points) `lines` have,
+/// counted into `counts`, or out of them with `sign` -1.
+fn count_sizes(lines: &[FlowLine], counts: &mut HashMap<u32, isize>, sign: isize) {
+    for p in lines.iter().flat_map(|l| &l.segs).map(|s| &s.para) {
+        if p.role != FlowRole::Body {
+            continue;
+        }
+        for r in &p.runs {
+            if let Some(s) = r.marks.size {
+                *counts.entry((s * 2.0).round() as u32).or_default() +=
+                    sign * r.text.len() as isize;
             }
         }
     }
+}
+
+/// The most common size of body text, in points.
+fn body_size(counts: &HashMap<u32, isize>) -> f32 {
     counts
-        .into_iter()
-        .max_by_key(|(_, n)| *n)
-        .map_or(0.0, |(s, _)| s as f32 / 2.0)
+        .iter()
+        .filter(|(_, n)| **n > 0)
+        .max_by_key(|(s, n)| (**n, **s))
+        .map_or(0.0, |(s, _)| *s as f32 / 2.0)
 }
 
 /// The lines of a flow's items.
 pub fn lines_of(items: Vec<FlowItem>) -> Vec<FlowLine> {
-    let mut out: Vec<FlowLine> = Vec::new();
-    // Asides open: their label shown before their first paragraph.
-    let mut asides: Vec<(AsideKind, String, bool)> = Vec::new();
-    let mut depth = 0usize;
-    // The row being read (at the outermost table): its cells' paragraphs.
-    let mut row: Option<Vec<Vec<FlowParagraph>>> = None;
-    let prefix = |asides: &mut Vec<(AsideKind, String, bool)>| -> String {
-        match asides.last_mut() {
+    let mut r = LineReader::default();
+    r.read(items, 0);
+    r.lines
+}
+
+/// Items read into lines: the asides open, the tables, the row being
+/// read.
+#[derive(Default)]
+struct LineReader {
+    lines: Vec<FlowLine>,
+    /// Each line's first item, and whether reading was clean before it.
+    places: Vec<(u32, bool)>,
+    /// Where the next line's items begin, once one is read after a line.
+    next: Option<(u32, bool)>,
+    /// Asides open: their label shown before their first paragraph.
+    asides: Vec<(AsideKind, String, bool)>,
+    depth: usize,
+    /// The row being read (at the outermost table): its cells'
+    /// paragraphs.
+    row: Option<Vec<Vec<FlowParagraph>>>,
+}
+
+impl LineReader {
+    /// Reading as from the start: outside tables and asides.
+    fn clean(&self) -> bool {
+        self.asides.is_empty() && self.depth == 0 && self.row.is_none()
+    }
+
+    /// What is shown before the next line of the aside open.
+    fn prefix(&mut self) -> String {
+        match self.asides.last_mut() {
             Some((kind, label, first)) => {
                 if std::mem::take(first) {
                     match kind {
@@ -186,51 +225,74 @@ pub fn lines_of(items: Vec<FlowItem>) -> Vec<FlowLine> {
             }
             None => String::new(),
         }
-    };
-    for item in items {
+    }
+
+    fn push(&mut self, line: FlowLine, at: u32) {
+        self.places.push(self.next.take().unwrap_or((at, false)));
+        self.lines.push(line);
+    }
+
+    /// Reads `items`, the first of them item `first` of the flow.
+    fn read(&mut self, items: Vec<FlowItem>, first: u32) {
+        for (at, item) in (first..).zip(items) {
+            if self.next.is_none() {
+                self.next = Some((at, self.clean()));
+            }
+            self.item(item, at);
+        }
+    }
+
+    fn item(&mut self, item: FlowItem, at: u32) {
         match item {
             FlowItem::Paragraph(p) => {
-                if let Some(cells) = row.as_mut() {
+                if let Some(cells) = self.row.as_mut() {
                     match cells.last_mut() {
                         Some(c) => c.push(p),
                         None => cells.push(vec![p]),
                     }
                 } else {
-                    out.push(FlowLine {
-                        kind: LineKind::Text,
-                        prefix: prefix(&mut asides),
-                        segs: vec![Seg { start: 0, para: p }],
-                        row: false,
-                    });
+                    let prefix = self.prefix();
+                    self.push(
+                        FlowLine {
+                            kind: LineKind::Text,
+                            prefix,
+                            segs: vec![Seg { start: 0, para: p }],
+                            row: false,
+                        },
+                        at,
+                    );
                 }
             }
-            FlowItem::TableStart(_) => depth += 1,
-            FlowItem::TableEnd => depth = depth.saturating_sub(1),
-            FlowItem::RowStart(_) if depth == 1 => row = Some(Vec::new()),
-            FlowItem::CellStart(_) if depth == 1 => {
-                if let Some(cells) = row.as_mut() {
+            FlowItem::TableStart(_) => self.depth += 1,
+            FlowItem::TableEnd => self.depth = self.depth.saturating_sub(1),
+            FlowItem::RowStart(_) if self.depth == 1 => self.row = Some(Vec::new()),
+            FlowItem::CellStart(_) if self.depth == 1 => {
+                if let Some(cells) = self.row.as_mut() {
                     cells.push(Vec::new());
                 }
             }
-            FlowItem::RowEnd if depth == 1 => {
-                let cells = row.take().unwrap_or_default();
-                let edge = prefix(&mut asides);
+            FlowItem::RowEnd if self.depth == 1 => {
+                let cells = self.row.take().unwrap_or_default();
+                let edge = self.prefix();
                 if cells.iter().all(|c| c.len() == 1) && !cells.is_empty() {
                     // One line: the cells apart by tabs.
                     let mut segs = Vec::new();
-                    let mut at = 0;
+                    let mut start = 0;
                     for mut c in cells {
                         let p = c.remove(0);
                         let len = line_text(&p).len();
-                        segs.push(Seg { start: at, para: p });
-                        at += len + 1;
+                        segs.push(Seg { start, para: p });
+                        start += len + 1;
                     }
-                    out.push(FlowLine {
-                        kind: LineKind::Text,
-                        prefix: format!("{edge}▏"),
-                        segs,
-                        row: true,
-                    });
+                    self.push(
+                        FlowLine {
+                            kind: LineKind::Text,
+                            prefix: format!("{edge}▏"),
+                            segs,
+                            row: true,
+                        },
+                        at,
+                    );
                 } else {
                     // A paragraph a line, each cell's first marked.
                     for (i, c) in cells.into_iter().enumerate() {
@@ -240,12 +302,15 @@ pub fn lines_of(items: Vec<FlowItem>) -> Vec<FlowLine> {
                                 (_, 0) => "▏┆ ",
                                 _ => "▏  ",
                             };
-                            out.push(FlowLine {
-                                kind: LineKind::Text,
-                                prefix: format!("{edge}{mark}"),
-                                segs: vec![Seg { start: 0, para: p }],
-                                row: true,
-                            });
+                            self.push(
+                                FlowLine {
+                                    kind: LineKind::Text,
+                                    prefix: format!("{edge}{mark}"),
+                                    segs: vec![Seg { start: 0, para: p }],
+                                    row: true,
+                                },
+                                at,
+                            );
                         }
                     }
                 }
@@ -254,9 +319,9 @@ pub fn lines_of(items: Vec<FlowItem>) -> Vec<FlowLine> {
             | FlowItem::CellStart(_)
             | FlowItem::RowEnd
             | FlowItem::CellEnd => {}
-            FlowItem::AsideStart(a) => asides.push((a.kind, a.label, true)),
+            FlowItem::AsideStart(a) => self.asides.push((a.kind, a.label, true)),
             FlowItem::AsideEnd => {
-                asides.pop();
+                self.asides.pop();
             }
             FlowItem::Rule(kind) => {
                 let shown = match kind.as_str() {
@@ -265,22 +330,37 @@ pub fn lines_of(items: Vec<FlowItem>) -> Vec<FlowLine> {
                     "line" => String::new(),
                     k => format!("section break ({k})"),
                 };
-                out.push(FlowLine {
-                    kind: LineKind::Mark(shown),
+                self.push(
+                    FlowLine {
+                        kind: LineKind::Mark(shown),
+                        prefix: String::new(),
+                        segs: Vec::new(),
+                        row: false,
+                    },
+                    at,
+                );
+            }
+            FlowItem::Placeholder(name) => self.push(
+                FlowLine {
+                    kind: LineKind::Mark(name),
                     prefix: String::new(),
                     segs: Vec::new(),
                     row: false,
-                });
-            }
-            FlowItem::Placeholder(name) => out.push(FlowLine {
-                kind: LineKind::Mark(name),
-                prefix: String::new(),
-                segs: Vec::new(),
-                row: false,
-            }),
+                },
+                at,
+            ),
         }
     }
-    out
+}
+
+/// The text of a line.
+fn line_string(l: &FlowLine, out: &mut String) {
+    for (j, s) in l.segs.iter().enumerate() {
+        if j > 0 {
+            out.push('\t');
+        }
+        out.push_str(&line_text(&s.para));
+    }
 }
 
 /// The text of lines: each paragraph's edit text, a row's cells apart by
@@ -293,14 +373,25 @@ fn text_of(lines: &[FlowLine]) -> (String, Vec<usize>) {
             text.push('\n');
         }
         starts.push(text.len());
-        for (j, s) in l.segs.iter().enumerate() {
-            if j > 0 {
-                text.push('\t');
-            }
-            text.push_str(&line_text(&s.para));
-        }
+        line_string(l, &mut text);
     }
     (text, starts)
+}
+
+/// Items `from..from + count` of a unit's flow, fetched a chunk at a time.
+fn fetch(doc: &mut dyn ViewerDocument, unit: usize, from: u32, count: u32) -> Vec<FlowItem> {
+    let mut items = Vec::with_capacity(count as usize);
+    let mut at = from;
+    let end = from.saturating_add(count);
+    while at < end {
+        let got = doc.flow_items(unit, at, CHUNK.min(end - at));
+        if got.is_empty() {
+            break;
+        }
+        at += got.len() as u32;
+        items.extend(got);
+    }
+    items
 }
 
 fn err(e: kalem_viewer::ViewerError) -> String {
@@ -324,7 +415,11 @@ impl FlowState {
             lines: Vec::new(),
             starts: Vec::new(),
             text: String::new(),
+            places: Vec::new(),
+            items: 0,
+            changed: None,
             body_size: 0.0,
+            sizes: HashMap::new(),
             annotations: HashMap::new(),
             tracking: None,
         };
@@ -332,35 +427,219 @@ impl FlowState {
         Ok(f)
     }
 
-    /// Reads the flow again from the plugin; its text.
+    /// Reads the flow again from the plugin; its text. What changed since
+    /// the version held is read when the plugin tells (API 0.2.9,
+    /// `flow-3`), the whole flow otherwise.
     pub fn refresh(&mut self) -> String {
-        let (items, layout, annotations, tracking) = {
+        if !self.refresh_changed() {
+            self.refresh_whole();
+        }
+        let (annotations, tracking) = {
             let mut doc = self.viewer.doc();
-            let layout = doc.flow(self.unit).unwrap_or_default();
-            let mut items = Vec::with_capacity(layout.items as usize);
-            let mut from = 0;
-            while from < layout.items {
-                let got = doc.flow_items(self.unit, from, CHUNK.min(layout.items - from));
-                if got.is_empty() {
-                    break;
-                }
-                from += got.len() as u32;
-                items.extend(got);
-            }
-            let annotations = doc.annotations(Some(self.unit));
-            let tracking = doc.tracking();
-            (items, layout, annotations, tracking)
+            (doc.annotations(Some(self.unit)), doc.tracking())
         };
-        self.version = layout.version;
-        self.editable = layout.editable;
-        self.body_size = body_size(&items);
-        self.lines = lines_of(items);
-        let (text, starts) = text_of(&self.lines);
-        self.text = text;
-        self.starts = starts;
         self.annotations = annotations.into_iter().map(|a| (a.id.clone(), a)).collect();
         self.tracking = tracking;
         self.text.clone()
+    }
+
+    /// The whole flow read again.
+    fn refresh_whole(&mut self) {
+        let (items, layout) = {
+            let mut doc = self.viewer.doc();
+            let layout = doc.flow(self.unit).unwrap_or_default();
+            (fetch(&mut **doc, self.unit, 0, layout.items), layout)
+        };
+        self.version = layout.version;
+        self.editable = layout.editable;
+        self.items = layout.items;
+        let mut r = LineReader::default();
+        r.read(items, 0);
+        self.lines = r.lines;
+        self.places = r.places;
+        let (text, starts) = text_of(&self.lines);
+        self.text = text;
+        self.starts = starts;
+        self.sizes.clear();
+        count_sizes(&self.lines, &mut self.sizes, 1);
+        self.body_size = body_size(&self.sizes);
+        self.changed = None;
+    }
+
+    /// Whether what was read edit by edit is what reading the whole flow
+    /// gives (for tests); the flow is read whole after.
+    #[doc(hidden)]
+    pub fn reads_as_whole(&mut self) -> Result<(), String> {
+        let kept = (
+            self.lines.clone(),
+            self.text.clone(),
+            self.starts.clone(),
+            self.places.clone(),
+            self.items,
+            self.body_size,
+        );
+        let changed = self.changed.clone();
+        self.refresh_whole();
+        self.changed = changed;
+        let whole = (
+            self.lines.clone(),
+            self.text.clone(),
+            self.starts.clone(),
+            self.places.clone(),
+            self.items,
+            self.body_size,
+        );
+        if kept == whole {
+            return Ok(());
+        }
+        let line = (0..kept.0.len().max(whole.0.len())).find(|i| kept.0.get(*i) != whole.0.get(*i));
+        Err(format!(
+            "read edit by edit: {} lines, {} items, text {:?}, starts {:?}, places {:?}, \
+             first differing line {line:?}: {:?}; read whole: {} lines, {} items, text {:?}, \
+             starts {:?}, places {:?}, {:?}",
+            kept.0.len(),
+            kept.4,
+            kept.1,
+            kept.2,
+            kept.3,
+            line.and_then(|i| kept.0.get(i)),
+            whole.0.len(),
+            whole.4,
+            whole.1,
+            whole.2,
+            whole.3,
+            line.and_then(|i| whole.0.get(i)),
+        ))
+    }
+
+    /// The lines changed since last asked (their look may have changed
+    /// with their text, or without it); all of them when `None`.
+    pub fn take_changed(&mut self) -> Option<Range<usize>> {
+        self.changed.replace(0..0)
+    }
+
+    /// Lines `first..last` replaced by `n` lines: the lines changed since
+    /// last asked, as they are numbered now.
+    fn lines_replaced(&mut self, first: usize, last: usize, n: usize) {
+        self.changed = self.changed.take().map(|r| {
+            if r.is_empty() {
+                return first..first + n;
+            }
+            let end = if r.end <= first {
+                r.end
+            } else if r.end >= last {
+                r.end + n - (last - first)
+            } else {
+                first + n
+            };
+            r.start.min(first)..end.max(first + n)
+        });
+    }
+
+    /// Reads again the items changed since the version held, as the
+    /// plugin tells, and the lines they make; false when it does not
+    /// tell, or what it tells does not fit, and the flow is to be read
+    /// whole.
+    fn refresh_changed(&mut self) -> bool {
+        if self.lines.is_empty() {
+            return false;
+        }
+        let mut doc = self.viewer.doc();
+        let Some(layout) = doc.flow(self.unit) else {
+            return false;
+        };
+        if layout.version == self.version {
+            self.editable = layout.editable;
+            return true;
+        }
+        let Some(c) = doc.flow_changes(self.unit, self.version) else {
+            return false;
+        };
+        if c.is_none() {
+            self.version = layout.version;
+            self.editable = layout.editable;
+            return true;
+        }
+        let end = c.from.checked_add(c.removed);
+        if end.is_none_or(|e| e > self.items)
+            || i64::from(layout.items)
+                != i64::from(self.items) - i64::from(c.removed) + i64::from(c.added)
+        {
+            return false;
+        }
+        // From the last line at or before the change read as from the
+        // start, to the first such line after it.
+        let mut first = self
+            .places
+            .partition_point(|(at, _)| *at <= c.from)
+            .saturating_sub(1);
+        while first > 0 && !self.places[first].1 {
+            first -= 1;
+        }
+        let changed_end = c.from + c.removed;
+        let mut last = self.places.partition_point(|(at, _)| *at < changed_end);
+        while last < self.places.len() && !self.places[last].1 {
+            last += 1;
+        }
+        let from = self.places[first].0;
+        let old_end = self.places.get(last).map_or(self.items, |p| p.0);
+        let grown = i64::from(c.added) - i64::from(c.removed);
+        let new_end = (i64::from(old_end) + grown) as u32;
+        let items = fetch(&mut **doc, self.unit, from, new_end.saturating_sub(from));
+        drop(doc);
+        if items.len() as u32 != new_end.saturating_sub(from) {
+            return false;
+        }
+        let mut r = LineReader::default();
+        r.read(items, from);
+        if !r.clean() || r.lines.is_empty() {
+            return false;
+        }
+        // The text: each line followed by a line feed, for the while.
+        self.text.push('\n');
+        let a = self.starts[first];
+        let b = self.starts.get(last).copied().unwrap_or(self.text.len());
+        let mut new = String::new();
+        let mut starts = Vec::with_capacity(r.lines.len());
+        for l in &r.lines {
+            starts.push(a + new.len());
+            line_string(l, &mut new);
+            new.push('\n');
+        }
+        self.text.replace_range(a..b, &new);
+        self.text.pop();
+        let moved = new.len() as isize - (b - a) as isize;
+        for s in &mut self.starts[last..] {
+            *s = s.saturating_add_signed(moved);
+        }
+        let n = r.lines.len();
+        self.starts.splice(first..last, starts);
+        count_sizes(&self.lines[first..last], &mut self.sizes, -1);
+        count_sizes(&r.lines, &mut self.sizes, 1);
+        self.lines.splice(first..last, r.lines);
+        for p in &mut self.places[last..] {
+            p.0 = (i64::from(p.0) + grown) as u32;
+        }
+        self.places.splice(first..last, r.places);
+        // The paragraphs after, numbered as the plugin moved them.
+        if c.shift != 0 {
+            for s in self.lines[first + n..].iter_mut().flat_map(|l| &mut l.segs) {
+                if let Some(i) = &mut s.para.index {
+                    *i = i.saturating_add_signed(c.shift);
+                }
+            }
+        }
+        self.version = layout.version;
+        self.editable = layout.editable;
+        self.items = layout.items;
+        let size = body_size(&self.sizes);
+        self.lines_replaced(first, last, n);
+        if size != self.body_size {
+            // Another size of body text: every line looks otherwise.
+            self.changed = None;
+        }
+        self.body_size = size;
+        true
     }
 
     /// The text shown.

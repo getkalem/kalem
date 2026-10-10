@@ -148,6 +148,62 @@ fn typing_enter_and_backspace_are_the_plugins_edits() {
     );
 }
 
+/// Edits of every kind, each read again as the plugin tells what changed
+/// (API 0.2.9): the lines are those a whole reading gives.
+#[test]
+fn what_changed_is_read_as_the_whole_would_be() {
+    let mut text = String::from(DOC);
+    for i in 0..30 {
+        text.push_str(&match i % 6 {
+            0 => format!("# Part {i}\n"),
+            1 | 2 => format!("- item {i}\n"),
+            3 => format!("|c{i}|d|\n"),
+            4 => "---\n".to_string(),
+            _ => format!("Paragraph {i} with *bold* words\n"),
+        });
+    }
+    let (mut d, _) = open(&text);
+    assert!(d.flow.as_deref_mut().unwrap().take_changed().is_none());
+    let check = |d: &mut DocumentState, what: &str| {
+        let f = d.flow.as_deref_mut().unwrap();
+        assert!(
+            f.take_changed().is_some(),
+            "{what}: read whole rather than as changed"
+        );
+        if let Err(e) = f.reads_as_whole() {
+            panic!("{what}: {e}");
+        }
+        let shown = f.text().to_string();
+        assert_eq!(d.text().as_str(), shown, "{what}");
+    };
+    let at = |d: &DocumentState, s: &str| d.text().as_str().find(s).unwrap();
+    let p = at(&d, "Paragraph 5");
+    d.selection = Selection::caret(p);
+    d.insert_text("x", Instant::now());
+    check(&mut d, "a character typed");
+    let p = at(&d, "Paragraph 11") + 4;
+    edit(&mut d, p..p, "\n");
+    check(&mut d, "Enter");
+    edit(&mut d, p..p + 1, "");
+    check(&mut d, "Backspace at a paragraph's start");
+    let (a, b) = (at(&d, "item 7"), at(&d, "Paragraph 11"));
+    edit(&mut d, a + 2..b + 3, "");
+    check(&mut d, "a deletion across paragraphs, a table and a rule");
+    let p = at(&d, "Part 18") + 4;
+    edit(&mut d, p..p, " one\ntwo\nthree");
+    check(&mut d, "lines pasted");
+    let end = d.text().as_str().len() - "The note.".len() - 1;
+    let last = d.text().as_str()[..end].rfind('\n').unwrap() + 1;
+    edit(&mut d, last..last, "z");
+    check(&mut d, "typing in the last paragraph before the note");
+    for n in 0..4 {
+        d.undo().unwrap();
+        check(&mut d, &format!("undo {n}"));
+    }
+    d.redo().unwrap();
+    check(&mut d, "redo");
+}
+
 #[test]
 fn a_refused_edit_changes_nothing_and_says_why() {
     let (mut d, _) = open(DOC);

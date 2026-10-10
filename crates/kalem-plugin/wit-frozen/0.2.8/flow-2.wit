@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.9;
+package kalem:plugin@0.2.8;
 
 /// Paragraphs' look and lists in documents of flowing text (API 0.2.8):
 /// what a word processor's paragraph tools change, for every format

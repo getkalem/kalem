@@ -1,0 +1,29 @@
+package kalem:plugin@0.2.9;
+
+/// What changed in a document of flowing text (API 0.2.9). After an
+/// edit the host reads the flow again; a long document has tens of
+/// thousands of items, and fetching them all at each keystroke is slow,
+/// so the host asks what changed since the version it holds and fetches
+/// those items only. `flow` was released with 0.2.7 and does not change,
+/// so this is an interface of its own; a viewer exporting `flow` may
+/// export it, and one that does not is read whole.
+interface flow-3 {
+    use viewer.{document};
+
+    /// What changed in a unit's flow between two of its versions: the
+    /// items from `from` on, `removed` of them then, are `added` items
+    /// now; the items after them are as they were, but each of their
+    /// paragraphs' index moved by `shift`.
+    record flow-change {
+        %from: u32,
+        removed: u32,
+        added: u32,
+        shift: s32,
+    }
+
+    /// What changed in unit `unit`'s flow since its version `since` (a
+    /// `flow-layout`'s `version`) up to the version `flow` gives now;
+    /// none when the plugin cannot tell, and the host fetches the flow
+    /// whole.
+    changes: func(doc: borrow<document>, unit: u32, since: u64) -> option<flow-change>;
+}
