@@ -1,6 +1,6 @@
 //! The client against a fake server: this binary started again with
 //! `KALEM_LSP_FAKE` set to a behavior (`normal`, `silent`, `crash`,
-//! `refuse`, `garbage`, `absent`).
+//! `refuse`, `garbage`, `absent`, `pull`).
 
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
@@ -193,6 +193,68 @@ fn absent() {
     assert_eq!(c.standard_error().len(), 2);
 }
 
+/// A server that gives some diagnostics only when asked, as rust-analyzer
+/// gives its own: asked after the document opens and after it changes,
+/// asked again when the server says they changed, its "unchanged" answer
+/// keeping the report before; shown with those it pushes.
+fn pull() {
+    let c = start("pull", Arc::new(AtomicUsize::new(0)));
+    let uri = "file:///x.ex";
+    let messages = |c: &Client| {
+        let mut m: Vec<String> = c
+            .diagnostics(uri)
+            .iter()
+            .map(|d| d["message"].as_str().unwrap_or_default().to_string())
+            .collect();
+        m.sort();
+        m
+    };
+    // Opened before it is ready: asked once it is.
+    c.did_open(uri, "elixir", "TODO bad");
+    until("pushed and given", || {
+        messages(&c) == ["TODO found", "bad found"]
+    });
+    assert!(!c.diagnostics_stale(uri));
+    // A change: the pushed and the given follow it.
+    c.did_change(
+        uri,
+        "TODO bad",
+        &[Edit {
+            range: 0..4,
+            text: "bad".into(),
+        }],
+        "bad bad",
+    );
+    until("after the change", || {
+        messages(&c) == ["bad found", "bad found"]
+    });
+    // Saved: the server says its diagnostics changed, and they are
+    // asked for again.
+    c.did_save(uri, "bad bad");
+    until("after the save", || {
+        messages(&c) == ["bad found", "bad found", "saved"]
+    });
+    // Saved again, nothing changed: the report's name sent back, the
+    // server's "unchanged" keeping the report.
+    let before = c.published();
+    c.did_save(uri, "bad bad");
+    until("the second answer", || c.published() > before);
+    assert_eq!(messages(&c), ["bad found", "bad found", "saved"]);
+    let log = c.log();
+    assert!(
+        log.iter().any(|l| l.contains("diagnostics unchanged")),
+        "{log:?}"
+    );
+    assert!(
+        !log.iter().any(|l| l.contains("[client] diagnostics of")),
+        "{log:?}"
+    );
+    // Closed: forgotten.
+    c.did_close(uri);
+    assert!(c.diagnostics(uri).is_empty());
+    c.shutdown();
+}
+
 fn garbage() {
     let c = start("garbage", Arc::new(AtomicUsize::new(0)));
     until("ready", || c.is_ready());
@@ -218,6 +280,7 @@ fn main() {
         ("crash", crash),
         ("refuse", refuse),
         ("absent", absent),
+        ("pull", pull),
         ("log work", log_work),
         ("garbage", garbage),
         ("chatty", chatty),

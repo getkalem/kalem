@@ -1569,6 +1569,7 @@ lsp-stopped-restarting = { $server } durdu ({ $code }); yeniden başlatılıyor
 lsp-nothing = { $server }: { $what } yok
 lsp-not-provided = { $server } { $what } sağlamıyor
 lsp-no-answer = zamanında cevap gelmedi
+lsp-busy = hâlâ meşgul (projeyi yüklüyor); birazdan yeniden sorun
 lsp-formatter-missing = Biçimlendirici { $program } kurulu değil
 lsp-formatter-failed = { $command }: { $reason }
 fmt-none = { $kind } dosyaları için biçimlendirici yok: ayarlarda formatters.{ $key } olarak bir tane belirtin
