@@ -280,6 +280,16 @@ pub fn serve(behavior: &str) {
                     "range": {"start": {"line": 0, "character": 2}, "end": {"line": 0, "character": 3}}}]}),
                 );
             }
+            // A text it cannot read: no edits, as `null` (rust-analyzer's
+            // answer when rustfmt fails).
+            "textDocument/formatting"
+                if texts.get(&uri).is_some_and(|t| t.contains("UNREADABLE")) =>
+            {
+                send(
+                    &mut out,
+                    json!({"jsonrpc": "2.0", "id": id, "result": null}),
+                );
+            }
             "textDocument/formatting" => {
                 // Runs of spaces become one.
                 let text = texts.get(&uri).cloned().unwrap_or_default();
