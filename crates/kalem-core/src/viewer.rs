@@ -5182,6 +5182,12 @@ impl ViewerState {
     /// it must be) and the cells, fixed (`Budget!$B$2:$D$4`).
     pub fn selection_reference(&mut self) -> String {
         let s = self.selection();
+        self.range_reference(s)
+    }
+
+    /// Range `s` of the sheet shown as a name refers to it:
+    /// `Budget!$B$2:$B$5`.
+    pub fn range_reference(&self, s: [u32; 4]) -> String {
         let sheet = self.structure.units[self.unit]
             .label
             .trim_end_matches(" (hidden)")
@@ -5228,6 +5234,53 @@ impl ViewerState {
             .map_err(|e| e.to_string())?;
         self.refresh();
         Ok(())
+    }
+
+    /// Create from Selection: a name for each column of the selection from
+    /// the text of its first (`Top`) or last row, referring to the rest of
+    /// the column, or for each row from its first (`Left`) or last column,
+    /// as Excel's Formulas › Create from Selection; in one undo step. The
+    /// names made; a blank label makes none.
+    pub fn names_from_selection(&mut self, side: NameSide) -> Result<Vec<String>, String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        let by_columns = matches!(side, NameSide::Top | NameSide::Bottom);
+        if (by_columns && s[0] == s[2]) || (!by_columns && s[1] == s[3]) {
+            return Err(
+                "Select the labels and the cells they name: two rows or columns at least".into(),
+            );
+        }
+        let labels: std::collections::HashMap<(u32, u32), String> = self
+            .grid_cells(s[0]..s[2] + 1, s[1]..s[3] + 1)
+            .into_iter()
+            .map(|(r, c, g)| ((r, c), g.text))
+            .collect();
+        let mut names = Vec::new();
+        let lines = if by_columns { s[1]..=s[3] } else { s[0]..=s[2] };
+        for i in lines {
+            let (at, range) = match side {
+                NameSide::Top => ((s[0], i), [s[0] + 1, i, s[2], i]),
+                NameSide::Bottom => ((s[2], i), [s[0], i, s[2] - 1, i]),
+                NameSide::Left => ((i, s[1]), [i, s[1] + 1, i, s[3]]),
+                NameSide::Right => ((i, s[3]), [i, s[1], i, s[3] - 1]),
+            };
+            if let Some(name) = labels.get(&at).and_then(|t| name_from_label(t)) {
+                names.push((name, self.range_reference(range)));
+            }
+        }
+        if names.is_empty() {
+            return Err("The labels are blank".into());
+        }
+        let r = self.in_batch(|d| {
+            for (name, to) in &names {
+                d.set_defined_name(name, Some(to))?;
+            }
+            Ok(())
+        });
+        self.refresh();
+        r.map(|()| names.into_iter().map(|(n, _)| n).collect())
     }
 
     /// The sheet shown as CSV, as Excel's CSV UTF-8 writes it: the used
@@ -15057,6 +15110,117 @@ fn exact_size(ctx: &mut EditorContext<'_>, args: &serde_json::Value, rows: bool)
     }
 }
 
+/// Where Create from Selection finds the labels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NameSide {
+    /// The first row: a name for each column.
+    Top,
+    /// The first column: a name for each row.
+    Left,
+    /// The last row.
+    Bottom,
+    /// The last column.
+    Right,
+}
+
+/// A label as Excel makes a name of it: spaces and characters a name
+/// cannot hold as underscores, an underscore before a first character
+/// that cannot start one (a digit), and after a name that reads as a
+/// cell (`Q1_`) or as R1C1 (`R_`, `C2_`); none for a blank label.
+pub fn name_from_label(label: &str) -> Option<String> {
+    let t = label.trim();
+    if t.is_empty() {
+        return None;
+    }
+    let mut name: String = t
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || matches!(c, '_' | '.' | '\\' | '?') {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if !name
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_alphabetic() || c == '_' || c == '\\')
+    {
+        name.insert(0, '_');
+    }
+    let upper = name.to_ascii_uppercase();
+    let letters = upper.len()
+        - upper
+            .trim_start_matches(|c: char| c.is_ascii_alphabetic())
+            .len();
+    let (col, row) = upper.split_at(letters);
+    let a1 = (1..=3).contains(&col.len())
+        && crate::csv_tools::column_index(col).is_some_and(|c| c < 16_384)
+        && row
+            .parse::<u32>()
+            .is_ok_and(|r| (1..=1_048_576).contains(&r));
+    let r1c1 = upper
+        .strip_prefix('R')
+        .map(|r| r.trim_start_matches(|c: char| c.is_ascii_digit()))
+        .map(|r| {
+            r.is_empty()
+                || r.strip_prefix('C')
+                    .is_some_and(|c| c.chars().all(|d| d.is_ascii_digit()))
+        })
+        .unwrap_or(false)
+        || upper
+            .strip_prefix('C')
+            .is_some_and(|c| c.chars().all(|d| d.is_ascii_digit()));
+    if a1 || r1c1 {
+        name.push('_');
+    }
+    Some(name)
+}
+
+/// Create from Selection: the side the labels are on (asked when not
+/// given), then the names made.
+fn names_from_selection(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.namesFromSelection";
+    let side = match args.get("from").and_then(|x| x.as_str()) {
+        Some("top") => NameSide::Top,
+        Some("left") => NameSide::Left,
+        Some("bottom") => NameSide::Bottom,
+        Some("right") => NameSide::Right,
+        _ => {
+            let item = |w: &str, t: &str| {
+                menu_item(
+                    ID,
+                    serde_json::json!({ "from": w }),
+                    t,
+                    "Create from Selection",
+                )
+            };
+            ctx.requests.push(Request::Choose(vec![
+                item("top", "Top Row"),
+                item("left", "Left Column"),
+                item("bottom", "Bottom Row"),
+                item("right", "Right Column"),
+            ]));
+            return Ok(());
+        }
+    };
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    match v.names_from_selection(side) {
+        Ok(names) => ctx
+            .messages
+            .push(format!("Names made: {}", names.join(", "))),
+        Err(e) => ctx.messages.push(e),
+    }
+    Ok(())
+}
+
 /// Cells (sorted by row, then column) as few ranges: runs along each row,
 /// the same runs on rows after one another joined.
 pub fn areas_of(cells: &[(u32, u32)]) -> Vec<[u32; 4]> {
@@ -15764,6 +15928,13 @@ fn grid_commands() -> Vec<Command> {
             &[],
             IN_GRID,
             define_name,
+        ),
+        cmd(
+            "viewer.grid.namesFromSelection",
+            "Create from Selection",
+            &["ctrl+shift+f3"],
+            IN_GRID,
+            names_from_selection,
         ),
         cmd(
             "viewer.grid.nameManager",
@@ -17403,6 +17574,21 @@ fn grid_commands() -> Vec<Command> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn labels_made_names_as_excel_makes_them() {
+        use super::name_from_label as n;
+        assert_eq!(n("Item").as_deref(), Some("Item"));
+        assert_eq!(n(" Net sales ").as_deref(), Some("Net_sales"));
+        assert_eq!(n("Q1").as_deref(), Some("Q1_"));
+        assert_eq!(n("XFD1048576").as_deref(), Some("XFD1048576_"));
+        assert_eq!(n("XFE1").as_deref(), Some("XFE1"));
+        assert_eq!(n("r").as_deref(), Some("r_"));
+        assert_eq!(n("R2C3").as_deref(), Some("R2C3_"));
+        assert_eq!(n("2024").as_deref(), Some("_2024"));
+        assert_eq!(n("Kâr/Zarar").as_deref(), Some("Kâr_Zarar"));
+        assert_eq!(n("  "), None);
+    }
 
     #[test]
     fn date_filter_periods() {

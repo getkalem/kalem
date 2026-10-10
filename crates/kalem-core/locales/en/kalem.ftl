@@ -1470,6 +1470,7 @@ cmd-viewer-grid-insertLink = Insert Link
 cmd-viewer-grid-openLink = Open Link
 cmd-viewer-grid-removeLink = Remove Link
 cmd-viewer-grid-defineName = Define Name
+cmd-viewer-grid-namesFromSelection = Create from Selection
 cmd-viewer-grid-nameManager = Name Manager
 cmd-viewer-grid-deleteName = Delete Name
 cmd-viewer-grid-showFormulas = Show Formulas

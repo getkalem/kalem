@@ -4024,6 +4024,45 @@ fn row_heights_and_column_widths_typed() {
 }
 
 #[test]
+fn names_created_from_the_selection() {
+    let mut t = T::open("names-from-selection");
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(0, 0);
+        v.grid_extend_to(4, 3);
+    }
+    // Asked where the labels are, then made from the top row.
+    t.app
+        .run_command("viewer.grid.namesFromSelection", json!({}));
+    let s = t.screen();
+    assert!(s.contains("Top Row") && s.contains("Left Column"), "{s}");
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.namesFromSelection", json!({ "from": "top" }));
+    let names = |t: &mut T| t.app.doc.viewer.as_deref_mut().unwrap().defined_names();
+    let made = names(&mut t);
+    let sheet = t.app.doc.viewer.as_deref().unwrap().structure().units[0]
+        .label
+        .clone();
+    for (name, range) in [("Item", "A"), ("Q1_", "B"), ("Q2_", "C"), ("Total", "D")] {
+        let to = format!("{sheet}!${range}$2:${range}$5");
+        assert!(
+            made.iter()
+                .any(|(n, r)| n == name && r.trim_start_matches('=') == to),
+            "{name} = {to}: {made:?}"
+        );
+    }
+    assert!(
+        t.screen().contains("Names made: Item, Q1_, Q2_, Total"),
+        "{}",
+        t.screen()
+    );
+    // One undo takes them all away.
+    t.app.run_command("edit.undo", json!({}));
+    assert!(!names(&mut t).iter().any(|(n, _)| n == "Q1_" || n == "Item"));
+}
+
+#[test]
 fn new_workbooks_and_copied_sheets() {
     let mut t = T::open("new-books");
     let budget = t.dir.join("budget.xlsx");

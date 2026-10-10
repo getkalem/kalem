@@ -608,6 +608,7 @@ pub fn menus() -> Vec<MenuSpec> {
                 "viewer.grid.autoSum",
                 "-",
                 "viewer.grid.defineName",
+                "viewer.grid.namesFromSelection",
                 "viewer.grid.nameManager",
                 "viewer.grid.deleteName",
                 "-",

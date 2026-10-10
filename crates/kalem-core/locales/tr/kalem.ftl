@@ -1386,6 +1386,7 @@ cmd-viewer-grid-insertLink = Bağlantı Ekle
 cmd-viewer-grid-openLink = Bağlantıyı Aç
 cmd-viewer-grid-removeLink = Bağlantıyı Kaldır
 cmd-viewer-grid-defineName = Ad Tanımla
+cmd-viewer-grid-namesFromSelection = Seçimden Oluştur
 cmd-viewer-grid-nameManager = Ad Yöneticisi
 cmd-viewer-grid-deleteName = Adı Sil
 cmd-viewer-grid-showFormulas = Formülleri Göster
