@@ -990,7 +990,9 @@ impl Workspace {
     }
 
     /// Opens the live search of lines in the active editor: its
-    /// document's, or every open one's (T2.7i.4).
+    /// document's, or every open one's (T2.7i.4). A file manager listing
+    /// is searched like any document: its lines are the entries, so the
+    /// search finds a file.
     fn search_lines(&mut self, all: bool, headings: bool, text: &str, cx: &mut Context<'_, Self>) {
         use kalem_core::line_search::{LineSearch, Lines, Source};
         let files = self.open_files(cx);
@@ -999,7 +1001,7 @@ impl Workspace {
         for (i, e) in self.editors.iter().enumerate() {
             let active = *e == self.editor;
             let doc = &e.read(cx).doc;
-            if doc.dired.is_some() || (!all && !active) {
+            if !all && !active {
                 continue;
             }
             if active {

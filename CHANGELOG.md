@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- Search Lines (Doom's `SPC s b`) did nothing in a file manager listing, in both editors. A listing is now searched like any document: the lines are its entries, so the search finds a file, the cursor following the entry while typing; Enter stays on it and `l` or Enter opens the file. Across the open documents (`SPC s B`), the listings' lines take part too.
+
 ## [0.6.3] - 2026-10-10
 
 ### Added

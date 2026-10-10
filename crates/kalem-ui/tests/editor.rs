@@ -2638,6 +2638,38 @@ fn live_line_search(cx: &mut TestAppContext) {
     assert_eq!(line, 2);
 }
 
+/// `SPC s b` in a file manager listing searches its lines, as in any
+/// document: the cursor follows the entry found, Enter stays on it and `l`
+/// opens the file (the owner, 2026-10-10: the search did nothing in a
+/// listing).
+#[gpui::test]
+fn line_search_in_the_file_manager(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open_project(true, cx);
+    cx.simulate_keystrokes("-");
+    cx.run_until_parked();
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    let a = dir.join("proj/a.org");
+    let line_of_a = e.read_with(cx, |e, _| {
+        e.doc.dired.as_deref().unwrap().line_of(&a).unwrap()
+    });
+    let line = |cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| e.doc.text().line_of(e.doc.selection.head))
+    };
+    cx.simulate_keystrokes("space s b");
+    cx.simulate_input("a.o");
+    cx.run_until_parked();
+    let shown = e.read_with(cx, |e, _| e.palette.as_ref().map(|p| p.len()));
+    assert_eq!(shown, Some(1));
+    assert_eq!(line(cx), line_of_a);
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    assert!(e.read_with(cx, |e, _| e.doc.dired.is_some()));
+    assert_eq!(line(cx), line_of_a);
+    cx.simulate_keystrokes("l");
+    cx.run_until_parked();
+    assert_eq!(active_title(&ws, cx), "a.org");
+}
+
 /// Doom's `SPC t` toggles (T2.7i.6): read-only refuses edits; line
 /// numbers are a setting, saved.
 #[gpui::test]

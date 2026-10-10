@@ -3725,7 +3725,8 @@ impl App {
     }
 
     /// Opens the live search of lines: this document's, or every open
-    /// one's (T2.7i.4).
+    /// one's (T2.7i.4). A file manager listing is searched like any
+    /// document: its lines are the entries, so the search finds a file.
     fn search_lines(&mut self, all: bool, headings: bool, text: &str) {
         use kalem_core::line_search::{LineSearch, Lines, Source};
         let mut sources = Vec::new();
@@ -3736,7 +3737,7 @@ impl App {
                 Some(b) => &b.doc,
                 None => &self.doc,
             };
-            if doc.dired.is_some() || (!all && i != self.active) {
+            if !all && i != self.active {
                 continue;
             }
             if i == self.active {

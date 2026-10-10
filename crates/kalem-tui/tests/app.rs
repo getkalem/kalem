@@ -4749,6 +4749,44 @@ fn live_line_search() {
     t.key(KeyCode::Esc, KeyModifiers::NONE);
 }
 
+/// `SPC s b` in a file manager listing searches its lines, as in any
+/// document: the cursor follows the entry found, Enter stays on it and `l`
+/// opens the file (the owner, 2026-10-10: the search did nothing in a
+/// listing).
+#[test]
+fn line_search_in_the_file_manager() {
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let (mut t, dir) = project_app(config);
+    t.typ("-");
+    assert_eq!(title(&t), "proj/");
+    let a = dir.join("proj/a.org");
+    let line_of_a = t.app.doc.dired.as_deref().unwrap().line_of(&a).unwrap();
+    t.typ(" sb");
+    t.typ("a.o");
+    let shown = screen(&mut t).join("\n");
+    assert!(shown.contains("a.org"), "{shown}");
+    assert_eq!(
+        t.app.doc.text().line_of(t.app.doc.selection.head),
+        line_of_a
+    );
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(t.app.doc.dired.is_some());
+    assert_eq!(
+        t.app.doc.text().line_of(t.app.doc.selection.head),
+        line_of_a
+    );
+    t.typ("l");
+    assert_eq!(title(&t), "a.org");
+    // Across the open documents, the listing's lines take part too.
+    t.typ("-");
+    t.app.open_path(&dir.join("proj/sub/b.org"), None);
+    t.typ(" sB");
+    t.typ("a.org");
+    let shown = screen(&mut t).join("\n");
+    assert!(shown.contains("File Manager:"), "{shown}");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+}
+
 /// Doom's `SPC t r`: the document refuses edits, the cursor still moves
 /// (T2.7i.6).
 #[test]
