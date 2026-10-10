@@ -646,11 +646,17 @@ fn main() {
     until("the library's file served", || {
         lsp::can(&lib_doc, Kind::Hover).then_some(())
     });
-    let served = lsp::describe(&lib_doc).unwrap();
-    assert!(
-        served.contains("real-project") && !served.contains("library"),
-        "{served}"
-    );
+    // The project document's root, whatever it is called (on Unix the
+    // project is reached through a link, on Windows it is not).
+    let root = |d: &DocumentState| {
+        let s = lsp::describe(d).unwrap();
+        s.rsplit_once(" in ")
+            .map(|(_, r)| r.to_string())
+            .unwrap_or(s)
+    };
+    let served = root(&lib_doc);
+    assert_eq!(served, root(&doc));
+    assert!(!served.contains("library"), "{served}");
     assert_eq!(lsp::report().len(), 1, "one server: {:?}", lsp::report());
     lsp::closed(&lib);
     println!("test named files ... ok");
