@@ -499,10 +499,11 @@ with the bundled viewer. A component that cannot be bound for another
 reason is treated the same way (in the status bar, and on =kalem view='s
 standard error).
 =kalem plugin check= starts every installed component viewer once, as
-opening a file would, and exits 1 when one cannot run; the /Released
-plugins/ workflow runs it on the index's plugins every day and when the
-WIT files change, so a contract change shows which plugins need a new
-release.
+opening a file would, and loads every installed extension plugin as
+starting it would, without activating it; it exits 1 when one cannot
+run. The /Released plugins/ workflow runs it on the index's plugins
+every day and when the WIT files change, so a contract change shows
+which plugins need a new release.
 
 A viewer of sheets of cells, a workbook's or a database's, builds
 the same way with =kalem-plugin='s feature =grid=: its component

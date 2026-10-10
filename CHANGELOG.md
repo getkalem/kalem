@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 - A language server's problems are underlined in three colors: errors in red, warnings in orange (yellow in the terminal), information and hints in blue. Errors and warnings were both red. A problem over several lines is underlined on each of them, not on its first only. LaTeX's checks keep their red and blue.
 
+### Fixed
+- `kalem plugin check` checks the installed extension plugins too: each is loaded and bound to the plugin API as starting it would, without being activated, and reported as running or with why it cannot, the check failing with it. Only viewers were checked, so the *Released plugins* workflow installed an extension plugin such as graph and never tried it.
+
 ## [0.6.11] - 2026-10-10
 
 ### Added

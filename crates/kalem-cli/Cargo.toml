@@ -74,6 +74,11 @@ required-features = ["components"]
 name = "viewer_choice"
 required-features = ["plugins"]
 
+# `kalem plugin check` on the installed extension plugins (a test plugin).
+[[test]]
+name = "plugin_check"
+required-features = ["plugins"]
+
 # A viewer of flowing text as a component, opened, edited and saved
 # (`KALEM_FLOW_COMPONENT`, `KALEM_FLOW_FILE`).
 [[test]]

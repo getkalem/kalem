@@ -1,9 +1,11 @@
 #!/bin/sh
 # The component plugins released in the index run with this build of
 # Kalem (publish_todo 1.4): each is installed into a configuration folder
-# of its own and started once by `kalem plugin check`, which fails when
-# one was built for another version of the plugin API. Run by the
-# "Released plugins" workflow, and before tagging a release.
+# of its own and started once by `kalem plugin check`, a viewer as
+# opening a file would and an extension plugin as starting it would (not
+# activated), which fails when one was built for another version of the
+# plugin API. Run by the "Released plugins" workflow, and before tagging
+# a release.
 #
 #   tools/check-released-plugins.sh [KALEM]
 set -eu

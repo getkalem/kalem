@@ -21,6 +21,10 @@ mod extensions;
 #[doc(hidden)]
 pub use commands::run::{Outcome as RunOutcome, drive as run_drive, run as run_batch};
 
+/// `kalem plugin check`, its report written where the tests read it.
+#[doc(hidden)]
+pub use commands::plugin::check as plugin_check;
+
 /// Kalem: a fast editor for plain-text documents, shown as they read and
 /// kept byte for byte: Org, LaTeX, CSV, BibTeX and code.
 #[derive(Debug, Parser)]
@@ -81,8 +85,9 @@ enum PluginAction {
     /// The installed plugins.
     List,
     /// Starts every installed component viewer once, as opening a file
-    /// would; exits 1 when one cannot run with this Kalem (built for
-    /// another version of the plugin API).
+    /// would, and loads every installed extension plugin as starting it
+    /// would, without activating it; exits 1 when one cannot run with this
+    /// Kalem (built for another version of the plugin API).
     Check,
     /// Starts a plugin: in a checkout of getkalem/plugins its template as
     /// `plugins/NAME`, elsewhere a crate of its own in `NAME/`.
@@ -1118,7 +1123,7 @@ where
             PluginAction::Browse => commands::plugin::browse(),
             PluginAction::Install { source, yes } => commands::plugin::install(&source, yes),
             PluginAction::List => commands::plugin::list(),
-            PluginAction::Check => commands::plugin::check(),
+            PluginAction::Check => commands::plugin::check(&mut std::io::stdout()),
             PluginAction::New { name } => commands::plugin::new(&name),
             PluginAction::Build { dir } => commands::plugin::build(dir.as_deref()),
             PluginAction::Dev { dir } => commands::plugin::dev(dir.as_deref()),

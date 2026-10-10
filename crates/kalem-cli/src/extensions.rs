@@ -562,6 +562,8 @@ struct Loaded {
     id: String,
     /// Its manifest's ID.
     full: String,
+    /// Its manifest's version.
+    version: String,
     /// What its manifest permits.
     grants: x::Grants,
     file: PathBuf,
@@ -733,6 +735,29 @@ fn manifest_buttons(id: &str, m: &serde_json::Value) -> Vec<kalem_core::extensio
         .collect()
 }
 
+impl Loaded {
+    /// The plugin loaded (from the cache when compiled before) and
+    /// instantiated over the bridge, bound to the plugin API; not
+    /// activated.
+    fn instantiate(&self, host: &Host) -> Result<Extension, String> {
+        host.load_file(&self.file)
+            .and_then(|plugin| {
+                let bridge = Box::new(Bridge {
+                    id: self.full.clone(),
+                });
+                Extension::new(
+                    host,
+                    &plugin,
+                    &self.id,
+                    bridge,
+                    self.grants.clone(),
+                    self.limits,
+                )
+            })
+            .map_err(|e| e.to_string())
+    }
+}
+
 /// The installed extension plugins.
 struct Plugins {
     host: Arc<Host>,
@@ -744,15 +769,9 @@ impl Plugins {
     /// instantiated over the bridge, and activated.
     fn activate(&mut self, i: usize) {
         PLUGIN.with(|p| p.set(i as u64 + 1));
-        let host = self.host.clone();
         let l = &mut self.list[i];
-        let started = host
-            .load_file(&l.file)
-            .and_then(|plugin| {
-                let bridge = Box::new(Bridge { id: l.full.clone() });
-                Extension::new(&host, &plugin, &l.id, bridge, l.grants.clone(), l.limits)
-            })
-            .map_err(|e| e.to_string())
+        let started = l
+            .instantiate(&self.host)
             .and_then(|mut ext| match ext.activate() {
                 Ok(Ok(())) => Ok(ext),
                 Ok(Err(e)) => {
@@ -1192,6 +1211,7 @@ fn installed() -> Vec<Loaded> {
             layers: manifest_layers(&id, &m),
             id,
             full: p.id.clone(),
+            version: p.version.clone(),
             grants: x::Grants::from_permissions(&strings(&m["permissions"])),
             file: p.dir.join(main),
             activation,
@@ -1276,6 +1296,27 @@ pub(crate) fn load_one(name: &str) -> Result<String, String> {
     }
     kalem_core::extensions::install(Box::new(plugins));
     Ok(id)
+}
+
+/// Whether each installed extension plugin runs with this Kalem: loaded
+/// and instantiated as starting it would, not activated (`kalem plugin
+/// check`). Its manifest's ID and version, and why it cannot run.
+pub(crate) fn check() -> Vec<(String, String, Result<(), String>)> {
+    let list = installed();
+    if list.is_empty() {
+        return Vec::new();
+    }
+    let cache = kalem_core::logging::state_dir().map(|d| d.join("plugin-cache"));
+    let host = Host::new(cache).map_err(|e| format!("Plugins cannot run: {e}"));
+    list.into_iter()
+        .map(|l| {
+            let runs = match &host {
+                Ok(h) => l.instantiate(h).map(drop),
+                Err(e) => Err(e.clone()),
+            };
+            (l.full, l.version, runs)
+        })
+        .collect()
 }
 
 #[cfg(test)]

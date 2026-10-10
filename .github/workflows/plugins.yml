@@ -1,6 +1,7 @@
 # The component plugins released in getkalem/plugins' index run with
 # this Kalem (publish_todo 1.4): `tools/check-released-plugins.sh`
-# installs each into a configuration folder of its own and starts it.
+# installs each into a configuration folder of its own and starts it
+# (an extension plugin loaded, not activated).
 # A change to the plugin API (`crates/kalem-plugin/wit`) that a released
 # plugin was not built against fails here until the plugin is released
 # again; this workflow is apart from CI so that it does not hold up

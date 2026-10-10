@@ -63,9 +63,10 @@ pub(crate) fn install(source: &str, yes: bool) -> Result<ExitCode> {
 }
 
 /// `kalem plugin check`: each installed component viewer compiled and
-/// bound to the plugin API, as opening a file would; 1 when one cannot
-/// run with this Kalem.
-pub(crate) fn check() -> Result<ExitCode> {
+/// bound to the plugin API, as opening a file would, and each installed
+/// extension plugin compiled and instantiated, as starting it would (not
+/// activated), written to `out`; 1 when one cannot run with this Kalem.
+pub fn check(out: &mut dyn Write) -> Result<ExitCode> {
     config();
     #[cfg(feature = "plugins")]
     {
@@ -73,29 +74,32 @@ pub(crate) fn check() -> Result<ExitCode> {
         // The ones built in (wasm_todo W5).
         for v in crate::embedded_viewers() {
             match v.check() {
-                Ok(()) => println!("{} (built in): runs", v.label()),
+                Ok(()) => {
+                    let _ = writeln!(out, "{} (built in): runs", v.label());
+                }
                 Err(e) => {
                     failed = true;
-                    println!("{} (built in): cannot run: {}", v.label(), e.0);
+                    let _ = writeln!(out, "{} (built in): cannot run: {}", v.label(), e.0);
                 }
             }
         }
         let viewers = crate::installed_viewers();
         if viewers.is_empty() {
-            println!("No component viewers installed.");
+            let _ = writeln!(out, "No component viewers installed.");
         }
         for (p, v) in viewers {
             let runs = match v {
                 Ok(v) => v.check().map_err(|e| e.0),
                 Err(why) => Err(why),
             };
-            match runs {
-                Ok(()) => println!("{} {}: runs", p.id, p.version),
-                Err(e) => {
-                    failed = true;
-                    println!("{} {}: cannot run: {e}", p.id, p.version);
-                }
-            }
+            failed |= !report(out, &p.id, &p.version, runs);
+        }
+        let extensions = crate::extensions::check();
+        if extensions.is_empty() {
+            let _ = writeln!(out, "No extension plugins installed.");
+        }
+        for (id, version, runs) in extensions {
+            failed |= !report(out, &id, &version, runs);
         }
         Ok(if failed {
             ExitCode::from(1)
@@ -105,8 +109,27 @@ pub(crate) fn check() -> Result<ExitCode> {
     }
     #[cfg(not(feature = "plugins"))]
     {
-        println!("This build of Kalem has no plugin host (the `plugins` feature).");
+        let _ = writeln!(
+            out,
+            "This build of Kalem has no plugin host (the `plugins` feature)."
+        );
         Ok(ExitCode::SUCCESS)
+    }
+}
+
+/// Plugin `id` at `version` in `kalem plugin check`'s report: it runs,
+/// or why it cannot; whether it runs.
+#[cfg(feature = "plugins")]
+fn report(out: &mut dyn Write, id: &str, version: &str, runs: Result<()>) -> bool {
+    match runs {
+        Ok(()) => {
+            let _ = writeln!(out, "{id} {version}: runs");
+            true
+        }
+        Err(e) => {
+            let _ = writeln!(out, "{id} {version}: cannot run: {e}");
+            false
+        }
     }
 }
 

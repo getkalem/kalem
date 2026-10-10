@@ -1,5 +1,6 @@
 //! The plugins of `tests/plugins`, built from their source and wrapped
-//! as components for kalem-cli's tests (`extensions`, `viewer_choice`).
+//! as components for kalem-cli's tests (`extensions`, `plugin_check`,
+//! `run`, `viewer_choice`).
 
 use std::path::Path;
 use std::process::Command;
