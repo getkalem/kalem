@@ -68,10 +68,11 @@ required-features = ["components"]
 name = "xlsx_component"
 required-features = ["components"]
 
-# A viewer turned off gives way to a copy installed while Kalem runs.
+# The viewers chosen again while Kalem runs, as plugins are installed,
+# turned off, updated and removed (a test plugin, none built in).
 [[test]]
 name = "viewer_choice"
-required-features = ["components"]
+required-features = ["plugins"]
 
 # A viewer of flowing text as a component, opened, edited and saved
 # (`KALEM_FLOW_COMPONENT`, `KALEM_FLOW_FILE`).
