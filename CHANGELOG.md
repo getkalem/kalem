@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-10-10
+
 ### Added
 - Format Document (`SPC c f`, Shift+Alt+F) formats code of any language through the formatter of its type, as Emacs's format-all does: the one the new setting `formatters.TYPE` names (`[formatters] python = "black -q -"`; the type a language, an extension, a mode or a file name; `off` turns it off), else, after a language server's or a language plugin's formatter, the language's usual program when it is installed (rustfmt, mix format, ruff or black, prettier, gofmt, clang-format, shfmt, stylua, zig fmt and others), with the text on its standard input, run from the project's root. For a type without a formatter (a workbook, a picture) the command says so and names the setting that would add one. `kalem fmt` formats such files the same way. The setting `editor.format_on_save` (off by default) formats the document the same way at each save; a formatter that fails leaves the text as it is and the status bar says why.
 
