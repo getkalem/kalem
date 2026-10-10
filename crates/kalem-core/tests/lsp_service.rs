@@ -49,7 +49,9 @@ fn setup() -> (PathBuf, PathBuf) {
     let exe = std::env::current_exe().unwrap();
     let manifest = serde_json::json!({
         "id": "org.example.fake", "name": "Fake", "version": "1",
-        "languages": [{"id": "fakelang", "name": "Fake", "extensions": ["fk"], "servers": ["f"]}],
+        "languages": [{"id": "fakelang", "name": "Fake", "extensions": ["fk"], "servers": ["f"]},
+                      {"id": "fakelang", "name": "Fake with a linter", "extensions": ["fkb"],
+                       "servers": ["f"], "alongside": ["lint", "nolint"]}],
         "commands": {"format": [exe, "--fake-format", "{file}"],
                      "run": [exe, "--fake-run"],
                      "test": [exe, "--fake-test", "{file}:{line}"]},
@@ -66,7 +68,11 @@ fn setup() -> (PathBuf, PathBuf) {
                                                  "parseOnly": false, "selections": "{selections}"}},
             "edit.newline": {"method": "fake/onEnter", "shape": "edits"}
         },
-        "servers": {"f": {"name": "FakeLS", "command": [exe], "env": {"KALEM_LSP_FAKE": "normal"},
+        "servers": {"lint": {"name": "FakeLint", "command": [exe], "env": {"KALEM_LSP_FAKE": "beside"},
+                             "rootMarkers": ["root.marker"]},
+                    "nolint": {"name": "NoLint", "command": ["kalem-no-such-linter"],
+                               "install": "get NoLint"},
+                    "f": {"name": "FakeLS", "command": [exe], "env": {"KALEM_LSP_FAKE": "normal"},
                           "install": "get FakeLS",
                           "capabilities": {"experimental": {"fakeStatus": true}},
                           "status": {"method": "fake/status", "text": "/message", "level": "/health",
@@ -1038,6 +1044,85 @@ fn main() {
         lsp::can(&doc, Kind::Hover).then_some(())
     });
     println!("test did not start ... ok");
+
+    // A second server for the same files (a linter beside the type
+    // server): kept in step, its problems with the first's, its
+    // completions and code actions joined to the first's, a question only
+    // the first answers asked of it; one not installed said by Language
+    // Server Status; it stops with its last document.
+    let lint_file = file.with_file_name("b.fkb");
+    std::fs::write(&lint_file, "LINT bad\nx\n").unwrap();
+    let mut b = DocumentState::open(
+        &lint_file,
+        Arc::new(org_model::Settings::default()),
+        &org_syntax::ParseContext::default(),
+    )
+    .unwrap();
+    lsp::sync(&b);
+    let sources = |b: &DocumentState| {
+        let mut s: Vec<(String, String)> = lsp::diagnostics(b.meta.path.as_deref().unwrap())
+            .into_iter()
+            .map(|d| (d.source.unwrap_or_default(), d.message))
+            .collect();
+        s.sort();
+        s
+    };
+    until("both servers' problems", || {
+        (sources(&b).len() == 2).then_some(())
+    });
+    assert_eq!(
+        sources(&b),
+        [
+            ("fake".to_string(), "bad found".to_string()),
+            ("lint".to_string(), "LINT is a lint".to_string())
+        ]
+    );
+    // Changes reach both: the lint goes with its word.
+    edit(&mut b, 0..5, "");
+    until("the lint gone", || {
+        (sources(&b) == [("fake".to_string(), "bad found".to_string())]).then_some(())
+    });
+    let said = lsp::describe(&b).unwrap();
+    assert!(said.contains("FakeLint beside it"), "{said}");
+    assert!(
+        said.contains("NoLint is not installed (get NoLint)"),
+        "{said}"
+    );
+    let reg = kalem_core::completers::Registry::with_builtins();
+    b.selection = org_edit::Selection::caret(1);
+    let labels: Vec<String> = reg
+        .complete(&mut b, true, Duration::from_secs(5))
+        .into_iter()
+        .filter(|i| i.source == "lsp")
+        .map(|i| i.label)
+        .collect();
+    assert_eq!(labels, ["greet/1", "goodbye/0", "lintword"]);
+    lsp::code_actions(&b).unwrap();
+    match until("the code actions of both", || {
+        lsp::take_outcomes(&lint_file, b.version())
+            .into_iter()
+            .next()
+    }) {
+        Outcome::Choose(items) => {
+            let titles: Vec<&str> = items.iter().map(|i| i.title.as_str()).collect();
+            assert_eq!(titles, ["Mark the start", "Run a command", "Fix lint"]);
+        }
+        o => panic!("{o:?}"),
+    }
+    lsp::request(&b, Kind::Hover).unwrap();
+    assert!(matches!(
+        until("the first server's documentation", || {
+            lsp::take_outcomes(&lint_file, b.version())
+                .into_iter()
+                .next()
+        }),
+        Outcome::Hover { .. }
+    ));
+    assert!(lsp::report().iter().any(|l| l.starts_with("FakeLint")));
+    lsp::closed(&lint_file);
+    std::thread::sleep(Duration::from_millis(300));
+    assert!(!lsp::report().iter().any(|l| l.starts_with("FakeLint")));
+    println!("test a second server beside the first ... ok");
 
     lsp::closed(&file);
     assert!(!lsp::serves(&doc));

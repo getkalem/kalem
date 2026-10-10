@@ -1740,6 +1740,7 @@ lsp-no-server-short = No language server
 lsp-not-running = The server is not running
 lsp-restarting-now = Restarting { $server }
 lsp-describe = { $language } ({ $plugin }) by { $server } { $command } in { $root }
+lsp-describe-also = { $server } beside it ({ $command })
 lsp-describe-off = { $language } ({ $plugin }): language servers off
 lsp-not-installed-how = { $server } is not installed ({ $how })
 lsp-not-installed = { $server } is not installed

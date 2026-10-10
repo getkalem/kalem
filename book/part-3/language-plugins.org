@@ -163,8 +163,18 @@ Beside the fields every plugin has (=id=, =name=, =version=,
   is HEEx and not HTML, then by the interpreter of a =#!= line), its
   syntax's name (its names and extensions are highlighted with that
   syntax, whatever the syntax's own extensions: =eex= with
-  =HTML (EEx)=), its comment tokens (Toggle Comment uses them), and its
-  servers in order of preference.
+  =HTML (EEx)=), its comment tokens (Toggle Comment uses them), its
+  servers in order of preference (the first found serves it), and the
+  servers that serve its files beside that one (=alongside=): a linter
+  beside the type server, a server of one part of the file. The Rust
+  plugin claims =Cargo.toml= by name, highlighted as TOML, for Taplo
+  (its keys from SchemaStore's Cargo schema) with crates-lsp beside it
+  (the crates' versions); another =.toml= file stays Kalem's own:
+
+  #+begin_src json
+  { "id": "toml", "name": "Cargo manifest", "syntax": "TOML", "filenames": ["Cargo.toml"],
+    "servers": ["taplo"], "alongside": ["crates-lsp"] }
+  #+end_src
 - A *server* is a program and its arguments. When the program is not
   found, =candidates= are tried in order: bare names on the =PATH=
   (after =localDirs= under the project's root, such as
@@ -296,12 +306,25 @@ mixEnv = "dev"      # merged over the server's own settings
 [plugins."org.kalem.elixir".servers.elixir-ls]
 command = ["/opt/elixir-ls/language_server.sh"]
 env = { ELS_INSTALL_PREFIX = "/opt/elixir-ls" }
+
+[plugins."org.kalem.rust".servers.crates-lsp]
+enabled = false     # a server beside the language's own, not started
 #+end_src
 
 * What the editor does with a server
 
 A server starts when the first file it serves opens and stops when the
-last one closes. A file a server named in an answer outside its root (a
+last one closes. A language may have servers beside its own
+(=alongside=): each gets every file of the language, kept in step as
+the first. Their problems are shown with the first's, each under its
+source; completion lists the items of each server that completes, the
+language's own first; code actions are one list of every server's; a
+question one server answers (documentation, a definition, a rename,
+formatting) goes to the first that has it, the language's own server
+first. Language Server Status (=code.serverStatus=) and =kalem lsp
+status= name them, or say why one does not run; one not installed is
+said there only, not as a notice, and Restart Language Server starts
+it again once it is installed. A file a server named in an answer outside its root (a
 definition in Rust's standard library, a dependency's source, a
 system header) is served by that server when it opens, since it knows
 the file as part of its project; a root of the file's own would start
@@ -414,8 +437,6 @@ symbols and the server's own command list are the rest of T3.8.2.
 Completion items are inserted as plain text until the snippet engine
 (T3.8.3): a function is inserted as =name()= with the cursor between
 the brackets, other snippets with their places left empty. Edits that
-create, rename or delete files are refused with the reason. A second
-server for the same files (a linter beside the type server) is read
-from the manifest but not used. The server's log (its log messages and standard error) is kept
+create, rename or delete files are refused with the reason. The server's log (its log messages and standard error) is kept
 in memory and printed by =kalem lsp check --log=; the log view is
 T2.7g.2.

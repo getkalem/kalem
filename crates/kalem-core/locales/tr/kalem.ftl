@@ -1653,6 +1653,7 @@ lsp-no-server-short = Dil sunucusu yok
 lsp-not-running = Sunucu çalışmıyor
 lsp-restarting-now = { $server } yeniden başlatılıyor
 lsp-describe = { $language } ({ $plugin }): { $server } { $command }, { $root } içinde
+lsp-describe-also = yanında { $server } ({ $command })
 lsp-describe-off = { $language } ({ $plugin }): dil sunucuları kapalı
 lsp-not-installed-how = { $server } kurulu değil ({ $how })
 lsp-not-installed = { $server } kurulu değil

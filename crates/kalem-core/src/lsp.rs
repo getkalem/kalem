@@ -30,9 +30,9 @@ type Key = (String, String, PathBuf);
 /// A document's diagnostics in byte ranges and lines, with what they were
 /// read for.
 struct DiagCache {
-    /// The client (its address), its publication count, the text's
-    /// change count.
-    key: (usize, u64, u64),
+    /// Each client (its address) and its publication count, and the
+    /// text's change count.
+    key: (Vec<(usize, u64)>, u64),
     list: Vec<Diagnostic>,
     /// The line of each diagnostic's start.
     lines: Vec<usize>,
@@ -61,13 +61,103 @@ impl Doc {
             .saturating_sub(1)
     }
 
-    /// The diagnostics, read again only when the text or the server's
-    /// diagnostics changed (the status bar asks on every frame).
+    /// The clients serving the document: its own server's first, then
+    /// those beside it ([`Also`]).
+    fn clients(&self) -> Vec<Arc<Client>> {
+        self.opened_in
+            .iter()
+            .chain(self.also.iter().filter_map(|a| a.client.as_ref()))
+            .cloned()
+            .collect()
+    }
+
+    /// The client of the plugin's server `server` among them.
+    fn client_of(&self, server: &str) -> Option<Arc<Client>> {
+        if self.key.as_ref().is_some_and(|k| k.1 == server) {
+            return self.opened_in.clone();
+        }
+        self.also
+            .iter()
+            .find(|a| a.key.1 == server)
+            .and_then(|a| a.client.clone())
+    }
+
+    /// Each server serving it, with its key, its own first.
+    fn keyed_clients(&self) -> Vec<(Key, Arc<Client>)> {
+        let own = self.key.clone().zip(self.opened_in.clone());
+        own.into_iter()
+            .chain(
+                self.also
+                    .iter()
+                    .filter_map(|a| Some((a.key.clone(), a.client.clone()?))),
+            )
+            .collect()
+    }
+
+    /// Whether a server serving it has request `r`: the one it names
+    /// among them, else its own.
+    fn serves_request(&self, r: &RequestSpec) -> bool {
+        match &r.server {
+            Some(s) => self.server_keys().contains(s),
+            None => self.opened_in.is_some(),
+        }
+    }
+
+    /// The request Kalem's `command` stands for, of a server serving it
+    /// ([`Doc::serves_request`]).
+    fn request_spec(&self, command: &str) -> Option<RequestSpec> {
+        self.plugin
+            .requests
+            .iter()
+            .find(|r| r.command == command && self.serves_request(r))
+            .cloned()
+    }
+
+    /// The plugin's keys of the servers serving it, its own first.
+    fn server_keys(&self) -> Vec<String> {
+        self.key
+            .iter()
+            .filter(|_| self.opened_in.is_some())
+            .chain(
+                self.also
+                    .iter()
+                    .filter(|a| a.client.is_some())
+                    .map(|a| &a.key),
+            )
+            .map(|k| k.1.clone())
+            .collect()
+    }
+
+    /// The diagnostics of every server serving it, in the order of their
+    /// starts, each with its server's name when it gives no source; read
+    /// again only when the text or a server's diagnostics changed (the
+    /// status bar asks on every frame).
     fn diagnostics(&mut self) -> Option<&DiagCache> {
-        let c = self.opened_in.clone()?;
-        let key = (Arc::as_ptr(&c) as usize, c.published(), self.text_rev);
+        let clients = self.clients();
+        if clients.is_empty() {
+            return None;
+        }
+        let key = (
+            clients
+                .iter()
+                .map(|c| (Arc::as_ptr(c) as usize, c.published()))
+                .collect(),
+            self.text_rev,
+        );
         if self.diags.as_ref().is_none_or(|d| d.key != key) {
-            let list = features::diagnostics(&self.text, &c.diagnostics(&self.uri), c.encoding());
+            let mut list = Vec::new();
+            for c in &clients {
+                let mut own =
+                    features::diagnostics(&self.text, &c.diagnostics(&self.uri), c.encoding());
+                if clients.len() > 1 {
+                    for d in &mut own {
+                        d.source.get_or_insert_with(|| c.name().to_string());
+                    }
+                }
+                list.extend(own);
+            }
+            list.sort_by_key(|d| d.range.start);
+            let stale = clients.iter().any(|c| c.diagnostics_stale(&self.uri));
             let lines: Vec<usize> = list.iter().map(|d| self.line_of(d.range.start)).collect();
             let mut by_line: HashMap<usize, Severity> = HashMap::new();
             for (d, &l) in list.iter().zip(&lines) {
@@ -79,7 +169,7 @@ impl Doc {
                 key,
                 list,
                 lines,
-                stale: c.diagnostics_stale(&self.uri),
+                stale,
                 by_line,
             });
         }
@@ -219,6 +309,19 @@ struct Doc {
     /// server's diagnostics change.
     diags: Option<DiagCache>,
     opened_in: Option<Arc<Client>>,
+    /// The servers beside its own (the language's `alongside`).
+    also: Vec<Also>,
+}
+
+/// A server that serves a document beside the document's own, as its
+/// language's `alongside` says: a linter beside the type server (ruff
+/// beside basedpyright), a server of one part of the file (crates-lsp's
+/// versions in a `Cargo.toml`, beside taplo).
+struct Also {
+    key: Key,
+    client: Option<Arc<Client>>,
+    /// Why it does not run, when it does not.
+    missing: Option<String>,
 }
 
 /// What a request was for.
@@ -410,6 +513,9 @@ struct Action {
     /// revision then, the answer taken only when Kalem's new line is the
     /// one change since.
     entered: Option<u64>,
+    /// One of several servers' answers to one question (code actions),
+    /// joined into one when the last comes.
+    batch: Option<u64>,
 }
 
 /// How many times a request the server cancelled is asked again (after
@@ -432,6 +538,9 @@ struct Service {
     /// their real paths: the server that named each, which serves it
     /// when it opens ([`Service::named_by`]).
     named: HashMap<PathBuf, Key>,
+    /// Several servers' answers to one question (code actions), kept
+    /// until the last comes, by batch.
+    batches: HashMap<u64, Vec<(Action, Answered)>>,
 }
 
 /// Files [`Service::named`] keeps at most: past it, it starts again.
@@ -489,15 +598,12 @@ fn code_file(doc: &DocumentState) -> Option<&Path> {
     }
 }
 
-fn start_client(
-    plugin: &Plugin,
-    lang: &LanguageSpec,
-    root: &Path,
-) -> Result<(String, Client), String> {
-    match languages::resolve_server(plugin, lang, Some(root)) {
-        Resolved::Off => Err(crate::tr!("lsp-off", plugin = plugin.name.as_str())),
-        Resolved::Missing(why) => Err(why),
-        Resolved::Found(spec, program, args) => {
+/// Starts the plugin's server `server` (its key) in `root`.
+fn start_client(plugin: &Plugin, server: &str, root: &Path) -> Result<(String, Client), String> {
+    match languages::resolve_key(plugin, server, Some(root)) {
+        None => Err(crate::tr!("lsp-off", plugin = plugin.name.as_str())),
+        Some(Err(why)) => Err(why),
+        Some(Ok((spec, program, args))) => {
             let mut folders = Vec::new();
             // An umbrella project's applications are folders of its own.
             if spec.root_outermost
@@ -566,12 +672,32 @@ fn root_of(path: &Path, plugin: &Plugin, lang: &LanguageSpec) -> PathBuf {
 }
 
 impl Service {
-    fn client_for(
-        &mut self,
-        key: &Key,
-        plugin: &Plugin,
-        lang: &LanguageSpec,
-    ) -> Result<Arc<Client>, String> {
+    /// Closes `d` (no longer among the documents) in each of its servers;
+    /// those left with no document are taken off and returned, to be shut
+    /// down off the caller's thread. A server beside it that did not start
+    /// is forgotten with its last document, to be looked up again.
+    fn close_doc(&mut self, d: &Doc) -> Vec<Arc<Client>> {
+        let mut stopped = Vec::new();
+        for (k, c) in d.keyed_clients() {
+            c.did_close(&d.uri);
+            if c.open_documents() == 0 {
+                self.servers.remove(&k);
+                stopped.push(c);
+            }
+        }
+        for a in d.also.iter().filter(|a| a.client.is_none()) {
+            let used = self
+                .docs
+                .values()
+                .any(|o| o.also.iter().any(|b| b.key == a.key));
+            if !used && self.servers.get(&a.key).is_some_and(|s| s.client.is_none()) {
+                self.servers.remove(&a.key);
+            }
+        }
+        stopped
+    }
+
+    fn client_for(&mut self, key: &Key, plugin: &Plugin) -> Result<Arc<Client>, String> {
         if let Some(slot) = self.servers.get(key) {
             if let Some(c) = &slot.client {
                 return Ok(c.clone());
@@ -581,7 +707,7 @@ impl Service {
                 .clone()
                 .unwrap_or_else(|| crate::tr!("lsp-restarting", server = slot.name.as_str())));
         }
-        match start_client(plugin, lang, &key.2) {
+        match start_client(plugin, &key.1, &key.2) {
             Ok((name, c)) => {
                 let c = Arc::new(c);
                 self.servers.insert(
@@ -633,7 +759,9 @@ impl Service {
                     None => languages::resolve_server(&plugin, &language, Some(&root)),
                 };
                 match resolved {
-                    Resolved::Found(spec, ..) => (Some((plugin.id.clone(), spec.key, root)), None),
+                    Resolved::Found(spec, ..) => {
+                        (Some((plugin.id.clone(), spec.key, root.clone())), None)
+                    }
                     Resolved::Off => (None, None),
                     Resolved::Missing(m) => (None, Some(m)),
                 }
@@ -653,9 +781,10 @@ impl Service {
             lines: (u64::MAX, Vec::new()),
             diags: None,
             opened_in: None,
+            also: Vec::new(),
         };
         if let Some(key) = doc.key.clone() {
-            match self.client_for(&key, &doc.plugin, &doc.language) {
+            match self.client_for(&key, &doc.plugin) {
                 Ok(c) => {
                     c.did_open(&doc.uri, &doc.language.id, text);
                     doc.opened_in = Some(c);
@@ -665,6 +794,29 @@ impl Service {
                     notice(e, true);
                 }
             }
+        }
+        // The servers beside it, each in its own root (its markers, else
+        // the language's): one not installed is said by Language Server
+        // Status, not as a notice.
+        for server in languages::alongside(&doc.plugin, &doc.language) {
+            let Some(spec) = doc.plugin.server(&server) else {
+                continue;
+            };
+            let root = kalem_lsp::find_root(&doc.real, &spec.root_markers, spec.root_outermost)
+                .unwrap_or_else(|| root.clone());
+            let key = (doc.plugin.id.clone(), server, root);
+            let (client, missing) = match self.client_for(&key, &doc.plugin) {
+                Ok(c) => {
+                    c.did_open(&doc.uri, &doc.language.id, text);
+                    (Some(c), None)
+                }
+                Err(e) => (None, Some(e)),
+            };
+            doc.also.push(Also {
+                key,
+                client,
+                missing,
+            });
         }
         self.docs.insert(path.to_path_buf(), doc);
     }
@@ -698,14 +850,8 @@ pub fn sync(doc: &DocumentState) {
                 .collect();
             for p in old {
                 s.outcomes.retain(|a| a.path != p);
-                if let Some(d) = s.docs.remove(&p)
-                    && let Some(c) = d.opened_in
-                {
-                    c.did_close(&d.uri);
-                    if c.open_documents() == 0
-                        && let Some(k) = d.key
-                    {
-                        s.servers.remove(&k);
+                if let Some(d) = s.docs.remove(&p) {
+                    for c in s.close_doc(&d) {
                         std::thread::spawn(move || c.shutdown());
                     }
                 }
@@ -717,7 +863,8 @@ pub fn sync(doc: &DocumentState) {
         }
         d.version = version;
         let mut typed: Option<(String, usize)> = None;
-        if let Some(c) = &d.opened_in {
+        let clients = d.clients();
+        if !clients.is_empty() {
             let (a, b) = (d.text.as_bytes(), text.as_bytes());
             let mut pre = a.iter().zip(b).take_while(|(x, y)| x == y).count();
             while !d.text.is_char_boundary(pre) || !text.is_char_boundary(pre) {
@@ -742,7 +889,9 @@ pub fn sync(doc: &DocumentState) {
                 range: pre..a.len() - suf,
                 text: text[pre..b.len() - suf].to_string(),
             };
-            c.did_change(&d.uri, &d.text, std::slice::from_ref(&edit), text);
+            for c in &clients {
+                c.did_change(&d.uri, &d.text, std::slice::from_ref(&edit), text);
+            }
             // Typing a call's `(` or `,` asks for its signature; its `)`
             // closes it.
             if edit.range.is_empty() {
@@ -782,30 +931,25 @@ pub fn saved(doc: &DocumentState) {
     sync(doc);
     let Some(path) = code_file(doc) else { return };
     with(|s| {
-        if let Some(d) = s.docs.get(path)
-            && let Some(c) = &d.opened_in
-        {
-            c.did_save(&d.uri, &d.text);
+        if let Some(d) = s.docs.get(path) {
+            for c in d.clients() {
+                c.did_save(&d.uri, &d.text);
+            }
         }
     });
 }
 
-/// The document at `path` was closed; its server stops with its last
-/// document.
+/// The document at `path` was closed; each of its servers stops with its
+/// last document.
 pub fn closed(path: &Path) {
     let stop = with(|s| {
         s.outcomes.retain(|a| a.path != path);
-        let d = s.docs.remove(path)?;
-        let c = d.opened_in?;
-        c.did_close(&d.uri);
-        if c.open_documents() == 0 {
-            let key = d.key?;
-            s.servers.remove(&key);
-            return Some(c);
+        match s.docs.remove(path) {
+            Some(d) => s.close_doc(&d),
+            None => Vec::new(),
         }
-        None
     });
-    if let Some(c) = stop {
+    for c in stop {
         // `shutdown` waits a moment for the server; not on the caller's
         // thread.
         std::thread::spawn(move || c.shutdown());
@@ -829,12 +973,31 @@ pub fn tick() -> bool {
                 changed = true;
             }
         }
-        if finished.is_empty() {
-            return (changed, finished, HashMap::new(), HashMap::new());
+        // Several servers' answers to one question: kept until the last
+        // of them comes, then read together.
+        let mut groups: Vec<Vec<(Action, Answered)>> = Vec::new();
+        for (a, r) in finished {
+            match a.batch {
+                Some(b) => s.batches.entry(b).or_default().push((a, r)),
+                None => groups.push(vec![(a, r)]),
+            }
         }
-        s.remember_named(&finished);
-        let (aliases, open) = s.answer_context(&finished);
-        (true, finished, aliases, open)
+        let complete: Vec<u64> = s
+            .batches
+            .keys()
+            .filter(|b| !s.actions.iter().any(|a| a.batch == Some(**b)))
+            .copied()
+            .collect();
+        for b in complete {
+            groups.extend(s.batches.remove(&b));
+        }
+        if groups.is_empty() {
+            return (changed, groups, HashMap::new(), HashMap::new());
+        }
+        let all: Vec<&(Action, Answered)> = groups.iter().flatten().collect();
+        s.remember_named(&all);
+        let (aliases, open) = s.answer_context(&all);
+        (true, groups, aliases, open)
     });
     if finished.is_empty() {
         return changed;
@@ -843,15 +1006,46 @@ pub fn tick() -> bool {
     let now = Instant::now();
     let answers: Vec<Answer> = finished
         .into_iter()
-        .map(|(a, r)| Answer {
-            path: a.path.clone(),
-            version: a.version,
-            at: now,
-            outcome: outcome(&a, r, &aliases, &open),
+        .filter_map(|group| {
+            let (path, version) = group.first().map(|(a, _)| (a.path.clone(), a.version))?;
+            let outcomes = group
+                .into_iter()
+                .map(|(a, r)| outcome(&a, r, &aliases, &open))
+                .collect();
+            Some(Answer {
+                path,
+                version,
+                at: now,
+                outcome: joined(outcomes),
+            })
         })
         .collect();
     with(|s| s.outcomes.extend(answers));
     true
+}
+
+/// Several servers' outcomes for one question as one: their lists to
+/// choose from joined, in the servers' order; else the first that is not
+/// "nothing", else the first.
+fn joined(mut outcomes: Vec<Outcome>) -> Outcome {
+    if outcomes.len() == 1 {
+        return outcomes.remove(0);
+    }
+    let lists: Vec<crate::palette::PaletteItem> = outcomes
+        .iter()
+        .filter_map(|o| match o {
+            Outcome::Choose(items) => Some(items.clone()),
+            _ => None,
+        })
+        .flatten()
+        .collect();
+    if !lists.is_empty() {
+        return Outcome::Choose(lists);
+    }
+    let said = outcomes
+        .iter()
+        .position(|o| !matches!(o, Outcome::Message { error: false, .. }));
+    outcomes.swap_remove(said.unwrap_or(0))
 }
 
 /// A request's answer, or why there is none.
@@ -935,13 +1129,15 @@ impl Service {
             }
         }
         for (key, why) in gave_up {
-            for d in self
-                .docs
-                .values_mut()
-                .filter(|d| d.key.as_ref() == Some(&key))
-            {
-                d.opened_in = None;
-                d.missing = Some(why.clone());
+            for d in self.docs.values_mut() {
+                if d.key.as_ref() == Some(&key) {
+                    d.opened_in = None;
+                    d.missing = Some(why.clone());
+                }
+                for a in d.also.iter_mut().filter(|a| a.key == key) {
+                    a.client = None;
+                    a.missing = Some(why.clone());
+                }
             }
         }
         // Applied on another thread: applying takes the service's lock.
@@ -968,18 +1164,19 @@ impl Service {
 
     /// Starts the server of `key` again and opens its documents in it.
     fn restart_slot(&mut self, key: &Key) {
+        // The documents it serves, as their own server or beside it.
         let docs: Vec<PathBuf> = self
             .docs
             .iter()
-            .filter(|(_, d)| d.key.as_ref() == Some(key))
+            .filter(|(_, d)| d.key.as_ref() == Some(key) || d.also.iter().any(|a| &a.key == key))
             .map(|(p, _)| p.clone())
             .collect();
         let Some(first) = docs.first().and_then(|p| self.docs.get(p)) else {
             self.servers.remove(key);
             return;
         };
-        let (plugin, lang) = (first.plugin.clone(), first.language.clone());
-        match start_client(&plugin, &lang, &key.2) {
+        let plugin = first.plugin.clone();
+        match start_client(&plugin, &key.1, &key.2) {
             Ok((_, c)) => {
                 let c = Arc::new(c);
                 if let Some(slot) = self.servers.get_mut(key) {
@@ -989,7 +1186,13 @@ impl Service {
                 for p in docs {
                     if let Some(d) = self.docs.get_mut(&p) {
                         c.did_open(&d.uri, &d.language.id, &d.text);
-                        d.opened_in = Some(c.clone());
+                        if d.key.as_ref() == Some(key) {
+                            d.opened_in = Some(c.clone());
+                        }
+                        for a in d.also.iter_mut().filter(|a| &a.key == key) {
+                            a.client = Some(c.clone());
+                            a.missing = None;
+                        }
                     }
                 }
             }
@@ -1066,7 +1269,7 @@ impl Service {
     /// name outside their servers' roots.
     fn answer_context(
         &self,
-        finished: &[(Action, Answered)],
+        finished: &[&(Action, Answered)],
     ) -> (HashMap<PathBuf, PathBuf>, HashMap<PathBuf, String>) {
         let aliases: HashMap<PathBuf, PathBuf> = self
             .docs
@@ -1090,7 +1293,7 @@ impl Service {
 
     /// Keeps the files the answers name outside the root of the server
     /// that gave them, with that server's key ([`Service::named`]).
-    fn remember_named(&mut self, finished: &[(Action, Answered)]) {
+    fn remember_named(&mut self, finished: &[&(Action, Answered)]) {
         for (a, r) in finished {
             let Ok(v) = r else { continue };
             let Some(key) = self.docs.get(&a.path).and_then(|d| d.key.clone()) else {
@@ -1734,6 +1937,7 @@ pub fn run_offer(id: u64) -> Result<String, String> {
     if action.get("edit").is_none() && action.get("command").is_none() && resolvable {
         let version = with(|s| s.docs.get(&path).map(|d| d.version)).unwrap_or(0);
         with(|s| {
+            // Of the server that offered it.
             s.ask_with(
                 &path,
                 Kind::ResolveAction,
@@ -1741,6 +1945,7 @@ pub fn run_offer(id: u64) -> Result<String, String> {
                 version,
                 None,
                 action.clone(),
+                Some(client.clone()),
             )
         })
         .map_err(Option::unwrap_or_default)?;
@@ -1805,7 +2010,7 @@ pub fn rename(doc: &DocumentState, new_name: &str) -> Result<(), String> {
     let (at, version) = (doc.selection.head, doc.version());
     let extra = json!({ "newName": new_name });
     with(
-        |s| match s.ask_with(&path, Kind::Rename, at..at, version, None, extra) {
+        |s| match s.ask_with(&path, Kind::Rename, at..at, version, None, extra, None) {
             Err(None) => Err(no_server(doc)),
             Err(Some(why)) => Err(why),
             Ok(()) => Ok(()),
@@ -1820,13 +2025,21 @@ pub fn code_actions(doc: &DocumentState) -> Result<(), String> {
     let path = code_file(doc).ok_or_else(|| no_server(doc))?.to_path_buf();
     let (sel, version) = (doc.selection, doc.version());
     let range = sel.anchor..sel.head;
-    with(
-        |s| match s.ask_with(&path, Kind::CodeAction, range, version, None, Value::Null) {
+    with(|s| {
+        match s.ask_with(
+            &path,
+            Kind::CodeAction,
+            range,
+            version,
+            None,
+            Value::Null,
+            None,
+        ) {
             Err(None) => Err(no_server(doc)),
             Err(Some(why)) => Err(why),
             Ok(()) => Ok(()),
-        },
-    )
+        }
+    })
 }
 
 /// Asks the server of `doc` for `kind` at its cursor; the answer comes as
@@ -1859,11 +2072,16 @@ impl Service {
         version: u64,
         trigger: Option<&str>,
     ) -> Result<(), Option<String>> {
-        self.ask_with(path, kind, at..at, version, trigger, Value::Null)
+        self.ask_with(path, kind, at..at, version, trigger, Value::Null, None)
     }
 
     /// [`Service::ask`] for bytes `range` (a code action's selection),
-    /// with `extra` parameters (a rename's new name, an action to resolve).
+    /// with `extra` parameters (a rename's new name, an action to resolve),
+    /// to the server `via` when given (the one that offered the action).
+    /// Code actions are asked of every server of the document that has
+    /// them, their lists joined; anything else of the first that has it,
+    /// the document's own server first.
+    #[allow(clippy::too_many_arguments)]
     fn ask_with(
         &mut self,
         path: &Path,
@@ -1872,103 +2090,115 @@ impl Service {
         version: u64,
         trigger: Option<&str>,
         extra: Value,
+        via: Option<Arc<Client>>,
     ) -> Result<(), Option<String>> {
         let at = range.end;
         let Some(d) = self.docs.get(path) else {
             return Err(None);
         };
-        let c = match &d.opened_in {
-            Some(c) => c.clone(),
-            None => {
-                return Err(Some(d.missing.clone().unwrap_or_else(|| {
-                    crate::tr!("lsp-no-server-see", language = d.language.name.as_str())
-                })));
-            }
+        let clients = via.map_or_else(|| d.clients(), |c| vec![c]);
+        let Some(first) = clients.first().cloned() else {
+            return Err(Some(d.missing.clone().unwrap_or_else(|| {
+                crate::tr!("lsp-no-server-see", language = d.language.name.as_str())
+            })));
         };
-        if c.has_exited() {
-            return Err(Some(crate::tr!("lsp-restarting", server = c.name())));
+        if first.has_exited() {
+            return Err(Some(crate::tr!("lsp-restarting", server = first.name())));
         }
-        if !c.is_ready() {
-            return Err(Some(crate::tr!("lsp-starting", server = c.name())));
+        if !first.is_ready() {
+            return Err(Some(crate::tr!("lsp-starting", server = first.name())));
         }
-        if !c.provides(kind.provider()) {
+        let mut chosen: Vec<Arc<Client>> = clients
+            .into_iter()
+            .filter(|c| !c.has_exited() && c.is_ready() && c.provides(kind.provider()))
+            .collect();
+        if kind != Kind::CodeAction {
+            chosen.truncate(1);
+        }
+        if chosen.is_empty() {
             return Err(Some(crate::tr!(
                 "lsp-not-provided",
-                server = c.name(),
+                server = first.name(),
                 what = kind.what()
             )));
         }
-        let enc = c.encoding();
+        // Answers of several servers to one question, joined as they come.
+        let batch = (chosen.len() > 1).then(next_id);
         let td = json!({ "uri": d.uri });
-        let position = || kalem_lsp::position::position(&d.text, at, enc).to_json();
-        let params = match kind {
-            Kind::Format => {
-                // The document's own indentation.
-                let (tab, spaces) = match crate::text::detect_indent(&d.text) {
-                    Some(crate::text::Indent::Spaces(n)) => (n, true),
-                    Some(_) => (4, false),
-                    None => (2, true),
-                };
-                json!({ "textDocument": td, "options": { "tabSize": tab, "insertSpaces": spaces } })
-            }
-            Kind::Symbols => json!({ "textDocument": td }),
-            Kind::References => json!({
-                "textDocument": td,
-                "position": position(),
-                "context": { "includeDeclaration": true },
-            }),
-            Kind::Signature => json!({
-                "textDocument": td,
-                "position": position(),
-                "context": match trigger {
-                    Some(t) => json!({ "triggerKind": 2, "triggerCharacter": t, "isRetrigger": false }),
-                    None => json!({ "triggerKind": 1, "isRetrigger": false }),
-                },
-            }),
-            Kind::Rename => json!({
-                "textDocument": td,
-                "position": position(),
-                "newName": extra["newName"],
-            }),
-            Kind::CodeAction => {
-                // The server's diagnostics under the range, for its fixes.
-                let r = range.start.min(range.end)..range.start.max(range.end);
-                let raw = c.diagnostics(&d.uri);
-                let under: Vec<Value> = raw
-                    .iter()
-                    .filter(|x| {
-                        kalem_lsp::position::byte_range(&d.text, &x["range"], enc)
-                            .is_some_and(|b| b.start <= r.end && r.start <= b.end)
-                    })
-                    .cloned()
-                    .collect();
-                json!({
+        let mut sent = Vec::new();
+        for c in chosen {
+            let enc = c.encoding();
+            let position = || kalem_lsp::position::position(&d.text, at, enc).to_json();
+            let params = match kind {
+                Kind::Format => {
+                    // The document's own indentation.
+                    let (tab, spaces) = match crate::text::detect_indent(&d.text) {
+                        Some(crate::text::Indent::Spaces(n)) => (n, true),
+                        Some(_) => (4, false),
+                        None => (2, true),
+                    };
+                    json!({ "textDocument": td, "options": { "tabSize": tab, "insertSpaces": spaces } })
+                }
+                Kind::Symbols => json!({ "textDocument": td }),
+                Kind::References => json!({
                     "textDocument": td,
-                    "range": kalem_lsp::position::range_json(&d.text, r, enc),
-                    "context": { "diagnostics": under },
-                })
-            }
-            Kind::ResolveAction => extra.clone(),
-            _ => json!({ "textDocument": td, "position": position() }),
-        };
-        let pending = c.request(kind.method(), params.clone());
-        let text = d.text.clone();
-        self.actions.push(Action {
-            kind,
-            method: kind.method().to_string(),
-            request: None,
-            path: path.to_path_buf(),
-            version,
-            text,
-            enc,
-            pending,
-            client: c,
-            started: Instant::now(),
-            params,
-            retries: 0,
-            retry_at: None,
-            entered: None,
-        });
+                    "position": position(),
+                    "context": { "includeDeclaration": true },
+                }),
+                Kind::Signature => json!({
+                    "textDocument": td,
+                    "position": position(),
+                    "context": match trigger {
+                        Some(t) => json!({ "triggerKind": 2, "triggerCharacter": t, "isRetrigger": false }),
+                        None => json!({ "triggerKind": 1, "isRetrigger": false }),
+                    },
+                }),
+                Kind::Rename => json!({
+                    "textDocument": td,
+                    "position": position(),
+                    "newName": extra["newName"],
+                }),
+                Kind::CodeAction => {
+                    // The server's diagnostics under the range, for its fixes.
+                    let r = range.start.min(range.end)..range.start.max(range.end);
+                    let raw = c.diagnostics(&d.uri);
+                    let under: Vec<Value> = raw
+                        .iter()
+                        .filter(|x| {
+                            kalem_lsp::position::byte_range(&d.text, &x["range"], enc)
+                                .is_some_and(|b| b.start <= r.end && r.start <= b.end)
+                        })
+                        .cloned()
+                        .collect();
+                    json!({
+                        "textDocument": td,
+                        "range": kalem_lsp::position::range_json(&d.text, r, enc),
+                        "context": { "diagnostics": under },
+                    })
+                }
+                Kind::ResolveAction => extra.clone(),
+                _ => json!({ "textDocument": td, "position": position() }),
+            };
+            let pending = c.request(kind.method(), params.clone());
+            sent.push(Action {
+                kind,
+                method: kind.method().to_string(),
+                request: None,
+                path: path.to_path_buf(),
+                version,
+                text: d.text.clone(),
+                enc,
+                pending,
+                client: c,
+                started: Instant::now(),
+                params,
+                retries: 0,
+                retry_at: None,
+                entered: None,
+                batch,
+            });
+        }
+        self.actions.extend(sent);
         Ok(())
     }
 
@@ -2028,8 +2258,13 @@ impl Service {
         let Some(d) = self.docs.get(path) else {
             return Err(None);
         };
-        let c = match &d.opened_in {
-            Some(c) => c.clone(),
+        // The server the request names, else the document's own.
+        let named = match &spec.server {
+            Some(server) => d.client_of(server),
+            None => d.opened_in.clone(),
+        };
+        let c = match named {
+            Some(c) => c,
             None => {
                 return Err(Some(d.missing.clone().unwrap_or_else(|| {
                     crate::tr!("lsp-no-server-see", language = d.language.name.as_str())
@@ -2083,6 +2318,7 @@ impl Service {
             retries: 0,
             retry_at: None,
             entered,
+            batch: None,
         });
         Ok(())
     }
@@ -2110,8 +2346,7 @@ pub fn request_inputs(doc: &DocumentState, command: &str) -> Vec<&'static str> {
         let Some(d) = s.docs.get(path) else {
             return Vec::new();
         };
-        let server = d.key.as_ref().map(|k| k.1.as_str()).unwrap_or_default();
-        let Some(spec) = d.plugin.request(command, server) else {
+        let Some(spec) = d.request_spec(command) else {
             return Vec::new();
         };
         let fields = spec.extra.to_string();
@@ -2164,12 +2399,11 @@ pub fn server_request_with(
     let version = doc.version();
     with(|s| {
         let d = s.docs.get(&path).ok_or_else(|| no_server(doc))?;
-        let server = d.key.as_ref().map(|k| k.1.clone()).unwrap_or_default();
         let name = d
             .opened_in
             .as_ref()
             .map_or_else(|| d.plugin.name.clone(), |c| c.name().to_string());
-        let spec = d.plugin.request(command, &server).cloned().ok_or_else(|| {
+        let spec = d.request_spec(command).ok_or_else(|| {
             crate::tr!(
                 "lsp-not-provided",
                 server = name.as_str(),
@@ -2205,12 +2439,9 @@ pub fn entering(doc: &DocumentState) {
     let Some(path) = code_file(doc) else { return };
     // Cheap for a document whose server has no such request.
     let asks = with(|s| {
-        s.docs.get(path).is_some_and(|d| {
-            d.opened_in.as_ref().is_some_and(|c| c.is_ready())
-                && d.key
-                    .as_ref()
-                    .is_some_and(|k| d.plugin.request(ENTER, &k.1).is_some())
-        })
+        s.docs
+            .get(path)
+            .is_some_and(|d| !d.clients().is_empty() && d.request_spec(ENTER).is_some())
     });
     if !asks {
         return;
@@ -2219,12 +2450,7 @@ pub fn entering(doc: &DocumentState) {
     let version = doc.version();
     with(|s| {
         let Some(d) = s.docs.get(path) else { return };
-        let Some(spec) = d
-            .key
-            .as_ref()
-            .and_then(|k| d.plugin.request(ENTER, &k.1))
-            .cloned()
-        else {
+        let Some(spec) = d.request_spec(ENTER) else {
             return;
         };
         let rev = d.text_rev;
@@ -2266,13 +2492,10 @@ pub fn requests(doc: &DocumentState) -> Vec<String> {
         let Some(d) = s.docs.get(path) else {
             return Vec::new();
         };
-        let Some(key) = d.key.as_ref().filter(|_| d.opened_in.is_some()) else {
-            return Vec::new();
-        };
         d.plugin
             .requests
             .iter()
-            .filter(|r| r.server.as_deref().is_none_or(|s| s == key.1))
+            .filter(|r| d.serves_request(r))
             .map(|r| r.command.clone())
             .collect()
     })
@@ -2296,10 +2519,11 @@ pub fn can(doc: &DocumentState, kind: Kind) -> bool {
         return false;
     };
     with(|s| {
-        s.docs
-            .get(path)
-            .and_then(|d| d.opened_in.as_ref())
-            .is_some_and(|c| c.is_ready() && c.provides(kind.provider()))
+        s.docs.get(path).is_some_and(|d| {
+            d.clients()
+                .iter()
+                .any(|c| c.is_ready() && c.provides(kind.provider()))
+        })
     })
 }
 
@@ -2308,7 +2532,7 @@ pub fn serves(doc: &DocumentState) -> bool {
     let Some(path) = code_file(doc) else {
         return false;
     };
-    with(|s| s.docs.get(path).is_some_and(|d| d.opened_in.is_some()))
+    with(|s| s.docs.get(path).is_some_and(|d| !d.clients().is_empty()))
 }
 
 /// The server of the document at `path` is starting, restarting or
@@ -2316,17 +2540,17 @@ pub fn serves(doc: &DocumentState) -> bool {
 /// state).
 pub fn working(path: &Path) -> bool {
     with(|s| {
-        s.docs
-            .get(path)
-            .and_then(|d| d.opened_in.as_ref())
-            .is_some_and(|c| {
-                !c.is_ready() || c.progress().is_some() || c.status().is_some_and(|st| st.busy)
-            })
-            || s.docs
-                .get(path)
-                .and_then(|d| d.key.as_ref())
-                .and_then(|k| s.servers.get(k))
-                .is_some_and(|v| v.retry_at.is_some())
+        let Some(d) = s.docs.get(path) else {
+            return false;
+        };
+        d.clients().iter().any(|c| {
+            !c.is_ready() || c.progress().is_some() || c.status().is_some_and(|st| st.busy)
+        }) || d
+            .key
+            .iter()
+            .chain(d.also.iter().map(|a| &a.key))
+            .filter_map(|k| s.servers.get(k))
+            .any(|v| v.retry_at.is_some())
     })
 }
 
@@ -2568,6 +2792,8 @@ pub fn status(path: &Path, at: usize) -> Option<String> {
             return d.missing.clone();
         };
         let name = c.name().to_string();
+        // The servers beside it, whose work and state come after its own.
+        let others: Vec<Arc<Client>> = d.also.iter().filter_map(|a| a.client.clone()).collect();
         let line = d.line_of(at);
         let cache = d.diagnostics()?;
         // The problem on the cursor's line, unless the text moved since.
@@ -2594,15 +2820,20 @@ pub fn status(path: &Path, at: usize) -> Option<String> {
         } else if !c.is_ready() {
             Some(crate::tr!("lsp-status-starting", server = name.as_str()))
         } else {
-            c.progress()
-                .map(|p| format!("{name}: {p}").replace(&format!("{name}: {name}"), &name))
+            std::iter::once(&c).chain(&others).find_map(|c| {
+                let name = c.name();
+                c.progress()
+                    .map(|p| format!("{name}: {p}").replace(&format!("{name}: {name}"), name))
+            })
         };
         if progress.is_some() {
             return progress;
         }
         // The server's own word on its state, while it does not work fully
         // (rust-analyzer's "cargo check failed to start").
-        let health = c.status().and_then(|st| health_text(&st));
+        let health = std::iter::once(&c)
+            .chain(&others)
+            .find_map(|c| c.status().and_then(|st| health_text(&st)));
         match ((errors, warnings), health) {
             ((0, 0), None) => None,
             ((0, 0), Some(text)) => Some(crate::tr!(
@@ -2649,8 +2880,7 @@ pub fn server_status(path: &Path) -> Option<kalem_lsp::ServerStatus> {
     with(|s| {
         s.docs
             .get(path)
-            .and_then(|d| d.opened_in.as_ref())
-            .and_then(|c| c.status())
+            .and_then(|d| d.clients().iter().find_map(|c| c.status()))
     })
 }
 
@@ -2789,14 +3019,18 @@ pub fn report() -> Vec<String> {
     })
 }
 
-/// The log of the server of the document at `path`.
+/// The log of the server of the document at `path`, then those of the
+/// servers beside it, each of their lines after its name.
 pub fn log(path: &Path) -> Vec<String> {
     with(|s| {
-        s.docs
-            .get(path)
-            .and_then(|d| d.opened_in.as_ref())
-            .map(|c| c.log())
-            .unwrap_or_default()
+        let Some(d) = s.docs.get(path) else {
+            return Vec::new();
+        };
+        let mut out = d.opened_in.as_ref().map(|c| c.log()).unwrap_or_default();
+        for c in d.also.iter().filter_map(|a| a.client.as_ref()) {
+            out.extend(c.log().into_iter().map(|l| format!("[{}] {l}", c.name())));
+        }
+        out
     })
 }
 
@@ -2813,11 +3047,12 @@ pub fn plugin_changed(id: &str) {
             .collect();
         let mut clients = Vec::new();
         for p in paths {
-            if let Some(d) = s.docs.remove(&p)
-                && let Some(k) = d.key
-                && let Some(slot) = s.servers.remove(&k)
-            {
-                clients.extend(slot.client);
+            if let Some(d) = s.docs.remove(&p) {
+                for k in d.key.iter().chain(d.also.iter().map(|a| &a.key)) {
+                    if let Some(slot) = s.servers.remove(k) {
+                        clients.extend(slot.client);
+                    }
+                }
             }
         }
         // Files no plugin served before are tried again too.
@@ -2852,26 +3087,24 @@ pub fn settings_changed() {
                 _ => None,
             };
             let running = d.key.as_ref().is_some_and(|k| s.servers.contains_key(k));
-            if now != d.key || (d.key.is_some() && !running) {
+            // The servers beside it the settings ask for, and those running.
+            let beside = languages::alongside(&d.plugin, &d.language);
+            let had: Vec<String> = d.also.iter().map(|a| a.key.1.clone()).collect();
+            let beside_running = d.also.iter().all(|a| s.servers.contains_key(&a.key));
+            if now != d.key || (d.key.is_some() && !running) || beside != had || !beside_running {
                 reopen.push(path.clone());
-            } else if let (Some(spec_key), Some(c)) = (&d.key, &d.opened_in)
-                && let Some(spec) = d.plugin.server(&spec_key.1)
-            {
-                c.set_settings(languages::server_settings(&d.plugin, spec));
+            } else {
+                for (k, c) in d.keyed_clients() {
+                    if let Some(spec) = d.plugin.server(&k.1) {
+                        c.set_settings(languages::server_settings(&d.plugin, spec));
+                    }
+                }
             }
         }
         let mut clients = Vec::new();
         for p in reopen {
-            if let Some(d) = s.docs.remove(&p)
-                && let Some(c) = d.opened_in
-            {
-                c.did_close(&d.uri);
-                if c.open_documents() == 0
-                    && let Some(k) = d.key
-                {
-                    s.servers.remove(&k);
-                    clients.push(c);
-                }
+            if let Some(d) = s.docs.remove(&p) {
+                clients.extend(s.close_doc(&d));
             }
         }
         clients
@@ -2912,10 +3145,11 @@ impl crate::completers::Completer for LspCompleter {
     fn applies(&self, ctx: &crate::completers::Context) -> bool {
         let Some(path) = &ctx.path else { return false };
         with(|s| {
-            s.docs
-                .get(path)
-                .and_then(|d| d.opened_in.as_ref())
-                .is_some_and(|c| c.is_ready() && c.provides("completionProvider"))
+            s.docs.get(path).is_some_and(|d| {
+                d.clients()
+                    .iter()
+                    .any(|c| c.is_ready() && c.provides("completionProvider"))
+            })
         })
     }
     fn trigger(&self) -> crate::completers::Trigger {
@@ -2930,7 +3164,9 @@ impl crate::completers::Completer for LspCompleter {
     fn resolve(&self, item: &crate::completers::Item) -> Option<String> {
         let data: Value = serde_json::from_str(item.data.as_deref()?).ok()?;
         let path = PathBuf::from(data["path"].as_str()?);
-        let client = with(|s| s.docs.get(&path).and_then(|d| d.opened_in.clone()))?;
+        // Of the server that gave the item.
+        let server = data["server"].as_str()?;
+        let client = with(|s| s.docs.get(&path).and_then(|d| d.client_of(server)))?;
         let answer = client
             .request("completionItem/resolve", data["item"].clone())
             .wait(Duration::from_secs(3))
@@ -2938,6 +3174,8 @@ impl crate::completers::Completer for LspCompleter {
         features::item_documentation(&answer)
             .or_else(|| answer["detail"].as_str().map(str::to_string))
     }
+    /// The items of every server of the document that completes, asked
+    /// at once: its own server's first, each server's in its order.
     fn complete(
         &self,
         ctx: &crate::completers::Context,
@@ -2949,40 +3187,31 @@ impl crate::completers::Completer for LspCompleter {
         };
         let started = with(|s| {
             let d = s.docs.get(path)?;
-            let c = d.opened_in.clone()?;
-            let enc = c.encoding();
             let point = ctx.point.min(d.text.len());
-            let pending = c.request(
-                "textDocument/completion",
-                json!({
-                    "textDocument": { "uri": d.uri },
-                    "position": kalem_lsp::position::position(&d.text, point, enc).to_json(),
-                    // Invoked: the editor asks at a word or after a trigger string.
-                    "context": { "triggerKind": 1 },
-                }),
-            );
-            Some((c, pending, d.text.clone(), enc, point))
+            let asked: Vec<_> = d
+                .keyed_clients()
+                .into_iter()
+                .filter(|(_, c)| c.is_ready() && c.provides("completionProvider"))
+                .map(|(k, c)| {
+                    let enc = c.encoding();
+                    let pending = c.request(
+                        "textDocument/completion",
+                        json!({
+                            "textDocument": { "uri": d.uri },
+                            "position": kalem_lsp::position::position(&d.text, point, enc).to_json(),
+                            // Invoked: the editor asks at a word or after a trigger string.
+                            "context": { "triggerKind": 1 },
+                        }),
+                    );
+                    (k.1, c, pending, enc)
+                })
+                .collect();
+            Some((asked, d.text.clone(), point))
         });
-        let Some((client, pending, text, enc, point)) = started else {
+        let Some((asked, text, point)) = started else {
             return Vec::new();
         };
         let deadline = Instant::now() + self.budget();
-        let answer = loop {
-            if cancel.cancelled() || Instant::now() > deadline {
-                client.cancel(&pending);
-                return Vec::new();
-            }
-            // Waits on the answer, a cancel noticed within 20 ms.
-            if let Some(a) = pending.wait_for(Duration::from_millis(20)) {
-                break a;
-            }
-        };
-        let Ok(v) = answer else { return Vec::new() };
-        let resolves = client.capabilities()["completionProvider"]["resolveProvider"]
-            .as_bool()
-            .unwrap_or(false);
-        // Each item's JSON is copied only to fetch its documentation later.
-        let (items, _) = features::completion_items(&v, resolves);
         let word_start = {
             let before = &text[..point];
             before
@@ -2992,41 +3221,70 @@ impl crate::completers::Completer for LspCompleter {
                 .last()
                 .map_or(point, |(i, _)| i)
         };
-        let mut items: Vec<_> = items
-            .into_iter()
-            .map(|i| {
-                let fallback = (word_start..point, i.insert_text.clone(), i.cursor);
-                let (range, insert, cursor) = match &i.edit {
-                    Some((r, t, at)) => match kalem_lsp::position::byte_range(&text, r, enc) {
-                        Some(r) if r.end == point || r.contains(&point) => {
-                            (r.start..point, t.clone(), *at)
-                        }
-                        _ => fallback,
-                    },
-                    None => fallback,
-                };
-                let mut item =
-                    crate::completers::Item::new(i.label.clone(), insert, range, kind_of(i.kind));
-                item.cursor = cursor.unwrap_or(item.insert.len()).min(item.insert.len());
-                item.detail = i.detail.clone().unwrap_or_default();
-                item.source = "lsp";
-                item.documentation = i.documentation.clone().filter(|d| !d.trim().is_empty());
-                item.extra = i
-                    .additional
-                    .iter()
-                    .filter_map(|(r, t)| {
-                        Some((kalem_lsp::position::byte_range(&text, r, enc)?, t.clone()))
-                    })
-                    .collect();
-                // Fetched when chosen, from servers that give it so.
-                if item.documentation.is_none() && resolves {
-                    item.data = Some(json!({ "path": path, "item": i.raw }).to_string());
+        let mut out = Vec::new();
+        for (server, client, pending, enc) in asked {
+            let answer = loop {
+                if cancel.cancelled() || Instant::now() > deadline {
+                    client.cancel(&pending);
+                    break None;
                 }
-                (i.sort_text.clone(), item)
-            })
-            .collect();
-        items.sort_by(|a, b| a.0.cmp(&b.0));
-        items.into_iter().map(|(_, i)| i).collect()
+                // Waits on the answer, a cancel noticed within 20 ms.
+                if let Some(a) = pending.wait_for(Duration::from_millis(20)) {
+                    break Some(a);
+                }
+            };
+            if cancel.cancelled() {
+                return Vec::new();
+            }
+            let Some(Ok(v)) = answer else { continue };
+            let resolves = client.capabilities()["completionProvider"]["resolveProvider"]
+                .as_bool()
+                .unwrap_or(false);
+            // Each item's JSON is copied only to fetch its documentation later.
+            let (items, _) = features::completion_items(&v, resolves);
+            let mut items: Vec<_> = items
+                .into_iter()
+                .map(|i| {
+                    let fallback = (word_start..point, i.insert_text.clone(), i.cursor);
+                    let (range, insert, cursor) = match &i.edit {
+                        Some((r, t, at)) => match kalem_lsp::position::byte_range(&text, r, enc) {
+                            Some(r) if r.end == point || r.contains(&point) => {
+                                (r.start..point, t.clone(), *at)
+                            }
+                            _ => fallback,
+                        },
+                        None => fallback,
+                    };
+                    let mut item = crate::completers::Item::new(
+                        i.label.clone(),
+                        insert,
+                        range,
+                        kind_of(i.kind),
+                    );
+                    item.cursor = cursor.unwrap_or(item.insert.len()).min(item.insert.len());
+                    item.detail = i.detail.clone().unwrap_or_default();
+                    item.source = "lsp";
+                    item.documentation = i.documentation.clone().filter(|d| !d.trim().is_empty());
+                    item.extra = i
+                        .additional
+                        .iter()
+                        .filter_map(|(r, t)| {
+                            Some((kalem_lsp::position::byte_range(&text, r, enc)?, t.clone()))
+                        })
+                        .collect();
+                    // Fetched when chosen, from servers that give it so.
+                    if item.documentation.is_none() && resolves {
+                        item.data = Some(
+                            json!({ "path": path, "server": server, "item": i.raw }).to_string(),
+                        );
+                    }
+                    (i.sort_text.clone(), item)
+                })
+                .collect();
+            items.sort_by(|a, b| a.0.cmp(&b.0));
+            out.extend(items.into_iter().map(|(_, i)| i));
+        }
+        out
     }
 }
 
@@ -3045,7 +3303,7 @@ fn kind_of(k: Option<u8>) -> crate::completers::Kind {
 pub fn position_of(path: &Path, at: usize) -> Option<Position> {
     with(|s| {
         let d = s.docs.get(path)?;
-        let c = d.opened_in.as_ref()?;
+        let c = d.clients().into_iter().next()?;
         Some(kalem_lsp::position::position(&d.text, at, c.encoding()))
     })
 }
@@ -3119,29 +3377,34 @@ pub fn restart(doc: &DocumentState) -> Result<String, String> {
     let path = code_file(doc)
         .ok_or_else(|| crate::tr!("lsp-not-code"))?
         .to_path_buf();
-    // A file with no server yet (none was installed, a start failed):
-    // looked up again, and opened anew.
+    // A file with a server not running (none was installed, a start
+    // failed), its own or one beside it: looked up again, and opened anew.
     let fresh = with(|s| {
         let d = s.docs.get(&path)?;
-        let has_client = d
-            .key
-            .as_ref()
-            .and_then(|k| s.servers.get(k))
-            .is_some_and(|slot| slot.failed.is_none());
-        if has_client {
+        let running = |k: &Key| s.servers.get(k).is_some_and(|slot| slot.failed.is_none());
+        let all_running =
+            d.key.as_ref().is_some_and(running) && d.also.iter().all(|a| running(&a.key));
+        if all_running {
             return None;
         }
-        if let Some(k) = d.key.clone() {
-            s.servers.remove(&k);
+        let d = s.docs.remove(&path)?;
+        let stopped = s.close_doc(&d);
+        for k in d.key.iter().chain(d.also.iter().map(|a| &a.key)) {
+            if s.servers.get(k).is_some_and(|slot| slot.failed.is_some()) {
+                s.servers.remove(k);
+            }
         }
-        s.docs.remove(&path);
-        Some(())
+        Some(stopped)
     });
-    if fresh.is_some() {
+    if let Some(stopped) = fresh {
+        for c in stopped {
+            std::thread::spawn(move || c.shutdown());
+        }
         sync(doc);
         return describe(doc).ok_or_else(|| crate::tr!("lsp-no-plugin"));
     }
-    let (old, name) = with(|s| {
+    // Each of its servers started again.
+    let (old, names) = with(|s| {
         let d = s
             .docs
             .get_mut(&path)
@@ -3151,21 +3414,29 @@ pub fn restart(doc: &DocumentState) -> Result<String, String> {
                 .clone()
                 .unwrap_or_else(|| crate::tr!("lsp-no-server-short"))
         })?;
-        let slot = s
-            .servers
-            .get_mut(&key)
-            .ok_or_else(|| crate::tr!("lsp-not-running"))?;
-        let old = slot.client.take();
-        slot.crashes = 0;
-        slot.failed = None;
-        slot.retry_at = Some(Instant::now());
-        Ok::<_, String>((old, slot.name.clone()))
+        let keys: Vec<Key> = std::iter::once(key)
+            .chain(d.also.iter().map(|a| a.key.clone()))
+            .collect();
+        let mut old = Vec::new();
+        let mut names = Vec::new();
+        for k in keys {
+            let slot = s
+                .servers
+                .get_mut(&k)
+                .ok_or_else(|| crate::tr!("lsp-not-running"))?;
+            old.extend(slot.client.take());
+            slot.crashes = 0;
+            slot.failed = None;
+            slot.retry_at = Some(Instant::now());
+            names.push(slot.name.clone());
+        }
+        Ok::<_, String>((old, names))
     })?;
-    if let Some(c) = old {
+    for c in old {
         // Its exit is not a crash: the slot has no client any more.
         std::thread::spawn(move || c.shutdown());
     }
-    Ok(crate::tr!("lsp-restarting-now", server = name))
+    Ok(crate::tr!("lsp-restarting-now", server = names.join(", ")))
 }
 
 /// What serves `doc`: the plugin, the language and the server, or why
@@ -3174,7 +3445,7 @@ pub fn describe(doc: &DocumentState) -> Option<String> {
     let path = code_file(doc)?;
     with(|s| {
         let d = s.docs.get(path)?;
-        Some(match (&d.opened_in, &d.missing) {
+        let own = match (&d.opened_in, &d.missing) {
             (Some(c), _) => crate::tr!(
                 "lsp-describe",
                 language = d.language.name.as_str(),
@@ -3189,6 +3460,25 @@ pub fn describe(doc: &DocumentState) -> Option<String> {
                 language = d.language.name.as_str(),
                 plugin = d.plugin.id.as_str()
             ),
+        };
+        // The servers beside it, or why one does not run.
+        let also: Vec<String> = d
+            .also
+            .iter()
+            .map(|a| match (&a.client, &a.missing) {
+                (Some(c), _) => crate::tr!(
+                    "lsp-describe-also",
+                    server = c.name(),
+                    command = c.config().command.display().to_string()
+                ),
+                (None, Some(m)) => m.clone(),
+                (None, None) => a.key.1.clone(),
+            })
+            .collect();
+        Some(if also.is_empty() {
+            own
+        } else {
+            format!("{own}; {}", also.join("; "))
         })
     })
 }
