@@ -58,10 +58,18 @@ fn setup() -> (PathBuf, PathBuf) {
             "code.parentModule": {"method": "fake/parent", "shape": "location"},
             "code.joinLines": {"method": "fake/join", "params": "ranges", "shape": "edits"},
             "code.reloadProject": {"server": "f", "method": "fake/reload", "params": "none", "shape": "none"},
-            "code.moveItemUp": {"server": "another", "method": "fake/move", "shape": "edits"}
+            "code.moveItemUp": {"server": "another", "method": "fake/move", "shape": "edits"},
+            "code.structuralReplace": {"method": "fake/ssr", "shape": "workspaceEdit",
+                                       "extra": {"query": "{search} ==>> {replace}",
+                                                 "parseOnly": false, "selections": "{selections}"}},
+            "edit.newline": {"method": "fake/onEnter", "shape": "edits"}
         },
         "servers": {"f": {"name": "FakeLS", "command": [exe], "env": {"KALEM_LSP_FAKE": "normal"},
                           "install": "get FakeLS",
+                          "capabilities": {"experimental": {"fakeStatus": true}},
+                          "status": {"method": "fake/status", "text": "/message", "level": "/health",
+                                     "warning": "warning", "error": "error",
+                                     "idle": {"/quiescent": true}},
                           "rootMarkers": ["root.marker"], "requireRoot": true,
                           "settings": {"elixirLS": {"x": 1}}}}
     });
@@ -563,7 +571,9 @@ fn main() {
             "code.joinLines",
             "code.openDocs",
             "code.parentModule",
-            "code.reloadProject"
+            "code.reloadProject",
+            "code.structuralReplace",
+            "edit.newline"
         ],
         "another server's request left out"
     );
@@ -616,6 +626,177 @@ fn main() {
     let why = lsp::server_request(&doc, "code.moveItemUp").unwrap_err();
     assert_eq!(why, "FakeLS does not provide Move Item Up");
     println!("test requests of its own ... ok");
+
+    // A structural search and replace: the two inputs its fields have,
+    // put into its query, the selection given when there is one; the
+    // edit offered first, then applied to the open document.
+    assert_eq!(
+        lsp::request_inputs(&doc, "code.structuralReplace"),
+        ["search", "replace"]
+    );
+    let before = doc.text().as_str().to_string();
+    assert_eq!(before.matches("two").count(), 1, "{before}");
+    let replace = |doc: &DocumentState, search: &str, replace: &str| {
+        let inputs = serde_json::json!({"search": search, "replace": replace});
+        lsp::server_request_with(doc, "code.structuralReplace", &inputs).unwrap();
+        until("a structural replace", || {
+            lsp::take_outcomes(&file, doc.version()).into_iter().next()
+        })
+    };
+    let id = match replace(&doc, "two", "three") {
+        Outcome::Choose(items) => {
+            assert_eq!(items[0].title, "Apply: 1 change in 1 files");
+            assert_eq!(items[1].title, "Cancel");
+            items[0].id.clone()
+        }
+        o => panic!("{o:?}"),
+    };
+    let id: u64 = id
+        .split(|c: char| !c.is_ascii_digit())
+        .find(|s| !s.is_empty())
+        .and_then(|s| s.parse().ok())
+        .expect("the plan's id");
+    lsp::apply_plan(id).unwrap();
+    match until("the edit", || {
+        lsp::take_outcomes(&file, doc.version()).into_iter().next()
+    }) {
+        Outcome::Edits {
+            version,
+            edits,
+            label,
+            cursor,
+            join,
+            ..
+        } => {
+            assert!(cursor.is_none() && !join);
+            assert!(lsp::apply_edits(
+                &mut doc, version, &edits, &label, cursor, join
+            ));
+            assert_eq!(doc.text().as_str(), before.replace("two", "three"));
+            assert!(doc.undo().is_some());
+            lsp::sync(&doc);
+        }
+        o => panic!("{o:?}"),
+    }
+    // Only in the selection: nothing there to replace.
+    doc.selection = org_edit::Selection { anchor: 0, head: 3 };
+    match replace(&doc, "two", "three") {
+        Outcome::Message { text, error: false } => {
+            assert_eq!(text, "FakeLS: nothing for Structural Search and Replace")
+        }
+        o => panic!("{o:?}"),
+    }
+    doc.selection = org_edit::Selection::caret(0);
+    match replace(&doc, "", "x") {
+        Outcome::Message { text, error: true } => {
+            assert_eq!(text, "FakeLS: Parse error: nothing to search for")
+        }
+        o => panic!("{o:?}"),
+    }
+    println!("test structural search and replace ... ok");
+
+    // Enter: Kalem's new line at once, the server's in its place as it
+    // answers, in the same undo step and with the cursor where the server
+    // puts it; dropped when the text changed meanwhile; none where the
+    // server has nothing to do.
+    edit(&mut doc, 0..0, "  // note\n");
+    let note = format!("  // note\n{before}");
+    let enter = |doc: &mut DocumentState, at: usize| {
+        doc.selection = org_edit::Selection::caret(at);
+        lsp::entering(doc);
+        let tx =
+            kalem_core::code::newline(doc.text().as_str(), doc.selection, "    ", Some("fakelang"));
+        doc.apply(&tx, org_edit::ChangeKind::Command, Instant::now());
+        lsp::sync(doc);
+    };
+    enter(&mut doc, 9);
+    assert_eq!(doc.text().as_str(), format!("  // note\n  \n{before}"));
+    match until("Enter's edits", || {
+        lsp::take_outcomes(&file, doc.version()).into_iter().next()
+    }) {
+        Outcome::Edits {
+            version,
+            edits,
+            label,
+            cursor,
+            join,
+            ..
+        } => {
+            assert!(join);
+            assert_eq!(label, "Line Break");
+            assert!(lsp::apply_edits(
+                &mut doc, version, &edits, &label, cursor, join
+            ));
+            assert_eq!(doc.text().as_str(), format!("  // note\n  // \n{before}"));
+            assert_eq!(doc.selection.head, "  // note\n  // ".len());
+            lsp::sync(&doc);
+        }
+        o => panic!("{o:?}"),
+    }
+    // One undo takes back the server's new line and Kalem's.
+    assert!(doc.undo().is_some());
+    assert_eq!(doc.text().as_str(), note);
+    lsp::sync(&doc);
+    // Typed on before the answer: Kalem's new line stays.
+    enter(&mut doc, 9);
+    let typed = doc.text().as_str().len();
+    edit(&mut doc, typed..typed, "z");
+    let quiet = |doc: &DocumentState| {
+        let t = Instant::now();
+        while t.elapsed() < Duration::from_millis(500) {
+            lsp::tick();
+            assert_eq!(lsp::take_outcomes(&file, doc.version()), Vec::new());
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    };
+    quiet(&doc);
+    assert_eq!(doc.text().as_str(), format!("  // note\n  \n{before}z"));
+    while doc.text().as_str() != note {
+        assert!(doc.undo().is_some());
+    }
+    lsp::sync(&doc);
+    // Not in a comment: the server has nothing to do.
+    enter(&mut doc, "  // note\n".len() + 1);
+    quiet(&doc);
+    while doc.text().as_str() != before {
+        assert!(doc.undo().is_some());
+    }
+    lsp::sync(&doc);
+    println!("test Enter by the server ... ok");
+
+    // The server's state, told only to a client that asks for it: half
+    // working in the status bar and the report, busy as work, and gone
+    // once it works again.
+    assert!(lsp::server_status(&file).is_none_or(|s| s.health == kalem_lsp::Health::Ok));
+    edit(&mut doc, 0..0, "HALF ");
+    let st = until("the server's state", || {
+        lsp::server_status(&file).filter(|s| s.health != kalem_lsp::Health::Ok)
+    });
+    assert_eq!(
+        (st.health, st.text.as_str(), st.busy),
+        (kalem_lsp::Health::Warning, "fake: half working", false)
+    );
+    let last = doc.text().as_str().len();
+    let said = lsp::status(&file, last).unwrap();
+    assert!(said.starts_with("FakeLS: fake: half working"), "{said}");
+    assert!(
+        lsp::report()
+            .iter()
+            .any(|l| l.ends_with("; fake: half working")),
+        "{:?}",
+        lsp::report()
+    );
+    edit(&mut doc, 0..0, "BUSY ");
+    until("busy", || lsp::working(&file).then_some(()));
+    assert!(doc.undo().is_some() && doc.undo().is_some());
+    lsp::sync(&doc);
+    until("working again", || {
+        lsp::server_status(&file)
+            .filter(|s| s.health == kalem_lsp::Health::Ok && !s.busy)
+            .map(|_| ())
+    });
+    assert!(!lsp::working(&file));
+    println!("test the server's state ... ok");
 
     // A file the server names outside its root, which would be a root of
     // its own: served by that server when it opens, not by another

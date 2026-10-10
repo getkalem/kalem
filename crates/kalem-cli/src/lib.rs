@@ -141,7 +141,7 @@ enum LspAction {
     /// `references`, `symbols`, `signature`, `completion` (as typing there would),
     /// `format` (prints the formatted text), or a request of the server's own by
     /// the command that sends it (`code.expandMacro`, `code.openDocs` prints the
-    /// address).
+    /// address, `edit.newline` the text after Enter there).
     Ask {
         /// The request.
         request: String,
@@ -153,6 +153,10 @@ enum LspAction {
         /// Seconds to wait for the server.
         #[arg(long, default_value_t = 120)]
         wait: u64,
+        /// What the request asks, as NAME=TEXT: `--input 'search=foo($a)'
+        /// --input 'replace=bar($a)'` for `code.structuralReplace`.
+        #[arg(long = "input", value_name = "NAME=TEXT")]
+        inputs: Vec<String>,
     },
 }
 
@@ -1032,7 +1036,8 @@ where
                 file,
                 place,
                 wait,
-            } => commands::lsp::at(&request, &file, &place, wait),
+                inputs,
+            } => commands::lsp::at(&request, &file, &place, wait, &inputs),
         },
         Command::Latex {
             action:

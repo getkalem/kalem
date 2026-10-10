@@ -15,7 +15,12 @@
 //! project). Requests of its own, as rust-analyzer has: `fake/expand`
 //! (a name and an expansion), `fake/docs` (a page's address),
 //! `fake/parent` (the document's first line), `fake/join` (the first two
-//! lines joined), `fake/reload` (nothing). In
+//! lines joined), `fake/reload` (nothing), `fake/onEnter` (a `//` comment
+//! continued, as a snippet with its cursor), `fake/ssr` (`A ==>> B`: each
+//! `A` of the document, in the selection when there is one, made `B`; a
+//! query without `A` refused). Told it may (the client's capability
+//! `experimental.fakeStatus`), it says its state in `fake/status`: half
+//! working while a document has `HALF`, busy while one has `BUSY`. In
 //! `normal`, a change whose text contains `CRASH` exits with 4, and the
 //! references of anything are the document's first line and, when the
 //! folder beside the root has a `library/lib.fk`, that file's (a
@@ -87,6 +92,9 @@ pub fn serve(behavior: &str) {
     };
     let mut saved = false;
     let mut busy = if behavior == "busy" { 2 } else { 0 };
+    // `fake/status`: whether the client asked for it, and the last sent.
+    let mut tells_status = false;
+    let mut told: Option<(bool, bool)> = None;
     let send = |out: &mut std::io::Stdout, v: Value| {
         let _ = rpc::write(out, &v);
     };
@@ -102,6 +110,7 @@ pub fn serve(behavior: &str) {
         match method {
             "initialize" => {
                 root = p["rootUri"].as_str().and_then(crate::uri::to_path);
+                tells_status = p["capabilities"]["experimental"]["fakeStatus"] == true;
                 if behavior == "silent" {
                     continue;
                 }
@@ -201,6 +210,19 @@ pub fn serve(behavior: &str) {
                     send(&mut out, diagnostics(&json!(other), "bad"));
                 }
                 send(&mut out, publish(&json!(real(&uri)), &found(text, pushed)));
+                let state = (text.contains("HALF"), text.contains("BUSY"));
+                if tells_status && told != Some(state) {
+                    told = Some(state);
+                    let (half, working) = state;
+                    send(
+                        &mut out,
+                        json!({"jsonrpc": "2.0", "method": "fake/status", "params": {
+                            "health": if half { "warning" } else { "ok" },
+                            "quiescent": !working,
+                            "message": if half { "fake: half working" } else { "" },
+                        }}),
+                    );
+                }
             }
             "textDocument/diagnostic" => {
                 let text = texts.get(&uri).cloned().unwrap_or_default();
@@ -265,6 +287,55 @@ pub fn serve(behavior: &str) {
                 &mut out,
                 json!({"jsonrpc": "2.0", "id": id, "result": null}),
             ),
+            "fake/onEnter" => {
+                let text = texts.get(&uri).cloned().unwrap_or_default();
+                let at = json!({"start": p["position"], "end": p["position"]});
+                let result = match byte_range(&text, &at, Encoding::Utf16) {
+                    Some(b) => {
+                        let bol = text[..b.start].rfind('\n').map_or(0, |i| i + 1);
+                        let line = &text[bol..b.start];
+                        let indent: String = line.chars().take_while(|c| *c == ' ').collect();
+                        if line.trim_start().starts_with("//") {
+                            json!([{"range": at, "newText": format!("\n{indent}// $0"),
+                                    "insertTextFormat": 2}])
+                        } else {
+                            Value::Null
+                        }
+                    }
+                    None => Value::Null,
+                };
+                send(
+                    &mut out,
+                    json!({"jsonrpc": "2.0", "id": id, "result": result}),
+                );
+            }
+            "fake/ssr" => {
+                let text = texts.get(&uri).cloned().unwrap_or_default();
+                let query = p["query"].as_str().unwrap_or("");
+                let within = p["selections"]
+                    .as_array()
+                    .and_then(|s| s.first())
+                    .and_then(|r| byte_range(&text, r, Encoding::Utf16))
+                    .unwrap_or(0..text.len());
+                let answer = match query.split_once(" ==>> ") {
+                    Some((from, to)) if !from.is_empty() => {
+                        let edits: Vec<Value> = text
+                            .match_indices(from)
+                            .filter(|(at, _)| within.start <= *at && at + from.len() <= within.end)
+                            .map(|(at, _)| {
+                                json!({"range": {
+                                    "start": position(&text, at, Encoding::Utf16).to_json(),
+                                    "end": position(&text, at + from.len(), Encoding::Utf16).to_json()},
+                                    "newText": to})
+                            })
+                            .collect();
+                        json!({"jsonrpc": "2.0", "id": id, "result": {"changes": {uri: edits}}})
+                    }
+                    _ => json!({"jsonrpc": "2.0", "id": id, "error":
+                        {"code": -32603, "message": "Parse error: nothing to search for"}}),
+                };
+                send(&mut out, answer);
+            }
             "textDocument/didSave" => {
                 if behavior == "pull" {
                     saved = true;

@@ -188,6 +188,23 @@ Beside the fields every plugin has (=id=, =name=, =version=,
   =rust-analyzer= on the =PATH= whether or not the component is
   installed. Leave =version= out when the program would not end (a
   script that starts the server whatever it is asked).
+  =capabilities= are added to what Kalem tells the server it can do,
+  where Kalem says nothing: the extensions a server sends only to a
+  client that asks for them. =status= names the notification in which
+  a server tells its state (rust-analyzer's, clangd's file status,
+  Metals's status) and where in it Kalem finds the text, the level and
+  whether the server is idle, as JSON pointers:
+
+  #+begin_src json
+  "capabilities": { "experimental": { "serverStatusNotification": true } },
+  "status": { "method": "experimental/serverStatus", "text": "/message",
+              "level": "/health", "warning": "warning", "error": "error",
+              "idle": { "/quiescent": true } }
+  #+end_src
+
+  While the server says it works only in part (=warning=) or not at
+  all (=error=), the status bar says its text; while it is not idle it
+  counts as busy, and =kalem lsp check= waits for it.
 - =commands.format= formats a document when no server formats it: the
   text on its standard input, the formatted text on its output, run in
   the background, ={file}= filled in. It is optional: a plugin states a
@@ -205,17 +222,27 @@ Beside the fields every plugin has (=id=, =name=, =version=,
                           "answer": ["/expansion"], "title": "/name", "language": "rust" },
     "code.openDocs": { "method": "experimental/externalDocs", "shape": "url" },
     "code.moveItemUp": { "method": "experimental/moveItem", "params": "range",
-                         "extra": { "direction": "Up" }, "shape": "edits" }
+                         "extra": { "direction": "Up" }, "shape": "edits" },
+    "code.structuralReplace": { "method": "experimental/ssr", "shape": "workspaceEdit",
+                                "extra": { "query": "{search} ==>> {replace}",
+                                           "parseOnly": false, "selections": "{selections}" } },
+    "edit.newline": { "method": "experimental/onEnter", "shape": "edits" }
   }
   #+end_src
 
   =params= is what is asked about: =position= (the document and the
   cursor, the default), =document=, =range= (the selection), =ranges=
-  (the selection in a list) or =none=, with =extra= fields added.
+  (the selection in a list) or =none=, with =extra= fields added. In
+  them, ={search}= and ={replace}= in a text are what the command asks
+  for, one after the other, and the text ={selections}= is the
+  selection in a list, empty when nothing is selected.
   =shape= is what the answer is: =text= (shown as documentation is,
   under its =title=, highlighted as =language=), =url= (an =http= or
   =https= page, opened in the browser), =location= (gone to), =edits=
-  (applied to the document as one undoable change) or =none=.
+  (applied to the document as one undoable change, the cursor where a
+  snippet in them puts it), =workspaceEdit= (edits of the project's
+  files, offered as a rename's are before anything changes) or
+  =none=.
   =answer= is where the text or address is in the answer (JSON
   pointers tried in order, the whole answer by default); =server=
   names the one of the plugin's servers that has the request. The
@@ -224,8 +251,18 @@ Beside the fields every plugin has (=id=, =name=, =version=,
   (=code.parentModule=), Go to Project File (=code.openManifest=),
   Reload Project (=code.reloadProject=), Join Lines (Language Server)
   (=code.joinLines=), Move Item Up and Down (=code.moveItemUp=,
-  =code.moveItemDown=), each in the palette where the document's
-  server has it.
+  =code.moveItemDown=), Structural Search and Replace
+  (=code.structuralReplace=: a pattern and its replacement, such as
+  rust-analyzer's =foo($a) ==>> bar($a)=), each in the palette where
+  the document's server has it.
+
+  The request keyed =edit.newline= is asked as Enter makes a new line
+  in code (and in Vim's Insert mode). Nothing waits for it: Kalem's
+  new line is made at once, and the server's edits take its place in
+  the same undo step as they come, the cursor where they put it,
+  unless the text changed meanwhile; an answer of nothing leaves
+  Kalem's. rust-analyzer's =experimental/onEnter= continues a =//= or
+  =///= comment so.
 
 * Settings
 
@@ -297,7 +334,9 @@ not installed (with the plugin's =install= text), servers turned off,
 or a server that does not provide the feature. Several places are a
 list to choose from; one definition is a jump. The status bar shows
 the problem on the cursor's line, else the server's work in progress
-(ElixirLS compiling), else the counts of errors and warnings.
+(ElixirLS compiling), else the counts of errors and warnings, after
+the server's own word on its state while it does not work fully
+(rust-analyzer's "cargo check failed to start").
 Formatting is applied as one undoable change, and only when the
 document has not changed since it was asked. A server that answers
 with no edits is said to have changed nothing, not to have found the
@@ -340,6 +379,7 @@ kalem lsp ask hover lib/hello.ex 6:40  # documentation at line 6, column 40
 kalem lsp ask definition lib/hello.ex 6:40
 kalem lsp ask format lib/hello.ex      # the formatted text
 kalem lsp ask code.expandMacro src/main.rs 12:16   # a server's own request, by its command
+kalem lsp ask code.structuralReplace src/main.rs 1:1 --input 'search=foo($a)' --input 'replace=bar($a)'
 #+end_src
 
 =status= starts no server; it runs a server's =version= when the

@@ -170,6 +170,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         ("plugin.installGitHub", object(&[("link", "string", false)])),
         ("code.rename", object(&[("name", "string", false)])),
+        (
+            "code.structuralReplace",
+            object(&[("search", "string", false), ("replace", "string", false)]),
+        ),
         ("code.applyEdit", object(&[("id", "integer", true)])),
         ("code.dropEdit", object(&[("id", "integer", true)])),
         ("code.runAction", object(&[("id", "integer", true)])),
@@ -6183,6 +6187,34 @@ fn code_commands() -> Vec<Command> {
                     .map_err(CommandError::new)
             },
         ),
+        // A query and its replacement, asked one after the other where the
+        // server's request has them (rust-analyzer's `foo($a) ==>>
+        // bar($a)`), the edits offered before anything changes.
+        cmd(
+            "code.structuralReplace",
+            "Structural Search and Replace",
+            "Code",
+            &[],
+            Some("server:code.structuralReplace"),
+            |ctx, args| {
+                let d = ctx.doc()?;
+                let asked = crate::lsp::request_inputs(d, "code.structuralReplace")
+                    .into_iter()
+                    .find(|n| args.get(*n).and_then(serde_json::Value::as_str).is_none());
+                match asked {
+                    Some(n) => request(
+                        ctx,
+                        Request::Ask {
+                            command: "code.structuralReplace".into(),
+                            args: args.clone(),
+                            arg: n.into(),
+                        },
+                    ),
+                    None => crate::lsp::server_request_with(d, "code.structuralReplace", args)
+                        .map_err(CommandError::new),
+                }
+            },
+        ),
         cmd(
             "code.restartServer",
             "Restart Language Server",
@@ -8149,13 +8181,18 @@ fn plain_commands() -> Vec<Command> {
                 }
                 let s = d.selection;
                 let tx = match &d.meta.mode {
-                    // Code: a level deeper after an opening bracket.
-                    crate::DocumentMode::Text { language: Some(l) } => crate::code::newline(
-                        d.text().as_str(),
-                        s,
-                        &crate::code::indent_text(d),
-                        Some(l.as_str()),
-                    ),
+                    // Code: a level deeper after an opening bracket; the
+                    // language server's new line, when it has one, takes
+                    // its place as it answers.
+                    crate::DocumentMode::Text { language: Some(l) } => {
+                        crate::lsp::entering(d);
+                        crate::code::newline(
+                            d.text().as_str(),
+                            s,
+                            &crate::code::indent_text(d),
+                            Some(l.as_str()),
+                        )
+                    }
                     // CSV: leading tabs are empty fields and leading blanks
                     // part of a value, not indentation to copy.
                     crate::DocumentMode::Csv => {

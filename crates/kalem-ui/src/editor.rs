@@ -4207,17 +4207,22 @@ impl Editor {
                 version,
                 edits,
                 label,
+                cursor,
+                join,
             } => {
-                if self.doc.meta.path.as_deref() != Some(path.as_path())
-                    || self.doc.version() != version
+                if self.doc.meta.path.as_deref() == Some(path.as_path())
+                    && kalem_core::lsp::apply_edits(
+                        &mut self.doc,
+                        version,
+                        &edits,
+                        &label,
+                        cursor,
+                        join,
+                    )
                 {
-                    self.message(tr!("lsp-format-stale"), true);
-                    return;
-                }
-                if let Some(tx) = kalem_core::lsp::transaction(&edits, &label) {
-                    self.doc
-                        .apply(&tx, org_edit::ChangeKind::Command, Instant::now());
                     self.after_change(cx);
+                } else if !join {
+                    self.message(tr!("lsp-format-stale"), true);
                 }
             }
         }

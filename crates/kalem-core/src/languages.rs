@@ -85,6 +85,12 @@ pub struct ServerSpec {
     /// the manifest gives none, since a server's program may not end
     /// when it is asked something it does not know.
     pub version: Vec<String>,
+    /// Client capabilities added to Kalem's (`capabilities`): the
+    /// extensions the server sends only to a client that asks
+    /// (`{"experimental": {"serverStatusNotification": true}}`).
+    pub capabilities: Value,
+    /// Its notification of its state (`status`), shown in the status bar.
+    pub status: Option<kalem_lsp::StatusSpec>,
 }
 
 /// A request of a server's own that one of Kalem's commands sends (the
@@ -179,6 +185,23 @@ fn env_pairs(v: &Value) -> Vec<(String, String)> {
         .unwrap_or_default()
 }
 
+/// A server's notification of its state (`status`): `method`, and JSON
+/// pointers into it for its `text`, its `level` (with the server's words
+/// for a `warning` and an `error`), and the values that say it is `idle`.
+fn status_spec(v: &Value) -> Option<kalem_lsp::StatusSpec> {
+    Some(kalem_lsp::StatusSpec {
+        method: v["method"].as_str()?.to_string(),
+        text: strings(&v["text"]),
+        level: v["level"].as_str().map(str::to_string),
+        warning: strings(&v["warning"]),
+        error: strings(&v["error"]),
+        idle: v["idle"]
+            .as_object()
+            .map(|o| o.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+            .unwrap_or_default(),
+    })
+}
+
 /// Reads a manifest; `Ok(None)` when it has no `languages`.
 pub fn parse_manifest(dir: &Path, text: &str) -> Result<Option<Plugin>, String> {
     let m: Value = serde_json::from_str(text).map_err(|e| format!("plugin.json: {e}"))?;
@@ -230,6 +253,8 @@ pub fn parse_manifest(dir: &Path, text: &str) -> Result<Option<Plugin>, String> 
                     settings: s["settings"].clone(),
                     install: s["install"].as_str().map(str::to_string),
                     version: strings(&s["version"]),
+                    capabilities: s["capabilities"].clone(),
+                    status: status_spec(&s["status"]),
                     busy_log: (
                         strings(&s["busyLog"]["start"]),
                         strings(&s["busyLog"]["done"]),
@@ -857,6 +882,53 @@ mod tests {
         let r = p.request("code.reloadProject", "a").unwrap();
         assert_eq!(r.answer, [""]);
         assert_eq!(r.extra, serde_json::json!({"all": true}));
+    }
+
+    /// A server's notification of its state (`status`) and the
+    /// capabilities that make it send one: rust-analyzer's health read as
+    /// Kalem's, busy until quiescent; a server without one has none.
+    #[test]
+    fn server_status_read() {
+        let p = parse_manifest(
+            Path::new("/p"),
+            r#"{"id": "x", "languages": [], "servers": {
+                "ra": {"command": ["ra"],
+                       "capabilities": {"experimental": {"serverStatusNotification": true}},
+                       "status": {"method": "experimental/serverStatus", "text": "/message",
+                                  "level": "/health", "warning": "warning", "error": ["error"],
+                                  "idle": {"/quiescent": true}}},
+                "plain": {"command": ["p"], "status": {"text": "/message"}}}}"#,
+        )
+        .unwrap()
+        .unwrap();
+        let ra = p.server("ra").unwrap();
+        assert_eq!(
+            ra.capabilities,
+            serde_json::json!({"experimental": {"serverStatusNotification": true}})
+        );
+        let spec = ra.status.as_ref().unwrap();
+        let read = |v: serde_json::Value| spec.read(&v);
+        let s = read(serde_json::json!({"health": "warning", "quiescent": true,
+                                       "message": "cargo check failed to start\n"}));
+        assert_eq!(
+            (s.health, s.text.as_str(), s.busy),
+            (
+                kalem_lsp::Health::Warning,
+                "cargo check failed to start",
+                false
+            )
+        );
+        let s = read(serde_json::json!({"health": "ok", "quiescent": false}));
+        assert_eq!(
+            (s.health, s.text.as_str(), s.busy),
+            (kalem_lsp::Health::Ok, "", true)
+        );
+        assert_eq!(
+            read(serde_json::json!({"health": "error", "quiescent": true})).health,
+            kalem_lsp::Health::Error
+        );
+        // No method, no notification.
+        assert!(p.server("plain").unwrap().status.is_none());
     }
 
     /// A server's `version`: read from the manifest; its program's first

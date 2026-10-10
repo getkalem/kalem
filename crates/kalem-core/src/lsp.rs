@@ -369,6 +369,14 @@ pub enum Outcome {
         edits: Vec<(Range<usize>, String)>,
         /// The undo label.
         label: String,
+        /// Where the cursor goes, in the text after the edits (a server's
+        /// snippet put it there: `$0`); left where the edits move it when
+        /// none.
+        cursor: Option<usize>,
+        /// The server's form of the change just made (Enter's new line):
+        /// one undoable change with it, and dropped without a word when
+        /// the document changed since.
+        join: bool,
     },
     /// A web page to open in the browser (a server's link to the
     /// documentation of the thing at the cursor).
@@ -398,6 +406,10 @@ struct Action {
     retries: u32,
     /// When to ask again.
     retry_at: Option<Instant>,
+    /// Asked as Enter made a new line ([`entering`]): the document's text
+    /// revision then, the answer taken only when Kalem's new line is the
+    /// one change since.
+    entered: Option<u64>,
 }
 
 /// How many times a request the server cancelled is asked again (after
@@ -513,6 +525,8 @@ fn start_client(
                 settings: languages::server_settings(plugin, &spec),
                 busy_start: spec.busy_log.0.clone(),
                 busy_done: spec.busy_log.1.clone(),
+                capabilities: spec.capabilities.clone(),
+                status: spec.status.clone(),
             };
             tracing::info!(server = %spec.name, root = %root.display(), "starting language server");
             Client::start(config, wake())
@@ -802,9 +816,19 @@ pub fn closed(path: &Path) {
 /// restarted, answers read. True when there is something to redraw.
 pub fn tick() -> bool {
     let (changed, finished, aliases, open) = with(|s| {
-        let changed = s.watch_servers(Instant::now());
+        let mut changed = s.watch_servers(Instant::now());
         s.outcomes.retain(|a| a.at.elapsed() < ANSWER_TTL);
-        let finished = s.finished_actions();
+        // Enter's answers, read against the document as it is now.
+        let (entered, finished): (Vec<_>, Vec<_>) = s
+            .finished_actions()
+            .into_iter()
+            .partition(|(a, _)| a.entered.is_some());
+        for (a, r) in entered {
+            if let Some(answer) = s.entered(&a, r) {
+                s.outcomes.push(answer);
+                changed = true;
+            }
+        }
         if finished.is_empty() {
             return (changed, finished, HashMap::new(), HashMap::new());
         }
@@ -1187,7 +1211,8 @@ fn slot_exited(slot: &mut Slot, code: Option<i32>, now: Instant) -> Option<Strin
 
 /// The answers for the document at `path`, now at `version`: what the
 /// editor showing it does with them. Documentation asked for an older
-/// version is dropped (the text under the cursor changed); what servers
+/// version is dropped (the text under the cursor changed), as are Enter's
+/// edits ([`entering`]) for a text typed on since; what servers
 /// say on their own comes as notices ([`crate::jobs::take_notices`]).
 pub fn take_outcomes(path: &Path, version: u64) -> Vec<Outcome> {
     with(|s| {
@@ -1198,8 +1223,14 @@ pub fn take_outcomes(path: &Path, version: u64) -> Vec<Outcome> {
             .into_iter()
             .partition(|a| a.path == path);
         s.outcomes = rest;
+        // Enter's edits for a text since changed are dropped as quietly.
         mine.into_iter()
-            .filter(|a| !(matches!(a.outcome, Outcome::Hover { .. }) && a.version != version))
+            .filter(|a| {
+                !(matches!(
+                    a.outcome,
+                    Outcome::Hover { .. } | Outcome::Edits { join: true, .. }
+                ) && a.version != version)
+            })
             .map(|a| a.outcome)
             .collect()
     })
@@ -1255,6 +1286,87 @@ fn place(loc: &features::Location, text: &str, enc: Encoding) -> Place {
     }
 }
 
+/// Edits of a text: bytes replaced by texts, sorted, not overlapping.
+type TextEdits = Vec<(Range<usize>, String)>;
+
+/// A workspace edit (a rename's, a structural replace's) offered before
+/// anything changes: how many changes in how many files, to apply or to
+/// cancel.
+fn offer_edit(a: &Action, v: &Value, nothing: impl Fn() -> Outcome) -> Outcome {
+    match features::workspace_edit(v) {
+        Some(files) if files.iter().any(|(_, e)| !e.is_empty()) => {
+            let n: usize = files.iter().map(|(_, e)| e.len()).sum();
+            let m = files.iter().filter(|(_, e)| !e.is_empty()).count();
+            let id = keep_plan(Plan {
+                files,
+                client: a.client.clone(),
+                answer: None,
+            });
+            let file = a
+                .path
+                .file_name()
+                .map(|f| f.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            Outcome::Choose(vec![
+                choice(
+                    crate::palette::invocation("code.applyEdit", &json!({ "id": id })),
+                    crate::tr!("lsp-rename-apply", changes = n, files = m),
+                    file,
+                ),
+                choice(
+                    crate::palette::invocation("code.dropEdit", &json!({ "id": id })),
+                    crate::tr!("plugin-cancel"),
+                    String::new(),
+                ),
+            ])
+        }
+        Some(_) => nothing(),
+        None => Outcome::Message {
+            text: crate::tr!("lsp-edit-unsupported", server = a.client.name()),
+            error: true,
+        },
+    }
+}
+
+/// A server's edits of `text` with their snippets as plain text, and
+/// where the cursor goes in the text after them: the first snippet's
+/// place (rust-analyzer's `$0`), none when no edit has one. `None` when
+/// the edits overlap.
+fn snippet_edits(text: &str, v: &Value, enc: Encoding) -> Option<(TextEdits, Option<usize>)> {
+    // The cursor is a marker character in the edits' text until the end.
+    const MARK: char = '\u{1}';
+    let mut marked = false;
+    let plain = match v {
+        Value::Array(list) => Value::Array(
+            list.iter()
+                .map(|e| {
+                    let mut e = e.clone();
+                    if e["insertTextFormat"] == 2
+                        && let Some(t) = e["newText"].as_str()
+                    {
+                        let (mut plain, cursor) = features::snippet_text(t);
+                        if let Some(at) = cursor.filter(|_| !marked) {
+                            plain.insert(at, MARK);
+                            marked = true;
+                        }
+                        e["newText"] = Value::from(plain);
+                    }
+                    e
+                })
+                .collect(),
+        ),
+        other => other.clone(),
+    };
+    let mut edits = features::text_edits(text, &plain, enc)?;
+    let cursor = marked
+        .then(|| features::apply(text, &edits).find(MARK))
+        .flatten();
+    for (_, t) in &mut edits {
+        t.retain(|c| c != MARK);
+    }
+    Some((edits, cursor))
+}
+
 /// What a request's answer shows; `aliases` maps the files servers name
 /// to the paths the editor opened them under, `open` has the texts of the
 /// open documents it points into (other files are read from the disk).
@@ -1285,47 +1397,24 @@ fn outcome(
         }
     };
     let nothing = || Outcome::Message {
-        text: crate::tr!(
-            "lsp-nothing",
-            server = a.client.name(),
-            what = a.kind.what()
-        ),
+        // A server's own request by the command that sent it: "nothing
+        // for Structural Search and Replace".
+        text: match &a.request {
+            Some(spec) => crate::tr!(
+                "lsp-request-nothing",
+                server = a.client.name(),
+                what = crate::l10n::tr(&crate::l10n::command_key(&spec.command))
+            ),
+            None => crate::tr!(
+                "lsp-nothing",
+                server = a.client.name(),
+                what = a.kind.what()
+            ),
+        },
         error: false,
     };
     match a.kind {
-        Kind::Rename => match features::workspace_edit(&v) {
-            Some(files) if files.iter().any(|(_, e)| !e.is_empty()) => {
-                let n: usize = files.iter().map(|(_, e)| e.len()).sum();
-                let m = files.iter().filter(|(_, e)| !e.is_empty()).count();
-                let id = keep_plan(Plan {
-                    files,
-                    client: a.client.clone(),
-                    answer: None,
-                });
-                let file = a
-                    .path
-                    .file_name()
-                    .map(|f| f.to_string_lossy().into_owned())
-                    .unwrap_or_default();
-                Outcome::Choose(vec![
-                    choice(
-                        crate::palette::invocation("code.applyEdit", &json!({ "id": id })),
-                        crate::tr!("lsp-rename-apply", changes = n, files = m),
-                        file,
-                    ),
-                    choice(
-                        crate::palette::invocation("code.dropEdit", &json!({ "id": id })),
-                        crate::tr!("plugin-cancel"),
-                        String::new(),
-                    ),
-                ])
-            }
-            Some(_) => nothing(),
-            None => Outcome::Message {
-                text: crate::tr!("lsp-edit-unsupported", server = a.client.name()),
-                error: true,
-            },
-        },
+        Kind::Rename => offer_edit(a, &v, nothing),
         Kind::CodeAction => {
             let list = v.as_array().cloned().unwrap_or_default();
             let items: Vec<crate::palette::PaletteItem> = list
@@ -1366,6 +1455,8 @@ fn outcome(
                 version: a.version,
                 edits,
                 label: crate::l10n::tr(&crate::l10n::command_key("edit.formatDocument")),
+                cursor: None,
+                join: false,
             },
             // No edits: "already formatted" when the server says so with
             // an empty list; `null` is also what rust-analyzer answers
@@ -1598,6 +1689,8 @@ fn apply_files(files: &[(String, Vec<Value>)], client: &Client) -> Result<String
                         version,
                         edits,
                         label,
+                        cursor: None,
+                        join: false,
                     },
                 });
             });
@@ -1874,12 +1967,54 @@ impl Service {
             params,
             retries: 0,
             retry_at: None,
+            entered: None,
         });
         Ok(())
     }
 
+    /// Enter's answer ([`entering`]): the server's edits of the text Enter
+    /// was pressed in, as one edit of the text now, when Kalem's new line
+    /// is the one change since; none otherwise, nor when the server has
+    /// nothing to do (Kalem's new line stands) or makes the same text.
+    fn entered(&self, a: &Action, r: Answered) -> Option<Answer> {
+        let rev = a.entered?;
+        let d = self.docs.get(&a.path)?;
+        if d.text_rev != rev + 1 {
+            return None;
+        }
+        let (edits, cursor) = snippet_edits(&a.text, &r.ok()?, a.enc)?;
+        if edits.is_empty() {
+            return None;
+        }
+        let wanted = features::apply(&a.text, &edits);
+        let (pre, suf) = shared_ends(&d.text, &wanted);
+        if pre == d.text.len() && pre == wanted.len() {
+            return None;
+        }
+        let edit = (
+            pre..d.text.len() - suf,
+            wanted[pre..wanted.len() - suf].to_string(),
+        );
+        Some(Answer {
+            path: a.path.clone(),
+            version: d.version,
+            at: Instant::now(),
+            outcome: Outcome::Edits {
+                path: a.path.clone(),
+                version: d.version,
+                edits: vec![edit],
+                label: crate::l10n::tr(&crate::l10n::command_key(ENTER)),
+                cursor,
+                join: true,
+            },
+        })
+    }
+
     /// Sends `spec`, a request of the server's own, about the cursor `at`
-    /// or the selection `range` of `path`.
+    /// or the selection `range` of `path`, with `inputs` (the answers to
+    /// what it asks, [`request_inputs`]) in its fields; `entered` marks
+    /// Enter's ([`entering`]).
+    #[allow(clippy::too_many_arguments)]
     fn ask_request(
         &mut self,
         path: &Path,
@@ -1887,6 +2022,8 @@ impl Service {
         at: usize,
         range: Range<usize>,
         version: u64,
+        inputs: &Value,
+        entered: Option<u64>,
     ) -> Result<(), Option<String>> {
         let Some(d) = self.docs.get(path) else {
             return Err(None);
@@ -1918,9 +2055,16 @@ impl Service {
                 "position": kalem_lsp::position::position(&d.text, at, enc).to_json(),
             }),
         };
+        let selections = || {
+            Value::Array(if range.is_empty() {
+                Vec::new()
+            } else {
+                vec![range_json()]
+            })
+        };
         if let (Some(p), Some(extra)) = (params.as_object_mut(), spec.extra.as_object()) {
             for (k, v) in extra {
-                p.insert(k.clone(), v.clone());
+                p.insert(k.clone(), filled(v, &selections, inputs));
             }
         }
         let pending = c.request(&spec.method, params.clone());
@@ -1938,6 +2082,7 @@ impl Service {
             params,
             retries: 0,
             retry_at: None,
+            entered,
         });
         Ok(())
     }
@@ -1949,6 +2094,69 @@ impl Service {
 /// [`take_outcomes`] as its shape says (documentation, a page to open, a
 /// place, edits, a message).
 pub fn server_request(doc: &DocumentState, command: &str) -> Result<(), String> {
+    server_request_with(doc, command, &Value::Null)
+}
+
+/// What the request Kalem's `command` stands for in the plugin of `doc`
+/// asks the user, in order: `search` and `replace` where its fields have
+/// `{search}` and `{replace}` (a structural search and replace's query,
+/// `{search} ==>> {replace}` for rust-analyzer). None when no server of
+/// the document has the request.
+pub fn request_inputs(doc: &DocumentState, command: &str) -> Vec<&'static str> {
+    let Some(path) = code_file(doc) else {
+        return Vec::new();
+    };
+    with(|s| {
+        let Some(d) = s.docs.get(path) else {
+            return Vec::new();
+        };
+        let server = d.key.as_ref().map(|k| k.1.as_str()).unwrap_or_default();
+        let Some(spec) = d.plugin.request(command, server) else {
+            return Vec::new();
+        };
+        let fields = spec.extra.to_string();
+        INPUTS
+            .into_iter()
+            .filter(|n| fields.contains(&format!("{{{n}}}")))
+            .collect()
+    })
+}
+
+/// The inputs a request's fields may have, asked in this order.
+const INPUTS: [&str; 2] = ["search", "replace"];
+
+/// A request's field `v` with its places filled in: `"{selections}"` (the
+/// whole text) the selection in a list, empty when nothing is selected;
+/// `{search}` and `{replace}` in a text the user's answers in `inputs`.
+fn filled(v: &Value, selections: &dyn Fn() -> Value, inputs: &Value) -> Value {
+    match v {
+        Value::String(s) if s == "{selections}" => selections(),
+        Value::String(s) => {
+            let mut s = s.clone();
+            for n in INPUTS {
+                if let Some(answer) = inputs[n].as_str() {
+                    s = s.replace(&format!("{{{n}}}"), answer);
+                }
+            }
+            Value::String(s)
+        }
+        Value::Array(a) => Value::Array(a.iter().map(|x| filled(x, selections, inputs)).collect()),
+        Value::Object(o) => Value::Object(
+            o.iter()
+                .map(|(k, x)| (k.clone(), filled(x, selections, inputs)))
+                .collect(),
+        ),
+        other => other.clone(),
+    }
+}
+
+/// [`server_request`] with the answers to what the request asks
+/// ([`request_inputs`]): `{"search": "foo($a)", "replace": "bar($a)"}`.
+pub fn server_request_with(
+    doc: &DocumentState,
+    command: &str,
+    inputs: &Value,
+) -> Result<(), String> {
     sync(doc);
     let path = code_file(doc).ok_or_else(|| no_server(doc))?.to_path_buf();
     let sel = &doc.selection;
@@ -1968,12 +2176,83 @@ pub fn server_request(doc: &DocumentState, command: &str) -> Result<(), String> 
                 what = crate::l10n::tr(&crate::l10n::command_key(command))
             )
         })?;
-        match s.ask_request(&path, &spec, at, range, version) {
+        match s.ask_request(&path, &spec, at, range, version, inputs, None) {
             Err(None) => Err(no_server(doc)),
             Err(Some(why)) => Err(why),
             Ok(()) => Ok(()),
         }
     })
+}
+
+/// The key of a plugin's request that Enter asks for in code: the
+/// server's own new line (rust-analyzer's `experimental/onEnter`, which
+/// continues a `///` comment), keyed by the command Enter runs there.
+pub const ENTER: &str = "edit.newline";
+
+/// Enter is about to make a new line at the cursor of `doc` (Kalem's own
+/// in code, or Vim's in Insert mode): when its server has a request for
+/// it ([`ENTER`]), asks it about the cursor before Kalem's new line
+/// reaches it. Nothing waits: Kalem's new line is made at once, and the
+/// server's edits come back as an [`Outcome::Edits`] that takes its place
+/// in the same undo step, the cursor where the server puts it, when
+/// Kalem's new line is the one change made since; they are dropped
+/// otherwise, and an answer of nothing leaves Kalem's.
+pub fn entering(doc: &DocumentState) {
+    let sel = doc.selection;
+    if sel.anchor != sel.head || !doc.extra.is_empty() {
+        return;
+    }
+    let Some(path) = code_file(doc) else { return };
+    // Cheap for a document whose server has no such request.
+    let asks = with(|s| {
+        s.docs.get(path).is_some_and(|d| {
+            d.opened_in.as_ref().is_some_and(|c| c.is_ready())
+                && d.key
+                    .as_ref()
+                    .is_some_and(|k| d.plugin.request(ENTER, &k.1).is_some())
+        })
+    });
+    if !asks {
+        return;
+    }
+    sync(doc);
+    let version = doc.version();
+    with(|s| {
+        let Some(d) = s.docs.get(path) else { return };
+        let Some(spec) = d
+            .key
+            .as_ref()
+            .and_then(|k| d.plugin.request(ENTER, &k.1))
+            .cloned()
+        else {
+            return;
+        };
+        let rev = d.text_rev;
+        let at = sel.head;
+        let _ = s.ask_request(path, &spec, at, at..at, version, &Value::Null, Some(rev));
+    });
+}
+
+/// The bytes `a` and `b` share at their start and, after that, at their
+/// end, both at character boundaries.
+fn shared_ends(a: &str, b: &str) -> (usize, usize) {
+    let (x, y) = (a.as_bytes(), b.as_bytes());
+    let mut pre = x.iter().zip(y).take_while(|(p, q)| p == q).count();
+    while !a.is_char_boundary(pre) || !b.is_char_boundary(pre) {
+        pre -= 1;
+    }
+    let max = x.len().min(y.len()) - pre;
+    let mut suf = x
+        .iter()
+        .rev()
+        .zip(y.iter().rev())
+        .take(max)
+        .take_while(|(p, q)| p == q)
+        .count();
+    while !a.is_char_boundary(x.len() - suf) || !b.is_char_boundary(y.len() - suf) {
+        suf -= 1;
+    }
+    (pre, suf)
 }
 
 /// The commands of Kalem's that the server of `doc` has a request of its
@@ -2033,13 +2312,16 @@ pub fn serves(doc: &DocumentState) -> bool {
 }
 
 /// The server of the document at `path` is starting, restarting or
-/// reports work in progress (indexing, compiling).
+/// reports work in progress (indexing, compiling, or not quiescent in its
+/// state).
 pub fn working(path: &Path) -> bool {
     with(|s| {
         s.docs
             .get(path)
             .and_then(|d| d.opened_in.as_ref())
-            .is_some_and(|c| !c.is_ready() || c.progress().is_some())
+            .is_some_and(|c| {
+                !c.is_ready() || c.progress().is_some() || c.status().is_some_and(|st| st.busy)
+            })
             || s.docs
                 .get(path)
                 .and_then(|d| d.key.as_ref())
@@ -2136,6 +2418,8 @@ pub fn format_with(doc: &DocumentState, f: crate::formatters::Formatter) -> Resu
                         version,
                         edits,
                         label: crate::l10n::tr(&crate::l10n::command_key("edit.formatDocument")),
+                        cursor: None,
+                        join: false,
                     }
                 }
             })
@@ -2252,8 +2536,8 @@ pub fn diagnostic_at(doc: &DocumentState, at: usize) -> Option<String> {
 }
 
 /// The status bar's word on the document at `path`, whose cursor is at
-/// `at`: the diagnostic there, else the server's progress, else the
-/// counts.
+/// `at`: the diagnostic there, else the server's progress, else its word
+/// on its state when it does not work fully, and the counts.
 pub fn status(path: &Path, at: usize) -> Option<String> {
     with(|s| {
         let d = s.docs.get_mut(path)?;
@@ -2293,15 +2577,57 @@ pub fn status(path: &Path, at: usize) -> Option<String> {
         if progress.is_some() {
             return progress;
         }
-        match (errors, warnings) {
-            (0, 0) => None,
-            (e, w) => Some(crate::tr!(
+        // The server's own word on its state, while it does not work fully
+        // (rust-analyzer's "cargo check failed to start").
+        let health = c.status().and_then(|st| health_text(&st));
+        match ((errors, warnings), health) {
+            ((0, 0), None) => None,
+            ((0, 0), Some(text)) => Some(crate::tr!(
+                "lsp-status-health",
+                server = name.as_str(),
+                text = text
+            )),
+            ((e, w), None) => Some(crate::tr!(
                 "lsp-status-counts",
                 server = name.as_str(),
                 errors = e,
                 warnings = w
             )),
+            ((e, w), Some(text)) => Some(crate::tr!(
+                "lsp-status-health-counts",
+                server = name.as_str(),
+                text = text,
+                errors = e,
+                warnings = w
+            )),
         }
+    })
+}
+
+/// What a server's state says when it does not work fully: its text's
+/// first line, else how well it works; none when it works.
+fn health_text(st: &kalem_lsp::ServerStatus) -> Option<String> {
+    let word = match st.health {
+        kalem_lsp::Health::Ok => return None,
+        kalem_lsp::Health::Warning => "lsp-health-warning",
+        kalem_lsp::Health::Error => "lsp-health-error",
+    };
+    Some(
+        match st.text.lines().next().filter(|l| !l.trim().is_empty()) {
+            Some(l) => l.trim().to_string(),
+            None => crate::l10n::tr(word),
+        },
+    )
+}
+
+/// The state the server of the document at `path` last told, when it
+/// tells one (the manifest's `status`).
+pub fn server_status(path: &Path) -> Option<kalem_lsp::ServerStatus> {
+    with(|s| {
+        s.docs
+            .get(path)
+            .and_then(|d| d.opened_in.as_ref())
+            .and_then(|c| c.status())
     })
 }
 
@@ -2414,7 +2740,11 @@ pub fn report() -> Vec<String> {
             let state = match &slot.client {
                 Some(c) if c.has_exited() => crate::tr!("lsp-report-exited"),
                 Some(c) if c.is_ready() => {
-                    crate::tr!("lsp-report-ready", count = c.open_documents())
+                    let ready = crate::tr!("lsp-report-ready", count = c.open_documents());
+                    match c.status().and_then(|st| health_text(&st)) {
+                        Some(text) => crate::tr!("lsp-report-health", state = ready, text = text),
+                        None => ready,
+                    }
                 }
                 Some(_) => crate::tr!("lsp-report-starting"),
                 None => slot
@@ -2730,6 +3060,37 @@ pub fn transaction(edits: &[(Range<usize>, String)], label: &str) -> Option<org_
     Some(tx)
 }
 
+/// Applies an [`Outcome::Edits`]'s `edits` to `doc`, the document they are
+/// for, when it is still at `version`: as one undoable change, or as part
+/// of the last one when `join` (Enter's new line as the server makes it),
+/// the cursor at `cursor` when the server put it somewhere. False when
+/// the document changed since: nothing is applied.
+pub fn apply_edits(
+    doc: &mut DocumentState,
+    version: u64,
+    edits: &[(Range<usize>, String)],
+    label: &str,
+    cursor: Option<usize>,
+    join: bool,
+) -> bool {
+    if doc.version() != version {
+        return false;
+    }
+    let Some(mut tx) = transaction(edits, label) else {
+        return false;
+    };
+    if let Some(at) = cursor {
+        tx = tx.select(org_edit::Selection::caret(at));
+    }
+    let now = Instant::now();
+    if join {
+        doc.apply_joined(&tx, now);
+    } else {
+        doc.apply(&tx, org_edit::ChangeKind::Command, now);
+    }
+    true
+}
+
 /// Stops the server of `doc` and starts it again with its documents.
 pub fn restart(doc: &DocumentState) -> Result<String, String> {
     let path = code_file(doc)
@@ -2811,7 +3172,8 @@ pub fn describe(doc: &DocumentState) -> Option<String> {
 
 /// The answer to a server's own request ([`Kind::Request`]), as its
 /// shape says: documentation (`text`), a page to open (`url`), a place
-/// (`location`), edits of the document (`edits`), or a message (`none`).
+/// (`location`), edits of the document (`edits`), edits of the project's
+/// files offered first (`workspaceEdit`), or a message (`none`).
 fn requested(
     a: &Action,
     spec: &RequestSpec,
@@ -2856,38 +3218,24 @@ fn requested(
             None => nothing(),
         },
         "location" => located(a, v, aliases, open, nothing),
-        "edits" => {
-            // Snippet edits (rust-analyzer's `$0`) as plain text.
-            let plain = match v {
-                Value::Array(list) => Value::Array(
-                    list.iter()
-                        .map(|e| {
-                            let mut e = e.clone();
-                            if e["insertTextFormat"] == 2
-                                && let Some(t) = e["newText"].as_str()
-                            {
-                                e["newText"] = Value::from(features::strip_snippet(t));
-                            }
-                            e
-                        })
-                        .collect(),
-                ),
-                other => other.clone(),
-            };
-            match features::text_edits(&a.text, &plain, a.enc) {
-                Some(edits) if !edits.is_empty() => Outcome::Edits {
-                    path: a.path.clone(),
-                    version: a.version,
-                    edits,
-                    label: title,
-                },
-                Some(_) => nothing(),
-                None => Outcome::Message {
-                    text: crate::tr!("lsp-overlapping", server = a.client.name()),
-                    error: true,
-                },
-            }
-        }
+        "workspaceEdit" => offer_edit(a, v, nothing),
+        // Snippet edits (rust-analyzer's `$0`) as plain text, the cursor
+        // at their place.
+        "edits" => match snippet_edits(&a.text, v, a.enc) {
+            Some((edits, cursor)) if !edits.is_empty() => Outcome::Edits {
+                path: a.path.clone(),
+                version: a.version,
+                edits,
+                label: title,
+                cursor,
+                join: false,
+            },
+            Some(_) => nothing(),
+            None => Outcome::Message {
+                text: crate::tr!("lsp-overlapping", server = a.client.name()),
+                error: true,
+            },
+        },
         _ => Outcome::Message {
             text: crate::tr!("lsp-request-done", server = a.client.name(), what = title),
             error: false,

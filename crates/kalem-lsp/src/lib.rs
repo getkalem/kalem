@@ -25,7 +25,8 @@ pub mod rpc;
 pub mod uri;
 
 pub use client::{
-    CONTENT_MODIFIED, Client, Edit, Event, Pending, RpcError, SERVER_CANCELLED, ServerConfig, Wake,
+    CONTENT_MODIFIED, Client, Edit, Event, Health, Pending, RpcError, SERVER_CANCELLED,
+    ServerConfig, ServerStatus, StatusSpec, Wake,
 };
 pub use position::{Encoding, Position};
 

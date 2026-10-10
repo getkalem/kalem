@@ -2527,6 +2527,15 @@ impl DocumentState {
         self.history.begin_join();
     }
 
+    /// Applies `tx` as part of the last undo step: the change just made,
+    /// made again another way (Enter's new line as a language server makes
+    /// it), so one undo takes both back.
+    pub fn apply_joined(&mut self, tx: &Transaction, now: Instant) {
+        self.history.join_next(true);
+        self.apply(tx, ChangeKind::Command, now);
+        self.history.join_next(false);
+    }
+
     /// Undoes the last step; returns its label.
     pub fn undo(&mut self) -> Option<String> {
         if let Some(v) = self.viewer.as_deref_mut() {
