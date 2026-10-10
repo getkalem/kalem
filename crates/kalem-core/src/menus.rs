@@ -821,6 +821,21 @@ mod tests {
         assert!(!menus().iter().any(|m| m.name == "Menutest"));
     }
 
+    /// Commands on a text, which a viewer's document has none of.
+    const TEXT_COMMANDS: &[&str] = &[
+        "lines.moveUp",
+        "lines.moveDown",
+        "lines.duplicate",
+        "lines.join",
+        "lines.sort",
+        "edit.gotoBracket",
+        "edit.trimTrailingWhitespace",
+        "edit.gotoLine",
+        "view.toggleSource",
+        "file.reopenWithEncoding",
+        "file.saveWithEncoding",
+    ];
+
     /// The menus a viewer's document shows, with the items its commands
     /// serve: a workbook's (a grid) or a picture's.
     fn viewer_menus(grid: bool) -> Vec<(String, Vec<(String, String)>)> {
@@ -890,7 +905,8 @@ mod tests {
                         "edit.selectAll",
                         "edit.toggleComment"
                     ]
-                    .contains(&id.as_str()),
+                    .contains(&id.as_str())
+                        && !TEXT_COMMANDS.contains(&id.as_str()),
                     "{name} › {id}"
                 );
             }
@@ -900,11 +916,13 @@ mod tests {
             labels.dedup();
             assert_eq!(labels.len(), n, "{name}: {items:?}");
         }
-        // A picture's or a PDF's menus carry none of a workbook's.
+        // A picture's or a PDF's menus carry none of a workbook's, and
+        // neither carries the text's commands.
         let picture = viewer_menus(false);
         for (name, items) in &picture {
             assert!(
-                !items.iter().any(|(_, id)| id.starts_with("viewer.grid.")),
+                !items.iter().any(|(_, id)| id.starts_with("viewer.grid.")
+                    || TEXT_COMMANDS.contains(&id.as_str())),
                 "{name}: {items:?}"
             );
             assert!(

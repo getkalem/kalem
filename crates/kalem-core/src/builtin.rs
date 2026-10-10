@@ -60,6 +60,11 @@ pub(crate) fn literal_when(w: &str) -> WhenClause {
 }
 
 /// `c` with an explicit scope.
+/// The when-clause of a command on the text itself (its lines, its
+/// brackets, its encoding, its source): never a viewer's document, which
+/// has none.
+const TEXT_ONLY: &str = "editorMode != viewer";
+
 fn scoped(mut c: Command, scope: crate::command::Scope) -> Command {
     c.scope = Some(scope);
     c
@@ -7371,7 +7376,7 @@ fn plain_commands() -> Vec<Command> {
             "Reopen with Encoding",
             "File",
             &[],
-            None,
+            Some(TEXT_ONLY),
             |ctx, args| {
                 let name = arg_str(args, "encoding")?.to_string();
                 let enc = crate::files::encoding_for(&name).ok_or_else(|| {
@@ -7401,7 +7406,7 @@ fn plain_commands() -> Vec<Command> {
             "Save with Encoding",
             "File",
             &[],
-            None,
+            Some(TEXT_ONLY),
             |ctx, args| {
                 let name = arg_str(args, "encoding")?.to_string();
                 let enc = crate::files::encoding_for(&name).ok_or_else(|| {
@@ -7430,7 +7435,7 @@ fn plain_commands() -> Vec<Command> {
                 "Duplicate Lines",
                 "Edit",
                 &["ctrl+shift+d"],
-                None,
+                Some(TEXT_ONLY),
                 |ctx, _| lines_command(ctx, |t, s| Some(crate::lines::duplicate(t, s))),
             ),
             crate::command::Scope::except(&["org"]),
@@ -7441,7 +7446,7 @@ fn plain_commands() -> Vec<Command> {
                 "Move Lines Up",
                 "Edit",
                 &["alt+up"],
-                None,
+                Some(TEXT_ONLY),
                 |ctx, _| lines_command(ctx, |t, s| crate::lines::move_lines(t, s, true)),
             ),
             // A CSV grid moves its rows on these keys, records that span
@@ -7454,22 +7459,27 @@ fn plain_commands() -> Vec<Command> {
                 "Move Lines Down",
                 "Edit",
                 &["alt+down"],
-                None,
+                Some(TEXT_ONLY),
                 |ctx, _| lines_command(ctx, |t, s| crate::lines::move_lines(t, s, false)),
             ),
             // A CSV grid moves its rows on these keys, records that span
             // lines whole.
             crate::command::Scope::except(&["org", "csv"]),
         ),
-        cmd("lines.join", "Join Lines", "Edit", &[], None, |ctx, _| {
-            lines_command(ctx, crate::lines::join)
-        }),
+        cmd(
+            "lines.join",
+            "Join Lines",
+            "Edit",
+            &[],
+            Some(TEXT_ONLY),
+            |ctx, _| lines_command(ctx, crate::lines::join),
+        ),
         cmd(
             "lines.sort",
             "Sort Lines",
             "Edit",
             &[],
-            None,
+            Some(TEXT_ONLY),
             |ctx, args| {
                 let reverse = arg_bool(args, "reverse");
                 lines_command(ctx, |t, s| crate::lines::sort(t, s, reverse))
@@ -7480,7 +7490,7 @@ fn plain_commands() -> Vec<Command> {
             "Trim Trailing Whitespace",
             "Edit",
             &[],
-            None,
+            Some(TEXT_ONLY),
             |ctx, _| lines_command(ctx, |t, _| crate::lines::trim_trailing(t)),
         ),
         cmd(
@@ -7649,7 +7659,7 @@ fn plain_commands() -> Vec<Command> {
             "Go to Matching Bracket",
             "Edit",
             &["ctrl+alt+b"],
-            None,
+            Some(TEXT_ONLY),
             |ctx, _| {
                 let d = ctx.doc()?;
                 let head = d.selection.head;
@@ -7755,7 +7765,7 @@ fn plain_commands() -> Vec<Command> {
             "Go to Line",
             "Edit",
             &[],
-            None,
+            Some(TEXT_ONLY),
             |ctx, args| {
                 let line = args
                     .get("line")
@@ -9496,7 +9506,7 @@ fn plain_commands() -> Vec<Command> {
             "Toggle Source View",
             "View",
             &["ctrl+/"],
-            None,
+            Some(TEXT_ONLY),
             |ctx, _| request(ctx, Request::ToggleSource),
         ),
         cmd(

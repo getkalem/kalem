@@ -17,7 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The status bar sums a workbook's selection as Excel's can: after its Average, Count and Sum, the Min and Max, and the Numerical Count when some of the values are not numbers (last, so that a narrow terminal cuts them first).
 
 ### Fixed
-- A workbook's Edit menu offered the text's Find, Find and Replace, Select All and Toggle Comment, which did nothing in its cells: it now offers the grid's Find, Replace and Select All (Ctrl+F, Ctrl+H and Ctrl+A ran them already).
+- A workbook's Edit menu offered the text's Find, Find and Replace, Select All and Toggle Comment, which did nothing in its cells: it now offers the grid's Find, Replace and Select All (Ctrl+F, Ctrl+H and Ctrl+A ran them already). The commands on a text (the line commands, Go to Matching Bracket, Trim Trailing Whitespace, Go to Line, Source View, Reopen and Save with Encoding) are no longer offered for a workbook, a PDF or a picture, in the menus or by their keys.
 
 ## [0.6.5] - 2026-10-10
 
