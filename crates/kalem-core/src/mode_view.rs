@@ -131,6 +131,24 @@ impl ModeView for Flow {
     fn outline(&self, doc: &mut DocumentState) -> Option<Vec<OutlineItem>> {
         doc.flow.as_deref().map(crate::flow::FlowState::outline)
     }
+
+    /// The horizontal rules, drawn across the line away from the cursor
+    /// as Org's are.
+    fn blocks(&self, doc: &DocumentState) -> Vec<Block> {
+        let Some(f) = doc.flow.as_deref() else {
+            return Vec::new();
+        };
+        f.rule_lines()
+            .into_iter()
+            .map(|range| Block {
+                kind: crate::view::BlockKind::Rule,
+                content_end: range.end,
+                range,
+                depth: 0,
+                headline: None,
+            })
+            .collect()
+    }
 }
 
 /// Plain text, and every mode's source view but Org's: the text as it is,

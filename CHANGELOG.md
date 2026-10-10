@@ -10,6 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The plugin API is 0.2.8: `flow-2`, exported with `flow`, changes paragraphs' look and lists (`set-paragraphs`: alignment, indents, spacing, line spacing, a list of bullets or of numbers in a CSS numbering style, its level, the look given directly cleared), in no format's words. `flow.wit` and `annotations.wit` of 0.2.7 are frozen.
 - Paragraphs and lists in documents of flowing text (a Word document), as a word processor's: Align Left (Ctrl+L), Center (Ctrl+E), Align Right (Ctrl+R), Justify (Ctrl+J), Bullets (Ctrl+Shift+L), Numbering and Numbering Style, Increase and Decrease Indent (a list item a level deeper, another paragraph a half-inch step), Line Spacing, Space Before, Space After and Clear Paragraph Formatting, on the selection's paragraphs or the cursor's. They are in the Format menu, and the graphical editor's toolbar has the alignments, the lists, the indents and the line spacing, pressed as the cursor's paragraph has them.
 
+### Fixed
+- Documents of flowing text (a Word document) on a dark theme: text the document colors black, dark gray or another dark color, chosen for a white page, did not read on the background. Such a color is now shown with its lightness turned over and its hue kept, in both editors, and text on a highlight is drawn to read on it; the file keeps its colors. A separator drawn as line shapes is drawn as a horizontal rule across the text.
+
 ## [0.6.4] - 2026-10-10
 
 ### Fixed

@@ -308,6 +308,107 @@ pub fn cell_text_color(color: Option<[u8; 3]>, filled: bool, dark: bool) -> Opti
     Some([r, g, b])
 }
 
+/// The relative luminance of a color (WCAG 2).
+fn luminance([r, g, b]: [u8; 3]) -> f32 {
+    let c = |v: u8| {
+        let v = f32::from(v) / 255.0;
+        if v <= 0.040_45 {
+            v / 12.92
+        } else {
+            ((v + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    0.2126 * c(r) + 0.7152 * c(g) + 0.0722 * c(b)
+}
+
+/// The contrast ratio of two colors (WCAG 2): 1 to 21.
+pub fn contrast(a: [u8; 3], b: [u8; 3]) -> f32 {
+    let (x, y) = (luminance(a), luminance(b));
+    (x.max(y) + 0.05) / (x.min(y) + 0.05)
+}
+
+/// A color with its lightness turned over (HSL's L to 1 − L), its hue
+/// and saturation kept: dark blue to light blue, dark gray to light gray.
+fn lightness_turned([r, g, b]: [u8; 3]) -> [u8; 3] {
+    let (r, g, b) = (
+        f32::from(r) / 255.0,
+        f32::from(g) / 255.0,
+        f32::from(b) / 255.0,
+    );
+    let (max, min) = (r.max(g).max(b), r.min(g).min(b));
+    let l = (max + min) / 2.0;
+    let d = max - min;
+    let (h, s) = if d == 0.0 {
+        (0.0, 0.0)
+    } else {
+        let s = if l > 0.5 {
+            d / (2.0 - max - min)
+        } else {
+            d / (max + min)
+        };
+        let h = if max == r {
+            ((g - b) / d).rem_euclid(6.0)
+        } else if max == g {
+            (b - r) / d + 2.0
+        } else {
+            (r - g) / d + 4.0
+        };
+        (h / 6.0, s)
+    };
+    let l = 1.0 - l;
+    let to = |p: f32, q: f32, t: f32| {
+        let t = t.rem_euclid(1.0);
+        if t < 1.0 / 6.0 {
+            p + (q - p) * 6.0 * t
+        } else if t < 0.5 {
+            q
+        } else if t < 2.0 / 3.0 {
+            p + (q - p) * (2.0 / 3.0 - t) * 6.0
+        } else {
+            p
+        }
+    };
+    let (r, g, b) = if s == 0.0 {
+        (l, l, l)
+    } else {
+        let q = if l < 0.5 {
+            l * (1.0 + s)
+        } else {
+            l + s - l * s
+        };
+        let p = 2.0 * l - q;
+        (
+            to(p, q, h + 1.0 / 3.0),
+            to(p, q, h),
+            to(p, q, h - 1.0 / 3.0),
+        )
+    };
+    let byte = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+    [byte(r), byte(g), byte(b)]
+}
+
+/// A document's text color as it reads on `background` (a color chosen
+/// for a white page, drawn on a dark theme or on a highlight): kept when
+/// it stands out enough (a contrast of 4.5, WCAG's for text); else its
+/// lightness turned over, its hue kept, as a word processor's dark mode
+/// does; else black or white, whichever reads.
+pub fn legible(color: [u8; 3], background: [u8; 3]) -> [u8; 3] {
+    const ENOUGH: f32 = 4.5;
+    if contrast(color, background) >= ENOUGH {
+        return color;
+    }
+    let turned = lightness_turned(color);
+    if contrast(turned, background) >= ENOUGH {
+        return turned;
+    }
+    let (black, white) = ([0, 0, 0], [0xff, 0xff, 0xff]);
+    if contrast(black, background) >= contrast(white, background) {
+        black
+    } else {
+        white
+    }
+}
+
 /// The user's theme directory: `themes` in the settings directory.
 pub fn user_dir() -> Option<std::path::PathBuf> {
     crate::settings::config_dir().map(|d| d.join("themes"))
@@ -343,6 +444,26 @@ mod tests {
             Some([0xc0, 0, 0]),
         );
         assert_eq!(cell_text_color(black, false, true), None);
+        // A document's dark text on the dark theme: its lightness turned
+        // over, its hue kept; a color that reads, kept.
+        let dark_bg = [0x1e, 0x1e, 0x1e];
+        assert_eq!(super::legible([0, 0, 0], dark_bg), [0xff, 0xff, 0xff]);
+        assert_eq!(
+            super::legible([0x40, 0x40, 0x40], dark_bg),
+            [0xbf, 0xbf, 0xbf]
+        );
+        let blue = super::legible([0x2f, 0x54, 0x96], dark_bg);
+        assert!(
+            blue[2] > blue[0] && super::contrast(blue, dark_bg) >= 4.5,
+            "{blue:?}"
+        );
+        assert_eq!(super::legible([0xff, 0xc0, 0], dark_bg), [0xff, 0xc0, 0]);
+        // White text on a white page, and dark text on a yellow highlight.
+        assert_eq!(
+            super::legible([0xff, 0xff, 0xff], [0xff, 0xff, 0xff]),
+            [0, 0, 0]
+        );
+        assert_eq!(super::legible([0, 0, 0], [0xff, 0xff, 0]), [0, 0, 0]);
         assert_eq!(cell_text_color(black, false, false), black);
         assert_eq!(cell_text_color(black, true, true), black);
         assert_eq!(cell_text_color(white, false, false), None);

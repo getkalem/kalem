@@ -598,7 +598,7 @@ fn text_run(
     if s.italic || s.byline || s.expansion {
         font.style = FontStyle::Italic;
     }
-    let color = if s.link || s.expansion {
+    let mut color = if s.link || s.expansion {
         theme.link
     } else if let Some(done) = s.todo {
         if done { theme.done } else { theme.todo }
@@ -623,6 +623,13 @@ fn text_run(
         let h = crate::theme::color(c);
         if theme.dark { Hsla { a: 0.45, ..h } } else { h }
     });
+    // A document's colors (a Word document's), chosen for a white page:
+    // kept legible on what the text is drawn on, the theme's background
+    // or the highlight over it.
+    if s.rich.paper && !s.link {
+        let back = highlight.map_or(theme.background, |h| over(h, theme.background));
+        color = rgb_hsla(kalem_core::theme::legible(hsla_rgb(color), hsla_rgb(back)));
+    }
     TextRun {
         len,
         font,
@@ -651,6 +658,37 @@ fn text_run(
             thickness: px(1.),
         }),
     }
+}
+
+/// A color as 8-bit RGB.
+fn hsla_rgb(c: Hsla) -> [u8; 3] {
+    let r = c.to_rgb();
+    let b = |v: f32| (v.clamp(0., 1.) * 255.).round() as u8;
+    [b(r.r), b(r.g), b(r.b)]
+}
+
+/// 8-bit RGB as a color.
+fn rgb_hsla([r, g, b]: [u8; 3]) -> Hsla {
+    gpui::Rgba {
+        r: f32::from(r) / 255.,
+        g: f32::from(g) / 255.,
+        b: f32::from(b) / 255.,
+        a: 1.,
+    }
+    .into()
+}
+
+/// `top` with its alpha over `under`.
+fn over(top: Hsla, under: Hsla) -> Hsla {
+    let (t, u) = (top.to_rgb(), under.to_rgb());
+    let a = t.a;
+    gpui::Rgba {
+        r: t.r * a + u.r * (1. - a),
+        g: t.g * a + u.g * (1. - a),
+        b: t.b * a + u.b * (1. - a),
+        a: 1.,
+    }
+    .into()
 }
 
 /// A file manager line's colors and weights (`kalem_core::dired`):
@@ -2439,5 +2477,31 @@ mod tests {
         assert_eq!(super::hang_at(&v), Some(6));
         let v = kalem_core::view::plain_line_view("flush\n", 0..5, None);
         assert_eq!(super::hang_at(&v), None);
+    }
+
+    #[test]
+    fn a_documents_colors_read_on_the_dark_theme() {
+        use kalem_core::theme::Color;
+        let dark = crate::theme::Theme::dark();
+        let light = crate::theme::Theme::light();
+        let style = |color: u32, paper: bool| kalem_core::view::Style {
+            rich: kalem_core::rich::CharFormat {
+                color: Some(Color(color)),
+                paper,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let rgb = |s: &kalem_core::view::Style, t: &crate::theme::Theme| {
+            super::hsla_rgb(super::text_run(s, 1, 0, false, t).color)
+        };
+        // A Word document's black: light on the dark theme, black on the
+        // light one; a dark gray, a light gray.
+        assert_eq!(rgb(&style(0x0000_00ff, true), &dark), [0xff, 0xff, 0xff]);
+        assert_eq!(rgb(&style(0x0000_00ff, true), &light), [0, 0, 0]);
+        let gray = rgb(&style(0x4040_40ff, true), &dark);
+        assert!(gray[0] > 0x90 && gray[0] == gray[1], "{gray:?}");
+        // Not a document's: drawn as given.
+        assert_eq!(rgb(&style(0x0000_00ff, false), &dark), [0, 0, 0]);
     }
 }

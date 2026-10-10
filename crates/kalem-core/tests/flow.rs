@@ -517,3 +517,28 @@ fn paragraphs_and_lists_from_the_menus_and_the_toolbar() {
     assert!(d.undo().is_some());
     assert_eq!((title(&d), para(&d).indent.0), (36.0, 36.0));
 }
+
+#[test]
+fn rules_drawn_across_and_colors_marked_as_the_documents() {
+    let (d, _) = open(DOC);
+    let f = d.flow.as_deref().unwrap();
+    // `---`: a rule with no name, a line drawn across away from the
+    // cursor, as Org's.
+    let rules = f.rule_lines();
+    assert_eq!(rules.len(), 1);
+    let blocks = kalem_core::mode_view::blocks(&d);
+    assert_eq!(blocks.len(), 1);
+    assert_eq!(blocks[0].kind, kalem_core::view::BlockKind::Rule);
+    assert_eq!(blocks[0].range, rules[0]);
+    // A run's colors are the document's, for the frontends to keep
+    // legible.
+    let at = d.text().as_str().find("Plain").unwrap();
+    let len = d.text().as_str()[at..].find('\n').unwrap();
+    let v = kalem_core::flow::line_view(f, at..at + len);
+    assert!(
+        v.runs
+            .iter()
+            .filter(|r| !r.style.dim)
+            .all(|r| r.style.rich.paper)
+    );
+}

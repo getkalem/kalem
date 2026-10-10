@@ -248,14 +248,35 @@ pub fn style_for(s: &ViewStyle, heading: u8, caps: &Caps) -> Style {
         }
     };
     let mut st = st;
+    let rgb = |c: kalem_core::theme::Color| {
+        let (r, g, b) = c.rgb();
+        [r, g, b]
+    };
+    let color = |c: [u8; 3]| {
+        kalem_core::theme::Color(
+            (u32::from(c[0]) << 24) | (u32::from(c[1]) << 16) | (u32::from(c[2]) << 8) | 0xff,
+        )
+    };
+    // A document's colors (a Word document's), chosen for a white page:
+    // kept legible on the highlight or the terminal's background (dark
+    // when the terminal does not say).
+    let under = match s.rich.highlight {
+        Some(h) => rgb(h),
+        None => caps.background.map_or([0, 0, 0], |(r, g, b)| [r, g, b]),
+    };
     if let Some(c) = s.rich.color {
+        let c = if s.rich.paper && !s.link {
+            color(kalem_core::theme::legible(rgb(c), under))
+        } else {
+            c
+        };
         st = st.fg(to(c));
     }
     if let Some(c) = s.rich.highlight {
         st = st.bg(to(c));
         if s.rich.color.is_none() {
-            // Dark text on a light highlight.
-            st = st.fg(Color::Black);
+            // Dark text on a light highlight, light on a dark one.
+            st = st.fg(to(color(kalem_core::theme::legible([0, 0, 0], rgb(c)))));
         }
     }
     st

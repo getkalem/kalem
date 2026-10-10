@@ -50,6 +50,10 @@ pub struct CharFormat {
     pub color: Option<Color>,
     /// The highlight (background) color.
     pub highlight: Option<Color>,
+    /// Its colors are a document's, chosen for a white page (a Word
+    /// document's): the frontends keep them legible on the theme's
+    /// background ([`crate::theme::legible`]).
+    pub paper: bool,
 }
 
 impl CharFormat {
@@ -65,6 +69,7 @@ impl CharFormat {
             size: inner.size.or(self.size),
             color: inner.color.or(self.color),
             highlight: inner.highlight.or(self.highlight),
+            paper: inner.paper || self.paper,
         }
     }
 }

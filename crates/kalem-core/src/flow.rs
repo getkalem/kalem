@@ -586,6 +586,22 @@ impl FlowState {
             .or_else(|| runs.iter().find(|r| r.piece == Piece::Text))
     }
 
+    /// The lines that are horizontal rules (a rule of the flow with no
+    /// name: a line drawn across, not a page or section break), each with
+    /// its line feed.
+    pub fn rule_lines(&self) -> Vec<Range<usize>> {
+        self.lines
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| matches!(&l.kind, LineKind::Mark(m) if m.is_empty()))
+            .map(|(i, _)| {
+                let start = self.starts[i];
+                let end = self.starts.get(i + 1).copied().unwrap_or(self.text.len());
+                start..end
+            })
+            .collect()
+    }
+
     /// The paragraph of byte `pos`.
     pub fn paragraph_at(&self, pos: usize) -> Option<&FlowParagraph> {
         self.seg_at(pos).map(|(s, _)| &s.para)
@@ -925,6 +941,8 @@ impl FlowState {
         }
         s.rich.color = m.color.map(Self::color);
         s.rich.highlight = m.highlight.map(Self::color);
+        // The document's colors, chosen for a white page.
+        s.rich.paper = true;
         // Tracked changes and comments, the same for every plugin.
         for id in annotations {
             let Some(a) = self.annotations.get(id) else {

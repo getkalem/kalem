@@ -85,8 +85,16 @@ are the paragraphs, in both editors.
   and its footer after it, marked =Footer ▏=. Footnotes and endnotes
   follow, each marked with its number. A text box follows the
   paragraph it is anchored in, marked =▕=.
-- Charts, shapes, SmartArt, equations and embedded objects are shown
-  by name, as placeholders.
+- A separator drawn as shapes (a line, a thin bar across the page,
+  Word's horizontal line) is a horizontal rule across the text; a line
+  among text shows as =──=. Charts, other shapes, SmartArt, equations
+  and embedded objects are shown by name, as placeholders.
+- The document's colors were chosen for a white page: on a dark theme,
+  a color that would not read on the background (black text, a dark
+  gray, a dark blue) is shown with its lightness turned over and its
+  hue kept, as a word processor's dark mode shows it, and text on a
+  highlight is drawn to read on the highlight. The file keeps its
+  colors.
 - Text a comment is on is highlighted; inserted text is underlined in
   green and deleted text struck through in red. The status bar says
   the comment at the cursor with its author, or who made the change
