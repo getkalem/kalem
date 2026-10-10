@@ -1234,6 +1234,50 @@ pub(crate) fn load() {
         });
 }
 
+/// Loads and starts the installed extension plugin `name` (its manifest's
+/// ID, or the short one its commands start with) on this thread, whatever
+/// its activation, and offers it alone to the core: `kalem run`. Its
+/// short ID, or why it cannot run.
+pub(crate) fn load_one(name: &str) -> Result<String, String> {
+    let list: Vec<Loaded> = installed()
+        .into_iter()
+        .filter(|l| l.full == name || l.id == name)
+        .collect();
+    let Some(id) = list.first().map(|l| l.id.clone()) else {
+        let known: Vec<String> = installed().into_iter().map(|l| l.full).collect();
+        return Err(if known.is_empty() {
+            format!("No extension plugin {name} is installed (kalem plugin install {name})")
+        } else {
+            format!(
+                "No extension plugin {name} is installed; these are: {}",
+                known.join(", ")
+            )
+        });
+    };
+    // Started already in this process.
+    let source = kalem_core::command::CommandSource::Plugin(id.clone());
+    if kalem_core::extensions::commands()
+        .iter()
+        .any(|c| c.source == source)
+    {
+        return Ok(id);
+    }
+    let cache = kalem_core::logging::state_dir().map(|d| d.join("plugin-cache"));
+    let host = Arc::new(Host::new(cache).map_err(|e| format!("Plugins cannot run: {e}"))?);
+    let mut plugins = Plugins { host, list };
+    plugins.activate(0);
+    if plugins.list[0].extension.is_none() {
+        let why = kalem_core::jobs::take_notices()
+            .into_iter()
+            .map(|(t, _)| t)
+            .collect::<Vec<_>>()
+            .join("; ");
+        return Err(why);
+    }
+    kalem_core::extensions::install(Box::new(plugins));
+    Ok(id)
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

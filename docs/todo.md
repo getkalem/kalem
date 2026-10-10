@@ -479,7 +479,7 @@ The owner removed Kalem's own format on 2026-10-04: its parser, its specificatio
 
 - [ ] T3.1.15 Threads: one component instance per thread, several instances of one plugin for parallel parsers, renderers and completers, messages through the host
 
-- [ ] T3.1.16 Batch mode `kalem run PLUGIN COMMAND [FILE...]`: headless API, graceful UI degradation
+- [x] T3.1.16 Batch mode `kalem run PLUGIN COMMAND [FILE...]`: headless API, graceful UI degradation (done on the branch `graph-mode`: `kalem_cli::commands::run`, the plugin started by name whatever its activation, the command run through the registry against each file's `DocumentState` (a folder's listing) or without one, the commands it queues run, its questions answered (a prompt with its offered text, a choice with nothing, a confirmation with no), its documents printed, `--format json`, `--args`; its notices on standard error; a changed file saved; the named folders in the plugin's workspace for the run. Open: the answers of its network requests and processes that come after the command are not waited for)
 
 - [ ] T3.1.17 API contract tests; a test that the published `kalem-plugin` bindings match the WIT world; limit tests
 

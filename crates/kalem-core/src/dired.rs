@@ -2372,7 +2372,10 @@ pub(crate) fn commands() -> Vec<Command> {
             |ctx, _| {
                 let doc = listing(ctx)?;
                 let dir = the_dir(doc)?;
-                ctx.requests.push(Request::SearchIn(dir));
+                ctx.requests.push(Request::SearchIn {
+                    dir,
+                    ignore: Vec::new(),
+                });
                 Ok(())
             },
         ),
@@ -3805,7 +3808,9 @@ mod tests {
         assert!(doc.text().as_str().contains(" x.txt"));
         // Searching the files' text asks the frontend.
         let (_, req) = run(&mut doc, "dired.searchFiles", json!({}));
-        assert!(matches!(&req[..], [Request::SearchIn(p)] if *p == d));
+        assert!(
+            matches!(&req[..], [Request::SearchIn { dir, ignore }] if *dir == d && ignore.is_empty())
+        );
         let _ = std::fs::remove_dir_all(&d);
     }
 

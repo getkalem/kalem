@@ -301,10 +301,16 @@ impl Editor {
 
     /// Opens the search of the files under `dir`: the project's when it is
     /// one (with its ignore rules), else the folder's.
-    pub fn open_search_in(&mut self, dir: &std::path::Path, cx: &mut Context<'_, Self>) {
+    pub fn open_search_in(
+        &mut self,
+        dir: &std::path::Path,
+        ignore: &[String],
+        cx: &mut Context<'_, Self>,
+    ) {
         let project = self.shared.projects.borrow().list.get(dir).cloned();
-        let project =
+        let mut project =
             project.unwrap_or_else(|| kalem_core::projects::Project::new(dir.to_path_buf()));
+        project.ignore.extend(ignore.iter().cloned());
         self.open_search_project(project, cx);
     }
 

@@ -622,6 +622,34 @@ The git plugin's /Git/ opens its status, as =SPC g g= does:
 ]
 #+end_src
 
+A plugin's command runs from the command line too, without a window,
+as the editors run it: =kalem run PLUGIN COMMAND [FILE...]= starts the
+plugin named (its ID or its commands' prefix) whatever its activation,
+and runs the command against each file, a folder as its listing, or
+once without one. What the command asks of the editor follows as in a
+window: the document it reads and edits, the commands it runs, a save.
+The documents it writes are printed, with =--format json= as a list of
+their titles, kinds and texts; its notices go to standard error and
+an error among them makes the exit code 1. Its questions are answered
+as a script would leave them: a prompt takes the text it offers, else
+it is cancelled, a choice is left with nothing chosen and a
+confirmation answered no. A file the command changed is saved, as
+=kalem fmt= saves. The folders named, or a file's own, are the
+plugin's workspace with the projects for that run, so that a plugin
+with =fs:read:workspace= reads them. =--args= gives the command's
+arguments as JSON. The graph plugin prints a Logseq graph's pages so:
+
+#+begin_src sh
+kalem run graph graph.pages ~/notes
+#+end_src
+
+Two of the editor's commands take what a plugin knows and the editor
+does not: Search in Folder (=search.folder=) takes =ignore=, patterns
+in =.gitignore='s syntax left out besides the folder's own (a graph
+leaves out =/logseq/=), and Show in System File Manager (=file.reveal=)
+takes a =path=, a file Kalem does not open, shown in its folder for
+its application to open.
+
 * The document
 
 A plugin's command reads and edits the document it runs in through

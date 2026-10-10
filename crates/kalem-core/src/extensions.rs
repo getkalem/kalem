@@ -728,11 +728,34 @@ pub fn set_own_setting(id: &str, key: &str, value: &Value) -> Result<(), String>
 /// The folders of the projects Kalem knows, where a plugin's
 /// `fs:*:workspace` permission reaches.
 pub fn workspace() -> Vec<std::path::PathBuf> {
-    kalem_project::Projects::load(crate::projects::list_file())
-        .list
-        .into_iter()
-        .map(|p| p.root)
-        .collect()
+    let mut list: Vec<std::path::PathBuf> =
+        kalem_project::Projects::load(crate::projects::list_file())
+            .list
+            .into_iter()
+            .map(|p| p.root)
+            .collect();
+    list.extend(
+        NAMED
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+            .cloned(),
+    );
+    list
+}
+
+/// Folders the user named for this process (`kalem run`'s files),
+/// counted with the projects.
+static NAMED: Mutex<Vec<std::path::PathBuf>> = Mutex::new(Vec::new());
+
+/// Counts folder `dir` with the projects in the plugins' workspace for
+/// the rest of the process: a folder `kalem run` was given, or a given
+/// file's.
+pub fn name_folder(dir: std::path::PathBuf) {
+    let mut named = NAMED.lock().unwrap_or_else(|e| e.into_inner());
+    if !named.contains(&dir) {
+        named.push(dir);
+    }
 }
 
 /// The runs going, by number: the flag that stops each.
@@ -1127,6 +1150,12 @@ pub fn ask(request: u64, question: Question) {
     let mut s = state();
     s.asking.insert(request);
     s.questions.push((request, question));
+}
+
+/// The questions waiting, taken: for an editor without a window (`kalem
+/// run`), which answers each itself; they wait for [`answer`] still.
+pub fn take_questions() -> Vec<(u64, Question)> {
+    std::mem::take(&mut state().questions)
 }
 
 /// Closes question `request` unanswered (its plugin went).

@@ -1732,7 +1732,7 @@ impl Editor {
                 kalem_core::projects::After::Open,
             )),
             Request::SearchProject => cx.emit(DocEvent::Search(None)),
-            Request::SearchIn(dir) => self.open_search_in(&dir, cx),
+            Request::SearchIn { dir, ignore } => self.open_search_in(&dir, &ignore, cx),
             Request::OpenFiles => cx.emit(DocEvent::ToggleFiles),
             Request::Project(r) => self.project_request(r, cx),
             Request::Documents(r) => cx.emit(DocEvent::Documents(r)),

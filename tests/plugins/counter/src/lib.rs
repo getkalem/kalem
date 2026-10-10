@@ -206,6 +206,16 @@ impl Plugin for Counter {
             Ok("null".into())
         })?;
         command("counter.badTrees", Scope::all(), |_| Ok(bad_trees()))?;
+        // A document of its own: the count and the file it ran in
+        // (`kalem run` prints it).
+        command("counter.report", Scope::all(), |_| {
+            let path = kalem_plugin::editor::document()
+                .and_then(|d| d.path)
+                .unwrap_or_else(|| "none".into());
+            let spec = kalem_plugin::documents::Spec::new("counter.report", "", "Count", "counter-report");
+            kalem_plugin::documents::open(&spec, &format!("count {}\nfile {path}\n", COUNT.get()), None)?;
+            Ok("null".into())
+        })?;
         command("counter.organize", Scope::only(&["org"]), |_| organize())?;
         command("counter.foreignPanel", Scope::all(), |_| {
             ui::panel(

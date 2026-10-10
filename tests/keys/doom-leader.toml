@@ -1685,7 +1685,7 @@ reason = "Planned: phase 3 (3.5, agenda, capture and clocking)"
 doom = "SPC n r a"
 keys = "space n r a"
 what = "Open a random note"
-reason = "Not yet: a random page of the graph plugin"
+reason = "Needs the graph plugin of =getkalem/plugins= (Logseq graphs and Obsidian vaults; not in the core, D29)"
 
 [[key]]
 doom = "SPC n r f"
@@ -1817,7 +1817,7 @@ command = "notes.search"
 doom = "SPC n S"
 keys = "space n shift+s"
 what = "Search the notes' headings"
-reason = "Not yet: the headings of the notes folder; =SPC n s= searches its text"
+reason = "Not yet for the notes folder (=SPC n s= searches its text); in a Logseq graph or an Obsidian vault, the graph plugin's Find Heading"
 
 [[key]]
 doom = "SPC n f"
