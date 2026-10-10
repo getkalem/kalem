@@ -6,10 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-## [0.6.6] - 2026-10-10
-
 ### Added
-- Format Document (`SPC c f`, Shift+Alt+F) formats code of any language through the formatter of its type, as Emacs's format-all does: the one the new setting `formatters.TYPE` names (`[formatters] python = "black -q -"`; the type a language, an extension, a mode or a file name; `off` turns it off), else, after a language server's or a language plugin's formatter, the language's usual program when it is installed (rustfmt, mix format, ruff or black, prettier, gofmt, clang-format, shfmt, stylua, zig fmt and others), with the text on its standard input, run from the project's root. For a type without a formatter (a workbook, a picture) the command says so and names the setting that would add one. `kalem fmt` formats such files the same way. The setting `editor.format_on_save` (off by default) formats the document the same way at each save; a formatter that fails leaves the text as it is and the status bar says why.
 - Language plugins: a server's `version` in the manifest (`["--version"]` for rust-analyzer). `kalem lsp status` runs it in the project's root and prints the server's version, or why the program found does not run (rustup's `rust-analyzer` when the component is not installed is on the PATH all the same), with the plugin's install text.
 - Language plugins: a server's own requests through commands any server with such a request serves, given in the manifest's `requests`: Expand Macro, Open Documentation in the Browser, Go to Parent Module, Go to Project File, Reload Project, Join Lines (Language Server), Move Item Up and Down. The Rust plugin gives rust-analyzer's to them. `kalem lsp ask code.expandMacro FILE LINE:COL` asks one from the command line.
 
@@ -19,6 +16,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Language servers: the diagnostics a server gives only when asked (the protocol's pull model) never reached Kalem. rust-analyzer gives its own diagnostics that way (type mismatches, naming, unresolved imports, a file no module includes), so Kalem showed only cargo's. Kalem now asks for them after a file opens and after its changes, and when the server says they changed, and shows them with the others.
 - Language servers: a question asked while a server was loading the project (rust-analyzer, at its start) could come back as the error "content modified". It is asked again a few times, and only then said, as "still busy".
 - Format Document said "Already formatted" when a server answered with no edits, also when it had not formatted at all: rust-analyzer answers so when rustfmt is not installed for the project's toolchain or the file has a syntax error. Such an answer is now said as the server having changed nothing.
+
+## [0.6.6] - 2026-10-10
+
+### Added
+- Format Document (`SPC c f`, Shift+Alt+F) formats code of any language through the formatter of its type, as Emacs's format-all does: the one the new setting `formatters.TYPE` names (`[formatters] python = "black -q -"`; the type a language, an extension, a mode or a file name; `off` turns it off), else, after a language server's or a language plugin's formatter, the language's usual program when it is installed (rustfmt, mix format, ruff or black, prettier, gofmt, clang-format, shfmt, stylua, zig fmt and others), with the text on its standard input, run from the project's root. For a type without a formatter (a workbook, a picture) the command says so and names the setting that would add one. `kalem fmt` formats such files the same way. The setting `editor.format_on_save` (off by default) formats the document the same way at each save; a formatter that fails leaves the text as it is and the status bar says why.
 
 ## [0.6.5] - 2026-10-10
 
