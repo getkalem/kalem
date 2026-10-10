@@ -90,6 +90,7 @@ impl Field {
             Kind::List(Some(choices)) => FieldKind::Choices(strings(choices)),
             Kind::List(None) => FieldKind::Texts,
             Kind::Modes(modes) => FieldKind::Table(strings(modes)),
+            Kind::Table => FieldKind::Table(Vec::new()),
         };
         Field {
             path: spec.key.split('.').map(str::to_string).collect(),

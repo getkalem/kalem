@@ -182,7 +182,11 @@ Beside the fields every plugin has (=id=, =name=, =version=,
   found: Kalem never installs a server by itself.
 - =commands.format= formats a document when no server formats it: the
   text on its standard input, the formatted text on its output, run in
-  the background, ={file}= filled in.
+  the background, ={file}= filled in. It is optional: a plugin states a
+  formatter only when its language has one. A formatter the user sets in
+  the =formatters= setting for the type comes before the plugin's; when
+  a plugin has none, the language's usual program runs when it is
+  installed (the chapter [[file:../part-1/plain-text-and-code.org][Plain text and code]]).
 
 * Settings
 

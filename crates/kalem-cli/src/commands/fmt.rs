@@ -8,9 +8,26 @@ use std::sync::Arc;
 use super::Result;
 
 /// `kalem fmt`: tables and tags aligned, blank lines as each document has
-/// them (`org_edit::format`); with `check`, only lists the files that
+/// them (`org_edit::format`); code through the formatter of its type
+/// (`kalem_core::formatters`: the one set in `formatters.TYPE`, else the
+/// language's usual program); with `check`, only lists the files that
 /// would change and fails if there are any.
 pub(crate) fn fmt(files: &[PathBuf], check: bool, align: bool) -> Result<ExitCode> {
+    // The user's `formatters` table, and a workspace's.
+    let user = kalem_core::settings::config_dir().map(|d| d.join("settings.toml"));
+    let workspace = files
+        .first()
+        .and_then(|p| std::path::absolute(p).ok())
+        .and_then(|p| {
+            let dir = if p.is_dir() {
+                Some(p.as_path())
+            } else {
+                p.parent()
+            };
+            dir.and_then(kalem_core::settings::find_workspace_settings)
+        });
+    kalem_core::settings::Config::load(user.as_deref(), workspace.as_deref())
+        .apply_process_settings();
     // A folder stands for its Org and LaTeX files.
     let files = super::expand_files_of(
         files,
@@ -29,6 +46,10 @@ pub(crate) fn fmt(files: &[PathBuf], check: bool, align: bool) -> Result<ExitCod
         let (text, meta, _) =
             kalem_core::files::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
         let mode = kalem_core::DocumentMode::detect(Some(path), text.as_bytes());
+        let first = text.lines().next();
+        // The formatter the user set for the type comes first; then a
+        // language pack's; then the type's usual program.
+        let user = kalem_core::formatters::user_for_file(path, &mode, first);
         // A language pack's formatter (T2.7a.7); a syntax error refuses.
         let pack = match &mode {
             kalem_core::DocumentMode::Text { language: Some(l) } => {
@@ -36,7 +57,9 @@ pub(crate) fn fmt(files: &[PathBuf], check: bool, align: bool) -> Result<ExitCod
             }
             _ => None,
         };
-        if let Some(kalem_core::packs::Formatted::Refused(d)) = &pack {
+        if let Some(kalem_core::packs::Formatted::Refused(d)) =
+            pack.as_ref().filter(|_| user.is_none())
+        {
             refused += 1;
             let line = text[..d.range.start.min(text.len())].matches('\n').count() + 1;
             let _ = writeln!(
@@ -47,8 +70,24 @@ pub(crate) fn fmt(files: &[PathBuf], check: bool, align: bool) -> Result<ExitCod
             );
             continue;
         }
+        let external = user
+            .or_else(|| {
+                pack.is_none()
+                    .then(|| kalem_core::formatters::default_for_file(path, &mode, first))
+                    .flatten()
+            })
+            .map(|f| kalem_core::formatters::format_now(&f, &text));
         // As the editors decide: `.tex`, `.latex`, `.ltx`, or a mode line.
-        let formatted = if let Some(kalem_core::packs::Formatted::Text(t)) = pack {
+        let formatted = if let Some(result) = external {
+            match result {
+                Ok(t) => t,
+                Err(why) => {
+                    refused += 1;
+                    let _ = writeln!(out, "{}: not formatted: {why}", path.display());
+                    continue;
+                }
+            }
+        } else if let Some(kalem_core::packs::Formatted::Text(t)) = pack {
             t
         } else if mode == kalem_core::DocumentMode::Latex {
             kalem_core::latex_fmt::format_file(path, &text, align)

@@ -37,6 +37,9 @@ pub enum Kind {
     /// A table from paths to document modes: one of these names, or a
     /// language (text with that highlighting).
     Modes(&'static [&'static str]),
+    /// A table from names to strings (`formatters`: a file type to its
+    /// command line).
+    Table,
 }
 
 /// A known setting.
@@ -460,6 +463,12 @@ pub const SPECS: &[Spec] = &[
         description: "Document modes chosen with Set Document Mode, by path relative to the workspace",
     },
     Spec {
+        key: "formatters",
+        kind: Kind::Table,
+        default: "{}",
+        description: "The formatter Format Document and `kalem fmt` run for a file type, by the type's name (a language such as rust or python, an extension, a mode such as markdown, or a file name): the command line, the text on its standard input and the formatted text on its output, {file} standing for the file's path; `off` turns the type's usual formatter off. Without an entry, the language's usual formatter runs (rustfmt, mix format, ruff or black, prettier, gofmt, clang-format…) when it is installed",
+    },
+    Spec {
         key: "log.level",
         kind: Kind::Enum(&["error", "warn", "info", "debug", "trace"]),
         default: r#""info""#,
@@ -581,6 +590,15 @@ pub(crate) fn check(kind: Kind, v: &Value) -> Result<(), String> {
             _ => Err(format!("must be one of {}", options.join(", "))),
         },
         Kind::List(allowed) => list(allowed),
+        Kind::Table => {
+            let Some(t) = v.as_object() else {
+                return Err("must be a table".into());
+            };
+            match t.iter().find(|(_, x)| !x.is_string()) {
+                Some((k, _)) => Err(format!("has `{k}`, which is not text")),
+                None => Ok(()),
+            }
+        }
         Kind::Modes(options) => {
             let Some(t) = v.as_object() else {
                 return Err("must be a table".into());
@@ -782,6 +800,7 @@ impl Config {
         crate::l10n::set_language(self.str("ui.language"));
         crate::flow::set_author(self.str("user.name"));
         crate::languages::set_user_settings(self.get("plugins"));
+        crate::formatters::set_user_table(self.get("formatters"));
         crate::languages::load();
         crate::lsp::settings_changed();
         crate::view::set_source_markers(self.str("editor.show_source_markers"));

@@ -238,6 +238,7 @@ fn generated(name: &str) -> Option<String> {
                     Kind::List(None) => "a list of text".to_string(),
                     Kind::List(Some(v)) => format!("a list of {}", v.join(", ")),
                     Kind::Modes(v) => format!("a table of paths to {} or a language", v.join(", ")),
+                    Kind::Table => "a table of file types to command lines".to_string(),
                 };
                 s.push_str(&format!(
                     "| {} | {} | {} | {} |\n",

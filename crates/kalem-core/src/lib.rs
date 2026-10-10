@@ -31,6 +31,7 @@ pub mod find;
 pub mod flash_fill;
 pub mod flow;
 pub mod fonts;
+pub mod formatters;
 pub mod formula_edit;
 pub mod formulas;
 pub mod front_matter;

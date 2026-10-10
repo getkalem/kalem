@@ -3024,7 +3024,8 @@ impl DocumentState {
             "hasFormatter",
             crate::packs::has_formatter(self)
                 || crate::lsp::can(self, crate::lsp::Kind::Format)
-                || crate::lsp::has_format_command(self),
+                || crate::lsp::has_format_command(self)
+                || crate::formatters::has_formatter(self),
         );
         c.flag("hasLanguageServer", crate::lsp::serves(self));
         if self.meta.mode == DocumentMode::Markdown

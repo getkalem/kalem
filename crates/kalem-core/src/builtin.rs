@@ -7495,9 +7495,16 @@ fn plain_commands() -> Vec<Command> {
             "edit.formatDocument",
             "Format Document",
             "Edit",
-            &[],
-            Some("editorMode == org || editorMode == latex || hasFormatter"),
+            &["shift+alt+f"],
+            // Everywhere, as Doom's `SPC c f`: a type without a formatter
+            // is told so (`hasFormatter` says where one is known).
+            None,
             |ctx, _| {
+                // The formatter the user set for the document's type
+                // (`formatters.TYPE`) comes before every other.
+                if let Some(f) = crate::formatters::user_formatter(ctx.doc()?) {
+                    return crate::lsp::format_with(ctx.doc()?, f).map_err(CommandError::new);
+                }
                 // The language server's formatting (D57); its edits come
                 // back through `lsp::take_outcomes`.
                 if crate::lsp::can(ctx.doc()?, crate::lsp::Kind::Format) {
@@ -7526,7 +7533,32 @@ fn plain_commands() -> Vec<Command> {
                         crate::lines::replace_differing(t, &new, "Format Document")
                     });
                 }
-                let latex = ctx.doc()?.meta.mode == crate::DocumentMode::Latex;
+                // The language's usual formatter (`formatters::DEFAULTS`),
+                // when the user did not turn it off.
+                if let Some(f) = crate::formatters::default_formatter(ctx.doc()?) {
+                    return crate::lsp::format_with(ctx.doc()?, f).map_err(CommandError::new);
+                }
+                let mode = ctx.doc()?.meta.mode.clone();
+                let latex = mode == crate::DocumentMode::Latex;
+                if !latex && mode != crate::DocumentMode::Org {
+                    // A type without a formatter (a workbook, a picture, a
+                    // language nothing is known for), or a document without
+                    // a file for its formatter to read.
+                    let doc = ctx.doc()?;
+                    return Err(CommandError::new(
+                        if doc.meta.path.is_none() && crate::formatters::known(doc) {
+                            crate::l10n::tr("msg-no-file")
+                        } else {
+                            let kind = doc.meta.mode.title();
+                            match crate::formatters::names(doc).first() {
+                                Some(key) => {
+                                    crate::tr!("fmt-none", kind = kind, key = key.as_str())
+                                }
+                                None => crate::tr!("fmt-none-kind", kind = kind),
+                            }
+                        },
+                    ));
+                }
                 let path = ctx.doc()?.meta.path.clone();
                 lines_command(ctx, |t, _| {
                     // As `kalem fmt` does.

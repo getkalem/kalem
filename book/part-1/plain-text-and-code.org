@@ -26,6 +26,23 @@ to the word, the inside of the brackets around it, the brackets, the
 line and the paragraph (in Org documents, the object and the element
 around it); /Shrink Selection/ (Ctrl+Alt+Left) goes back.
 
+/Format Document/ (Shift+Alt+F; =SPC c f= in the Vim profile) formats
+the whole file with the formatter of its type, as Emacs's format-all
+does: a language server's formatting where one serves the file, else a
+language plugin's formatter command, else the language's usual program
+when it is installed (=rustfmt=, =mix format=, =ruff= or =black=,
+=prettier=, =gofmt=, =clang-format=, =shfmt=, =stylua=, =zig fmt= and
+others), run from the project's root with the text on its standard
+input. The setting =formatters= chooses the formatter of a type and
+comes before all of these: =[formatters] python = "black -q -"= in
+=settings.toml=, the type a language (=rust=, =python=), a file
+extension (=rs=), a mode (=markdown=) or a file name
+(=cmakelists.txt=), the value the command line with ={file}= for the
+file's path, or =off=. For a type with no formatter known, such as a
+workbook or a picture, the command says so and names the setting that
+would add one; a program not installed is named in the status bar. =kalem fmt FILE= formats the same
+way from the command line.
+
 The kind of a file comes from, in order: your choice with /Set
 Document Mode/ (remembered in the workspace settings), a mode line
 such as =-*- mode: org -*-= on the first line, the extension, and a

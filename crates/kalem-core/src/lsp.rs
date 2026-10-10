@@ -1761,23 +1761,34 @@ fn format_command(doc: &DocumentState) -> Option<(Vec<String>, PathBuf)> {
     Some((cmd, root_of(&real, &plugin, &lang)))
 }
 
-/// Formats `doc` with its language plugin's formatter command on another
-/// thread: the text on its standard input, the formatted text on its
-/// output; the edits come back as an [`Outcome::Edits`] for this version
-/// (applied only if the document has not changed), a failure as a
-/// message with the command's first line of errors.
+/// Formats `doc` with its language plugin's formatter command
+/// ([`format_with`]).
 pub fn format_with_command(doc: &DocumentState) -> Result<(), String> {
-    let (cmd, dir) = format_command(doc).ok_or_else(|| no_server(doc))?;
-    let path = code_file(doc).ok_or_else(|| no_server(doc))?.to_path_buf();
-    let (program, args) = cmd.split_first().ok_or_else(|| no_server(doc))?;
-    let program = kalem_lsp::find_program(program, Some(&dir), &[])
+    let (command, dir) = format_command(doc).ok_or_else(|| no_server(doc))?;
+    format_with(doc, crate::formatters::Formatter { command, dir })
+}
+
+/// Formats `doc` with formatter `f` on another thread: the text on its
+/// standard input, the formatted text on its output; the edits come back
+/// as an [`Outcome::Edits`] for this version (applied only if the
+/// document has not changed), a failure as a message with the command's
+/// first line of errors.
+pub fn format_with(doc: &DocumentState, f: crate::formatters::Formatter) -> Result<(), String> {
+    let path = doc
+        .meta
+        .path
+        .clone()
+        .ok_or_else(|| crate::l10n::tr("msg-no-file"))?;
+    let (program, args) = f.command.split_first().ok_or_else(|| no_server(doc))?;
+    let program = kalem_lsp::find_program(program, Some(&f.dir), &[])
         .ok_or_else(|| crate::tr!("lsp-formatter-missing", program = program.as_str()))?;
     let args = args.to_vec();
+    let dir = f.dir.clone();
     let text = doc.text().as_str().to_string();
     let version = doc.version();
-    let name = cmd.join(" ");
+    let name = f.command.join(" ");
     std::thread::spawn(move || {
-        let outcome = run_formatter(&program, &args, &dir, &text)
+        let outcome = crate::formatters::run(&program, &args, &dir, &text)
             .map(|formatted| {
                 let edits = whole_text_edit(&text, &formatted);
                 if edits.is_empty() {
@@ -1812,48 +1823,6 @@ pub fn format_with_command(doc: &DocumentState) -> Result<(), String> {
         });
     });
     Ok(())
-}
-
-/// Runs a formatter: `text` in, the formatted text out, or its first line
-/// of errors.
-fn run_formatter(
-    program: &Path,
-    args: &[String],
-    dir: &Path,
-    text: &str,
-) -> Result<String, String> {
-    use std::io::Write;
-    let mut child = std::process::Command::new(program)
-        .args(args)
-        .current_dir(dir)
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .map_err(|e| e.to_string())?;
-    if let Some(mut stdin) = child.stdin.take() {
-        let input = text.to_string();
-        // Written on its own thread, so a formatter that writes before it
-        // has read everything cannot block both sides.
-        std::thread::spawn(move || {
-            let _ = stdin.write_all(input.as_bytes());
-        });
-    }
-    let out = child.wait_with_output().map_err(|e| e.to_string())?;
-    if !out.status.success() {
-        let err = String::from_utf8_lossy(&out.stderr);
-        let first = err
-            .lines()
-            .find(|l| !l.trim().is_empty())
-            .unwrap_or("")
-            .trim();
-        return Err(if first.is_empty() {
-            format!("{}", out.status)
-        } else {
-            first.to_string()
-        });
-    }
-    String::from_utf8(out.stdout).map_err(|e| e.to_string())
 }
 
 /// The one edit turning `old` into `new`: the part between their common
