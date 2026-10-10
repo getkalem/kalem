@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Row Height and Column Width, in a workbook's Format menu and on the rows' and columns' right click, as Excel's: the size typed (a row's in points, a column's in characters, the cursor's offered, a decimal comma read too) given to every row or column selected, in one undo step.
 - Create from Selection (Ctrl+Shift+F3, in the Formulas menu), as Excel's: a name for each column of a workbook's selection from its top or bottom row's label, or for each row from its left or right column's, referring to the rest of it; a label made a name as Excel makes it (spaces as underscores, `_2024` for a number, `Q1_` for a label that reads as a cell); in one undo step.
 - Export as CSV or Text (a workbook's File menu), as Excel's Save As types: CSV UTF-8 with commas or semicolons, Text with tabs, CSV in Windows-1254 (Turkish) or Windows-1252 with a `?` for a character the code page lacks; the sheet shown or every visible worksheet, each to its own file in a folder; files already there replaced after asking.
+- The Book's chapter "Workbooks" (Part III): the standard and the oracle, what the workbook plugin reads, shows, edits, computes and writes, its macros, exports, known differences and limits, measured.
 - The status bar sums a workbook's selection as Excel's can: after its Average, Count and Sum, the Min and Max, and the Numerical Count when some of the values are not numbers (last, so that a narrow terminal cuts them first).
 
 ### Fixed

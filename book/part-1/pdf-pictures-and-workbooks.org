@@ -44,7 +44,7 @@ cells, and with colors off shows its text.
   format, saying what it keeps (number formats are lost), and Save As
   =.xlsx= leaves the original alone. A workbook with a password to open
   asks for it, and is saved encrypted again with it (saved as =.ods=, it
-  is not encrypted, and Kalem says so).
+  is not encrypted, and Kalem says so). [[file:../part-3/workbooks.org][Workbooks]] has the details.
 
 Word documents (=.docx=, =.docm=, =.dotx=, =.dotm=) open through the
 =docx= plugin, installed from the plugin list: as a document of the

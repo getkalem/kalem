@@ -67,6 +67,7 @@ repository, in Org, and =kalem book build= turns it into this site.
 - [[file:part-3/language-plugins.org][Language plugins]]
 - [[file:part-3/elixir.org][Elixir]]
 - [[file:part-3/word-documents.org][Word documents]]
+- [[file:part-3/workbooks.org][Workbooks]]
 
 * Part IV. Design
 - [[file:part-4/design-documents.org][Design documents]]
