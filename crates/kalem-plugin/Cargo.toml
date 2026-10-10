@@ -11,7 +11,7 @@ authors.workspace = true
 include = ["src/", "wit/", "coverage.toml", "README.md"]
 
 [dependencies]
-wit-bindgen = "0.57"
+wit-bindgen = "0.62"
 # The Rust contract a viewer implements, adapted to the WIT world.
 kalem-viewer.workspace = true
 
