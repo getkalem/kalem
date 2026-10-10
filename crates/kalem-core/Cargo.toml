@@ -45,7 +45,7 @@ unic-langid = "0.9"
 sys-locale = "0.3"
 # The font families installed, stepped through in the settings panel
 # (already built for the formulas' fonts).
-fontdb = "0.23"
+fontdb = "0.24"
 regex = { version = "1", default-features = false, features = ["std", "perf", "unicode"] }
 unicode-segmentation = "1"
 # Spelling with Hunspell dictionaries (the system's, LibreOffice's or the
