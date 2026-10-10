@@ -195,6 +195,37 @@ Beside the fields every plugin has (=id=, =name=, =version=,
   the =formatters= setting for the type comes before the plugin's; when
   a plugin has none, the language's usual program runs when it is
   installed (the chapter [[file:../part-1/plain-text-and-code.org][Plain text and code]]).
+- =requests= give a server's own requests to Kalem's commands, which
+  know the shapes of questions and answers, not the methods, so one
+  command serves every server that has such a request:
+
+  #+begin_src json
+  "requests": {
+    "code.expandMacro": { "method": "rust-analyzer/expandMacro", "shape": "text",
+                          "answer": ["/expansion"], "title": "/name", "language": "rust" },
+    "code.openDocs": { "method": "experimental/externalDocs", "shape": "url" },
+    "code.moveItemUp": { "method": "experimental/moveItem", "params": "range",
+                         "extra": { "direction": "Up" }, "shape": "edits" }
+  }
+  #+end_src
+
+  =params= is what is asked about: =position= (the document and the
+  cursor, the default), =document=, =range= (the selection), =ranges=
+  (the selection in a list) or =none=, with =extra= fields added.
+  =shape= is what the answer is: =text= (shown as documentation is,
+  under its =title=, highlighted as =language=), =url= (an =http= or
+  =https= page, opened in the browser), =location= (gone to), =edits=
+  (applied to the document as one undoable change) or =none=.
+  =answer= is where the text or address is in the answer (JSON
+  pointers tried in order, the whole answer by default); =server=
+  names the one of the plugin's servers that has the request. The
+  commands: Expand Macro (=code.expandMacro=), Open Documentation in
+  the Browser (=code.openDocs=), Go to Parent Module
+  (=code.parentModule=), Go to Project File (=code.openManifest=),
+  Reload Project (=code.reloadProject=), Join Lines (Language Server)
+  (=code.joinLines=), Move Item Up and Down (=code.moveItemUp=,
+  =code.moveItemDown=), each in the palette where the document's
+  server has it.
 
 * Settings
 
@@ -308,6 +339,7 @@ kalem lsp check --log lib/hello.ex     # and the server's log on standard error
 kalem lsp ask hover lib/hello.ex 6:40  # documentation at line 6, column 40
 kalem lsp ask definition lib/hello.ex 6:40
 kalem lsp ask format lib/hello.ex      # the formatted text
+kalem lsp ask code.expandMacro src/main.rs 12:16   # a server's own request, by its command
 #+end_src
 
 =status= starts no server; it runs a server's =version= when the

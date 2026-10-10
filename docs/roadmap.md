@@ -329,8 +329,12 @@ Programmers (LSP and plugins)
   is served by that server; diagnostics given only when asked (the
   pull model, rust-analyzer's own) are asked for; a request cancelled
   while the server loads is asked again; a formatting answer of
-  `null` is said as no change. Open for Rust: automatic imports,
-  lenses, run and test, servers in source blocks.)
+  `null` is said as no change; a server's own requests by Kalem's
+  commands (the manifest's `requests`: Expand Macro, Open
+  Documentation in the Browser, Go to Parent Module, Go to Project
+  File, Reload Project, Join Lines, Move Item Up and Down). Open for
+  Rust: automatic imports, lenses, run and test, servers in source
+  blocks.)
 - [x] R5.12e The Elixir plugin and the language server client,
   reviewed (owner, 2026-10-04: "code quality, performance, what is
   missing; a list, then in order"). Bugs first, then speed, then

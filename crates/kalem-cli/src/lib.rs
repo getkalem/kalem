@@ -138,8 +138,10 @@ enum LspAction {
         log: bool,
     },
     /// Asks the server about a place: `hover`, `definition`,
-    /// `references`, `symbols`, `signature`, `completion` (as typing there would) or
-    /// `format` (prints the formatted text).
+    /// `references`, `symbols`, `signature`, `completion` (as typing there would),
+    /// `format` (prints the formatted text), or a request of the server's own by
+    /// the command that sends it (`code.expandMacro`, `code.openDocs` prints the
+    /// address).
     Ask {
         /// The request.
         request: String,

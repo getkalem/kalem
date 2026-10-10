@@ -232,7 +232,10 @@ pub(crate) fn check(files: &[PathBuf], json: bool, wait: u64, log: bool) -> Resu
 pub(crate) fn at(kind: &str, file: &Path, place: &str, wait: u64) -> Result<ExitCode> {
     load_settings(Some(file));
     let completion = kind == "completion";
+    // A server's own request, by the command that sends it.
+    let request = kind.starts_with("code.").then(|| kind.to_string());
     let kind = match kind {
+        k if k.starts_with("code.") => Kind::Request,
         "completion" => Kind::Hover,
         "hover" => Kind::Hover,
         "definition" => Kind::Definition,
@@ -282,7 +285,10 @@ pub(crate) fn at(kind: &str, file: &Path, place: &str, wait: u64) -> Result<Exit
             ExitCode::from(1)
         });
     }
-    lsp::request(&doc, kind)?;
+    match &request {
+        Some(command) => lsp::server_request(&doc, command)?,
+        None => lsp::request(&doc, kind)?,
+    }
     let path = doc.meta.path.clone();
     let start = Instant::now();
     let outcome = loop {
@@ -348,6 +354,11 @@ pub(crate) fn at(kind: &str, file: &Path, place: &str, wait: u64) -> Result<Exit
                 "{}",
                 kalem_lsp::features::apply(doc.text().as_str(), &edits)
             );
+            ExitCode::SUCCESS
+        }
+        // Printed, not opened: the command line opens no browser.
+        Outcome::Open { url } => {
+            println!("{url}");
             ExitCode::SUCCESS
         }
     };

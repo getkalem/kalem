@@ -12,7 +12,10 @@
 //! client has the report already; a save adds a note to them, and the
 //! server asks the client to ask again); `busy` (its first two hovers
 //! answered "content modified", as rust-analyzer answers while it loads a
-//! project). In
+//! project). Requests of its own, as rust-analyzer has: `fake/expand`
+//! (a name and an expansion), `fake/docs` (a page's address),
+//! `fake/parent` (the document's first line), `fake/join` (the first two
+//! lines joined), `fake/reload` (nothing). In
 //! `normal`, a change whose text contains `CRASH` exits with 4, and the
 //! references of anything are the document's first line and, when the
 //! folder beside the root has a `library/lib.fk`, that file's (a
@@ -229,6 +232,39 @@ pub fn serve(behavior: &str) {
                     json!({"jsonrpc": "2.0", "id": id, "result": result}),
                 );
             }
+            "fake/expand" => send(
+                &mut out,
+                json!({"jsonrpc": "2.0", "id": id, "result":
+                    {"name": "greet!", "expansion": "fn greet() {}"}}),
+            ),
+            "fake/docs" => send(
+                &mut out,
+                json!({"jsonrpc": "2.0", "id": id, "result": "https://example.org/docs/greet"}),
+            ),
+            "fake/parent" => send(
+                &mut out,
+                json!({"jsonrpc": "2.0", "id": id, "result": [{"uri": uri,
+                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 1}}}]}),
+            ),
+            "fake/join" => {
+                let text = texts.get(&uri).cloned().unwrap_or_default();
+                let result = match text.find('\n') {
+                    Some(nl) => json!([{
+                        "range": {"start": position(&text, nl, Encoding::Utf16).to_json(),
+                                  "end": position(&text, nl + 1, Encoding::Utf16).to_json()},
+                        "newText": " ",
+                    }]),
+                    None => json!([]),
+                };
+                send(
+                    &mut out,
+                    json!({"jsonrpc": "2.0", "id": id, "result": result}),
+                );
+            }
+            "fake/reload" => send(
+                &mut out,
+                json!({"jsonrpc": "2.0", "id": id, "result": null}),
+            ),
             "textDocument/didSave" => {
                 if behavior == "pull" {
                     saved = true;

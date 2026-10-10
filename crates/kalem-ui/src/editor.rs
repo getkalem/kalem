@@ -4147,6 +4147,10 @@ impl Editor {
                 self.open_choice(kalem_core::lsp::place_items(&places), cx);
             }
             Outcome::Choose(items) => self.open_choice(items, cx),
+            Outcome::Open { url } => match kalem_core::system::open(std::path::Path::new(&url)) {
+                Ok(()) => self.message(tr!("lsp-opened", url = url.as_str()), false),
+                Err(e) => self.message(e, true),
+            },
             Outcome::Edits {
                 path,
                 version,

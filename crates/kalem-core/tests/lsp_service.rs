@@ -51,6 +51,15 @@ fn setup() -> (PathBuf, PathBuf) {
         "id": "org.example.fake", "name": "Fake", "version": "1",
         "languages": [{"id": "fakelang", "name": "Fake", "extensions": ["fk"], "servers": ["f"]}],
         "commands": {"format": [exe, "--fake-format", "{file}"]},
+        "requests": {
+            "code.expandMacro": {"method": "fake/expand", "shape": "text",
+                                 "answer": ["/expansion"], "title": "/name", "language": "elixir"},
+            "code.openDocs": {"method": "fake/docs", "shape": "url"},
+            "code.parentModule": {"method": "fake/parent", "shape": "location"},
+            "code.joinLines": {"method": "fake/join", "params": "ranges", "shape": "edits"},
+            "code.reloadProject": {"server": "f", "method": "fake/reload", "params": "none", "shape": "none"},
+            "code.moveItemUp": {"server": "another", "method": "fake/move", "shape": "edits"}
+        },
         "servers": {"f": {"name": "FakeLS", "command": [exe], "env": {"KALEM_LSP_FAKE": "normal"},
                           "install": "get FakeLS",
                           "rootMarkers": ["root.marker"], "requireRoot": true,
@@ -542,6 +551,71 @@ fn main() {
             .unwrap_err()
             .contains("language plugin")
     );
+
+    // The server's own requests, by the commands of Kalem's that send
+    // them, each answer as its shape says.
+    let mut got: Vec<String> = lsp::requests(&doc);
+    got.sort();
+    assert_eq!(
+        got,
+        [
+            "code.expandMacro",
+            "code.joinLines",
+            "code.openDocs",
+            "code.parentModule",
+            "code.reloadProject"
+        ],
+        "another server's request left out"
+    );
+    let when = |clause: &str| {
+        kalem_core::when::WhenClause::parse(clause)
+            .unwrap()
+            .eval(&doc.when_context())
+    };
+    assert!(when("server:code.expandMacro") && !when("server:code.moveItemUp"));
+    let answer = |doc: &DocumentState, command: &str| {
+        lsp::server_request(doc, command).unwrap();
+        until(command, || {
+            lsp::take_outcomes(&file, doc.version()).into_iter().next()
+        })
+    };
+    match answer(&doc, "code.expandMacro") {
+        Outcome::Hover { text, .. } => {
+            assert_eq!(text, "**greet!**\n\n```elixir\nfn greet() {}\n```")
+        }
+        o => panic!("{o:?}"),
+    }
+    assert_eq!(
+        answer(&doc, "code.openDocs"),
+        Outcome::Open {
+            url: "https://example.org/docs/greet".into()
+        }
+    );
+    match answer(&doc, "code.parentModule") {
+        Outcome::Jump(p) => assert_eq!((p.line, p.column), (1, 0)),
+        o => panic!("{o:?}"),
+    }
+    match answer(&doc, "code.reloadProject") {
+        Outcome::Message { text, error: false } => {
+            assert_eq!(text, "FakeLS: Reload Project done")
+        }
+        o => panic!("{o:?}"),
+    }
+    let lines = doc.text().as_str().lines().count();
+    match answer(&doc, "code.joinLines") {
+        Outcome::Edits { edits, label, .. } => {
+            assert_eq!(label, "Join Lines (Language Server)");
+            let tx = lsp::transaction(&edits, &label).unwrap();
+            doc.apply(&tx, org_edit::ChangeKind::Command, Instant::now());
+            assert_eq!(doc.text().as_str().lines().count(), lines - 1);
+            assert!(doc.undo().is_some());
+            lsp::sync(&doc);
+        }
+        o => panic!("{o:?}"),
+    }
+    let why = lsp::server_request(&doc, "code.moveItemUp").unwrap_err();
+    assert_eq!(why, "FakeLS does not provide Move Item Up");
+    println!("test requests of its own ... ok");
 
     // A file the server names outside its root, which would be a root of
     // its own: served by that server when it opens, not by another

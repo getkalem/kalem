@@ -87,6 +87,39 @@ pub struct ServerSpec {
     pub version: Vec<String>,
 }
 
+/// A request of a server's own that one of Kalem's commands sends (the
+/// manifest's `requests`, keyed by the command): rust-analyzer's
+/// `rust-analyzer/expandMacro` for `code.expandMacro`. Kalem knows the
+/// shapes of the questions and of the answers, not the methods, so the
+/// same command serves every server that has such a request.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RequestSpec {
+    /// Kalem's command: `code.expandMacro`.
+    pub command: String,
+    /// The server it is sent to (a key of the plugin's servers); any of
+    /// the plugin's when none is named.
+    pub server: Option<String>,
+    /// The method: `rust-analyzer/expandMacro`.
+    pub method: String,
+    /// What is asked about (`params`): `position` (the document and the
+    /// cursor), `document`, `range` (the selection), `ranges` (the
+    /// selection in a list) or `none`.
+    pub params: String,
+    /// Fields added to the question (`extra`): `{"direction": "Up"}`.
+    pub extra: Value,
+    /// What the answer is (`shape`): `text` (shown as documentation is),
+    /// `url` (opened in the browser), `location` (gone to), `edits`
+    /// (applied to the document) or `none`.
+    pub shape: String,
+    /// Where the answer's text or URL is (`answer`): JSON pointers tried
+    /// in order, `""` for the whole answer.
+    pub answer: Vec<String>,
+    /// Where its title is (`title`), a JSON pointer.
+    pub title: Option<String>,
+    /// The language a text answer is highlighted as (`language`).
+    pub language: Option<String>,
+}
+
 /// A loaded language plugin.
 #[derive(Debug, Clone)]
 pub struct Plugin {
@@ -107,12 +140,21 @@ pub struct Plugin {
     pub commands: HashMap<String, Vec<String>>,
     /// The syntaxes it added.
     pub syntaxes: Vec<String>,
+    /// Its servers' own requests, by Kalem's command.
+    pub requests: Vec<RequestSpec>,
 }
 
 impl Plugin {
     /// The server with key `key`.
     pub fn server(&self, key: &str) -> Option<&ServerSpec> {
         self.servers.iter().find(|s| s.key == key)
+    }
+
+    /// The request command `command` sends to its server `server`.
+    pub fn request(&self, command: &str, server: &str) -> Option<&RequestSpec> {
+        self.requests
+            .iter()
+            .find(|r| r.command == command && r.server.as_deref().is_none_or(|s| s == server))
     }
 }
 
@@ -200,6 +242,29 @@ pub fn parse_manifest(dir: &Path, text: &str) -> Result<Option<Plugin>, String> 
         .as_object()
         .map(|o| o.iter().map(|(k, v)| (k.clone(), strings(v))).collect())
         .unwrap_or_default();
+    let requests = m["requests"]
+        .as_object()
+        .map(|o| {
+            o.iter()
+                .filter_map(|(command, r)| {
+                    Some(RequestSpec {
+                        command: command.clone(),
+                        server: r["server"].as_str().map(str::to_string),
+                        method: r["method"].as_str()?.to_string(),
+                        params: r["params"].as_str().unwrap_or("position").to_string(),
+                        extra: r["extra"].clone(),
+                        shape: r["shape"].as_str().unwrap_or("text").to_string(),
+                        answer: match strings(&r["answer"]) {
+                            a if a.is_empty() => vec![String::new()],
+                            a => a,
+                        },
+                        title: r["title"].as_str().map(str::to_string),
+                        language: r["language"].as_str().map(str::to_string),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     Ok(Some(Plugin {
         name: m["name"].as_str().unwrap_or(&id).to_string(),
         version: m["version"].as_str().unwrap_or("").to_string(),
@@ -209,6 +274,7 @@ pub fn parse_manifest(dir: &Path, text: &str) -> Result<Option<Plugin>, String> 
         servers,
         commands,
         syntaxes: Vec::new(),
+        requests,
     }))
 }
 
@@ -760,6 +826,38 @@ pub fn exit_text(code: Option<i32>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A server's own requests (`requests`): keyed by Kalem's command,
+    /// asked about the cursor and answered as text unless said otherwise,
+    /// the whole answer read unless pointers say where; one naming a
+    /// server only for it; one without a method left out.
+    #[test]
+    fn requests_read() {
+        let p = parse_manifest(
+            Path::new("/p"),
+            r#"{"id": "x", "languages": [], "requests": {
+                "code.expandMacro": {"method": "s/expand", "answer": ["/expansion"],
+                                     "title": "/name", "language": "rust"},
+                "code.reloadProject": {"server": "a", "method": "s/reload", "params": "none",
+                                       "shape": "none", "extra": {"all": true}},
+                "code.nothing": {"shape": "text"}
+            }}"#,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(p.requests.len(), 2);
+        let r = p.request("code.expandMacro", "any").unwrap();
+        assert_eq!((r.params.as_str(), r.shape.as_str()), ("position", "text"));
+        assert_eq!(r.answer, ["/expansion"]);
+        assert_eq!(
+            (r.title.as_deref(), r.language.as_deref()),
+            (Some("/name"), Some("rust"))
+        );
+        assert!(p.request("code.reloadProject", "b").is_none());
+        let r = p.request("code.reloadProject", "a").unwrap();
+        assert_eq!(r.answer, [""]);
+        assert_eq!(r.extra, serde_json::json!({"all": true}));
+    }
 
     /// A server's `version`: read from the manifest; its program's first
     /// line when it runs, its standard error's lines when it does not, its
