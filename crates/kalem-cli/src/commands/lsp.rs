@@ -215,6 +215,19 @@ pub(crate) fn check(files: &[PathBuf], json: bool, wait: u64, log: bool) -> Resu
     if json {
         println!("{}", serde_json::Value::Array(out));
     }
+    // The server's word on its state, when it does not work fully.
+    if let Some(p) = docs.first().and_then(|d| d.meta.path.as_deref())
+        && let Some(st) = lsp::server_status(p)
+    {
+        let said = match st.health {
+            kalem_lsp::Health::Ok => None,
+            kalem_lsp::Health::Warning => Some("the server works in part"),
+            kalem_lsp::Health::Error => Some("the server does not work"),
+        };
+        if let Some(said) = said {
+            eprintln!("{said}: {}", st.text);
+        }
+    }
     if log && let Some(p) = docs.first().and_then(|d| d.meta.path.as_deref()) {
         for line in lsp::log(p) {
             eprintln!("{line}");
@@ -229,13 +242,27 @@ pub(crate) fn check(files: &[PathBuf], json: bool, wait: u64, log: bool) -> Resu
 }
 
 /// `kalem lsp hover|definition|references FILE LINE:COL`.
-pub(crate) fn at(kind: &str, file: &Path, place: &str, wait: u64) -> Result<ExitCode> {
+pub(crate) fn at(
+    kind: &str,
+    file: &Path,
+    place: &str,
+    wait: u64,
+    inputs: &[String],
+) -> Result<ExitCode> {
     load_settings(Some(file));
     let completion = kind == "completion";
     // A server's own request, by the command that sends it.
-    let request = kind.starts_with("code.").then(|| kind.to_string());
+    let request = kind.contains('.').then(|| kind.to_string());
+    let mut answers = serde_json::Map::new();
+    for i in inputs {
+        let (name, text) = i
+            .split_once('=')
+            .ok_or_else(|| format!("{i}: expected NAME=TEXT"))?;
+        answers.insert(name.to_string(), text.into());
+    }
+    let answers = serde_json::Value::Object(answers);
     let kind = match kind {
-        k if k.starts_with("code.") => Kind::Request,
+        k if k.contains('.') => Kind::Request,
         "completion" => Kind::Hover,
         "hover" => Kind::Hover,
         "definition" => Kind::Definition,
@@ -286,7 +313,15 @@ pub(crate) fn at(kind: &str, file: &Path, place: &str, wait: u64) -> Result<Exit
         });
     }
     match &request {
-        Some(command) => lsp::server_request(&doc, command)?,
+        Some(command) => {
+            if let Some(n) = lsp::request_inputs(&doc, command)
+                .into_iter()
+                .find(|n| answers.get(*n).is_none())
+            {
+                return Err(format!("{command} asks for --input {n}=TEXT"));
+            }
+            lsp::server_request_with(&doc, command, &answers)?
+        }
         None => lsp::request(&doc, kind)?,
     }
     let path = doc.meta.path.clone();

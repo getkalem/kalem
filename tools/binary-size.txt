@@ -11,5 +11,9 @@
 # Full raised from 82.5 to 83 on 2026-10-09 for the plugin API's `flow`
 # interface (0.2.7, documents of flowing text laid out by Kalem): 82.6 MiB
 # with it.
+# Full raised from 83 to 83.5 on 2026-10-10 (the owner's decision) for
+# language servers' state, Enter by the server and structural search and
+# replace (getkalem/kalem#28): main measured 83.0 MiB, at the ceiling,
+# and the change went past it.
 terminal   50           15
-full       83           40
+full       83.5         40

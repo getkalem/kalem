@@ -162,6 +162,9 @@ impl Vim {
             Key::Ctrl('h') => self.delete_back(doc, Erase::Char),
             Key::Backspace if plain => self.delete_back(doc, Erase::Char),
             Key::Enter | Key::Ctrl('j' | 'm') if plain || !matches!(key, Key::Enter) => {
+                // The language server's new line, when it has one, takes
+                // the place of this one as it answers.
+                crate::lsp::entering(doc);
                 self.newline(doc)
             }
             Key::Tab if plain => self.tab(doc),

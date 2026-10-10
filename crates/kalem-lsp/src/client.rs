@@ -46,6 +46,89 @@ pub struct ServerConfig {
     pub busy_start: Vec<String>,
     /// …and these end it (as do the first diagnostics).
     pub busy_done: Vec<String>,
+    /// Capabilities added to Kalem's own at `initialize`, where Kalem
+    /// says nothing (`{"experimental": {"serverStatusNotification":
+    /// true}}`): a server's extensions it sends only to a client that
+    /// asks for them.
+    pub capabilities: Value,
+    /// The notification in which the server tells its state, when it has
+    /// one.
+    pub status: Option<StatusSpec>,
+}
+
+/// Where a server's notification of its state has what Kalem shows
+/// (rust-analyzer's `experimental/serverStatus`, clangd's
+/// `textDocument/clangd.fileStatus`, Metals's `metals/status`): the
+/// fields are JSON pointers into its parameters.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct StatusSpec {
+    /// The notification: `experimental/serverStatus`.
+    pub method: String,
+    /// Its text, the first pointer that has one (`/message`).
+    pub text: Vec<String>,
+    /// Its level (`/health`)…
+    pub level: Option<String>,
+    /// …the server's words for a warning (`warning`)…
+    pub warning: Vec<String>,
+    /// …and for an error (`error`); any other is health.
+    pub error: Vec<String>,
+    /// The values that say the server is idle (`/quiescent`: `true`):
+    /// it is busy unless each pointer has its value; never busy when
+    /// there are none.
+    pub idle: Vec<(String, Value)>,
+}
+
+/// How well a server works, as it says.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Health {
+    /// Fully.
+    #[default]
+    Ok,
+    /// Partly: some answers may be wrong (a dependency missing, a build
+    /// script failed).
+    Warning,
+    /// Hardly: most answers are incomplete or wrong (the project did not
+    /// load).
+    Error,
+}
+
+/// A server's state, as its last notification of it said.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ServerStatus {
+    /// How well it works.
+    pub health: Health,
+    /// What it says, if anything.
+    pub text: String,
+    /// It has work under way that may change its answers.
+    pub busy: bool,
+}
+
+impl StatusSpec {
+    /// The state `params` tells.
+    pub fn read(&self, params: &Value) -> ServerStatus {
+        let text = self
+            .text
+            .iter()
+            .find_map(|p| params.pointer(p).and_then(Value::as_str))
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        let level = self
+            .level
+            .as_deref()
+            .and_then(|p| params.pointer(p))
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let health = if self.error.iter().any(|w| w == level) {
+            Health::Error
+        } else if self.warning.iter().any(|w| w == level) {
+            Health::Warning
+        } else {
+            Health::Ok
+        };
+        let busy = !self.idle.iter().all(|(p, v)| params.pointer(p) == Some(v));
+        ServerStatus { health, text, busy }
+    }
 }
 
 /// The progress token of work told by the log ([`ServerConfig::busy_start`]).
@@ -131,6 +214,8 @@ pub enum Event {
     },
     /// The progress shown changed ([`Client::progress`] has it).
     Progress,
+    /// The server told its state ([`Client::status`] has it).
+    Status,
     /// The server became ready.
     Ready,
     /// The process ended.
@@ -227,6 +312,8 @@ struct Inner {
     /// Work in progress by token: its title (from its `begin`) and the
     /// text shown.
     progress: Mutex<Vec<(String, String, String)>>,
+    /// The state the server last told ([`ServerConfig::status`]).
+    status: Mutex<Option<ServerStatus>>,
     events: Mutex<VecDeque<Event>>,
     log: Mutex<VecDeque<String>>,
     /// Ends when its standard error has been read to its end.
@@ -447,6 +534,21 @@ impl Inner {
                 drop(p);
                 self.event(Event::Progress);
             }
+            m if self.config.status.as_ref().is_some_and(|s| s.method == m) => {
+                let Some(spec) = &self.config.status else {
+                    return;
+                };
+                let now = spec.read(params);
+                let mut status = self.status.lock().expect("status");
+                if status.as_ref() != Some(&now) {
+                    if now.health != Health::Ok {
+                        self.log(format!("[status] {:?}: {}", now.health, now.text));
+                    }
+                    *status = Some(now);
+                    drop(status);
+                    self.event(Event::Status);
+                }
+            }
             _ => {}
         }
     }
@@ -659,8 +761,31 @@ fn folders_json(config: &ServerConfig) -> Value {
     )
 }
 
-/// What Kalem tells servers it can do.
-fn client_capabilities() -> Value {
+/// What Kalem tells servers it can do, with `extra` (a plugin's, for its
+/// server) added where Kalem says nothing.
+fn client_capabilities(extra: &Value) -> Value {
+    let mut caps = own_capabilities();
+    add_missing(&mut caps, extra);
+    caps
+}
+
+/// `extra`'s fields put into `into` where it has none, objects merged.
+fn add_missing(into: &mut Value, extra: &Value) {
+    let (Some(into), Some(extra)) = (into.as_object_mut(), extra.as_object()) else {
+        return;
+    };
+    for (k, v) in extra {
+        match into.get_mut(k) {
+            Some(mine) => add_missing(mine, v),
+            None => {
+                into.insert(k.clone(), v.clone());
+            }
+        }
+    }
+}
+
+/// What Kalem itself can do.
+fn own_capabilities() -> Value {
     json!({
         "general": { "positionEncodings": ["utf-8", "utf-16"] },
         "workspace": {
@@ -752,6 +877,7 @@ impl Client {
             pulled: Mutex::new(HashMap::new()),
             published: AtomicU64::new(0),
             progress: Mutex::new(Vec::new()),
+            status: Mutex::new(None),
             events: Mutex::new(VecDeque::new()),
             log: Mutex::new(VecDeque::new()),
             stderr_read: Mutex::new(Some(stderr_read)),
@@ -806,7 +932,7 @@ impl Client {
                 "rootPath": inner.config.root.to_string_lossy(),
                 "workspaceFolders": folders_json(&inner.config),
                 "initializationOptions": inner.config.initialization_options,
-                "capabilities": client_capabilities(),
+                "capabilities": client_capabilities(&inner.config.capabilities),
             }),
             true,
         );
@@ -1067,6 +1193,12 @@ impl Client {
             .map(|(.., t)| t)
             .find(|t| !t.is_empty())
             .cloned()
+    }
+
+    /// The state the server last told, when it tells one
+    /// ([`ServerConfig::status`]).
+    pub fn status(&self) -> Option<ServerStatus> {
+        self.inner.status.lock().expect("status").clone()
     }
 
     /// The log: the server's log messages and its standard error.
@@ -1361,5 +1493,23 @@ mod queue_tests {
         queue(&mut q, change(101, "z"));
         assert_eq!(q.len(), 3);
         assert_eq!(q[2]["params"]["contentChanges"][0]["text"], "z");
+    }
+
+    /// A plugin's capabilities for its server go where Kalem says nothing:
+    /// an extension's are added, Kalem's own are kept.
+    #[test]
+    fn capabilities_added_where_kalem_says_nothing() {
+        let caps = client_capabilities(&json!({
+            "experimental": {"serverStatusNotification": true},
+            "textDocument": {"completion": {"completionItem": {"snippetSupport": true}},
+                             "onEnter": {}},
+        }));
+        assert_eq!(caps["experimental"]["serverStatusNotification"], true);
+        assert_eq!(caps["textDocument"]["onEnter"], json!({}));
+        assert_eq!(
+            caps["textDocument"]["completion"]["completionItem"]["snippetSupport"],
+            false
+        );
+        assert_eq!(client_capabilities(&Value::Null), own_capabilities());
     }
 }

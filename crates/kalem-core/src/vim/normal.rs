@@ -267,7 +267,10 @@ impl Vim {
             }
             match k {
                 Key::Char(c) if self.mode == Mode::Insert => self.type_text(doc, &c.to_string()),
-                Key::Enter if self.mode == Mode::Insert => self.newline(doc),
+                Key::Enter if self.mode == Mode::Insert => {
+                    crate::lsp::entering(doc);
+                    self.newline(doc)
+                }
                 Key::Tab if self.mode == Mode::Insert => self.type_text(doc, "\t"),
                 Key::Backspace if self.mode == Mode::Insert => {
                     let _ = doc.delete_backward(std::time::Instant::now());

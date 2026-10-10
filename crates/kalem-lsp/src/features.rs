@@ -319,7 +319,25 @@ pub fn snippet_insert(s: &str) -> (String, usize) {
 /// Removes snippet syntax (`$1`, `${1:x}`, `$0`), keeping placeholders'
 /// text, until the snippet engine of T3.8.3 exists.
 pub fn strip_snippet(s: &str) -> String {
+    snippet_text(s).0
+}
+
+/// A snippet as plain text ([`strip_snippet`]) and where its cursor goes
+/// in it: the first place (`$1`, else `$0`), none when it has no place.
+/// rust-analyzer's edits put the cursor so: Enter's `\n/// $0` in a doc
+/// comment.
+pub fn snippet_text(s: &str) -> (String, Option<usize>) {
     let mut out = String::new();
+    let mut first: Option<(u32, usize)> = None;
+    let mut place = |n: u32, at: usize| {
+        let better = match first {
+            None => true,
+            Some((m, _)) => n != 0 && (m == 0 || n < m),
+        };
+        if better {
+            first = Some((n, at));
+        }
+    };
     let mut chars = s.chars().peekable();
     while let Some(c) = chars.next() {
         match c {
@@ -330,12 +348,23 @@ pub fn strip_snippet(s: &str) -> String {
             }
             '$' => match chars.peek() {
                 Some(d) if d.is_ascii_digit() => {
-                    while chars.peek().is_some_and(|d| d.is_ascii_digit()) {
+                    let mut n = 0u32;
+                    while let Some(d) = chars.peek().and_then(|d| d.to_digit(10)) {
+                        n = n.saturating_mul(10).saturating_add(d);
                         chars.next();
                     }
+                    place(n, out.len());
                 }
                 Some('{') => {
                     chars.next();
+                    let mut n: Option<u32> = None;
+                    while let Some(d) = chars.peek().and_then(|d| d.to_digit(10)) {
+                        n = Some(n.unwrap_or(0).saturating_mul(10).saturating_add(d));
+                        chars.next();
+                    }
+                    if let Some(n) = n {
+                        place(n, out.len());
+                    }
                     while chars
                         .peek()
                         .is_some_and(|d| d.is_ascii_alphanumeric() || *d == '_')
@@ -376,7 +405,7 @@ pub fn strip_snippet(s: &str) -> String {
             c => out.push(c),
         }
     }
-    out
+    (out, first.map(|(_, at)| at))
 }
 
 /// The documentation of a completion item (as sent, or resolved).
@@ -572,6 +601,10 @@ mod tests {
         assert_eq!(strip_snippet("foo(${1:a}, ${2:b})$0"), "foo(a, b)");
         assert_eq!(strip_snippet("x ${1|one,two|} \\$y $"), "x one $y $");
         assert_eq!(strip_snippet("${1:a ${2:b}}"), "a b");
+        assert_eq!(snippet_text("\n/// $0"), ("\n/// ".into(), Some(5)));
+        assert_eq!(snippet_text("f(${1:a}, $2)$0"), ("f(a, )".into(), Some(2)));
+        assert_eq!(snippet_text("${0:x} y"), ("x y".into(), Some(0)));
+        assert_eq!(snippet_text("plain"), ("plain".into(), None));
     }
 
     #[test]

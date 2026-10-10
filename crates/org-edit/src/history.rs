@@ -39,6 +39,9 @@ pub struct History {
     /// While set, every change joins the step made since (Vim's insert
     /// session is one step): the number of steps when it began.
     join: Option<usize>,
+    /// While set, a change joins the last step, whatever its kind
+    /// ([`History::join_next`]).
+    join_last: bool,
 }
 
 impl Default for History {
@@ -49,6 +52,7 @@ impl Default for History {
             group_window: Duration::from_millis(300),
             limit: 10_000,
             join: None,
+            join_last: false,
         }
     }
 }
@@ -90,6 +94,14 @@ impl History {
         }
         self.redo.clear();
         let pair = (tx.clone(), tx.invert(before));
+        if self.join_last
+            && let Some(last) = self.undo.last_mut()
+        {
+            last.txs.push(pair);
+            last.selection_after = selection_after;
+            last.time = now;
+            return;
+        }
         if let Some(n) = self.join
             && self.undo.len() > n
             && let Some(last) = self.undo.last_mut()
@@ -182,6 +194,13 @@ impl History {
         if let Some(last) = self.undo.last_mut() {
             last.kind = ChangeKind::Command;
         }
+    }
+
+    /// While `on`, a change joins the last step, whatever its kind: a
+    /// change made again another way (a language server's form of the new
+    /// line just made) is undone with it.
+    pub fn join_next(&mut self, on: bool) {
+        self.join_last = on;
     }
 
     /// From now until [`History::break_group`], every change joins one
