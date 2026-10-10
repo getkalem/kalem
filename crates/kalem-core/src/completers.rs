@@ -342,7 +342,10 @@ impl Registry {
     }
 
     /// Every item for the cursor of `doc`, the slow completers waited for
-    /// within `budget` (for `kalem complete` and tests).
+    /// within `budget` (for `kalem complete` and tests): the caller's
+    /// wait, not each completer's budget for a keystroke, which typing
+    /// keeps (§11.6). With that budget, the wiki pages' walk (100 ms) was
+    /// dropped on a busy machine though two seconds were given.
     pub fn complete(
         &self,
         doc: &mut DocumentState,
@@ -351,6 +354,9 @@ impl Registry {
     ) -> Vec<Item> {
         let mut s = self.start(doc, requested);
         let end = Instant::now() + budget;
+        if s.pending > 0 {
+            s.deadline = Some(end);
+        }
         while s.pending > 0 && Instant::now() < end {
             if !s.poll() {
                 std::thread::sleep(Duration::from_millis(2));
@@ -1108,5 +1114,9 @@ mod tests {
         }
         assert!(!s.waiting());
         assert!(s.items.iter().all(|i| i.source != "late"));
+        // The synchronous `complete` waits as long as it is asked to, not
+        // the completer's budget for a keystroke.
+        let items = r.complete(&mut d, true, Duration::from_secs(5));
+        assert!(items.iter().any(|i| i.source == "late"), "{items:?}");
     }
 }

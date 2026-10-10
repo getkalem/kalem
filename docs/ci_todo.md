@@ -191,10 +191,14 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
     `viewer_choice` came (FLAKY 2/3; once all three, `bc3d693c`): that
     test sets a state folder of its own, and the editors' plugin host
     kept its compiles there, so it compiled the workbook's component
-    for 19 s beside the others, and the wiki completion missed its
-    200 ms budget (0.6 s). The host now takes `KALEM_COMPONENT_CACHE`
-    when it is set, and the completion test waits up to 10 s, ending
-    with the last answer.
+    for 19 s beside the others. The host now takes
+    `KALEM_COMPONENT_CACHE` when it is set (`3f1ee8a2`); the test still
+    failed its first two tries on the next run. The cause was
+    `completers::Registry::complete`: given 200 ms, or 10 s, it still
+    dropped a slow completer at its budget for a keystroke, the wiki
+    pages' walk at 100 ms, which a loaded runner passes. `complete` now
+    waits as long as its caller says (`kalem complete` too); typing
+    keeps the keystroke budgets.
 
 - [x] **C5. The sample plugins under nextest.** kalem-script's and
   kalem-cli's tests build the plugins of `tests/plugins` behind a lock,

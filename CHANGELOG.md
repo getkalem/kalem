@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - Search Lines (Doom's `SPC s b`) did nothing in a file manager listing, in both editors. A listing is now searched like any document: the lines are its entries, so the search finds a file, the cursor following the entry while typing; Enter stays on it and `l` or Enter opens the file. Across the open documents (`SPC s B`), the listings' lines take part too.
+- `kalem complete` waited for each completer only as long as typing does (100 ms for the pages of wiki links), not the two seconds it gives: on a busy machine the wiki pages were missing from its list.
 
 ## [0.6.3] - 2026-10-10
 
