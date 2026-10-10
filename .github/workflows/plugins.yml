@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       # No Rust cache: this job runs daily with no one waiting, and its
       # gigabyte would push one of CI's out of GitHub's 10 GB
