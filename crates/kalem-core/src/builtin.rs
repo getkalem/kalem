@@ -11630,10 +11630,14 @@ mod tests {
         let mut d =
             DocumentState::open(&path, Arc::new(org_model::Settings::default()), &base).unwrap();
         d.selection = org_edit::Selection::caret(d.text().len());
+        // The completers answer on threads of their own: a budget that
+        // a runner with every core busy does not run out of (it took 0.6 s
+        // on Windows, where 200 ms failed); the wait ends with the last
+        // answer.
         let items = crate::completers::Registry::with_builtins().complete(
             &mut d,
             false,
-            std::time::Duration::from_millis(200),
+            std::time::Duration::from_secs(10),
         );
         let wiki: Vec<_> = items.iter().filter(|i| i.source == "wiki").collect();
         assert_eq!(wiki.len(), 1, "{items:?}");

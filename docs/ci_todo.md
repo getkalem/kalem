@@ -186,6 +186,15 @@ macOS jobs show as cancelled for that reason, not for CI's speed.
   - On Windows one run failed `kalem-ui`'s `this_file_keys`, which
     waits three seconds for a file to reach the tests' trash, under
     the load of the compiles above (see C7).
+  - 2026-10-10: kalem-core's `markdown_links_and_wiki_completion`
+    failed its first try on Windows in every run after kalem-cli's
+    `viewer_choice` came (FLAKY 2/3; once all three, `bc3d693c`): that
+    test sets a state folder of its own, and the editors' plugin host
+    kept its compiles there, so it compiled the workbook's component
+    for 19 s beside the others, and the wiki completion missed its
+    200 ms budget (0.6 s). The host now takes `KALEM_COMPONENT_CACHE`
+    when it is set, and the completion test waits up to 10 s, ending
+    with the last answer.
 
 - [x] **C5. The sample plugins under nextest.** kalem-script's and
   kalem-cli's tests build the plugins of `tests/plugins` behind a lock,

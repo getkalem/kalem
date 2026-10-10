@@ -528,7 +528,16 @@ fn viewer_host() -> Option<std::sync::Arc<kalem_script::Host>> {
     static HOST: std::sync::OnceLock<Option<std::sync::Arc<kalem_script::Host>>> =
         std::sync::OnceLock::new();
     HOST.get_or_init(|| {
-        let cache = kalem_core::logging::state_dir().map(|d| d.join("plugin-cache"));
+        // Compiled components are kept in the state folder; or in the
+        // folder `KALEM_COMPONENT_CACHE` names, which processes share, as
+        // `kalem_components::viewer`'s: CI runs every test in a process of
+        // its own, and a test with a state folder of its own compiled the
+        // workbook's component again, taking the runner's cores from the
+        // other tests (docs/ci_todo.md, C4).
+        let cache = std::env::var_os("KALEM_COMPONENT_CACHE")
+            .filter(|v| !v.is_empty())
+            .map(PathBuf::from)
+            .or_else(|| kalem_core::logging::state_dir().map(|d| d.join("plugin-cache")));
         kalem_script::Host::new(cache).ok().map(std::sync::Arc::new)
     })
     .clone()
