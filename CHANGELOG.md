@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.10] - 2026-10-10
+
 ### Added
 - Language plugins: a server's state in the status bar. The manifest's `status` names the notification in which a server tells it (rust-analyzer's `experimental/serverStatus`) and where its text, its level and its idleness are; while the server works only in part or not at all, the status bar and Language Server Status say why (rust-analyzer's "cargo check failed to start"), and while it is not idle it counts as busy, so `kalem lsp check` waits for it and then says its state on standard error. A server's `capabilities` in the manifest are added to Kalem's where Kalem says nothing: the extensions a server sends only to a client that asks.
 - Language plugins: Enter in code asks the server for its own new line when the plugin gives one (`requests` keyed `edit.newline`; rust-analyzer's `experimental/onEnter`, which continues `//` and `///` comments). Kalem's new line is made at once, and the server's takes its place as it answers, in the same undo step and with the cursor where the server puts it, unless the text changed meanwhile. Also in Vim's Insert mode.
