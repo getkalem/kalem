@@ -182,8 +182,8 @@ its unsaved changes, which nothing can save any more, are lost; the
 editor itself goes on, and the log keeps the plugin's version and what
 went wrong. A plugin that stops three times is turned off until it is
 updated, and its files go at once to what opens them next: a newer copy
-installed, else the copy built into Kalem, else the bundled viewer of
-the same name. =kalem plugin list= says so, and =kalem plugin enable ID=
+installed, else a copy built into Kalem when a build of one's own has
+one, else nothing, and the file is offered to the system's application. =kalem plugin list= says so, and =kalem plugin enable ID=
 turns it on again. Kalem need not be started again for any of this: a
 viewer installed, updated or removed while Kalem runs, from the plugin
 list or with =kalem plugin install= in a terminal, opens its files (or
@@ -192,15 +192,19 @@ copy opens them now. A viewer's limits are 1 GB and 10 s a call, more
 than §11.6's defaults, since a viewer holds a whole file; a manifest
 may set others, =limits.memory_mb= and =limits.time_ms=.
 
-Kalem's own viewers, of pictures, PDF files and workbooks, are such
-components: the ones =getkalem/plugins= released, which
-=crates/kalem-components/components.toml= pins by their release and
-SHA-256. The build downloads them (or reads them from the folder
-=KALEM_COMPONENTS_DIR= names, to build offline), checks them and keeps
-them compressed in the binary, inflated when first used; Kalem compiles
-none of their source, and a change to one reaches Kalem as its release
-and a new line in that file. =kalem plugin list= marks them /built in/;
-an installed copy of one is used only when it is newer. Their manifests
+The viewers of pictures, PDF files and workbooks are such components,
+released by =getkalem/plugins= and installed like any other plugin:
+none is built into Kalem. A file that is not text and that no
+installed plugin opens names the released plugins of the indexes that
+open it, by the extensions each lists in the index (=opens=), to
+install, after which the file opens; and the system's application
+(/Find a Plugin for the File/, =plugin.forFile=). The feature
+=components= of a build of one's own still builds the released ones in,
+pinned by =crates/kalem-components/components.toml= by their release
+and SHA-256, downloaded (or read from the folder =KALEM_COMPONENTS_DIR=
+names), checked and kept compressed, inflated when first used; the
+tests take them from there. =kalem plugin list= marks such a copy
+/built in/, and an installed copy of one is used only when it is newer. Their manifests
 set their limits as an installed one's do. Through a component a viewer
 took one to two times the time of the same code built into Kalem
 natively, as it was until 2026-10-05; a test measures each against a

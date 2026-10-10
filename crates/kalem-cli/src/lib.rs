@@ -853,8 +853,16 @@ pub(crate) fn installed_viewers() -> Vec<(
         }
         let api = m["api"].as_str();
         if !kalem_script::api_compatible(api) {
+            // A copy built in (a build of one's own) opens its files
+            // meanwhile; a release has none.
+            let built_in = embedded().iter().any(|(c, _)| short(c.id) == short(&p.id));
+            let key = if built_in {
+                "plugin-api-mismatch-built-in"
+            } else {
+                "plugin-api-mismatch"
+            };
             let why = kalem_core::tr!(
-                "plugin-api-mismatch",
+                key,
                 name = p.name.clone(),
                 version = p.version.clone(),
                 api = api.unwrap_or_default().to_string(),

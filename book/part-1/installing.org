@@ -45,12 +45,14 @@ your =PATH= when Rust came with rustup.
 - Windows :: Rust with its MSVC tools, nothing more. The settings live
   in =%APPDATA%\kalem=.
 
-The terminal-only build leaves out the graphical editor, and with it the
-viewers of PDF files, pictures and workbooks and the plugin host, which
-weigh some 15 MB: such files are refused as not text, and
-installed plugins do not run. Name them to keep them (=plugins= for the
-plugin host alone, =components= for it and the viewers built in, which
-the build downloads from the releases of getkalem/plugins):
+No release has a plugin built in: the viewers of PDF files, pictures
+and workbooks are installed the first time such a file is opened, or
+with =kalem plugin install=. The terminal-only build leaves out the
+graphical editor, and with it the plugin host, which weighs some 10 MB:
+files that are not text are refused, and installed plugins do not run.
+Name it to keep it (=plugins=; =components= builds the viewers in too,
+downloaded from the releases of getkalem/plugins, for a build of your
+own that must open them without installing):
 
 #+begin_src sh
 cargo install --locked --path crates/kalem --no-default-features --features tui

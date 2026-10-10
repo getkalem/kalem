@@ -3,8 +3,8 @@ themselves: the file is a ZIP package of SpreadsheetML parts, and the
 plugin reads, edits and writes those parts, never a conversion of
 them. Kalem shows each sheet as a grid, through the plugin API's =grid=
 interface, and draws the charts, pictures, sparklines and slicers the
-plugin describes (see [[file:plugins.org][Plugins]]). The plugin is built into Kalem; its
-README and its work list (=plugins/xlsx/xlsx_todo.md=) are kept with
+plugin describes (see [[file:plugins.org][Plugins]]). The plugin is installed from the plugin list, or when a workbook is
+first opened; its README and its work list (=plugins/xlsx/xlsx_todo.md=) are kept with
 it, and Kalem's own lists of what an everyday Excel user reaches for
 are =docs/history/excel_todo.md=, =excel_todo2.md= and
 =docs/excel_todo3.md=.
@@ -43,8 +43,7 @@ Kalem converts it, and asks before saving it back in its own format.
 - *Cells*: values, shared and inline strings, formulas (shared
   formulas expanded), number formats (dates and times, percent,
   currency, fractions, scientific, sections and conditions; the
-  colors they give, =[Red]= and =[Color10]=, in the plugin's next
-  release), fonts, fills (solid, pattern, gradient), borders, alignment,
+  colors they give, =[Red]= and =[Color10]=), fonts, fills (solid, pattern, gradient), borders, alignment,
   indent and rotation, theme colors, cell styles by name.
 - *Sheets*: merged cells, frozen and split panes, zoom, column widths,
   row heights, hidden rows, columns and sheets, outline levels, tab
@@ -119,7 +118,7 @@ result, to be computed by Excel or LibreOffice when they open the
 file. =NOW()= and =TODAY()= are computed in the local time zone.
 Calculation is automatic, automatic except data tables, or manual, as
 the workbook says; circular references are found, or computed
-iteratively when the workbook asks. In the plugin's next release, a
+iteratively when the workbook asks. Since xlsx 0.0.10 a
 formula calling a function the engine lacks (=GETPIVOTDATA=,
 =AGGREGATE=, =WEBSERVICE=) enters the engine as its stored result, so
 that the formulas reading it are computed from that result, and
@@ -139,7 +138,7 @@ about 120 of its library functions, and Excel's object model for data:
 and =InputBox= as the editor's questions. A run undoes in one step.
 Files, the network, =Shell=, =Declare= and other workbooks stop the
 macro with a message naming the call and the line; a budget of steps
-and time stops an endless loop. In the plugin's next release macros
+and time stops an endless loop. Since xlsx 0.0.10 macros
 also format cells (=Font=, =Interior=, =Borders=, =NumberFormat=,
 alignment, widths, merging), rename and hide sheets, use =Resume= and
 =Resume Next= in their handlers, and read and write =FormulaR1C1=.
@@ -206,7 +205,7 @@ again with it.
 The plugin asks for 4 GB, the most a component can address: a sheet
 of a million rows needs about 2. The undo history keeps the last
 hundred edits, as Excel does, sharing the sheets an edit leaves alone
-(the plugin's next release; fewer when they would hold more than a
+(since xlsx 0.0.10; fewer when they would hold more than a
 gigabyte).
 
 Measured on 2026-10-10 on an Apple M1 Max, with the plugin's library

@@ -51,11 +51,10 @@ A plugin is compiled Rust, run as a WebAssembly component with its
 own memory, a memory limit, a time budget and only the permissions it
 declares, so a plugin cannot freeze the editor and one that fails is
 disabled instead of taking Kalem down. Kalem ships no JavaScript, Lua
-or Lisp interpreter; configuration is data, in TOML and JSON. The
-first plugins are bundled into the binary as the components they
-released: the viewers of PDF files, pictures and Excel workbooks;
-=kalem plugin install= adds others
-from the plugins' index. [[file:../part-3/overview.org][The extension model]] says what can be
+or Lisp interpreter; configuration is data, in TOML and JSON. No plugin
+is built into the binary: the viewers of PDF files, pictures and Excel
+workbooks too are installed from the plugins' index, the first time
+such a file is opened or with =kalem plugin install=. [[file:../part-3/overview.org][The extension model]] says what can be
 changed today and [[file:../part-3/plugins.org][Plugins]] has the design.
 
 * Fast

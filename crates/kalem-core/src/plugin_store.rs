@@ -61,6 +61,9 @@ pub struct IndexEntry {
     pub sha256: Option<String>,
     /// `declarative` for a language plugin; a component otherwise.
     pub declarative: bool,
+    /// The extensions it opens (`.xlsx`), for a viewer: what names it for
+    /// a file Kalem cannot open yet (T3.7.9).
+    pub opens: Vec<String>,
     /// The index it is listed in.
     pub index: String,
 }
@@ -178,10 +181,36 @@ pub fn parse_index(text: &str) -> Result<Vec<IndexEntry>, String> {
                 download: p["download"].as_str().map(str::to_string),
                 sha256: p["sha256"].as_str().map(str::to_string),
                 declarative: p["kind"].as_str() == Some("declarative"),
+                opens: strings(&p["opens"]),
                 index: String::new(),
             })
         })
         .collect())
+}
+
+/// The released plugins of the index that open the file at `path`, by its
+/// extension (`.xlsx`, `.tar.gz` too), in the index's order: what Kalem
+/// offers to install for a file that it cannot open yet (T3.7.9).
+pub fn opening<'a>(entries: &'a [IndexEntry], path: &std::path::Path) -> Vec<&'a IndexEntry> {
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+    entries
+        .iter()
+        .filter(|e| !e.declarative && e.download.is_some())
+        .filter(|e| {
+            e.opens.iter().any(|x| {
+                let x = x.trim().to_lowercase();
+                let x = if x.starts_with('.') {
+                    x
+                } else {
+                    format!(".{x}")
+                };
+                name.len() > x.len() && name.ends_with(&x)
+            })
+        })
+        .collect()
 }
 
 /// The index at `url`, its entries' sources and downloads written
@@ -1364,6 +1393,35 @@ pub fn check_updates(config: &crate::Config) {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn the_plugins_that_open_a_file() {
+        let index = parse_index(
+            r#"{"schema":1,"plugins":[
+              {"id":"a.sheets","name":"Sheets","version":"1.0.0","download":"https://x/s.wasm",
+               "opens":[".xlsx", "XLSM"]},
+              {"id":"a.draft","name":"Draft","version":"0.1.0","download":null,"opens":[".xlsx"]},
+              {"id":"a.lang","name":"Lang","version":"1.0.0","kind":"declarative",
+               "download":"https://x/l.tar.gz","opens":[".xlsx"]},
+              {"id":"a.tar","name":"Tar","version":"1.0.0","download":"https://x/t.wasm",
+               "opens":[".tar.gz"]}]}"#,
+        )
+        .unwrap();
+        assert_eq!(index[0].opens, [".xlsx", "XLSM"]);
+        let ids = |name: &str| -> Vec<String> {
+            opening(&index, std::path::Path::new(name))
+                .iter()
+                .map(|e| e.id.clone())
+                .collect()
+        };
+        // Released components only, by extension in any case.
+        assert_eq!(ids("/books/Budget.XLSX"), ["a.sheets"]);
+        assert_eq!(ids("b.xlsm"), ["a.sheets"]);
+        assert_eq!(ids("backup.tar.gz"), ["a.tar"]);
+        assert!(ids("notes.org").is_empty());
+        // A name that is only the extension opens nothing.
+        assert!(ids(".xlsx").is_empty());
+    }
     #[test]
     fn a_broken_record_is_kept_aside() {
         let dir = std::env::temp_dir().join(format!("kalem-record-{}", std::process::id()));

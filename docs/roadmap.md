@@ -437,6 +437,10 @@ Viewers
   plugin of getkalem/plugins on plugin API 0.2.7's `flow` and `annotations`
   interfaces, in both editors, T3.7.5's progress and the Book's "Word
   documents" saying what is open. pptx and sqlite are open.)
+  (T3.7.9 partly done 2026-10-10: no viewer is built into Kalem; a file
+  that is not text and that no installed plugin opens offers the plugins
+  of the index that open it, to install, and the system's application;
+  wasm_todo W12.)
 
 ## M6 Continuous
 

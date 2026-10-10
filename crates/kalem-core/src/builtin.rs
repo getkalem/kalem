@@ -168,7 +168,14 @@ fn schemas() -> Vec<(&'static str, Value)> {
             ]),
         ),
         ("file.scratch", object(&[("project", "boolean", false)])),
-        ("plugin.install", object(&[("source", "string", false)])),
+        (
+            "plugin.install",
+            object(&[("source", "string", false), ("open", "string", false)]),
+        ),
+        (
+            "plugin.forFile",
+            object(&[("path", "string", true), ("how", "string", false)]),
+        ),
         (
             "file.openWithPassword",
             object(&[("path", "string", true), ("password", "string", false)]),
@@ -6343,7 +6350,13 @@ fn plugin_commands() -> Vec<Command> {
             .collect()
     }
     /// Downloads `source` in the background, then offers to install it.
-    fn start_install(ctx: &mut EditorContext<'_>, source: String) -> CommandResult {
+    /// Fetches a plugin and offers to install it; `open`, a file to open
+    /// once it is installed (the file it was installed for, T3.7.9).
+    fn start_install(
+        ctx: &mut EditorContext<'_>,
+        source: String,
+        open: Option<String>,
+    ) -> CommandResult {
         let index = index_urls(ctx);
         crate::jobs::spawn(
             crate::tr!("plugin-fetching", source = source.as_str()),
@@ -6356,11 +6369,12 @@ fn plugin_commands() -> Vec<Command> {
                     } else {
                         "plugin-verb-install"
                     };
+                    let mut confirm = json!({ "staging": staging, "source": p.source });
+                    if let Some(open) = &open {
+                        confirm["open"] = json!(open);
+                    }
                     let mut items = vec![item(
-                        invocation(
-                            "plugin.confirmInstall",
-                            &json!({ "staging": staging, "source": p.source }),
-                        ),
+                        invocation("plugin.confirmInstall", &confirm),
                         crate::tr!(verb_key, what = lines[0].as_str()),
                         lines[1..].join(" · "),
                     )];
@@ -6575,7 +6589,9 @@ fn plugin_commands() -> Vec<Command> {
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
             {
-                Some(s) => start_install(ctx, s.to_string()),
+                Some(s) => {
+                    start_install(ctx, s.to_string(), args["open"].as_str().map(str::to_owned))
+                }
                 None => request(
                     ctx,
                     Request::Ask {
@@ -6584,6 +6600,33 @@ fn plugin_commands() -> Vec<Command> {
                         arg: "source".into(),
                     },
                 ),
+            },
+        ),
+        // A file Kalem cannot open yet (not text, no viewer installed): the
+        // released plugins of the indexes that open it offered, installed
+        // and the file opened at a choice; else the system's application
+        // (T3.7.9). No plugin is built into Kalem: each is installed when
+        // it is wanted.
+        cmd(
+            "plugin.forFile",
+            "Find a Plugin for the File",
+            "Plugins",
+            &[],
+            None,
+            |ctx, args| {
+                let Some(path) = args["path"].as_str().map(str::to_owned) else {
+                    return Err(CommandError::new(crate::tr!("msg-no-document")));
+                };
+                if args["how"].as_str() == Some("system") {
+                    return request(
+                        ctx,
+                        Request::OpenLink(crate::input::LinkAction::System(
+                            std::path::PathBuf::from(&path),
+                        )),
+                    );
+                }
+                offer_plugins(ctx, Some(path.clone()), &path);
+                Ok(())
             },
         ),
         // A file protected by a password (a PDF): asked for when it would
@@ -6634,7 +6677,7 @@ fn plugin_commands() -> Vec<Command> {
                 .filter(|s| !s.is_empty())
             {
                 Some(link) => match crate::plugin_store::github_link(link) {
-                    Some(source) => start_install(ctx, source),
+                    Some(source) => start_install(ctx, source, None),
                     None => Err(CommandError::new(crate::tr!(
                         "plugin-not-github",
                         link = link
@@ -6671,6 +6714,43 @@ fn plugin_commands() -> Vec<Command> {
                     version = p.version.as_str(),
                     dir = dir.display().to_string()
                 ));
+                // Installed for a file: opened once the plugin opens it. The
+                // editor's watch of the plugins chooses the viewers again
+                // within a second or two of an install.
+                if let Some(open) = args["open"].as_str().map(std::path::PathBuf::from) {
+                    let name = p.name.clone();
+                    crate::jobs::spawn(
+                        crate::tr!("plugin-starting", name = name.as_str()),
+                        move || {
+                            let deadline =
+                                std::time::Instant::now() + std::time::Duration::from_secs(15);
+                            while crate::viewer::for_file(&open).is_none()
+                                && std::time::Instant::now() < deadline
+                            {
+                                std::thread::sleep(std::time::Duration::from_millis(200));
+                            }
+                            if crate::viewer::for_file(&open).is_some() {
+                                crate::jobs::Finished {
+                                    message: String::new(),
+                                    error: false,
+                                    open: Some(crate::input::LinkAction::File {
+                                        path: open.display().to_string(),
+                                        search: None,
+                                    }),
+                                }
+                            } else {
+                                crate::jobs::Finished {
+                                    message: crate::tr!(
+                                        "plugin-did-not-start",
+                                        name = name.as_str()
+                                    ),
+                                    error: true,
+                                    open: None,
+                                }
+                            }
+                        },
+                    );
+                }
                 Ok(())
             },
         ),
@@ -6869,9 +6949,133 @@ fn new_file_target(
     Ok(Some(target))
 }
 
+/// The released plugins of the indexes that open a file named `name` (by
+/// its extension) offered to install, read in the background, with the
+/// system's application when `open` is a file: for a file Kalem cannot
+/// open yet (`plugin.forFile`), the file then opened; or for a command
+/// that needs such a plugin (New Workbook), `open` none. No plugin is
+/// built into Kalem: each is installed when it is wanted (T3.7.9).
+pub(crate) fn offer_plugins(ctx: &mut EditorContext<'_>, open: Option<String>, name: &str) {
+    let item = |id: String, title: String, category: String| crate::palette::PaletteItem {
+        also: title.clone(),
+        id,
+        title,
+        category,
+        keys: String::new(),
+    };
+    let file = std::path::Path::new(name)
+        .file_name()
+        .map_or(name.to_string(), |n| n.to_string_lossy().into_owned());
+    let kind = std::path::Path::new(name)
+        .extension()
+        .map_or(String::new(), |e| format!(".{}", e.to_string_lossy()));
+    let name = name.to_string();
+    let index = crate::plugin_store::index_urls(ctx.config);
+    crate::jobs::spawn(
+        crate::tr!("plugin-finding", file = file.as_str()),
+        move || {
+            let system = open.as_ref().map(|path| {
+                item(
+                    crate::palette::invocation(
+                        "plugin.forFile",
+                        &serde_json::json!({ "path": path, "how": "system" }),
+                    ),
+                    crate::tr!("plugin-open-system"),
+                    String::new(),
+                )
+            });
+            match crate::plugin_store::fetch_indexes(&index) {
+                Ok(entries) => {
+                    let found = crate::plugin_store::opening(&entries, std::path::Path::new(&name));
+                    let mut items: Vec<crate::palette::PaletteItem> = found
+                        .iter()
+                        .map(|e| {
+                            let (args, title) = match &open {
+                                Some(path) => (
+                                    serde_json::json!({ "source": e.id, "open": path }),
+                                    crate::tr!(
+                                        "plugin-install-to-open",
+                                        name = e.name.as_str(),
+                                        version = e.version.as_str(),
+                                        file = file.as_str()
+                                    ),
+                                ),
+                                None => (
+                                    serde_json::json!({ "source": e.id }),
+                                    crate::tr!(
+                                        "plugin-install-for-kind",
+                                        name = e.name.as_str(),
+                                        version = e.version.as_str(),
+                                        kind = kind.as_str()
+                                    ),
+                                ),
+                            };
+                            item(
+                                crate::palette::invocation("plugin.install", &args),
+                                title,
+                                e.description.clone(),
+                            )
+                        })
+                        .collect();
+                    let message = match (items.is_empty(), &open) {
+                        (true, Some(_)) => crate::tr!("plugin-none-opens", file = file.as_str()),
+                        (true, None) => crate::tr!("plugin-none-for-kind", kind = kind.as_str()),
+                        (false, Some(_)) => {
+                            crate::tr!("plugin-not-installed-for", file = file.as_str())
+                        }
+                        (false, None) => {
+                            crate::tr!("plugin-needed-for-kind", kind = kind.as_str())
+                        }
+                    };
+                    items.extend(system);
+                    if !items.is_empty() {
+                        crate::jobs::offer(items);
+                    }
+                    crate::jobs::Finished {
+                        message,
+                        error: false,
+                        open: None,
+                    }
+                }
+                Err(e) => {
+                    if let Some(system) = system {
+                        crate::jobs::offer(vec![system]);
+                    }
+                    crate::jobs::Finished {
+                        message: crate::tr!(
+                            "plugin-index-unread-for",
+                            file = file.as_str(),
+                            error = e
+                        ),
+                        error: true,
+                        open: None,
+                    }
+                }
+            }
+        },
+    );
+}
+
+/// The workbook plugin, which makes workbooks; when it is not installed,
+/// the plugins that do offered to install, and none.
+fn workbook_or_offer(
+    ctx: &mut EditorContext<'_>,
+) -> Option<std::sync::Arc<dyn kalem_viewer::Viewer>> {
+    match crate::workbook_io::workbook_viewer() {
+        Ok(v) => Some(v),
+        Err(_) => {
+            offer_plugins(ctx, None, "Book.xlsx");
+            None
+        }
+    }
+}
+
 /// New Workbook: a blank workbook of one sheet, written where asked and
 /// opened.
 fn new_workbook(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult {
+    let Some(viewer) = workbook_or_offer(ctx) else {
+        return Ok(());
+    };
     let Some(target) = new_file_target(ctx, "app.newWorkbook", args, "Book", "xlsx")? else {
         return Ok(());
     };
@@ -6879,9 +7083,9 @@ fn new_workbook(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult {
         name: "Sheet1".into(),
         rows: Vec::new(),
     };
-    let bytes = crate::workbook_io::workbook_viewer()
-        .and_then(|v| v.new_file("xlsx", &[sheet]).map_err(|e| e.to_string()))
-        .map_err(CommandError::new)?;
+    let bytes = viewer
+        .new_file("xlsx", &[sheet])
+        .map_err(|e| CommandError::new(e.to_string()))?;
     std::fs::write(&target, bytes).map_err(|e| CommandError::new(e.to_string()))?;
     request(
         ctx,
@@ -6917,13 +7121,15 @@ fn new_from_template(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult
         .file_stem()
         .map_or("Book".into(), |s| s.to_string_lossy().into_owned());
     let ext = if macros { "xlsm" } else { "xlsx" };
+    let Some(viewer) = workbook_or_offer(ctx) else {
+        return Ok(());
+    };
     let Some(target) = new_file_target(ctx, ID, args, &stem, ext)? else {
         return Ok(());
     };
     let bytes = std::fs::read(&template).map_err(|e| CommandError::new(e.to_string()))?;
     // The template opened by the workbook plugin and written as a workbook.
-    let bytes = crate::workbook_io::workbook_viewer()
-        .and_then(|v| crate::workbook_io::open_bytes(v.as_ref(), &template, bytes))
+    let bytes = crate::workbook_io::open_bytes(viewer.as_ref(), &template, bytes)
         .and_then(|mut d| d.save_as(ext).map(|o| o.bytes).map_err(|e| e.to_string()))
         .map_err(CommandError::new)?;
     std::fs::write(&target, bytes).map_err(|e| CommandError::new(e.to_string()))?;
@@ -6941,6 +7147,10 @@ fn new_from_template(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult
 /// (or where asked) and opened.
 fn open_as_workbook(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult {
     const ID: &str = "csv.openAsWorkbook";
+    // The workbook plugin makes the workbook: offered first when missing.
+    if workbook_or_offer(ctx).is_none() {
+        return Ok(());
+    }
     let item = |a: Value, title: &str, category: &str| crate::palette::PaletteItem {
         id: crate::palette::invocation(ID, &a),
         title: title.into(),

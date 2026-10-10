@@ -6,7 +6,8 @@ after it say how everything works; this one says what to do.
 A plugin is a small program Kalem runs in a sandbox: it sees the file
 it was given and nothing else, has its own memory and time, and a plugin
 that fails is closed without taking Kalem down. The viewers of
-pictures, PDF files and workbooks are plugins, built into Kalem;
+pictures, PDF files and workbooks are plugins too, none built into
+Kalem: the first file of a kind that needs one names it, to install;
 language plugins (a syntax and a language server for a programming
 language) need no code at all.
 
@@ -56,11 +57,11 @@ Kalem that is running opens the next file with your build; one started
 later finds it installed. A panic in your code reaches Kalem's log with
 the names of your functions.
 
-One thing to know: Kalem keeps using the plugin built into it unless
-yours is /newer/. So raise =version= in =plugins/xlsx/plugin.json=
-(from =0.0.9= to =0.0.10=, say) before =kalem plugin dev=; =kalem plugin
-list= says which copy is in use. =kalem plugin remove org.kalem.xlsx=
-takes your copy out and the built-in one is back.
+One thing to know: your build replaces the copy you installed from
+the index only when it is /newer/. So raise =version= in
+=plugins/xlsx/plugin.json= (from =0.0.10= to =0.0.11=, say) before
+=kalem plugin dev=; =kalem plugin list= says which copy is in use.
+=kalem plugin remove org.kalem.xlsx= takes your copy out.
 
 To give your change to others:
 

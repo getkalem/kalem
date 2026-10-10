@@ -5529,3 +5529,74 @@ fn vim_add_project_asks_for_the_folder(cx: &mut TestAppContext) {
     assert!(roots.contains(&dir), "{roots:?}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// No plugin is built into Kalem: a file it cannot open yet (not text, no
+/// plugin installed opens it) names the released plugins of the index
+/// that open it, to install and then open it, and the system's
+/// application (T3.7.9).
+#[gpui::test]
+fn a_file_without_its_plugin_offers_the_plugin_that_opens_it(cx: &mut TestAppContext) {
+    use kalem_core::settings::Layer;
+    use std::time::{Duration, Instant};
+    test_trash();
+    let dir = std::env::temp_dir().join(format!("kalem-ui-for-file-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("notes.org"), "* Notes\n").unwrap();
+    std::fs::write(dir.join("report.qqq"), [0u8, 159, 146, 150, 0, 7, 255]).unwrap();
+    let index = dir.join("index.json");
+    std::fs::write(
+        &index,
+        r#"{"schema":1,"plugins":[
+          {"id":"org.example.qqq","name":"Q viewer","version":"1.2.0","description":"Opens Q files",
+           "api":"^0.2.1","source":"x","download":"https://example.com/q.wasm","sha256":"00",
+           "opens":[".qqq"]}]}"#,
+    )
+    .unwrap();
+    let url = format!("file://{}", index.display()).replace('\\', "/");
+    let config = Config::from_layers(&[(
+        Layer::User,
+        None,
+        &format!("[plugins]\nindex = \"{url}\"\n"),
+    )]);
+    let shared = Rc::new(kalem_ui::shared_in(config, test_settings(&dir)));
+    let notes = dir.join("notes.org");
+    let mut editor = None;
+    let (ws, cx) = cx.add_window_view(|window, cx| {
+        let e = kalem_ui::editor::open(Some(&notes), shared, Theme::light(), cx).unwrap();
+        editor = Some(e.clone());
+        Workspace::new(e, window, cx)
+    });
+    cx.run_until_parked();
+    let e = editor.unwrap();
+    let report = dir.join("report.qqq");
+    ws.update_in(cx, |ws, window, cx| ws.open(&report, None, window, cx));
+    // The index read in the background; its offer in the palette.
+    let titles = |cx: &mut VisualTestContext| -> Vec<String> {
+        e.read_with(cx, |e, _| {
+            e.palette.as_ref().map_or(Vec::new(), |p| {
+                p.matches().iter().map(|i| i.title.clone()).collect()
+            })
+        })
+    };
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while titles(cx).is_empty() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(20));
+        e.update(cx, |e, cx| e.tick(cx));
+        cx.run_until_parked();
+    }
+    let t = titles(cx);
+    assert!(
+        t.iter()
+            .any(|x| x == "Install Q viewer 1.2.0 and open report.qqq"),
+        "{t:?}"
+    );
+    assert!(
+        t.iter().any(|x| x == "Open with the System's Application"),
+        "{t:?}"
+    );
+    // The document shown is still the notes: nothing opened as text.
+    let path = e.read_with(cx, |e, _| e.doc.meta.path.clone());
+    assert_eq!(path.as_deref(), Some(notes.as_path()));
+    let _ = std::fs::remove_dir_all(&dir);
+}

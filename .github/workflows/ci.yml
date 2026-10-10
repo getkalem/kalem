@@ -123,7 +123,10 @@ jobs:
       # one after another (docs/ci_todo.md, C4); .config/nextest.toml.
       # The built-in components compiled once for every test process
       # (crates/kalem-components/src/viewers.rs).
-      - run: cargo nextest run --workspace --profile ci ${{ matrix.part && format('--partition hash:{0}', matrix.part) || '' }}
+      # With the built-in viewers, which no release has (they are
+      # installed when wanted), so that the tests of the choice between a
+      # built-in copy and an installed one build too.
+      - run: cargo nextest run --workspace --features kalem-cli/components --profile ci ${{ matrix.part && format('--partition hash:{0}', matrix.part) || '' }}
         env:
           KALEM_COMPONENT_CACHE: ${{ runner.temp }}/kalem-component-cache
       # Doc tests are not nextest's; they run after a failure too (where

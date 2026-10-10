@@ -322,6 +322,15 @@ impl Workspace {
                         }
                         e
                     }
+                    // Not text, and no installed plugin opens it: the
+                    // plugins that do offered, to install (T3.7.9).
+                    Err(err) if err == kalem_core::files::OpenError::Binary.to_string() => {
+                        let args = serde_json::json!({ "path": target.display().to_string() });
+                        self.editor.update(cx, |e, cx| {
+                            e.run_command("plugin.forFile", args, window, cx);
+                        });
+                        return;
+                    }
                     // A PDF with a password: asked for, then opened again.
                     Err(err) if err == tr!("msg-needs-password") => {
                         let title = tr!("cmd-file-openWithPassword");
@@ -2749,6 +2758,16 @@ pub fn open_window(path: Option<PathBuf>, shared: Rc<Shared>, cx: &mut App) {
                             "string".into(),
                             cx,
                         );
+                    });
+                } else if err == kalem_core::files::OpenError::Binary.to_string()
+                    && let Some(p) = path.as_deref()
+                {
+                    // Not text, and no installed plugin opens it: the
+                    // plugins that do offered, to install (T3.7.9).
+                    let p = std::path::absolute(p).unwrap_or_else(|_| p.to_path_buf());
+                    let args = serde_json::json!({ "path": p.display().to_string() });
+                    e.update(cx, |e, cx| {
+                        e.run_command("plugin.forFile", args, window, cx)
                     });
                 } else {
                     e.update(cx, |e, _| e.status = Some((err, true)));

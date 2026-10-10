@@ -1,7 +1,13 @@
 PDF files, pictures and Excel workbooks open in viewers: plugins that
-run in Kalem's sandbox, built into it (see [[file:../part-3/plugins.org][Plugins]]). A file that is
-text, an SVG picture among them, opens as text; =kalem view FILE= shows
-a viewer's file on the command line.
+run in Kalem's sandbox (see [[file:../part-3/plugins.org][Plugins]]). None is built into Kalem: the
+first time you open such a file, Kalem says which plugin of
+=getkalem/plugins= opens it and offers to install it, then opens the
+file; /Open with the System's Application/ is offered beside it, and
+=kalem plugin install pdf-viewer= (=image-viewer=, =xlsx=, =docx=)
+installs one ahead of time. New Workbook and the other commands that
+make a workbook offer its plugin the same way when it is missing. A
+file that is text, an SVG picture among them, opens as text; =kalem
+view FILE= shows a viewer's file on the command line.
 
 The keys are a viewer's own while it has the focus: Page Down and Page
 Up, or =n= and =p=, go to the next and the previous page or frame, Home

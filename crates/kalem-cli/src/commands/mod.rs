@@ -741,7 +741,13 @@ pub(crate) fn view(file: &Path, unit: usize, png: bool, output: Option<&Path>) -
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
         kalem_core::viewer::find(&name, &head)
-            .ok_or_else(|| format!("{}: no viewer opens this file", file.display()))?
+            .ok_or_else(|| {
+                // No plugin is built in: say how to get one.
+                format!(
+                    "{}: no installed plugin opens this file; `kalem plugin browse` lists those of the index, and `kalem plugin install NAME` installs one",
+                    file.display()
+                )
+            })?
     };
     let opened = kalem_core::viewer::ViewerState::open(viewer, file);
     // What the editors show in the status bar, such as an installed
