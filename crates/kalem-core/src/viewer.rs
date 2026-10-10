@@ -6202,6 +6202,41 @@ impl ViewerState {
         }
     }
 
+    /// Every row (`rows`) or column of the selection given one height in
+    /// points or width in characters, in one undo step: Excel's Format ›
+    /// Row Height and Column Width. A selection of whole columns sets the
+    /// rows in use and the cursor's, not a million of them; whole rows,
+    /// likewise the columns.
+    pub fn set_selection_size(&mut self, rows: bool, size: f32) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (unit, p) = (self.unit, self.grid_pos());
+        let l = self.grid_layout().unwrap_or_default();
+        let last = if rows {
+            l.rows.max(p.row + 1)
+        } else {
+            l.cols.max(p.col + 1)
+        };
+        let mut lines = std::collections::BTreeSet::new();
+        for s in self.selection_areas() {
+            let (from, to) = if rows { (s[0], s[2]) } else { (s[1], s[3]) };
+            lines.extend(from..=to.min(last.saturating_sub(1)).max(from));
+        }
+        let r = self.in_batch(|d| {
+            for &i in &lines {
+                if rows {
+                    d.set_row_height(unit, i, size.clamp(0.0, 409.0))?;
+                } else {
+                    d.set_col_width(unit, i, size.clamp(0.0, 255.0))?;
+                }
+            }
+            Ok(())
+        });
+        self.refresh();
+        r
+    }
+
     /// Edits of the document as one undo step.
     fn in_batch(
         &mut self,
@@ -12089,6 +12124,7 @@ fn context_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
             ("viewer.grid.deleteRow", "Delete Rows"),
             ("viewer.grid.clear", "Clear Contents"),
             ("viewer.grid.formatCells", "Format Cells…"),
+            ("viewer.grid.rowHeight", "Row Height…"),
             ("viewer.grid.fitRowHeight", "Row Height to Fit"),
             ("viewer.grid.tallerRow", "Taller Row"),
             ("viewer.grid.shorterRow", "Shorter Row"),
@@ -12106,6 +12142,7 @@ fn context_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
             ("viewer.grid.deleteColumn", "Delete Columns"),
             ("viewer.grid.clear", "Clear Contents"),
             ("viewer.grid.formatCells", "Format Cells…"),
+            ("viewer.grid.columnWidth", "Column Width…"),
             ("viewer.grid.autofitColumn", "Column Width to Fit"),
             ("viewer.grid.widenColumn", "Wider Column"),
             ("viewer.grid.narrowColumn", "Narrower Column"),
@@ -14969,6 +15006,57 @@ fn grid_width(ctx: &mut EditorContext<'_>, by: f32) -> CommandResult {
     })
 }
 
+/// Row Height or Column Width: the size typed, a row's in points (0 to
+/// 409), a column's in characters of the default font's digits (0 to
+/// 255), the cursor's offered; every row or column of the selection
+/// gets it.
+fn exact_size(ctx: &mut EditorContext<'_>, args: &serde_json::Value, rows: bool) -> CommandResult {
+    let (id, max) = if rows {
+        ("viewer.grid.rowHeight", 409.0)
+    } else {
+        ("viewer.grid.columnWidth", 255.0)
+    };
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some(typed) = text_arg(args, "value") else {
+        let p = v.grid_pos();
+        let now = if rows {
+            v.row_height(p.row)
+        } else {
+            v.col_width(p.col)
+        };
+        let now = format!("{now:.2}");
+        let now = now.trim_end_matches('0').trim_end_matches('.');
+        return ask_more(
+            ctx,
+            id,
+            &serde_json::json!({ "value_default": now }),
+            "value",
+        );
+    };
+    match typed
+        .trim()
+        .replace(',', ".")
+        .parse::<f32>()
+        .ok()
+        .filter(|n| n.is_finite() && (0.0..=max).contains(n))
+    {
+        Some(n) => with(ctx, |v| v.set_selection_size(rows, n)),
+        None => {
+            ctx.messages.push(format!(
+                "{}: a number from 0 to {max}",
+                if rows { "Row Height" } else { "Column Width" }
+            ));
+            Ok(())
+        }
+    }
+}
+
 /// Cells (sorted by row, then column) as few ranges: runs along each row,
 /// the same runs on rows after one another joined.
 pub fn areas_of(cells: &[(u32, u32)]) -> Vec<[u32; 4]> {
@@ -16450,6 +16538,20 @@ fn grid_commands() -> Vec<Command> {
             &["r -"],
             IN_GRID,
             |ctx, _| grid_height(ctx, -3.0),
+        ),
+        cmd(
+            "viewer.grid.rowHeight",
+            "Row Height",
+            &[],
+            IN_GRID,
+            |ctx, args| exact_size(ctx, args, true),
+        ),
+        cmd(
+            "viewer.grid.columnWidth",
+            "Column Width",
+            &[],
+            IN_GRID,
+            |ctx, args| exact_size(ctx, args, false),
         ),
         cmd(
             "viewer.grid.widenColumn",

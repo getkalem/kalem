@@ -1624,6 +1624,8 @@ cmd-viewer-grid-merge = Merge Cells
 cmd-viewer-grid-unmerge = Unmerge Cells
 cmd-viewer-grid-fitRowHeight = Fit Row Height
 cmd-viewer-grid-shorterRow = Shorter Row
+cmd-viewer-grid-rowHeight = Row Height
+cmd-viewer-grid-columnWidth = Column Width
 cmd-latex-ignoreBuildOutputs = Ignore Build Outputs in Git
 msg-latex-ignore-hint = The repository keeps LaTeX's build outputs: Ignore Build Outputs in Git leaves them out.
 msg-not-in-git = The document is not in a Git repository
@@ -1771,6 +1773,8 @@ plugin-no-release-asset = { $name }'s component { $file } is not in { $repo }'s 
 arg-plugin-installGitHub-link = GitHub link (github.com/you/your-plugin, a folder or a release of it)
 arg-plugin-install-source = name, GitHub link, archive link or folder
 arg-project-add-path = folder
+arg-viewer-grid-rowHeight-value = height in points, 0 to 409
+arg-viewer-grid-columnWidth-value = width in characters, 0 to 255
 plugin-no-such = { $count ->
     [one] No plugin named { $name } in the index ({ $count } plugin listed)
    *[other] No plugin named { $name } in the index ({ $count } plugins listed)

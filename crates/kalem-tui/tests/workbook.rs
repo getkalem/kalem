@@ -3978,6 +3978,52 @@ fn the_cells_menu_has_what_is_at_the_cursor() {
 }
 
 #[test]
+fn row_heights_and_column_widths_typed() {
+    let mut t = T::open("exact-sizes");
+    // Rows 2 to 4 selected: Row Height asks, the cursor's offered.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 1);
+        v.grid_extend_to(3, 2);
+    }
+    t.app.run_command("viewer.grid.rowHeight", json!({}));
+    let s = t.screen();
+    assert!(s.contains("Row Height: height in points"), "{s}");
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.rowHeight", json!({ "value": "30" }));
+    t.app
+        .run_command("viewer.grid.columnWidth", json!({ "value": "12,5" }));
+    let sizes = |t: &mut T| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        (
+            (1..=3).map(|r| v.row_height(r)).collect::<Vec<_>>(),
+            (1..=2).map(|c| v.col_width(c)).collect::<Vec<_>>(),
+            v.row_height(4),
+        )
+    };
+    let (heights, widths, below) = sizes(&mut t);
+    assert_eq!(heights, [30.0; 3]);
+    assert_eq!(widths, [12.5; 2]);
+    assert_ne!(below, 30.0);
+    // One undo takes the widths back, another the heights.
+    t.app.run_command("edit.undo", json!({}));
+    assert_ne!(sizes(&mut t).1, [12.5; 2]);
+    assert_eq!(sizes(&mut t).0, [30.0; 3]);
+    t.app.run_command("edit.undo", json!({}));
+    assert_ne!(sizes(&mut t).0, [30.0; 3]);
+    // Past Excel's limit: said, and nothing changes.
+    t.app
+        .run_command("viewer.grid.rowHeight", json!({ "value": "500" }));
+    assert!(
+        t.screen().contains("a number from 0 to 409"),
+        "{}",
+        t.screen()
+    );
+    assert_ne!(sizes(&mut t).0, [500.0; 3]);
+}
+
+#[test]
 fn new_workbooks_and_copied_sheets() {
     let mut t = T::open("new-books");
     let budget = t.dir.join("budget.xlsx");
