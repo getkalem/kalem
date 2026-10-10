@@ -73,6 +73,16 @@ pub trait Extensions: Send {
     ) -> crate::layers::Outcome {
         crate::layers::Outcome::Failed
     }
+
+    /// The items plugin `spec.plugin`'s completer `spec.id` gives at the
+    /// cursor of `ctx` (`crate::completers::plugins`, API 0.2.11).
+    fn complete(
+        &mut self,
+        _spec: &crate::completers::plugins::PluginCompleterSpec,
+        _ctx: &crate::completers::Context,
+    ) -> Vec<crate::completers::Item> {
+        Vec::new()
+    }
 }
 
 /// A document a plugin writes (`documents`, plugin API 0.2.5), as the
@@ -542,6 +552,23 @@ pub fn install(extensions: Box<dyn Extensions>) {
                     None => crate::layers::Outcome::Failed,
                 },
                 Err(std::sync::TryLockError::WouldBlock) => crate::layers::Outcome::Busy,
+            }
+        },
+    ));
+    // The plugins' completers are asked as the user types, on the
+    // editor's thread: while a call of theirs runs, they offer nothing.
+    crate::completers::plugins::set_provider(std::sync::Arc::new(
+        |spec: &crate::completers::plugins::PluginCompleterSpec,
+         ctx: &crate::completers::Context| {
+            match INSTALLED.try_lock() {
+                Ok(mut installed) => installed
+                    .as_mut()
+                    .map_or_else(Vec::new, |x| x.complete(spec, ctx)),
+                Err(std::sync::TryLockError::Poisoned(e)) => e
+                    .into_inner()
+                    .as_mut()
+                    .map_or_else(Vec::new, |x| x.complete(spec, ctx)),
+                Err(std::sync::TryLockError::WouldBlock) => Vec::new(),
             }
         },
     ));

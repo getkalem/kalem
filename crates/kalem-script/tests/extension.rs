@@ -1108,10 +1108,77 @@ fn a_layer_and_the_clock() {
         "{answer}"
     );
     assert!(!answer["zone"].as_str().unwrap().is_empty());
+    // The local time's offset (API 0.2.11): within a day.
+    assert!(
+        answer["offset"].as_i64().unwrap().abs() <= 14 * 3600,
+        "{answer}"
+    );
     assert_eq!(fake.0.lock().unwrap().refreshed, ["layered"]);
     // A plugin built without the feature exports no layer.
     if let Some((mut counter, _)) = counter(Limits::default()) {
         assert!(!counter.has_layers());
         assert!(counter.overlays("ids", None, text).unwrap().is_none());
+    }
+}
+
+/// A plugin exporting a completer (API 0.2.11): its items for a request,
+/// by the bytes of the document; a plugin without the export has none.
+#[test]
+fn a_completer() {
+    use kalem_script::extension::completer::{ItemKind, Request};
+    let Some(bytes) = common::component("layered") else {
+        return;
+    };
+    let host = Host::new(None).unwrap();
+    let plugin = host.load(&bytes).unwrap();
+    let mut ext = Extension::new(
+        &host,
+        &plugin,
+        "layered",
+        Box::new(Fake::default()),
+        Grants::default(),
+        Limits::default(),
+    )
+    .unwrap();
+    ext.activate().unwrap().unwrap();
+    assert!(ext.has_completers() && ext.has_layers());
+    // The copy starts at byte 100 of the document; the cursor is after
+    // `((a`.
+    let request = |text: &str| Request {
+        path: Some("/g/a.md".into()),
+        text: text.into(),
+        base: 100,
+        cursor: 100 + text.len() as u64,
+        text_type: "markdown".into(),
+        requested: false,
+    };
+    let items = ext
+        .complete("refs", &request("x\n- see ((a"))
+        .unwrap()
+        .unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(
+        (
+            items[0].label.as_str(),
+            items[0].insert.as_str(),
+            items[0].start
+        ),
+        ("ab", "ab))", 110)
+    );
+    assert!(matches!(items[0].kind, ItemKind::Link));
+    assert_eq!(items[0].detail, "a block");
+    let items = ext.complete("refs", &request("((")).unwrap().unwrap();
+    assert_eq!(items.len(), 2);
+    // Another completer's name: nothing.
+    assert!(
+        ext.complete("other", &request("(("))
+            .unwrap()
+            .unwrap()
+            .is_empty()
+    );
+    // A plugin built without the feature exports no completer.
+    if let Some((mut counter, _)) = counter(Limits::default()) {
+        assert!(!counter.has_completers());
+        assert!(counter.complete("refs", &request("((")).unwrap().is_none());
     }
 }

@@ -24,7 +24,8 @@ interface = "decorations"
 
 [[point]]
 name = "Completers and hover"
-planned = "T3.1.9c"
+# Completers (API 0.2.11); hover is T3.1.9c's rest.
+interface = "completer"
 
 [[point]]
 name = "Input rules"

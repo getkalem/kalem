@@ -47,6 +47,17 @@ pub trait Plugin {
             lines: Vec::new(),
         }
     }
+
+    /// The items of the plugin's completer `completer` (its manifest's
+    /// `completers`) for `request`, best first (API 0.2.11, the feature
+    /// `completer`); none by default.
+    #[cfg(feature = "completer")]
+    fn complete(
+        _completer: &str,
+        _request: &crate::completer::Request,
+    ) -> Vec<crate::completer::Item> {
+        Vec::new()
+    }
 }
 
 type CommandFn = Box<dyn FnMut(&str) -> Result<String, String>>;
@@ -408,6 +419,7 @@ macro_rules! export_plugin {
         }
 
         $crate::__export_layer!($plugin);
+        $crate::__export_completer!($plugin);
 
         $crate::extension::export_extension!(__KalemPlugin);
     };
@@ -436,5 +448,31 @@ macro_rules! __export_layer {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __export_layer {
+    ($plugin:ty) => {};
+}
+
+/// The `completer` interface of [`export_plugin!`] with the feature
+/// `completer`.
+#[cfg(feature = "completer")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_completer {
+    ($plugin:ty) => {
+        impl $crate::extension::exports::kalem::plugin::completer::Guest for __KalemPlugin {
+            fn complete(
+                completer: ::std::string::String,
+                request: $crate::completer::Request,
+            ) -> ::std::vec::Vec<$crate::completer::Item> {
+                <$plugin as $crate::kalem::Plugin>::complete(&completer, &request)
+            }
+        }
+    };
+}
+
+/// Nothing without the feature `completer`.
+#[cfg(not(feature = "completer"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_completer {
     ($plugin:ty) => {};
 }

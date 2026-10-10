@@ -581,6 +581,8 @@ struct Loaded {
     buttons: Vec<kalem_core::extensions::PluginButton>,
     /// The layers its manifest declares, once it runs (API 0.2.10).
     layers: Vec<kalem_core::layers::LayerSpec>,
+    /// The completers its manifest declares, once it runs (API 0.2.11).
+    completers: Vec<kalem_core::completers::plugins::PluginCompleterSpec>,
 }
 
 /// A manifest's `layers` for plugin `id` (its short ID): each an ID, the
@@ -613,6 +615,86 @@ fn manifest_layers(id: &str, m: &serde_json::Value) -> Vec<kalem_core::layers::L
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// A manifest's `completers` for plugin `id` (its short ID): each an ID,
+/// the text types and the plugin's layers it serves, its triggers, the
+/// completers it replaces and its priority; one without an ID is left
+/// out.
+fn manifest_completers(
+    id: &str,
+    m: &serde_json::Value,
+) -> Vec<kalem_core::completers::plugins::PluginCompleterSpec> {
+    let strings = |v: &serde_json::Value| -> Vec<String> {
+        v.as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|e| e.as_str().map(str::to_string))
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    m["completers"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|c| {
+                    let name = c["id"].as_str().filter(|s| !s.trim().is_empty())?;
+                    Some(kalem_core::completers::plugins::PluginCompleterSpec {
+                        plugin: id.to_string(),
+                        id: name.to_string(),
+                        types: strings(&c["types"]),
+                        layers: strings(&c["layers"]),
+                        triggers: strings(&c["triggers"]),
+                        word: c["word"].as_u64().map(|n| n.min(64) as usize),
+                        replaces: strings(&c["replaces"]),
+                        priority: c["priority"]
+                            .as_i64()
+                            .map_or(5, |p| p.clamp(-100, 100) as i32),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// A completer's request for the cursor of `ctx`.
+fn completion_request(ctx: &kalem_core::completers::Context) -> x::completer::Request {
+    x::completer::Request {
+        path: ctx.path.as_ref().map(|p| p.to_string_lossy().into_owned()),
+        text: ctx.text.to_string(),
+        base: ctx.base as u64,
+        cursor: ctx.point as u64,
+        text_type: ctx.text_type.clone(),
+        requested: ctx.requested,
+    }
+}
+
+/// A plugin's item as the core's: the text from `start` to the cursor
+/// replaced (the core leaves out one that does not fit).
+fn completion_item(item: x::completer::Item, point: usize) -> kalem_core::completers::Item {
+    use kalem_core::completers::Kind;
+    use x::completer::ItemKind as K;
+    let kind = match item.kind {
+        K::Word => Kind::Word,
+        K::Keyword => Kind::Keyword,
+        K::Link => Kind::Link,
+        K::Tag => Kind::Tag,
+        K::Footnote => Kind::Footnote,
+        K::Symbol => Kind::Symbol,
+        K::Snippet => Kind::Snippet,
+    };
+    let start = usize::try_from(item.start)
+        .unwrap_or(usize::MAX)
+        .min(point + 1);
+    let mut out = kalem_core::completers::Item::new(item.label, item.insert, start..point, kind);
+    if let Some(c) = item.cursor {
+        out.cursor = c as usize;
+    }
+    out.detail = item.detail;
+    out.documentation = item.documentation;
+    out
 }
 
 /// A layer's overlays as the core's.
@@ -797,6 +879,11 @@ impl Plugins {
                         kalem_core::layers::register(layer);
                     }
                 }
+                if l.extension.as_ref().is_some_and(Extension::has_completers) {
+                    for c in l.completers.clone() {
+                        kalem_core::completers::plugins::register(c);
+                    }
+                }
             }
             Err(e) => {
                 l.failed = true;
@@ -818,11 +905,41 @@ impl Plugins {
         kalem_core::extensions::remove_menus(&l.id);
         kalem_core::extensions::remove_buttons(&l.id);
         kalem_core::layers::remove_plugin(&l.id);
+        kalem_core::completers::plugins::remove_plugin(&l.id);
         kalem_core::jobs::notice(format!("The plugin {} was stopped: {error}", l.id), true);
     }
 }
 
 impl kalem_core::extensions::Extensions for Plugins {
+    fn complete(
+        &mut self,
+        spec: &kalem_core::completers::plugins::PluginCompleterSpec,
+        ctx: &kalem_core::completers::Context,
+    ) -> Vec<kalem_core::completers::Item> {
+        let Some(i) = self
+            .list
+            .iter()
+            .position(|l| l.id == spec.plugin && l.extension.is_some())
+        else {
+            return Vec::new();
+        };
+        PLUGIN.with(|p| p.set(i as u64 + 1));
+        let Some(ext) = self.list[i].extension.as_mut() else {
+            return Vec::new();
+        };
+        match ext.complete(&spec.id, &completion_request(ctx)) {
+            Ok(Some(items)) => items
+                .into_iter()
+                .map(|it| completion_item(it, ctx.point))
+                .collect(),
+            Ok(None) => Vec::new(),
+            Err(e) => {
+                self.fail(i, &e);
+                Vec::new()
+            }
+        }
+    }
+
     fn overlays(
         &mut self,
         plugin: &str,
@@ -1209,6 +1326,7 @@ fn installed() -> Vec<Loaded> {
             menus: manifest_menus(&id, &m),
             buttons: manifest_buttons(&id, &m),
             layers: manifest_layers(&id, &m),
+            completers: manifest_completers(&id, &m),
             id,
             full: p.id.clone(),
             version: p.version.clone(),
@@ -1368,5 +1486,35 @@ mod tests {
             [("Git", "git.status", true), ("Fetch", "git.fetch", false)]
         );
         assert!(super::manifest_buttons("git", &serde_json::json!({})).is_empty());
+    }
+
+    #[test]
+    fn a_manifests_completers() {
+        let m: serde_json::Value = serde_json::from_str(
+            r##"{"completers": [
+                {"id": "pages", "types": ["markdown"], "layers": ["logseq"],
+                 "triggers": ["[[", "#"], "replaces": ["wiki"], "priority": 12},
+                {"id": "words", "word": 3},
+                {"id": " "},
+                {"types": ["org"]}
+            ]}"##,
+        )
+        .unwrap();
+        let c = super::manifest_completers("graph", &m);
+        assert_eq!(c.len(), 2, "{c:?}");
+        assert_eq!(
+            (c[0].plugin.as_str(), c[0].id.as_str(), c[0].priority),
+            ("graph", "pages", 12)
+        );
+        assert_eq!(c[0].triggers, ["[[", "#"]);
+        assert_eq!(
+            (c[0].layers.as_slice(), c[0].replaces.as_slice()),
+            (&["logseq".to_string()][..], &["wiki".to_string()][..])
+        );
+        assert_eq!(
+            (c[1].word, c[1].priority, c[1].types.is_empty()),
+            (Some(3), 5, true)
+        );
+        assert!(super::manifest_completers("graph", &serde_json::json!({})).is_empty());
     }
 }

@@ -18,11 +18,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use wasmtime::component::{HasSelf, Resource, ResourceTable};
 
 mod bindings {
-    // `extension-layer`: the `extension` world and the `layer` interface
-    // it may export (API 0.2.10), bound one by one (`Extension::new`).
+    // `extension-completer`: the `extension` world and the `layer` (API
+    // 0.2.10) and `completer` (API 0.2.11) interfaces it may export,
+    // bound one by one (`Extension::new`).
     wasmtime::component::bindgen!({
         path: "../kalem-plugin/wit",
-        world: "extension-layer",
+        world: "extension-completer",
         with: {
             "kalem:plugin/kalem.disposable": super::Registration,
         },
@@ -30,12 +31,12 @@ mod bindings {
 }
 
 pub use api::{CommandSpec, Event, EventKind, Reply, Scope};
-pub use bindings::exports::kalem::plugin::layer;
+pub use bindings::exports::kalem::plugin::{completer, layer};
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
 pub use bindings::kalem::plugin::{
-    clock, decorations, diagnostics, documents, editor, fs, http, layers, net, process, settings,
-    styled_documents,
+    clock, clock_2, decorations, diagnostics, documents, editor, fs, http, layers, net, process,
+    settings, styled_documents,
 };
 
 /// An edit a plugin asked for, applied when its command returns, its
@@ -744,6 +745,12 @@ impl clock::Host for Session {
     }
 }
 
+impl clock_2::Host for Session {
+    fn offset(&mut self, at: i64) -> i32 {
+        crate::time::offset(at)
+    }
+}
+
 impl layers::Host for Session {
     fn refresh(&mut self) {
         let plugin = self.plugin.clone();
@@ -1352,6 +1359,9 @@ pub struct Extension {
     api: bindings::exports::kalem::plugin::plugin::Guest,
     /// The `layer` interface, when the component exports it (API 0.2.10).
     layer: Option<layer::Guest>,
+    /// The `completer` interface, when the component exports it (API
+    /// 0.2.11).
+    completer: Option<completer::Guest>,
 }
 
 impl std::fmt::Debug for Extension {
@@ -1414,10 +1424,16 @@ impl Extension {
             |d: &mut crate::Data<Session>| &mut d.user,
         )
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
-        // The time and layers' refresh (API 0.2.10), without a permission.
+        // The time and layers' refresh (API 0.2.10) and the local time
+        // (0.2.11), without a permission.
         clock::add_to_linker::<_, HasSelf<Session>>(&mut linker, |d: &mut crate::Data<Session>| {
             &mut d.user
         })
+        .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        clock_2::add_to_linker::<_, HasSelf<Session>>(
+            &mut linker,
+            |d: &mut crate::Data<Session>| &mut d.user,
+        )
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
         layers::add_to_linker::<_, HasSelf<Session>>(
             &mut linker,
@@ -1474,10 +1490,21 @@ impl Extension {
                 .load(&mut *store, i)
                 .map(Some)
         })?;
+        let completer = instance.bindings(|store, i| {
+            let pre = i.instance_pre(&*store);
+            let name = format!("kalem:plugin/completer@{}", crate::API_VERSION);
+            if pre.component().get_export_index(None, &name).is_none() {
+                return Ok(None);
+            }
+            completer::GuestIndices::new(&pre)?
+                .load(&mut *store, i)
+                .map(Some)
+        })?;
         Ok(Extension {
             instance,
             api,
             layer,
+            completer,
         })
     }
 
@@ -1507,6 +1534,26 @@ impl Extension {
         let path = path.map(str::to_string);
         self.instance
             .run(|s| l.call_overlays(s, id, path.as_deref(), text))
+            .map(Some)
+    }
+
+    /// Whether the plugin exports completers (API 0.2.11).
+    pub fn has_completers(&self) -> bool {
+        self.completer.is_some()
+    }
+
+    /// The items of the plugin's completer `id` for `request`; `None`
+    /// when the plugin exports no completer.
+    pub fn complete(
+        &mut self,
+        id: &str,
+        request: &completer::Request,
+    ) -> crate::Result<Option<Vec<completer::Item>>> {
+        let Some(c) = &self.completer else {
+            return Ok(None);
+        };
+        self.instance
+            .run(|s| c.call_complete(s, id, request))
             .map(Some)
     }
 

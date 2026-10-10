@@ -31,8 +31,9 @@
 /// `styled-documents` import, 0.2.7 the `flow` and `annotations`
 /// exports, 0.2.8 the `flow-2` export, 0.2.9 the `flow-3` export, 0.2.10
 /// for extensions the `clock` and `layers` imports and the `layer`
-/// export.
-pub const API_VERSION: &str = "0.2.10";
+/// export, 0.2.11 the `completer` export and the `clock-2` import of
+/// extensions.
+pub const API_VERSION: &str = "0.2.11";
 
 /// Whether a manifest's `api` requirement (`^0.2`, `0.2`, `^0.2.1`)
 /// names this host's API: the same `0.MINOR` before 1.0 (the same major
@@ -93,6 +94,13 @@ pub(crate) mod time {
             .iana_name()
             .unwrap_or("UTC")
             .to_string()
+    }
+
+    /// Seconds east of UTC in the user's time zone at `at` (milliseconds
+    /// since 1970, UTC); 0 when either is not known.
+    pub(crate) fn offset(at: i64) -> i32 {
+        jiff::Timestamp::from_millisecond(at)
+            .map_or(0, |t| jiff::tz::TimeZone::system().to_offset(t).seconds())
     }
 
     /// The system's secure random source: a workbook's `RAND()`, an
@@ -803,6 +811,7 @@ mod tests {
         assert!(!super::api_compatible(Some("^0.1")));
         assert!(!super::api_compatible(Some("^1.0")));
         assert!(super::api_compatible(Some("^0.2.10")));
+        assert!(super::api_compatible(Some("^0.2.11")));
         // Built against a later 0.2.x: it may import what this host lacks.
         assert!(!super::api_compatible(Some("^0.2.99")));
     }

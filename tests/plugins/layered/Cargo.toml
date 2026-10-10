@@ -3,13 +3,13 @@ name = "kalem-plugin-layered"
 version = "0.0.0"
 edition = "2024"
 publish = false
-description = "An extension plugin for tests: a layer over a mode's view and the clock (API 0.2.10)"
+description = "An extension plugin for tests: a layer over a mode's view, the clock (API 0.2.10) and a completer (API 0.2.11)"
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-kalem-plugin = { path = "../../../crates/kalem-plugin", features = ["layer"] }
+kalem-plugin = { path = "../../../crates/kalem-plugin", features = ["completer"] }
 
 [profile.release]
 opt-level = "s"

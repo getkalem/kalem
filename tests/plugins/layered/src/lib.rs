@@ -1,8 +1,10 @@
 //! An extension plugin for tests (API 0.2.10): its layer `ids` hides every
 //! `id::` line, shows `((x))` as `X` and styles `#tags`; its command
-//! `layered.now` answers the clock's time and tells the editor its layer
-//! changed.
+//! `layered.now` answers the clock's time and its offset (API 0.2.11) and
+//! tells the editor its layer changed. Its completer `refs` (API 0.2.11) offers `ab` and `cd` after
+//! an open `((`, with the closing `))`.
 
+use kalem_plugin::completer::{self, Item, ItemKind, Request};
 use kalem_plugin::kalem::{self, Plugin, Scope};
 use kalem_plugin::layer::{LineEffect, Lines, OverlaySet, Replacement, Span, SpanEffect, SpanStyle};
 
@@ -13,11 +15,13 @@ impl Plugin for Layered {
         kalem::command(kalem::spec("layered.now", "Now", Scope::all()), |_| {
             kalem_plugin::layer::refresh();
             let random = kalem_plugin::clock::random();
+            let now = kalem_plugin::clock::now();
             Ok(format!(
-                "{{\"now\":{},\"zone\":\"{}\",\"random\":{}}}",
-                kalem_plugin::clock::now(),
+                "{{\"now\":{},\"zone\":\"{}\",\"random\":{},\"offset\":{}}}",
+                now,
                 kalem_plugin::clock::timezone(),
-                u64::from(random != 0)
+                u64::from(random != 0),
+                kalem_plugin::clock::offset(now)
             ))
         })?;
         Ok(())
@@ -68,6 +72,32 @@ impl Plugin for Layered {
         }
         set.spans.sort_by_key(|s| s.start);
         set
+    }
+
+    fn complete(id: &str, request: &Request) -> Vec<Item> {
+        if id != "refs" {
+            return Vec::new();
+        }
+        let at = (request.cursor - request.base) as usize;
+        let before = &request.text[..at];
+        let line = &before[before.rfind('\n').map_or(0, |i| i + 1)..];
+        let Some(open) = line.rfind("((") else {
+            return Vec::new();
+        };
+        let typed = &line[open + 2..];
+        if typed.contains("))") {
+            return Vec::new();
+        }
+        let start = request.cursor - typed.len() as u64;
+        ["ab", "cd"]
+            .iter()
+            .filter(|r| r.starts_with(typed))
+            .map(|r| {
+                let mut item = completer::item(r, &format!("{r}))"), start, ItemKind::Link);
+                item.detail = "a block".into();
+                item
+            })
+            .collect()
     }
 }
 

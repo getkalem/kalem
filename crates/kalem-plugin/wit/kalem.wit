@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.10;
+package kalem:plugin@0.2.11;
 
 /// The editor's commands, keys and events (design §11.2 to §11.4): what a
 /// plugin adds to the palette, menus and keymap, and what it hears.
@@ -270,6 +270,7 @@ interface plugin {
 world extension {
     import diagnostics;
     import clock;
+    import clock-2;
     import layers;
     import kalem;
     import ui;
@@ -290,4 +291,12 @@ world extension {
 world extension-layer {
     include extension;
     export layer;
+}
+
+/// An extension plugin with completers too (API 0.2.11): the
+/// `extension-layer` world, and the `completer` interface it exports.
+/// The editor binds each export a component has.
+world extension-completer {
+    include extension-layer;
+    export completer;
 }

@@ -1,0 +1,84 @@
+package kalem:plugin@0.2.11;
+
+/// Completion by a plugin (API 0.2.11; `kalem_core::completers`): items
+/// a plugin offers at the cursor, in the one menu Kalem shows, merged and
+/// ranked with its own completers' items. A plugin declares its
+/// completers in its manifest:
+///
+/// ```json
+/// "completers": [{
+///     "id": "pages", "types": ["markdown", "org"], "layers": ["logseq"],
+///     "triggers": ["[[", "#"], "replaces": ["wiki"]
+/// }]
+/// ```
+///
+/// `types` are the text types it serves (all when missing); `layers`, the
+/// plugin's own layers: when given, it applies only in a document one of
+/// them serves; `triggers`, strings before the cursor on its line that
+/// open the menu as the user types, and `word`, a word of that many
+/// letters that does too (with neither, only Ctrl+Space asks it);
+/// `replaces`, the completers it stands in for (Kalem's `wiki`, `words`,
+/// `org`, `latex`): it is asked first, and where it gives items they are
+/// not asked; `priority`, its rank among the
+/// others when items rank the same (Kalem's own are 10, the document's
+/// words 0; 5 when missing).
+///
+/// The editor asks while the user types and waits for the answer: a
+/// completer must answer quickly, from the text and what the plugin
+/// knows, and use neither the `editor` interface nor a question to the
+/// user. While another call of the plugin runs, it is not asked.
+interface completer {
+    /// What an item is: its mark in the menu.
+    enum item-kind {
+        word,
+        keyword,
+        link,
+        tag,
+        footnote,
+        symbol,
+        snippet,
+    }
+
+    /// A completion to choose.
+    record item {
+        /// What the menu shows.
+        label: string,
+        /// What replaces the text from `start` to the cursor.
+        insert: string,
+        /// Where the text it replaces starts: a byte of the document at
+        /// or before the cursor, within the request's text, at a
+        /// character's start. An item that is not is left out.
+        start: u64,
+        /// Where the cursor goes, in bytes into `insert`; after it when
+        /// none.
+        cursor: option<u32>,
+        kind: item-kind,
+        /// A line more about it, beside the label (a page's folder).
+        detail: string,
+        /// Its documentation (Markdown), shown beside the menu when the
+        /// item is chosen.
+        documentation: option<string>,
+    }
+
+    /// Where completion is asked.
+    record request {
+        /// The file of the document; none for one not saved yet.
+        path: option<string>,
+        /// The text of the document: all of it up to a megabyte, else
+        /// the megabyte around the cursor.
+        text: string,
+        /// Where `text` starts in the document, in bytes.
+        base: u64,
+        /// The cursor, a byte of the document (`base` and more).
+        cursor: u64,
+        /// The text type at the cursor (`markdown`, `org`, a source
+        /// block's language).
+        text-type: string,
+        /// The user asked (Ctrl+Space), rather than typing a trigger.
+        requested: bool,
+    }
+
+    /// The items of completer `completer` (an ID of the manifest's
+    /// `completers`) for `request`, best first.
+    complete: func(completer: string, request: request) -> list<item>;
+}

@@ -5,13 +5,13 @@ a styled document, CSV as a grid, LaTeX with formulas typeset). The
 design gives each one contract shared by the built-in ones and by
 plugins (D25). This chapter says where each contract stands today.
 
-| Contract       | State today                                                                                                                    | Code                           | Plugin side       |
-|----------------+--------------------------------------------------------------------------------------------------------------------------------+--------------------------------+-------------------|
-| Completers     | Implemented; three built-in completers use it                                                                                  | =kalem-core/src/completers.rs= | T3.1.9c           |
-| Highlighters   | syntect with the built-in syntax definitions, and language plugins' (no code)                                                 | =kalem-highlight/src/lib.rs=   | T3.1.9g           |
-| Document modes | The contract with its conformance check; CSV, Markdown, LaTeX and Org on it, the editors drawing each mode through =mode_view= | =kalem-core/src/modes.rs=      | T2.7c.10, T3.1.9g |
-| Language packs | Implemented and wired; no pack built in                                                                                        | =kalem-core/src/packs.rs=      | T3.1.9c, T3.1.9e  |
-| Layers         | Implemented: a plugin's overlays over Markdown and Org, applied by =mode_view=; the graph plugin's                                | =kalem-core/src/layers.rs=     | API 0.2.10 =layer= |
+| Contract       | State today                                                                                                                    | Code                           | Plugin side            |
+|----------------+--------------------------------------------------------------------------------------------------------------------------------+--------------------------------+------------------------|
+| Completers     | Implemented; the built-in completers use it, and plugins' through the =completer= export (API 0.2.11)                          | =kalem-core/src/completers.rs= | API 0.2.11 =completer= |
+| Highlighters   | syntect with the built-in syntax definitions, and language plugins' (no code)                                                  | =kalem-highlight/src/lib.rs=   | T3.1.9g                |
+| Document modes | The contract with its conformance check; CSV, Markdown, LaTeX and Org on it, the editors drawing each mode through =mode_view= | =kalem-core/src/modes.rs=      | T2.7c.10, T3.1.9g      |
+| Language packs | Implemented and wired; no pack built in                                                                                        | =kalem-core/src/packs.rs=      | T3.1.9c, T3.1.9e       |
+| Layers         | Implemented: a plugin's overlays over Markdown and Org, applied by =mode_view=; the graph plugin's                             | =kalem-core/src/layers.rs=     | API 0.2.10 =layer=     |
 
 * Completers
 
@@ -141,8 +141,38 @@ impl Completer for Glossary {
 }
 #+end_src
 
-As a plugin, the same completer will be registered with
-=kalem::completers::register= (T3.1.9c).
+** A plugin's completer
+
+A plugin offers completions through the =completer= interface it
+exports (plugin API 0.2.11, =kalem-plugin='s feature =completer=). Its
+manifest declares its completers, which Kalem runs with its own:
+
+#+begin_src json
+"completers": [{
+  "id": "refs", "types": ["markdown", "org"], "layers": ["logseq"],
+  "triggers": ["[[", "#", "(("], "replaces": ["wiki", "words"], "priority": 12
+}]
+#+end_src
+
+| Field      | What it says                                                                                        |
+|------------+-----------------------------------------------------------------------------------------------------|
+| =types=    | The text types it serves, as a completer's scope; all when missing                                  |
+| =layers=   | The plugin's own layers: when given, it applies only in a document one of them serves               |
+| =triggers= | Strings before the cursor on its line that open its menu, as =Trigger::Strings=                     |
+| =word=     | A word of this many letters opens it too; with neither, only Ctrl+Space asks it                     |
+| =replaces= | Completers it stands in for: it is asked first, and where it gives items they are not asked         |
+| =priority= | Its rank among the others when items rank the same: Kalem's own are 10, the words 0; 5 when missing |
+
+Kalem asks the plugin's =complete(completer, request)= on the editor's
+thread as the user types: the request holds the document's file, its
+text (all of it up to a megabyte, else the megabyte around the cursor,
+from =base=), the cursor and the text type at it; each item names the
+byte where the text it replaces starts (it ends at the cursor), what
+it inserts and where the cursor goes in it, its kind, a detail and
+documentation. An item that does not fit the text is left out. While
+another call of the plugin runs, the completer offers nothing for that
+keystroke. The graph plugin of =getkalem/plugins= completes pages,
+tags and blocks with it in a Logseq graph or an Obsidian vault.
 
 * Document modes
 

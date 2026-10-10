@@ -88,7 +88,9 @@ pub mod viewer {
 /// commands and keys and hearing events. [`kalem`] is its Rust side in the
 /// shape of §11.4. With the feature `layer`, the `extension-layer` world
 /// instead: the same, and the `layer` interface of layers over a mode's
-/// view (API 0.2.10; [`layer`]).
+/// view (API 0.2.10; [`layer`]); with the feature `completer`, the
+/// `extension-completer` world: those, and the `completer` interface
+/// (API 0.2.11; [`completer`]).
 #[allow(
     missing_debug_implementations,
     unreachable_pub,
@@ -104,10 +106,18 @@ pub mod extension {
         export_macro_name: "export_extension",
         default_bindings_module: "kalem_plugin::extension",
     });
-    #[cfg(feature = "layer")]
+    #[cfg(all(feature = "layer", not(feature = "completer")))]
     wit_bindgen::generate!({
         path: "wit",
         world: "extension-layer",
+        pub_export_macro: true,
+        export_macro_name: "export_extension",
+        default_bindings_module: "kalem_plugin::extension",
+    });
+    #[cfg(feature = "completer")]
+    wit_bindgen::generate!({
+        path: "wit",
+        world: "extension-completer",
         pub_export_macro: true,
         export_macro_name: "export_extension",
         default_bindings_module: "kalem_plugin::extension",
@@ -116,6 +126,7 @@ pub mod extension {
 
 pub mod adapter;
 pub mod clock;
+pub mod completer;
 pub mod decorations;
 pub mod documents;
 pub mod editor;

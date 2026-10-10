@@ -26,6 +26,10 @@ flow = []
 # The `extension-layer` world: an extension plugin exporting the `layer`
 # interface too, layers over a mode's view (API 0.2.10).
 layer = []
+# The `extension-completer` world: an extension plugin exporting the
+# `completer` interface too, completion at the cursor (API 0.2.11), and
+# `layer` (none unless it answers `overlays`).
+completer = ["layer"]
 
 [dev-dependencies]
 toml_edit = { version = "0.25", default-features = false, features = ["parse"] }

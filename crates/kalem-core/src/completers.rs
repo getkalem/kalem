@@ -9,7 +9,8 @@
 //!
 //! The built-ins: Org's completions (`#+` keywords and blocks, `[[` link
 //! targets, `[fn:` labels, tags; [`crate::input`]) and the words of the
-//! document, for every text file.
+//! document, for every text file. Plugins add theirs ([`plugins`], API
+//! 0.2.11).
 
 use std::collections::VecDeque;
 use std::ops::Range;
@@ -22,6 +23,8 @@ use org_edit::{Selection, Transaction};
 
 use crate::DocumentState;
 use crate::mode::DocumentMode;
+
+pub mod plugins;
 
 /// What an item is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -235,6 +238,13 @@ pub trait Completer: Send + Sync {
     fn budget(&self) -> Duration {
         DEFAULT_BUDGET
     }
+    /// The completers it stands in for where it gives items (a plugin's
+    /// pages for the core's `wiki` and the document's `words` after `[[`
+    /// in the notes it knows): it is asked first, and when it gives
+    /// items they are not asked. Only a fast completer replaces others.
+    fn replaces(&self) -> &'static [&'static str] {
+        &[]
+    }
     /// Its items for `ctx`; long work checks `cancel`.
     fn complete(&self, ctx: &Context, doc: Option<&DocumentState>, cancel: &Cancel) -> Vec<Item>;
     /// Documentation for an item, fetched when it is chosen in the menu.
@@ -330,14 +340,16 @@ impl Registry {
             .find_map(|c| c.hover(&ctx, Some(doc)))
     }
 
-    /// The completers that apply in `ctx` and whose trigger fires.
+    /// The completers that apply in `ctx` and whose trigger fires, the
+    /// plugins' with the core's.
     fn active(&self, ctx: &Context) -> Vec<Arc<dyn Completer>> {
         self.completers
             .iter()
+            .cloned()
+            .chain(plugins::completers())
             .filter(|c| {
                 c.scope().serves(&ctx.text_type) && c.applies(ctx) && fires(c.trigger(), ctx)
             })
-            .cloned()
             .collect()
     }
 
@@ -387,8 +399,21 @@ impl Registry {
         // The model, for completers of Org documents.
         let _ = doc.model();
         let mut fast = Vec::new();
+        // The completers standing in for others first: those they replace
+        // are not asked where they give items.
+        let (first, active): (Vec<_>, Vec<_>) = active
+            .into_iter()
+            .partition(|c| !c.replaces().is_empty() && !c.slow());
+        let mut replaced: Vec<&str> = Vec::new();
+        for c in first {
+            let items = c.complete(&ctx, Some(doc), &cancel);
+            if !items.is_empty() {
+                replaced.extend(c.replaces());
+            }
+            fast.extend(tag(items, c.id(), c.priority()));
+        }
         let (send, recv) = mpsc::channel();
-        for c in active {
+        for c in active.into_iter().filter(|c| !replaced.contains(&c.id())) {
             if c.slow() {
                 session.pending += 1;
                 let due = Instant::now() + c.budget();
@@ -990,6 +1015,65 @@ mod tests {
             Registry::with_builtins().complete(&mut d, true, Duration::ZERO)[0].label,
             "alpha"
         );
+    }
+
+    #[test]
+    fn a_plugins_completer_joins_and_replaces() {
+        use plugins::PluginCompleterSpec;
+        // A plugin's completer opened by `@@` (no other test types it),
+        // standing in for the document's words there.
+        plugins::set_provider(Arc::new(|spec: &PluginCompleterSpec, ctx: &Context| {
+            assert_eq!(spec.id, "at");
+            let typed = ctx.line_before().rsplit("@@").next().unwrap_or("");
+            if typed.contains(' ') {
+                return Vec::new();
+            }
+            let start = ctx.point - typed.len();
+            vec![
+                Item::new("quality@", "quality@", start..ctx.point, Kind::Link),
+                // Past the cursor: left out.
+                Item::new("bad", "bad", ctx.point + 1..ctx.point, Kind::Link),
+            ]
+        }));
+        plugins::register(PluginCompleterSpec {
+            plugin: "test".into(),
+            id: "at".into(),
+            types: vec!["markdown".into()],
+            layers: Vec::new(),
+            triggers: vec!["@@".into()],
+            word: None,
+            replaces: vec!["words".into()],
+            priority: 5,
+        });
+        let t = "quartz quality\n@@qua";
+        let mut d = doc(t, DocumentMode::Markdown, t.len());
+        let items = Registry::with_builtins().complete(&mut d, false, Duration::ZERO);
+        let found: Vec<(&str, &str)> = items.iter().map(|i| (i.label.as_str(), i.source)).collect();
+        assert_eq!(found, [("quality@", "test.at")]);
+        apply(&mut d, &items[0], Instant::now());
+        assert_eq!(d.text().as_str(), "quartz quality\n@@quality@");
+        // Where it gives nothing, the words it stands in for are asked.
+        let t = "quartz quality\n@@ qua";
+        let mut d = doc(t, DocumentMode::Markdown, t.len());
+        let items = Registry::with_builtins().complete(&mut d, false, Duration::ZERO);
+        let words: Vec<&str> = items
+            .iter()
+            .filter(|i| i.source == "words")
+            .map(|i| i.label.as_str())
+            .collect();
+        assert_eq!(words, ["quality", "quartz"]);
+        // A completer of the plugin's layers only: no layer serves a
+        // document without a file.
+        plugins::register(PluginCompleterSpec {
+            layers: vec!["notes".into()],
+            ..plugins::specs().into_iter().find(|s| s.id == "at").unwrap()
+        });
+        let mut d = doc(t, DocumentMode::Markdown, t.len());
+        let items = Registry::with_builtins().complete(&mut d, false, Duration::ZERO);
+        assert!(items.iter().all(|i| i.source == "words"), "{items:?}");
+        // Its plugin stopped: the words again.
+        plugins::remove_plugin("test");
+        assert!(plugins::specs().iter().all(|s| s.plugin != "test"));
     }
 
     #[test]
