@@ -6014,6 +6014,36 @@ impl ViewerState {
         t
     }
 
+    /// The comments on the cursor's cell as the document gives them
+    /// through its annotations, in the thread's order; none from a
+    /// document that gives none.
+    pub fn cursor_annotations(&mut self) -> Vec<kalem_viewer::Annotation> {
+        let (unit, p) = (self.unit, self.grid_pos());
+        self.doc()
+            .annotations(Some(unit))
+            .into_iter()
+            .filter(|a| {
+                a.anchors.iter().any(|x| {
+                    matches!(x, kalem_viewer::Anchor::Cell { unit: u, row, col }
+                        if *u == unit && *row == p.row && *col == p.col)
+                })
+            })
+            .collect()
+    }
+
+    /// Changes the text of comment `id` (an annotation's ID). One undo
+    /// step.
+    pub fn edit_comment(&mut self, id: &str, text: &str) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc()
+            .set_comment_text(id, text)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// The thread on the cursor's cell.
     pub fn cursor_thread(&mut self) -> Option<kalem_viewer::CommentThread> {
         let p = self.grid_pos();
@@ -13057,6 +13087,16 @@ fn comments_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
                 .unwrap_or(0);
             return with(ctx, |v| v.delete_comment(i as usize));
         }
+        // A comment's text changed, the old offered.
+        Some("edit") => {
+            let Some(id) = text_arg(args, "id") else {
+                return Ok(());
+            };
+            let Some(text) = text_arg(args, "value") else {
+                return ask_more(ctx, ID, args, "value");
+            };
+            return with(ctx, |v| v.edit_comment(&id, &text));
+        }
         Some("go") => {
             let (Some(r), Some(c)) = (
                 args.get("row").and_then(serde_json::Value::as_u64),
@@ -13070,10 +13110,29 @@ fn comments_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
         _ => {}
     }
     let here = v.cursor_thread();
+    let annotated = v.cursor_annotations();
     let p = v.grid_pos();
     let mut items = Vec::new();
     if let Some(t) = &here {
         let cell = cell_name(t.row, t.col);
+        // Edited where the document gives its comments as annotations.
+        for (i, (a, c)) in annotated.iter().zip(&t.comments).enumerate() {
+            items.push(menu_item(
+                ID,
+                serde_json::json!({ "what": "edit", "id": a.id, "value_default": c.text }),
+                &format!(
+                    "{} {}: {}",
+                    if i == 0 {
+                        "Edit comment:"
+                    } else {
+                        "Edit reply:"
+                    },
+                    c.author,
+                    c.text.replace('\n', " ")
+                ),
+                &format!("Comments on {cell}"),
+            ));
+        }
         for (i, c) in t.comments.iter().enumerate() {
             let when = c.time.get(..16).unwrap_or(&c.time).replace('T', " ");
             items.push(menu_item(
@@ -18035,6 +18094,100 @@ mod tests {
     fn state(n: usize) -> ViewerState {
         let dir = std::env::temp_dir();
         ViewerState::open(Arc::new(Pages(n)), &dir.join("x.pages")).unwrap()
+    }
+
+    /// A sheet whose one comment, on B2, is also an annotation.
+    #[derive(Debug)]
+    struct Commented;
+
+    struct CommentedDoc(String);
+
+    impl Viewer for Commented {
+        fn id(&self) -> &str {
+            "commented"
+        }
+        fn name(&self) -> &str {
+            "Commented"
+        }
+        fn extensions(&self) -> &[&str] {
+            &["commented"]
+        }
+        fn detect(&self, _: &str, _: &[u8]) -> Detection {
+            Detection::No
+        }
+        fn open(&self, _: FileHandle) -> VResult<Box<dyn ViewerDocument>> {
+            Ok(Box::new(CommentedDoc("Check this".into())))
+        }
+    }
+
+    impl ViewerDocument for CommentedDoc {
+        fn structure(&self) -> Structure {
+            Structure {
+                units: vec![Unit {
+                    kind: UnitKind::Sheet,
+                    label: "Sheet1".into(),
+                    duration_ms: None,
+                }],
+                outline: Vec::new(),
+            }
+        }
+        fn render(&mut self, _: usize, _: RenderRequest) -> VResult<Rendered> {
+            Ok(Rendered::Bitmap(Bitmap::new(1, 1, vec![0; 4])))
+        }
+        fn text(&self, _: usize) -> String {
+            String::new()
+        }
+        fn grid(&mut self, _: usize) -> Option<GridLayout> {
+            Some(GridLayout {
+                rows: 3,
+                cols: 3,
+                max_rows: 3,
+                max_cols: 3,
+                editable: true,
+                ..GridLayout::default()
+            })
+        }
+        fn threads(&mut self, _: usize) -> Vec<kalem_viewer::CommentThread> {
+            vec![kalem_viewer::CommentThread {
+                row: 1,
+                col: 1,
+                done: false,
+                comments: vec![kalem_viewer::ThreadComment {
+                    author: "Ayşe".into(),
+                    text: self.0.clone(),
+                    time: "2026-10-10T12:00:00.00".into(),
+                }],
+            }]
+        }
+        fn annotations(&mut self, _: Option<usize>) -> Vec<kalem_viewer::Annotation> {
+            vec![kalem_viewer::Annotation {
+                id: "c1".into(),
+                text: self.0.clone(),
+                anchors: vec![kalem_viewer::Anchor::Cell {
+                    unit: 0,
+                    row: 1,
+                    col: 1,
+                }],
+                ..Default::default()
+            }]
+        }
+        fn set_comment_text(&mut self, id: &str, text: &str) -> VResult<()> {
+            assert_eq!(id, "c1");
+            self.0 = text.into();
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_comment_edited_through_the_annotations() {
+        let dir = std::env::temp_dir();
+        let mut v = ViewerState::open(Arc::new(Commented), &dir.join("x.commented")).unwrap();
+        // Elsewhere, no comment; on B2, the thread's comment by its ID.
+        assert!(v.cursor_annotations().is_empty());
+        v.grid_move_to(1, 1);
+        assert_eq!(v.cursor_annotations()[0].id, "c1");
+        v.edit_comment("c1", "Checked").unwrap();
+        assert_eq!(v.cursor_thread().unwrap().comments[0].text, "Checked");
     }
 
     #[test]
