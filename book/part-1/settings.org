@@ -69,6 +69,7 @@ of the Book's site lists every one, generated from the code
 | =org.todo_keywords=       | TODO, DONE | TODO states of files without =#+TODO=; see below             |
 | =files.show_hidden=       | =true=     | Dot files in the file manager                                |
 | =plugins.sources=         | =[]=       | Your plugin indexes, read first (Plugin Sources)             |
+| =plugins.suggest=         | =true=     | Say once that a plugin would serve a file you open           |
 | =log.level=               | ="info"=   | How much goes to the log                                     |
 
 =org.todo_keywords= is a list such as =["TODO", "NEXT", "|", "DONE"]=:

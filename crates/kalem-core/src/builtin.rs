@@ -6602,6 +6602,20 @@ fn plugin_commands() -> Vec<Command> {
                 ),
             },
         ),
+        // The plugin the status bar suggested when a file opened (a
+        // language's, a Logseq graph's), installed after the usual
+        // confirmation.
+        cmd(
+            "plugin.installSuggested",
+            "Install Suggested Plugin",
+            "Plugins",
+            &[],
+            None,
+            |ctx, _| match crate::plugin_store::suggested() {
+                Some(id) => start_install(ctx, id, None),
+                None => Err(CommandError::new(crate::tr!("plugin-none-suggested"))),
+            },
+        ),
         // A file Kalem cannot open yet (not text, no viewer installed): the
         // released plugins of the indexes that open it offered, installed
         // and the file opened at a choice; else the system's application
@@ -6984,7 +6998,16 @@ pub(crate) fn offer_plugins(ctx: &mut EditorContext<'_>, open: Option<String>, n
                     String::new(),
                 )
             });
-            match crate::plugin_store::fetch_indexes(&index) {
+            // The index as last read (at a start, or by Browse Plugins)
+            // when it cannot be read now.
+            let read = match crate::plugin_store::fetch_indexes(&index) {
+                Err(e) => {
+                    let known = crate::plugin_store::known_index();
+                    if known.is_empty() { Err(e) } else { Ok(known) }
+                }
+                ok => ok,
+            };
+            match read {
                 Ok(entries) => {
                     let found = crate::plugin_store::opening(&entries, std::path::Path::new(&name));
                     let mut items: Vec<crate::palette::PaletteItem> = found

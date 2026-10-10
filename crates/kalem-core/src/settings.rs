@@ -307,6 +307,12 @@ pub const SPECS: &[Spec] = &[
         description: "How long a half-typed key sequence waits before its keys show, in milliseconds",
     },
     Spec {
+        key: "plugins.suggest",
+        kind: Kind::Bool,
+        default: "true",
+        description: "Say once in the status bar, when a file opens, that a plugin of the index would serve it and is not installed (a language's, a Logseq graph's); Install Suggested Plugin installs it",
+    },
+    Spec {
         key: "plugins.check_updates",
         kind: Kind::Bool,
         default: "true",

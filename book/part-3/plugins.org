@@ -196,9 +196,38 @@ The viewers of pictures, PDF files and workbooks are such components,
 released by =getkalem/plugins= and installed like any other plugin:
 none is built into Kalem. A file that is not text and that no
 installed plugin opens names the released plugins of the indexes that
-open it, by the extensions each lists in the index (=opens=), to
-install, after which the file opens; and the system's application
-(/Find a Plugin for the File/, =plugin.forFile=). The feature
+serve it, to install, after which the file opens; and the system's
+application (/Find a Plugin for the File/, =plugin.forFile=).
+
+* Plugins named when they would serve a file
+
+Every plugin, whatever its kind, says in one declaration when it serves
+a file, and the index carries it (=applies=): the extensions of its
+files and the markers of its folders, files or folders that, in a
+file's folder or one above it, mean it serves the file
+(=logseq/config.edn= for a Logseq graph, =.obsidian= for an Obsidian
+vault). =tools/build-index.py= gathers it from what the manifest
+already says, the extensions a viewer =opens=, those of the
+=languages= it serves and the =markers= of its =layers=, and adds a
+manifest's own =applies=: ={"extensions": [".beancount"], "markers":
+[".git"]}=. Kalem tests every plugin's declaration alike, one test for
+every kind, and names the released plugins that serve the file opened:
+
+- a file it cannot open (not text, no plugin installed opens it): the
+  plugins to install, then the file opened, and the system's
+  application;
+- a file it opens (a source file, a Markdown page of a graph): the
+  first such plugin not installed, said once in the status bar and
+  never again for that plugin, which /Install Suggested Plugin/
+  (=plugin.installSuggested=) installs; =plugins.suggest = false= says
+  none. The index is read when Kalem starts, once a day at most, and
+  kept in the state folder (=plugin-index.json=), so a file opened
+  offline is named too.
+
+A plugin is named for the files it declares and for no other: what it
+serves without saying so in its manifest, it cannot be named for.
+
+The feature
 =components= of a build of one's own still builds the released ones in,
 pinned by =crates/kalem-components/components.toml= by their release
 and SHA-256, downloaded (or read from the folder =KALEM_COMPONENTS_DIR=

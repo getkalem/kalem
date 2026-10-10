@@ -221,6 +221,70 @@ fn child(work: &Path) {
     assert!(kalem_highlight::Language::find("zedtest").is_none());
     assert!(kalem_core::languages::for_path(Path::new("/a/b.zedtest"), None).is_none());
     println!("test remove ... ok");
+
+    suggestions(work);
+}
+
+/// A plugin of the index that would serve a file opened, said once in the
+/// status bar (a language's by an extension, a graph's by a marker in the
+/// file's folder), never again; Install Suggested Plugin names it.
+fn suggestions(work: &Path) {
+    use kalem_core::plugin_store as store;
+    let index = store::parse_index(
+        r#"{"schema":1,"plugins":[
+          {"id":"org.example.rust","name":"Rust","version":"1.0.0","kind":"declarative",
+           "download":"https://example.com/rust.tar.gz","applies":{"extensions":[".rs"]}},
+          {"id":"org.example.graph","name":"Note graphs","version":"1.0.0",
+           "download":"https://example.com/graph.wasm",
+           "applies":{"markers":["logseq/config.edn"]}}]}"#,
+    )
+    .unwrap();
+    store::remember_index(&index);
+    assert!(work.join("state/plugin-index.json").exists());
+    // What the steps before left in the status bar.
+    let _ = kalem_core::jobs::take_notices();
+    let open = |path: &Path| {
+        let base = Default::default();
+        kalem_core::DocumentState::open(
+            path,
+            std::sync::Arc::new(org_model::Settings::default()),
+            &base,
+        )
+        .unwrap();
+        kalem_core::jobs::take_notices()
+    };
+    std::fs::write(work.join("lib.rs"), "fn main() {}\n").unwrap();
+    std::fs::write(work.join("other.rs"), "fn other() {}\n").unwrap();
+    // With plugins.suggest off (an editor's start set it from the
+    // settings, as the update check above did): nothing said.
+    store::set_suggesting(false);
+    let before = open(&work.join("lib.rs"));
+    assert!(before.is_empty(), "{before:?}");
+    store::set_suggesting(true);
+    let said = open(&work.join("lib.rs"));
+    assert_eq!(said.len(), 1, "{said:?}");
+    assert!(
+        said[0].0.starts_with("The Rust plugin serves .rs files"),
+        "{said:?}"
+    );
+    assert_eq!(store::suggested().as_deref(), Some("org.example.rust"));
+    // Said once: not for the next file of its kind.
+    assert!(open(&work.join("other.rs")).is_empty());
+    // A page of a Logseq graph: the graph plugin, by its marker.
+    let graph = work.join("Notes");
+    std::fs::create_dir_all(graph.join("logseq")).unwrap();
+    std::fs::create_dir_all(graph.join("pages")).unwrap();
+    std::fs::write(graph.join("logseq/config.edn"), "{}").unwrap();
+    std::fs::write(graph.join("pages/Kalem.md"), "- a block\n").unwrap();
+    let said = open(&graph.join("pages/Kalem.md"));
+    assert!(
+        said.first()
+            .is_some_and(|(m, _)| m
+                .starts_with("Notes has logseq/config.edn: the Note graphs plugin serves it")),
+        "{said:?}"
+    );
+    store::set_suggesting(false);
+    println!("test suggestions ... ok");
 }
 
 fn main() {

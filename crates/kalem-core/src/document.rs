@@ -862,6 +862,9 @@ impl DocumentState {
             return DocumentState::viewed(path, viewer, settings);
         }
         let (text, meta, disk) = files::read(path)?;
+        // A plugin of the index that would serve it, said once in an
+        // editor (a language's, a Logseq graph's).
+        crate::plugin_store::suggest_for(path);
         let mut d = DocumentState::with_base(text, meta, settings, base);
         d.disk = Some(disk);
         Ok(d)
