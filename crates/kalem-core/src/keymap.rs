@@ -393,13 +393,18 @@ impl Keymap {
         // The plugins' bindings, as default keys (`crate::extensions`), to
         // the commands there are.
         // A plugin's keys in its own documents (`textType == git-status`)
+        // or in the notes its layer serves (`editorLayer == graph.logseq`)
         // come after the profile's, so that Tab, Enter or a letter there
         // are the plugin's; the user's still come last.
         let own_kind = |b: &Binding| {
-            b.when
-                .iter()
-                .flat_map(|w| w.values("textType"))
-                .any(|t| crate::command::plugin_kind(registry, &t))
+            b.when.iter().any(|w| {
+                w.values("textType")
+                    .iter()
+                    .any(|t| crate::command::plugin_kind(registry, t))
+                    || w.values("editorLayer")
+                        .iter()
+                        .any(|l| crate::command::plugin_layer(registry, l))
+            })
         };
         let (in_own_documents, plugins): (Vec<Binding>, Vec<Binding>) =
             crate::extensions::bindings()
@@ -1011,6 +1016,42 @@ mod tests {
         }
         crate::extensions::remove_binding(9_101);
         crate::extensions::remove_binding(9_102);
+    }
+
+    #[test]
+    fn a_plugins_keys_in_the_notes_its_layer_serves_come_before_the_profiles() {
+        use crate::command::{Command, CommandHandler, CommandSource, Scope};
+        let mut reg = CommandRegistry::with_builtins();
+        reg.register(Command {
+            id: "layered.newBlock".into(),
+            title: "New Block".into(),
+            category: String::new(),
+            default_keys: Vec::new(),
+            when: None,
+            handler: CommandHandler::Plugin("layered".into()),
+            args_schema: None,
+            source: CommandSource::Plugin("layered".into()),
+            scope: Some(Scope::all()),
+        })
+        .unwrap();
+        let when = "editorLayer == layered.notes && editorMode == markdown";
+        crate::extensions::add_binding(9_103, "enter", "layered.newBlock", Some(when)).unwrap();
+        let (m, _) = Keymap::build(&reg, Profile::Word, &[]);
+        let mut ctx = Context::default();
+        ctx.set("editorMode", V::Str("markdown".into()));
+        ctx.set("textType", V::Str("markdown".into()));
+        ctx.flag("inMarkdownList", true);
+        // Without the layer, a list's Enter is the profile's.
+        assert_eq!(
+            run(&m, "enter", &ctx).map(|r| r.0),
+            Some("markdown.newline")
+        );
+        ctx.set("editorLayer", V::Str("layered.notes".into()));
+        assert_eq!(
+            run(&m, "enter", &ctx).map(|r| r.0),
+            Some("layered.newBlock")
+        );
+        crate::extensions::remove_binding(9_103);
     }
 
     #[test]

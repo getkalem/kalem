@@ -630,14 +630,24 @@ pub fn known_text_type(t: &str) -> bool {
 /// `documents` interface): the short ID of a plugin with commands, a dash
 /// and a name.
 pub fn plugin_kind(registry: &CommandRegistry, t: &str) -> bool {
-    let Some((plugin, name)) = t.split_once('-') else {
-        return false;
-    };
-    !name.is_empty()
-        && registry.commands().any(|c| {
-            matches!(c.source, CommandSource::Plugin(_))
-                && c.id.split_once('.').is_some_and(|(p, _)| p == plugin)
-        })
+    t.split_once('-')
+        .is_some_and(|(plugin, name)| !name.is_empty() && has_plugin(registry, plugin))
+}
+
+/// Whether `l` names a plugin's layer as the when-clause key `editorLayer`
+/// does (`graph.logseq`, `crate::layers`): the short ID of a plugin with
+/// commands, a dot and the layer's ID.
+pub fn plugin_layer(registry: &CommandRegistry, l: &str) -> bool {
+    l.split_once('.')
+        .is_some_and(|(plugin, id)| !id.is_empty() && has_plugin(registry, plugin))
+}
+
+/// Whether a plugin with the short ID `plugin` has commands.
+fn has_plugin(registry: &CommandRegistry, plugin: &str) -> bool {
+    registry.commands().any(|c| {
+        matches!(c.source, CommandSource::Plugin(_))
+            && c.id.split_once('.').is_some_and(|(p, _)| p == plugin)
+    })
 }
 
 /// The text types a command serves: all, or a list of them, less some
