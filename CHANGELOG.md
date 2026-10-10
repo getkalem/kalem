@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.7] - 2026-10-10
+
 ### Added
 - Language plugins: a server's `version` in the manifest (`["--version"]` for rust-analyzer). `kalem lsp status` runs it in the project's root and prints the server's version, or why the program found does not run (rustup's `rust-analyzer` when the component is not installed is on the PATH all the same), with the plugin's install text.
 - Language plugins: a server's own requests through commands any server with such a request serves, given in the manifest's `requests`: Expand Macro, Open Documentation in the Browser, Go to Parent Module, Go to Project File, Reload Project, Join Lines (Language Server), Move Item Up and Down. The Rust plugin gives rust-analyzer's to them. `kalem lsp ask code.expandMacro FILE LINE:COL` asks one from the command line.
