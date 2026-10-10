@@ -1,0 +1,148 @@
+The =graph= plugin of =getkalem/plugins= opens a Logseq graph or an
+Obsidian vault as itself: the folder of plain Markdown and Org files
+those applications keep, its pages, journals, links, block references,
+tags and tasks indexed, what links to a page shown beside it, the
+notes edited as an outliner. Nothing is converted: Logseq's =logseq/=
+and Obsidian's =.obsidian/= are never written, and both applications
+can go on reading the same files. The plugin is installed from the
+plugin list; its README and its work list (=plugins/graph/graph_todo.md=)
+are kept with it.
+
+* Which folders
+
+A note belongs to a graph when its folder, or one above it, holds the
+application's marker:
+
+| Marker                       | The graph                                 |
+|------------------------------+-------------------------------------------|
+| =logseq/config.edn=          | A Logseq graph (the file version)         |
+| =.obsidian/=                 | An Obsidian vault                         |
+| =mirror/markdown/.index.edn= | A Logseq database graph's Markdown Mirror |
+
+The setting =graphs= names folders that are graphs without a marker.
+The folder must be one of Kalem's projects: a plugin with
+=fs:read:workspace= reads the projects' folders and no others.
+
+A Logseq graph is read as its =config.edn= sets it (format, workflow,
+folders, the journals' file and title formats, the file name format,
+hidden folders, the journal template, hidden and comma-separated
+properties); a vault as =.obsidian/daily-notes.json=, =app.json= and
+=templates.json= set it, read only, with the plugin's settings and then
+Obsidian's defaults behind them. The database version's own graph, a
+SQLite database, does not open; its Markdown Mirror, which Logseq
+writes from the database when it is turned on, opens as a Logseq graph
+that is never written.
+
+* The index
+
+The plugin reads every note once, when a note of the graph is first
+opened or a command needs it, and then the file a save or a change on
+disk names: a save that keeps the page's names changes only that
+file's entries. Pages are named as each application names them
+(Logseq's titles, aliases and file names, journals by date; Obsidian's
+paths, the linking note's folder first and then the shortest path),
+and every reference is resolved: links, tags, block references,
+embeds, the pages a property names. A graph of a million blocks is
+indexed in about two seconds, for which the plugin asks Kalem for a
+viewer's limits, 1 GB and 10 s a call.
+
+* What it shows
+
+- *The status bar* names the graph of the current note and its pages;
+  a click lists them.
+- *The backlinks panel*: the page's linked references, grouped by page,
+  then its unlinked references, searched for when they are opened, as
+  Logseq does.
+- *Documents*, each written again when the graph changes, Enter on a
+  line opening it: a page's backlinks, all pages (whiteboards and
+  canvases apart, with the application that draws them), the journals,
+  the tags, the tasks (NOW and DOING first, what is due within a
+  week), the graph as a tree of namespaces with the pages named without
+  a link and the orphans, and a query's results.
+
+* Keys
+
+The plugin takes Doom Emacs's org-roam map, =SPC n r=, in the Vim
+profile, and adds to it; everything is in the palette and the Graph
+menu.
+
+| Keys                            | What it does                                  |
+|---------------------------------+-----------------------------------------------|
+| =SPC n r r=, =SPC n r R=        | The backlinks panel, the backlinks document   |
+| =SPC n r f=, =SPC n r i=        | Find a page, insert a link to one             |
+| =SPC n r b=                     | Insert a block reference                      |
+| =SPC n r o=                     | Follow the reference at the cursor            |
+| =SPC n r d t=, =d y=, =d m=     | Today's, yesterday's, tomorrow's journal      |
+| =SPC n r d d=, =d f=, =d b=     | The journal of a date, the next, the previous |
+| =SPC n r p=, =j=, =T=, =t=, =g= | All pages, journals, tags, tasks, the graph   |
+| =SPC n r q=                     | Run a query                                   |
+| =SPC n r l=, =SPC n r a=        | A page opened last, a page at random          |
+| =SPC n r s=                     | Index the graph again                         |
+| =SPC n s=, =SPC n S=            | In a graph: search its folder, find a heading |
+
+In a note of a graph, Doom's Org keys under =SPC m= edit it as an
+outliner: =SPC m t= cycles a block's task keyword as Logseq cycles it,
+=SPC m p= sets its priority, =SPC m d s= and =SPC m d d= its
+=SCHEDULED:= and =DEADLINE:=, =SPC m z= (or Tab in normal mode) folds
+it, writing =collapsed:: true= where Logseq writes it;
+=Alt+Shift+Up= and =Down= move a block with the blocks under it,
+=Alt+Shift+Right= and =Left= (or Tab and Shift+Tab while typing)
+indent and outdent it. Each is one undo step. Rename Page sets
+=title::= and rewrites every reference to the page in every file.
+
+* How a note is drawn
+
+The note opens in Kalem's Markdown or Org mode, and the plugin's
+[[file:completers-and-modes.org][layer over the mode]] changes what Logseq and Obsidian show
+differently, away from the cursor:
+
+| Logseq                                                        | Obsidian                                   |
+|---------------------------------------------------------------+--------------------------------------------|
+| =id::=, =collapsed::= and the properties Logseq hides, hidden | A line's =^id= and =%%comments%%=, hidden  |
+| =((uuid))= as its block's text, an embed as one line          | A callout's =[!note]= as its icon and name |
+| ~{{query …}}~ as how many it finds and the first two          | An embed as one line                       |
+| Task keywords, priorities, dates and tags styled              | ~==highlights==~ and tags styled           |
+| =:LOGBOOK:= folded, a folded block's children hidden          | A callout with =-= folded                  |
+
+Show Source shows the file as it is. Wiki links are Kalem's own,
+in the core's Markdown mode.
+
+* Queries
+
+Logseq's simple queries run over the index: pages and tags (as
+Logseq's path references count them), text, =and=, =or=, =not=,
+=task=, =priority=, =between= (a journal's day, =SCHEDULED:= or
+=DEADLINE:=), =property=, =page-property=, =page-tags=, =page=,
+=namespace=, =sort-by= and =sample=. Follow Reference on a query's
+line, or Run Query, opens its results grouped by page, or as the table
+=query-table::= and =query-properties::= ask for; =t= on a line cycles
+its task's keyword in its file. Advanced queries (Datalog) are not
+run.
+
+* What it writes
+
+With =fs:write:workspace=, only what the user asks for: a new journal
+from the graph's template when no file is there, a block's =id::= when
+it is first referred to, the references to a renamed page, a task's
+keyword cycled from the Tasks or a Query document. Each file is read
+again just before, only the lines concerned change, and a file Kalem
+holds with unsaved changes is never written. Nothing under =logseq/=
+or =.obsidian/=, and nothing in a Markdown Mirror.
+
+* From the command line
+
+[[file:../part-1/the-command-line.org][=kalem run=]] prints the documents:
+
+#+begin_src sh
+kalem run graph graph.pages ~/notes
+kalem run graph graph.backlinksDocument ~/notes/pages/Kalem.md
+#+end_src
+
+* What it does not do
+
+Whiteboards and canvases are listed and their links resolve, but
+Kalem does not draw them: following one shows the file, to be opened
+in its application. Flashcards, the applications' plugins and their
+syntax (but Dataview's inline fields), PDF highlights drawn over the
+PDF and real-time sync are not there; a graph synced with Syncthing or
+git goes on being so.
