@@ -72,8 +72,10 @@ menu.
 | =SPC n r f=, =SPC n r i=        | Find a page, insert a link to one             |
 | =SPC n r b=                     | Insert a block reference                      |
 | =SPC n r o=                     | Follow the reference at the cursor            |
+| =SPC o l= in a note             | Open Link, the graph's references first       |
 | =SPC n r d t=, =d y=, =d m=     | Today's, yesterday's, tomorrow's journal      |
 | =SPC n r d d=, =d f=, =d b=     | The journal of a date, the next, the previous |
+| =Alt+]=, =Alt+[= in a note      | The next journal, the previous                |
 | =SPC n r p=, =j=, =T=, =t=, =g= | All pages, journals, tags, tasks, the graph   |
 | =SPC n r q=                     | Run a query                                   |
 | =SPC n r l=, =SPC n r a=        | A page opened last, a page at random          |
@@ -87,8 +89,15 @@ outliner: =SPC m t= cycles a block's task keyword as Logseq cycles it,
 it, writing =collapsed:: true= where Logseq writes it;
 =Alt+Shift+Up= and =Down= move a block with the blocks under it,
 =Alt+Shift+Right= and =Left= (or Tab and Shift+Tab while typing)
-indent and outdent it. Each is one undo step. Rename Page sets
-=title::= and rewrites every reference to the page in every file.
+indent and outdent it. Enter while typing in a Logseq note makes a
+block as Logseq's Enter does: after the block's properties, as its
+first child when its children are shown, splitting the block at the
+cursor. Each is one undo step. Rename Page sets =title::= and rewrites
+every reference to the page in every file; Block References lists what
+refers to the block at the cursor. In a Logseq graph in Org, Enter on a
+=[[page]]= in Vim's normal mode opens the page, not a heading of the
+file, and does what Org's Enter does elsewhere. In All pages, =s=
+sorts by title, by links or by blocks.
 
 * How a note is drawn
 
@@ -102,6 +111,8 @@ differently, away from the cursor:
 | =((uuid))= as its block's text, an embed as one line          | A callout's =[!note]= as its icon and name |
 | ~{{query …}}~ as how many it finds and the first two          | An embed as one line                       |
 | Task keywords, priorities, dates and tags styled              | ~==highlights==~ and tags styled           |
+| ~^^highlights^^~ styled, numbered blocks as =1.=, =a.=, =I.=  |                                            |
+| =#+BEGIN_NOTE= and the other admonitions as icon and name     |                                            |
 | =:LOGBOOK:= folded, a folded block's children hidden          | A callout with =-= folded                  |
 
 Show Source shows the file as it is. Wiki links are Kalem's own,
