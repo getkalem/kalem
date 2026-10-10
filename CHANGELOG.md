@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 - A plugin's keys in the documents its layer serves (a when-clause naming `editorLayer`, `graph.logseq`) come before the profile's and Vim's, as its keys in its own documents do, so that Enter or Tab in a Logseq note's list is the graph plugin's outliner's and not Markdown's list continuation.
 
+### Fixed
+- In a terminal without the kitty keyboard protocol, a binding to `alt+[` is known to be one the terminal cannot send (it is the start of an escape sequence, which waited for the rest and swallowed the next key), as `ctrl+i` is: it is reported, or left out where the command has another key.
+
 ## [0.6.12] - 2026-10-10
 
 ### Added

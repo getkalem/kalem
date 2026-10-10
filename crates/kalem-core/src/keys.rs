@@ -125,7 +125,9 @@ impl KeyChord {
     /// Whether a terminal without an enhanced keyboard protocol (such as
     /// kitty's) can send this chord distinctly. Control with Shift, with a
     /// digit, with Enter or Tab, `ctrl+i`, `ctrl+m`, `ctrl+h` and `ctrl+[`
-    /// arrive as other keys; Command never reaches the terminal.
+    /// arrive as other keys; `alt+[` is the start of an escape sequence
+    /// (Escape and `[`), which waits for the rest and never arrives;
+    /// Command never reaches the terminal.
     pub fn terminal_safe(&self) -> bool {
         let m = self.mods;
         if m.cmd {
@@ -159,6 +161,7 @@ impl KeyChord {
             "enter" | "space" | "backspace" => !m.shift,
             "tab" => !m.alt,
             "escape" => !m.alt && !m.shift,
+            "[" => !m.alt,
             _ => true,
         }
     }
@@ -281,6 +284,7 @@ mod tests {
             "shift+enter",
             "cmd+s",
             "C-/",
+            "alt+[",
         ] {
             assert!(!safe(k), "{k}");
         }
