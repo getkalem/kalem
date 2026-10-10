@@ -212,6 +212,20 @@ Beside the fields every plugin has (=id=, =name=, =version=,
   the =formatters= setting for the type comes before the plugin's; when
   a plugin has none, the language's usual program runs when it is
   installed (the chapter [[file:../part-1/plain-text-and-code.org][Plain text and code]]).
+- =commands.run=, =commands.test= and =commands.testAtPoint= are the
+  project's run and test commands, =["cargo", "test"]= for Rust and
+  =["mix", "test", "{file}:{line}"]= for the test at the cursor in
+  Elixir: Run Project (=project.run=, =SPC p R=), Test Project
+  (=project.test=, =SPC p T=) and Test at Cursor
+  (=project.testAtCursor=) run the active file's plugin's in the
+  project's root as its server finds it (the nearest =Cargo.lock=),
+  ={file}= and ={line}= filled in. The output, standard error too,
+  shows in a read-only document as it comes, its last line saying how
+  the command ended, and the status bar says it runs; the files are
+  run as saved. The same command run again, or its document closed,
+  stops the one under way. Where the file's language gives no such
+  command, Run Project and Test Project ask for one and run it in the
+  shell at the project's root.
 - =requests= give a server's own requests to Kalem's commands, which
   know the shapes of questions and answers, not the methods, so one
   command serves every server that has such a request:
@@ -401,8 +415,7 @@ Completion items are inserted as plain text until the snippet engine
 (T3.8.3): a function is inserted as =name()= with the cursor between
 the brackets, other snippets with their places left empty. Edits that
 create, rename or delete files are refused with the reason. A second
-server for the same files (a linter beside the type server) and the
-plugin's run and test commands are read from the manifest but not
-used. The server's log (its log messages and standard error) is kept
+server for the same files (a linter beside the type server) is read
+from the manifest but not used. The server's log (its log messages and standard error) is kept
 in memory and printed by =kalem lsp check --log=; the log view is
 T2.7g.2.

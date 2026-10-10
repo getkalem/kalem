@@ -2360,12 +2360,25 @@ pub fn has_format_command(doc: &DocumentState) -> bool {
 /// The formatter command of `doc`'s language plugin with `{file}` filled
 /// in, and the folder it runs in (the server's root, else the file's).
 fn format_command(doc: &DocumentState) -> Option<(Vec<String>, PathBuf)> {
+    plugin_command(doc, "format")
+}
+
+/// The command `name` of `doc`'s language plugin (its manifest's
+/// `commands`: `format`, `run`, `test`, `testAtPoint`), `{file}` and
+/// `{line}` (the cursor's, from 1) filled in, and the folder it runs in:
+/// the project's root as its server finds it (the nearest `Cargo.lock`),
+/// else the file's folder.
+pub fn plugin_command(doc: &DocumentState, name: &str) -> Option<(Vec<String>, PathBuf)> {
     let path = code_file(doc)?;
     let first = doc.text().as_str().lines().next();
     let (plugin, lang) = languages::for_path(path, first)?;
-    let cmd = plugin.commands.get("format").filter(|c| !c.is_empty())?;
+    let cmd = plugin.commands.get(name).filter(|c| !c.is_empty())?;
     let file = path.to_string_lossy();
-    let cmd = cmd.iter().map(|a| a.replace("{file}", &file)).collect();
+    let line = (doc.text().line_of(doc.selection.head) + 1).to_string();
+    let cmd = cmd
+        .iter()
+        .map(|a| a.replace("{file}", &file).replace("{line}", &line))
+        .collect();
     let real = dunce::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
     Some((cmd, root_of(&real, &plugin, &lang)))
 }

@@ -950,6 +950,14 @@ pub fn close_generated(plugin: &str, number: u64) {
     }
 }
 
+/// Whether document `number` is still open (its text not copied).
+pub fn generated_open(number: u64) -> bool {
+    GENERATED
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .contains_key(&number)
+}
+
 /// A plugin's document as last written.
 pub fn generated(number: u64) -> Option<Generated> {
     GENERATED

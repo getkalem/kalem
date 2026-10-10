@@ -182,6 +182,8 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ),
         ("plugin.installGitHub", object(&[("link", "string", false)])),
         ("code.rename", object(&[("name", "string", false)])),
+        ("project.run", object(&[("command", "string", false)])),
+        ("project.test", object(&[("command", "string", false)])),
         (
             "code.structuralReplace",
             object(&[("search", "string", false), ("replace", "string", false)]),
@@ -7457,6 +7459,45 @@ fn request(ctx: &mut EditorContext<'_>, r: Request) -> CommandResult {
     Ok(())
 }
 
+/// Runs the active document's language plugin's command `name` (`run`,
+/// `test`, `testAtPoint`) in its project's root, its output in a document
+/// ([`crate::runs`]). Without one, the command given as `command` is run by
+/// the shell in the project's root, asked for when not given; a test at
+/// the cursor is only the plugin's.
+fn run_project(ctx: &mut EditorContext<'_>, args: &Value, id: &str, name: &str) -> CommandResult {
+    let d = ctx.doc()?;
+    if let Some(command) = args
+        .get("command")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|c| !c.is_empty())
+    {
+        let dir = crate::command::folder_of(d)
+            .or_else(|| std::env::current_dir().ok())
+            .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-file")))?;
+        let dir = kalem_project::list::detect_root(&dir).unwrap_or(dir);
+        return crate::runs::start(crate::runs::shell(command), dir)
+            .map(|_| ())
+            .map_err(CommandError::new);
+    }
+    match crate::lsp::plugin_command(d, name) {
+        Some((argv, dir)) => crate::runs::start(argv, dir)
+            .map(|_| ())
+            .map_err(CommandError::new),
+        None if name == "testAtPoint" => {
+            Err(CommandError::new(crate::l10n::tr("run-no-test-at-cursor")))
+        }
+        None => request(
+            ctx,
+            Request::Ask {
+                command: id.into(),
+                args: serde_json::json!({}),
+                arg: "command".into(),
+            },
+        ),
+    }
+}
+
 fn plain_commands() -> Vec<Command> {
     use org_edit::emphasis::Emphasis;
     use org_edit::headline as h;
@@ -9026,6 +9067,32 @@ fn plain_commands() -> Vec<Command> {
                     }),
                 )
             },
+        ),
+        // The project's run and test commands (Projectile's `p R` and
+        // `p T`): the language plugin's, else one asked for.
+        cmd(
+            "project.run",
+            "Run Project",
+            "Project",
+            &[],
+            None,
+            |ctx, args| run_project(ctx, args, "project.run", "run"),
+        ),
+        cmd(
+            "project.test",
+            "Test Project",
+            "Project",
+            &[],
+            None,
+            |ctx, args| run_project(ctx, args, "project.test", "test"),
+        ),
+        cmd(
+            "project.testAtCursor",
+            "Test at Cursor",
+            "Project",
+            &[],
+            None,
+            |ctx, args| run_project(ctx, args, "project.testAtCursor", "testAtPoint"),
         ),
         cmd(
             "project.searchWord",

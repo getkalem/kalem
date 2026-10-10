@@ -50,7 +50,9 @@ fn setup() -> (PathBuf, PathBuf) {
     let manifest = serde_json::json!({
         "id": "org.example.fake", "name": "Fake", "version": "1",
         "languages": [{"id": "fakelang", "name": "Fake", "extensions": ["fk"], "servers": ["f"]}],
-        "commands": {"format": [exe, "--fake-format", "{file}"]},
+        "commands": {"format": [exe, "--fake-format", "{file}"],
+                     "run": [exe, "--fake-run"],
+                     "test": [exe, "--fake-test", "{file}:{line}"]},
         "requests": {
             "code.expandMacro": {"method": "fake/expand", "shape": "text",
                                  "answer": ["/expansion"], "title": "/name", "language": "elixir"},
@@ -114,6 +116,27 @@ fn main() {
         }
         print!("{text}");
         return;
+    }
+    // The plugin's run command: two lines, one of them on standard error,
+    // and, asked to, a wait that only a stop ends.
+    if std::env::args().any(|a| a == "--fake-run") {
+        println!("running");
+        #[allow(clippy::print_stderr)]
+        {
+            eprintln!("a warning");
+        }
+        if std::env::args().any(|a| a == "--wait") {
+            std::thread::sleep(Duration::from_secs(60));
+        }
+        return;
+    }
+    // Its test command: the place it was given, and a failure.
+    if let Some(i) = std::env::args().position(|a| a == "--fake-test") {
+        println!(
+            "testing {}",
+            std::env::args().nth(i + 1).unwrap_or_default()
+        );
+        std::process::exit(3);
     }
     if let Ok(b) = std::env::var("KALEM_LSP_FAKE") {
         kalem_lsp::fake::serve(&b);
@@ -365,6 +388,58 @@ fn main() {
         lsp::can(&doc, Kind::Hover).then_some(())
     });
     println!("test format command ... ok");
+
+    // The project's run and test commands: the plugin's, `{file}` and
+    // `{line}` filled in, run in the project's root, their output in a
+    // document as it comes (standard error too) with how it ended, the
+    // status bar told; a run whose document is closed is stopped.
+    let (test, root) = lsp::plugin_command(&doc, "test").unwrap();
+    assert!(
+        root.ends_with("real-project") || root.ends_with("project"),
+        "{root:?}"
+    );
+    let line = doc.text().line_of(doc.selection.head) + 1;
+    let place = format!("{}:{line}", file.display());
+    assert_eq!(test[2], place);
+    let output = |n: u64| kalem_core::extensions::generated(n).map(|g| g.text);
+    let finished = || {
+        until("the run's end", || {
+            kalem_core::jobs::take_finished().into_iter().next()
+        })
+    };
+    let n = kalem_core::runs::start(test, root.clone()).unwrap();
+    let end = finished();
+    assert!(
+        end.error && end.message.ends_with(": exit status 3"),
+        "{end:?}"
+    );
+    let text = output(n).unwrap();
+    assert!(text.contains(&format!("testing {place}")), "{text}");
+    assert!(text.ends_with(": exit status 3\n"), "{text}");
+    let (run, root) = lsp::plugin_command(&doc, "run").unwrap();
+    let n = kalem_core::runs::start(run.clone(), root.clone()).unwrap();
+    let end = finished();
+    assert!(!end.error && end.message.ends_with(": done"), "{end:?}");
+    let text = output(n).unwrap();
+    assert!(
+        text.contains("running") && text.contains("a warning"),
+        "{text}"
+    );
+    let mut waits = run;
+    waits.push("--wait".into());
+    let n = kalem_core::runs::start(waits, root).unwrap();
+    until("the run's output", || {
+        output(n).filter(|t| t.contains("running")).map(|_| ())
+    });
+    kalem_core::extensions::generated_closed(n);
+    let end = finished();
+    assert!(end.error && end.message.ends_with(": stopped"), "{end:?}");
+    assert_eq!(kalem_core::runs::running(), 0);
+    // A program not installed is said as such.
+    let why =
+        kalem_core::runs::start(vec!["kalem-no-such-program".into()], dir.clone()).unwrap_err();
+    assert_eq!(why, "kalem-no-such-program is not installed");
+    println!("test the project's run and test commands ... ok");
 
     // A setting changed reaches the running server.
     kalem_core::languages::set_user_settings(Some(&serde_json::json!({
