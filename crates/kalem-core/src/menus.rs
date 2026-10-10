@@ -70,6 +70,17 @@ pub fn menus() -> Vec<MenuSpec> {
             json!({ "level": level }),
         )
     };
+    // A workbook's commands (`viewer.grid.*`), titled as in the palette;
+    // they show only for a document of cells, as every item shows only
+    // where its command serves.
+    let grid = |ids: &[&'static str]| -> Vec<MenuEntry> {
+        ids.iter()
+            .map(|id| match *id {
+                "-" => MenuEntry::Separator,
+                id => item(id),
+            })
+            .collect()
+    };
     let section = |level: u8| {
         with(
             crate::tr!("menu-heading", level = level.to_string()),
@@ -134,6 +145,9 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("csv.openAsText"),
                 // Markdown.
                 item("markdown.convertToOrg"),
+                // Workbooks.
+                item("viewer.grid.saveSheetAsCsv"),
+                item("viewer.grid.exportPdf"),
                 MenuEntry::Separator,
                 item("app.save"),
                 named(tr("menu-save-as"), "app.saveAs"),
@@ -142,6 +156,9 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("file.saveWithEncoding"),
                 MenuEntry::Separator,
                 item("file.print"),
+                item("viewer.grid.pageSetup"),
+                item("viewer.grid.printPreview"),
+                item("viewer.grid.print"),
                 MenuEntry::Separator,
                 item("file.close"),
             ],
@@ -179,7 +196,10 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("edit.copyHtml"),
                 item("edit.paste"),
                 item("edit.pastePlain"),
+                item("viewer.grid.pasteSpecial"),
+                item("viewer.grid.insertCopiedCells"),
                 item("edit.selectAll"),
+                item("viewer.grid.selectAll"),
                 MenuEntry::Separator,
                 // Code and plain text.
                 item("edit.toggleComment"),
@@ -196,8 +216,33 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("latex.nextProblem"),
                 item("latex.previousProblem"),
                 MenuEntry::Separator,
+                // A workbook's cells: filled, cleared and deleted.
+                item("viewer.grid.fillDown"),
+                item("viewer.grid.fillRight"),
+                item("viewer.grid.series"),
+                item("viewer.grid.fillJustify"),
+                item("viewer.grid.flashFill"),
+                MenuEntry::Separator,
+                item("viewer.grid.clear"),
+                item("viewer.grid.clearFormats"),
+                item("viewer.grid.clearAll"),
+                MenuEntry::Separator,
+                item("viewer.grid.deleteCells"),
+                item("viewer.grid.deleteRow"),
+                item("viewer.grid.deleteColumn"),
+                item("viewer.grid.deleteSheet"),
+                MenuEntry::Separator,
                 item("find.open"),
                 item("find.replace"),
+                item("viewer.grid.find"),
+                item("viewer.grid.replace"),
+                item("viewer.grid.findAll"),
+                item("viewer.grid.findNext"),
+                item("viewer.grid.findPrevious"),
+                MenuEntry::Separator,
+                item("viewer.grid.goTo"),
+                item("viewer.grid.goToSpecial"),
+                item("viewer.grid.selectVisible"),
             ],
         },
         MenuSpec {
@@ -282,7 +327,80 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("flow.paragraph.spaceBefore"),
                 item("flow.paragraph.spaceAfter"),
                 item("flow.paragraph.clear"),
-            ],
+            ]
+            .into_iter()
+            // A workbook's cells, rows, columns and sheets, as Excel's Home
+            // tab has them.
+            .chain(grid(&[
+                "-",
+                "viewer.grid.formatCells",
+                "-",
+                "viewer.grid.bold",
+                "viewer.grid.italic",
+                "viewer.grid.underline",
+                "viewer.grid.strikethrough",
+                "viewer.grid.fontFace",
+                "viewer.grid.fontSize",
+                "viewer.grid.fontColor",
+                "viewer.grid.fillColor",
+                "viewer.grid.fillEffect",
+                "-",
+                "viewer.grid.alignLeft",
+                "viewer.grid.alignCenter",
+                "viewer.grid.alignRight",
+                "viewer.grid.alignTop",
+                "viewer.grid.alignMiddle",
+                "viewer.grid.alignBottom",
+                "viewer.grid.increaseIndent",
+                "viewer.grid.decreaseIndent",
+                "viewer.grid.textRotation",
+                "viewer.grid.wrapText",
+                "viewer.grid.shrinkToFit",
+                "viewer.grid.mergeCenter",
+                "viewer.grid.merge",
+                "viewer.grid.unmerge",
+                "viewer.grid.centerAcrossSelection",
+                "-",
+                "viewer.grid.borders",
+                "viewer.grid.borderLine",
+                "viewer.grid.borderColor",
+                "-",
+                "viewer.grid.numberFormat",
+                "viewer.grid.increaseDecimal",
+                "viewer.grid.decreaseDecimal",
+                "-",
+                "viewer.grid.cellStyle",
+                "viewer.grid.formatAsTable",
+                "viewer.grid.conditionalFormat",
+                "viewer.grid.clearConditionalFormats",
+                "viewer.grid.clearSheetConditionalFormats",
+                "viewer.grid.formatPainter",
+                "-",
+                "viewer.grid.fitRowHeight",
+                "viewer.grid.tallerRow",
+                "viewer.grid.shorterRow",
+                "viewer.grid.autofitColumn",
+                "viewer.grid.autofitColumns",
+                "viewer.grid.widenColumn",
+                "viewer.grid.narrowColumn",
+                "-",
+                "viewer.grid.hideRows",
+                "viewer.grid.unhideRows",
+                "viewer.grid.hideColumns",
+                "viewer.grid.unhideColumns",
+                "-",
+                "viewer.grid.renameSheet",
+                "viewer.grid.moveOrCopySheet",
+                "viewer.grid.moveSheetLeft",
+                "viewer.grid.moveSheetRight",
+                "viewer.grid.tabColor",
+                "viewer.grid.hideSheet",
+                "viewer.grid.unhideSheet",
+                "-",
+                "viewer.grid.theme",
+                "viewer.grid.lockCells",
+            ]))
+            .collect(),
         },
         // Comments and tracked changes, of a document that has them.
         MenuSpec {
@@ -306,7 +424,21 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("flow.change.next"),
                 MenuEntry::Separator,
                 item("flow.trackChanges"),
-            ],
+            ]
+            .into_iter()
+            // A workbook's spelling, comments, notes and protection.
+            .chain(grid(&[
+                "viewer.grid.spelling",
+                "-",
+                "viewer.grid.newComment",
+                "viewer.grid.comments",
+                "viewer.grid.editNote",
+                "viewer.grid.deleteNote",
+                "-",
+                "viewer.grid.protectSheet",
+                "viewer.grid.protectWorkbook",
+            ]))
+            .collect(),
         },
         MenuSpec {
             when: None,
@@ -341,7 +473,33 @@ pub fn menus() -> Vec<MenuSpec> {
                     "latex.insert.table",
                     json!({"columns": 3, "rows": 2}),
                 ),
-            ],
+            ]
+            .into_iter()
+            // A workbook's cells, sheets, functions and objects.
+            .chain(grid(&[
+                "viewer.grid.insertCells",
+                "viewer.grid.insertRow",
+                "viewer.grid.insertColumn",
+                "viewer.grid.insertSheet",
+                "-",
+                "viewer.grid.insertFunction",
+                "viewer.grid.autoSum",
+                "-",
+                "viewer.grid.insertChart",
+                "viewer.grid.insertPivot",
+                "viewer.grid.insertSparklines",
+                "viewer.grid.insertSlicer",
+                "viewer.grid.insertPicture",
+                "viewer.grid.insertShape",
+                "-",
+                "viewer.grid.insertLink",
+                "viewer.grid.newComment",
+                "viewer.grid.editNote",
+                "-",
+                "viewer.grid.insertDate",
+                "viewer.grid.insertTime",
+            ]))
+            .collect(),
         },
         MenuSpec {
             // CSV files: rows and columns.
@@ -398,6 +556,115 @@ pub fn menus() -> Vec<MenuSpec> {
             ],
         },
         MenuSpec {
+            // Workbooks: Excel's Data tab.
+            when: None,
+            name: tr("menu-data"),
+            entries: grid(&[
+                "viewer.grid.sortAscending",
+                "viewer.grid.sortDescending",
+                "viewer.grid.customSort",
+                "viewer.grid.sortByColor",
+                "-",
+                "viewer.grid.toggleFilter",
+                "viewer.grid.filterCondition",
+                "viewer.grid.filterByColor",
+                "viewer.grid.clearFilters",
+                "viewer.grid.reapplyFilter",
+                "viewer.grid.advancedFilter",
+                "-",
+                "viewer.grid.textToColumns",
+                "viewer.grid.removeDuplicates",
+                "viewer.grid.dataValidation",
+                "viewer.grid.circleInvalid",
+                "viewer.grid.clearValidation",
+                "-",
+                "viewer.grid.group",
+                "viewer.grid.ungroup",
+                "viewer.grid.showDetail",
+                "viewer.grid.hideDetail",
+                "viewer.grid.subtotal",
+                "-",
+                "viewer.grid.goalSeek",
+                "viewer.grid.dataTable",
+                "viewer.grid.scenarios",
+                "-",
+                "viewer.grid.refreshPivots",
+                "viewer.grid.pivotOptions",
+                "viewer.grid.slicer",
+                "viewer.grid.totalRow",
+                "viewer.grid.convertToRange",
+                "-",
+                "viewer.grid.customLists",
+            ]),
+        },
+        MenuSpec {
+            // Workbooks: Excel's Formulas tab.
+            when: None,
+            name: tr("menu-formulas"),
+            entries: grid(&[
+                "viewer.grid.insertFunction",
+                "viewer.grid.autoSum",
+                "-",
+                "viewer.grid.defineName",
+                "viewer.grid.nameManager",
+                "viewer.grid.deleteName",
+                "-",
+                "viewer.grid.tracePrecedents",
+                "viewer.grid.traceDependents",
+                "viewer.grid.removeArrows",
+                "viewer.grid.showFormulas",
+                "viewer.grid.errorChecking",
+                "viewer.grid.evaluateFormula",
+                "viewer.grid.watchWindow",
+                "viewer.grid.circularReferences",
+                "-",
+                "viewer.grid.calculateNow",
+                "viewer.grid.calculationOptions",
+            ]),
+        },
+        MenuSpec {
+            // Workbooks: the chart at the cursor, Excel's Chart Design and
+            // Format tabs.
+            when: None,
+            name: tr("menu-chart"),
+            entries: grid(&[
+                "viewer.grid.insertChart",
+                "viewer.grid.chartKind",
+                "viewer.grid.seriesKind",
+                "viewer.grid.applyChartTemplate",
+                "viewer.grid.saveChartTemplate",
+                "-",
+                "viewer.grid.chartTitle",
+                "viewer.grid.horizontalAxisTitle",
+                "viewer.grid.verticalAxisTitle",
+                "viewer.grid.chartLegend",
+                "viewer.grid.dataLabels",
+                "viewer.grid.labelsFromCells",
+                "viewer.grid.trendline",
+                "viewer.grid.errorBars",
+                "viewer.grid.gridlines",
+                "-",
+                "viewer.grid.axisScale",
+                "viewer.grid.axisFormat",
+                "viewer.grid.axisFont",
+                "viewer.grid.titleFont",
+                "viewer.grid.legendFont",
+                "-",
+                "viewer.grid.seriesColor",
+                "viewer.grid.pointColor",
+                "viewer.grid.explodeSlice",
+                "viewer.grid.chartArea",
+                "-",
+                "viewer.grid.moveChart",
+                "viewer.grid.chartWider",
+                "viewer.grid.chartNarrower",
+                "viewer.grid.chartTaller",
+                "viewer.grid.chartShorter",
+                "-",
+                "viewer.grid.deleteChart",
+            ]),
+        },
+        MenuSpec {
             // BibTeX files: the entries as a grid.
             when: None,
             name: tr("menu-bibtex"),
@@ -446,7 +713,33 @@ pub fn menus() -> Vec<MenuSpec> {
                 item("stats.chapters"),
                 item("edit.gotoLine"),
                 item("view.palette"),
-            ],
+            ]
+            .into_iter()
+            // A workbook's zoom, panes, gridlines, sheets and macros.
+            .chain(grid(&[
+                "-",
+                "viewer.grid.zoomIn",
+                "viewer.grid.zoomOut",
+                "viewer.grid.zoom100",
+                "viewer.grid.zoom",
+                "-",
+                "viewer.grid.freezePanes",
+                "viewer.grid.freezeTopRow",
+                "viewer.grid.freezeFirstColumn",
+                "viewer.grid.unfreezePanes",
+                "viewer.grid.split",
+                "-",
+                "viewer.grid.toggleGridlines",
+                "viewer.grid.toggleHeadings",
+                "viewer.grid.pageBreakPreview",
+                "-",
+                "viewer.grid.nextSheet",
+                "viewer.grid.previousSheet",
+                "viewer.grid.sheetList",
+                "-",
+                "viewer.grid.runMacro",
+            ]))
+            .collect(),
         },
     ];
     // The plugins' menus (the git plugin's Git menu), after Kalem's.
@@ -522,6 +815,104 @@ mod tests {
         crate::extensions::remove_menus("menutest");
         crate::extensions::remove_command("menutest.status");
         assert!(!menus().iter().any(|m| m.name == "Menutest"));
+    }
+
+    /// The menus a viewer's document shows, with the items its commands
+    /// serve: a workbook's (a grid) or a picture's.
+    fn viewer_menus(grid: bool) -> Vec<(String, Vec<(String, String)>)> {
+        use crate::when::{Context, Value};
+        let reg = crate::command::CommandRegistry::with_builtins();
+        let mut ctx = Context::default();
+        ctx.set("editorMode", Value::Str("viewer".into()));
+        ctx.set("textType", Value::Str("viewer".into()));
+        ctx.flag("viewerGrid", grid);
+        ctx.flag("hasComments", false);
+        menus()
+            .into_iter()
+            .filter(|m| m.shows(&ctx))
+            .map(|m| {
+                let items = m
+                    .entries
+                    .into_iter()
+                    .filter_map(|e| match e {
+                        MenuEntry::Command { label, id, .. } if reg.offered(&id, &ctx) => {
+                            Some((label, id))
+                        }
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>();
+                (m.name, items)
+            })
+            .filter(|(_, items)| !items.is_empty())
+            .collect()
+    }
+
+    #[test]
+    fn a_workbook_finds_its_commands_where_excel_has_them() {
+        use crate::l10n::tr;
+        let book = viewer_menus(true);
+        let has = |menu: &str, id: &str| {
+            book.iter()
+                .any(|(n, items)| n == menu && items.iter().any(|(_, i)| i == id))
+        };
+        for (menu, id) in [
+            ("menu-file", "viewer.grid.exportPdf"),
+            ("menu-file", "viewer.grid.pageSetup"),
+            ("menu-edit", "viewer.grid.pasteSpecial"),
+            ("menu-edit", "viewer.grid.find"),
+            ("menu-edit", "viewer.grid.goToSpecial"),
+            ("menu-format", "viewer.grid.bold"),
+            ("menu-format", "viewer.grid.numberFormat"),
+            ("menu-format", "viewer.grid.conditionalFormat"),
+            ("menu-review", "viewer.grid.protectSheet"),
+            ("menu-insert", "viewer.grid.insertChart"),
+            ("menu-data", "viewer.grid.customSort"),
+            ("menu-data", "viewer.grid.goalSeek"),
+            ("menu-formulas", "viewer.grid.tracePrecedents"),
+            ("menu-chart", "viewer.grid.trendline"),
+            ("menu-view", "viewer.grid.freezePanes"),
+            ("menu-view", "viewer.grid.runMacro"),
+        ] {
+            assert!(has(&tr(menu), id), "{menu} › {id}");
+        }
+        // The grid's Find and Select All, not the text's; no menu names
+        // an item twice.
+        for (name, items) in &book {
+            for (_, id) in items {
+                assert!(
+                    ![
+                        "find.open",
+                        "find.replace",
+                        "edit.selectAll",
+                        "edit.toggleComment"
+                    ]
+                    .contains(&id.as_str()),
+                    "{name} › {id}"
+                );
+            }
+            let mut labels: Vec<&String> = items.iter().map(|(l, _)| l).collect();
+            labels.sort();
+            let n = labels.len();
+            labels.dedup();
+            assert_eq!(labels.len(), n, "{name}: {items:?}");
+        }
+        // A picture's or a PDF's menus carry none of a workbook's.
+        let picture = viewer_menus(false);
+        for (name, items) in &picture {
+            assert!(
+                !items.iter().any(|(_, id)| id.starts_with("viewer.grid.")),
+                "{name}: {items:?}"
+            );
+            assert!(
+                ![tr("menu-data"), tr("menu-formulas"), tr("menu-chart")].contains(name),
+                "{name}"
+            );
+        }
+        assert!(
+            picture
+                .iter()
+                .any(|(_, items)| items.iter().any(|(_, id)| id == "find.open"))
+        );
     }
 
     #[test]

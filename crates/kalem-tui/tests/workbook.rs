@@ -1826,6 +1826,12 @@ fn selection_sums() {
         s.contains("Average: 1,431.25 · Count: 12 · Sum: 17,175.00"),
         "{s}"
     );
+    // Then Min and Max, which eighty columns cut.
+    let status = t.app.doc.viewer.as_deref_mut().unwrap().status();
+    assert!(
+        status.ends_with("Sum: 17,175.00 · Min: 0.00 · Max: 4,293.75"),
+        "{status}"
+    );
     // Text only: the count.
     {
         let v = t.app.doc.viewer.as_deref_mut().unwrap();
@@ -3935,6 +3941,40 @@ fn the_mouse_on_the_grid() {
     // The wheel scrolls.
     mouse(&mut t, MouseEventKind::ScrollDown, b2, none);
     assert_eq!(t.app.doc.viewer.as_deref().unwrap().grid_pos().top, 3);
+}
+
+#[test]
+fn the_cells_menu_has_what_is_at_the_cursor() {
+    let mut t = T::open("cells-menu");
+    let menu = |t: &mut T, at: (u32, u32), filter: &str| -> String {
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .grid_move_to(at.0, at.1);
+        t.app
+            .run_command("viewer.grid.contextMenu", json!({ "on": "cells" }));
+        for c in filter.chars() {
+            t.key(KeyCode::Char(c));
+        }
+        let s = t.screen();
+        t.key(KeyCode::Esc);
+        s
+    };
+    // A2 has a note, edited or deleted; B2 has none, and gets a new one.
+    let s = menu(&mut t, (1, 0), "note");
+    assert!(s.contains("Edit Note") && s.contains("Delete Note"), "{s}");
+    let s = menu(&mut t, (1, 1), "note");
+    assert!(s.contains("New Note") && !s.contains("Delete Note"), "{s}");
+    // Format Cells, and Excel's sort and filter items.
+    let s = menu(&mut t, (1, 1), "format cells");
+    assert!(s.contains("Format Cells"), "{s}");
+    let s = menu(&mut t, (1, 1), "custom sort");
+    assert!(s.contains("Custom Sort"), "{s}");
+    // No link at B2: Link, not Remove Link.
+    let s = menu(&mut t, (1, 1), "link");
+    assert!(s.contains("Link") && !s.contains("Remove Link"), "{s}");
 }
 
 #[test]

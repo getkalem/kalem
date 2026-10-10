@@ -603,9 +603,11 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     let s = e.update(cx, |e, _| e.doc.viewer.as_deref_mut().unwrap().selection());
     assert_eq!((s[0], s[1], s[2]), (3, 0, 3));
     assert!(s[3] > 100, "{s:?}");
-    // The row's numbers summed in the status bar.
+    // The row's numbers summed in the status bar, the label counted.
     assert!(
-        status(&ws, cx).contains("Average: 633.33 · Count: 4 · Sum: 1900"),
+        status(&ws, cx).contains(
+            "Average: 633.33 · Count: 4 · Sum: 1900 · Numerical Count: 3 · Min: 0 · Max: 950"
+        ),
         "{}",
         status(&ws, cx)
     );
@@ -1799,4 +1801,40 @@ fn a_converted_file_asks_before_it_is_saved(cx: &mut TestAppContext) {
     save(cx);
     assert!(!cx.has_pending_prompt());
     assert!(!modified(cx));
+}
+
+/// A workbook's menus and toolbar carry its commands where Excel has
+/// them, not a text's or a picture's; Bold on the toolbar bolds the cell.
+#[gpui::test]
+fn a_workbooks_menus_and_toolbar(cx: &mut TestAppContext) {
+    let (ws, dir, cx) = open(cx);
+    let e = ws.read_with(cx, |ws, _| ws.editor.clone());
+    let doc = e.read_with(cx, |e, _| e.doc.document_context());
+    let registry = kalem_core::CommandRegistry::with_builtins();
+    let menus = kalem_ui::workspace::menus_for(&registry, &doc);
+    let names: Vec<String> = menus.iter().map(|m| m.name.to_string()).collect();
+    for n in [
+        "File", "Edit", "Format", "Insert", "Data", "Formulas", "Chart", "View",
+    ] {
+        assert!(names.iter().any(|m| m == n), "{n}: {names:?}");
+    }
+    // CSV's Table and BibTeX's menus are not a workbook's.
+    assert!(
+        !names.iter().any(|m| m == "Table" || m == "BibTeX"),
+        "{names:?}"
+    );
+    // The grid's Bold button, not Org's: it turns the header's bold off.
+    assert!(cx.debug_bounds("tool-0").is_none(), "no Org Bold button");
+    let bold = |cx: &mut VisualTestContext| {
+        e.update(cx, |e, _| {
+            e.doc.viewer.as_deref_mut().unwrap().cursor_cell()
+        })
+        .bold
+    };
+    assert!(bold(cx), "A1 is bold");
+    let button = cx.debug_bounds("tool-24").expect("the workbook's Bold");
+    cx.simulate_click(button.center(), gpui::Modifiers::default());
+    cx.run_until_parked();
+    assert!(!bold(cx));
+    let _ = std::fs::remove_dir_all(&dir);
 }

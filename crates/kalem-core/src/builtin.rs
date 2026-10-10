@@ -7962,12 +7962,13 @@ fn plain_commands() -> Vec<Command> {
             None,
             |ctx, _| request(ctx, Request::Paste { plain: true }),
         ),
+        // A grid selects its cells (`viewer.grid.selectAll`).
         cmd(
             "edit.selectAll",
             "Select All",
             "Edit",
             &["ctrl+a"],
-            None,
+            Some("!viewerGrid"),
             |ctx, _| {
                 let d = ctx.doc()?;
                 d.selection = org_edit::Selection {
@@ -8962,15 +8963,21 @@ fn plain_commands() -> Vec<Command> {
         cmd("view.menus", "Menus", "View", &["f10"], None, |ctx, _| {
             request(ctx, Request::Menus)
         }),
-        cmd("find.open", "Find", "Find", &["ctrl+f"], None, |ctx, _| {
-            request(ctx, Request::Find { replace: false })
-        }),
+        // A grid finds and replaces in its cells (`viewer.grid.find`).
+        cmd(
+            "find.open",
+            "Find",
+            "Find",
+            &["ctrl+f"],
+            Some("!viewerGrid"),
+            |ctx, _| request(ctx, Request::Find { replace: false }),
+        ),
         cmd(
             "find.replace",
             "Find and Replace",
             "Find",
             &["ctrl+h"],
-            None,
+            Some("!viewerGrid"),
             |ctx, _| request(ctx, Request::Find { replace: true }),
         ),
         // Workspaces (Doom's `SPC TAB`, T2.7i.15).

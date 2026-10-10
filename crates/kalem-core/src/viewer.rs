@@ -4104,8 +4104,11 @@ impl ViewerState {
     }
 
     /// What Excel's status bar says of a selection of more than one cell:
-    /// `Average: 1073.44 · Count: 4 · Sum: 4293.75`, numbers in the cursor's
-    /// cell's format; only the count when no value is a number.
+    /// its Average, Count and Sum, then the figures it shows when asked,
+    /// Min, Max and the Numerical Count when some values are not numbers
+    /// (`Average: 1073.44 · Count: 4 · Sum: 4293.75 · Min: 0 · Max:
+    /// 2400`), last so that a narrow terminal cuts them first; numbers in
+    /// the cursor's cell's format; only the count when none is a number.
     pub fn selection_sums(&mut self) -> Option<String> {
         let s = self.selection();
         if s[0] == s[2] && s[1] == s[3] {
@@ -4128,10 +4131,19 @@ impl ViewerState {
             } else {
                 let sum: f64 = numbers.iter().sum();
                 let average = sum / numbers.len() as f64;
+                let min = numbers.iter().copied().fold(f64::INFINITY, f64::min);
+                let max = numbers.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+                let numerical = if numbers.len() == count {
+                    String::new()
+                } else {
+                    format!(" · Numerical Count: {}", numbers.len())
+                };
                 format!(
-                    "Average: {} · Count: {count} · Sum: {}",
+                    "Average: {} · Count: {count} · Sum: {}{numerical} · Min: {} · Max: {}",
                     format_axis_number(average, &code),
-                    format_axis_number(sum, &code)
+                    format_axis_number(sum, &code),
+                    format_axis_number(min, &code),
+                    format_axis_number(max, &code)
                 )
             }
         });
@@ -12038,37 +12050,71 @@ fn context_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
     {
         v.go_to(u as usize);
     }
+    // What is at the cursor, for the cells' items Excel shows only there:
+    // a table's, a pivot table's, a note's, a link's, a list's.
+    #[derive(Default)]
+    struct At {
+        table: bool,
+        pivot: bool,
+        thread: bool,
+        note: bool,
+        link: bool,
+        list: bool,
+    }
+    let at = match ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    {
+        Some(v) if on == "cells" => At {
+            table: v.table_at_cursor().is_some(),
+            pivot: v.pivot_at_cursor().is_some(),
+            thread: v.cursor_cell().thread,
+            note: v.cursor_note().is_some(),
+            link: v.cursor_link().is_some(),
+            list: v
+                .cursor_validation()
+                .is_some_and(|x| x.kind == kalem_viewer::ValidationKind::List),
+        },
+        _ => At::default(),
+    };
     let none = serde_json::json!({});
-    let list: &[(&str, &str)] = match on {
-        "rows" => &[
+    let list: Vec<(&str, &str)> = match on {
+        "rows" => vec![
             ("edit.cut", "Cut"),
             ("edit.copy", "Copy"),
             ("edit.paste", "Paste"),
+            ("viewer.grid.pasteSpecial", "Paste Special…"),
             ("viewer.grid.insertRow", "Insert Rows"),
             ("viewer.grid.deleteRow", "Delete Rows"),
             ("viewer.grid.clear", "Clear Contents"),
+            ("viewer.grid.formatCells", "Format Cells…"),
             ("viewer.grid.fitRowHeight", "Row Height to Fit"),
             ("viewer.grid.tallerRow", "Taller Row"),
             ("viewer.grid.shorterRow", "Shorter Row"),
             ("viewer.grid.hideRows", "Hide"),
             ("viewer.grid.unhideRows", "Unhide"),
             ("viewer.grid.group", "Group"),
+            ("viewer.grid.ungroup", "Ungroup"),
         ],
-        "cols" => &[
+        "cols" => vec![
             ("edit.cut", "Cut"),
             ("edit.copy", "Copy"),
             ("edit.paste", "Paste"),
+            ("viewer.grid.pasteSpecial", "Paste Special…"),
             ("viewer.grid.insertColumn", "Insert Columns"),
             ("viewer.grid.deleteColumn", "Delete Columns"),
             ("viewer.grid.clear", "Clear Contents"),
+            ("viewer.grid.formatCells", "Format Cells…"),
             ("viewer.grid.autofitColumn", "Column Width to Fit"),
             ("viewer.grid.widenColumn", "Wider Column"),
             ("viewer.grid.narrowColumn", "Narrower Column"),
             ("viewer.grid.hideColumns", "Hide"),
             ("viewer.grid.unhideColumns", "Unhide"),
             ("viewer.grid.group", "Group"),
+            ("viewer.grid.ungroup", "Ungroup"),
         ],
-        "tab" => &[
+        "tab" => vec![
             ("viewer.grid.insertSheet", "Insert Sheet"),
             ("viewer.grid.deleteSheet", "Delete Sheet"),
             ("viewer.grid.renameSheet", "Rename"),
@@ -12081,26 +12127,73 @@ fn context_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
             ("viewer.grid.protectSheet", "Protect Sheet"),
             ("viewer.grid.sheetList", "All Sheets"),
         ],
-        _ => &[
-            ("edit.cut", "Cut"),
-            ("edit.copy", "Copy"),
-            ("edit.paste", "Paste"),
-            ("viewer.grid.pasteSpecial", "Paste Special"),
-            ("viewer.grid.insertCopiedCells", "Insert Copied Cells"),
-            ("viewer.grid.insertCells", "Insert…"),
-            ("viewer.grid.deleteCells", "Delete…"),
-            ("viewer.grid.clear", "Clear Contents"),
-            ("viewer.grid.clearFormats", "Clear Formats"),
-            ("viewer.grid.sortAscending", "Sort A to Z"),
-            ("viewer.grid.sortDescending", "Sort Z to A"),
-            ("viewer.grid.toggleFilter", "Filter"),
-            ("viewer.grid.numberFormat", "Number Format"),
-            ("viewer.grid.cellStyle", "Cell Style"),
-            ("viewer.grid.newComment", "New Comment"),
-            ("viewer.grid.editNote", "Note"),
-            ("viewer.grid.insertLink", "Link"),
-            ("viewer.grid.defineName", "Define Name"),
-        ],
+        _ => {
+            let mut l = vec![
+                ("edit.cut", "Cut"),
+                ("edit.copy", "Copy"),
+                ("edit.paste", "Paste"),
+                ("viewer.grid.pasteSpecial", "Paste Special…"),
+                ("viewer.grid.insertCopiedCells", "Insert Copied Cells"),
+                ("viewer.grid.insertCells", "Insert…"),
+                ("viewer.grid.deleteCells", "Delete…"),
+                ("viewer.grid.clear", "Clear Contents"),
+                ("viewer.grid.clearFormats", "Clear Formats"),
+                // Excel's Filter and Sort submenus.
+                ("viewer.grid.toggleFilter", "Filter"),
+                (
+                    "viewer.grid.filterByColor",
+                    "Filter by Selected Cell's Color",
+                ),
+                ("viewer.grid.reapplyFilter", "Reapply Filter"),
+                ("viewer.grid.sortAscending", "Sort A to Z"),
+                ("viewer.grid.sortDescending", "Sort Z to A"),
+                ("viewer.grid.sortByColor", "Sort by Color…"),
+                ("viewer.grid.customSort", "Custom Sort…"),
+            ];
+            if at.table {
+                l.extend([
+                    ("viewer.grid.totalRow", "Table: Total Row"),
+                    ("viewer.grid.convertToRange", "Table: Convert to Range"),
+                ]);
+            }
+            if at.pivot {
+                l.extend([
+                    ("viewer.grid.refreshPivots", "Refresh"),
+                    ("viewer.grid.pivotOptions", "PivotTable Options…"),
+                ]);
+            }
+            l.push(("viewer.grid.newComment", "New Comment"));
+            if at.thread {
+                l.push(("viewer.grid.comments", "Show Comments"));
+            }
+            if at.note {
+                l.extend([
+                    ("viewer.grid.editNote", "Edit Note"),
+                    ("viewer.grid.deleteNote", "Delete Note"),
+                ]);
+            } else {
+                l.push(("viewer.grid.editNote", "New Note"));
+            }
+            l.extend([
+                ("viewer.grid.formatCells", "Format Cells…"),
+                ("viewer.grid.numberFormat", "Number Format"),
+                ("viewer.grid.cellStyle", "Cell Style"),
+            ]);
+            if at.list {
+                l.push(("viewer.grid.pickFromList", "Pick From Drop-down List…"));
+            }
+            l.push(("viewer.grid.defineName", "Define Name…"));
+            if at.link {
+                l.extend([
+                    ("viewer.grid.insertLink", "Edit Link"),
+                    ("viewer.grid.openLink", "Open Link"),
+                    ("viewer.grid.removeLink", "Remove Link"),
+                ]);
+            } else {
+                l.push(("viewer.grid.insertLink", "Link"));
+            }
+            l
+        }
     };
     let category = match on {
         "rows" => "Rows",

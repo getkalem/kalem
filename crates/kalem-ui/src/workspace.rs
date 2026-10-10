@@ -1885,6 +1885,57 @@ const TOOLBAR: &[(&str, &str, &str, &str, &str)] = &[
     ("⌕", "Filter Rows", "csv.filter", "", ""),
     // Code.
     ("//", "Toggle Comment", "edit.toggleComment", "", "org"),
+    // Workbooks: the buttons of Excel's Home tab.
+    ("B", "Bold", "viewer.grid.bold", "", ""),
+    ("I", "Italic", "viewer.grid.italic", "", ""),
+    ("U", "Underline", "viewer.grid.underline", "", ""),
+    ("▦", "Borders", "viewer.grid.borders", "", ""),
+    ("▧", "Fill Color", "viewer.grid.fillColor", "", ""),
+    ("A", "Font Color", "viewer.grid.fontColor", "", ""),
+    ("⇤", "Align Left", "viewer.grid.alignLeft", "", ""),
+    ("↔", "Center", "viewer.grid.alignCenter", "", ""),
+    ("⇥", "Align Right", "viewer.grid.alignRight", "", ""),
+    ("↵", "Wrap Text", "viewer.grid.wrapText", "", ""),
+    ("⇹", "Merge and Center", "viewer.grid.mergeCenter", "", ""),
+    (
+        "₺",
+        "Currency",
+        "viewer.grid.numberFormat",
+        r##"{"code":"#,##0.00 \"₺\""}"##,
+        "",
+    ),
+    (
+        "%",
+        "Percent Style",
+        "viewer.grid.numberFormat",
+        r#"{"code":"0%"}"#,
+        "",
+    ),
+    (
+        ",",
+        "Comma Style",
+        "viewer.grid.numberFormat",
+        r##"{"code":"#,##0.00"}"##,
+        "",
+    ),
+    (
+        ".0+",
+        "Increase Decimal",
+        "viewer.grid.increaseDecimal",
+        "",
+        "",
+    ),
+    (
+        ".0−",
+        "Decrease Decimal",
+        "viewer.grid.decreaseDecimal",
+        "",
+        "",
+    ),
+    ("A↓", "Sort A to Z", "viewer.grid.sortAscending", "", ""),
+    ("⌕", "Filter", "viewer.grid.toggleFilter", "", ""),
+    ("∑", "AutoSum", "viewer.grid.autoSum", "", ""),
+    ("▥", "Insert Chart", "viewer.grid.insertChart", "", ""),
 ];
 
 impl Workspace {
@@ -2467,14 +2518,16 @@ impl Render for Workspace {
         if window.is_window_active() {
             let d = &self.editor.read(cx).doc;
             // Its kind, its version control (a plugin's menu shows by
-            // it) and the plugins' registrations.
+            // it), whether it is a grid (a workbook's menus are not a
+            // PDF's) and the plugins' registrations.
             let (doc, key) = (
                 d.document_context(),
                 format!(
-                    "{} {} {:?} {}",
+                    "{} {} {:?} {:?} {}",
                     d.meta.mode.name(),
                     d.document_type(),
                     d.vcs(),
+                    d.viewer.as_deref().map(|v| v.is_grid()),
                     kalem_core::extensions::generation()
                 ),
             );

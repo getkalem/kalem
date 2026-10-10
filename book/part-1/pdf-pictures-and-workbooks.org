@@ -33,9 +33,13 @@ cells, and with colors off shows its text.
   spreadsheet is: typing in a cell, formulas recalculated, rows and
   columns inserted and deleted with every reference moved, sorting,
   filters, number formats, charts, and macros run when you ask for one
-  by name. Saving writes only what you changed, every other part of the
-  file copied byte for byte, and asks Excel to recalculate the
-  formulas when it opens the file. An =.ods=, =.xls= or =.xlsb= is
+  by name. The menus have its commands where Excel has them, and a
+  right click on a cell offers what is there (a note's, a link's, a
+  table's, a pivot table's items); the status bar sums the cells
+  selected: their Average, Count and Sum, then their Min, Max and, when
+  some are not numbers, the Numerical Count. Saving writes only what you
+  changed, every other part of the file copied byte for byte, and asks
+  Excel to recalculate the formulas when it opens the file. An =.ods=, =.xls= or =.xlsb= is
   converted as it opens: Kalem asks before saving it back in its own
   format, saying what it keeps (number formats are lost), and Save As
   =.xlsx= leaves the original alone. A workbook with a password to open
