@@ -20,12 +20,27 @@ use std::ops::Range;
 
 use kalem_viewer::{
     Annotation, AnnotationKind, AsideKind, FlowAlign, FlowItem, FlowParagraph, FlowPlace, FlowRole,
-    FlowRun, FlowStyle, FlowStyleKind, MarkChange, Marks, Piece, Script, ViewerDocument,
+    FlowRun, FlowStyle, FlowStyleKind, MarkChange, Marks, ParagraphChange, Piece, Script,
+    ViewerDocument,
 };
 use org_edit::Transaction;
 
 use crate::view::{LineRole, LineView, OutlineItem, Run, Style};
 use crate::viewer::ViewerState;
+
+/// A list item's kind as its label shows it: `Some(true)` numbered,
+/// `Some(false)` a bullet; `None` for a paragraph that is no list item.
+pub fn list_kind(p: &FlowParagraph) -> Option<bool> {
+    if p.role != FlowRole::ListItem {
+        return None;
+    }
+    let numbered = p
+        .label
+        .as_ref()
+        .and_then(|(l, _)| l.chars().next())
+        .is_some_and(char::is_alphanumeric);
+    Some(numbered)
+}
 
 /// The setting `user.name`, as last applied.
 static AUTHOR: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
@@ -615,6 +630,64 @@ impl FlowState {
         let to = spans.iter().map(|s| s.0).max().unwrap_or(0);
         let unit = self.unit;
         self.annotate(|d| d.flow_set_style(unit, from, to, style))
+    }
+
+    /// Changes the look of the paragraphs bytes `range` covers (the
+    /// cursor's, for a caret): `changes` made on each, by the plugin, one
+    /// step (API 0.2.8, `flow-2`).
+    pub fn set_paragraphs(
+        &mut self,
+        range: Range<usize>,
+        changes: &[ParagraphChange],
+    ) -> Result<(), String> {
+        let spans = self.edited(range)?;
+        let from = spans.iter().map(|s| s.0).min().unwrap_or(0);
+        let to = spans.iter().map(|s| s.0).max().unwrap_or(0);
+        let unit = self.unit;
+        self.annotate(|d| d.flow_set_paragraphs(unit, from, to, changes))
+    }
+
+    /// Changes worked out for each paragraph bytes `range` covers from its
+    /// own look (a list's level one deeper, an indent a step further),
+    /// all in one step of the plugin's history.
+    pub fn set_each_paragraph(
+        &mut self,
+        range: Range<usize>,
+        f: impl Fn(&FlowParagraph) -> Vec<ParagraphChange>,
+    ) -> Result<(), String> {
+        let mut each: Vec<(u32, Vec<ParagraphChange>)> = Vec::new();
+        for (p, _) in self.spans(range) {
+            if let Some(i) = p.index
+                && !each.iter().any(|(j, _)| *j == i)
+            {
+                each.push((i, f(p)));
+            }
+        }
+        if each.is_empty() {
+            return Err("This is not text the document edits".into());
+        }
+        let unit = self.unit;
+        self.annotate(|d| {
+            d.begin_batch();
+            let mut r = Ok(());
+            let mut made = false;
+            for (i, changes) in &each {
+                if changes.is_empty() {
+                    continue;
+                }
+                r = d.flow_set_paragraphs(unit, *i, *i, changes);
+                if r.is_err() {
+                    break;
+                }
+                made = true;
+            }
+            d.end_batch();
+            // A refusal halfway: the paragraphs changed before it back.
+            if r.is_err() && made {
+                let _ = d.undo();
+            }
+            r
+        })
     }
 
     /// The paragraph styles a user picks among, as the plugin offers them:

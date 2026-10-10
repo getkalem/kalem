@@ -103,5 +103,26 @@ fn a_flowing_document_is_drawn_and_typed_into(cx: &mut TestAppContext) {
             .any(|r| r.text.contains("Plain") && r.style.bold)
     });
     assert!(plain_bold);
+    // The paragraph's tools: centered, and a numbered list.
+    for (name, _) in [("tool-flow-center", 0), ("tool-flow-numbering", 1)] {
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        let b = cx.debug_bounds(name).unwrap_or_else(|| panic!("{name}"));
+        cx.simulate_click(b.center(), gpui::Modifiers::none());
+        cx.run_until_parked();
+    }
+    let (align, kind) = ws.read_with(cx, |ws, cx| {
+        let d = &ws.editor.read(cx).doc;
+        let p = d
+            .flow
+            .as_deref()
+            .unwrap()
+            .paragraph_at(d.selection.head)
+            .unwrap()
+            .clone();
+        (p.align, kalem_core::flow::list_kind(&p))
+    });
+    assert_eq!(align, kalem_viewer::FlowAlign::Center);
+    assert_eq!(kind, Some(true));
     let _ = std::fs::remove_dir_all(&dir);
 }

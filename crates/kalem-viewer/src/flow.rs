@@ -329,6 +329,57 @@ pub enum MarkChange {
     Clear,
 }
 
+/// The space between a paragraph's lines (API 0.2.8, `flow-2`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LineSpacing {
+    /// A multiple of the lines' natural height: 1.0 single, 1.5, 2.0.
+    Multiple(f32),
+    /// At least this many points.
+    AtLeast(f32),
+    /// Exactly this many points.
+    Exactly(f32),
+}
+
+/// How a list marks its items.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ListKind {
+    /// A bullet.
+    Bullet,
+    /// A number in a numbering style named as CSS's `list-style-type`
+    /// names it: `decimal`, `lower-alpha`, `upper-alpha`, `lower-roman`,
+    /// `upper-roman`.
+    Numbered(String),
+}
+
+/// A change of paragraphs' look (API 0.2.8, `flow-2`), in no format's
+/// words.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ParagraphChange {
+    /// Their alignment.
+    Align(FlowAlign),
+    /// The indent from the start of the line, in points.
+    IndentStart(f32),
+    /// The indent from the end of the line, in points.
+    IndentEnd(f32),
+    /// The first line's indent beyond the start, in points: negative for
+    /// a hanging indent.
+    FirstLine(f32),
+    /// The space before, in points.
+    SpaceBefore(f32),
+    /// The space after, in points.
+    SpaceAfter(f32),
+    /// The space between the lines.
+    LineSpacing(LineSpacing),
+    /// Made items of a list of this kind (continuing the list before them
+    /// when it is of the kind), or taken out of any list.
+    List(Option<ListKind>),
+    /// A list item's level, from 0.
+    ListLevel(u8),
+    /// Back to the style's look: the paragraph formatting given directly
+    /// taken away, the list kept.
+    Clear,
+}
+
 /// What a style applies to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FlowStyleKind {

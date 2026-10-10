@@ -3325,7 +3325,305 @@ fn flow_commands() -> Vec<Command> {
             ),
             flow(),
         ),
+        // Paragraphs and lists (API 0.2.8, `flow-2`): the selection's
+        // paragraphs, or the cursor's.
+        flow_key_cmd(
+            "flow.paragraph.alignLeft",
+            "Align Left",
+            &["ctrl+l"],
+            |ctx, _| flow_align(ctx, kalem_viewer::FlowAlign::Start),
+        ),
+        flow_key_cmd(
+            "flow.paragraph.alignCenter",
+            "Center",
+            &["ctrl+e"],
+            |ctx, _| flow_align(ctx, kalem_viewer::FlowAlign::Center),
+        ),
+        flow_key_cmd(
+            "flow.paragraph.alignRight",
+            "Align Right",
+            &["ctrl+r"],
+            |ctx, _| flow_align(ctx, kalem_viewer::FlowAlign::End),
+        ),
+        flow_key_cmd(
+            "flow.paragraph.justify",
+            "Justify",
+            &["ctrl+j"],
+            |ctx, _| flow_align(ctx, kalem_viewer::FlowAlign::Justify),
+        ),
+        flow_key_cmd(
+            "flow.list.bullets",
+            "Bullets",
+            &["ctrl+shift+l"],
+            |ctx, _| flow_list(ctx, kalem_viewer::ListKind::Bullet, true),
+        ),
+        flow_key_cmd(
+            "flow.list.numbering",
+            "Numbering",
+            &[],
+            |ctx, args| match args.get("format").and_then(|f| f.as_str()) {
+                Some(f) => flow_list(ctx, kalem_viewer::ListKind::Numbered(f.to_string()), false),
+                None => flow_list(
+                    ctx,
+                    kalem_viewer::ListKind::Numbered("decimal".into()),
+                    true,
+                ),
+            },
+        ),
+        flow_key_cmd(
+            "flow.list.numberingStyle",
+            "Numbering Style…",
+            &[],
+            flow_numbering_style,
+        ),
+        flow_key_cmd(
+            "flow.paragraph.increaseIndent",
+            "Increase Indent",
+            &[],
+            |ctx, _| flow_indent(ctx, true),
+        ),
+        flow_key_cmd(
+            "flow.paragraph.decreaseIndent",
+            "Decrease Indent",
+            &[],
+            |ctx, _| flow_indent(ctx, false),
+        ),
+        flow_key_cmd(
+            "flow.paragraph.lineSpacing",
+            "Line Spacing…",
+            &[],
+            |ctx, args| flow_spacing(ctx, args, FlowSpacing::Lines),
+        ),
+        flow_key_cmd(
+            "flow.paragraph.spaceBefore",
+            "Space Before…",
+            &[],
+            |ctx, args| flow_spacing(ctx, args, FlowSpacing::Before),
+        ),
+        flow_key_cmd(
+            "flow.paragraph.spaceAfter",
+            "Space After…",
+            &[],
+            |ctx, args| flow_spacing(ctx, args, FlowSpacing::After),
+        ),
+        flow_key_cmd(
+            "flow.paragraph.clear",
+            "Clear Paragraph Formatting",
+            &[],
+            |ctx, _| flow_paragraphs(ctx, vec![kalem_viewer::ParagraphChange::Clear]),
+        ),
     ]
+}
+
+/// A command of documents of flowing text in the Format category, its
+/// keys only there.
+fn flow_key_cmd(id: &str, title: &str, keys: &[&str], handler: Handler) -> Command {
+    flow_toggle_cmd(id, title, keys, handler)
+}
+
+/// The text a paragraph command acts on: the selection, or the cursor's
+/// paragraph.
+fn flow_paragraph_range(
+    ctx: &mut EditorContext<'_>,
+) -> Result<std::ops::Range<usize>, CommandError> {
+    let d = ctx.doc()?;
+    if d.flow.is_none() {
+        return Err(CommandError::new(crate::l10n::tr("msg-not-flow")));
+    }
+    let s = d.selection;
+    Ok(s.anchor.min(s.head)..s.anchor.max(s.head))
+}
+
+/// `changes` made on the paragraphs a paragraph command acts on.
+fn flow_paragraphs(
+    ctx: &mut EditorContext<'_>,
+    changes: Vec<kalem_viewer::ParagraphChange>,
+) -> CommandResult {
+    let range = flow_paragraph_range(ctx)?;
+    on_flow(ctx, |f| f.set_paragraphs(range, &changes))
+}
+
+fn flow_align(ctx: &mut EditorContext<'_>, a: kalem_viewer::FlowAlign) -> CommandResult {
+    flow_paragraphs(ctx, vec![kalem_viewer::ParagraphChange::Align(a)])
+}
+
+/// Bullets and Numbering: the paragraphs made items of a list of `kind`;
+/// with `toggle`, taken out of their list when all are items of one of
+/// that kind already.
+fn flow_list(
+    ctx: &mut EditorContext<'_>,
+    kind: kalem_viewer::ListKind,
+    toggle: bool,
+) -> CommandResult {
+    use kalem_viewer::{ListKind, ParagraphChange};
+    let range = flow_paragraph_range(ctx)?;
+    let numbered = matches!(kind, ListKind::Numbered(_));
+    let all = {
+        let f = ctx
+            .doc()?
+            .flow
+            .as_deref()
+            .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-not-flow")))?;
+        let spans = f.spans(range.clone());
+        !spans.is_empty()
+            && spans
+                .iter()
+                .all(|(p, _)| crate::flow::list_kind(p) == Some(numbered))
+    };
+    let change = if toggle && all {
+        ParagraphChange::List(None)
+    } else {
+        ParagraphChange::List(Some(kind))
+    };
+    on_flow(ctx, |f| f.set_paragraphs(range, &[change]))
+}
+
+/// Numbering Style: the numbering styles every format has, to pick.
+fn flow_numbering_style(ctx: &mut EditorContext<'_>, _: &serde_json::Value) -> CommandResult {
+    flow_paragraph_range(ctx)?;
+    let category = crate::l10n::tr("cmd-flow-list-numberingStyle");
+    let items = [
+        ("decimal", "1. 2. 3."),
+        ("lower-alpha", "a. b. c."),
+        ("upper-alpha", "A. B. C."),
+        ("lower-roman", "i. ii. iii."),
+        ("upper-roman", "I. II. III."),
+    ]
+    .iter()
+    .map(|(format, title)| {
+        flow_item(
+            "flow.list.numbering",
+            serde_json::json!({ "format": format }),
+            title,
+            &category,
+        )
+    })
+    .collect();
+    ctx.requests.push(crate::command::Request::Choose(items));
+    Ok(())
+}
+
+/// Increase and Decrease Indent, as a word processor's: a list item a
+/// level deeper or shallower, another paragraph's indent a step (half an
+/// inch) further or back.
+fn flow_indent(ctx: &mut EditorContext<'_>, deeper: bool) -> CommandResult {
+    use kalem_viewer::{FlowRole, ParagraphChange};
+    const STEP: f32 = 36.0;
+    let range = flow_paragraph_range(ctx)?;
+    on_flow(ctx, |f| {
+        f.set_each_paragraph(range, |p| {
+            if p.role == FlowRole::ListItem {
+                let level = p.level.saturating_sub(1);
+                match (deeper, level) {
+                    (true, l) if l < 8 => vec![ParagraphChange::ListLevel(l + 1)],
+                    (false, l) if l > 0 => vec![ParagraphChange::ListLevel(l - 1)],
+                    _ => Vec::new(),
+                }
+            } else {
+                let start = p.indent.0;
+                let new = if deeper {
+                    ((start / STEP).floor() + 1.0) * STEP
+                } else {
+                    ((start / STEP).ceil() - 1.0).max(0.0) * STEP
+                };
+                if (new - start).abs() < 0.01 {
+                    Vec::new()
+                } else {
+                    vec![ParagraphChange::IndentStart(new)]
+                }
+            }
+        })
+    })
+}
+
+/// Which spacing a spacing command gives.
+#[derive(Debug, Clone, Copy)]
+enum FlowSpacing {
+    Lines,
+    Before,
+    After,
+}
+
+/// Line Spacing, Space Before and Space After: the value given, else a
+/// list of the common ones and one typed.
+fn flow_spacing(
+    ctx: &mut EditorContext<'_>,
+    args: &serde_json::Value,
+    which: FlowSpacing,
+) -> CommandResult {
+    use kalem_viewer::{LineSpacing, ParagraphChange};
+    let id = match which {
+        FlowSpacing::Lines => "flow.paragraph.lineSpacing",
+        FlowSpacing::Before => "flow.paragraph.spaceBefore",
+        FlowSpacing::After => "flow.paragraph.spaceAfter",
+    };
+    let given = args.get("value").and_then(|x| {
+        x.as_str()
+            .map(str::to_string)
+            .or_else(|| x.as_f64().map(|n| n.to_string()))
+    });
+    match given.as_deref() {
+        Some("custom") => {
+            ctx.requests.push(crate::command::Request::Ask {
+                command: id.into(),
+                args: serde_json::json!({}),
+                arg: "value".into(),
+            });
+            Ok(())
+        }
+        Some(v) => {
+            let t = v.replace(',', ".");
+            let n = t.trim().trim_end_matches("pt").trim().parse::<f32>().ok();
+            let change = match (which, n) {
+                (FlowSpacing::Lines, Some(n)) if (0.25..=10.0).contains(&n) => {
+                    ParagraphChange::LineSpacing(LineSpacing::Multiple(n))
+                }
+                (FlowSpacing::Before, Some(n)) if (0.0..=1584.0).contains(&n) => {
+                    ParagraphChange::SpaceBefore(n)
+                }
+                (FlowSpacing::After, Some(n)) if (0.0..=1584.0).contains(&n) => {
+                    ParagraphChange::SpaceAfter(n)
+                }
+                _ => {
+                    return Err(CommandError::new(crate::l10n::tr_args(
+                        "msg-not-spacing",
+                        &[("value", crate::l10n::Arg::Str(v.to_string()))],
+                    )));
+                }
+            };
+            flow_paragraphs(ctx, vec![change])
+        }
+        None => {
+            flow_paragraph_range(ctx)?;
+            let category = crate::l10n::tr(match which {
+                FlowSpacing::Lines => "cmd-flow-paragraph-lineSpacing",
+                FlowSpacing::Before => "cmd-flow-paragraph-spaceBefore",
+                FlowSpacing::After => "cmd-flow-paragraph-spaceAfter",
+            });
+            let values: &[&str] = match which {
+                FlowSpacing::Lines => &["1.0", "1.15", "1.5", "2.0", "2.5", "3.0"],
+                _ => &["0", "3", "6", "12", "18", "24"],
+            };
+            let mut items: Vec<_> = values
+                .iter()
+                .map(|v| {
+                    let title = match which {
+                        FlowSpacing::Lines => v.to_string(),
+                        _ => format!("{v} pt"),
+                    };
+                    flow_item(id, serde_json::json!({ "value": v }), &title, &category)
+                })
+                .collect();
+            items.push(flow_item(
+                id,
+                serde_json::json!({ "value": "custom" }),
+                &crate::l10n::tr("flow-custom"),
+                &category,
+            ));
+            ctx.requests.push(crate::command::Request::Choose(items));
+            Ok(())
+        }
+    }
 }
 
 /// A mark a formatting command turns on, or off where the whole

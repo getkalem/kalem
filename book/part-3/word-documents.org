@@ -125,6 +125,11 @@ the selected text, or of the word at the cursor:
 | Highlight Color      | =w:highlight= for the sixteen colors Word names, else a shading (=w:shd=) |
 | Clear Formatting     | The run's direct look taken away; its character style, language and the like kept |
 | Paragraph Style      | =w:pStyle= first in the paragraph's =w:pPr=; none for the default style, as Word writes Normal |
+| Align Left, Center, Align Right, Justify | =w:jc= (=left=, =center=, =right=, =both=); taken away when the style aligns so already, written where it does not |
+| Increase and Decrease Indent | A list item's level (=w:ilvl=), else =w:ind='s =w:left= by half an inch |
+| Line Spacing, Space Before, Space After | =w:spacing='s =w:line= (=auto=, in 240ths of a line), =w:before= and =w:after= in twentieths of a point |
+| Bullets, Numbering, Numbering Style | =w:numPr=: the list of the paragraph before continued when it is of the kind, else a new one, of the document's definition of the kind or of Word's own (added to =numbering.xml=, the part made with its relationship and content type when there is none); the paragraphs given the List Paragraph style, as Word does; taken out, =w:numId= 0 where a style makes them a list |
+| Clear Paragraph Formatting | =w:jc=, =w:ind=, =w:spacing= and the like taken away; the style and the list kept |
 
 A run is cut where the range starts or ends inside it; every property
 goes where the schema's sequence puts it, since Word repairs a file
@@ -198,8 +203,8 @@ format is refused, saying so.
 * Not implemented
 
 - Section breaks are not marked in the text.
-- Lists, alignment, indents and spacing edited; character styles
-  given; pictures, links, tables and notes inserted.
+- Character styles given; borders, shading, tabs and keeping lines
+  together edited; pictures, links, tables and notes inserted.
 - Text boxes edited.
 - Word opening every edited file without a repair prompt, checked by
   hand.

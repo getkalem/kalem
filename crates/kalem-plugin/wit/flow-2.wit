@@ -1,0 +1,66 @@
+package kalem:plugin@0.2.8;
+
+/// Paragraphs' look and lists in documents of flowing text (API 0.2.8):
+/// what a word processor's paragraph tools change, for every format
+/// `flow` serves (Word's and OpenDocument's paragraphs, RTF's, an HTML
+/// editor's blocks, the text of slides), in no format's words. `flow`
+/// was released with 0.2.7 and does not change, so these are an
+/// interface of their own; a viewer exporting `flow` exports this too,
+/// refusing what its format does not have.
+interface flow-2 {
+    use viewer.{document};
+    use flow.{align};
+
+    /// The space between a paragraph's lines.
+    variant line-spacing {
+        /// A multiple of the lines' natural height: 1.0 single, 1.5, 2.0.
+        multiple(f32),
+        /// At least this many points.
+        at-least(f32),
+        /// Exactly this many points.
+        exactly(f32),
+    }
+
+    /// How a list marks its items.
+    variant list-kind {
+        /// A bullet.
+        bullet,
+        /// A number in a numbering style, named as CSS's
+        /// `list-style-type` names it (`decimal`, `lower-alpha`,
+        /// `upper-alpha`, `lower-roman`, `upper-roman`), which each
+        /// format writes its own way; one it lacks, it refuses.
+        numbered(string),
+    }
+
+    /// A change of paragraphs' look.
+    variant paragraph-change {
+        /// Their alignment.
+        align(align),
+        /// The indent from the start of the line (the left in
+        /// left-to-right text), in points.
+        indent-start(f32),
+        /// The indent from the end of the line, in points.
+        indent-end(f32),
+        /// The first line's indent beyond the start, in points: negative
+        /// for a hanging indent.
+        first-line(f32),
+        /// The space before, in points.
+        space-before(f32),
+        /// The space after, in points.
+        space-after(f32),
+        /// The space between the lines.
+        line-spacing(line-spacing),
+        /// Made items of a list of this kind (continuing the list before
+        /// them when it is of the kind), or taken out of any list (none).
+        %list(option<list-kind>),
+        /// A list item's level, from 0.
+        list-level(u8),
+        /// Back to the style's look: the paragraph formatting given
+        /// directly taken away, the list kept.
+        clear,
+    }
+
+    /// Changes paragraphs `from..=to` (their indices in the flow's items):
+    /// one step of the document's history.
+    set-paragraphs: func(doc: borrow<document>, unit: u32, %from: u32, to: u32, changes: list<paragraph-change>) -> result<_, string>;
+}

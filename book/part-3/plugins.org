@@ -266,6 +266,18 @@ editor the toolbar shows the paragraph's style, the typeface and the
 size at the cursor, each opening its list, and the marks, pressed where
 the text there has them.
 
+Paragraphs' look and lists are =flow-2='s =set-paragraphs= (API 0.2.8),
+on the selection's paragraphs or the cursor's: Align Left (Ctrl+L),
+Center (Ctrl+E), Align Right (Ctrl+R) and Justify (Ctrl+J); Bullets
+(Ctrl+Shift+L) and Numbering, which make the paragraphs a list's items
+or, when all are already, take them out of it, and Numbering Style
+(1., a., A., i., I.); Increase and Decrease Indent, a list item a level
+deeper or shallower and another paragraph's indent a half-inch step,
+each paragraph its own and all one step; Line Spacing, Space Before and
+Space After, from a list or typed; Clear Paragraph Formatting. The
+toolbar has the alignments, the lists, the indents and the line
+spacing, pressed as the cursor's paragraph has them.
+
 What people wrote /about/ a document rather than in it is the
 =annotations= interface, apart from =flow= because other viewers have
 it too, and every viewer world exports it (a viewer without any answers
@@ -299,7 +311,7 @@ account's.
 * Versions of the plugin API
 
 The plugin API is the WIT package =kalem:plugin= (=crates/kalem-plugin/wit=),
-version 0.2.7; a component's manifest names the version it was built
+version 0.2.8; a component's manifest names the version it was built
 against (="api": "^0.2.1"=), and Kalem tries it when its own API is of
 the same 0.MINOR and no earlier. The rules, so that a plugin built once
 keeps working:
@@ -365,6 +377,16 @@ keeps working:
   answering none; =kalem-plugin='s adapter exports both from the
   contract, whose defaults have no flow and no annotations. =styled.wit=
   of 0.2.6 is frozen (=wit-frozen/0.2.6=).
+- 0.2.8 added the export =flow-2= to the =flow-viewer= and =full-viewer=
+  worlds: =set-paragraphs= changes paragraphs' look and lists
+  (alignment, indents, spacing, line spacing, a list of bullets or of
+  numbers in a numbering style named as CSS's =list-style-type= names
+  it, a list's level, the look given directly cleared), a function
+  =flow= did not have and, released, cannot get. =kalem-plugin='s
+  adapter exports it from the contract (=flow_set_paragraphs=, which
+  refuses by default); a component built against 0.2.7 has none, and
+  Kalem says so when its paragraphs are formatted. =flow.wit= and
+  =annotations.wit= of 0.2.7 are frozen (=wit-frozen/0.2.7=).
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 - An addition is general, or it waits. It names what several plugins

@@ -56,16 +56,21 @@ pub use flowing::exports::kalem::plugin::flow;
 /// The `annotations` interface, as the host calls it.
 pub use flowing::exports::kalem::plugin::annotations;
 
+/// The `flow-2` interface (API 0.2.8), as the host calls it.
+pub use flowing::exports::kalem::plugin::flow_2;
+
 /// The flow's and the annotations' types between the contract and the
 /// interfaces.
 #[allow(unreachable_pub, dead_code)]
 mod flow_conv {
     use super::annotations as a;
     use super::flow as f;
+    use super::flow_2 as f2;
     use kalem_viewer as kv;
 
     include!("../../kalem-plugin/src/annotations_conv.rs");
     include!("../../kalem-plugin/src/flow_conv.rs");
+    include!("../../kalem-plugin/src/flow2_conv.rs");
 }
 
 /// The grid's types between the contract and the interface.
@@ -180,6 +185,8 @@ pub struct Viewer {
     /// The `annotations` exports (API 0.2.7): comments and tracked
     /// changes.
     annotations: Option<annotations::Guest>,
+    /// The `flow-2` exports (API 0.2.8): paragraphs' look and lists.
+    flow2: Option<flow_2::Guest>,
 }
 
 impl std::fmt::Debug for Viewer {
@@ -298,6 +305,18 @@ impl Viewer {
                     .map(Some)
             })
             .map_err(stale)?;
+        let flow2 = instance
+            .bindings(|store, i| {
+                let pre = i.instance_pre(&*store);
+                let name = format!("kalem:plugin/flow-2@{}", crate::API_VERSION);
+                if pre.component().get_export_index(None, &name).is_none() {
+                    return Ok(None);
+                }
+                flow_2::GuestIndices::new(&pre)?
+                    .load(&mut *store, i)
+                    .map(Some)
+            })
+            .map_err(stale)?;
         Ok(Viewer {
             instance,
             api,
@@ -306,6 +325,7 @@ impl Viewer {
             formats,
             flow,
             annotations,
+            flow2,
         })
     }
 
@@ -422,6 +442,16 @@ impl Viewer {
         f: impl FnOnce(&flow::Guest, &mut wasmtime::Store<crate::Data<Files>>) -> wasmtime::Result<R>,
     ) -> Option<crate::Result<R>> {
         let g = self.flow.as_ref()?;
+        Some(self.instance.run(|s| f(g, s)))
+    }
+
+    /// Calls `f` with the plugin's `flow-2` functions (API 0.2.8); `None`
+    /// when it has none.
+    pub fn flow2<R>(
+        &mut self,
+        f: impl FnOnce(&flow_2::Guest, &mut wasmtime::Store<crate::Data<Files>>) -> wasmtime::Result<R>,
+    ) -> Option<crate::Result<R>> {
+        let g = self.flow2.as_ref()?;
         Some(self.instance.run(|s| f(g, s)))
     }
 
@@ -2422,6 +2452,25 @@ impl kalem_viewer::ViewerDocument for ComponentDocument {
         self.fl(|f, s, d| f.call_styles(s, d))
             .map(Cross::cross)
             .unwrap_or_default()
+    }
+
+    fn flow_set_paragraphs(
+        &mut self,
+        unit: usize,
+        from: u32,
+        to: u32,
+        changes: &[kv::ParagraphChange],
+    ) -> kv::Result<()> {
+        let changes: Vec<flow_2::ParagraphChange> = changes.to_vec().cross();
+        let doc = self.doc;
+        self.run(|v| v.flow2(|g, s| g.call_set_paragraphs(s, doc, unit as u32, from, to, &changes)))
+            .unwrap_or_else(|| {
+                Err(kv::ViewerError(
+                    "This plugin was built before paragraphs could be formatted (plugin API 0.2.8)"
+                        .into(),
+                ))
+            })?
+            .map_err(kv::ViewerError)
     }
 
     // Annotations (the `annotations` interface, API 0.2.7).

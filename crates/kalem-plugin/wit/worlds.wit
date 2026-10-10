@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.7;
+package kalem:plugin@0.2.8;
 
 // The worlds of the viewer plugins. They are kept apart from the
 // interfaces: a released interface never changes (the Book, Part III,
@@ -36,6 +36,7 @@ world flow-viewer {
     import diagnostics;
     export viewer;
     export flow;
+    export flow-2;
     export password;
     export formats;
     export annotations;
@@ -52,6 +53,7 @@ world full-viewer {
     export viewer;
     export grid;
     export flow;
+    export flow-2;
     export password;
     export formats;
     export annotations;

@@ -3380,6 +3380,20 @@ pub trait ViewerDocument: Send {
         Vec::new()
     }
 
+    /// Changes the look of paragraphs `from..=to` (their indices in the
+    /// flow), lists included (API 0.2.8, the `flow-2` interface).
+    fn flow_set_paragraphs(
+        &mut self,
+        _unit: usize,
+        _from: u32,
+        _to: u32,
+        _changes: &[ParagraphChange],
+    ) -> Result<()> {
+        Err(ViewerError(
+            "This format's paragraphs are not formatted yet".into(),
+        ))
+    }
+
     // Annotations (API 0.2.7, the `annotations` interface): comments and
     // tracked changes, of any viewer's units.
 

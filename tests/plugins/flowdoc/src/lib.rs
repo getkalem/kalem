@@ -6,10 +6,11 @@
 //! Comments and tracking live in the document, not the file.
 
 use kalem_viewer::{
-    Anchor, Annotation, AnnotationKind, Aside, AsideKind, Detection, FileHandle, FlowCell,
-    FlowItem, FlowLayout, FlowParagraph, FlowPlace, FlowRole, FlowRow, FlowRun, FlowStyle,
-    FlowStyleKind, FlowTable, MarkChange, Marks, Piece, RenderRequest, Rendered, Result, Structure,
-    Unit, UnitKind, Viewer, ViewerDocument, ViewerError,
+    Anchor, Annotation, AnnotationKind, Aside, AsideKind, Detection, FileHandle, FlowAlign,
+    FlowCell, FlowItem, FlowLayout, FlowParagraph, FlowPlace, FlowRole, FlowRow, FlowRun,
+    FlowStyle, FlowStyleKind, FlowTable, ListKind, MarkChange, Marks, ParagraphChange, Piece,
+    RenderRequest, Rendered, Result, Structure, Unit, UnitKind, Viewer, ViewerDocument,
+    ViewerError,
 };
 
 pub struct Flows;
@@ -22,6 +23,45 @@ struct State {
     looks: Vec<(u32, MarkChange)>,
     /// Paragraph styles given, by paragraph.
     styles: Vec<(u32, String)>,
+    /// Paragraphs' look and lists changed, by paragraph.
+    paras: Vec<(u32, ParagraphChange)>,
+}
+
+/// A paragraph change made on a paragraph.
+fn apply_paragraph(p: &mut FlowParagraph, c: &ParagraphChange) {
+    match c {
+        ParagraphChange::Align(a) => p.align = *a,
+        ParagraphChange::IndentStart(v) => p.indent.0 = *v,
+        ParagraphChange::IndentEnd(v) => p.indent.1 = *v,
+        ParagraphChange::FirstLine(v) => p.indent.2 = *v,
+        ParagraphChange::SpaceBefore(v) => p.spacing.0 = *v,
+        ParagraphChange::SpaceAfter(v) => p.spacing.1 = *v,
+        ParagraphChange::LineSpacing(_) => {}
+        ParagraphChange::List(Some(kind)) => {
+            p.role = FlowRole::ListItem;
+            p.level = p.level.max(1);
+            let label = match kind {
+                ListKind::Bullet => "•",
+                ListKind::Numbered(_) => "1.",
+            };
+            p.label = Some((label.to_string(), Marks::default()));
+        }
+        ParagraphChange::List(None) => {
+            p.role = FlowRole::Body;
+            p.level = 0;
+            p.label = None;
+        }
+        ParagraphChange::ListLevel(l) => {
+            if p.role == FlowRole::ListItem {
+                p.level = l + 1;
+            }
+        }
+        ParagraphChange::Clear => {
+            p.align = FlowAlign::Start;
+            p.indent = (0.0, 0.0, 0.0);
+            p.spacing = (0.0, 0.0);
+        }
+    }
 }
 
 /// A mark change made on a run's marks.
@@ -242,7 +282,7 @@ impl Doc {
                     };
                 }
             }
-            let p = FlowParagraph {
+            let mut p = FlowParagraph {
                 index,
                 role,
                 level,
@@ -252,6 +292,11 @@ impl Doc {
                 runs,
                 ..FlowParagraph::default()
             };
+            if let Some(ix) = index {
+                for (_, c) in self.state.paras.iter().filter(|(q, _)| *q == ix) {
+                    apply_paragraph(&mut p, c);
+                }
+            }
             if Some(i) == last && i > 0 {
                 out.push(FlowItem::AsideStart(Aside {
                     kind: AsideKind::Footnote,
@@ -336,12 +381,18 @@ impl ViewerDocument for Doc {
 
     fn modified(&self) -> bool {
         self.state.lines != self.saved
-            || (self.state.looks.len(), self.state.styles.len()) != self.saved_looks
+            || (
+                self.state.looks.len(),
+                self.state.styles.len() + self.state.paras.len(),
+            ) != self.saved_looks
     }
 
     fn save(&mut self) -> Result<kalem_viewer::SaveOutput> {
         self.saved = self.state.lines.clone();
-        self.saved_looks = (self.state.looks.len(), self.state.styles.len());
+        self.saved_looks = (
+            self.state.looks.len(),
+            self.state.styles.len() + self.state.paras.len(),
+        );
         Ok(kalem_viewer::SaveOutput {
             bytes: (self.state.lines.join("\n") + "\n").into_bytes(),
             losses: Vec::new(),
@@ -452,6 +503,26 @@ impl ViewerDocument for Doc {
         for p in from.paragraph..=to.paragraph {
             for c in changes {
                 self.state.looks.push((p, c.clone()));
+            }
+        }
+        Ok(())
+    }
+
+    fn flow_set_paragraphs(
+        &mut self,
+        _unit: usize,
+        from: u32,
+        to: u32,
+        changes: &[ParagraphChange],
+    ) -> Result<()> {
+        let unknown = |c: &ParagraphChange| matches!(c, ParagraphChange::List(Some(ListKind::Numbered(f))) if f == "hebrew");
+        if changes.iter().any(unknown) {
+            return Err(ViewerError("no hebrew numbering".into()));
+        }
+        self.step();
+        for p in from..=to {
+            for c in changes {
+                self.state.paras.push((p, c.clone()));
             }
         }
         Ok(())

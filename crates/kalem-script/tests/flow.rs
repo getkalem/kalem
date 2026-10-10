@@ -171,6 +171,44 @@ fn a_flow_is_edited_and_undone_through_the_host() {
     assert_eq!(m.script, kalem_viewer::Script::Superscript);
     assert_eq!(first.style, "Heading 1");
     assert!(d.flow_set_style(0, 0, 0, "Nonesuch").is_err());
+    // Paragraphs' look and lists cross too (API 0.2.8, `flow-2`).
+    d.flow_set_paragraphs(
+        0,
+        0,
+        0,
+        &[
+            kalem_viewer::ParagraphChange::Align(kalem_viewer::FlowAlign::Center),
+            kalem_viewer::ParagraphChange::IndentStart(18.0),
+            kalem_viewer::ParagraphChange::LineSpacing(kalem_viewer::LineSpacing::Multiple(1.5)),
+            kalem_viewer::ParagraphChange::List(Some(kalem_viewer::ListKind::Numbered(
+                "decimal".into(),
+            ))),
+        ],
+    )
+    .unwrap();
+    let first = d
+        .flow_items(0, 0, 40)
+        .into_iter()
+        .find_map(|i| match i {
+            FlowItem::Paragraph(p) if p.index == Some(0) => Some(p),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(first.align, kalem_viewer::FlowAlign::Center);
+    assert_eq!(first.indent.0, 18.0);
+    assert_eq!(first.label.unwrap().0, "1.");
+    let e = d
+        .flow_set_paragraphs(
+            0,
+            0,
+            0,
+            &[kalem_viewer::ParagraphChange::List(Some(
+                kalem_viewer::ListKind::Numbered("hebrew".into()),
+            ))],
+        )
+        .unwrap_err();
+    assert!(e.0.contains("hebrew"));
+    assert!(d.undo().unwrap());
     assert!(d.undo().unwrap() && d.undo().unwrap());
     assert!(!d.modified());
     let out = d.save().unwrap();

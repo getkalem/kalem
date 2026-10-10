@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.7;
+package kalem:plugin@0.2.8;
 
 /// What a plugin tells the host of itself going wrong (wasm_todo W10):
 /// a component built as Rust builds it stops at a panic with a trap that

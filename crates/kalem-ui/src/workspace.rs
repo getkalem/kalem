@@ -1997,11 +1997,14 @@ impl Workspace {
         let look = {
             let d = &self.editor.read(cx).doc;
             let s = d.selection;
-            d.flow
-                .as_deref()
-                .and_then(|f| f.look_at(s.anchor.min(s.head)))
+            let at = s.anchor.min(s.head);
+            d.flow.as_deref().and_then(|f| {
+                let p = f.paragraph_at(at)?;
+                let para = (p.align, kalem_core::flow::list_kind(p));
+                f.look_at(at).map(|l| (l, para))
+            })
         };
-        let Some((style, marks)) = look else {
+        let Some(((style, marks), (align, list))) = look else {
             return bar;
         };
         if !self.shared.registry.offered("flow.format.bold", doc) {
@@ -2078,6 +2081,81 @@ impl Workspace {
                 pressed,
                 cx,
             ));
+        }
+        // The paragraph: its alignment and list pressed as they are.
+        if self
+            .shared
+            .registry
+            .offered("flow.paragraph.alignLeft", doc)
+        {
+            use kalem_viewer::FlowAlign;
+            let tools = [
+                (
+                    "tool-flow-left",
+                    "⇤",
+                    "flow.paragraph.alignLeft",
+                    align == FlowAlign::Start,
+                ),
+                (
+                    "tool-flow-center",
+                    "↔",
+                    "flow.paragraph.alignCenter",
+                    align == FlowAlign::Center,
+                ),
+                (
+                    "tool-flow-right",
+                    "⇥",
+                    "flow.paragraph.alignRight",
+                    align == FlowAlign::End,
+                ),
+                (
+                    "tool-flow-justify",
+                    "☰",
+                    "flow.paragraph.justify",
+                    align == FlowAlign::Justify,
+                ),
+                (
+                    "tool-flow-bullets",
+                    "•≡",
+                    "flow.list.bullets",
+                    list == Some(false),
+                ),
+                (
+                    "tool-flow-numbering",
+                    "1≡",
+                    "flow.list.numbering",
+                    list == Some(true),
+                ),
+                (
+                    "tool-flow-outdent",
+                    "«",
+                    "flow.paragraph.decreaseIndent",
+                    false,
+                ),
+                (
+                    "tool-flow-indent",
+                    "»",
+                    "flow.paragraph.increaseIndent",
+                    false,
+                ),
+                (
+                    "tool-flow-spacing",
+                    "↕",
+                    "flow.paragraph.lineSpacing",
+                    false,
+                ),
+            ];
+            bar = bar.child(div().w(px(1.)).h(px(18.)).mx(px(4.)).bg(theme.border));
+            for (name, label, id, pressed) in tools {
+                bar = bar.child(self.command_button(
+                    name.into(),
+                    label.into(),
+                    id.into(),
+                    serde_json::Value::Null,
+                    pressed,
+                    cx,
+                ));
+            }
         }
         if self.shared.registry.offered("flow.comment.new", doc) {
             bar = bar

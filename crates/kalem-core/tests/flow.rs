@@ -408,3 +408,112 @@ fn the_word_commands_offered_where_they_serve() {
     assert!(ids("Format").contains(&"flow.format.highlight".to_string()));
     assert!(ids("Review").contains(&"flow.change.acceptAll".to_string()));
 }
+
+#[test]
+fn paragraphs_and_lists_from_the_menus_and_the_toolbar() {
+    use kalem_viewer::{FlowAlign, FlowRole};
+    use serde_json::json;
+    let (mut d, _) = open(DOC);
+    let at = d.text().as_str().find("Plain").unwrap();
+    d.selection = Selection::caret(at + 2);
+    let para = |d: &DocumentState| {
+        d.flow
+            .as_deref()
+            .unwrap()
+            .paragraph_at(at + 2)
+            .unwrap()
+            .clone()
+    };
+    run_command(&mut d, "flow.paragraph.alignCenter", json!({}))
+        .0
+        .unwrap();
+    assert_eq!(para(&d).align, FlowAlign::Center);
+    assert!(d.is_modified());
+    // Bullets on, then off: a toggle.
+    run_command(&mut d, "flow.list.bullets", json!({}))
+        .0
+        .unwrap();
+    let p = para(&d);
+    assert_eq!(
+        (p.role, kalem_core::flow::list_kind(&p)),
+        (FlowRole::ListItem, Some(false))
+    );
+    run_command(&mut d, "flow.list.bullets", json!({}))
+        .0
+        .unwrap();
+    assert_eq!(para(&d).role, FlowRole::Body);
+    // Numbering in a style picked from the list.
+    let (r, asked) = run_command(&mut d, "flow.list.numberingStyle", json!({}));
+    r.unwrap();
+    assert_eq!(offered(&asked).len(), 5);
+    run_command(
+        &mut d,
+        "flow.list.numbering",
+        json!({ "format": "lower-roman" }),
+    )
+    .0
+    .unwrap();
+    assert_eq!(kalem_core::flow::list_kind(&para(&d)), Some(true));
+    let (r, _) = run_command(&mut d, "flow.list.numbering", json!({ "format": "hebrew" }));
+    assert!(r.unwrap_err().contains("hebrew"));
+    // A list item a level deeper, and back.
+    run_command(&mut d, "flow.paragraph.increaseIndent", json!({}))
+        .0
+        .unwrap();
+    assert_eq!(para(&d).level, 2);
+    run_command(&mut d, "flow.paragraph.decreaseIndent", json!({}))
+        .0
+        .unwrap();
+    assert_eq!(para(&d).level, 1);
+    run_command(&mut d, "flow.list.numbering", json!({}))
+        .0
+        .unwrap();
+    assert_eq!(para(&d).role, FlowRole::Body);
+    // Spacing from the lists, or typed.
+    let (r, asked) = run_command(&mut d, "flow.paragraph.lineSpacing", json!({}));
+    r.unwrap();
+    assert!(offered(&asked).contains(&"1.5".to_string()));
+    run_command(
+        &mut d,
+        "flow.paragraph.spaceBefore",
+        json!({ "value": "12" }),
+    )
+    .0
+    .unwrap();
+    assert_eq!(para(&d).spacing.0, 12.0);
+    let (r, _) = run_command(
+        &mut d,
+        "flow.paragraph.spaceAfter",
+        json!({ "value": "lots" }),
+    );
+    assert!(r.unwrap_err().contains("lots"));
+    run_command(&mut d, "flow.paragraph.clear", json!({}))
+        .0
+        .unwrap();
+    assert_eq!(para(&d).align, FlowAlign::Start);
+    // Two body paragraphs indented a step each, one step to undo.
+    let first = d.text().as_str().find("Title").unwrap();
+    d.selection = Selection {
+        anchor: first,
+        head: at + 2,
+    };
+    run_command(&mut d, "flow.paragraph.increaseIndent", json!({}))
+        .0
+        .unwrap();
+    run_command(&mut d, "flow.paragraph.increaseIndent", json!({}))
+        .0
+        .unwrap();
+    assert_eq!(para(&d).indent.0, 72.0);
+    let title = |d: &DocumentState| {
+        d.flow
+            .as_deref()
+            .unwrap()
+            .paragraph_at(first)
+            .unwrap()
+            .indent
+            .0
+    };
+    assert_eq!(title(&d), 72.0);
+    assert!(d.undo().is_some());
+    assert_eq!((title(&d), para(&d).indent.0), (36.0, 36.0));
+}
