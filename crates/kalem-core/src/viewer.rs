@@ -22,7 +22,8 @@ use crate::command::{
     Command, CommandHandler, CommandResult, CommandSource, EditorContext, Request,
 };
 
-static VIEWERS: RwLock<Vec<Arc<dyn Viewer>>> = RwLock::new(Vec::new());
+/// The viewers installed, each with when it serves a file.
+static VIEWERS: RwLock<Vec<(Arc<dyn Viewer>, crate::applies::Applies)>> = RwLock::new(Vec::new());
 
 /// The last generation given out: unique over every document, so a
 /// frontend's texture of one file is never taken for another's.
@@ -32,38 +33,63 @@ fn next_generation() -> u64 {
     GENERATION.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1
 }
 
-/// Installs a viewer (a bundled plugin; the plugin loader of T3.1.12 for
-/// components). A viewer with the same identifier is replaced.
+/// Installs a viewer that serves the files of its extensions
+/// ([`Viewer::extensions`]) that are not text: one built into a test or a
+/// tool. A viewer with the same identifier is replaced.
 pub fn register(viewer: Arc<dyn Viewer>) {
+    let applies = crate::applies::Applies::opening(viewer.extensions());
+    register_applying(viewer, applies);
+}
+
+/// Installs a viewer that serves the files `applies` declares (a plugin's,
+/// read from its manifest by [`crate::applies::Applies::of`]). A viewer
+/// with the same identifier is replaced.
+pub fn register_applying(viewer: Arc<dyn Viewer>, applies: crate::applies::Applies) {
     if let Ok(mut all) = VIEWERS.write() {
-        all.retain(|v| v.id() != viewer.id());
-        all.push(viewer);
+        all.retain(|(v, _)| v.id() != viewer.id());
+        all.push((viewer, applies));
     }
 }
 
 /// Takes viewer `id` away: a plugin turned off (wasm_todo W8).
 pub fn unregister(id: &str) {
     if let Ok(mut all) = VIEWERS.write() {
-        all.retain(|v| v.id() != id);
+        all.retain(|(v, _)| v.id() != id);
     }
 }
 
 /// The viewers installed.
 pub fn viewers() -> Vec<Arc<dyn Viewer>> {
-    VIEWERS.read().map(|v| v.clone()).unwrap_or_default()
+    VIEWERS
+        .read()
+        .map(|v| v.iter().map(|(v, _)| v.clone()).collect())
+        .unwrap_or_default()
 }
 
-/// The viewer that opens the file named `name` starting with `head`: the
-/// surest, the first installed among equals.
+/// The viewer that opens the file named `name` starting with `head`
+/// ([`find_at`] with no folder; `head` empty when it is not known).
 pub fn find(name: &str, head: &[u8]) -> Option<Arc<dyn Viewer>> {
-    let mut best: Option<(kalem_viewer::Detection, Arc<dyn Viewer>)> = None;
-    for v in viewers() {
-        let d = v.detect(name, head);
-        if d > kalem_viewer::Detection::No && best.as_ref().is_none_or(|(b, _)| d > *b) {
-            best = Some((d, v));
+    find_at(Path::new(name), head)
+}
+
+/// The viewer that opens the file at `path` starting with `head`, by what
+/// each declares ([`crate::applies`]), the viewer never asked itself: the
+/// surest match ([`crate::applies::Serves::strength`]), the first
+/// installed among equals. The same test names the plugins of the index
+/// that would open it ([`crate::plugin_store::opening`]).
+pub fn find_at(path: &Path, head: &[u8]) -> Option<Arc<dyn Viewer>> {
+    let all = VIEWERS.read().ok()?;
+    let mut best: Option<(crate::applies::Strength, &Arc<dyn Viewer>)> = None;
+    for (v, applies) in all.iter() {
+        let Some(why) = applies.serves(path, Some(head)) else {
+            continue;
+        };
+        let s = why.strength();
+        if best.as_ref().is_none_or(|(b, _)| s > *b) {
+            best = Some((s, v));
         }
     }
-    best.map(|(_, v)| v)
+    best.map(|(_, v)| v.clone())
 }
 
 /// The outline of the document a viewer shows, for the outline panel:
@@ -163,11 +189,13 @@ fn render(
 /// text files open in a document mode even when a viewer could show them
 /// (an SVG drawing is XML).
 pub fn for_file(path: &Path) -> Option<Arc<dyn Viewer>> {
-    let head = FileHandle::new(path).read_at(0, 8192).ok()?;
+    let head = FileHandle::new(path)
+        .read_at(0, crate::applies::HEAD)
+        .ok()?;
     if !crate::mode::looks_binary(&head) {
         return None;
     }
-    find(&name_of(path), &head)
+    find_at(path, &head)
 }
 
 fn name_of(path: &Path) -> String {
@@ -4104,8 +4132,11 @@ impl ViewerState {
     }
 
     /// What Excel's status bar says of a selection of more than one cell:
-    /// `Average: 1073.44 · Count: 4 · Sum: 4293.75`, numbers in the cursor's
-    /// cell's format; only the count when no value is a number.
+    /// its Average, Count and Sum, then the figures it shows when asked,
+    /// Min, Max and the Numerical Count when some values are not numbers
+    /// (`Average: 1073.44 · Count: 4 · Sum: 4293.75 · Min: 0 · Max:
+    /// 2400`), last so that a narrow terminal cuts them first; numbers in
+    /// the cursor's cell's format; only the count when none is a number.
     pub fn selection_sums(&mut self) -> Option<String> {
         let s = self.selection();
         if s[0] == s[2] && s[1] == s[3] {
@@ -4128,10 +4159,19 @@ impl ViewerState {
             } else {
                 let sum: f64 = numbers.iter().sum();
                 let average = sum / numbers.len() as f64;
+                let min = numbers.iter().copied().fold(f64::INFINITY, f64::min);
+                let max = numbers.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+                let numerical = if numbers.len() == count {
+                    String::new()
+                } else {
+                    format!(" · Numerical Count: {}", numbers.len())
+                };
                 format!(
-                    "Average: {} · Count: {count} · Sum: {}",
+                    "Average: {} · Count: {count} · Sum: {}{numerical} · Min: {} · Max: {}",
                     format_axis_number(average, &code),
-                    format_axis_number(sum, &code)
+                    format_axis_number(sum, &code),
+                    format_axis_number(min, &code),
+                    format_axis_number(max, &code)
                 )
             }
         });
@@ -5170,6 +5210,12 @@ impl ViewerState {
     /// it must be) and the cells, fixed (`Budget!$B$2:$D$4`).
     pub fn selection_reference(&mut self) -> String {
         let s = self.selection();
+        self.range_reference(s)
+    }
+
+    /// Range `s` of the sheet shown as a name refers to it:
+    /// `Budget!$B$2:$B$5`.
+    pub fn range_reference(&self, s: [u32; 4]) -> String {
         let sheet = self.structure.units[self.unit]
             .label
             .trim_end_matches(" (hidden)")
@@ -5218,22 +5264,77 @@ impl ViewerState {
         Ok(())
     }
 
+    /// Create from Selection: a name for each column of the selection from
+    /// the text of its first (`Top`) or last row, referring to the rest of
+    /// the column, or for each row from its first (`Left`) or last column,
+    /// as Excel's Formulas › Create from Selection; in one undo step. The
+    /// names made; a blank label makes none.
+    pub fn names_from_selection(&mut self, side: NameSide) -> Result<Vec<String>, String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let s = self.selection();
+        let by_columns = matches!(side, NameSide::Top | NameSide::Bottom);
+        if (by_columns && s[0] == s[2]) || (!by_columns && s[1] == s[3]) {
+            return Err(
+                "Select the labels and the cells they name: two rows or columns at least".into(),
+            );
+        }
+        let labels: std::collections::HashMap<(u32, u32), String> = self
+            .grid_cells(s[0]..s[2] + 1, s[1]..s[3] + 1)
+            .into_iter()
+            .map(|(r, c, g)| ((r, c), g.text))
+            .collect();
+        let mut names = Vec::new();
+        let lines = if by_columns { s[1]..=s[3] } else { s[0]..=s[2] };
+        for i in lines {
+            let (at, range) = match side {
+                NameSide::Top => ((s[0], i), [s[0] + 1, i, s[2], i]),
+                NameSide::Bottom => ((s[2], i), [s[0], i, s[2] - 1, i]),
+                NameSide::Left => ((i, s[1]), [i, s[1] + 1, i, s[3]]),
+                NameSide::Right => ((i, s[3]), [i, s[1], i, s[3] - 1]),
+            };
+            if let Some(name) = labels.get(&at).and_then(|t| name_from_label(t)) {
+                names.push((name, self.range_reference(range)));
+            }
+        }
+        if names.is_empty() {
+            return Err("The labels are blank".into());
+        }
+        let r = self.in_batch(|d| {
+            for (name, to) in &names {
+                d.set_defined_name(name, Some(to))?;
+            }
+            Ok(())
+        });
+        self.refresh();
+        r.map(|()| names.into_iter().map(|(n, _)| n).collect())
+    }
+
     /// The sheet shown as CSV, as Excel's CSV UTF-8 writes it: the used
     /// range's values as shown, a field quoted when it holds a comma, a
     /// quote or a line break, lines ending in CR LF.
     pub fn sheet_csv(&mut self) -> String {
+        format!("\u{feff}{}", self.sheet_text(','))
+    }
+
+    /// The sheet shown as delimited text, as Excel's CSV and Text types
+    /// write it: the used range's values as shown, `delimiter` between
+    /// them, a field quoted when it holds the delimiter, a quote or a line
+    /// break, lines ending in CR LF.
+    pub fn sheet_text(&mut self, delimiter: char) -> String {
         let Some(l) = self.grid_layout() else {
             return String::new();
         };
         let (rows, cols) = (l.rows, l.cols);
         let field = |t: &str| {
-            if t.contains([',', '"', '\n', '\r']) {
+            if t.contains([delimiter, '"', '\n', '\r']) {
                 format!("\"{}\"", t.replace('"', "\"\""))
             } else {
                 t.to_owned()
             }
         };
-        let mut out = String::from("\u{feff}");
+        let mut out = String::new();
         let mut row = 0;
         while row < rows {
             let to = (row + 1000).min(rows);
@@ -5249,7 +5350,7 @@ impl ViewerState {
             }
             for line in grid {
                 let fields: Vec<String> = line.iter().map(|t| field(t)).collect();
-                out.push_str(&fields.join(","));
+                out.push_str(&fields.join(&delimiter.to_string()));
                 out.push_str("\r\n");
             }
             row = to;
@@ -5941,6 +6042,36 @@ impl ViewerState {
         t
     }
 
+    /// The comments on the cursor's cell as the document gives them
+    /// through its annotations, in the thread's order; none from a
+    /// document that gives none.
+    pub fn cursor_annotations(&mut self) -> Vec<kalem_viewer::Annotation> {
+        let (unit, p) = (self.unit, self.grid_pos());
+        self.doc()
+            .annotations(Some(unit))
+            .into_iter()
+            .filter(|a| {
+                a.anchors.iter().any(|x| {
+                    matches!(x, kalem_viewer::Anchor::Cell { unit: u, row, col }
+                        if *u == unit && *row == p.row && *col == p.col)
+                })
+            })
+            .collect()
+    }
+
+    /// Changes the text of comment `id` (an annotation's ID). One undo
+    /// step.
+    pub fn edit_comment(&mut self, id: &str, text: &str) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        self.doc()
+            .set_comment_text(id, text)
+            .map_err(|e| e.to_string())?;
+        self.refresh();
+        Ok(())
+    }
+
     /// The thread on the cursor's cell.
     pub fn cursor_thread(&mut self) -> Option<kalem_viewer::CommentThread> {
         let p = self.grid_pos();
@@ -6188,6 +6319,41 @@ impl ViewerState {
         } else {
             self.areas.clone()
         }
+    }
+
+    /// Every row (`rows`) or column of the selection given one height in
+    /// points or width in characters, in one undo step: Excel's Format ›
+    /// Row Height and Column Width. A selection of whole columns sets the
+    /// rows in use and the cursor's, not a million of them; whole rows,
+    /// likewise the columns.
+    pub fn set_selection_size(&mut self, rows: bool, size: f32) -> Result<(), String> {
+        if !self.grid_editable() {
+            return Err("This file is shown, not edited".into());
+        }
+        let (unit, p) = (self.unit, self.grid_pos());
+        let l = self.grid_layout().unwrap_or_default();
+        let last = if rows {
+            l.rows.max(p.row + 1)
+        } else {
+            l.cols.max(p.col + 1)
+        };
+        let mut lines = std::collections::BTreeSet::new();
+        for s in self.selection_areas() {
+            let (from, to) = if rows { (s[0], s[2]) } else { (s[1], s[3]) };
+            lines.extend(from..=to.min(last.saturating_sub(1)).max(from));
+        }
+        let r = self.in_batch(|d| {
+            for &i in &lines {
+                if rows {
+                    d.set_row_height(unit, i, size.clamp(0.0, 409.0))?;
+                } else {
+                    d.set_col_width(unit, i, size.clamp(0.0, 255.0))?;
+                }
+            }
+            Ok(())
+        });
+        self.refresh();
+        r
     }
 
     /// Edits of the document as one undo step.
@@ -10721,6 +10887,224 @@ fn save_sheet_csv(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comm
     Ok(())
 }
 
+/// The types Export as CSV or Text writes, as Excel's Save As has them:
+/// key, title, delimiter, encoding (UTF-8 with its mark, or a Windows
+/// code page) and extension.
+const TEXT_TYPES: &[(&str, &str, char, &str, &str)] = &[
+    ("utf8", "CSV UTF-8 (comma delimited)", ',', "utf-8", "csv"),
+    (
+        "utf8-semicolon",
+        "CSV UTF-8 (semicolon delimited)",
+        ';',
+        "utf-8",
+        "csv",
+    ),
+    ("tab", "Text UTF-8 (tab delimited)", '\t', "utf-8", "txt"),
+    (
+        "windows-1254",
+        "CSV Turkish, Windows-1254 (semicolon delimited)",
+        ';',
+        "windows-1254",
+        "csv",
+    ),
+    (
+        "windows-1252",
+        "CSV Western, Windows-1252 (comma delimited)",
+        ',',
+        "windows-1252",
+        "csv",
+    ),
+];
+
+/// Text in an encoding of [`TEXT_TYPES`]: UTF-8 with its byte order mark,
+/// or a code page with `?` for a character it lacks, as Excel writes one.
+pub fn encode_text(text: &str, encoding: &str) -> Vec<u8> {
+    let Some(enc) =
+        encoding_rs::Encoding::for_label(encoding.as_bytes()).filter(|e| *e != encoding_rs::UTF_8)
+    else {
+        let mut out = "\u{feff}".as_bytes().to_vec();
+        out.extend_from_slice(text.as_bytes());
+        return out;
+    };
+    let mut encoder = enc.new_encoder();
+    let mut out = Vec::with_capacity(text.len() + 16);
+    let mut buf = [0u8; 4096];
+    let mut rest = text;
+    loop {
+        let (r, read, written) = encoder.encode_from_utf8_without_replacement(rest, &mut buf, true);
+        out.extend_from_slice(&buf[..written]);
+        rest = &rest[read..];
+        match r {
+            encoding_rs::EncoderResult::InputEmpty => break,
+            encoding_rs::EncoderResult::OutputFull => {}
+            encoding_rs::EncoderResult::Unmappable(_) => out.push(b'?'),
+        }
+    }
+    out
+}
+
+/// Export as CSV or Text: the type asked (Excel's CSV UTF-8, semicolons,
+/// tabs, a Windows code page), then the sheet shown or every visible
+/// worksheet, each to its own file, then where (a file, or the folder
+/// for every sheet, beside the workbook by default); files already there
+/// replaced after asking. The workbook is left as it is.
+fn export_text(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.exportText";
+    let step = |key: &str, value: &str| {
+        let mut a = args.clone();
+        a[key] = serde_json::json!(value);
+        a
+    };
+    let Some(&(kind, _, delimiter, encoding, ext)) = args
+        .get("type")
+        .and_then(|t| t.as_str())
+        .and_then(|t| TEXT_TYPES.iter().find(|x| x.0 == t))
+    else {
+        let items = TEXT_TYPES
+            .iter()
+            .map(|(k, title, ..)| menu_item(ID, step("type", k), title, "Export as CSV or Text"))
+            .collect();
+        ctx.requests.push(Request::Choose(items));
+        return Ok(());
+    };
+    let Some(doc) = ctx.document.as_deref_mut() else {
+        return Ok(());
+    };
+    let book = doc.meta.path.clone();
+    let Some(v) = doc.viewer.as_deref_mut() else {
+        return Ok(());
+    };
+    // The visible worksheets: units with a grid, not hidden.
+    let shown = v.unit;
+    let mut sheets = Vec::new();
+    for u in 0..v.structure().units.len() {
+        let label = v.structure().units[u].label.clone();
+        if label.ends_with(" (hidden)") {
+            continue;
+        }
+        v.go_to(u);
+        if v.grid_layout().is_some_and(|l| l.editable) {
+            sheets.push((u, label));
+        }
+    }
+    v.go_to(shown);
+    let label = v.structure().units[shown].label.clone();
+    let every = match args.get("sheets").and_then(|x| x.as_str()) {
+        Some("all") => true,
+        Some(_) => false,
+        None if sheets.len() > 1 => {
+            ctx.requests.push(Request::Choose(vec![
+                menu_item(
+                    ID,
+                    step("sheets", "this"),
+                    &format!("This Sheet ({label})"),
+                    kind,
+                ),
+                menu_item(
+                    ID,
+                    step("sheets", "all"),
+                    "Every Sheet, Each to Its Own File",
+                    kind,
+                ),
+            ]));
+            return Ok(());
+        }
+        None => false,
+    };
+    let stem = book
+        .as_ref()
+        .and_then(|p| p.file_stem())
+        .map_or("Book".into(), |s| s.to_string_lossy().into_owned());
+    let dir = book
+        .as_ref()
+        .and_then(|p| p.parent())
+        .map(std::path::Path::to_path_buf);
+    let file_name = |sheet: &str| {
+        let safe: String = sheet
+            .chars()
+            .map(|c| {
+                if matches!(c, '/' | '\\' | ':') {
+                    '_'
+                } else {
+                    c
+                }
+            })
+            .collect();
+        format!("{stem} - {safe}.{ext}")
+    };
+    let Some(path) = text_arg(args, "value") else {
+        let default = if every {
+            dir.as_ref().map_or(".".into(), |d| d.display().to_string())
+        } else {
+            let name = file_name(&label);
+            dir.as_ref()
+                .map_or(name.clone(), |d| d.join(&name).display().to_string())
+        };
+        let mut a = args.clone();
+        a["value_default"] = serde_json::json!(default);
+        return ask_more(ctx, ID, &a, "value");
+    };
+    let mut target = std::path::PathBuf::from(crate::settings::expand_home(path.trim()));
+    if target.is_relative()
+        && let Some(d) = &dir
+    {
+        target = d.join(target);
+    }
+    let files: Vec<(usize, std::path::PathBuf)> = if every {
+        sheets
+            .iter()
+            .map(|(u, name)| (*u, target.join(file_name(name))))
+            .collect()
+    } else {
+        if target.extension().is_none() {
+            target.set_extension(ext);
+        }
+        vec![(shown, target.clone())]
+    };
+    let there = files.iter().filter(|(_, f)| f.exists()).count();
+    let confirmed = args.get("confirmed").and_then(serde_json::Value::as_bool) == Some(true);
+    if there > 0 && !confirmed {
+        let question = if there == 1 {
+            let f = files.iter().find(|(_, f)| f.exists()).map(|(_, f)| f);
+            let name = f
+                .and_then(|f| f.file_name())
+                .map_or(String::new(), |f| f.to_string_lossy().into_owned());
+            format!("{name} exists: replace it?")
+        } else {
+            format!("{there} of the files exist: replace them?")
+        };
+        let mut a = args.clone();
+        a["confirmed"] = serde_json::json!(true);
+        ctx.requests.push(Request::Choose(vec![
+            menu_item(ID, a, "Replace", &question),
+            menu_item(
+                "viewer.grid.cancel",
+                serde_json::json!({}),
+                "Cancel",
+                &question,
+            ),
+        ]));
+        return Ok(());
+    }
+    if every {
+        std::fs::create_dir_all(&target)
+            .map_err(|e| crate::command::CommandError::new(e.to_string()))?;
+    }
+    for (u, file) in &files {
+        v.go_to(*u);
+        let text = v.sheet_text(delimiter);
+        std::fs::write(file, encode_text(&text, encoding))
+            .map_err(|e| crate::command::CommandError::new(e.to_string()))?;
+    }
+    v.go_to(shown);
+    ctx.messages.push(if every {
+        format!("{} sheets saved in {}", files.len(), target.display())
+    } else {
+        format!("{label} saved as {}", target.display())
+    });
+    Ok(())
+}
+
 /// Today's date (`time` off) or the time now, as typed into a cell.
 fn now_entry(time: bool) -> String {
     let now = jiff::Zoned::now().datetime();
@@ -12038,37 +12422,78 @@ fn context_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
     {
         v.go_to(u as usize);
     }
+    // What is at the cursor, for the cells' items Excel shows only there:
+    // a chart's, a picture's, a table's, a pivot table's, a note's, a
+    // link's, a list's.
+    #[derive(Default)]
+    struct At {
+        chart: bool,
+        drawing: bool,
+        table: bool,
+        pivot: bool,
+        thread: bool,
+        note: bool,
+        link: bool,
+        list: bool,
+    }
+    let at = match ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    {
+        Some(v) if on == "cells" => At {
+            chart: v.chart_at_cursor().is_some(),
+            drawing: v.drawing_at_cursor().is_some(),
+            table: v.table_at_cursor().is_some(),
+            pivot: v.pivot_at_cursor().is_some(),
+            thread: v.cursor_cell().thread,
+            note: v.cursor_note().is_some(),
+            link: v.cursor_link().is_some(),
+            list: v
+                .cursor_validation()
+                .is_some_and(|x| x.kind == kalem_viewer::ValidationKind::List),
+        },
+        _ => At::default(),
+    };
     let none = serde_json::json!({});
-    let list: &[(&str, &str)] = match on {
-        "rows" => &[
+    let list: Vec<(&str, &str)> = match on {
+        "rows" => vec![
             ("edit.cut", "Cut"),
             ("edit.copy", "Copy"),
             ("edit.paste", "Paste"),
+            ("viewer.grid.pasteSpecial", "Paste Special…"),
             ("viewer.grid.insertRow", "Insert Rows"),
             ("viewer.grid.deleteRow", "Delete Rows"),
             ("viewer.grid.clear", "Clear Contents"),
+            ("viewer.grid.formatCells", "Format Cells…"),
+            ("viewer.grid.rowHeight", "Row Height…"),
             ("viewer.grid.fitRowHeight", "Row Height to Fit"),
             ("viewer.grid.tallerRow", "Taller Row"),
             ("viewer.grid.shorterRow", "Shorter Row"),
             ("viewer.grid.hideRows", "Hide"),
             ("viewer.grid.unhideRows", "Unhide"),
             ("viewer.grid.group", "Group"),
+            ("viewer.grid.ungroup", "Ungroup"),
         ],
-        "cols" => &[
+        "cols" => vec![
             ("edit.cut", "Cut"),
             ("edit.copy", "Copy"),
             ("edit.paste", "Paste"),
+            ("viewer.grid.pasteSpecial", "Paste Special…"),
             ("viewer.grid.insertColumn", "Insert Columns"),
             ("viewer.grid.deleteColumn", "Delete Columns"),
             ("viewer.grid.clear", "Clear Contents"),
+            ("viewer.grid.formatCells", "Format Cells…"),
+            ("viewer.grid.columnWidth", "Column Width…"),
             ("viewer.grid.autofitColumn", "Column Width to Fit"),
             ("viewer.grid.widenColumn", "Wider Column"),
             ("viewer.grid.narrowColumn", "Narrower Column"),
             ("viewer.grid.hideColumns", "Hide"),
             ("viewer.grid.unhideColumns", "Unhide"),
             ("viewer.grid.group", "Group"),
+            ("viewer.grid.ungroup", "Ungroup"),
         ],
-        "tab" => &[
+        "tab" => vec![
             ("viewer.grid.insertSheet", "Insert Sheet"),
             ("viewer.grid.deleteSheet", "Delete Sheet"),
             ("viewer.grid.renameSheet", "Rename"),
@@ -12081,26 +12506,94 @@ fn context_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
             ("viewer.grid.protectSheet", "Protect Sheet"),
             ("viewer.grid.sheetList", "All Sheets"),
         ],
-        _ => &[
-            ("edit.cut", "Cut"),
-            ("edit.copy", "Copy"),
-            ("edit.paste", "Paste"),
-            ("viewer.grid.pasteSpecial", "Paste Special"),
-            ("viewer.grid.insertCopiedCells", "Insert Copied Cells"),
-            ("viewer.grid.insertCells", "Insert…"),
-            ("viewer.grid.deleteCells", "Delete…"),
-            ("viewer.grid.clear", "Clear Contents"),
-            ("viewer.grid.clearFormats", "Clear Formats"),
-            ("viewer.grid.sortAscending", "Sort A to Z"),
-            ("viewer.grid.sortDescending", "Sort Z to A"),
-            ("viewer.grid.toggleFilter", "Filter"),
-            ("viewer.grid.numberFormat", "Number Format"),
-            ("viewer.grid.cellStyle", "Cell Style"),
-            ("viewer.grid.newComment", "New Comment"),
-            ("viewer.grid.editNote", "Note"),
-            ("viewer.grid.insertLink", "Link"),
-            ("viewer.grid.defineName", "Define Name"),
-        ],
+        _ => {
+            // A chart or a picture over the cell: its items first, as
+            // Excel's menu on it.
+            let mut l = Vec::new();
+            if at.chart {
+                l.extend([
+                    ("viewer.grid.chartKind", "Chart: Change Chart Type…"),
+                    ("viewer.grid.chartTitle", "Chart: Title…"),
+                    ("viewer.grid.chartLegend", "Chart: Legend…"),
+                    ("viewer.grid.dataLabels", "Chart: Data Labels…"),
+                    ("viewer.grid.trendline", "Chart: Trendline…"),
+                    ("viewer.grid.moveChart", "Chart: Move Chart…"),
+                    ("viewer.grid.saveChartTemplate", "Chart: Save as Template…"),
+                    ("viewer.grid.deleteChart", "Chart: Delete"),
+                ]);
+            }
+            if at.drawing {
+                l.extend([
+                    ("viewer.grid.editShapeText", "Picture: Edit Text…"),
+                    ("viewer.grid.deleteDrawing", "Picture: Delete"),
+                ]);
+            }
+            l.extend([
+                ("edit.cut", "Cut"),
+                ("edit.copy", "Copy"),
+                ("edit.paste", "Paste"),
+                ("viewer.grid.pasteSpecial", "Paste Special…"),
+                ("viewer.grid.insertCopiedCells", "Insert Copied Cells"),
+                ("viewer.grid.insertCells", "Insert…"),
+                ("viewer.grid.deleteCells", "Delete…"),
+                ("viewer.grid.clear", "Clear Contents"),
+                ("viewer.grid.clearFormats", "Clear Formats"),
+                // Excel's Filter and Sort submenus.
+                ("viewer.grid.toggleFilter", "Filter"),
+                (
+                    "viewer.grid.filterByColor",
+                    "Filter by Selected Cell's Color",
+                ),
+                ("viewer.grid.reapplyFilter", "Reapply Filter"),
+                ("viewer.grid.sortAscending", "Sort A to Z"),
+                ("viewer.grid.sortDescending", "Sort Z to A"),
+                ("viewer.grid.sortByColor", "Sort by Color…"),
+                ("viewer.grid.customSort", "Custom Sort…"),
+            ]);
+            if at.table {
+                l.extend([
+                    ("viewer.grid.totalRow", "Table: Total Row"),
+                    ("viewer.grid.convertToRange", "Table: Convert to Range"),
+                ]);
+            }
+            if at.pivot {
+                l.extend([
+                    ("viewer.grid.refreshPivots", "Refresh"),
+                    ("viewer.grid.pivotOptions", "PivotTable Options…"),
+                ]);
+            }
+            l.push(("viewer.grid.newComment", "New Comment"));
+            if at.thread {
+                l.push(("viewer.grid.comments", "Show Comments"));
+            }
+            if at.note {
+                l.extend([
+                    ("viewer.grid.editNote", "Edit Note"),
+                    ("viewer.grid.deleteNote", "Delete Note"),
+                ]);
+            } else {
+                l.push(("viewer.grid.editNote", "New Note"));
+            }
+            l.extend([
+                ("viewer.grid.formatCells", "Format Cells…"),
+                ("viewer.grid.numberFormat", "Number Format"),
+                ("viewer.grid.cellStyle", "Cell Style"),
+            ]);
+            if at.list {
+                l.push(("viewer.grid.pickFromList", "Pick From Drop-down List…"));
+            }
+            l.push(("viewer.grid.defineName", "Define Name…"));
+            if at.link {
+                l.extend([
+                    ("viewer.grid.insertLink", "Edit Link"),
+                    ("viewer.grid.openLink", "Open Link"),
+                    ("viewer.grid.removeLink", "Remove Link"),
+                ]);
+            } else {
+                l.push(("viewer.grid.insertLink", "Link"));
+            }
+            l
+        }
     };
     let category = match on {
         "rows" => "Rows",
@@ -12648,6 +13141,16 @@ fn comments_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
                 .unwrap_or(0);
             return with(ctx, |v| v.delete_comment(i as usize));
         }
+        // A comment's text changed, the old offered.
+        Some("edit") => {
+            let Some(id) = text_arg(args, "id") else {
+                return Ok(());
+            };
+            let Some(text) = text_arg(args, "value") else {
+                return ask_more(ctx, ID, args, "value");
+            };
+            return with(ctx, |v| v.edit_comment(&id, &text));
+        }
         Some("go") => {
             let (Some(r), Some(c)) = (
                 args.get("row").and_then(serde_json::Value::as_u64),
@@ -12661,10 +13164,29 @@ fn comments_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
         _ => {}
     }
     let here = v.cursor_thread();
+    let annotated = v.cursor_annotations();
     let p = v.grid_pos();
     let mut items = Vec::new();
     if let Some(t) = &here {
         let cell = cell_name(t.row, t.col);
+        // Edited where the document gives its comments as annotations.
+        for (i, (a, c)) in annotated.iter().zip(&t.comments).enumerate() {
+            items.push(menu_item(
+                ID,
+                serde_json::json!({ "what": "edit", "id": a.id, "value_default": c.text }),
+                &format!(
+                    "{} {}: {}",
+                    if i == 0 {
+                        "Edit comment:"
+                    } else {
+                        "Edit reply:"
+                    },
+                    c.author,
+                    c.text.replace('\n', " ")
+                ),
+                &format!("Comments on {cell}"),
+            ));
+        }
         for (i, c) in t.comments.iter().enumerate() {
             let when = c.time.get(..16).unwrap_or(&c.time).replace('T', " ");
             items.push(menu_item(
@@ -14876,6 +15398,168 @@ fn grid_width(ctx: &mut EditorContext<'_>, by: f32) -> CommandResult {
     })
 }
 
+/// Row Height or Column Width: the size typed, a row's in points (0 to
+/// 409), a column's in characters of the default font's digits (0 to
+/// 255), the cursor's offered; every row or column of the selection
+/// gets it.
+fn exact_size(ctx: &mut EditorContext<'_>, args: &serde_json::Value, rows: bool) -> CommandResult {
+    let (id, max) = if rows {
+        ("viewer.grid.rowHeight", 409.0)
+    } else {
+        ("viewer.grid.columnWidth", 255.0)
+    };
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    let Some(typed) = text_arg(args, "value") else {
+        let p = v.grid_pos();
+        let now = if rows {
+            v.row_height(p.row)
+        } else {
+            v.col_width(p.col)
+        };
+        let now = format!("{now:.2}");
+        let now = now.trim_end_matches('0').trim_end_matches('.');
+        return ask_more(
+            ctx,
+            id,
+            &serde_json::json!({ "value_default": now }),
+            "value",
+        );
+    };
+    match typed
+        .trim()
+        .replace(',', ".")
+        .parse::<f32>()
+        .ok()
+        .filter(|n| n.is_finite() && (0.0..=max).contains(n))
+    {
+        Some(n) => with(ctx, |v| v.set_selection_size(rows, n)),
+        None => {
+            ctx.messages.push(format!(
+                "{}: a number from 0 to {max}",
+                if rows { "Row Height" } else { "Column Width" }
+            ));
+            Ok(())
+        }
+    }
+}
+
+/// Where Create from Selection finds the labels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NameSide {
+    /// The first row: a name for each column.
+    Top,
+    /// The first column: a name for each row.
+    Left,
+    /// The last row.
+    Bottom,
+    /// The last column.
+    Right,
+}
+
+/// A label as Excel makes a name of it: spaces and characters a name
+/// cannot hold as underscores, an underscore before a first character
+/// that cannot start one (a digit), and after a name that reads as a
+/// cell (`Q1_`) or as R1C1 (`R_`, `C2_`); none for a blank label.
+pub fn name_from_label(label: &str) -> Option<String> {
+    let t = label.trim();
+    if t.is_empty() {
+        return None;
+    }
+    let mut name: String = t
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || matches!(c, '_' | '.' | '\\' | '?') {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if !name
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_alphabetic() || c == '_' || c == '\\')
+    {
+        name.insert(0, '_');
+    }
+    let upper = name.to_ascii_uppercase();
+    let letters = upper.len()
+        - upper
+            .trim_start_matches(|c: char| c.is_ascii_alphabetic())
+            .len();
+    let (col, row) = upper.split_at(letters);
+    let a1 = (1..=3).contains(&col.len())
+        && crate::csv_tools::column_index(col).is_some_and(|c| c < 16_384)
+        && row
+            .parse::<u32>()
+            .is_ok_and(|r| (1..=1_048_576).contains(&r));
+    let r1c1 = upper
+        .strip_prefix('R')
+        .map(|r| r.trim_start_matches(|c: char| c.is_ascii_digit()))
+        .map(|r| {
+            r.is_empty()
+                || r.strip_prefix('C')
+                    .is_some_and(|c| c.chars().all(|d| d.is_ascii_digit()))
+        })
+        .unwrap_or(false)
+        || upper
+            .strip_prefix('C')
+            .is_some_and(|c| c.chars().all(|d| d.is_ascii_digit()));
+    if a1 || r1c1 {
+        name.push('_');
+    }
+    Some(name)
+}
+
+/// Create from Selection: the side the labels are on (asked when not
+/// given), then the names made.
+fn names_from_selection(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
+    const ID: &str = "viewer.grid.namesFromSelection";
+    let side = match args.get("from").and_then(|x| x.as_str()) {
+        Some("top") => NameSide::Top,
+        Some("left") => NameSide::Left,
+        Some("bottom") => NameSide::Bottom,
+        Some("right") => NameSide::Right,
+        _ => {
+            let item = |w: &str, t: &str| {
+                menu_item(
+                    ID,
+                    serde_json::json!({ "from": w }),
+                    t,
+                    "Create from Selection",
+                )
+            };
+            ctx.requests.push(Request::Choose(vec![
+                item("top", "Top Row"),
+                item("left", "Left Column"),
+                item("bottom", "Bottom Row"),
+                item("right", "Right Column"),
+            ]));
+            return Ok(());
+        }
+    };
+    let Some(v) = ctx
+        .document
+        .as_deref_mut()
+        .and_then(|d| d.viewer.as_deref_mut())
+    else {
+        return Ok(());
+    };
+    match v.names_from_selection(side) {
+        Ok(names) => ctx
+            .messages
+            .push(format!("Names made: {}", names.join(", "))),
+        Err(e) => ctx.messages.push(e),
+    }
+    Ok(())
+}
+
 /// Cells (sorted by row, then column) as few ranges: runs along each row,
 /// the same runs on rows after one another joined.
 pub fn areas_of(cells: &[(u32, u32)]) -> Vec<[u32; 4]> {
@@ -15552,6 +16236,13 @@ fn grid_commands() -> Vec<Command> {
             |ctx, _| from_above(ctx, true),
         ),
         cmd(
+            "viewer.grid.exportText",
+            "Export as CSV or Text",
+            &[],
+            IN_GRID,
+            export_text,
+        ),
+        cmd(
             "viewer.grid.saveSheetAsCsv",
             "Save Sheet as CSV",
             &[],
@@ -15583,6 +16274,13 @@ fn grid_commands() -> Vec<Command> {
             &[],
             IN_GRID,
             define_name,
+        ),
+        cmd(
+            "viewer.grid.namesFromSelection",
+            "Create from Selection",
+            &["ctrl+shift+f3"],
+            IN_GRID,
+            names_from_selection,
         ),
         cmd(
             "viewer.grid.nameManager",
@@ -16357,6 +17055,20 @@ fn grid_commands() -> Vec<Command> {
             &["r -"],
             IN_GRID,
             |ctx, _| grid_height(ctx, -3.0),
+        ),
+        cmd(
+            "viewer.grid.rowHeight",
+            "Row Height",
+            &[],
+            IN_GRID,
+            |ctx, args| exact_size(ctx, args, true),
+        ),
+        cmd(
+            "viewer.grid.columnWidth",
+            "Column Width",
+            &[],
+            IN_GRID,
+            |ctx, args| exact_size(ctx, args, false),
         ),
         cmd(
             "viewer.grid.widenColumn",
@@ -17210,6 +17922,21 @@ fn grid_commands() -> Vec<Command> {
 mod tests {
 
     #[test]
+    fn labels_made_names_as_excel_makes_them() {
+        use super::name_from_label as n;
+        assert_eq!(n("Item").as_deref(), Some("Item"));
+        assert_eq!(n(" Net sales ").as_deref(), Some("Net_sales"));
+        assert_eq!(n("Q1").as_deref(), Some("Q1_"));
+        assert_eq!(n("XFD1048576").as_deref(), Some("XFD1048576_"));
+        assert_eq!(n("XFE1").as_deref(), Some("XFE1"));
+        assert_eq!(n("r").as_deref(), Some("r_"));
+        assert_eq!(n("R2C3").as_deref(), Some("R2C3_"));
+        assert_eq!(n("2024").as_deref(), Some("_2024"));
+        assert_eq!(n("Kâr/Zarar").as_deref(), Some("Kâr_Zarar"));
+        assert_eq!(n("  "), None);
+    }
+
+    #[test]
     fn date_filter_periods() {
         use jiff::civil::date;
         let d = date(2026, 10, 4); // a Sunday
@@ -17421,6 +18148,100 @@ mod tests {
     fn state(n: usize) -> ViewerState {
         let dir = std::env::temp_dir();
         ViewerState::open(Arc::new(Pages(n)), &dir.join("x.pages")).unwrap()
+    }
+
+    /// A sheet whose one comment, on B2, is also an annotation.
+    #[derive(Debug)]
+    struct Commented;
+
+    struct CommentedDoc(String);
+
+    impl Viewer for Commented {
+        fn id(&self) -> &str {
+            "commented"
+        }
+        fn name(&self) -> &str {
+            "Commented"
+        }
+        fn extensions(&self) -> &[&str] {
+            &["commented"]
+        }
+        fn detect(&self, _: &str, _: &[u8]) -> Detection {
+            Detection::No
+        }
+        fn open(&self, _: FileHandle) -> VResult<Box<dyn ViewerDocument>> {
+            Ok(Box::new(CommentedDoc("Check this".into())))
+        }
+    }
+
+    impl ViewerDocument for CommentedDoc {
+        fn structure(&self) -> Structure {
+            Structure {
+                units: vec![Unit {
+                    kind: UnitKind::Sheet,
+                    label: "Sheet1".into(),
+                    duration_ms: None,
+                }],
+                outline: Vec::new(),
+            }
+        }
+        fn render(&mut self, _: usize, _: RenderRequest) -> VResult<Rendered> {
+            Ok(Rendered::Bitmap(Bitmap::new(1, 1, vec![0; 4])))
+        }
+        fn text(&self, _: usize) -> String {
+            String::new()
+        }
+        fn grid(&mut self, _: usize) -> Option<GridLayout> {
+            Some(GridLayout {
+                rows: 3,
+                cols: 3,
+                max_rows: 3,
+                max_cols: 3,
+                editable: true,
+                ..GridLayout::default()
+            })
+        }
+        fn threads(&mut self, _: usize) -> Vec<kalem_viewer::CommentThread> {
+            vec![kalem_viewer::CommentThread {
+                row: 1,
+                col: 1,
+                done: false,
+                comments: vec![kalem_viewer::ThreadComment {
+                    author: "Ayşe".into(),
+                    text: self.0.clone(),
+                    time: "2026-10-10T12:00:00.00".into(),
+                }],
+            }]
+        }
+        fn annotations(&mut self, _: Option<usize>) -> Vec<kalem_viewer::Annotation> {
+            vec![kalem_viewer::Annotation {
+                id: "c1".into(),
+                text: self.0.clone(),
+                anchors: vec![kalem_viewer::Anchor::Cell {
+                    unit: 0,
+                    row: 1,
+                    col: 1,
+                }],
+                ..Default::default()
+            }]
+        }
+        fn set_comment_text(&mut self, id: &str, text: &str) -> VResult<()> {
+            assert_eq!(id, "c1");
+            self.0 = text.into();
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_comment_edited_through_the_annotations() {
+        let dir = std::env::temp_dir();
+        let mut v = ViewerState::open(Arc::new(Commented), &dir.join("x.commented")).unwrap();
+        // Elsewhere, no comment; on B2, the thread's comment by its ID.
+        assert!(v.cursor_annotations().is_empty());
+        v.grid_move_to(1, 1);
+        assert_eq!(v.cursor_annotations()[0].id, "c1");
+        v.edit_comment("c1", "Checked").unwrap();
+        assert_eq!(v.cursor_thread().unwrap().comments[0].text, "Checked");
     }
 
     #[test]
@@ -17888,10 +18709,17 @@ mod tests {
     }
 
     #[test]
-    fn detection_prefers_magic() {
-        register(Arc::new(Pages(1)));
+    fn a_viewer_is_chosen_by_what_it_declares() {
+        let pages = |n| -> Arc<dyn Viewer> { Arc::new(Pages(n)) };
+        let declared = crate::applies::Applies::of(&serde_json::json!({
+            "opens": [".pages"], "applies": {"magic": ["50 41 47 45 53 00"]},
+        }));
+        register_applying(pages(1), declared);
         assert!(find("a.pages", b"PAGES\0").is_some());
-        assert!(find("a.txt", b"PAGES\0").is_some());
-        assert!(find("a.txt", b"hello").is_none());
+        assert!(find("a.txt", b"PAGES\0").is_some(), "by its first bytes");
+        assert!(find("a.txt", b"\0hello").is_none());
+        // Text is a mode's, whatever its name.
+        assert!(find("a.pages", b"hello").is_none());
+        assert!(find("a.pages", b"").is_some(), "not known: by its name");
     }
 }

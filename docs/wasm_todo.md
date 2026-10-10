@@ -316,3 +316,24 @@ Why the native copies are still there, as found on 2026-10-05:
   workbook copied into a new one (any grid plugin's), and the reading of a
   text file's columns, the CSV mode's. Sheet printing stays too: it
   draws whatever a grid plugin gives, as the screen does.
+
+## W12. No plugin built in
+
+- [x] W12 The viewers of pictures, PDF files and workbooks no longer
+  built into Kalem: every plugin beyond the small core (D29) installed
+  when it is wanted, at the owner's decision (2026-10-10: whoever can
+  download Kalem can download its plugins, and a computer without a
+  network is not Kalem's concern). (Done 2026-10-10: the feature
+  `components` of `kalem` and `kalem-cli` left out of their defaults,
+  so no release has a component built in (4.4 MB less, no compiling on
+  the first start); `crates/kalem-components` stays for a build of
+  one's own and for the tests, which CI runs with `--features
+  kalem-cli/components`, and the editors' tests take the components
+  from it as before. A file that is not text and that no installed
+  plugin opens offers the released plugins of the indexes that open it
+  (getkalem/plugins' `index.json` gained each viewer's `opens`), to
+  install and then open it, and the system's application
+  (`plugin.forFile`, T3.7.9); New Workbook, New from Template and Open
+  as Workbook offer the plugin that makes workbooks when it is
+  missing. An installed component built for another API says that its
+  files do not open until it is updated, unless a copy is built in.)

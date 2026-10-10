@@ -11,13 +11,13 @@ authors.workspace = true
 publish = false
 
 [features]
-default = ["plugins", "components"]
+default = ["plugins"]
 # The plugin host (Wasmtime): installed component plugins run.
 plugins = ["dep:kalem-script", "dep:kalem-components", "kalem-components/viewers", "dep:kalem-viewer"]
-# The bundled plugins, the viewers of pictures, PDF files and workbooks:
+# The viewers of pictures, PDF files and workbooks built into the binary:
 # the components getkalem/plugins released, pinned in
-# crates/kalem-components/components.toml and built into the binary
-# (wasm_todo W9).
+# crates/kalem-components/components.toml (wasm_todo W9). Off by default
+# (owner, 2026-10-10): a plugin is installed when it is wanted.
 components = ["plugins", "kalem-components/embed"]
 
 [dependencies]
@@ -57,6 +57,11 @@ workspace = true
 kalem-viewer.workspace = true
 # A large picture made for measuring the image viewer's component.
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp"] }
+
+# `kalem view` on a workbook, through the viewer built in.
+[[test]]
+name = "view"
+required-features = ["components"]
 
 # A component built for another API, and the built-in one in its place.
 [[test]]

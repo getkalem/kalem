@@ -862,6 +862,10 @@ impl DocumentState {
             return DocumentState::viewed(path, viewer, settings);
         }
         let (text, meta, disk) = files::read(path)?;
+        // A plugin of the index that would serve it, said once in an
+        // editor (a language's, a Logseq graph's).
+        let head = &text.as_bytes()[..text.len().min(crate::applies::HEAD)];
+        crate::plugin_store::suggest_for(path, head);
         let mut d = DocumentState::with_base(text, meta, settings, base);
         d.disk = Some(disk);
         Ok(d)
@@ -2816,13 +2820,19 @@ impl DocumentState {
     }
 
     /// The when-clause keys that hold for the whole document, wherever the
-    /// cursor is: `editorMode`, `fileKind`, `editorLanguage`, `vcs`, and
-    /// `textType` as `document_type`. Menus and toolbars offer the
-    /// commands whose when-clause can hold with these
+    /// cursor is: `editorMode`, `fileKind`, `editorLanguage`, `vcs`,
+    /// `textType` as `document_type`, and for a viewer's document
+    /// `viewerGrid` (a workbook's menus are not a picture's) and
+    /// `hasComments`, which it never has. Menus and
+    /// toolbars offer the commands whose when-clause can hold with these
     /// (`CommandRegistry::offered`), and show a plugin's menu by them.
     pub fn document_context(&self) -> Context {
         let mut c = Context::default();
         c.set("editorMode", Value::Str(self.meta.mode.name().into()));
+        if let Some(v) = self.viewer.as_deref() {
+            c.flag("viewerGrid", v.is_grid());
+            c.flag("hasComments", false);
+        }
         if let Some(v) = self.vcs() {
             c.set("vcs", Value::Str(v.into()));
         }

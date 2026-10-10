@@ -1893,7 +1893,12 @@ pub trait Viewer: Send + Sync {
     fn extensions(&self) -> &[&str];
 
     /// Whether it opens the file named `name` that starts with `head`
-    /// (its first few kilobytes).
+    /// (its first few kilobytes). Kalem does not ask it which viewer opens
+    /// a file: a plugin's manifest declares the files it opens (`opens`,
+    /// `applies`; `kalem_core::applies`), the declaration the index names
+    /// it by, and a viewer built into a program serves the files of its
+    /// [`Viewer::extensions`]. Kept for the plugin API, whose worlds
+    /// export it, and for a viewer's own tests.
     fn detect(&self, name: &str, head: &[u8]) -> Detection;
 
     /// Opens a file.

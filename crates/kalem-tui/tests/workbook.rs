@@ -1826,6 +1826,12 @@ fn selection_sums() {
         s.contains("Average: 1,431.25 · Count: 12 · Sum: 17,175.00"),
         "{s}"
     );
+    // Then Min and Max, which eighty columns cut.
+    let status = t.app.doc.viewer.as_deref_mut().unwrap().status();
+    assert!(
+        status.ends_with("Sum: 17,175.00 · Min: 0.00 · Max: 4,293.75"),
+        "{status}"
+    );
     // Text only: the count.
     {
         let v = t.app.doc.viewer.as_deref_mut().unwrap();
@@ -2654,6 +2660,86 @@ fn sheet_saved_as_csv() {
     t.key(KeyCode::Esc);
     // The workbook itself is as it was.
     assert!(!t.screen().contains("budget.xlsx •"), "{}", t.screen());
+}
+
+#[test]
+fn sheets_exported_as_csv_or_text() {
+    let mut t = T::open("export-text");
+    // The types asked first, then this sheet or every one.
+    t.app.run_command("viewer.grid.exportText", json!({}));
+    let s = t.screen();
+    assert!(
+        s.contains("CSV UTF-8 (semicolon delimited)") && s.contains("Windows-1254"),
+        "{s}"
+    );
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.exportText",
+        json!({ "type": "utf8-semicolon" }),
+    );
+    assert!(
+        t.screen().contains("Every Sheet, Each to Its Own File"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
+    t.app.run_command(
+        "viewer.grid.exportText",
+        json!({ "type": "utf8-semicolon", "sheets": "this", "value": "semi" }),
+    );
+    let text = std::fs::read_to_string(t.dir.join("semi.csv")).unwrap();
+    let mut lines = text.split("\r\n");
+    assert_eq!(
+        lines.next().unwrap(),
+        "\u{feff}Item;Q1;Q2;Total;;Merged note;"
+    );
+    assert!(
+        lines
+            .next()
+            .unwrap()
+            .starts_with("Rent;1,200.00;1,200.00;2,400.00")
+    );
+    // A Windows code page: its bytes, `?` for a character it lacks.
+    t.app.run_command(
+        "viewer.grid.setCell",
+        json!({ "row": 6, "col": 0, "value": "Kâr şu 日" }),
+    );
+    t.app.run_command(
+        "viewer.grid.exportText",
+        json!({ "type": "windows-1254", "sheets": "this", "value": "tr" }),
+    );
+    let bytes = std::fs::read(t.dir.join("tr.csv")).unwrap();
+    assert!(
+        bytes.windows(8).any(|w| w == b"K\xe2r \xfeu ?"),
+        "{bytes:?}"
+    );
+    // Every visible worksheet, each to its own tab-delimited file.
+    t.app.run_command(
+        "viewer.grid.exportText",
+        json!({ "type": "tab", "sheets": "all", "value": "sheets" }),
+    );
+    let made: Vec<String> = std::fs::read_dir(t.dir.join("sheets"))
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert!(made.iter().any(|f| f == "budget - Budget.txt"), "{made:?}");
+    assert!(made.len() >= 2, "{made:?}");
+    let budget = std::fs::read_to_string(t.dir.join("sheets/budget - Budget.txt")).unwrap();
+    assert!(
+        budget.starts_with("\u{feff}Item\tQ1\tQ2\tTotal"),
+        "{budget}"
+    );
+    // Again: asked before the files are replaced.
+    t.app.run_command(
+        "viewer.grid.exportText",
+        json!({ "type": "tab", "sheets": "all", "value": "sheets" }),
+    );
+    assert!(
+        t.screen().contains("files exist: replace them?"),
+        "{}",
+        t.screen()
+    );
+    t.key(KeyCode::Esc);
 }
 
 #[test]
@@ -3935,6 +4021,130 @@ fn the_mouse_on_the_grid() {
     // The wheel scrolls.
     mouse(&mut t, MouseEventKind::ScrollDown, b2, none);
     assert_eq!(t.app.doc.viewer.as_deref().unwrap().grid_pos().top, 3);
+}
+
+#[test]
+fn the_cells_menu_has_what_is_at_the_cursor() {
+    let mut t = T::open("cells-menu");
+    let menu = |t: &mut T, at: (u32, u32), filter: &str| -> String {
+        t.app
+            .doc
+            .viewer
+            .as_deref_mut()
+            .unwrap()
+            .grid_move_to(at.0, at.1);
+        t.app
+            .run_command("viewer.grid.contextMenu", json!({ "on": "cells" }));
+        for c in filter.chars() {
+            t.key(KeyCode::Char(c));
+        }
+        let s = t.screen();
+        t.key(KeyCode::Esc);
+        s
+    };
+    // A2 has a note, edited or deleted; B2 has none, and gets a new one.
+    let s = menu(&mut t, (1, 0), "note");
+    assert!(s.contains("Edit Note") && s.contains("Delete Note"), "{s}");
+    let s = menu(&mut t, (1, 1), "note");
+    assert!(s.contains("New Note") && !s.contains("Delete Note"), "{s}");
+    // Format Cells, and Excel's sort and filter items.
+    let s = menu(&mut t, (1, 1), "format cells");
+    assert!(s.contains("Format Cells"), "{s}");
+    let s = menu(&mut t, (1, 1), "custom sort");
+    assert!(s.contains("Custom Sort"), "{s}");
+    // No link at B2: Link, not Remove Link.
+    let s = menu(&mut t, (1, 1), "link");
+    assert!(s.contains("Link") && !s.contains("Remove Link"), "{s}");
+    // Under the chart (G5), its items; not at B2.
+    let s = menu(&mut t, (4, 6), "chart:");
+    assert!(s.contains("Chart: Change Chart Type"), "{s}");
+    let s = menu(&mut t, (1, 1), "chart:");
+    assert!(!s.contains("Chart: Change Chart Type"), "{s}");
+}
+
+#[test]
+fn row_heights_and_column_widths_typed() {
+    let mut t = T::open("exact-sizes");
+    // Rows 2 to 4 selected: Row Height asks, the cursor's offered.
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(1, 1);
+        v.grid_extend_to(3, 2);
+    }
+    t.app.run_command("viewer.grid.rowHeight", json!({}));
+    let s = t.screen();
+    assert!(s.contains("Row Height: height in points"), "{s}");
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.rowHeight", json!({ "value": "30" }));
+    t.app
+        .run_command("viewer.grid.columnWidth", json!({ "value": "12,5" }));
+    let sizes = |t: &mut T| {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        (
+            (1..=3).map(|r| v.row_height(r)).collect::<Vec<_>>(),
+            (1..=2).map(|c| v.col_width(c)).collect::<Vec<_>>(),
+            v.row_height(4),
+        )
+    };
+    let (heights, widths, below) = sizes(&mut t);
+    assert_eq!(heights, [30.0; 3]);
+    assert_eq!(widths, [12.5; 2]);
+    assert_ne!(below, 30.0);
+    // One undo takes the widths back, another the heights.
+    t.app.run_command("edit.undo", json!({}));
+    assert_ne!(sizes(&mut t).1, [12.5; 2]);
+    assert_eq!(sizes(&mut t).0, [30.0; 3]);
+    t.app.run_command("edit.undo", json!({}));
+    assert_ne!(sizes(&mut t).0, [30.0; 3]);
+    // Past Excel's limit: said, and nothing changes.
+    t.app
+        .run_command("viewer.grid.rowHeight", json!({ "value": "500" }));
+    assert!(
+        t.screen().contains("a number from 0 to 409"),
+        "{}",
+        t.screen()
+    );
+    assert_ne!(sizes(&mut t).0, [500.0; 3]);
+}
+
+#[test]
+fn names_created_from_the_selection() {
+    let mut t = T::open("names-from-selection");
+    {
+        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        v.grid_move_to(0, 0);
+        v.grid_extend_to(4, 3);
+    }
+    // Asked where the labels are, then made from the top row.
+    t.app
+        .run_command("viewer.grid.namesFromSelection", json!({}));
+    let s = t.screen();
+    assert!(s.contains("Top Row") && s.contains("Left Column"), "{s}");
+    t.key(KeyCode::Esc);
+    t.app
+        .run_command("viewer.grid.namesFromSelection", json!({ "from": "top" }));
+    let names = |t: &mut T| t.app.doc.viewer.as_deref_mut().unwrap().defined_names();
+    let made = names(&mut t);
+    let sheet = t.app.doc.viewer.as_deref().unwrap().structure().units[0]
+        .label
+        .clone();
+    for (name, range) in [("Item", "A"), ("Q1_", "B"), ("Q2_", "C"), ("Total", "D")] {
+        let to = format!("{sheet}!${range}$2:${range}$5");
+        assert!(
+            made.iter()
+                .any(|(n, r)| n == name && r.trim_start_matches('=') == to),
+            "{name} = {to}: {made:?}"
+        );
+    }
+    assert!(
+        t.screen().contains("Names made: Item, Q1_, Q2_, Total"),
+        "{}",
+        t.screen()
+    );
+    // One undo takes them all away.
+    t.app.run_command("edit.undo", json!({}));
+    assert!(!names(&mut t).iter().any(|(n, _)| n == "Q1_" || n == "Item"));
 }
 
 #[test]

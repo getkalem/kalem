@@ -1,0 +1,236 @@
+The =xlsx= plugin of =getkalem/plugins= opens Excel workbooks as
+themselves: the file is a ZIP package of SpreadsheetML parts, and the
+plugin reads, edits and writes those parts, never a conversion of
+them. Kalem shows each sheet as a grid, through the plugin API's =grid=
+interface, and draws the charts, pictures, sparklines and slicers the
+plugin describes (see [[file:plugins.org][Plugins]]). The plugin is installed from the plugin list, or when a workbook is
+first opened; its README and its work list (=plugins/xlsx/xlsx_todo.md=) are kept with
+it, and Kalem's own lists of what an everyday Excel user reaches for
+are =docs/history/excel_todo.md=, =excel_todo2.md= and
+=docs/excel_todo3.md=.
+
+* The standard and the oracle
+
+- *The standard* is ECMA-376 part 1, SpreadsheetML, with the parts
+  Excel 2010 and later add (sparklines, slicers, threaded comments,
+  the newer functions' =_xlfn.= prefixes) read and written as Excel
+  writes them.
+- *The oracle* is Excel itself: "as Excel writes it" is how each edit
+  is written, and Excel refusing an edit (inside a merged cell, part
+  of an array formula, a locked cell of a protected sheet) refuses it
+  in Kalem too. Excel opening edited files without a repair prompt is
+  checked by hand.
+- *LibreOffice Calc* is the second oracle, by hand: =soffice
+  --convert-to csv= shows the results of recalculated files.
+  LibreOffice does not recalculate on open, which is why Kalem writes
+  the new results of the formulas an edit changes.
+- *The corpus* is made by =tests/corpus/make.py=: workbooks written by
+  openpyxl and the same saved again by LibreOffice Calc, as =.xlsx=,
+  =.ods= and =.xls=. The tests check that each saves back byte for
+  byte, which parts and cells an edit changes, values through their
+  formats, and the formula engine.
+
+* Which files
+
+=.xlsx=, =.xlsm=, =.xltx= and =.xltm= are opened and edited as
+themselves. A workbook encrypted with a password to open (Excel 2007's
+standard encryption, Excel 2010's agile one) asks for it. =.xls=,
+=.xlsb= and =.ods= are read through calamine and shown; to edit one,
+Kalem converts it, and asks before saving it back in its own format.
+
+* What is read
+
+- *Cells*: values, shared and inline strings, formulas (shared
+  formulas expanded), number formats (dates and times, percent,
+  currency, fractions, scientific, sections and conditions; the
+  colors they give, =[Red]= and =[Color10]=), fonts, fills (solid, pattern, gradient), borders, alignment,
+  indent and rotation, theme colors, cell styles by name.
+- *Sheets*: merged cells, frozen and split panes, zoom, column widths,
+  row heights, hidden rows, columns and sheets, outline levels, tab
+  colors, the sheet view's gridlines and headings, page setup and its
+  breaks.
+- *The workbook*: defined names, tables with their styles and total
+  rows, conditional formats (rules, data bars, color scales, icon
+  sets), data validation, AutoFilter and sorts, notes and threaded
+  comments, hyperlinks, protection, calculation options, scenarios.
+- *Objects*: charts (column, bar, line, area, pie and doughnut,
+  scatter, radar, bubble, stock, combinations on a secondary axis,
+  trendlines, error bars, histograms and waterfalls), pivot tables
+  and their caches, slicers, sparklines, pictures, shapes and text
+  boxes, chart sheets.
+- *Macros*: the VBA project's module sources ([MS-OVBA]); the project
+  part is never rewritten.
+
+* What is shown
+
+Each sheet is a tab of the grid, its cells drawn with their fonts,
+fills, borders and alignment, notes and comments marked, frozen panes
+kept still; charts, pictures and slicers float over the cells where
+their anchors put them. The formula bar shows the cell as entered;
+the status bar names the sheet and the selection, and sums a
+selection of several cells: Average, Count and Sum, then Min, Max and
+the Numerical Count when some values are not numbers. The menus have
+the workbook's commands where Excel has them (/Format/, /Insert/, the
+menus /Data/, /Formulas/ and /Chart/), the toolbar Excel's Home
+buttons, and a right click on a cell what is there: a note's, a
+link's, a list's, a table's or a pivot table's items. In the terminal
+the grid is drawn with box lines, a number too wide for its column as
+=#=.
+
+* What is edited
+
+Every edit is the plugin's, written as Excel writes it, and undoes in
+one step; the commands are the =viewer.grid.*= of the palette, F10
+lists them by menu.
+
+- *Cells*: typed as in Excel (=== starts a formula, ='= forces text,
+  =1,234.5=, =50%=, =2026-10-03= and =14:30= are numbers given the
+  format Excel would give them), filled down, right, as a series or
+  by Flash Fill, cut, copied and pasted (Paste Special's values,
+  formats, formulas, operations, Skip Blanks, transposed, linked),
+  cleared, moved by dragging, found and replaced.
+- *Formats*: the font, the fill, alignment, wrapping, indent,
+  rotation, borders and their lines, number formats, cell styles and
+  the theme, Format Painter, Clear Formats.
+- *Rows, columns and sheets*: inserted and deleted with every
+  reference to them moved, as in Excel; hidden, grouped, sized (a
+  height or width typed, fitted, stepped); sheets inserted, deleted,
+  renamed, moved, copied (into another workbook too), hidden, colored.
+- *Data*: sorts by values, colors and custom lists; AutoFilter's
+  rules and Advanced Filter; Remove Duplicates, Text to Columns,
+  validation, Subtotal, tables, Goal Seek, data tables and scenarios.
+- *Formulas*: names defined, managed and created from a selection;
+  precedents and dependents traced, formulas evaluated step by step,
+  errors checked, the Watch Window.
+- *Objects*: charts made and changed (kind, titles, legend, labels,
+  axes, colors, trendlines, error bars, templates, moved to a chart
+  sheet); pivot tables made, grouped, filtered and laid out; slicers,
+  sparklines, pictures, shapes; notes and threaded comments;
+  hyperlinks; protection of sheets and of the workbook's structure.
+
+* What is computed
+
+The formula engine is IronCalc, in getkalem's fork, inside the plugin.
+It is trusted cell by cell: before an edit it computes the whole
+workbook, and only the cells whose result equals the one the file
+stores get new results after an edit; the others lose their stored
+result, to be computed by Excel or LibreOffice when they open the
+file. =NOW()= and =TODAY()= are computed in the local time zone.
+Calculation is automatic, automatic except data tables, or manual, as
+the workbook says; circular references are found, or computed
+iteratively when the workbook asks. Since xlsx 0.0.10 a
+formula calling a function the engine lacks (=GETPIVOTDATA=,
+=AGGREGATE=, =WEBSERVICE=) enters the engine as its stored result, so
+that the formulas reading it are computed from that result, and
+=HYPERLINK= shows its friendly name.
+
+* Macros
+
+A macro runs inside the plugin when it is asked for by name (Run
+Macro, Alt+F8); event handlers are listed and never run by themselves.
+The interpreter has VBA's language (procedures and functions, =ByRef=
+and =ByVal=, optional, named and =ParamArray= arguments, arrays,
+=If=, =For=, =For Each=, =Do=, =Select Case=, =With=, =On Error=) and
+about 120 of its library functions, and Excel's object model for data:
+=Range=, =Cells=, =Rows=, =Columns=, =Offset=, =Resize=, =End=,
+=CurrentRegion=, =Find=, =Copy=, every worksheet function through
+=WorksheetFunction=, =Collection= and =Scripting.Dictionary=, =MsgBox=
+and =InputBox= as the editor's questions. A run undoes in one step.
+Files, the network, =Shell=, =Declare= and other workbooks stop the
+macro with a message naming the call and the line; a budget of steps
+and time stops an endless loop. Since xlsx 0.0.10 macros
+also format cells (=Font=, =Interior=, =Borders=, =NumberFormat=,
+alignment, widths, merging), rename and hide sheets, use =Resume= and
+=Resume Next= in their handlers, and read and write =FormulaR1C1=.
+
+* What is written
+
+A save without edits returns the file byte for byte. After an edit
+only the edited parts are written; every other entry of the ZIP
+archive (charts, pivot caches, drawings, pictures, the VBA project,
+external links, printer settings, custom XML) is copied with its local
+header. Within a sheet part only the cells, rows and elements an edit
+changed are written again. A save sets =calcPr fullCalcOnLoad=, so
+that Excel computes the formulas when it opens the file, and writes
+the new results of the formulas the edit changed (the engine's, where
+it is trusted) or drops their stored results; the calculation chain is
+dropped when a formula is removed, as the standard allows and Excel
+rebuilds it. A workbook opened with a password is saved encrypted
+again with it.
+
+* Export and conversion
+
+- Save As another workbook kind (=.xlsm= as =.xlsx= drops the VBA
+  project, which a =.xlsx= may not hold) or as =.ods=, written by the
+  plugin; an encrypted workbook saved as =.ods= is not encrypted, and
+  Kalem says so.
+- Save Sheet as CSV writes the sheet shown as Excel's CSV UTF-8 does;
+  Export as CSV or Text writes Excel's other text types (semicolons,
+  tabs, Windows-1254 and Windows-1252), the sheet shown or every
+  visible sheet to its own file.
+- Export to PDF and printing go through LaTeX, charts drawn as TikZ.
+
+* Known differences
+
+- Rotated text is drawn slanted in the graphical editor and level in
+  the terminal.
+- A drawing prints whole on the page of its first cell.
+- Histograms and waterfalls are drawn, not made; treemaps, sunbursts,
+  funnels and box plots are placeholders.
+- A pivot table's field is grouped one way (by months or by years, not
+  both), and a pivot table has one column field.
+- Rich text in a cell is shown in the cell's font, its runs joined;
+  an edit of such a cell writes plain text.
+- A workbook on the 1904 date system is not recalculated; dynamic
+  array results are not recalculated and their anchor is not edited.
+- A long macro or a full recalculation of a million cells runs in the
+  editor's thread.
+
+* Not implemented
+
+- Dynamic arrays spilling (=FILTER=, =SORT=, =UNIQUE=, =SEQUENCE=,
+  =A1#=), =LET= and =LAMBDA= results that spill.
+- Links to other workbooks updated or broken; 3D references computed.
+- The Accounting format's fill to the cell's width; Office 2016
+  charts made.
+- Cells inserted on part of a row as an edit of its own (Kalem moves
+  the cells below), grouped sheets, Allow Users to Edit Ranges.
+- Macros adding, deleting and moving sheets, sorting and filtering,
+  class modules, UserForms and events.
+- Excel opening every edited file without a repair prompt, checked by
+  hand.
+
+* Limits and performance
+
+The plugin asks for 4 GB, the most a component can address: a sheet
+of a million rows needs about 2. The undo history keeps the last
+hundred edits, as Excel does, sharing the sheets an edit leaves alone
+(since xlsx 0.0.10; fewer when they would hold more than a
+gigabyte).
+
+Measured on 2026-10-10 on an Apple M1 Max, with the plugin's library
+in a release build (=tests/speed.rs=): 100,000 cells are pasted in
+0.39 s and cleared in 0.11 s; 3,000 rows are sorted in 0.28 s, and a
+row inserted above them in 0.28 s. A sheet of a million cells (4.8 MB
+as saved) is saved in 0.88 s, opened and read in 0.56 s and
+recalculated in 1.0 s; a cell typed there takes 0.4 s, the engine
+computing the workbook again. The component, run by Kalem, is slower
+than the library by its WebAssembly.
+
+* Code and tests
+
+- The plugin: =plugins/xlsx= of =getkalem/plugins=: =workbook.rs= and
+  =workbook/= (the workbook and its edits), =sheet.rs=, =styles.rs=,
+  =numfmt.rs=, =formula.rs= (references moved), =calc.rs= (the
+  engine), =chart.rs=, =pivot.rs=, =conditional.rs=, =validation.rs=,
+  =legacy.rs= (calamine), =macros/= (the interpreter), =viewer.rs=
+  (the plugin as Kalem's viewer); the Office layer it shares with the
+  Word plugin in =crates/ooxml=.
+- Its tests: =tests/workbook.rs=, =tests/conformance.rs=,
+  =tests/macros.rs=, =tests/legacy.rs=, the measurements of
+  =tests/speed.rs=, and each module's own.
+- Kalem's half: the interface in =crates/kalem-plugin/wit/grid.wit=,
+  the contract in =crates/kalem-viewer=, the grid's state and commands
+  in =crates/kalem-core/src/viewer.rs=, its menus in =menus.rs=, the
+  grid drawn in both editors' =viewer.rs=; its tests in both editors'
+  =tests/workbook.rs=.

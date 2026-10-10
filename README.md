@@ -8,7 +8,7 @@
 
 <p align="center"><img src="assets/kalem.gif" width="800" alt="Kalem: an Org file in a window, the same file in a terminal, then Markdown, LaTeX, CSV, a workbook, a PDF, the file manager, the projects and the settings"></p>
 
-Kalem (Turkish for "pen") shows a file the way it reads and never touches what you did not edit. A Markdown, Org, LaTeX or CSV file opens as what it is, a document or a grid, and under it the file stays plain text, byte for byte. PDF files, pictures and Excel workbooks open in viewers next to your documents; every other text file opens as code. A format Kalem does not know yet is a plugin away, written in Rust: you read and edit it here too, in the same editor.
+Kalem (Turkish for "pen") shows a file the way it reads and never touches what you did not edit. A Markdown, Org, LaTeX or CSV file opens as what it is, a document or a grid, and under it the file stays plain text, byte for byte. PDF files, pictures and Excel workbooks open in viewers next to your documents, plugins installed the first time you open such a file; every other text file opens as code. A format Kalem does not know yet is a plugin away, written in Rust: you read and edit it here too, in the same editor.
 
 **Status: alpha.** It is in daily use, and it has rough edges. The current release installs [below](#install). An [issue](https://github.com/getkalem/kalem/issues) with the file that went wrong, when you can share it, helps most.
 
@@ -50,7 +50,7 @@ Around them: a file manager, projects, find in files, a command palette, an outl
 
 ## Viewers and plugins
 
-Three viewers are built into the binary as plugins, so you do not leave the editor to look at the files next to your document:
+Files that are not text open through plugins of [getkalem/plugins](https://github.com/getkalem/plugins), none of them built into Kalem: the first time you open a PDF, a picture or a workbook, Kalem names the plugin that opens it and installs it if you choose, then opens the file (`kalem plugin install xlsx` installs one ahead of time). So you do not leave the editor to look at the files next to your document:
 
 | File | What you see |
 |---|---|
@@ -112,7 +112,7 @@ On Windows, in PowerShell:
 powershell -ExecutionPolicy Bypass -c "irm https://github.com/getkalem/kalem/releases/latest/download/kalem-editor-installer.ps1 | iex"
 ```
 
-The installers put `kalem` in `~/.cargo/bin`; delete it there to uninstall. The release also has terminal-only archives (`kalem-terminal-*`) for servers, without the graphical editor and the viewers. The Book's [Installing](book/part-1/installing.org) has the details: glibc 2.35 or later on Linux, the unsigned `Kalem.app` on macOS, and the libraries a build from source needs.
+The installers put `kalem` in `~/.cargo/bin`; delete it there to uninstall. The release also has terminal-only archives (`kalem-terminal-*`) for servers, without the graphical editor and the plugin host, so without viewers. The Book's [Installing](book/part-1/installing.org) has the details: glibc 2.35 or later on Linux, the unsigned `Kalem.app` on macOS, and the libraries a build from source needs.
 
 From source, with Rust 1.96 or later:
 

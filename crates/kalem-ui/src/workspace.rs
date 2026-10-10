@@ -322,6 +322,15 @@ impl Workspace {
                         }
                         e
                     }
+                    // Not text, and no installed plugin opens it: the
+                    // plugins that do offered, to install (T3.7.9).
+                    Err(err) if err == kalem_core::files::OpenError::Binary.to_string() => {
+                        let args = serde_json::json!({ "path": target.display().to_string() });
+                        self.editor.update(cx, |e, cx| {
+                            e.run_command("plugin.forFile", args, window, cx);
+                        });
+                        return;
+                    }
                     // A PDF with a password: asked for, then opened again.
                     Err(err) if err == tr!("msg-needs-password") => {
                         let title = tr!("cmd-file-openWithPassword");
@@ -1885,6 +1894,57 @@ const TOOLBAR: &[(&str, &str, &str, &str, &str)] = &[
     ("⌕", "Filter Rows", "csv.filter", "", ""),
     // Code.
     ("//", "Toggle Comment", "edit.toggleComment", "", "org"),
+    // Workbooks: the buttons of Excel's Home tab.
+    ("B", "Bold", "viewer.grid.bold", "", ""),
+    ("I", "Italic", "viewer.grid.italic", "", ""),
+    ("U", "Underline", "viewer.grid.underline", "", ""),
+    ("▦", "Borders", "viewer.grid.borders", "", ""),
+    ("▧", "Fill Color", "viewer.grid.fillColor", "", ""),
+    ("A", "Font Color", "viewer.grid.fontColor", "", ""),
+    ("⇤", "Align Left", "viewer.grid.alignLeft", "", ""),
+    ("↔", "Center", "viewer.grid.alignCenter", "", ""),
+    ("⇥", "Align Right", "viewer.grid.alignRight", "", ""),
+    ("↵", "Wrap Text", "viewer.grid.wrapText", "", ""),
+    ("⇹", "Merge and Center", "viewer.grid.mergeCenter", "", ""),
+    (
+        "₺",
+        "Currency",
+        "viewer.grid.numberFormat",
+        r##"{"code":"#,##0.00 \"₺\""}"##,
+        "",
+    ),
+    (
+        "%",
+        "Percent Style",
+        "viewer.grid.numberFormat",
+        r#"{"code":"0%"}"#,
+        "",
+    ),
+    (
+        ",",
+        "Comma Style",
+        "viewer.grid.numberFormat",
+        r##"{"code":"#,##0.00"}"##,
+        "",
+    ),
+    (
+        ".0+",
+        "Increase Decimal",
+        "viewer.grid.increaseDecimal",
+        "",
+        "",
+    ),
+    (
+        ".0−",
+        "Decrease Decimal",
+        "viewer.grid.decreaseDecimal",
+        "",
+        "",
+    ),
+    ("A↓", "Sort A to Z", "viewer.grid.sortAscending", "", ""),
+    ("⌕", "Filter", "viewer.grid.toggleFilter", "", ""),
+    ("∑", "AutoSum", "viewer.grid.autoSum", "", ""),
+    ("▥", "Insert Chart", "viewer.grid.insertChart", "", ""),
 ];
 
 impl Workspace {
@@ -2467,14 +2527,16 @@ impl Render for Workspace {
         if window.is_window_active() {
             let d = &self.editor.read(cx).doc;
             // Its kind, its version control (a plugin's menu shows by
-            // it) and the plugins' registrations.
+            // it), whether it is a grid (a workbook's menus are not a
+            // PDF's) and the plugins' registrations.
             let (doc, key) = (
                 d.document_context(),
                 format!(
-                    "{} {} {:?} {}",
+                    "{} {} {:?} {:?} {}",
                     d.meta.mode.name(),
                     d.document_type(),
                     d.vcs(),
+                    d.viewer.as_deref().map(|v| v.is_grid()),
                     kalem_core::extensions::generation()
                 ),
             );
@@ -2696,6 +2758,16 @@ pub fn open_window(path: Option<PathBuf>, shared: Rc<Shared>, cx: &mut App) {
                             "string".into(),
                             cx,
                         );
+                    });
+                } else if err == kalem_core::files::OpenError::Binary.to_string()
+                    && let Some(p) = path.as_deref()
+                {
+                    // Not text, and no installed plugin opens it: the
+                    // plugins that do offered, to install (T3.7.9).
+                    let p = std::path::absolute(p).unwrap_or_else(|_| p.to_path_buf());
+                    let args = serde_json::json!({ "path": p.display().to_string() });
+                    e.update(cx, |e, cx| {
+                        e.run_command("plugin.forFile", args, window, cx)
                     });
                 } else {
                     e.update(cx, |e, _| e.status = Some((err, true)));

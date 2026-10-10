@@ -49,10 +49,9 @@ editing, tables and export engine; the Markdown, CSV and LaTeX modes;
 the text engine with the view model; the two frontends; and the
 infrastructure that runs before any plugin: commands, keymaps,
 settings, files, projects, search and the plugin loader. Everything
-else is to be a plugin on the public contracts, the common ones
-bundled inside the binary as WebAssembly components, and new modes
-and file types are developed in =getkalem/plugins=, never in the
-core. Today the core holds more than this: the export back-ends
+else is to be a plugin on the public contracts, installed when it is
+wanted (none is built into the binary), and new modes and file types
+are developed in =getkalem/plugins=, never in the core. Today the core holds more than this: the export back-ends
 beyond HTML are built in, because the runtime they would move to
 does not exist yet.
 

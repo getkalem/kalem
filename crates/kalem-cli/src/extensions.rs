@@ -3,8 +3,12 @@
 //! offered to the editors as `kalem_core::extensions::Extensions`.
 //!
 //! A plugin's manifest (`plugin.json`) names its component (`main`) and
-//! when it starts (`activation`): `onStartup`, the default, or
-//! `onEvent:NAME` for the first event of that name (`onEvent:document:open`).
+//! when it starts (`activation`): `onStartup`, `onEvent:NAME` for the
+//! first event of that name (`onEvent:document:open`), or `onFile` for
+//! the first file opened that the plugin serves, as it declares it
+//! ([`kalem_core::applies`], what the index says of it too). With none,
+//! a plugin that declares files it serves starts with the first of them,
+//! any other with Kalem.
 //! It is known by the last part of its ID (`org.kalem.wordcount` is
 //! `wordcount`, its commands `wordcount.*`). A plugin that fails (a trap,
 //! its time or memory spent) is stopped, what it registered taken back,
@@ -558,6 +562,8 @@ struct Loaded {
     grants: x::Grants,
     file: PathBuf,
     activation: Vec<String>,
+    /// When it serves a file, for `onFile`.
+    applies: kalem_core::applies::Applies,
     limits: Limits,
     /// Running, once activated.
     extension: Option<Extension>,
@@ -726,9 +732,21 @@ impl kalem_core::extensions::Extensions for Plugins {
     fn event(&mut self, event: &Event) -> Option<String> {
         let name = event.kind().name();
         let waiting = format!("onEvent:{name}");
+        // A file opened: the plugins waiting for one they serve.
+        let opened = match event {
+            Event::DocumentOpen { path: Some(p), .. } => Some(p.as_path()),
+            _ => None,
+        };
         for i in 0..self.list.len() {
             let l = &self.list[i];
-            if l.extension.is_none() && !l.failed && l.activation.contains(&waiting) {
+            if l.extension.is_some() || l.failed {
+                continue;
+            }
+            let serves = || {
+                l.activation.iter().any(|a| a == "onFile")
+                    && opened.is_some_and(|p| l.applies.serves_file(p).is_some())
+            };
+            if l.activation.contains(&waiting) || serves() {
                 self.activate(i);
             }
         }
@@ -1018,9 +1036,17 @@ fn installed() -> Vec<Loaded> {
                 })
                 .unwrap_or_default()
         };
+        let applies = kalem_core::applies::Applies::of(&m);
         let mut activation = strings(&m["activation"]);
         if activation.is_empty() {
-            activation.push("onStartup".into());
+            activation.push(
+                if applies.is_empty() {
+                    "onStartup"
+                } else {
+                    "onFile"
+                }
+                .into(),
+            );
         }
         let defaults = Limits::default();
         let limits = Limits {
@@ -1040,6 +1066,7 @@ fn installed() -> Vec<Loaded> {
             grants: x::Grants::from_permissions(&strings(&m["permissions"])),
             file: p.dir.join(main),
             activation,
+            applies,
             limits,
             extension: None,
             failed: false,

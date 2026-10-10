@@ -61,8 +61,48 @@ pub struct IndexEntry {
     pub sha256: Option<String>,
     /// `declarative` for a language plugin; a component otherwise.
     pub declarative: bool,
+    /// The extensions a viewer opens (`opens`): a plugin that opens files
+    /// that are not text, as Kalem chooses installed viewers.
+    pub opens: Vec<String>,
+    /// When it serves a file ([`Applies::of`] of the entry): what Kalem
+    /// looks at, for every plugin alike, to name the plugin for a file,
+    /// and to hand it the file once installed (T3.7.9).
+    pub applies: Applies,
     /// The index it is listed in.
     pub index: String,
+}
+
+pub use crate::applies::{Applies, Kind, Serves};
+
+impl IndexEntry {
+    /// Whether it is a viewer: it opens files that are not text.
+    pub fn is_viewer(&self) -> bool {
+        !self.opens.is_empty()
+    }
+}
+
+/// Whether plugin `e` serves the file at `path` starting with `head`, by
+/// what it declares ([`Applies`]), and why.
+pub fn serves(e: &IndexEntry, path: &Path, head: Option<&[u8]>) -> Option<Serves> {
+    e.applies.serves(path, head)
+}
+
+/// The released plugins of `index` that serve the file at `path` starting
+/// with `head`, with why, the surest first ([`Serves::strength`]), then in
+/// the index's order: what Kalem names for a file it cannot open
+/// ([`opening`]) and suggests for one it can ([`suggestion`]).
+pub fn serving<'a>(
+    index: &'a [IndexEntry],
+    path: &Path,
+    head: Option<&[u8]>,
+) -> Vec<(&'a IndexEntry, Serves)> {
+    let mut found: Vec<(&IndexEntry, Serves)> = index
+        .iter()
+        .filter(|e| e.download.is_some())
+        .filter_map(|e| serves(e, path, head).map(|why| (e, why)))
+        .collect();
+    found.sort_by_key(|f| std::cmp::Reverse(f.1.strength()));
+    found
 }
 
 /// A plugin downloaded and unpacked, waiting for the user's yes.
@@ -178,10 +218,28 @@ pub fn parse_index(text: &str) -> Result<Vec<IndexEntry>, String> {
                 download: p["download"].as_str().map(str::to_string),
                 sha256: p["sha256"].as_str().map(str::to_string),
                 declarative: p["kind"].as_str() == Some("declarative"),
+                opens: strings(&p["opens"]),
+                applies: Applies::of(p),
                 index: String::new(),
             })
         })
         .collect())
+}
+
+/// The released viewers of the index that serve the file at `path`
+/// starting with `head`, by what each declares ([`serves`]), the surest
+/// first: what Kalem offers to install for a file that it cannot open yet
+/// (T3.7.9), and what opens it once installed ([`crate::viewer::find_at`]).
+pub fn opening<'a>(
+    entries: &'a [IndexEntry],
+    path: &std::path::Path,
+    head: Option<&[u8]>,
+) -> Vec<&'a IndexEntry> {
+    serving(entries, path, head)
+        .into_iter()
+        .filter(|(e, _)| e.is_viewer())
+        .map(|(e, _)| e)
+        .collect()
 }
 
 /// The index at `url`, its entries' sources and downloads written
@@ -1288,6 +1346,7 @@ pub fn newer(a: &str, b: &str) -> bool {
 /// The installed plugins the index has a newer version of: the plugin
 /// and that version.
 pub fn updates(index: &[IndexEntry]) -> Vec<(Installed, String)> {
+    remember_index(index);
     let mut latest = std::collections::HashMap::new();
     for e in index {
         latest.insert(e.id.clone(), e.version.clone());
@@ -1331,7 +1390,11 @@ const CHECK_EVERY: std::time::Duration = std::time::Duration::from_secs(24 * 60 
 /// `plugins.check_updates` is off; a newer version is said in the status
 /// bar ([`crate::jobs::notice`]). Called when an editor starts.
 pub fn check_updates(config: &crate::Config) {
-    if !config.bool("plugins.check_updates") || installed().is_empty() {
+    let suggest = config.bool("plugins.suggest");
+    SUGGEST.store(suggest, std::sync::atomic::Ordering::Relaxed);
+    let check = config.bool("plugins.check_updates") && !installed().is_empty();
+    // The index is read for the suggestions too, with no plugin installed.
+    if !check && !suggest {
         return;
     }
     let stamp = crate::logging::state_dir().map(|d| d.join("plugin-update-check"));
@@ -1356,14 +1419,238 @@ pub fn check_updates(config: &crate::Config) {
             }
             let _ = std::fs::write(p, "");
         }
-        if let Some(n) = updates_notice(&updates(&entries)) {
+        let found = updates(&entries);
+        if check && let Some(n) = updates_notice(&found) {
             crate::jobs::notice(n, false);
         }
     });
 }
 
+/// The index as last read, kept in the state folder (`plugin-index.json`):
+/// what the suggestions look at, read once a day at most.
+static KNOWN: std::sync::Mutex<Option<Vec<IndexEntry>>> = std::sync::Mutex::new(None);
+
+/// Whether plugins are suggested (`plugins.suggest`), as the editor set it
+/// at its start ([`check_updates`]); off in any other program.
+static SUGGEST: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The plugin suggested last, for Install Suggested Plugin.
+static SUGGESTED: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+fn index_cache() -> Option<PathBuf> {
+    crate::logging::state_dir().map(|d| d.join("plugin-index.json"))
+}
+
+/// Keeps the index read, for the suggestions: in memory and in the state
+/// folder.
+pub fn remember_index(entries: &[IndexEntry]) {
+    let plugins: Vec<Value> = entries
+        .iter()
+        .map(|e| {
+            let mut v = serde_json::json!({
+                "id": e.id, "name": e.name, "version": e.version,
+                "description": e.description, "permissions": e.permissions,
+                "source": e.source, "download": e.download, "sha256": e.sha256,
+                "opens": e.opens, "applies": e.applies.to_json(),
+            });
+            if e.declarative {
+                v["kind"] = serde_json::json!("declarative");
+            }
+            v
+        })
+        .collect();
+    if let Some(p) = index_cache() {
+        if let Some(d) = p.parent() {
+            let _ = std::fs::create_dir_all(d);
+        }
+        let text = serde_json::json!({ "schema": 1, "plugins": plugins }).to_string();
+        let _ = std::fs::write(p, text);
+    }
+    if let Ok(mut k) = KNOWN.lock() {
+        *k = Some(entries.to_vec());
+    }
+}
+
+/// The index as last read: in memory, else from the state folder.
+pub fn known_index() -> Vec<IndexEntry> {
+    let Ok(mut k) = KNOWN.lock() else {
+        return Vec::new();
+    };
+    if k.is_none() {
+        let read = index_cache()
+            .and_then(|p| std::fs::read_to_string(p).ok())
+            .and_then(|t| parse_index(&t).ok());
+        *k = Some(read.unwrap_or_default());
+    }
+    k.clone().unwrap_or_default()
+}
+
+/// The released plugin of `index` that serves the file at `path` starting
+/// with `head` ([`serves`]), and is neither installed nor in `said`
+/// (suggested before), with why: the surest, then the first in the
+/// index's order. A viewer serves no text file, so it is named for one
+/// only when it opens it ([`opening`]).
+pub fn suggestion<'a>(
+    index: &'a [IndexEntry],
+    path: &Path,
+    head: Option<&[u8]>,
+    installed: &[String],
+    said: &[String],
+) -> Option<(&'a IndexEntry, Serves)> {
+    serving(index, path, head)
+        .into_iter()
+        .find(|(e, _)| !installed.contains(&e.id) && !said.contains(&e.id))
+}
+
+fn said_file() -> Option<PathBuf> {
+    crate::logging::state_dir().map(|d| d.join("plugins-suggested"))
+}
+
+/// When a text file opens in an editor, starting with `head`: a plugin of
+/// the index that would serve it and is not installed said once in the
+/// status bar ([`crate::jobs::notice`]), never again for that plugin;
+/// Install Suggested Plugin installs it. Off with `plugins.suggest`, and
+/// outside an editor.
+pub fn suggest_for(path: &Path, head: &[u8]) {
+    if !SUGGEST.load(std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
+    let index = known_index();
+    if index.is_empty() {
+        return;
+    }
+    let said: Vec<String> = said_file()
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .map(|t| t.lines().map(str::to_string).collect())
+        .unwrap_or_default();
+    let installed: Vec<String> = installed().into_iter().map(|i| i.id).collect();
+    let Some((e, why)) = suggestion(&index, path, Some(head), &installed, &said) else {
+        return;
+    };
+    if let Some(p) = said_file() {
+        if let Some(d) = p.parent() {
+            let _ = std::fs::create_dir_all(d);
+        }
+        let mut all = said.clone();
+        all.push(e.id.clone());
+        let _ = std::fs::write(p, all.join("\n") + "\n");
+    }
+    if let Ok(mut s) = SUGGESTED.lock() {
+        *s = Some(e.id.clone());
+    }
+    let short = e.id.rsplit('.').next().unwrap_or(&e.id).to_string();
+    let name = e.name.as_str();
+    let message = match (why.place, why.kind) {
+        (Some((dir, marker)), _) => crate::tr!(
+            "plugin-suggest-marker",
+            name = name,
+            folder = dir.file_name().map_or(dir.display().to_string(), |n| n
+                .to_string_lossy()
+                .into_owned()),
+            marker = marker,
+            short = short
+        ),
+        (None, Some(Kind::Extension(x))) => crate::tr!(
+            "plugin-suggest-extension",
+            name = name,
+            extension = x,
+            short = short
+        ),
+        (None, Some(Kind::Filename(f))) => crate::tr!(
+            "plugin-suggest-filename",
+            name = name,
+            file = f,
+            short = short
+        ),
+        (None, _) => crate::tr!("plugin-suggest-file", name = name, short = short),
+    };
+    crate::jobs::notice(message, false);
+}
+
+/// The plugin suggested last ([`suggest_for`]), by its ID.
+pub fn suggested() -> Option<String> {
+    SUGGESTED.lock().ok()?.clone()
+}
+
+/// Turns the suggestions on or off, as `plugins.suggest` and an editor's
+/// start do; for tests.
+pub fn set_suggesting(on: bool) {
+    SUGGEST.store(on, std::sync::atomic::Ordering::Relaxed);
+}
+
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn one_declaration_names_every_kind_of_plugin() {
+        let index = parse_index(
+            r#"{"schema":1,"plugins":[
+              {"id":"a.sheets","name":"Sheets","version":"1.0.0","download":"https://x/s.wasm",
+               "opens":[".xlsx", "XLSM"]},
+              {"id":"a.draft","name":"Draft","version":"0.1.0","download":null,
+               "opens":[".xlsx"]},
+              {"id":"a.rust","name":"Rust","version":"1.0.0","kind":"declarative",
+               "download":"https://x/r.tar.gz",
+               "languages":[{"id":"rust","extensions":["rs"]}]},
+              {"id":"a.eex","name":"EEx","version":"1.0.0","download":"https://x/e.tar.gz",
+               "applies":{"extensions":["html.eex"]}},
+              {"id":"a.graph","name":"Graphs","version":"1.0.0","download":"https://x/g.wasm",
+               "layers":[{"id":"logseq","markers":["logseq/config.edn"]}]},
+              {"id":"a.pics","name":"Pictures","version":"1.0.0","download":"https://x/p.wasm",
+               "opens":[".png", ".svg"], "applies":{"magic":["89 50 4E 47"]}}]}"#,
+        )
+        .unwrap();
+        assert_eq!(index[0].applies.rules[0].extensions, [".xlsx", ".xlsm"]);
+        assert!(index[0].is_viewer() && !index[2].is_viewer());
+        let ids = |path: &Path, head: &[u8]| -> Vec<String> {
+            opening(&index, path, Some(head))
+                .iter()
+                .map(|e| e.id.clone())
+                .collect()
+        };
+        let png = b"\x89PNG\r\n\x1a\n\0\0";
+        // Released viewers only, by extension in any case, or by first bytes.
+        assert_eq!(ids(Path::new("/books/Budget.XLSX"), b""), ["a.sheets"]);
+        assert_eq!(ids(Path::new("/p/shot"), png), ["a.pics"]);
+        assert!(ids(Path::new("src/main.rs"), b"fn main() {}").is_empty());
+        assert!(ids(Path::new(".xlsx"), b"").is_empty());
+        // A marker in the file's folder or above it.
+        let dir = std::env::temp_dir().join(format!("kalem-applies-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("logseq")).unwrap();
+        std::fs::create_dir_all(dir.join("pages")).unwrap();
+        std::fs::write(dir.join("logseq/config.edn"), "{}").unwrap();
+        let page = dir.join("pages/Kalem.md");
+        assert_eq!(
+            serves(&index[4], &page, Some(b"- a")).and_then(|s| s.place),
+            Some((dir.clone(), "logseq/config.edn".into()))
+        );
+        // Suggested once: neither when installed nor when said before.
+        let s = |path: &Path, head: &[u8], installed: &[&str], said: &[&str]| {
+            let i: Vec<String> = installed.iter().map(|x| x.to_string()).collect();
+            let d: Vec<String> = said.iter().map(|x| x.to_string()).collect();
+            suggestion(&index, path, Some(head), &i, &d).map(|(e, _)| e.id.clone())
+        };
+        let rs = Path::new("lib.rs");
+        assert_eq!(s(rs, b"fn a() {}", &[], &[]).as_deref(), Some("a.rust"));
+        assert_eq!(s(rs, b"fn a() {}", &["a.rust"], &[]), None);
+        assert_eq!(s(rs, b"fn a() {}", &[], &["a.rust"]), None);
+        assert_eq!(
+            s(Path::new("page.html.eex"), b"<p>", &[], &[]).as_deref(),
+            Some("a.eex")
+        );
+        assert_eq!(s(&page, b"- a", &[], &[]).as_deref(), Some("a.graph"));
+        // A drawing in SVG is text: Kalem opens it, not the viewer.
+        assert_eq!(s(Path::new("a.svg"), b"<svg/>", &[], &[]), None);
+        // What is kept of the index reads back the same.
+        let kept = serde_json::json!({"plugins": [{
+            "id": "a.pics", "download": "https://x/p.wasm",
+            "opens": index[5].opens, "applies": index[5].applies.to_json(),
+        }]});
+        let again = parse_index(&kept.to_string()).unwrap();
+        assert_eq!(again[0].applies, index[5].applies);
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
     #[test]
     fn a_broken_record_is_kept_aside() {
         let dir = std::env::temp_dir().join(format!("kalem-record-{}", std::process::id()));

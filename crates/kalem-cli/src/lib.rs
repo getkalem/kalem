@@ -717,17 +717,35 @@ fn choose_viewers(startup: bool) {
     let natives = native_viewers();
     let embedded = embedded();
     let installed = installed_kept();
+    // The viewers chosen before: one whose plugin was removed is taken
+    // away (or given back to the native viewer), not left to fail on its
+    // files.
+    static CHOSEN: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+    let before = CHOSEN
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone();
     let mut ids: Vec<&str> = embedded.iter().map(|(c, _)| short(c.id)).collect();
-    for (p, _) in &installed {
-        if !ids.contains(&short(&p.id)) {
-            ids.push(short(&p.id));
+    for id in installed
+        .iter()
+        .map(|(p, _)| short(&p.id))
+        .chain(before.iter().map(String::as_str))
+    {
+        if !ids.contains(&id) {
+            ids.push(id);
         }
     }
+    let mut chose = Vec::new();
     let mut loaded = Vec::new();
     for id in ids {
         // The viewer chosen, its plugin's name and version; and what the
         // user is told when a copy that would open the files is off.
-        let mut chosen: Option<(Arc<kalem_script::viewer::ComponentViewer>, String, String)> = None;
+        let mut chosen: Option<(
+            Arc<kalem_script::viewer::ComponentViewer>,
+            String,
+            String,
+            kalem_core::applies::Applies,
+        )> = None;
         let mut off = None;
         if let Some((p, v)) = installed.iter().find(|(p, _)| short(&p.id) == id)
             && embedded_is_newer(p).is_none()
@@ -737,7 +755,14 @@ fn choose_viewers(startup: bool) {
                 off = Some(turned_off(&p.id, &p.name, &p.version, n));
             } else {
                 match v {
-                    Ok(v) => chosen = Some((v.clone(), p.name.clone(), p.version.clone())),
+                    Ok(v) => {
+                        chosen = Some((
+                            v.clone(),
+                            p.name.clone(),
+                            p.version.clone(),
+                            manifest_applies(&p.dir),
+                        ));
+                    }
                     // Built for another API: the copy built in opens its
                     // files.
                     Err(why) => {
@@ -763,7 +788,12 @@ fn choose_viewers(startup: bool) {
                 let n = plugin_store::stops(c.id, version);
                 off.get_or_insert_with(|| turned_off(c.id, name, version, n));
             } else {
-                chosen = Some((v.clone(), name.to_string(), version.to_string()));
+                chosen = Some((
+                    v.clone(),
+                    name.to_string(),
+                    version.to_string(),
+                    kalem_core::applies::Applies::of(&m),
+                ));
             }
         }
         if startup
@@ -772,26 +802,38 @@ fn choose_viewers(startup: bool) {
         {
             kalem_core::jobs::notice(off, true);
         }
-        let new: Option<Arc<dyn kalem_viewer::Viewer>> = match &chosen {
-            Some((v, ..)) => Some(v.clone()),
-            None => natives.iter().find(|n| n.id() == id).cloned(),
+        if chosen.is_some() {
+            chose.push(id.to_string());
+        }
+        // With what its manifest declares it serves; a native viewer, its
+        // extensions.
+        let new: Option<(
+            Arc<dyn kalem_viewer::Viewer>,
+            Option<kalem_core::applies::Applies>,
+        )> = match &chosen {
+            Some((v, _, _, applies)) => Some((v.clone(), Some(applies.clone()))),
+            None => natives
+                .iter()
+                .find(|n| n.id() == id)
+                .map(|n| (n.clone(), None)),
         };
         let now = kalem_core::viewer::viewers()
             .into_iter()
             .find(|v| v.id() == id);
         let same = match (&now, &new) {
-            (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+            (Some(a), Some((b, _))) => Arc::ptr_eq(a, b),
             (None, None) => true,
             _ => false,
         };
         if same {
             continue;
         }
-        match &new {
-            Some(v) => kalem_core::viewer::register(v.clone()),
+        match new {
+            Some((v, Some(applies))) => kalem_core::viewer::register_applying(v, applies),
+            Some((v, None)) => kalem_core::viewer::register(v),
             None => kalem_core::viewer::unregister(id),
         }
-        if let Some((v, name, version)) = chosen {
+        if let Some((v, name, version, _)) = chosen {
             if !startup {
                 kalem_core::jobs::notice(
                     kalem_core::tr!("plugin-now-used", plugin = name, version = version),
@@ -801,6 +843,9 @@ fn choose_viewers(startup: bool) {
             loaded.push(v);
         }
     }
+    *CHOSEN
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = chose;
     if !loaded.is_empty() {
         let _ = std::thread::Builder::new()
             .name("kalem-plugins-load".into())
@@ -810,6 +855,19 @@ fn choose_viewers(startup: bool) {
                 }
             });
     }
+}
+
+/// When the plugin installed in `dir` serves a file, as its manifest
+/// declares it ([`kalem_core::applies::Applies::of`]): what the index says
+/// of it too, so that the viewer Kalem named for a file is the one that
+/// opens it.
+#[cfg(feature = "plugins")]
+fn manifest_applies(dir: &std::path::Path) -> kalem_core::applies::Applies {
+    std::fs::read_to_string(dir.join("plugin.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .map(|m| kalem_core::applies::Applies::of(&m))
+        .unwrap_or_default()
 }
 
 /// When Kalem has `p` built in at the same or a later version: why the
@@ -857,8 +915,16 @@ pub(crate) fn installed_viewers() -> Vec<(
         }
         let api = m["api"].as_str();
         if !kalem_script::api_compatible(api) {
+            // A copy built in (a build of one's own) opens its files
+            // meanwhile; a release has none.
+            let built_in = embedded().iter().any(|(c, _)| short(c.id) == short(&p.id));
+            let key = if built_in {
+                "plugin-api-mismatch-built-in"
+            } else {
+                "plugin-api-mismatch"
+            };
             let why = kalem_core::tr!(
-                "plugin-api-mismatch",
+                key,
                 name = p.name.clone(),
                 version = p.version.clone(),
                 api = api.unwrap_or_default().to_string(),

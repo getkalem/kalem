@@ -148,9 +148,46 @@ pub struct Plugin {
     pub syntaxes: Vec<String>,
     /// Its servers' own requests, by Kalem's command.
     pub requests: Vec<RequestSpec>,
+    /// When it serves a file ([`crate::applies::Applies::of`] of its
+    /// manifest): what the index says of it too.
+    pub applies: crate::applies::Applies,
 }
 
 impl Plugin {
+    /// Its language for the file named `name` (and `lower`), whose first
+    /// line is `first_line`: by the whole name, then the longest
+    /// extension, then the interpreter of its `#!` line.
+    fn language(&self, name: &str, lower: &str, first_line: Option<&str>) -> Option<&LanguageSpec> {
+        if let Some(l) = self
+            .languages
+            .iter()
+            .find(|l| l.filenames.iter().any(|f| f == name))
+        {
+            return Some(l);
+        }
+        let mut best: Option<(usize, &LanguageSpec)> = None;
+        for l in &self.languages {
+            for e in &l.extensions {
+                let suffix = format!(".{}", e.to_ascii_lowercase());
+                if lower.ends_with(&suffix) && best.is_none_or(|b| e.len() > b.0) {
+                    best = Some((e.len(), l));
+                }
+            }
+        }
+        if let Some((_, l)) = best {
+            return Some(l);
+        }
+        let interp = first_line?.strip_prefix("#!")?;
+        let mut words = interp.split_whitespace();
+        let mut prog = words.next()?.rsplit('/').next()?;
+        if prog == "env" {
+            prog = words.find(|w| !w.starts_with('-'))?;
+        }
+        self.languages
+            .iter()
+            .find(|l| l.shebangs.iter().any(|s| s == prog))
+    }
+
     /// The server with key `key`.
     pub fn server(&self, key: &str) -> Option<&ServerSpec> {
         self.servers.iter().find(|s| s.key == key)
@@ -300,6 +337,7 @@ pub fn parse_manifest(dir: &Path, text: &str) -> Result<Option<Plugin>, String> 
         commands,
         syntaxes: Vec::new(),
         requests,
+        applies: crate::applies::Applies::of(&m),
     }))
 }
 
@@ -572,48 +610,33 @@ pub fn merge(base: &mut Value, over: &Value) {
     }
 }
 
-/// The language of a file: by name, then the longest extension, then the
-/// interpreter of its `#!` line (`first_line`).
+/// The language of a file whose first line is `first_line`: the plugin
+/// whose declaration serves it ([`crate::applies`]), the surest match
+/// first and the later plugin among equals, as its syntaxes are; then its
+/// language for the file (by the whole name, the longest extension, the
+/// `#!` line), or its first when the plugin serves the file by what it
+/// adds to its languages (a marker).
 pub fn for_path(path: &Path, first_line: Option<&str>) -> Option<(Arc<Plugin>, LanguageSpec)> {
     let name = path.file_name()?.to_str()?;
     let lower = name.to_ascii_lowercase();
+    let head = first_line.map(str::as_bytes);
     let plugins = plugins();
-    // Later plugins win, as their syntaxes do.
+    let mut best: Option<(crate::applies::Strength, &Arc<Plugin>)> = None;
     for p in plugins.iter().rev() {
-        if let Some(l) = p
-            .languages
-            .iter()
-            .find(|l| l.filenames.iter().any(|f| f == name))
-        {
-            return Some((p.clone(), l.clone()));
+        let Some(why) = p.applies.serves(path, head) else {
+            continue;
+        };
+        let s = why.strength();
+        if best.as_ref().is_none_or(|(b, _)| s > *b) {
+            best = Some((s, p));
         }
     }
-    let mut best: Option<(usize, Arc<Plugin>, LanguageSpec)> = None;
-    for p in plugins.iter().rev() {
-        for l in &p.languages {
-            for e in &l.extensions {
-                let suffix = format!(".{}", e.to_ascii_lowercase());
-                if lower.ends_with(&suffix) && best.as_ref().is_none_or(|b| e.len() > b.0) {
-                    best = Some((e.len(), p.clone(), l.clone()));
-                }
-            }
-        }
-    }
-    if let Some((_, p, l)) = best {
-        return Some((p, l));
-    }
-    let interp = first_line?.strip_prefix("#!")?;
-    let mut words = interp.split_whitespace();
-    let mut prog = words.next()?.rsplit('/').next()?;
-    if prog == "env" {
-        prog = words.find(|w| !w.starts_with('-'))?;
-    }
-    plugins.iter().rev().find_map(|p| {
-        p.languages
-            .iter()
-            .find(|l| l.shebangs.iter().any(|s| s == prog))
-            .map(|l| (p.clone(), l.clone()))
-    })
+    let (_, p) = best?;
+    let l = p
+        .language(name, &lower, first_line)
+        .or_else(|| p.languages.first())?
+        .clone();
+    Some((p.clone(), l))
 }
 
 /// A plugin's comment marker as the `'static` text the comment commands

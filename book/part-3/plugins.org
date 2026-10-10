@@ -182,8 +182,8 @@ its unsaved changes, which nothing can save any more, are lost; the
 editor itself goes on, and the log keeps the plugin's version and what
 went wrong. A plugin that stops three times is turned off until it is
 updated, and its files go at once to what opens them next: a newer copy
-installed, else the copy built into Kalem, else the bundled viewer of
-the same name. =kalem plugin list= says so, and =kalem plugin enable ID=
+installed, else a copy built into Kalem when a build of one's own has
+one, else nothing, and the file is offered to the system's application. =kalem plugin list= says so, and =kalem plugin enable ID=
 turns it on again. Kalem need not be started again for any of this: a
 viewer installed, updated or removed while Kalem runs, from the plugin
 list or with =kalem plugin install= in a terminal, opens its files (or
@@ -192,15 +192,81 @@ copy opens them now. A viewer's limits are 1 GB and 10 s a call, more
 than §11.6's defaults, since a viewer holds a whole file; a manifest
 may set others, =limits.memory_mb= and =limits.time_ms=.
 
-Kalem's own viewers, of pictures, PDF files and workbooks, are such
-components: the ones =getkalem/plugins= released, which
-=crates/kalem-components/components.toml= pins by their release and
-SHA-256. The build downloads them (or reads them from the folder
-=KALEM_COMPONENTS_DIR= names, to build offline), checks them and keeps
-them compressed in the binary, inflated when first used; Kalem compiles
-none of their source, and a change to one reaches Kalem as its release
-and a new line in that file. =kalem plugin list= marks them /built in/;
-an installed copy of one is used only when it is newer. Their manifests
+The viewers of pictures, PDF files and workbooks are such components,
+released by =getkalem/plugins= and installed like any other plugin:
+none is built into Kalem. A file that is not text and that no
+installed plugin opens names the released plugins of the indexes that
+serve it, to install, after which the file opens; and the system's
+application (/Find a Plugin for the File/, =plugin.forFile=).
+
+* When a plugin serves a file
+
+Every plugin, whatever its kind, says in one declaration when it serves
+a file, and Kalem tests that declaration alike for every kind of plugin
+(=kalem_core::applies=), both to hand a file to an installed plugin and
+to name a plugin of the index for a file. So the plugin named for a file
+is the one that serves it once installed, and a plugin serves the files
+it declares and no other.
+
+The declaration is a list of rules, and a plugin serves a file one of
+its rules matches. A rule says what the file is, by any one of the
+things it lists: its extension (=.xlsx=, =.html.eex=, the longest
+counting), its whole name (=mix.lock=), its first bytes (=magic=, pairs
+of hexadecimal digits, =??= for any byte: ="25 50 44 46 2D"= is
+=%PDF-=), the interpreter of its =#!= line (=elixir=); and where it is,
+by any one of its markers, files or folders that must be in the file's
+folder or one above it (=logseq/config.edn= for a Logseq graph,
+=.obsidian= for an Obsidian vault). A rule that lists both asks both: a
+site's plugin may serve =.md= files under a folder holding =hugo.toml=,
+and no other Markdown file. The rules are what the manifest already
+says, and what it adds:
+
+- the extensions a viewer =opens=;
+- the extensions, whole names (=filenames=) and interpreters
+  (=shebangs=) of the =languages= it serves;
+- the =markers= of each of its =layers=;
+- its own =applies=, a rule or a list of them, with =extensions=,
+  =filenames=, =magic=, =shebangs= and =markers=:
+  ={"magic": ["25 50 44 46 2D"]}=, ={"markers": [".git"]}=.
+
+A viewer's rules hold for files that are not text only: Kalem opens a
+text file in a mode, even one a viewer could show (an SVG drawing is
+XML). The index copies these parts of each manifest as they are
+(=tools/build-index.py=), and Kalem reads them from the index and from
+an installed manifest by the same code. Where several plugins serve a
+file, the surest match is used: a whole name, then an extension (a
+longer one before a shorter), then first bytes, which formats share
+(every Office file is a ZIP archive), then a =#!= line, then a marker
+alone; a rule whose marker is found as well before one with none; the
+first installed (the later, for languages) among equals. Kalem uses the
+declaration everywhere:
+
+- a file that is not text opens in the installed viewer that serves it;
+  the viewer's =detect= is not asked;
+- a text file's language plugin is the one that serves it, the language
+  then chosen among its own (by the whole name, the extension, the =#!=
+  line; its first when the plugin serves the file by a marker);
+- an extension plugin whose manifest names no =activation= starts with
+  the first file opened that it serves (=onFile=), or with Kalem when it
+  declares none;
+- a file Kalem cannot open (not text, no installed viewer serves it)
+  names the released viewers of the indexes that serve it, to install,
+  then the file opened, and the system's application;
+- a text file it opens (a source file, a Markdown page of a graph) names
+  the first released plugin that serves it and is not installed, said
+  once in the status bar and never again for that plugin, which /Install
+  Suggested Plugin/ (=plugin.installSuggested=) installs;
+  =plugins.suggest = false= says none. The index is read when Kalem
+  starts, once a day at most, and kept in the state folder
+  (=plugin-index.json=), so a file opened offline is named too.
+
+The feature
+=components= of a build of one's own still builds the released ones in,
+pinned by =crates/kalem-components/components.toml= by their release
+and SHA-256, downloaded (or read from the folder =KALEM_COMPONENTS_DIR=
+names), checked and kept compressed, inflated when first used; the
+tests take them from there. =kalem plugin list= marks such a copy
+/built in/, and an installed copy of one is used only when it is newer. Their manifests
 set their limits as an installed one's do. Through a component a viewer
 took one to two times the time of the same code built into Kalem
 natively, as it was until 2026-10-05; a test measures each against a
@@ -502,8 +568,11 @@ Kalem loads the extension plugins installed: a component that opens
 no files. =kalem plugin install DIR= installs one whose component is
 built, and at start a thread loads each (compiled once and cached, as
 a viewer is) and activates it when its manifest's =activation= says:
-=onStartup=, the default, or =onEvent:NAME= at the first event of that
-name (=onEvent:document:open=). A plugin is known by its ID's last part,
+=onStartup=, =onEvent:NAME= at the first event of that name
+(=onEvent:document:open=), or =onFile= at the first file opened that it
+serves (see [[*When a plugin serves a file]]). With none, a plugin that
+declares files it serves starts with the first of them, any other with
+Kalem. A plugin is known by its ID's last part,
 =org.kalem.wordcount= as =wordcount=, and its commands are
 =wordcount.*=. Its commands join the palette, the menus' rules and the
 keymap in both editors as it registers them, its key bindings come

@@ -33,7 +33,10 @@ the text of their line, so a bookmark follows its line when lines are
 added above it.
 
 The menus hold the commands of the document you are in: a LaTeX file
-has LaTeX's, a CSV file a Table menu. On macOS they are in the menu
+has LaTeX's, a CSV file a Table menu, a workbook Excel's (its cells'
+commands in /File/, /Edit/, /Format/, /Insert/, /Review/ and /View/,
+and the menus /Data/, /Formulas/ and /Chart/), with its buttons on the
+toolbar. On macOS they are in the menu
 bar at the top of the screen; on Linux and Windows the window has its
 own menu bar above the toolbar (=ui.menu_bar = false= hides it). F10
 lists every menu item in the palette, titled with its menu (/Edit ›

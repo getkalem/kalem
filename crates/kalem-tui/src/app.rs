@@ -494,10 +494,13 @@ impl App {
         mut issues: Vec<KeymapIssue>,
     ) -> Result<App, OpenError> {
         // A file with a password (a PDF): an empty document, and the
-        // password asked for once the editor stands.
-        let (doc, needs_password) = match new_document(path, &config) {
-            Err(OpenError::NeedsPassword) => (new_document(None, &config)?, path),
-            r => (r?, None),
+        // password asked for once the editor stands. A file that is not
+        // text and that no installed plugin opens: an empty document, and
+        // the plugins that open it offered (T3.7.9).
+        let (doc, needs_password, not_text) = match new_document(path, &config) {
+            Err(OpenError::NeedsPassword) => (new_document(None, &config)?, path, None),
+            Err(OpenError::Binary) => (new_document(None, &config)?, None, path),
+            r => (r?, None, None),
         };
         // What plugins read (`kalem.settings`).
         kalem_core::extensions::set_config(&config);
@@ -648,6 +651,13 @@ impl App {
                 args: serde_json::json!({ "path": p.display().to_string() }),
                 arg: "password".into(),
             });
+        }
+        if let Some(p) = not_text {
+            let p = std::path::absolute(p).unwrap_or_else(|_| p.to_path_buf());
+            app.run_command(
+                "plugin.forFile",
+                serde_json::json!({ "path": p.display().to_string() }),
+            );
         }
         Ok(app)
     }
@@ -908,6 +918,15 @@ impl App {
                             args: serde_json::json!({ "path": target.display().to_string() }),
                             arg: "password".into(),
                         });
+                        return;
+                    }
+                    // Not text, and no installed plugin opens it: the
+                    // plugins that do offered, to install (T3.7.9).
+                    Err(OpenError::Binary) => {
+                        self.run_command(
+                            "plugin.forFile",
+                            serde_json::json!({ "path": target.display().to_string() }),
+                        );
                         return;
                     }
                     Err(e) => {
