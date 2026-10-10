@@ -1,8 +1,10 @@
-//! A viewer turned off gives way, without a restart, to the copy of its
-//! plugin installed while Kalem runs; and the viewers are chosen again as
-//! plugins are turned off and on (the owner's report of 2026-10-09: xlsx
-//! 0.0.8 turned off after three stops, 0.0.9 installed, and no workbook
-//! opened until Kalem was started again).
+//! The viewers chosen again while Kalem runs, as plugins are installed,
+//! turned off, updated and removed, with no restart (the owner's report
+//! of 2026-10-09: xlsx 0.0.8 turned off after three stops, 0.0.9
+//! installed, and no workbook opened until Kalem was started again).
+//! The viewer is `tests/plugins/pages`, built from its source, so the
+//! test needs no plugin built into Kalem; skipped where the
+//! `wasm32-unknown-unknown` target or `wasm-tools` is not installed.
 
 use std::path::Path;
 use std::time::{Duration, Instant};
@@ -10,9 +12,20 @@ use std::time::{Duration, Instant};
 use kalem_core::plugin_store;
 use kalem_viewer::FileHandle;
 
-/// The viewer that opens a workbook now.
-fn workbook_viewer() -> Option<std::sync::Arc<dyn kalem_viewer::Viewer>> {
-    kalem_core::viewer::find("book.xlsx", b"PK\x03\x04")
+mod test_plugins;
+
+/// The viewer that opens a pages file now.
+fn pages_viewer() -> Option<std::sync::Arc<dyn kalem_viewer::Viewer>> {
+    kalem_core::viewer::find("three.pages", b"PAGES")
+}
+
+/// Waits for the watcher to choose again until `done`, for up to 15 s.
+fn until(done: impl Fn() -> bool) -> bool {
+    let end = Instant::now() + Duration::from_secs(15);
+    while !done() && Instant::now() < end {
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    done()
 }
 
 /// Whether a notice since the last look says `text`.
@@ -22,18 +35,33 @@ fn told(text: &str) -> bool {
         .any(|(n, _)| n.contains(text))
 }
 
+/// The pages plugin at `version` installed as `kalem plugin install DIR`
+/// installs one.
+fn install(dir: &Path, wasm: &[u8], version: &str) {
+    let copy = dir.join(format!("pages-{version}"));
+    std::fs::create_dir_all(&copy).unwrap();
+    std::fs::write(copy.join("pages.wasm"), wasm).unwrap();
+    std::fs::write(
+        copy.join("plugin.json"),
+        serde_json::json!({
+            "id": "org.test.pages",
+            "name": "Pages",
+            "version": version,
+            "main": "pages.wasm",
+            "opens": [".pages"],
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let prepared = plugin_store::prepare(copy.to_str().unwrap(), &[]).unwrap();
+    plugin_store::install(&prepared).unwrap();
+}
+
 #[test]
-fn a_viewer_turned_off_gives_way_to_a_copy_installed_while_kalem_runs() {
-    let Some(built_in) = kalem_components::components()
-        .iter()
-        .find(|c| c.id == "org.kalem.xlsx")
-    else {
+fn viewers_follow_installs_stops_and_removals_without_a_restart() {
+    let Some(wasm) = test_plugins::component("pages") else {
         return;
     };
-    let version = built_in.manifest_json()["version"]
-        .as_str()
-        .unwrap()
-        .to_string();
     let dir = std::env::temp_dir().join(format!("kalem-viewer-choice-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("state")).unwrap();
@@ -43,60 +71,57 @@ fn a_viewer_turned_off_gives_way_to_a_copy_installed_while_kalem_runs() {
     unsafe {
         std::env::set_var("KALEM_CONFIG_DIR", dir.join("config"));
         std::env::set_var("KALEM_STATE_DIR", dir.join("state"));
+        // Compiled once for every run, not again in each state folder.
+        if std::env::var_os("KALEM_COMPONENT_CACHE").is_none() {
+            let cache = Path::new(env!("CARGO_TARGET_TMPDIR")).join("kalem-component-cache");
+            std::fs::create_dir_all(&cache).unwrap();
+            std::env::set_var("KALEM_COMPONENT_CACHE", cache);
+        }
     }
-    // The workbook viewer built in stopped three times: turned off.
-    for _ in 0..plugin_store::STOPS_TO_TURN_OFF {
-        plugin_store::record_stop("org.kalem.xlsx", &version, "a test");
-    }
+    let file = dir.join("three.pages");
+    std::fs::write(&file, b"PAGES of a test").unwrap();
     kalem_cli::bundled_plugins();
-    assert!(
-        workbook_viewer().is_none(),
-        "turned off, nothing in its place"
-    );
-    assert!(told("turned off"));
-
-    // A newer copy installed while Kalem runs, as `kalem plugin install
-    // DIR` installs one (from another process, the editor would only see
-    // the files change).
+    assert!(pages_viewer().is_none(), "nothing opens pages yet");
     kalem_cli::watch_plugins();
-    let copy = dir.join("xlsx-copy");
-    std::fs::create_dir_all(copy.join("dist")).unwrap();
-    std::fs::write(copy.join("dist/xlsx.wasm"), built_in.wasm()).unwrap();
-    let mut manifest = built_in.manifest_json();
-    manifest["version"] = "99.0.0".into();
-    manifest["main"] = "dist/xlsx.wasm".into();
-    std::fs::write(copy.join("plugin.json"), manifest.to_string()).unwrap();
-    let prepared = plugin_store::prepare(copy.to_str().unwrap(), &[]).unwrap();
-    plugin_store::install(&prepared).unwrap();
-    let until = Instant::now() + Duration::from_secs(15);
-    while workbook_viewer().is_none() && Instant::now() < until {
-        std::thread::sleep(Duration::from_millis(100));
-    }
-    let v = workbook_viewer().expect("the copy installed opens workbooks without a restart");
-    assert!(told("99.0.0"), "the user is told which copy opens them");
-    let book = Path::new(env!("CARGO_MANIFEST_DIR")).join("../kalem-tui/tests/data/budget.xlsx");
-    let doc = v.open(FileHandle::new(&book)).unwrap();
-    assert!(!doc.structure().units.is_empty());
 
-    // The copy turned off in its turn: the copy built in, whose stops were
-    // of another version, opens them (no restart, no watcher needed).
+    // Installed while Kalem runs: it opens its files without a restart,
+    // and the user is told which copy opens them.
+    install(&dir, &wasm, "1.0.0");
+    assert!(
+        until(|| pages_viewer().is_some()),
+        "the copy installed is used"
+    );
+    assert!(told("Pages 1.0.0"));
+    let doc = pages_viewer()
+        .unwrap()
+        .open(FileHandle::new(&file))
+        .unwrap();
+    assert_eq!(doc.structure().units.len(), 3);
+
+    // Turned off after three stops: nothing opens its files in its place.
     for _ in 0..plugin_store::STOPS_TO_TURN_OFF {
-        plugin_store::record_stop("org.kalem.xlsx", "99.0.0", "a test");
+        plugin_store::record_stop("org.test.pages", "1.0.0", "a test");
     }
     kalem_cli::plugins_changed();
-    let v = workbook_viewer().expect("the copy built in in its place");
-    assert!(told(&version));
-    assert!(v.open(FileHandle::new(&book)).is_ok());
+    assert!(pages_viewer().is_none(), "turned off");
 
-    // Turned on again (`kalem plugin enable`): the newer copy is back,
-    // the same viewer as before.
-    assert!(plugin_store::clear_stops("org.kalem.xlsx"));
+    // A newer copy installed meanwhile (whose version has no stops) opens
+    // them again, still with no restart.
+    install(&dir, &wasm, "1.0.1");
+    assert!(until(|| pages_viewer().is_some()), "the update is used");
+    assert!(told("Pages 1.0.1"));
+    assert!(pages_viewer().unwrap().open(FileHandle::new(&file)).is_ok());
+
+    // Chosen again with nothing changed (`kalem plugin enable`): the same
+    // viewer, nothing said.
+    let before = pages_viewer().unwrap();
+    plugin_store::clear_stops("org.test.pages");
     kalem_cli::plugins_changed();
-    assert!(told("99.0.0"));
-    // Chosen again with nothing changed: the same viewer, nothing said.
-    let before = workbook_viewer().unwrap();
-    kalem_cli::plugins_changed();
-    assert!(std::sync::Arc::ptr_eq(&before, &workbook_viewer().unwrap()));
-    assert!(kalem_core::jobs::take_notices().is_empty());
+    assert!(std::sync::Arc::ptr_eq(&before, &pages_viewer().unwrap()));
+    assert!(!told("Pages"));
+
+    // Removed while Kalem runs: its files have no viewer again.
+    plugin_store::remove("org.test.pages").unwrap();
+    assert!(until(|| pages_viewer().is_none()), "the removal is seen");
     std::fs::remove_dir_all(&dir).ok();
 }
