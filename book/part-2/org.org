@@ -623,7 +623,11 @@ difference).
 
 Every command (crate =org-edit=) reads the document and returns one
 transaction of range replacements, undone as one step; a failing
-command changes nothing. The text a command writes, where point ends
+command changes nothing. A change made again another way right after
+it joins its step: Enter's new line in code, as a language server
+remakes it (rust-analyzer continuing a =///= comment; the chapter
+[[file:../part-3/language-plugins.org][Language plugins]]), is undone
+with Kalem's in one undo. The text a command writes, where point ends
 and whether it fails are those of the Emacs command, checked on 15,800
 cases.
 
