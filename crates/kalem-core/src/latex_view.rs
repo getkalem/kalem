@@ -3647,25 +3647,29 @@ fn flag(v: &mut LineView, diags: &[crate::latex_check::Diagnostic]) {
     // Diagnostics are in order of their start, and one over many lines
     // is flagged on its first: those starting on this line.
     let first = diags.partition_point(|d| d.range.start < line.start);
-    let here: Vec<(Range<usize>, bool)> = diags[first..]
+    // The checker's warnings are what is probably wrong.
+    let here: Vec<(Range<usize>, crate::view::Flag)> = diags[first..]
         .iter()
         .take_while(|d| d.range.start <= line.end)
         .map(|d| {
-            let warning = d.severity == crate::latex_check::Severity::Warning;
-            (d.range.clone(), warning)
+            let flag = if d.severity == crate::latex_check::Severity::Warning {
+                crate::view::Flag::Wrong
+            } else {
+                crate::view::Flag::Style
+            };
+            (d.range.clone(), flag)
         })
         .collect();
     flag_ranges(v, &here);
 }
 
 /// Flags the runs of `v` under `here`, the problems starting on its line
-/// (their ranges, and whether each is probably wrong, else style, as
-/// [`crate::view::ViewStyle`]'s `flagged`): a run of source
-/// text split where one starts or ends, a run standing for other text
-/// flagged whole. Shared by LaTeX's checks and language servers.
-pub fn flag_ranges(v: &mut LineView, here: &[(Range<usize>, bool)]) {
+/// (their ranges, and how each is drawn, [`crate::view::Flag`]): a run of
+/// source text split where one starts or ends, a run standing for other
+/// text flagged whole. Shared by LaTeX's checks and language servers.
+pub fn flag_ranges(v: &mut LineView, here: &[(Range<usize>, crate::view::Flag)]) {
     let line = v.range.clone();
-    let here: Vec<(Range<usize>, bool)> = here
+    let here: Vec<(Range<usize>, crate::view::Flag)> = here
         .iter()
         .filter(|(r, _)| r.start >= line.start && r.start <= line.end)
         .map(|(r, w)| {
@@ -3676,11 +3680,12 @@ pub fn flag_ranges(v: &mut LineView, here: &[(Range<usize>, bool)]) {
     if here.is_empty() {
         return;
     }
-    let flag_of = |r: &Range<usize>| -> Option<bool> {
-        let hits = here
-            .iter()
-            .filter(|(d, _)| d.start < r.end.max(r.start + 1) && d.end > r.start);
-        hits.map(|(_, w)| *w).reduce(|a, b| a || b)
+    // The worst of the problems over it.
+    let flag_of = |r: &Range<usize>| -> Option<crate::view::Flag> {
+        here.iter()
+            .filter(|(d, _)| d.start < r.end.max(r.start + 1) && d.end > r.start)
+            .map(|(_, f)| *f)
+            .max()
     };
     let mut out = Vec::with_capacity(v.runs.len());
     for run in std::mem::take(&mut v.runs) {

@@ -36,14 +36,21 @@ use serde_json::{Value, json};
 use crate::position::{Encoding, byte_range, position};
 use crate::rpc;
 
-/// A diagnostic on every one of `words`, with its severity.
+/// A diagnostic on every one of `words`, with its severity; on `SPAN`,
+/// from it to the end of the next line (a problem over two lines).
 fn found(text: &str, words: &[(&str, i64)]) -> Vec<Value> {
     let mut list = Vec::new();
     for (word, severity) in words {
         for (at, _) in text.match_indices(word) {
+            let end = if *word == "SPAN" {
+                let next = text[at..].find('\n').map_or(text.len(), |i| at + i + 1);
+                text[next..].find('\n').map_or(text.len(), |i| next + i)
+            } else {
+                at + word.len()
+            };
             list.push(json!({
                 "range": { "start": position(text, at, Encoding::Utf16).to_json(),
-                           "end": position(text, at + word.len(), Encoding::Utf16).to_json() },
+                           "end": position(text, end, Encoding::Utf16).to_json() },
                 "severity": severity, "source": "fake", "message": format!("{word} found"),
             }));
         }
@@ -88,7 +95,7 @@ pub fn serve(behavior: &str) {
     let pushed: &[(&str, i64)] = if behavior == "pull" {
         &[("TODO", 2)]
     } else {
-        &[("TODO", 2), ("bad", 1)]
+        &[("TODO", 2), ("bad", 1), ("SPAN", 3)]
     };
     let mut saved = false;
     let mut busy = if behavior == "busy" { 2 } else { 0 };

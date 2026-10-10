@@ -355,9 +355,10 @@ the server says they changed. A server busy loading the project may
 cancel a question ("content modified"); Kalem asks again after half a
 second, one and two, and says it is still busy only after that.
 
-Problems are underlined in the text, errors and warnings as probably
-wrong and the rest as style; the line's number is colored in the
-gutter, and the message shows under the mouse. The problems list
+Problems are underlined in the text, errors in red, warnings in orange
+(yellow in the terminal) and the rest (information, hints) in blue, a
+problem over several lines on each of them; the line's number is
+colored in the gutter, and the message shows under the mouse. The problems list
 (=SPC c X=) has the project's files the server reports, open or not.
 A rename shows how many changes in how many files before anything
 changes; edits of open documents are made in their editors as one

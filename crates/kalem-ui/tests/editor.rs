@@ -4136,7 +4136,7 @@ fn latex_diagnostics_in_the_editor(cx: &mut TestAppContext) {
         e.line_view(0)
             .runs
             .iter()
-            .filter(|r| r.style.flagged == Some(false))
+            .filter(|r| r.style.flagged == Some(kalem_core::view::Flag::Style))
             .map(|r| r.text.clone())
             .collect::<String>()
     });

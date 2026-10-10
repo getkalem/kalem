@@ -635,14 +635,15 @@ fn text_run(
         font,
         color,
         background_color: s.code.then_some(theme.code_bg).or(badge).or(highlight),
-        // A diagnostic's wavy line, red for a warning, blue for style;
-        // else underlines and links.
+        // A diagnostic's wavy line, red for what is wrong, orange for a
+        // warning (the colors of the line numbers), blue for style; else
+        // underlines and links.
         underline: match s.flagged {
-            Some(warning) => Some(UnderlineStyle {
-                color: Some(if warning {
-                    gpui::hsla(0., 0.75, 0.5, 1.)
-                } else {
-                    gpui::hsla(0.58, 0.6, 0.55, 1.)
+            Some(flag) => Some(UnderlineStyle {
+                color: Some(match flag {
+                    kalem_core::view::Flag::Wrong => gpui::hsla(0., 0.75, 0.5, 1.),
+                    kalem_core::view::Flag::Warning => gpui::hsla(0.11, 0.85, 0.5, 1.),
+                    kalem_core::view::Flag::Style => gpui::hsla(0.58, 0.6, 0.55, 1.),
                 }),
                 thickness: px(1.),
                 wavy: true,

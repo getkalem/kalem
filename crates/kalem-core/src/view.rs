@@ -65,9 +65,20 @@ pub struct Style {
     /// Font, size and colors the source asks for (LaTeX's `\textcolor`,
     /// `\large`).
     pub rich: crate::rich::CharFormat,
-    /// Under a diagnostic: `Some(true)` for a warning, `Some(false)` for
-    /// style; drawn with a wavy underline.
-    pub flagged: Option<bool>,
+    /// Under a diagnostic, drawn with a wavy underline of its color.
+    pub flagged: Option<Flag>,
+}
+
+/// How a problem under a run is drawn: red for what is wrong, orange for
+/// a warning, blue for style; the worst wins where problems overlap.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Flag {
+    /// Style, information, a hint.
+    Style,
+    /// A warning: a language server's (unused, deprecated).
+    Warning,
+    /// Wrong, or probably so: a language server's error, LaTeX's check.
+    Wrong,
 }
 
 /// A checkbox's state.

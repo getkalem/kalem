@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- A language server's problems are underlined in three colors: errors in red, warnings in orange (yellow in the terminal), information and hints in blue. Errors and warnings were both red. A problem over several lines is underlined on each of them, not on its first only. LaTeX's checks keep their red and blue.
+
 ## [0.6.10] - 2026-10-10
 
 ### Added

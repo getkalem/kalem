@@ -2469,24 +2469,34 @@ fn whole_text_edit(old: &str, new: &str) -> Vec<(Range<usize>, String)> {
 }
 
 /// Flags the runs of line view `v` under the language server's problems
-/// starting on its line, as LaTeX's checks are flagged: errors and
-/// warnings as probably wrong, information and hints as style; nothing
-/// for diagnostics made for older text.
+/// on its line, as LaTeX's checks are flagged: errors as wrong, warnings
+/// as warnings, information and hints as style; a problem over several
+/// lines on each of them; nothing for diagnostics made for older text.
 pub fn flag_diagnostics(doc: &DocumentState, v: &mut crate::view::LineView) {
     let Some(path) = code_file(doc) else { return };
     let line = v.range.clone();
-    let here: Vec<(Range<usize>, bool)> = with(|s| {
+    let here: Vec<(Range<usize>, crate::view::Flag)> = with(|s| {
         let Some(cache) = s.docs.get_mut(path).and_then(Doc::diagnostics) else {
             return Vec::new();
         };
         if cache.stale {
             return Vec::new();
         }
-        let first = cache.list.partition_point(|d| d.range.start < line.start);
-        cache.list[first..]
+        // Those starting by the line's end: a problem started on a line
+        // before and going on into this one is flagged here from its
+        // start.
+        let last = cache.list.partition_point(|d| d.range.start <= line.end);
+        cache.list[..last]
             .iter()
-            .take_while(|d| d.range.start <= line.end)
-            .map(|d| (d.range.clone(), d.severity <= Severity::Warning))
+            .filter(|d| d.range.start >= line.start || d.range.end > line.start)
+            .map(|d| {
+                let flag = match d.severity {
+                    Severity::Error => crate::view::Flag::Wrong,
+                    Severity::Warning => crate::view::Flag::Warning,
+                    _ => crate::view::Flag::Style,
+                };
+                (d.range.start.max(line.start)..d.range.end, flag)
+            })
             .collect()
     });
     if !here.is_empty() {

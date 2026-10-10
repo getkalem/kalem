@@ -385,15 +385,53 @@ fn main() {
     let mut v =
         kalem_core::view::plain_line_view(doc.text().as_str(), doc.text().line_range(0), None);
     lsp::flag_diagnostics(&doc, &mut v);
-    let flagged: Vec<&str> = v
+    // The warning on `TODO` as a warning, the error on `bad` as wrong.
+    let flagged: Vec<(&str, kalem_core::view::Flag)> = v
         .runs
         .iter()
-        .filter(|r| r.style.flagged == Some(true))
-        .map(|r| r.text.as_str())
+        .filter_map(|r| Some((r.text.as_str(), r.style.flagged?)))
         .collect();
-    assert_eq!(flagged, ["TODO", "bad"], "{:?}", v.runs);
+    assert_eq!(
+        flagged,
+        [
+            ("TODO", kalem_core::view::Flag::Warning),
+            ("bad", kalem_core::view::Flag::Wrong)
+        ],
+        "{:?}",
+        v.runs
+    );
     assert_eq!(lsp::line_mark(&doc, 0), Some(lsp::Severity::Error));
     assert_eq!(lsp::line_mark(&doc, 1), None);
+    // A problem over two lines, flagged on both: the second from its
+    // start, as style (an information).
+    let n = doc.text().len();
+    edit(&mut doc, n..n, "SPAN one\ntwo three\n");
+    let second = doc.text().line_count() - 2;
+    let v = until("a problem over two lines", || {
+        let mut v = kalem_core::view::plain_line_view(
+            doc.text().as_str(),
+            doc.text().line_range(second),
+            None,
+        );
+        lsp::flag_diagnostics(&doc, &mut v);
+        v.runs
+            .iter()
+            .any(|r| r.style.flagged.is_some())
+            .then_some(v)
+    });
+    let spans: Vec<(&str, Option<kalem_core::view::Flag>)> = v
+        .runs
+        .iter()
+        .map(|r| (r.text.as_str(), r.style.flagged))
+        .collect();
+    assert_eq!(
+        spans,
+        [("two three", Some(kalem_core::view::Flag::Style))],
+        "{:?}",
+        v.runs
+    );
+    assert!(doc.undo().is_some());
+    lsp::sync(&doc);
     let bad = doc.text().as_str().find("bad").unwrap();
     assert_eq!(
         lsp::diagnostic_at(&doc, bad + 1).as_deref(),
