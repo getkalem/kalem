@@ -1129,7 +1129,10 @@ mod tests {
         let (m, _) = Keymap::build(&reg, Profile::Vim, &[]);
         let mut insert = org_ctx(&["vimActive", "vimOwnsCtrl"]);
         insert.set("vimMode", V::Str("insert".into()));
-        assert_eq!(run(&m, "ctrl+enter", &insert).unwrap().0, "org.insertItemBelow");
+        assert_eq!(
+            run(&m, "ctrl+enter", &insert).unwrap().0,
+            "org.insertItemBelow"
+        );
         assert_eq!(
             run(&m, "ctrl+shift+enter", &insert).unwrap().0,
             "org.insertItemAbove"

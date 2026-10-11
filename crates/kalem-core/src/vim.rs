@@ -155,7 +155,9 @@ fn file_at(doc: &DocumentState, pos: usize) -> Result<String, String> {
         .take_while(|(_, c)| name_char(*c))
         .last()
         .map_or(pos, |(i, _)| i);
-    let e = text[pos..].find(|c: char| !name_char(c)).map_or(text.len(), |i| pos + i);
+    let e = text[pos..]
+        .find(|c: char| !name_char(c))
+        .map_or(text.len(), |i| pos + i);
     let name = text[s..e]
         .trim_start_matches("file:")
         .trim_end_matches([':', '.', ','])
@@ -164,8 +166,10 @@ fn file_at(doc: &DocumentState, pos: usize) -> Result<String, String> {
         return Err("E446: No file name under cursor".into());
     }
     let path = match name.strip_prefix("~/") {
-        Some(rest) => std::env::var_os("HOME")
-            .map_or_else(|| std::path::PathBuf::from(&name), |h| std::path::Path::new(&h).join(rest)),
+        Some(rest) => std::env::var_os("HOME").map_or_else(
+            || std::path::PathBuf::from(&name),
+            |h| std::path::Path::new(&h).join(rest),
+        ),
         None => {
             let p = std::path::PathBuf::from(&name);
             match doc.meta.path.as_ref().and_then(|d| d.parent()) {
@@ -182,7 +186,16 @@ fn file_at(doc: &DocumentState, pos: usize) -> Result<String, String> {
 
 /// The words `]t` and `[t` go to, as Doom's hl-todo has them.
 const TODO_WORDS: &[&str] = &[
-    "TODO", "FIXME", "HACK", "REVIEW", "NOTE", "DEPRECATED", "BUG", "XXX", "KLUDGE", "TEMP",
+    "TODO",
+    "FIXME",
+    "HACK",
+    "REVIEW",
+    "NOTE",
+    "DEPRECATED",
+    "BUG",
+    "XXX",
+    "KLUDGE",
+    "TEMP",
 ];
 
 /// Where the `n`th TODO word after `from` (before it, not `forward`)
@@ -3579,10 +3592,9 @@ impl Vim {
                     Key::Char('f') if !self.visual() && self.op.is_none() => {
                         self.count = None;
                         match file_at(doc, self.cursor) {
-                            Ok(path) => out.commands.push((
-                                "file.open".into(),
-                                serde_json::json!({ "path": path }),
-                            )),
+                            Ok(path) => out
+                                .commands
+                                .push(("file.open".into(), serde_json::json!({ "path": path }))),
                             Err(e) => out.message = Some((e, true)),
                         }
                     }
@@ -5892,19 +5904,25 @@ mod tests {
         let ids = |keys: &str| -> Vec<String> {
             commands_of(keys, false).into_iter().map(|c| c.0).collect()
         };
-        assert_eq!(ids("]b[b]d[w"), [
-            "file.next",
-            "file.previous",
-            "edit.nextChange",
-            "workspace.previous"
-        ]);
+        assert_eq!(
+            ids("]b[b]d[w"),
+            [
+                "file.next",
+                "file.previous",
+                "edit.nextChange",
+                "workspace.previous"
+            ]
+        );
         assert_eq!(ids("gO"), ["view.outline"]);
         // Visual `*` and `#`: the selection searched for.
         assert_eq!(run("ab x ab y a.b ab\n", 0, "vl*"), "ab x |ab y a.b ab\n");
         assert_eq!(run("ab x ab y a.b ab\n", 0, "vl*n"), "ab x ab y a.b |ab\n");
         assert_eq!(run("a.b ab a.b\n", 7, "vll#"), "|a.b ab a.b\n");
         // `gf` on a name that is no file: Vim's error.
-        let mut d = doc("see nofile.zz here\n", DocumentMode::Text { language: None });
+        let mut d = doc(
+            "see nofile.zz here\n",
+            DocumentMode::Text { language: None },
+        );
         d.selection = Selection::caret(6);
         let mut v = Vim::new();
         let mut h = TestHost::default();
