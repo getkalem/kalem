@@ -263,6 +263,11 @@ pub struct DocumentState {
     pub marks: crate::marks::Marks,
     /// The file as last read or written.
     disk: Option<DiskState>,
+    /// The text as last read from the file or written to it, for merging
+    /// with what another program writes there while the document has
+    /// unsaved changes ([`crate::merge`]); kept for files up to
+    /// [`MERGED_UP_TO`] bytes.
+    disk_text: Option<std::sync::Arc<str>>,
     /// Edits applied since the frontend last took them.
     changes: Vec<Transaction>,
     /// The file manager's state, in a folder listing
@@ -429,10 +434,23 @@ pub enum ExternalChange {
     /// The document has unsaved changes: the user decides
     /// ([`DocumentState::reload`] or saving with `force`).
     Conflict,
+    /// The document had unsaved changes, and the file's changed other
+    /// lines: they are merged into the document, which is still unsaved
+    /// ([`crate::merge`]).
+    Merged,
     /// The file was deleted.
     Deleted,
     /// A folder listing was read again.
     Listing,
+}
+
+/// The largest file whose text a document keeps as last read, to merge
+/// another program's changes into its unsaved ones.
+pub const MERGED_UP_TO: usize = 4 << 20;
+
+/// `text` kept as the file's, when it is no larger than [`MERGED_UP_TO`].
+fn mergeable(text: &str) -> Option<std::sync::Arc<str>> {
+    (text.len() <= MERGED_UP_TO).then(|| std::sync::Arc::from(text))
 }
 
 impl DocumentState {
@@ -493,6 +511,7 @@ impl DocumentState {
             narrowing: None,
             marks: Default::default(),
             disk: None,
+            disk_text: None,
             changes: Vec::new(),
             dired: None,
             viewer: None,
@@ -892,8 +911,10 @@ impl DocumentState {
         // editor (a language's, a Logseq graph's).
         let head = &text.as_bytes()[..text.len().min(crate::applies::HEAD)];
         crate::plugin_store::suggest_for(path, head);
+        let read = mergeable(&text);
         let mut d = DocumentState::with_base(text, meta, settings, base);
         d.disk = Some(disk);
+        d.disk_text = read;
         Ok(d)
     }
 
@@ -1244,6 +1265,7 @@ impl DocumentState {
         }
         let bytes = files::encode(self.text.as_str(), &self.meta);
         self.disk = Some(files::write(&path, &bytes, options).map_err(SaveError::Io)?);
+        self.disk_text = mergeable(self.text.as_str());
         self.mark_saved();
         Ok(())
     }
@@ -1306,6 +1328,25 @@ impl DocumentState {
                 Ok(ExternalChange::Deleted)
             }
             DiskChange::Modified if self.is_modified() => {
+                // Changed here and there: merged where the two changed
+                // different lines, else the user decides.
+                if self.viewer.is_none()
+                    && self.flow.is_none()
+                    && let Some(base) = self.disk_text.clone()
+                    && let Ok((theirs, meta, disk)) =
+                        files::read_with(&path, Some(self.meta.encoding))
+                    && !meta.lossy
+                    && let Some(merged) = crate::merge::merge3(&base, self.text.as_str(), &theirs)
+                {
+                    self.replace_differing_as(&merged, "Merge the file's changes", now);
+                    self.disk = Some(disk);
+                    self.disk_text = mergeable(&theirs);
+                    if merged == theirs {
+                        self.mark_saved();
+                    }
+                    tracing::info!(path = %path.display(), "merged the file's changes into unsaved ones");
+                    return Ok(ExternalChange::Merged);
+                }
                 tracing::info!(path = %path.display(), "file changed on disk with unsaved changes");
                 Ok(ExternalChange::Conflict)
             }
@@ -1343,6 +1384,20 @@ impl DocumentState {
         disk: files::DiskState,
         now: Instant,
     ) {
+        self.replace_differing_as(text, "Reload from disk", now);
+        self.meta.line_ending = meta.line_ending;
+        self.meta.bom = meta.bom;
+        self.meta.encoding = meta.encoding;
+        self.meta.lossy = meta.lossy;
+        self.disk = Some(disk);
+        self.disk_text = mergeable(text);
+        self.mark_saved();
+    }
+
+    /// The text replaced by `text` as one undo step named `label` that
+    /// changes only the part that differs, so the cursor and the undo
+    /// history stay; a read-only document's too.
+    fn replace_differing_as(&mut self, text: &str, label: &str, now: Instant) {
         let old = self.text.as_str();
         let (a, b) = (old.as_bytes(), text.as_bytes());
         let mut pre = a.iter().zip(b).take_while(|(x, y)| x == y).count();
@@ -1360,7 +1415,7 @@ impl DocumentState {
         while !old.is_char_boundary(a.len() - suf) || !text.is_char_boundary(b.len() - suf) {
             suf -= 1;
         }
-        let mut tx = Transaction::new("Reload from disk");
+        let mut tx = Transaction::new(label);
         tx.edit(pre..a.len() - suf, &text[pre..b.len() - suf]);
         self.break_undo_group();
         // Read-only keeps the user from editing, not the file from
@@ -1369,12 +1424,6 @@ impl DocumentState {
         let read_only = std::mem::replace(&mut self.read_only, false);
         self.apply(&tx, ChangeKind::Command, now);
         self.read_only = read_only;
-        self.meta.line_ending = meta.line_ending;
-        self.meta.bom = meta.bom;
-        self.meta.encoding = meta.encoding;
-        self.meta.lossy = meta.lossy;
-        self.disk = Some(disk);
-        self.mark_saved();
     }
 
     /// Replaces the text with the file's, as one undo step that changes
@@ -3366,6 +3415,52 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&p).unwrap(), "* TODO A\r\nbody\r\n");
         assert_eq!(d.external_change(now).unwrap(), ExternalChange::None);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Unsaved changes and another program's to other lines of the file
+    /// are merged (Logseq writing a page Kalem holds changed); to the
+    /// same lines, the user decides.
+    #[test]
+    fn changes_here_and_on_disk_to_other_lines_are_merged() {
+        let dir = std::env::temp_dir().join(format!("kalem-merge-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("page.md");
+        std::fs::write(&p, "- a\n- b\n- c\n- d\n").unwrap();
+        let now = Instant::now();
+        let mut d =
+            DocumentState::open(&p, Arc::new(Settings::default()), &ParseContext::default())
+                .unwrap();
+        let mut tx = Transaction::new("type");
+        tx.edit(7..7, ", typed here");
+        d.apply(&tx, ChangeKind::Command, now);
+        assert_eq!(d.text().as_str(), "- a\n- b, typed here\n- c\n- d\n");
+        // Another program writes another line, and no final line feed.
+        std::fs::write(&p, "- a\n- b\n- c\n- d, written elsewhere").unwrap();
+        assert_eq!(d.external_change(now).unwrap(), ExternalChange::Merged);
+        assert_eq!(
+            d.text().as_str(),
+            "- a\n- b, typed here\n- c\n- d, written elsewhere"
+        );
+        // Still unsaved; saved, the file has both.
+        assert!(d.is_modified());
+        d.save(SaveOptions::default(), false).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&p).unwrap(),
+            "- a\n- b, typed here\n- c\n- d, written elsewhere"
+        );
+        // The same line changed here and there: no merge.
+        let mut tx = Transaction::new("type");
+        tx.edit(2..3, "A");
+        d.apply(&tx, ChangeKind::Command, now);
+        std::fs::write(
+            &p,
+            "- a, elsewhere\n- b, typed here\n- c\n- d, written elsewhere",
+        )
+        .unwrap();
+        assert_eq!(d.external_change(now).unwrap(), ExternalChange::Conflict);
+        assert_eq!(d.text().as_str().lines().next(), Some("- A"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// A clean document whose file is deleted on disk counts as unsaved,

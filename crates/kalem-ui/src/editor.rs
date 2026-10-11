@@ -4031,7 +4031,12 @@ impl Editor {
         let change = self.doc.external_change(Instant::now());
         // Another program changed the file: `workspace:file-changed`.
         if let (
-            Ok(ExternalChange::Reloaded | ExternalChange::Conflict | ExternalChange::Deleted),
+            Ok(
+                ExternalChange::Reloaded
+                | ExternalChange::Conflict
+                | ExternalChange::Merged
+                | ExternalChange::Deleted,
+            ),
             Some(path),
         ) = (&change, &self.doc.meta.path)
             && !self.disk_conflict
@@ -4047,6 +4052,11 @@ impl Editor {
             Ok(ExternalChange::Reloaded) => {
                 self.disk_conflict = false;
                 self.message(tr!("msg-reloaded"), false);
+                self.after_change(cx);
+            }
+            Ok(ExternalChange::Merged) => {
+                self.disk_conflict = false;
+                self.message(tr!("msg-merged-from-disk"), false);
                 self.after_change(cx);
             }
             Ok(ExternalChange::Listing) => {

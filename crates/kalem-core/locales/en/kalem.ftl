@@ -382,6 +382,7 @@ msg-cannot-write = Cannot write { $path }: { $reason }
 msg-lisp-formulas = Emacs Lisp formulas are kept but not computed: { $lhs }
 msg-reloaded = Reloaded: the file changed on disk
 msg-reloaded-from-disk = Reloaded from disk
+msg-merged-from-disk = Merged: another program changed other lines of the file; your changes are kept, unsaved
 msg-disk-conflict = The file changed on disk: saving keeps your version, Revert to Saved takes the other
 msg-deleted-on-disk = The file was deleted on disk: the text here is its only copy (Save writes it again)
 msg-cannot-read = Cannot read the file: { $error }

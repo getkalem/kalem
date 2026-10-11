@@ -70,6 +70,7 @@ pub mod markdown_table;
 pub mod marks;
 pub mod math;
 pub mod menus;
+pub mod merge;
 pub mod mode;
 pub mod mode_view;
 pub mod modes;

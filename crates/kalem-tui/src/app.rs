@@ -5202,6 +5202,10 @@ impl App {
             Ok(ExternalChange::Conflict) => {
                 self.ask(PromptKind::Reload, &tr!("prompt-reload"), String::new());
             }
+            Ok(ExternalChange::Merged) => {
+                self.after_change(false);
+                self.message(tr!("msg-merged-from-disk"), false);
+            }
             Ok(ExternalChange::Deleted) => self.message(tr!("msg-deleted-on-disk"), true),
             Ok(ExternalChange::None) => {}
             Ok(ExternalChange::Listing) => self.after_change(false),

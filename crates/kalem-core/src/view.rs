@@ -1682,7 +1682,8 @@ pub fn visible(text: &str, blocks: &[Block], folds: &Folds, cursor: usize) -> Vi
     // feed).
     let on_lines = |b: &Block| {
         b.range.start <= cursor
-            && (cursor < b.range.end || (cursor == b.range.end && !text[..b.range.end].ends_with('\n')))
+            && (cursor < b.range.end
+                || (cursor == b.range.end && !text[..b.range.end].ends_with('\n')))
     };
     let mut i = 0;
     while i < shown.len() {

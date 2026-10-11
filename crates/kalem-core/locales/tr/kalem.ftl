@@ -371,6 +371,7 @@ msg-cannot-write = { $path } yazılamadı: { $reason }
 msg-lisp-formulas = Emacs Lisp formülleri korunur, hesaplanmaz: { $lhs }
 msg-reloaded = Yeniden yüklendi: dosya diskte değişti
 msg-reloaded-from-disk = Diskten yeniden yüklendi
+msg-merged-from-disk = Birleştirildi: başka bir program dosyanın başka satırlarını değiştirdi; sizin değişiklikleriniz duruyor, kaydedilmedi
 msg-disk-conflict = Dosya diskte değişti: kaydederseniz sizin sürümünüz kalır, Kaydedilmiş Sürüme Dön diskteki sürümü alır
 msg-deleted-on-disk = Dosya diskten silindi: buradaki metin tek kopyası (Kaydet onu yeniden yazar)
 msg-cannot-read = Dosya okunamıyor: { $error }
