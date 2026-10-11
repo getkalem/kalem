@@ -1582,7 +1582,52 @@ type Shaped = (
     Rc<Prepared>,
     Pixels,
     Option<Rc<Vec<Pixels>>>,
+    Rc<BelowLayout>,
 );
+
+/// The lines a layer draws under a line (plugin API 0.2.13), laid out:
+/// each with where it starts across and its height, and their height in
+/// all.
+#[derive(Default)]
+struct BelowLayout {
+    lines: Vec<(Pixels, Pixels, Rc<InlineLayout>)>,
+    height: Pixels,
+}
+
+/// The lines a layer draws under line `line`, as pieces in the body
+/// font, with how many columns in from the line's text each starts; none
+/// in the source view.
+fn below_pieces(editor: &Editor, line: usize) -> Vec<(usize, Piece)> {
+    if editor.source {
+        return Vec::new();
+    }
+    let Some(o) = editor.doc.overlays() else {
+        return Vec::new();
+    };
+    let start = editor.doc.text().line_start(line);
+    o.below(start)
+        .iter()
+        .map(|l| {
+            let mut text = String::new();
+            let mut runs = Vec::new();
+            for (t, st) in l.pieces.iter().filter(|(t, _)| !t.is_empty()) {
+                text.push_str(t);
+                runs.push(text_run(st, t.len(), 0, false, &editor.theme));
+            }
+            if text.is_empty() {
+                text.push(' ');
+                runs.push(text_run(
+                    &kalem_core::view::Style::default(),
+                    1,
+                    0,
+                    false,
+                    &editor.theme,
+                ));
+            }
+            (l.indent, Piece::Text { text, runs })
+        })
+        .collect()
+}
 
 /// The layout of a line element.
 pub struct LineState {
@@ -1624,14 +1669,26 @@ impl gpui::Element for LineElement {
     ) -> (LayoutId, LineState) {
         let base = px(self.editor.read(cx).doc_theme().size);
         let (line, other) = (self.line, self.other);
-        let prepared = Rc::new(self.editor.update(cx, |e, _| {
-            if other && e.other.is_some() {
-                e.with_other(|e| prepare(e, line, base, window))
-                    .unwrap_or_else(|| prepare(e, line, base, window))
+        let (prepared, below, column) = self.editor.update(cx, |e, _| {
+            let (p, below) = if other && e.other.is_some() {
+                e.with_other(|e| (prepare(e, line, base, window), below_pieces(e, line)))
+                    .unwrap_or_else(|| (prepare(e, line, base, window), below_pieces(e, line)))
             } else {
-                prepare(e, line, base, window)
-            }
-        }));
+                (prepare(e, line, base, window), below_pieces(e, line))
+            };
+            // A column of the lines under the line: a space's width.
+            let column = if below.is_empty() {
+                px(0.)
+            } else {
+                let run = text_run(&kalem_core::view::Style::default(), 1, 0, false, &e.theme);
+                window
+                    .text_system()
+                    .shape_line(crate::one_line(" "), base, &[run], None)
+                    .width
+            };
+            (p, below, column)
+        });
+        let prepared = Rc::new(prepared);
         let shaped: Rc<RefCell<Option<Shaped>>> = Rc::new(RefCell::new(None));
         let slot = shaped.clone();
         let mut style = Style::default();
@@ -1645,14 +1702,14 @@ impl gpui::Element for LineElement {
                 // Without wrapping, one row as long as the line, in the
                 // width there is.
                 let wrap = available.filter(|_| !prepared.nowrap);
-                if let Some((layout, _, line_height, _)) = slot.borrow().as_ref()
+                if let Some((layout, _, line_height, _, under)) = slot.borrow().as_ref()
                     && (prepared.nowrap || wrap.is_none_or(|w| layout.width == w))
                 {
                     return Size {
                         width: available
                             .filter(|_| prepared.nowrap)
                             .unwrap_or(layout.width),
-                        height: layout.height.max(*line_height),
+                        height: layout.height.max(*line_height) + under.height,
                     };
                 }
                 let line_height = prepared.font_size * 1.45 * prepared.spacing;
@@ -1701,13 +1758,46 @@ impl gpui::Element for LineElement {
                 if prepared.view.align == kalem_core::rich::Align::Justify {
                     layout.justify();
                 }
+                // The lines under the line, from where its text starts.
+                let mut under = BelowLayout::default();
+                if !below.is_empty() {
+                    let shown = prepared.view.display();
+                    let first = shown.len() - shown.trim_start().len();
+                    let lead = if first < shown.len() {
+                        layout.caret(first).origin.x
+                    } else {
+                        px(0.)
+                    };
+                    let height = base * 1.45 * prepared.spacing;
+                    for (cols, piece) in below.iter() {
+                        let x = lead + column * (*cols as f32);
+                        let w = wrap.map(|w| (w - x).max(column * 8.));
+                        let l = InlineLayout::new(
+                            std::slice::from_ref(piece),
+                            base,
+                            height,
+                            w,
+                            None,
+                            window,
+                        );
+                        let h = l.height.max(height);
+                        under.height += h;
+                        under.lines.push((x, h, Rc::new(l)));
+                    }
+                }
                 let sz = Size {
                     width: available
                         .filter(|_| prepared.nowrap)
                         .unwrap_or(layout.width),
-                    height: layout.height.max(line_height),
+                    height: layout.height.max(line_height) + under.height,
                 };
-                *slot.borrow_mut() = Some((Rc::new(layout), prepared.clone(), line_height, edges));
+                *slot.borrow_mut() = Some((
+                    Rc::new(layout),
+                    prepared.clone(),
+                    line_height,
+                    edges,
+                    Rc::new(under),
+                ));
                 sz
             });
         (layout_id, LineState { shaped })
@@ -1734,9 +1824,16 @@ impl gpui::Element for LineElement {
         window: &mut Window,
         cx: &mut App,
     ) {
-        let Some((layout, p, line_height, narrowed)) = state.shaped.borrow().clone() else {
+        let Some((layout, p, line_height, narrowed, under)) = state.shaped.borrow().clone() else {
             return;
         };
+        // The line's text above, the lines a layer draws under it below:
+        // what follows paints the text, in its own bounds.
+        let full = bounds;
+        let bounds = Bounds::new(
+            bounds.origin,
+            size(bounds.size.width, bounds.size.height - under.height),
+        );
         let editor = self.editor.read(cx);
         let theme = editor.theme.clone();
         let focus = gpui::Focusable::focus_handle(editor, cx);
@@ -2248,11 +2345,21 @@ impl gpui::Element for LineElement {
                 ));
             }
         }
+        // The lines a layer draws under the line.
+        let mut y = bounds.bottom();
+        for (x, h, l) in &under.lines {
+            l.paint(point(full.origin.x + *x, y), window, cx);
+            y += *h;
+        }
         painted.borrow_mut().insert(
             self.line,
             Painted {
                 // Where the text is: scrolled sideways without wrapping.
                 bounds: Bounds::new(origin, bounds.size),
+                below: Bounds::new(
+                    point(full.origin.x, bounds.bottom()),
+                    size(full.size.width, under.height),
+                ),
                 layout,
                 view,
                 widgets: hit,

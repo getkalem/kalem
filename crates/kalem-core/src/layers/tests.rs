@@ -23,6 +23,7 @@ fn spans_hide_replace_and_style_away_from_the_cursor() {
     let text = "- see ((6512)) and #tag id:: x\n";
     let line = 0..text.len() - 1;
     let o = Overlays {
+        below: Vec::new(),
         spans: vec![
             Span {
                 range: 6..14,
@@ -93,6 +94,7 @@ fn a_span_over_a_replaced_run_is_left_out() {
         ..LineView::default()
     };
     let cut = Overlays {
+        below: Vec::new(),
         spans: vec![Span {
             range: 3..5,
             effect: SpanEffect::Hide,
@@ -102,6 +104,7 @@ fn a_span_over_a_replaced_run_is_left_out() {
     apply_line(&mut v, &cut, None);
     assert_eq!(shown(&v), "Kalem");
     let around = Overlays {
+        below: Vec::new(),
         spans: vec![Span {
             range: 0..9,
             effect: SpanEffect::Style(tag()),
@@ -116,6 +119,7 @@ fn a_span_over_a_replaced_run_is_left_out() {
 fn overlays_are_normalized() {
     let text = "ab\ncd\nef";
     let o = Overlays {
+        below: Vec::new(),
         spans: vec![
             Span {
                 range: 4..9,
@@ -162,6 +166,7 @@ fn overlays_are_normalized() {
     );
     // A multi-byte character is never cut.
     let o = Overlays {
+        below: Vec::new(),
         spans: vec![Span {
             range: 1..2,
             effect: SpanEffect::Hide,
@@ -187,6 +192,7 @@ fn hidden_lines_are_a_block_of_their_own() {
         b(BlockKind::ListItem, 34..40),
     ];
     let o = Overlays {
+        below: Vec::new(),
         spans: Vec::new(),
         lines: vec![Lines {
             range: 6..34,
@@ -309,4 +315,67 @@ fn a_layer_over_markdown() {
     remove_plugin("org.test.layer");
     assert!(d.overlays().is_none());
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn lines_under_lines_at_their_lines_start() {
+    // At any byte of their line, two for one line drawn one after the
+    // other, a line feed in a piece a space, and kept to what can be
+    // drawn.
+    let text = "- a\n- {{embed}}\n- c\n";
+    let line = |t: &str, indent: usize| VirtualLine {
+        indent,
+        pieces: vec![(t.to_string(), Style::default())],
+    };
+    let o = Overlays {
+        below: vec![
+            Below {
+                line: 9,
+                lines: vec![line("one", 2)],
+            },
+            Below {
+                line: 0,
+                lines: vec![line("under a", 1_000)],
+            },
+            Below {
+                line: 4,
+                lines: vec![line("two\nlines", 2)],
+            },
+            Below {
+                line: 99,
+                lines: vec![line("past the end", 0)],
+            },
+            Below {
+                line: 2,
+                lines: Vec::new(),
+            },
+        ],
+        ..Overlays::default()
+    }
+    .normalized(text);
+    assert!(!o.is_empty());
+    let texts = |at: usize| {
+        o.below(at)
+            .iter()
+            .map(VirtualLine::text)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(texts(0), ["under a"]);
+    assert_eq!(o.below(0)[0].indent, MAX_INDENT);
+    assert_eq!(texts(4), ["one", "two lines"]);
+    // Past the end: the last line's start, the empty one after the last
+    // line feed.
+    assert_eq!(texts(text.len()), ["past the end"]);
+    assert!(o.below(1).is_empty());
+    let only = Overlays {
+        below: vec![Below {
+            line: 0,
+            lines: vec![line("x", 0)],
+        }],
+        ..Overlays::default()
+    };
+    assert!(
+        !only.normalized(text).is_empty(),
+        "a layer giving only lines under lines"
+    );
 }

@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.12;
+package kalem:plugin@0.2.13;
 
 /// The editor's commands, keys and events (design §11.2 to §11.4): what a
 /// plugin adds to the palette, menus and keymap, and what it hears.
@@ -303,4 +303,12 @@ world extension-layer {
 world extension-completer {
     include extension-layer;
     export completer;
+}
+
+/// An extension plugin whose layers draw lines of their own too (API
+/// 0.2.13): the `extension-completer` world, and the `layer-2` interface
+/// it exports, which the editor asks in place of `layer`.
+world extension-layer-2 {
+    include extension-completer;
+    export layer-2;
 }

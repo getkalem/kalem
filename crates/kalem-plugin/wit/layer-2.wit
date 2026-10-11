@@ -1,0 +1,48 @@
+package kalem:plugin@0.2.13;
+
+/// Layers over a mode's view with lines of their own (API 0.2.13;
+/// `kalem_core::layers`): what `layer` gives, and lines drawn under a line
+/// of the text that are not part of it, an embedded block with its
+/// children or a query's results shown in place as Logseq shows them. A
+/// plugin exporting `layer-2` is asked by it, not by `layer`.
+///
+/// Lines under a line are drawn below the line's own wherever it shows
+/// (not in the source view, nor when it is folded or hidden away); the
+/// cursor passes over them, a search does not find them, a copy leaves
+/// them out, and a click on one puts the cursor at the end of their line.
+interface layer-2 {
+    use layer.{span, lines, span-style};
+
+    /// A piece of a line drawn under a line, in a style.
+    record piece {
+        text: string,
+        style: span-style,
+    }
+
+    /// A line drawn under a line: so many columns in from where that
+    /// line's text starts, then its pieces.
+    record virtual-line {
+        indent: u32,
+        pieces: list<piece>,
+    }
+
+    /// Lines drawn under the line holding byte `at`.
+    record below {
+        at: u64,
+        lines: list<virtual-line>,
+    }
+
+    /// What a layer changes: `layer`'s spans and lines, and lines under
+    /// lines, in order of their line (two for one line drawn one after
+    /// the other).
+    record overlay-set {
+        spans: list<span>,
+        lines: list<lines>,
+        below: list<below>,
+    }
+
+    /// The overlays of layer `layer` (an ID of the manifest's `layers`)
+    /// for the document of file `path` (none for one not saved yet) with
+    /// `text`, as `layer`'s `overlays` gives them.
+    overlays: func(layer: string, path: option<string>, text: string) -> overlay-set;
+}

@@ -18,12 +18,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use wasmtime::component::{HasSelf, Resource, ResourceTable};
 
 mod bindings {
-    // `extension-completer`: the `extension` world and the `layer` (API
-    // 0.2.10) and `completer` (API 0.2.11) interfaces it may export,
-    // bound one by one (`Extension::new`).
+    // `extension-layer-2`: the `extension` world and the `layer` (API
+    // 0.2.10), `completer` (API 0.2.11) and `layer-2` (API 0.2.13)
+    // interfaces it may export, bound one by one (`Extension::new`).
     wasmtime::component::bindgen!({
         path: "../kalem-plugin/wit",
-        world: "extension-completer",
+        world: "extension-layer-2",
         with: {
             "kalem:plugin/kalem.disposable": super::Registration,
         },
@@ -31,7 +31,7 @@ mod bindings {
 }
 
 pub use api::{CommandSpec, Event, EventKind, Reply, Scope};
-pub use bindings::exports::kalem::plugin::{completer, layer};
+pub use bindings::exports::kalem::plugin::{completer, layer, layer_2};
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
 pub use bindings::kalem::plugin::{
@@ -1459,6 +1459,9 @@ pub struct Extension {
     api: bindings::exports::kalem::plugin::plugin::Guest,
     /// The `layer` interface, when the component exports it (API 0.2.10).
     layer: Option<layer::Guest>,
+    /// The `layer-2` interface, when the component exports it (API
+    /// 0.2.13): asked in place of `layer`.
+    layer_2: Option<layer_2::Guest>,
     /// The `completer` interface, when the component exports it (API
     /// 0.2.11).
     completer: Option<completer::Guest>,
@@ -1602,6 +1605,16 @@ impl Extension {
                 .load(&mut *store, i)
                 .map(Some)
         })?;
+        let layer_2 = instance.bindings(|store, i| {
+            let pre = i.instance_pre(&*store);
+            let name = format!("kalem:plugin/layer-2@{}", crate::API_VERSION);
+            if pre.component().get_export_index(None, &name).is_none() {
+                return Ok(None);
+            }
+            layer_2::GuestIndices::new(&pre)?
+                .load(&mut *store, i)
+                .map(Some)
+        })?;
         let completer = instance.bindings(|store, i| {
             let pre = i.instance_pre(&*store);
             let name = format!("kalem:plugin/completer@{}", crate::API_VERSION);
@@ -1616,6 +1629,7 @@ impl Extension {
             instance,
             api,
             layer,
+            layer_2,
             completer,
         })
     }
@@ -1627,26 +1641,41 @@ impl Extension {
         self.instance.run(|s| p.call_activate(s))
     }
 
-    /// Whether the plugin exports layers (API 0.2.10).
+    /// Whether the plugin exports layers (API 0.2.10, or `layer-2` of
+    /// API 0.2.13).
     pub fn has_layers(&self) -> bool {
-        self.layer.is_some()
+        self.layer.is_some() || self.layer_2.is_some()
     }
 
     /// The overlays of the plugin's layer `id` for a document of `path`
-    /// with `text`; `None` when the plugin exports no layer.
+    /// with `text`: by `layer-2` when the plugin exports it, else by
+    /// `layer`, with no lines under lines; `None` when the plugin exports
+    /// no layer.
     pub fn overlays(
         &mut self,
         id: &str,
         path: Option<&str>,
         text: &str,
-    ) -> crate::Result<Option<layer::OverlaySet>> {
+    ) -> crate::Result<Option<layer_2::OverlaySet>> {
+        let path = path.map(str::to_string);
+        if let Some(l) = &self.layer_2 {
+            return self
+                .instance
+                .run(|s| l.call_overlays(s, id, path.as_deref(), text))
+                .map(Some);
+        }
         let Some(l) = &self.layer else {
             return Ok(None);
         };
-        let path = path.map(str::to_string);
         self.instance
             .run(|s| l.call_overlays(s, id, path.as_deref(), text))
-            .map(Some)
+            .map(|o| {
+                Some(layer_2::OverlaySet {
+                    spans: o.spans,
+                    lines: o.lines,
+                    below: Vec::new(),
+                })
+            })
     }
 
     /// Whether the plugin exports completers (API 0.2.11).

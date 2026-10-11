@@ -284,8 +284,11 @@ pub struct Hit {
 /// A line as last painted: for hit testing, the caret and IME.
 #[derive(Debug, Clone)]
 pub struct Painted {
-    /// Where, in window coordinates.
+    /// Where its text is, in window coordinates.
     pub bounds: Bounds<Pixels>,
+    /// Where the lines a layer draws under it are (plugin API 0.2.13),
+    /// right under its text; empty when there are none.
+    pub below: Bounds<Pixels>,
     /// Its layout.
     pub layout: Rc<InlineLayout>,
     /// Its view.
@@ -335,6 +338,10 @@ pub struct Editor {
     /// last measured at: a change of look alone (a size, a style) leaves
     /// the text as it was, and its lines are measured again.
     flow_version: Option<u64>,
+    /// A layer's answer when the lines were last measured: the text's
+    /// version, the answer (by address), and a hash of the lines it draws
+    /// under each line, by the line's start.
+    layer_seen: (u64, usize, Vec<(usize, u64)>),
     /// IME composition in progress.
     pub marked: Option<Range<usize>>,
     /// Lines as last painted, by source line.
@@ -531,6 +538,7 @@ impl Editor {
             pending_at: None,
             stopped: false,
             flow_version: None,
+            layer_seen: (0, 0, Vec::new()),
             resume_input: None,
             mark_picker: false,
             prefix: None,
@@ -3098,6 +3106,17 @@ impl Editor {
         for _ in 0..delta.unsigned_abs() {
             y += if delta > 0 { step } else { -step };
         }
+        // The lines a layer draws under a line are stepped over.
+        if let Some(q) = painted
+            .values()
+            .find(|q| q.below.top() <= y && y < q.below.bottom())
+        {
+            y = if delta > 0 {
+                q.below.bottom() + step / 2.
+            } else {
+                q.below.top() - step / 2.
+            };
+        }
         let point = Point::new(p.bounds.origin.x + x, y);
         let hit = painted
             .values()
@@ -3151,6 +3170,18 @@ impl Editor {
                     widget: None,
                     fold: None,
                     copy: Some(*start),
+                    jump: None,
+                    cell: None,
+                    row_header: false,
+                });
+            }
+            // On the lines a layer draws under a line: its end.
+            if p.below.contains(&pos) {
+                return Some(Hit {
+                    pos: p.view.range.end,
+                    widget: None,
+                    fold: None,
+                    copy: None,
                     jump: None,
                     cell: None,
                     row_header: false,
@@ -3835,6 +3866,7 @@ impl Editor {
             }
             self.flow_version = version;
         }
+        self.layer_changed(cx);
         self.tick_palette(cx);
         // Language servers: the document in step, their answers shown.
         kalem_core::lsp::sync(&self.doc);
@@ -3926,6 +3958,66 @@ impl Editor {
             self.visible = self.compute_visible();
             self.list
                 .reset_with_uniform_height(self.visible.len(), LINE_HINT);
+            cx.notify();
+        }
+    }
+
+    /// A layer's answer changed: asked again after `layers.refresh`, come
+    /// after the plugins were busy, or for an edit. The lines it draws
+    /// under lines that changed are measured again (an edit changes a
+    /// query's results far from it); with the text unchanged, the lines it
+    /// hides are worked out again too.
+    fn layer_changed(&mut self, cx: &mut Context<'_, Self>) {
+        use std::hash::{Hash, Hasher};
+        let overlays = self.doc.overlays();
+        let at = overlays
+            .as_ref()
+            .map_or(0, |o| std::sync::Arc::as_ptr(o) as usize);
+        let version = self.doc.version();
+        if (version, at) == (self.layer_seen.0, self.layer_seen.1) {
+            return;
+        }
+        let below: Vec<(usize, u64)> = overlays.as_ref().map_or_else(Vec::new, |o| {
+            o.below
+                .iter()
+                .map(|b| {
+                    let mut h = std::collections::hash_map::DefaultHasher::new();
+                    for l in &b.lines {
+                        (l.indent, l.text()).hash(&mut h);
+                    }
+                    (b.line, h.finish())
+                })
+                .collect()
+        });
+        let same_text = version == self.layer_seen.0;
+        let before = std::mem::replace(&mut self.layer_seen, (version, at, below));
+        if same_text {
+            // What it hides may have changed too.
+            self.blocks = None;
+            let visible = self.compute_visible();
+            if visible != self.visible {
+                self.visible = visible;
+                self.relayout();
+                cx.notify();
+                return;
+            }
+        }
+        let now = &self.layer_seen.2;
+        let text = self.doc.text();
+        let changed: Vec<usize> = now
+            .iter()
+            .filter(|b| !before.2.contains(b))
+            .chain(before.2.iter().filter(|b| !now.contains(b)))
+            .map(|(line, _)| text.line_of(*line))
+            .collect();
+        let mut any = false;
+        for line in changed {
+            if let Some(i) = self.item_of(line) {
+                self.list.remeasure_items(i..i + 1);
+                any = true;
+            }
+        }
+        if any {
             cx.notify();
         }
     }

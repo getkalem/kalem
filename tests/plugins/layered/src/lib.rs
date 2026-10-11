@@ -2,11 +2,15 @@
 //! `id::` line, shows `((x))` as `X` and styles `#tags`; its command
 //! `layered.now` answers the clock's time and its offset (API 0.2.11) and
 //! tells the editor its layer changed. Its completer `refs` (API 0.2.11) offers `ab` and `cd` after
-//! an open `((`, with the closing `))`.
+//! an open `((`, with the closing `))`. By `layer-2` (API 0.2.13) its
+//! layer draws a line `embedded …` under each line with `{{embed …}}`.
 
 use kalem_plugin::completer::{self, Item, ItemKind, Request};
 use kalem_plugin::kalem::{self, Plugin, Scope};
-use kalem_plugin::layer::{LineEffect, Lines, OverlaySet, Replacement, Span, SpanEffect, SpanStyle};
+use kalem_plugin::layer::{
+    Below, LineEffect, Lines, OverlaySet, OverlaySet2, Piece, Replacement, Span, SpanEffect,
+    SpanStyle, VirtualLine,
+};
 
 struct Layered;
 
@@ -72,6 +76,41 @@ impl Plugin for Layered {
         }
         set.spans.sort_by_key(|s| s.start);
         set
+    }
+
+    fn overlays_2(layer: &str, path: Option<&str>, text: &str) -> OverlaySet2 {
+        let o = Self::overlays(layer, path, text);
+        let mut below = Vec::new();
+        if layer == "ids" && path.is_some() {
+            let mut at = 0;
+            for line in text.split_inclusive('\n') {
+                if let Some(p) = line.find("{{embed ") {
+                    let what = line[p + 8..].split("}}").next().unwrap_or("");
+                    below.push(Below {
+                        at: (at + p) as u64,
+                        lines: vec![VirtualLine {
+                            indent: 2,
+                            pieces: vec![
+                                Piece {
+                                    text: "embedded ".into(),
+                                    style: SpanStyle::DIM,
+                                },
+                                Piece {
+                                    text: what.into(),
+                                    style: SpanStyle::LINK,
+                                },
+                            ],
+                        }],
+                    });
+                }
+                at += line.len();
+            }
+        }
+        OverlaySet2 {
+            spans: o.spans,
+            lines: o.lines,
+            below,
+        }
     }
 
     fn complete(id: &str, request: &Request) -> Vec<Item> {

@@ -48,6 +48,21 @@ pub trait Plugin {
         }
     }
 
+    /// The overlays of the plugin's layer `layer` for the document of
+    /// `path` with `text`, with lines drawn under lines (API 0.2.13, the
+    /// feature `layer-2`), which the editor asks in place of
+    /// [`Plugin::overlays`]; by default those of [`Plugin::overlays`],
+    /// with none.
+    #[cfg(feature = "layer-2")]
+    fn overlays_2(layer: &str, path: Option<&str>, text: &str) -> crate::layer::OverlaySet2 {
+        let o = Self::overlays(layer, path, text);
+        crate::layer::OverlaySet2 {
+            spans: o.spans,
+            lines: o.lines,
+            below: Vec::new(),
+        }
+    }
+
     /// The items of the plugin's completer `completer` (its manifest's
     /// `completers`) for `request`, best first (API 0.2.11, the feature
     /// `completer`); none by default.
@@ -421,6 +436,7 @@ macro_rules! export_plugin {
 
         $crate::__export_layer!($plugin);
         $crate::__export_completer!($plugin);
+        $crate::__export_layer_2!($plugin);
 
         $crate::extension::export_extension!(__KalemPlugin);
     };
@@ -475,5 +491,32 @@ macro_rules! __export_completer {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __export_completer {
+    ($plugin:ty) => {};
+}
+
+/// The `layer-2` interface of [`export_plugin!`] with the feature
+/// `layer-2`.
+#[cfg(feature = "layer-2")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_layer_2 {
+    ($plugin:ty) => {
+        impl $crate::extension::exports::kalem::plugin::layer_2::Guest for __KalemPlugin {
+            fn overlays(
+                layer: ::std::string::String,
+                path: ::std::option::Option<::std::string::String>,
+                text: ::std::string::String,
+            ) -> $crate::layer::OverlaySet2 {
+                <$plugin as $crate::kalem::Plugin>::overlays_2(&layer, path.as_deref(), &text)
+            }
+        }
+    };
+}
+
+/// Nothing without the feature `layer-2`.
+#[cfg(not(feature = "layer-2"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_layer_2 {
     ($plugin:ty) => {};
 }

@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- The plugin API is 0.2.13. A plugin's layer may draw lines under a line of the text that are not part of it (the `layer-2` export, `kalem-plugin`'s feature `layer-2`): styled pieces, indented from where the line's text starts, in both editors. The cursor steps over them, a click on one puts it at the end of their line, a search and a copy leave them out, the source view does not show them. For the graph plugin's embeds and queries, shown in their note as Logseq shows them: an embedded block's children, an embedded page's blocks, a query's results. `graph-view.wit` and `fs-2.wit` of 0.2.12 are frozen.
 - A folder a plugin's layer serves (a Logseq graph, an Obsidian vault) is offered as a project when one of its notes is opened outside the projects, once a session, and added at once with `projects.auto_add`: its plugin reads projects only, and a graph's folder left out made the plugin see nothing. The layers are asked again when a project is added.
 - The folder of a plugin's layer (a Logseq graph, an Obsidian vault) is watched whole once it is a project: a file another program writes, renames or removes there reaches the plugins as `workspace-file-changed`. The editors watched only the files they held open, and a page Logseq or Obsidian wrote while Kalem was open stayed unknown to the graph plugin (its backlinks, its pages, its search) until Kalem started again.
 

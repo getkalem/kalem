@@ -280,6 +280,18 @@ as an open document's does, so that a plugin's index of the folder
 follows it; a file in a =.git= folder does not. An open document of it
 is read again, or the user asked, as always.
 
+A layer may draw lines under a line of the text that are not part of it
+(API 0.2.13): a plugin built with =kalem-plugin='s feature =layer-2=
+answers =overlays_2=, whose overlays add =below=, for the line holding a
+byte, lines of styled pieces, each so many columns in from where that
+line's text starts. The graph plugin shows an embedded block's children,
+an embedded page's blocks and a query's results under their line, as
+Logseq shows them in place. They are drawn under their line wherever it
+shows, the cursor on it or not, and not in the source view or when the
+line is folded or hidden away; the cursor steps over them, a search does
+not find them, a copy leaves them out, and a click on one puts the
+cursor at the end of their line.
+
 A layer may name the plugin's command that opens the link at the cursor
 in the documents it serves (="open": "graph.openLink"=, API 0.2.12): a
 Ctrl-click runs it in place of the mode's own Open Link, so that a link
@@ -294,7 +306,8 @@ plugin's, not Markdown's.
 
 The contract is =kalem_core::layers=; the plugin's side is
 =kalem_plugin::layer= with the feature =layer=, whose =Plugin= trait
-answers =overlays(layer, path, text)=.
+answers =overlays(layer, path, text)=, or with the feature =layer-2=
+=overlays_2(layer, path, text)=.
 
 * Highlighters
 

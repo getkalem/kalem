@@ -32,8 +32,9 @@
 /// exports, 0.2.8 the `flow-2` export, 0.2.9 the `flow-3` export, 0.2.10
 /// for extensions the `clock` and `layers` imports and the `layer`
 /// export, 0.2.11 the `completer` export and the `clock-2` import of
-/// extensions, 0.2.12 their `fs-2` import.
-pub const API_VERSION: &str = "0.2.12";
+/// extensions, 0.2.12 their `fs-2` and `graph-view` imports, 0.2.13 the
+/// `layer-2` export.
+pub const API_VERSION: &str = "0.2.13";
 
 /// Whether a manifest's `api` requirement (`^0.2`, `0.2`, `^0.2.1`)
 /// names this host's API: the same `0.MINOR` before 1.0 (the same major
@@ -813,6 +814,7 @@ mod tests {
         assert!(super::api_compatible(Some("^0.2.10")));
         assert!(super::api_compatible(Some("^0.2.11")));
         assert!(super::api_compatible(Some("^0.2.12")));
+        assert!(super::api_compatible(Some("^0.2.13")));
         // Built against a later 0.2.x: it may import what this host lacks.
         assert!(!super::api_compatible(Some("^0.2.99")));
     }

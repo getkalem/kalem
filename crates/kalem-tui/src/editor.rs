@@ -475,6 +475,9 @@ pub(crate) struct Layout<'a> {
     /// LaTeX: the paragraphs over several lines shown as one, away from
     /// the cursor.
     paragraphs: Vec<Range<usize>>,
+    /// The line whose rows were made last, and how many of them are lines
+    /// a layer draws under it, for `below_rows` asked right after.
+    below: std::cell::Cell<Option<(usize, usize)>>,
 }
 
 /// `ranges` without the ranges of `hide`, both in order (those of `hide`
@@ -747,6 +750,7 @@ impl<'a> Layout<'a> {
             windowed,
             current: (is_plain || source).then(|| doc.text().line_of(doc.selection.head)),
             paragraphs,
+            below: std::cell::Cell::new(None),
         }
     }
 
@@ -1307,6 +1311,59 @@ impl<'a> Layout<'a> {
             ));
         }
         Some(rows)
+    }
+
+    /// The lines a layer draws under line `line` (plugin API 0.2.13), as
+    /// rows after its own (`first`, its first): each indented from where
+    /// the line's text starts, its pieces in their styles, wrapped. A
+    /// click on one puts the cursor at the line's end. None in the source
+    /// view.
+    fn rows_below(&self, line: usize, first: Option<&Vec<Glyph>>) -> Vec<Vec<Glyph>> {
+        use unicode_segmentation::UnicodeSegmentation;
+        if self.source {
+            return Vec::new();
+        }
+        let Some(o) = self.doc.overlays() else {
+            return Vec::new();
+        };
+        let range = self.range(line);
+        let below = o.below(range.start);
+        if below.is_empty() {
+            return Vec::new();
+        }
+        // Where the line's text starts: its first glyph that is not blank.
+        let lead: usize = first.map_or(0, |row| {
+            row.iter()
+                .take_while(|g| g.text.trim().is_empty())
+                .map(|g| usize::from(g.width))
+                .sum()
+        });
+        let width = self.width.get();
+        let mut rows = Vec::new();
+        for l in below {
+            let indent = (lead + l.indent).min(usize::from(width) / 2);
+            let mut glyphs: Vec<Glyph> = (0..indent)
+                .map(|_| Glyph::decoration(" ", ratatui::style::Style::default(), range.end))
+                .collect();
+            for (text, st) in &l.pieces {
+                let style = render::style_base(st, 0, self.caps);
+                glyphs.extend(
+                    text.graphemes(true)
+                        .map(|g| Glyph::decoration(g, style, range.end)),
+                );
+            }
+            rows.extend(tui_rich_text::wrap(glyphs, indent as u16, width));
+        }
+        rows
+    }
+
+    /// The line's rows, and those of the lines a layer draws under it.
+    fn line_and_below(&self, line: usize) -> Vec<Vec<Glyph>> {
+        let mut rows = self.line_rows(line);
+        let below = self.rows_below(line, rows.first());
+        self.below.set(Some((line, below.len())));
+        rows.extend(below);
+        rows
     }
 
     /// The line's rows.
@@ -1936,12 +1993,12 @@ impl Lines for Layout<'_> {
     fn rows(&self, line: usize, _width: u16) -> Vec<Vec<Glyph>> {
         let indent = self.outline_indent_of(line);
         if indent == 0 {
-            return self.line_rows(line);
+            return self.line_and_below(line);
         }
         // Rows made for the narrower column, then moved right.
         let full = self.width.get();
         self.width.set(full.saturating_sub(indent).max(8));
-        let rows = self.line_rows(line);
+        let rows = self.line_and_below(line);
         self.width.set(full);
         let at = self.range(line).start;
         rows.into_iter()
@@ -1965,6 +2022,19 @@ impl Lines for Layout<'_> {
 
     fn background_start(&self, line: usize) -> u16 {
         self.outline_indent_of(line)
+    }
+
+    fn below_rows(&self, line: usize, width: u16) -> usize {
+        if self.source || self.doc.overlays().is_none_or(|o| o.below.is_empty()) {
+            return 0;
+        }
+        if let Some((l, n)) = self.below.get()
+            && l == line
+        {
+            return n;
+        }
+        self.rows(line, width);
+        self.below.get().map_or(0, |(_, n)| n)
     }
 
     fn background(&self, line: usize) -> Option<ratatui::style::Color> {
@@ -2551,7 +2621,7 @@ impl EditorView {
                 else {
                     continue;
                 };
-                let rows = u16::try_from(dl.rows).unwrap_or(u16::MAX);
+                let rows = u16::try_from(dl.text).unwrap_or(u16::MAX);
                 for y in dl.y..dl.y.saturating_add(rows).min(area.bottom()) {
                     for x in area.x..area.right() {
                         let cell = &mut buf[(x, y)];

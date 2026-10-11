@@ -30,6 +30,10 @@ layer = []
 # `completer` interface too, completion at the cursor (API 0.2.11), and
 # `layer` (none unless it answers `overlays`).
 completer = ["layer"]
+# The `extension-layer-2` world: an extension plugin exporting the
+# `layer-2` interface too, layers with lines of their own under a line
+# (API 0.2.13), which the editor asks in place of `layer`.
+layer-2 = ["completer"]
 
 [dev-dependencies]
 toml_edit = { version = "0.25", default-features = false, features = ["parse"] }

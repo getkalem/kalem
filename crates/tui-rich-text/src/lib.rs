@@ -221,6 +221,14 @@ pub trait Lines {
     /// The rows of line `line` for a text `width` cells wide.
     fn rows(&self, line: usize, width: u16) -> Vec<Vec<Glyph<Self::Data>>>;
 
+    /// How many of the last of line `line`'s rows are not its text but
+    /// lines drawn under it (a layer's: an embed's blocks, a query's
+    /// results): the cursor never goes on them, vertical motion steps
+    /// over them, the line's background leaves them out.
+    fn below_rows(&self, _line: usize, _width: u16) -> usize {
+        0
+    }
+
     /// A background for the whole width of the line's rows.
     fn background(&self, _line: usize) -> Option<Color> {
         None
@@ -231,6 +239,12 @@ pub trait Lines {
     fn background_start(&self, _line: usize) -> u16 {
         0
     }
+}
+
+/// The rows of a line that are its text: all but the `below` last, one at
+/// least.
+fn text_rows<D>(rows: &[Vec<Glyph<D>>], below: usize) -> usize {
+    rows.len().saturating_sub(below).max(1).min(rows.len())
 }
 
 /// Where the view starts and the column vertical motion keeps.
@@ -249,7 +263,11 @@ impl Viewport {
     /// `height` rows high.
     pub fn scroll_to<L: Lines>(&mut self, lines: &L, cursor: usize, width: u16, height: u16) {
         let cl = lines.line_of(cursor);
-        let (crow, _) = cursor_in(&lines.rows(cl, width), cursor);
+        let rows = lines.rows(cl, width);
+        let (crow, _) = cursor_in(
+            &rows[..text_rows(&rows, lines.below_rows(cl, width))],
+            cursor,
+        );
         let mut top_line = lines.line_of(self.top);
         if !lines.is_visible(top_line) {
             self.top = lines.line_start(cl);
@@ -342,17 +360,20 @@ impl Viewport {
         delta: isize,
         width: u16,
     ) -> usize {
+        // The rows under a line that are not its text are stepped over.
         let mut line = lines.line_of(cursor);
         let mut rows = lines.rows(line, width);
-        let (mut row, x) = cursor_in(&rows, cursor);
+        let mut n = text_rows(&rows, lines.below_rows(line, width));
+        let (mut row, x) = cursor_in(&rows[..n], cursor);
         let goal = *self.goal_x.get_or_insert(x);
         for _ in 0..delta.unsigned_abs() {
             if delta > 0 {
-                if row + 1 < rows.len() {
+                if row + 1 < n {
                     row += 1;
-                } else if let Some(n) = lines.next_line(line) {
-                    line = n;
-                    rows = lines.rows(n, width);
+                } else if let Some(next) = lines.next_line(line) {
+                    line = next;
+                    rows = lines.rows(next, width);
+                    n = text_rows(&rows, lines.below_rows(next, width));
                     row = 0;
                 } else {
                     return lines.line_end(line);
@@ -362,17 +383,13 @@ impl Viewport {
             } else if let Some(p) = lines.prev_line(line) {
                 line = p;
                 rows = lines.rows(p, width);
-                row = rows.len() - 1;
+                n = text_rows(&rows, lines.below_rows(p, width));
+                row = n - 1;
             } else {
                 return lines.line_start(line);
             }
         }
-        offset_at(
-            &rows[row],
-            goal,
-            row + 1 == rows.len(),
-            lines.line_end(line),
-        )
+        offset_at(&rows[row], goal, row + 1 == n, lines.line_end(line))
     }
 }
 
@@ -421,6 +438,9 @@ pub struct DrawnLine {
     pub skipped: usize,
     /// Its rows in total.
     pub rows: usize,
+    /// Those of its rows that are its text, the first ones (the others
+    /// are lines drawn under it, [`Lines::below_rows`]).
+    pub text: usize,
 }
 
 /// The result of drawing.
@@ -492,8 +512,10 @@ pub fn draw<L: Lines>(
         let background = lines.background(line);
         let range = lines.line_start(line)..lines.line_end(line);
         let on_line = range.start <= opt.cursor && opt.cursor <= range.end;
+        // The line's text rows; those after are lines drawn under it.
+        let text_n = text_rows(&rows, lines.below_rows(line, width));
         let (crow, cx) = if on_line {
-            cursor_in(&rows, opt.cursor)
+            cursor_in(&rows[..text_n], opt.cursor)
         } else {
             (usize::MAX, 0)
         };
@@ -502,8 +524,8 @@ pub fn draw<L: Lines>(
             y,
             skipped: skip.min(rows.len()),
             rows: rows.len(),
+            text: text_n,
         });
-        let n = rows.len();
         for (ri, row) in rows.into_iter().enumerate() {
             if skip > 0 {
                 skip -= 1;
@@ -512,7 +534,7 @@ pub fn draw<L: Lines>(
             if y >= area.bottom() {
                 break;
             }
-            if let Some(bg) = background {
+            if let Some(bg) = background.filter(|_| ri < text_n) {
                 let from = if lines.background_start(line) > 0 {
                     x0 + lines.background_start(line)
                 } else {
@@ -581,7 +603,7 @@ pub fn draw<L: Lines>(
                 x0,
                 scrolled: opt.hscroll,
                 line,
-                last: ri + 1 == n,
+                last: ri + 1 >= text_n,
                 glyphs: row,
             });
             y += 1;

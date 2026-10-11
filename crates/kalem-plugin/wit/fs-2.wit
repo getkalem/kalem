@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.12;
+package kalem:plugin@0.2.13;
 
 /// Files moved and put in the trash (API 0.2.12), under the permission
 /// that writes them (`fs:write:workspace`), as `fs.write`: a page renamed

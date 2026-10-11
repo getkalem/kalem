@@ -90,7 +90,9 @@ pub mod viewer {
 /// instead: the same, and the `layer` interface of layers over a mode's
 /// view (API 0.2.10; [`layer`]); with the feature `completer`, the
 /// `extension-completer` world: those, and the `completer` interface
-/// (API 0.2.11; [`completer`]).
+/// (API 0.2.11; [`completer`]); with the feature `layer-2`, the
+/// `extension-layer-2` world: those, and the `layer-2` interface of layers
+/// with lines of their own (API 0.2.13; [`layer`]).
 #[allow(
     missing_debug_implementations,
     unreachable_pub,
@@ -114,10 +116,18 @@ pub mod extension {
         export_macro_name: "export_extension",
         default_bindings_module: "kalem_plugin::extension",
     });
-    #[cfg(feature = "completer")]
+    #[cfg(all(feature = "completer", not(feature = "layer-2")))]
     wit_bindgen::generate!({
         path: "wit",
         world: "extension-completer",
+        pub_export_macro: true,
+        export_macro_name: "export_extension",
+        default_bindings_module: "kalem_plugin::extension",
+    });
+    #[cfg(feature = "layer-2")]
+    wit_bindgen::generate!({
+        path: "wit",
+        world: "extension-layer-2",
         pub_export_macro: true,
         export_macro_name: "export_extension",
         default_bindings_module: "kalem_plugin::extension",

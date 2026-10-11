@@ -387,7 +387,7 @@ account's.
 * Versions of the plugin API
 
 The plugin API is the WIT package =kalem:plugin= (=crates/kalem-plugin/wit=),
-version 0.2.12; a component's manifest names the version it was built
+version 0.2.13; a component's manifest names the version it was built
 against (="api": "^0.2.1"=), and Kalem tries it when its own API is of
 the same 0.MINOR and no earlier. The rules, so that a plugin built once
 keeps working:
@@ -493,6 +493,14 @@ keeps working:
   document drawn as a graph, below) and =fs-2= (files moved and put in
   the trash under =fs:write:workspace=). =completer.wit= and
   =clock-2.wit= of 0.2.11 are frozen (=wit-frozen/0.2.11=).
+- 0.2.13 added, for extension plugins, the export =layer-2= in the
+  world =extension-layer-2= (=kalem-plugin='s feature =layer-2=, which
+  exports =layer= and =completer= too): a layer's overlays with lines
+  drawn under lines (an embedded block's children, a query's results),
+  described in [[file:completers-and-modes.org][Completers, modes and highlighters]]. The host asks
+  =layer-2= in place of =layer= when a component exports it; one built
+  against an earlier 0.2.x keeps its =layer=. =graph-view.wit= and
+  =fs-2.wit= of 0.2.12 are frozen (=wit-frozen/0.2.12=).
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 - An addition is general, or it waits. It names what several plugins

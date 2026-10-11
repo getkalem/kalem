@@ -1,0 +1,53 @@
+package kalem:plugin@0.2.12;
+
+/// Documents drawn as graphs of nodes and edges (API 0.2.12): a notes
+/// graph's pages and their links, a project's dependencies, a mind map.
+/// The plugin gives the nodes and edges; the editor lays them out (nodes
+/// push each other away, edges pull their ends together), draws them in
+/// the window with their labels, and lets the user pan, zoom, drag a node
+/// and open one, which runs the graph's command with `{"node": id}`. The
+/// document's text, which the plugin writes with the graph (a list of
+/// the nodes), is what the source view, search and the terminal show.
+interface graph-view {
+    use documents.{document-spec};
+
+    /// A node.
+    record node {
+        /// The plugin's name for it, handed back when it is opened.
+        id: string,
+        /// What is written beside it.
+        label: string,
+        /// Its group: nodes of one group share a color (a namespace, a
+        /// tag, the journals).
+        group: string,
+        /// How large it is drawn, 1 the least (a page's links).
+        weight: u32,
+    }
+
+    /// An edge between two nodes, by their ids; one naming no node is
+    /// left out.
+    record edge {
+        %from: string,
+        to: string,
+    }
+
+    /// What is drawn.
+    record graph {
+        nodes: list<node>,
+        edges: list<edge>,
+        /// The node kept in the middle and marked (a local graph's page).
+        focus: option<string>,
+        /// The plugin's command run with `{"node": id}` when the user opens
+        /// a node (a double click, Enter).
+        command: string,
+    }
+
+    /// Shows `g` as the plugin's document `spec`, `text` its source; its
+    /// number. Shown again, and written anew, when one of the same ID and
+    /// key is open.
+    open: func(spec: document-spec, g: graph, text: string) -> result<u64, string>;
+
+    /// Writes document `doc` anew: the nodes still there keep their
+    /// places. An error once the user closed it.
+    set: func(doc: u64, g: graph, text: string) -> result<_, string>;
+}

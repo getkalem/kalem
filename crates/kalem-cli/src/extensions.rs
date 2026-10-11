@@ -760,9 +760,10 @@ fn core_graph(g: x::graph_view::Graph) -> kalem_core::graph_view::Graph {
     )
 }
 
-/// A layer's overlays as the core's.
-fn overlays(set: x::layer::OverlaySet) -> kalem_core::layers::Overlays {
-    use kalem_core::layers::{LineEffect, Lines, Overlays, Span, SpanEffect};
+/// A layer's overlays as the core's: its lines under lines too (API
+/// 0.2.13).
+fn overlays(set: x::layer_2::OverlaySet) -> kalem_core::layers::Overlays {
+    use kalem_core::layers::{Below, LineEffect, Lines, Overlays, Span, SpanEffect, VirtualLine};
     use x::layer::SpanStyle as F;
     let style = |f: F| kalem_core::view::Style {
         bold: f.contains(F::BOLD),
@@ -809,6 +810,25 @@ fn overlays(set: x::layer::OverlaySet) -> kalem_core::layers::Overlays {
                     x::layer::LineEffect::Hidden => LineEffect::Hidden,
                     x::layer::LineEffect::Folded => LineEffect::Folded,
                 },
+            })
+            .collect(),
+        below: set
+            .below
+            .into_iter()
+            .map(|b| Below {
+                line: usize::try_from(b.at).unwrap_or(usize::MAX),
+                lines: b
+                    .lines
+                    .into_iter()
+                    .map(|l| VirtualLine {
+                        indent: l.indent as usize,
+                        pieces: l
+                            .pieces
+                            .into_iter()
+                            .map(|p| (p.text, style(p.style)))
+                            .collect(),
+                    })
+                    .collect(),
             })
             .collect(),
     }

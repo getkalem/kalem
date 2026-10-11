@@ -70,6 +70,37 @@ pub struct Lines {
     pub effect: LineEffect,
 }
 
+/// A line drawn under a line of the text and not part of it (API
+/// 0.2.13): an embedded block's child, a query's result.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VirtualLine {
+    /// Columns in from where the text of the line it is under starts.
+    pub indent: usize,
+    /// Its text, in pieces and their styles.
+    pub pieces: Vec<(String, Style)>,
+}
+
+impl VirtualLine {
+    /// Its text, without the styles.
+    pub fn text(&self) -> String {
+        self.pieces.iter().map(|(t, _)| t.as_str()).collect()
+    }
+}
+
+/// Lines drawn under the line starting at byte `line`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Below {
+    /// The start of the line they are under.
+    pub line: usize,
+    /// The lines, in order.
+    pub lines: Vec<VirtualLine>,
+}
+
+/// The lines under lines a document may have in all, and the columns one
+/// may be indented: a layer's answer kept to what can be drawn.
+const MAX_BELOW: usize = 5000;
+const MAX_INDENT: usize = 200;
+
 /// What a layer changes in a document's view.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Overlays {
@@ -77,6 +108,8 @@ pub struct Overlays {
     pub spans: Vec<Span>,
     /// Lines, in order, not overlapping.
     pub lines: Vec<Lines>,
+    /// Lines under lines, in order of their line, one for a line at most.
+    pub below: Vec<Below>,
 }
 
 impl Overlays {
@@ -124,12 +157,49 @@ impl Overlays {
             }
             keep
         });
+        // Lines under lines: at their line's start, those of one line
+        // together, a line feed or a control character in a piece a space.
+        let mut below: Vec<Below> = Vec::new();
+        let mut count = 0;
+        for mut b in std::mem::take(&mut self.below) {
+            let mut at = b.line.min(len);
+            while !text.is_char_boundary(at) {
+                at -= 1;
+            }
+            b.line = line_start(at);
+            for l in &mut b.lines {
+                l.indent = l.indent.min(MAX_INDENT);
+                for (t, _) in &mut l.pieces {
+                    if t.contains(char::is_control) {
+                        *t = t.replace(char::is_control, " ");
+                    }
+                }
+            }
+            b.lines.truncate(MAX_BELOW - count);
+            count += b.lines.len();
+            if b.lines.is_empty() {
+                continue;
+            }
+            match below.iter_mut().find(|x| x.line == b.line) {
+                Some(x) => x.lines.append(&mut b.lines),
+                None => below.push(b),
+            }
+        }
+        below.sort_by_key(|b| b.line);
+        self.below = below;
         self
     }
 
     /// Nothing to change.
     pub fn is_empty(&self) -> bool {
-        self.spans.is_empty() && self.lines.is_empty()
+        self.spans.is_empty() && self.lines.is_empty() && self.below.is_empty()
+    }
+
+    /// The lines under the line starting at byte `line`.
+    pub fn below(&self, line: usize) -> &[VirtualLine] {
+        self.below
+            .binary_search_by_key(&line, |b| b.line)
+            .map_or(&[], |i| &self.below[i].lines)
     }
 }
 

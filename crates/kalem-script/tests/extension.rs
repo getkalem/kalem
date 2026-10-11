@@ -1114,9 +1114,9 @@ fn a_plugins_document_is_styled() {
     );
 }
 
-/// A plugin exporting a layer (API 0.2.10): the overlays it gives, its
-/// refresh, and the clock it reads; a plugin without the export has no
-/// layer.
+/// A plugin exporting a layer (API 0.2.10), and lines under lines by
+/// `layer-2` (API 0.2.13): the overlays it gives, its refresh, and the
+/// clock it reads; a plugin without the export has no layer.
 #[test]
 fn a_layer_and_the_clock() {
     let Some(bytes) = common::component("layered") else {
@@ -1156,12 +1156,31 @@ fn a_layer_and_the_clock() {
         }
         e => panic!("{e:?}"),
     }
+    assert!(set.below.is_empty());
+    // Lines under a line, by `layer-2` (API 0.2.13), asked in place of
+    // `layer`.
+    let embeds = "- a\n- {{embed [[B]]}}\n";
+    let set = ext
+        .overlays("ids", Some("/g/a.md"), embeds)
+        .unwrap()
+        .unwrap();
+    assert_eq!(set.below.len(), 1);
+    assert_eq!(set.below[0].at, 6);
+    let l = &set.below[0].lines[0];
+    assert_eq!(l.indent, 2);
+    let shown: String = l.pieces.iter().map(|p| p.text.as_str()).collect();
+    assert_eq!(shown, "embedded [[B]]");
+    assert!(
+        l.pieces[1]
+            .style
+            .contains(kalem_script::extension::layer::SpanStyle::LINK)
+    );
     // Another layer's name, or a document without a file: nothing.
     let none = ext
         .overlays("other", Some("/g/a.md"), text)
         .unwrap()
         .unwrap();
-    assert!(none.spans.is_empty() && none.lines.is_empty());
+    assert!(none.spans.is_empty() && none.lines.is_empty() && none.below.is_empty());
     // The clock and the refresh.
     let answer: serde_json::Value =
         serde_json::from_str(&ext.run_command("layered.now", "null").unwrap().unwrap()).unwrap();
