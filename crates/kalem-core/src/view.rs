@@ -1677,12 +1677,19 @@ pub fn visible(text: &str, blocks: &[Block], folds: &Folds, cursor: usize) -> Vi
     };
     let shown = folds.visible(blocks);
     let inside = |a: &Block, z: &Block| a.range.start <= cursor && cursor <= z.content_end;
+    // Whole lines end where the next line starts: a cursor there is on
+    // the next line, not in them (unless they end the text without a line
+    // feed).
+    let on_lines = |b: &Block| {
+        b.range.start <= cursor
+            && (cursor < b.range.end || (cursor == b.range.end && !text[..b.range.end].ends_with('\n')))
+    };
     let mut i = 0;
     while i < shown.len() {
         let b = shown[i];
         match b.kind {
             // A layer's hidden lines: shown only with the cursor in them.
-            BlockKind::Hidden if !inside(b, b) => {
+            BlockKind::Hidden if !on_lines(b) => {
                 out.folded.insert(b.range.start);
             }
             BlockKind::Properties | BlockKind::Drawer

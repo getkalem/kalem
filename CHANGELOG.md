@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 - A graph drawn (`graph-view`) looks as Logseq's and Obsidian's: the most common group's nodes grey, the other groups colored; a graph of up to 150 nodes names them all, the heaviest first, a name left out where it would cover one already written until zooming in makes room (the node chosen and the one under the mouse always named); the names smaller and softer. The terminal places its names the same way, in cells.
 
+### Fixed
+- A layer's hidden lines (a Logseq block's folded children) stay hidden with the cursor at the start of the line after them: moving up onto them from the next block opened them, and the cursor stepped into the block instead of over it.
+
 ## [0.6.16] - 2026-10-11
 
 ### Added

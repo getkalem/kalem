@@ -216,6 +216,11 @@ fn hidden_lines_are_a_block_of_their_own() {
     assert_eq!(away.ranges, [0..6, 34..40]);
     let on = view::visible(text, &cut, &folds, 10);
     assert_eq!(on.ranges, vec![0..40]);
+    // At the start of the line after them, the cursor is not in them
+    // (moving up there from the next block went into a folded block).
+    let after = view::visible(text, &cut, &folds, 34);
+    assert_eq!(after.ranges, [0..6, 34..40]);
+    assert_eq!(view::visible(text, &cut, &folds, 6).ranges, vec![0..40]);
 }
 
 /// A layer written in Rust over a Markdown document: the registry, the
