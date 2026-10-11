@@ -97,11 +97,21 @@ pub(crate) fn at_table(doc: &Document, text: &str, pos: usize) -> bool {
     tok.parent_ancestors().any(|n| {
         n.kind() == SyntaxKind::TABLE && {
             let r = n.text_range();
-            usize::from(r.start()) <= b
-                && b < usize::from(r.end())
-                && !n.text().to_string().trim_start().starts_with('+')
+            usize::from(r.start()) <= b && b < usize::from(r.end()) && !starts_with_plus(&n)
         }
     })
+}
+
+/// Whether `n`'s text starts with `+` after blanks (a table.el table),
+/// read up to that character rather than the whole table.
+fn starts_with_plus(n: &SyntaxNode) -> bool {
+    let first = n
+        .text()
+        .try_for_each_chunk(|c| match c.trim_start().chars().next() {
+            Some(ch) => Err(ch),
+            None => Ok(()),
+        });
+    first == Err('+')
 }
 
 /// `org-at-table-hline-p` on the line `b`.
@@ -213,9 +223,12 @@ fn rows(table: &str, ctx: &ParseContext) -> Vec<Row> {
     let Some(t) = root.descendants().find(|n| n.kind() == SyntaxKind::TABLE) else {
         return out;
     };
+    // Text read by range from `table`: the tree's own text, without a
+    // string made for each piece.
+    let text_of = |r: org_syntax::TextRange| &table[usize::from(r.start())..usize::from(r.end())];
     for row in t.children().filter(|c| c.kind() == SyntaxKind::TABLE_ROW) {
         if row.children().all(|c| c.kind() != SyntaxKind::TABLE_CELL)
-            && row.text().to_string().trim_start().starts_with("|-")
+            && text_of(row.text_range()).trim_start().starts_with("|-")
         {
             out.push(Row::Hline);
             continue;
@@ -238,18 +251,14 @@ fn rows(table: &str, ctx: &ParseContext) -> Vec<Row> {
             while b > a && els[b - 1].kind() == SyntaxKind::WHITESPACE {
                 b -= 1;
             }
-            let text: String = els[a..b].iter().map(|e| e.to_string()).collect();
-            let text = text.trim_end_matches([' ', '\t']).to_string();
+            let raw = match (els[a..b].first(), els[a..b].last()) {
+                (Some(f), Some(l)) => text_of(f.text_range().cover(l.text_range())),
+                _ => "",
+            };
+            let text = raw.trim_end_matches([' ', '\t']);
             let w: usize = els[a..b].iter().map(visible_width).sum::<usize>();
-            let w = w
-                - (els[a..b]
-                    .iter()
-                    .map(|e| e.to_string())
-                    .collect::<String>()
-                    .len()
-                    - text.len())
-                .min(w);
-            fields.push((text, w));
+            let w = w - (raw.len() - text.len()).min(w);
+            fields.push((text.to_string(), w));
         }
         out.push(Row::Fields(fields));
     }
@@ -366,6 +375,7 @@ fn align(buf: &mut Buf, begin: usize, end: usize, ctx: &ParseContext) -> usize {
         .collect::<Vec<_>>()
         .join("+");
     let mut p = begin;
+    let mut changed: Vec<(usize, String)> = Vec::new();
     for row in &rows {
         let e = eol(&buf.text, p);
         let new = match row {
@@ -390,18 +400,19 @@ fn align(buf: &mut Buf, begin: usize, end: usize, ctx: &ParseContext) -> usize {
                 format!("{indent}{}|", fields.join("|"))
             }
         };
-        if buf.text[p..e] == new {
-            p = next_line(&buf.text, p);
-        } else {
-            // `(insert new "\n")` then delete the old line with its line feed.
-            buf.insert_before_point(p, &format!("{new}\n"));
-            let s = p + new.len() + 1;
-            let old_end = next_line(&buf.text, s);
-            buf.delete(s, old_end);
-            p = s;
+        // `(insert new "\n")` then delete the old line with its line feed,
+        // for the lines that change.
+        if buf.text[p..e] != new {
+            changed.push((p, new));
         }
+        p = next_line(&buf.text, p);
     }
-    p
+    let grown: isize = changed
+        .iter()
+        .map(|(s, new)| new.len() as isize + 1 - (next_line(&buf.text, *s) - s) as isize)
+        .sum();
+    buf.replace_lines(&changed);
+    p.saturating_add_signed(grown)
 }
 
 /// `org-table-save-field` around `f`: point returns to the start of the
@@ -1432,7 +1443,22 @@ pub fn next_row(doc: &Document, point: usize) -> Result<Transaction, EditError> 
         n += 1;
     }
     let text_now = buf.text.clone();
-    let doc2 = Document::new(org_syntax::parse_with(&text_now, ctx));
+    // The document as it is now, parsed again from where it changed
+    // rather than whole (most of a keystroke's time in a long document).
+    let parse = match buf.changed() {
+        Some((range, insert)) => {
+            let edit = org_syntax::TextEdit {
+                range: org_syntax::TextRange::new(
+                    org_syntax::TextSize::from(range.start as u32),
+                    org_syntax::TextSize::from(range.end as u32),
+                ),
+                insert: insert.to_string(),
+            };
+            doc.parse().reparse(&text_now, &edit)
+        }
+        None => doc.parse().clone(),
+    };
+    let doc2 = Document::new(parse);
     let ok = n < text_now.len() && at_table(&doc2, &text_now, n) && !hline(&text_now, n);
     if ok {
         buf.point = n;

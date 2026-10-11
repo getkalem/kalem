@@ -181,6 +181,18 @@ fn adjust(p: usize, start: usize, end: usize, len: usize) -> usize {
     }
 }
 
+/// Where a position at `p` goes when `start..end` is deleted
+/// (`delete-region`): inside or at the end, to the start.
+fn deleted(p: usize, start: usize, end: usize) -> usize {
+    if p >= end {
+        p - (end - start)
+    } else if p > start {
+        start
+    } else {
+        p
+    }
+}
+
 impl Buf {
     pub(crate) fn new(text: &str, point: usize) -> Buf {
         Buf {
@@ -216,17 +228,22 @@ impl Buf {
     }
 
     fn edit(&mut self, start: usize, end: usize, new: &str) {
+        self.follow(start, end, new.len());
+        self.text.replace_range(start..end, new);
+    }
+
+    /// The markers moved as `start..end` becoming `len` bytes moves them.
+    fn follow(&mut self, start: usize, end: usize, len: usize) {
         for m in &mut self.markers {
-            *m = adjust(*m, start, end, new.len());
+            *m = adjust(*m, start, end, len);
         }
         for m in &mut self.advancing {
             *m = if start == end && *m == start {
-                *m + new.len()
+                *m + len
             } else {
-                adjust(*m, start, end, new.len())
+                adjust(*m, start, end, len)
             };
         }
-        self.text.replace_range(start..end, new);
     }
 
     /// `replace-match` / `replace_range`: a position inside the replaced
@@ -266,15 +283,48 @@ impl Buf {
     /// `delete-region`: positions inside or at the end collapse to the
     /// start.
     pub(crate) fn delete(&mut self, start: usize, end: usize) {
-        let p = self.point;
-        self.point = if p >= end {
-            p - (end - start)
-        } else if p > start {
-            start
-        } else {
-            p
-        };
+        self.point = deleted(self.point, start, end);
         self.edit(start, end, "");
+    }
+
+    /// Whole lines replaced, each as `org-table-align` replaces a line:
+    /// [`Buf::insert_before_point`] of the new line and a line feed at the
+    /// old line's start, then [`Buf::delete`] of the old line with its line
+    /// feed. The text is made once rather than once a line, which made
+    /// aligning a long table quadratic; point and markers move as the
+    /// edits one by one move them. `lines` are the old lines' starts, in
+    /// order, with their new text.
+    pub(crate) fn replace_lines(&mut self, lines: &[(usize, String)]) {
+        if lines.is_empty() {
+            return;
+        }
+        let old = std::mem::take(&mut self.text);
+        let mut text = String::with_capacity(old.len());
+        let mut copied = 0;
+        // How far the old text after the lines replaced so far has moved.
+        let mut delta = 0isize;
+        for (start, new) in lines {
+            let end = old[*start..]
+                .find('\n')
+                .map_or(old.len(), |i| start + i + 1);
+            text.push_str(&old[copied..*start]);
+            text.push_str(new);
+            text.push('\n');
+            copied = end;
+            let p = start.saturating_add_signed(delta);
+            let inserted = new.len() + 1;
+            if self.point > p {
+                self.point += inserted;
+            }
+            self.follow(p, p, inserted);
+            let s = p + inserted;
+            let e = s + (end - start);
+            self.point = deleted(self.point, s, e);
+            self.follow(s, e, 0);
+            delta += inserted as isize - (end - start) as isize;
+        }
+        text.push_str(&old[copied..]);
+        self.text = text;
     }
 
     /// `insert` at `pos` when point is elsewhere or kept by a marker: point
@@ -308,6 +358,16 @@ impl Buf {
     /// The transaction from the original text to the current one: one
     /// replacement covering the changed part.
     pub(crate) fn transaction(&self, label: &str) -> Transaction {
+        let mut t = Transaction::new(label);
+        if let Some((range, new)) = self.changed() {
+            t.edit(range, new);
+        }
+        t.select(Selection::caret(self.point))
+    }
+
+    /// The part of the original text changed, and its new text; none when
+    /// the text is as it was.
+    pub(crate) fn changed(&self) -> Option<(std::ops::Range<usize>, &str)> {
         let (a, b) = (self.original.as_bytes(), self.text.as_bytes());
         let mut pre = a.iter().zip(b).take_while(|(x, y)| x == y).count();
         while !self.original.is_char_boundary(pre) || !self.text.is_char_boundary(pre) {
@@ -326,10 +386,67 @@ impl Buf {
         {
             suf -= 1;
         }
-        let mut t = Transaction::new(label);
-        if pre + suf < a.len() || pre + suf < b.len() {
-            t.edit(pre..a.len() - suf, &self.text[pre..b.len() - suf]);
+        (pre + suf < a.len() || pre + suf < b.len())
+            .then(|| (pre..a.len() - suf, &self.text[pre..b.len() - suf]))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// [`Buf::replace_lines`] the way `org-table-align` did it, a line at a
+    /// time.
+    fn one_by_one(buf: &mut Buf, lines: &[(usize, String)]) {
+        let mut moved = 0isize;
+        for (start, new) in lines {
+            let p = start.saturating_add_signed(moved);
+            let old_len = buf.text[p..]
+                .find('\n')
+                .map_or(buf.text.len() - p, |i| i + 1);
+            buf.insert_before_point(p, &format!("{new}\n"));
+            let s = p + new.len() + 1;
+            buf.delete(s, s + old_len);
+            moved += new.len() as isize + 1 - old_len as isize;
         }
-        t.select(Selection::caret(self.point))
+    }
+
+    #[test]
+    fn lines_replaced_at_once_move_point_and_markers_as_one_by_one() {
+        let text = "| a | b |\n|---+---|\n| 10 | x |\n| y | 2000 |\nafter";
+        let starts = [0, 10, 20, 31];
+        for point in 0..=text.len() {
+            for lines in [
+                vec![
+                    (0, "|  a | b    |".to_string()),
+                    (20, "| 10 | x    |".to_string()),
+                ],
+                vec![(10, "|----+------|".to_string()), (31, "| y |".to_string())],
+                starts
+                    .iter()
+                    .map(|&s| (s, "|".repeat(s / 10 + 1)))
+                    .collect(),
+                vec![(
+                    text.len() - 5,
+                    "the last line, with no line feed".to_string(),
+                )],
+            ] {
+                let mut a = Buf::new(text, point);
+                let mut b = Buf::new(text, point);
+                for m in [0, 5, 10, 25, 31, text.len()] {
+                    a.add_marker(m);
+                    b.add_marker(m);
+                    a.add_advancing_marker(m);
+                    b.add_advancing_marker(m);
+                }
+                a.replace_lines(&lines);
+                one_by_one(&mut b, &lines);
+                assert_eq!(
+                    (&a.text, a.point, &a.markers, &a.advancing),
+                    (&b.text, b.point, &b.markers, &b.advancing),
+                    "point {point}, lines {lines:?}"
+                );
+            }
+        }
     }
 }

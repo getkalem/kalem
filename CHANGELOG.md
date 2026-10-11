@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 - Enter in Org, `C-c C-c` and the other commands that start from an Org document's text take it from its tree as fast as Org's editing commands do since 0.6.18 (`org_syntax::Parse::text`): Enter at the end of a paragraph of the Org manual (820 KB) 1.1 ms rather than 11 ms.
+- Org tables in long documents: Enter in a table (the next row) parses the document again from the change rather than whole, 3.7 ms rather than 107 ms in a table of the Org manual (820 KB); aligning a table writes its changed rows into the text at once rather than one copy of the document per row, and reads its cells without a string for each piece: Tab in a table of 4,000 rows whose widths change 38 ms rather than 50 ms.
 
 ### Fixed
 - `kalem run PLUGIN COMMAND FILE` with a page of a notes graph (a folder a plugin's layer serves) lets the plugin read the graph's folder, not only the page's own: `kalem run graph graph.backlinks pages/Kalem.md` printed nothing, the plugin unable to read the graph's `logseq/config.edn`.
