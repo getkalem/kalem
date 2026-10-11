@@ -245,11 +245,19 @@ targets are met; no whole-file work on the keystroke path of any mode.
 - [ ] R4.2 Frontend frame times measured, not only the core: the
   `#[ignore]` latency tests of both editors un-ignored in the benchmark
   job for Org, LaTeX, Markdown and CSV at 1 MB and 10 MB. M
-- [ ] R4.3 LaTeX `blocks` incremental: keep block starts and shift them
+- [~] R4.3 LaTeX `blocks` incremental: keep block starts and shift them
   through the transaction, rescanning only the edited lines (26 ms → ~0
   at 10 MB); the screen model's rebuild reused across keystrokes that
   only move events (41 ms); the project keystroke under 2 ms. M
   (T2.7h.35)
+  done (2026-10-11): the blocks other than paragraphs are kept from the
+  last edit's where the parse kept the tree (`Parse::reparse_with_region`),
+  made again on the lines it parsed again and those of the blocks around
+  them, moved after them; whole after an edit in the preamble, of a
+  `\newtheorem` or near `\iffalse` (29 ms → 0.7 ms at 10 MB, 2.6 ms →
+  0.06 ms at 1 MB; a test compares them with the blocks made whole after
+  each of 300 random edits). Open: the screen model's rebuild, the
+  project keystroke.
 - [ ] R4.4 GUI frame: a `LineView` cache keyed by (version, line,
   cursor line) so a line is built once per version, not twice per frame;
   `compute_visible` as ranges when nothing is folded; the character width

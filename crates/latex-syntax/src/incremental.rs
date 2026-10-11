@@ -56,7 +56,13 @@ fn inner_body(paragraph: &SyntaxNode, s: usize, e: usize) -> Option<(SyntaxNode,
         })
 }
 
-pub(crate) fn reparse(old: &Parse, new_text: &str, edit: &TextEdit) -> Option<Parse> {
+/// The parse of `new_text` around `edit`, and the part of the new text
+/// parsed again (outside it the tree is the old one's, moved).
+pub(crate) fn reparse(
+    old: &Parse,
+    new_text: &str,
+    edit: &TextEdit,
+) -> Option<(Parse, std::ops::Range<usize>)> {
     let (s, e) = (edit.range.start, edit.range.end);
     let old_len: usize = old.green.text_len().into();
     let delta = edit.insert.len() as isize - (e - s) as isize;
@@ -266,14 +272,15 @@ pub(crate) fn reparse(old: &Parse, new_text: &str, edit: &TextEdit) -> Option<Pa
         })
         .collect();
     let toggles = old.toggles.iter().map(|&(p, on)| (shift(p), on)).collect();
-    Some(Parse {
+    let parse = Parse {
         green,
         diagnostics,
         toggles,
         unclosed_env: old.unclosed_env,
         defs: old.defs.clone(),
         extra: old.extra.clone(),
-    })
+    };
+    Some((parse, rs..new_re))
 }
 
 /// Whether `s` holds the `\\begin` or `\\end` of a verbatim environment.

@@ -240,6 +240,18 @@ fn typing_in_a_paper_is_incremental() {
         if let Some(r) = p.reparse_incremental(&new, &edit) {
             incremental += 1;
             assert_eq!(r, parse(&new), "{edit:?}");
+            // The part parsed again holds the edit, and out of it the
+            // text is the old one's.
+            let (r2, region) = p.reparse_with_region(&new, &edit);
+            let region = region.expect("incremental");
+            assert_eq!(r2, r);
+            assert!(
+                region.start <= at && at + edit.insert.len() <= region.end,
+                "{edit:?}"
+            );
+            assert_eq!(new[..region.start], pristine[..region.start]);
+            let tail = new.len() - region.end;
+            assert_eq!(new[region.end..], pristine[pristine.len() - tail..]);
         }
     }
     assert!(incremental * 100 > rounds * 85, "{incremental} of {rounds}");

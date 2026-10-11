@@ -167,7 +167,21 @@ impl Parse {
     /// The incremental part of [`Parse::reparse`]: `None` when the edit
     /// needs a full parse.
     pub fn reparse_incremental(&self, new_text: &str, edit: &TextEdit) -> Option<Parse> {
-        incremental::reparse(self, new_text, edit)
+        incremental::reparse(self, new_text, edit).map(|(p, _)| p)
+    }
+
+    /// [`Parse::reparse`], and the part of the new text parsed again, out
+    /// of which the tree is the old one's (moved by the edit): `None` when
+    /// the whole text was parsed again.
+    pub fn reparse_with_region(
+        &self,
+        new_text: &str,
+        edit: &TextEdit,
+    ) -> (Parse, Option<std::ops::Range<usize>>) {
+        match incremental::reparse(self, new_text, edit) {
+            Some((p, r)) => (p, Some(r)),
+            None => (parse_with(new_text, &self.extra), None),
+        }
     }
 }
 

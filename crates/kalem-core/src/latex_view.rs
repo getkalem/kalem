@@ -54,6 +54,13 @@ pub struct LatexState {
     /// The definitions formulas are read with, for the model they came
     /// from, and which formulas the renderer reads with them.
     formulas: RefCell<Option<FormulaCache>>,
+    /// The blocks that are not paragraphs, for the parse they were made
+    /// from.
+    specials: RefCell<Option<(latex_syntax::GreenNode, Specials)>>,
+    /// The tree before the last edit and the part of the text that edit
+    /// parsed again, with the change of length: the blocks are made again
+    /// there only (R4.3).
+    reparsed: Option<(latex_syntax::GreenNode, Range<usize>, isize)>,
 }
 
 /// The definitions of a model (by its address) and, by formula, whether
@@ -372,23 +379,54 @@ impl LatexState {
             paragraphs: RefCell::new(None),
             pictures_seen: std::cell::Cell::new(0),
             formulas: RefCell::new(None),
+            specials: RefCell::new(None),
+            reparsed: None,
         }
     }
 
     /// After an edit of the text (now `text`): parsed again, only around
     /// the edit where that gives the same tree.
     pub(crate) fn edit(&mut self, text: &str, edit: Option<&org_syntax::TextEdit>) {
-        self.parse = match edit {
+        let before = self.parse.green().clone();
+        (self.parse, self.reparsed) = match edit {
             Some(e) => {
                 let edit = latex_syntax::TextEdit {
                     range: usize::from(e.range.start())..usize::from(e.range.end()),
                     insert: e.insert.clone(),
                 };
-                self.parse.reparse(text, &edit)
+                let delta = edit.insert.len() as isize - edit.range.len() as isize;
+                let (parse, region) = self.parse.reparse_with_region(text, &edit);
+                (parse, region.map(|r| (before, r, delta)))
             }
-            None => latex_syntax::parse_with(text, self.parse.extra()),
+            None => (latex_syntax::parse_with(text, self.parse.extra()), None),
         };
         self.text = Arc::from(text);
+    }
+
+    /// The blocks of `text` (the parse's) that are not paragraphs: kept
+    /// from the last edit's where its parse kept the tree, else made whole.
+    fn special_blocks(
+        &self,
+        text: &str,
+        model: &latex_model::Model,
+    ) -> Arc<Vec<crate::view::Block>> {
+        let mut cache = self.specials.borrow_mut();
+        if let Some((g, s)) = &*cache
+            && same(g, self.parse.green())
+        {
+            return s.blocks.clone();
+        }
+        let kept = cache.as_ref().and_then(|(g, old)| {
+            let (before, region, delta) = self.reparsed.as_ref()?;
+            if !same(g, before) {
+                return None;
+            }
+            specials_kept(self, text, model, old, region.clone(), *delta)
+        });
+        let s = kept.unwrap_or_else(|| specials_whole(self, text, model));
+        let blocks = s.blocks.clone();
+        *cache = Some((self.parse.green().clone(), s));
+        blocks
     }
 
     /// The parse.
@@ -7979,24 +8017,82 @@ fn own_environments(src: &str, envs: &[latex_model::NewEnvironment]) -> String {
 /// displayed formulas on lines of their own as math blocks (shown as one
 /// formula away from the cursor), the text between them as paragraphs.
 pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
-    use crate::view::{Block, BlockKind};
     let Some(state) = doc.latex() else {
         return Vec::new();
     };
     let text = doc.text().as_str();
-    let len = text.len();
-    let block = |kind, range: Range<usize>, content_end| Block {
+    let model = state.model();
+    let specials = state.special_blocks(text, &model);
+    with_sections(with_paragraphs(&specials, text.len()), text, &model)
+}
+
+/// A block of `kind` over `range`, its content up to `content_end`.
+fn block(
+    kind: crate::view::BlockKind,
+    range: Range<usize>,
+    content_end: usize,
+) -> crate::view::Block {
+    crate::view::Block {
         kind,
         range,
         content_end,
         depth: 0,
         headline: None,
-    };
+    }
+}
+
+/// `specials`, the blocks that are not paragraphs, in order, with the text
+/// before, between and after them as paragraphs.
+fn with_paragraphs(specials: &[crate::view::Block], len: usize) -> Vec<crate::view::Block> {
+    use crate::view::BlockKind;
+    let mut out = Vec::with_capacity(2 * specials.len() + 1);
+    let mut at = 0;
+    for b in specials {
+        if b.range.start > at {
+            out.push(block(
+                BlockKind::Paragraph,
+                at..b.range.start,
+                b.range.start,
+            ));
+        }
+        at = b.range.end;
+        out.push(b.clone());
+    }
+    if at < len || out.is_empty() {
+        out.push(block(BlockKind::Paragraph, at..len, len));
+    }
+    out
+}
+
+/// The blocks of a document that are not paragraphs, with what keeping
+/// them through an edit depends on (R4.3).
+#[derive(Debug)]
+struct Specials {
+    blocks: Arc<Vec<crate::view::Block>>,
+    /// The end of the preamble's block, 0 without one.
+    after_preamble: usize,
+    /// The start of the body of `\begin{document}`.
+    body: Option<usize>,
+    /// The environments `\newtheorem` declares, which are no blocks.
+    theorems: Vec<String>,
+    /// Whether no `\iffalse` skipped any text.
+    unskipped: bool,
+}
+
+/// The environments `\newtheorem` declares in `model`.
+fn theorem_envs(model: &latex_model::Model) -> Vec<String> {
+    model.theorem_kinds.iter().map(|k| k.env.clone()).collect()
+}
+
+/// The blocks of `text` that are not paragraphs, made whole.
+fn specials_whole(state: &LatexState, text: &str, model: &latex_model::Model) -> Specials {
+    use crate::view::BlockKind;
+    let len = text.len();
     let mut out = Vec::new();
     let mut at = 0;
     // The preamble, up to the line of `\\begin{document}`: folded to its
     // first line away from the cursor, as Org folds drawers.
-    if let Some(body) = state.model().body.clone() {
+    if let Some(body) = model.body.clone() {
         let begin = text[..body.start.min(len)]
             .rfind("\\begin{document}")
             .map(|b| text[..b].rfind('\n').map_or(0, |n| n + 1));
@@ -8007,31 +8103,67 @@ pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
             at = end;
         }
     }
+    let after_preamble = at;
     let root = state.parse().syntax();
-    let model = state.model();
-    // Where a displayed formula or an environment can start: found in the
-    // text, not by walking the whole tree.
-    let mut starts: Vec<usize> = text
+    // The text between `\iffalse` and its `\fi`, folded as a comment is.
+    let skipped = state.skipped(text);
+    let mut items = items_in(text, &root, 0..len);
+    items.extend(skipped.iter().map(|r| (r.start, None)));
+    items.sort_by_key(|(p, _)| *p);
+    place(text, model, &skipped, items, at, &mut out);
+    Specials {
+        blocks: Arc::new(out),
+        after_preamble,
+        body: model.body.as_ref().map(|b| b.start),
+        theorems: theorem_envs(model),
+        unskipped: skipped.is_empty(),
+    }
+}
+
+/// The displayed formulas and environments starting in `range` of `text`
+/// (whole lines), by their start: found in the text, not by walking the
+/// whole tree.
+fn items_in(
+    text: &str,
+    root: &SyntaxNode,
+    range: Range<usize>,
+) -> Vec<(usize, Option<SyntaxNode>)> {
+    let part = &text[range.clone()];
+    let mut starts: Vec<usize> = part
         .match_indices("\\begin")
-        .chain(text.match_indices("\\["))
-        .chain(text.match_indices("$$"))
-        .map(|(i, _)| i)
+        .chain(part.match_indices("\\["))
+        .chain(part.match_indices("$$"))
+        .map(|(i, _)| range.start + i)
         .collect();
     starts.sort_unstable();
     starts.dedup();
-    let nodes = starts.into_iter().filter_map(|p| {
-        latex_syntax::token_at(&root, p)?
-            .parent_ancestors()
-            .find(|a| {
-                matches!(a.kind(), K::ENVIRONMENT | K::DISPLAY_MATH) && node_span(a).start == p
-            })
-    });
-    // The text between `\iffalse` and its `\fi`, folded as a comment is.
-    let mut items: Vec<(usize, Option<SyntaxNode>)> =
-        nodes.map(|n| (node_span(&n).start, Some(n))).collect();
-    let skipped = state.skipped(text);
-    items.extend(skipped.iter().map(|r| (r.start, None)));
-    items.sort_by_key(|(p, _)| *p);
+    starts
+        .into_iter()
+        .filter_map(|p| {
+            latex_syntax::token_at(root, p)?
+                .parent_ancestors()
+                .find(|a| {
+                    matches!(a.kind(), K::ENVIRONMENT | K::DISPLAY_MATH) && node_span(a).start == p
+                })
+        })
+        .map(|n| (node_span(&n).start, Some(n)))
+        .collect()
+}
+
+/// The blocks of `items` (in order: a displayed formula or an
+/// environment, or the start of a span of `skipped`) that are not
+/// paragraphs, those starting on a line before `at` left out, pushed on
+/// `out`; the end of the last.
+fn place(
+    text: &str,
+    model: &latex_model::Model,
+    skipped: &[Range<usize>],
+    items: Vec<(usize, Option<SyntaxNode>)>,
+    mut at: usize,
+    out: &mut Vec<crate::view::Block>,
+) -> usize {
+    use crate::view::BlockKind;
+    let len = text.len();
     for (p, n) in items {
         let Some(n) = n else {
             let Some(r) = skipped.iter().find(|r| r.start == p).cloned() else {
@@ -8044,9 +8176,6 @@ pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
             if !alone || text[r.clone()].matches('\n').count() < 2 || line_start < at {
                 continue;
             }
-            if line_start > at {
-                out.push(block(BlockKind::Paragraph, at..line_start, line_start));
-            }
             out.push(block(BlockKind::Drawer, line_start..line_end, r.end));
             at = line_end;
             continue;
@@ -8057,9 +8186,6 @@ pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
         {
             if t.body.start < at {
                 continue;
-            }
-            if t.body.start > at {
-                out.push(block(BlockKind::Paragraph, at..t.body.start, t.body.start));
             }
             let content_end = t.body.end - usize::from(text[..t.body.end].ends_with('\n'));
             out.push(block(BlockKind::Table, t.body.clone(), content_end));
@@ -8085,7 +8211,7 @@ pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
                 // A long environment the view does not render (T2.7h.13):
                 // folded to its `\\begin` line away from the cursor.
                 Some(x)
-                    if !renders_environment(&x, &model)
+                    if !renders_environment(&x, model)
                         && text[node_span(&n)].matches('\n').count() >= LONG_UNKNOWN =>
                 {
                     BlockKind::Drawer
@@ -8102,16 +8228,119 @@ pub fn blocks(doc: &crate::DocumentState) -> Vec<crate::view::Block> {
         if !alone || !text[r.clone()].contains('\n') || line_start < at {
             continue;
         }
-        if line_start > at {
-            out.push(block(BlockKind::Paragraph, at..line_start, line_start));
-        }
         out.push(block(kind, line_start..line_end, r.end));
         at = line_end;
     }
-    if at < len || out.is_empty() {
-        out.push(block(BlockKind::Paragraph, at..len, len));
+    at
+}
+
+/// The blocks that are not paragraphs after an edit, kept where the parse
+/// kept the tree: those of the lines around `region` (the part of the new
+/// text parsed again, `delta` its change of length) made again, those
+/// before it kept, those after it moved. `None` when that cannot be known
+/// to give the blocks made whole: the preamble, the theorems or a skipped
+/// span changed, a block made again reaches past the lines made again.
+fn specials_kept(
+    state: &LatexState,
+    text: &str,
+    model: &latex_model::Model,
+    old: &Specials,
+    region: Range<usize>,
+    delta: isize,
+) -> Option<Specials> {
+    use crate::view::Block;
+    if !old.unskipped
+        || !state.skipped(text).is_empty()
+        || region.start < old.after_preamble
+        || model.body.as_ref().map(|b| b.start) != old.body
+        || theorem_envs(model) != old.theorems
+    {
+        return None;
     }
-    with_sections(out, text, &model)
+    let len = text.len();
+    // Positions of the old text after the region, in the new one.
+    let old_end = region.end.checked_add_signed(-delta)?;
+    let to_new = |p: usize| {
+        if p >= old_end {
+            p.checked_add_signed(delta)
+        } else {
+            Some(p.min(region.end))
+        }
+    };
+    let line_start = |p: usize| text[..p].rfind('\n').map_or(0, |i| i + 1);
+    let line_after = |p: usize| text[p..].find('\n').map_or(len, |i| p + i + 1);
+    // The lines made again: the region's, and those of the formulas and
+    // environments around it that are blocks.
+    let (mut w0, mut w1) = (line_start(region.start), line_after(region.end.min(len)));
+    let root = state.parse().syntax();
+    if let Some(t) = latex_syntax::token_at(&root, region.start) {
+        for a in t.parent_ancestors() {
+            if !matches!(a.kind(), K::ENVIRONMENT | K::DISPLAY_MATH) {
+                continue;
+            }
+            let r = node_span(&a);
+            let mut one = Vec::new();
+            place(text, model, &[], vec![(r.start, Some(a))], 0, &mut one);
+            if !one.is_empty() {
+                w0 = w0.min(line_start(r.start));
+                w1 = w1.max(line_after(r.end.min(len)));
+            }
+        }
+    }
+    // And those of the old blocks the lines touch, until none is cut.
+    loop {
+        let o1 = w1.checked_add_signed(-delta)?;
+        let mut grown = false;
+        for b in old.blocks.iter() {
+            if b.range.start < o1 && b.range.end > w0 {
+                if b.range.start < w0 {
+                    w0 = b.range.start;
+                    grown = true;
+                }
+                let e = to_new(b.range.end)?;
+                if e > w1 {
+                    w1 = e;
+                    grown = true;
+                }
+            }
+        }
+        if !grown {
+            break;
+        }
+    }
+    let o1 = w1.checked_add_signed(-delta)?;
+    let mut out: Vec<Block> = old
+        .blocks
+        .iter()
+        .take_while(|b| b.range.end <= w0)
+        .cloned()
+        .collect();
+    let at = out.last().map_or(0, |b| b.range.end);
+    let end = place(
+        text,
+        model,
+        &[],
+        items_in(text, &root, w0..w1),
+        at,
+        &mut out,
+    );
+    if end > w1 {
+        return None;
+    }
+    for b in old.blocks.iter().filter(|b| b.range.start >= o1) {
+        out.push(Block {
+            range: to_new(b.range.start)?..to_new(b.range.end)?,
+            content_end: to_new(b.content_end)?,
+            ..b.clone()
+        });
+    }
+    Some(Specials {
+        blocks: Arc::new(out),
+        after_preamble: old.after_preamble,
+        body: old.body,
+        theorems: old.theorems.clone(),
+        unskipped: true,
+    })
 }
 
 /// `blocks` with each sectioning command's line a heading block, as Org's
@@ -8235,6 +8464,80 @@ mod tests {
         assert_eq!(find("gone.bib"), doc.join("gone.bib"));
         assert_eq!(find("../x/central.bib"), doc.join("../x/central.bib"));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn blocks_kept_through_edits_are_the_blocks_made_whole() {
+        // A paper with formulas, a table, verbatim, a long unknown
+        // environment and sections; edits of every kind at random places,
+        // typing and constructs opened and closed. After each, the blocks
+        // kept from the last edit's are those of the text made whole.
+        let mut text = String::from(
+            "\\documentclass{article}\n\\newtheorem{thm}{Theorem}\n\\begin{document}\n",
+        );
+        for i in 0..40 {
+            text.push_str(&format!("\\section{{S{i}}}\nText {i} with $x$ in it.\n\n"));
+            match i % 5 {
+                0 => text.push_str("\\begin{equation}\n  a = b\n\\end{equation}\n\n"),
+                1 => text
+                    .push_str("\\begin{tabular}{ll}\na & b \\\\\nc & d \\\\\n\\end{tabular}\n\n"),
+                2 => text.push_str("\\begin{verbatim}\ncode\n\\end{verbatim}\n\n"),
+                3 => text.push_str("\\begin{foo}\n1\n2\n3\n4\n5\n6\n7\n8\n\\end{foo}\n\n"),
+                _ => text.push_str("\\[\n  c^2\n\\]\nAfter.\n\n"),
+            }
+        }
+        text.push_str("\\end{document}\n");
+        let pieces = [
+            "x",
+            " ",
+            "\n",
+            "\n\n",
+            "é",
+            "$",
+            "\\[",
+            "\\]",
+            "{",
+            "}",
+            "%",
+            "\\begin{equation}\n",
+            "\\end{equation}\n",
+            "\\begin{verbatim}\n",
+            "\\section{T}\n",
+            "\\newtheorem{foo}{Foo}\n",
+            "\\iffalse\n",
+            "\\fi\n",
+        ];
+        let mut d = doc(&text);
+        let _ = blocks(&d);
+        let mut seed = 11u64;
+        let mut rand = |n: usize| {
+            seed = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (seed >> 33) as usize % n.max(1)
+        };
+        for step in 0..300 {
+            let t = d.text().as_str().to_string();
+            let mut a = rand(t.len() + 1);
+            while !t.is_char_boundary(a) {
+                a -= 1;
+            }
+            let mut b = (a + rand(4)).min(t.len());
+            while !t.is_char_boundary(b) {
+                b -= 1;
+            }
+            // Mostly typing, as in a paragraph.
+            let insert = if rand(3) > 0 {
+                ["x", " ", "\n"][rand(3)]
+            } else {
+                pieces[rand(pieces.len())]
+            };
+            let mut tx = org_edit::Transaction::new("Typing");
+            tx.edit(a..b.max(a), insert);
+            d.apply(&tx, org_edit::ChangeKind::Typing, std::time::Instant::now());
+            let whole = blocks(&doc(d.text().as_str()));
+            assert_eq!(blocks(&d), whole, "step {step}: {a}..{b} {insert:?}");
+        }
     }
 
     fn doc(text: &str) -> crate::DocumentState {
