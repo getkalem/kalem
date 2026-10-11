@@ -36,8 +36,9 @@ pub struct Outcome {
 
 /// Runs command `command` with `args` against `doc` (none: without a
 /// document) as the editors run it, then what it set going until nothing
-/// is left: the commands it queued, its questions answered as batch mode
-/// answers them, a save it asked for. Notices, and what batch mode cannot
+/// is left: the programs it runs and the requests it made, waited for,
+/// the commands it queued, its questions answered as batch mode answers
+/// them, a save it asked for. Notices, and what batch mode cannot
 /// do (open a window, a link), go to `err`.
 pub fn drive(
     registry: &CommandRegistry,
@@ -98,6 +99,15 @@ pub fn drive(
         for (text, error) in kalem_core::jobs::take_notices() {
             let _ = writeln!(err, "{text}");
             out.failed |= error;
+        }
+        if !busy && kalem_core::extensions::owed() {
+            // A program the plugin runs, a request it made: their
+            // answers handed over (each within its own time limit), and
+            // what they set going taken in the next round.
+            while kalem_core::extensions::owed() {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            busy = true;
         }
         if !busy {
             break;

@@ -24,7 +24,7 @@
 //! the editors draw again when [`shown`] changes.
 
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{LazyLock, Mutex};
 
 use serde_json::Value;
@@ -842,6 +842,36 @@ pub fn name_folder(dir: std::path::PathBuf) {
 static RUNS: Mutex<BTreeMap<u64, std::sync::Arc<std::sync::atomic::AtomicBool>>> =
     Mutex::new(BTreeMap::new());
 
+/// How many answers the plugins are owed: the end of a program they run,
+/// the response to a request they made.
+static OWED: AtomicUsize = AtomicUsize::new(0);
+
+/// An answer a plugin is owed, counted from the moment it is owed until
+/// it has been handed over (dropped then): batch mode waits for every
+/// one ([`owed`]) before it prints what the plugin showed.
+#[derive(Debug)]
+pub struct Owed(());
+
+impl Owed {
+    /// Counts an answer owed.
+    pub fn begin() -> Owed {
+        OWED.fetch_add(1, Ordering::SeqCst);
+        Owed(())
+    }
+}
+
+impl Drop for Owed {
+    fn drop(&mut self) {
+        OWED.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+/// Whether a plugin is owed an answer: a program it runs has not ended,
+/// or its end has not been handed over; a response is on its way.
+pub fn owed() -> bool {
+    OWED.load(Ordering::SeqCst) > 0
+}
+
 /// Runs `request` as run `run` on a thread of its own; how it ends goes to
 /// the plugin ([`process_done`]).
 pub fn start_run(run: u64, request: ProcessRequest) {
@@ -849,12 +879,14 @@ pub fn start_run(run: u64, request: ProcessRequest) {
     RUNS.lock()
         .unwrap_or_else(|e| e.into_inner())
         .insert(run, stop.clone());
+    let owed = Owed::begin();
     let started = std::thread::Builder::new()
         .name("kalem-plugin-process".into())
         .spawn(move || {
             let result = run_program(&request, &stop, RUN_TIMEOUT);
             RUNS.lock().unwrap_or_else(|e| e.into_inner()).remove(&run);
             process_done(run, result);
+            drop(owed);
         });
     if let Err(e) = started {
         RUNS.lock().unwrap_or_else(|e| e.into_inner()).remove(&run);
@@ -865,9 +897,13 @@ pub fn start_run(run: u64, request: ProcessRequest) {
 /// Tells the plugin that run `run` could not start, from a thread of its
 /// own: the plugin's call that asked for it holds the plugins.
 pub fn fail_run(run: u64, error: String) {
+    let owed = Owed::begin();
     let _ = std::thread::Builder::new()
         .name("kalem-plugin-process".into())
-        .spawn(move || process_done(run, Err(error)));
+        .spawn(move || {
+            process_done(run, Err(error));
+            drop(owed);
+        });
 }
 
 /// Stops run `run`; its end is still handed over, without a status.

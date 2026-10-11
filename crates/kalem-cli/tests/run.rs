@@ -2,8 +2,9 @@
 //! plugin of `tests/plugins/counter` installed, started by name and its
 //! commands run without a window: a document it writes printed, a file it
 //! edits saved, its questions answered as batch mode answers them, its
-//! notices on standard error. Skipped where the `wasm32-unknown-unknown`
-//! target or `wasm-tools` is not installed.
+//! notices on standard error; and a program a command of `tests/plugins/run`
+//! starts waited for, the document its end shows printed. Skipped where
+//! the `wasm32-unknown-unknown` target or `wasm-tools` is not installed.
 
 use std::process::ExitCode;
 
@@ -89,6 +90,36 @@ fn a_plugins_command_runs_without_a_window() {
     assert_eq!(r, Ok(ExitCode::SUCCESS), "{err}");
     assert!(out.is_empty());
     assert!(err.lines().any(|l| l.ends_with(": no")), "{err}");
+    // A program a command starts, waited for: the document its end
+    // shows printed (the test plugin of `tests/plugins/run`).
+    if let Some(bytes) = component("run") {
+        let plugin = root.join("config/plugins/org.test.run");
+        std::fs::create_dir_all(&plugin).unwrap();
+        std::fs::write(plugin.join("run.wasm"), bytes).unwrap();
+        std::fs::write(
+            plugin.join("plugin.json"),
+            r#"{"id": "org.test.run", "name": "Run", "main": "run.wasm",
+                "permissions": ["subprocess", "subprocess:rustc"],
+                "limits": {"time_ms": 5000}}"#,
+        )
+        .unwrap();
+        let (mut out, mut err) = (Vec::new(), Vec::new());
+        let r = kalem_cli::run_batch(
+            "run",
+            "run.startShow",
+            std::slice::from_ref(&file),
+            Some(r#"{"program": "rustc", "args": ["--version"]}"#),
+            false,
+            &mut out,
+            &mut err,
+        );
+        let (out, err) = (
+            String::from_utf8(out).unwrap(),
+            String::from_utf8(err).unwrap(),
+        );
+        assert_eq!(r, Ok(ExitCode::SUCCESS), "{err}");
+        assert!(out.starts_with("rustc "), "{out:?} {err}");
+    }
     // A command it does not have, a plugin not installed.
     let (r, _, _) = run("counter", "counter.nothing", &[], false);
     assert!(r.unwrap_err().contains("its commands: counter."));

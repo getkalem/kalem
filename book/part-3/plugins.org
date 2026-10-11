@@ -649,7 +649,9 @@ as the editors run it: =kalem run PLUGIN COMMAND [FILE...]= starts the
 plugin named (its ID or its commands' prefix) whatever its activation,
 and runs the command against each file, a folder as its listing, or
 once without one. What the command asks of the editor follows as in a
-window: the document it reads and edits, the commands it runs, a save.
+window: the document it reads and edits, the commands it runs, a save;
+the programs it runs and the requests it makes are waited for, each
+within its time limit, and what their answers show or run follows too.
 The documents it writes are printed, with =--format json= as a list of
 their titles, kinds and texts; its notices go to standard error and
 an error among them makes the exit code 1. Its questions are answered

@@ -193,11 +193,13 @@ impl Editor for Bridge {
     }
 
     fn fetch(&mut self, _plugin: &str, id: u64, request: x::http::Request) {
+        let owed = kalem_core::extensions::Owed::begin();
         let _ = std::thread::Builder::new()
             .name("kalem-plugin-fetch".into())
             .spawn(move || {
                 let response = fetch(&request);
                 kalem_core::extensions::respond(id, response);
+                drop(owed);
             });
     }
 

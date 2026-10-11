@@ -59,6 +59,27 @@ impl Plugin for Run {
             })?;
             Ok(id.to_string())
         })?;
+        // A program started, its output shown as a document once it
+        // ends: what batch mode waits for.
+        command("run.startShow", |a| {
+            let v: Value = serde_json::from_str(a).map_err(|e| e.to_string())?;
+            let c = Command::new(v["program"].as_str().unwrap_or_default()).args(
+                v["args"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|x| x.as_str()),
+            );
+            process::run(&c, |result| {
+                let text = match result {
+                    Ok(e) => String::from_utf8_lossy(&e.stdout).into_owned(),
+                    Err(e) => format!("error {e}"),
+                };
+                let spec = Spec::new("run.out", "", "Output", "run-out");
+                let _ = documents::open(&spec, &text, None);
+            })?;
+            Ok("null".into())
+        })?;
         command("run.kill", |a| {
             let v: Value = serde_json::from_str(a).map_err(|e| e.to_string())?;
             process::kill(v["run"].as_u64().unwrap_or_default());
