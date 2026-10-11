@@ -710,7 +710,7 @@ pub fn todo(
     point: usize,
     opts: &TodoOptions<'_>,
 ) -> Result<TodoOutcome, EditError> {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let ctx = doc.parse().context();
     let mut buf = Buf::new(&text, point);
     let Some(h) = org_back_to_heading(&text, point, ctx) else {
@@ -1804,7 +1804,7 @@ pub(crate) fn update_parent_todo_statistics(
 }
 
 fn text_of(doc: &Document) -> String {
-    doc.parse().syntax().to_string()
+    doc.parse().text()
 }
 
 /// `\<word\>` in `s`.
@@ -2001,7 +2001,7 @@ pub fn store_log_note(
     content: &str,
     settings: &TodoSettings,
 ) -> Transaction {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let mut buf = Buf::new(&text, point);
     let drawer = log_drawer(doc, note.heading, settings);
     store_note(
@@ -2117,7 +2117,7 @@ pub fn priority(
     repeated: bool,
     settings: &TodoSettings,
 ) -> Result<Transaction, EditError> {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let ctx = doc.parse().context();
     let pr = &doc.info().priorities;
     let (highest, lowest, default) = (pr.highest as i64, pr.lowest as i64, pr.default as i64);

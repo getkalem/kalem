@@ -136,7 +136,7 @@ pub fn sort_entries(
     opts: &SortOptions,
     now: DateTime,
 ) -> Result<Transaction, EditError> {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let ctx = doc.parse().context();
     let mut buf = Buf::new(&text, point);
     let region = mark.filter(|&m| m != point);

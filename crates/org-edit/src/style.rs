@@ -143,7 +143,7 @@ impl Style {
     /// The style of a document: each convention as most of the document
     /// follows it, or its default.
     pub fn infer(parse: &Parse) -> Style {
-        Style::infer_in(parse, &parse.syntax().to_string())
+        Style::infer_in(parse, &parse.text())
     }
 
     /// [`Style::infer`] given the text of `parse`.

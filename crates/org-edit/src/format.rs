@@ -129,7 +129,7 @@ fn blank_lines(
 /// The formatted text of `doc`. A document whose lines all end with CRLF
 /// is formatted as Emacs sees it, with line feeds, and converted back.
 pub fn format(doc: &Document) -> String {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let crlf = text.matches("\r\n").count();
     if crlf > 0 && crlf == text.bytes().filter(|&b| b == b'\n').count() {
         let lf = text.replace("\r\n", "\n");

@@ -37,7 +37,7 @@ fn format_cookie(percent: bool, done: usize, all: usize) -> String {
 
 impl Document {
     fn heading_lines(&self) -> Vec<HeadingLine> {
-        let text = self.parse.syntax().to_string();
+        let text = self.parse.text();
         let ctx = self.parse.context();
         let mut out = Vec::new();
         let mut pos = 0;

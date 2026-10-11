@@ -16,7 +16,7 @@ pub const ARCHIVE_TAG: &str = "ARCHIVE";
 pub const SIBLING_HEADING: &str = "Archive";
 
 fn text_of(doc: &Document) -> String {
-    doc.parse().syntax().to_string()
+    doc.parse().text()
 }
 
 /// The heading at or before `pos` (`org-back-to-heading t`), with its

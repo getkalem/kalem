@@ -3,6 +3,7 @@ use crate::parse;
 fn roundtrip(text: &str) {
     let p = parse(text);
     assert_eq!(p.syntax().to_string(), text);
+    assert_eq!(p.text(), text);
 }
 
 #[test]
@@ -82,6 +83,7 @@ fn nesting_beyond_the_cap_stays_lossless() {
     for text in [list, bold, fns] {
         let p = crate::parse(&text);
         assert_eq!(p.syntax().to_string(), text);
+        assert_eq!(p.text(), text);
     }
 }
 

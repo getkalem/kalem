@@ -1393,7 +1393,7 @@ fn item_description(text: &str, b: usize, ctx: &ParseContext) -> bool {
 }
 
 fn setup(doc: &Document) -> (String, &ParseContext) {
-    (doc.parse().syntax().to_string(), doc.parse().context())
+    (doc.parse().text(), doc.parse().context())
 }
 
 /// `org-move-item-down` (`down`) or `org-move-item-up`.

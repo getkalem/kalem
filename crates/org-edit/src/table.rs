@@ -415,7 +415,7 @@ fn with_saved_field(buf: &mut Buf, f: impl FnOnce(&mut Buf)) {
 }
 
 fn setup(doc: &Document, point: usize) -> Result<(String, &ParseContext), EditError> {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     if !at_table(doc, &text, point) {
         return Err(EditError::new("Not at a table"));
     }
@@ -457,7 +457,7 @@ pub fn create_table(
     if columns == 0 || rows == 0 {
         return Err(EditError::new("Invalid table size"));
     }
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let ctx = doc.parse().context();
     let mut buf = Buf::new(&text, point);
     let bol = buf.bol(point);
@@ -772,7 +772,7 @@ pub fn kill_row(doc: &Document, point: usize) -> Result<Transaction, EditError> 
 
 /// `org-table-move-row` down, or up with `up`.
 pub fn move_row(doc: &Document, point: usize, up: bool) -> Result<Transaction, EditError> {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let b = bol(&text, point);
     let col = crate::buffer::column_at(&text, point) - crate::buffer::column_at(&text, b);
     let hline1 = hline(&text, b);

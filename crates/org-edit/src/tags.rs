@@ -78,7 +78,7 @@ fn set_tags_at(buf: &mut Buf, h: usize, tags: &[String], ctx: &ParseContext) {
 }
 
 fn heading(doc: &Document, point: usize) -> Result<(String, usize), EditError> {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let ctx = doc.parse().context();
     match org_back_to_heading(&text, point, ctx) {
         Some(h) => Ok((text, h)),
@@ -156,7 +156,7 @@ pub fn change_tag_in_region(
     tag: &str,
     off: bool,
 ) -> Transaction {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let ctx = doc.parse().context();
     let mut buf = Buf::new(&text, point);
     let (beg, end) = (beg.min(text.len()), end.min(text.len()));
@@ -188,7 +188,7 @@ pub fn change_tag_in_region(
 
 /// `(org-align-tags t)`: aligns the tags of every headline.
 pub fn align_all_tags(doc: &Document, point: usize) -> Transaction {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let mut buf = Buf::new(&text, point);
     let starts: Vec<usize> = crate::headline::headings(&text, None)
         .into_iter()

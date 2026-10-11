@@ -154,7 +154,7 @@ pub fn insert_link(
     link: &str,
     description: Option<&str>,
 ) -> Result<Transaction, EditError> {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let ctx = doc.parse().context();
     let region = mark
         .filter(|&m| m != point)
@@ -220,7 +220,7 @@ pub fn insert_structure_template(
     if block.trim().is_empty() {
         return Err(EditError::new("Invalid structure type"));
     }
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let region = mark
         .filter(|&m| m != point)
         .map(|m| (point.min(m), point.max(m)));
@@ -316,7 +316,7 @@ pub fn insert_timestamp(
     with_time: bool,
     inactive: bool,
 ) -> Transaction {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let mut buf = Buf::new(&text, point);
     let (o, c) = if inactive { ('[', ']') } else { ('<', '>') };
     let stamp = format!("{o}{}{c}", time::format(date, with_time));
@@ -372,7 +372,7 @@ fn repeater_of(ts: &str) -> Option<String> {
 /// A horizontal rule (`-----`) on the line at point if it is blank, else on
 /// a new line after it.
 pub fn insert_horizontal_rule(doc: &Document, point: usize) -> Transaction {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let mut buf = Buf::new(&text, point);
     let bol = buf.bol(point);
     let eol = buf.eol(point);

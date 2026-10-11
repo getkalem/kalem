@@ -141,7 +141,7 @@ fn table_text(t: &Table, indent: &str, eol: &str) -> String {
 /// ten times, as `C-u C-u C-c *`).
 pub fn recalculate(doc: &Document, point: usize, iterate: bool) -> Result<Recalculated, EditError> {
     let (_, rows, formulas) = table_at(doc, point)?;
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let equations = tblfm::parse(&formulas);
     if let Some(d) = equations.duplicates.first() {
         return Err(EditError::new(&format!(
@@ -227,7 +227,7 @@ pub fn convert_region(
     end: usize,
     sep: org_table::csv::Separator,
 ) -> Result<Transaction, EditError> {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let (beg, end) = (beg.min(end), beg.max(end));
     let start = text[..beg].rfind('\n').map_or(0, |i| i + 1);
     let stop = if end > 0 && (end == text.len() || text.as_bytes()[end - 1] == b'\n') && end > start
@@ -284,7 +284,7 @@ pub fn import(
     content: &str,
     sep: org_table::csv::Separator,
 ) -> Result<Transaction, EditError> {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let mut inserted = String::new();
     if point > 0 && text.as_bytes()[point - 1] != b'\n' {
         inserted.push('\n');
@@ -310,7 +310,7 @@ pub fn export(
     format: org_table::csv::Format,
 ) -> Result<String, EditError> {
     let (_, rows, _) = table_at(doc, point)?;
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let table = Table::parse(&text[rows]);
     Ok(format!("{}\n", org_table::csv::export(&table, format)))
 }
@@ -329,7 +329,7 @@ struct Context {
 
 fn context(doc: &Document, point: usize) -> Result<Context, EditError> {
     let (_, rows, formulas) = table_at(doc, point)?;
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let table = Table::parse(&text[rows.clone()]);
     let p = point.clamp(rows.start, rows.end.saturating_sub(1).max(rows.start));
     let line = text[rows.start..p].matches('\n').count();

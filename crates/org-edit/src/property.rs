@@ -257,7 +257,7 @@ pub(crate) fn entry_put(
 /// out of the property drawer of the entry at `point`, and the drawer when
 /// nothing is left in it. Returns `None` when there was no such property.
 pub fn delete_property(doc: &Document, point: usize, key: &str) -> Option<crate::Transaction> {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let ctx: &ParseContext = doc.parse().context();
     let mut buf = Buf::new(&text, point);
     let h = org_back_to_heading(&text, point, ctx);
@@ -313,7 +313,7 @@ pub fn toggle_ordered(
     doc: &Document,
     point: usize,
 ) -> Result<(crate::Transaction, bool), EditError> {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     if org_back_to_heading(&text, point, doc.parse().context()).is_none() {
         return Err(EditError::new(&format!(
             "Before first headline at position {}",
@@ -339,7 +339,7 @@ pub fn set_property(
     value: &str,
     adapt: bool,
 ) -> Result<crate::Transaction, EditError> {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let ctx: &ParseContext = doc.parse().context();
     let mut buf = Buf::new(&text, point);
     let h = org_back_to_heading(&text, point, ctx);

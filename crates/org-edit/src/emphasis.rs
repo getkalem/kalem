@@ -39,7 +39,7 @@ pub fn emphasize(
     mark: Option<usize>,
     marker: Option<char>,
 ) -> Result<Transaction, EditError> {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let mut buf = Buf::new(&text, point);
     if let Some(c) = marker
         && !MARKERS.contains(&c)
@@ -160,7 +160,7 @@ pub fn toggle_emphasis(
     end: usize,
     kind: Emphasis,
 ) -> Result<Transaction, EditError> {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let root = doc.parse().syntax();
     let objects: Vec<SyntaxNode> = root
         .descendants()
@@ -262,7 +262,7 @@ pub fn toggle_at_caret(
     point: usize,
     kind: Emphasis,
 ) -> Result<Transaction, EditError> {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let m = kind.marker();
     let before = text[..point].chars().next_back();
     let after = text[point..].chars().next();

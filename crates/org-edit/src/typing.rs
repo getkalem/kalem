@@ -108,7 +108,7 @@ pub fn self_insert(
     text: &str,
     blank: bool,
 ) -> Result<Transaction, EditError> {
-    let source = doc.parse().syntax().to_string();
+    let source = doc.parse().text();
     let mut buf = Buf::new(&source, point);
     if at_table(doc, &source, point) {
         if blank {
@@ -132,7 +132,7 @@ pub fn self_insert(
 
 /// `org-delete-char`: deletes the `len` bytes after point.
 pub fn delete_forward(doc: &Document, point: usize, len: usize) -> Transaction {
-    let source = doc.parse().syntax().to_string();
+    let source = doc.parse().text();
     let mut buf = Buf::new(&source, point);
     delete_char(doc, &mut buf, len);
     buf.transaction("Delete")
@@ -167,7 +167,7 @@ fn delete_char(doc: &Document, buf: &mut Buf, len: usize) {
 
 /// `org-delete-backward-char`: deletes the `len` bytes before point.
 pub fn delete_backward(doc: &Document, point: usize, len: usize) -> Transaction {
-    let source = doc.parse().syntax().to_string();
+    let source = doc.parse().text();
     let mut buf = Buf::new(&source, point);
     let p = point;
     let start = p.saturating_sub(len);

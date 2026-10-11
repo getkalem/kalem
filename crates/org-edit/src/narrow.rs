@@ -163,7 +163,7 @@ pub fn narrowed(
     point: usize,
     command: impl FnOnce(&Document, usize) -> Result<Transaction, EditError>,
 ) -> Result<Transaction, EditError> {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let part = &text[range.clone()];
     let sub = Document::with_settings(
         org_syntax::parse_with(part, doc.parse().context()),
