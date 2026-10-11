@@ -4358,5 +4358,15 @@
   "name": "search_ctrl_p_history",
   "text": "x one\ny two\nz one\n",
   "keys": "/one<CR>gg/two<CR>gg/<C-p><C-p><CR>x"
+ },
+ {
+  "name": "ex_earlier_later",
+  "text": "a\n",
+  "keys": "xib<Esc><sync>ic<Esc><sync>:earlier 2<CR>:later<CR>"
+ },
+ {
+  "name": "ex_earlier_default",
+  "text": "abc\n",
+  "keys": "x<sync>x<sync>:ea<CR>"
  }
 ]

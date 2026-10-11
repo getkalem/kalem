@@ -572,7 +572,7 @@ mode = "org"
 doom = "SPC m l y"
 keys = "space m l y"
 what = "Copy the link at point"
-reason = "Not yet: the link at point to the clipboard"
+command = "org.link.copy"
 
 [[key]]
 mode = "org"

@@ -669,6 +669,16 @@
   "line": 5,
   "text": "first line\nsecond line\nthird line\nfourth line\nifth line\n"
  },
+ "ex_earlier_default": {
+  "col": 1,
+  "line": 1,
+  "text": "bc\n"
+ },
+ "ex_earlier_later": {
+  "col": 1,
+  "line": 1,
+  "text": "b\n"
+ },
  "ex_g": {
   "col": 1,
   "line": 1,

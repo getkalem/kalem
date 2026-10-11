@@ -244,6 +244,7 @@
   { "keys": "leader m l s", "command": "link.store", "when": "vimCommand && editorMode == org" },
   { "keys": "leader m l shift+s", "command": "org.link.insertStored", "when": "vimCommand && editorMode == org" },
   { "keys": "leader m l t", "command": "view.toggleSourceMarkers", "when": "vimCommand && editorMode == org" },
+  { "keys": "leader m l y", "command": "org.link.copy", "when": "vimCommand && editorMode == org" },
   { "keys": "leader m p p", "command": "org.priority.set", "when": "vimCommand && editorMode == org" },
   { "keys": "leader m p u", "command": "org.priority.up", "when": "vimCommand && editorMode == org" },
   { "keys": "leader m p d", "command": "org.priority.down", "when": "vimCommand && editorMode == org" },

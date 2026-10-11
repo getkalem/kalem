@@ -115,6 +115,22 @@ pub enum LinkAction {
     Reveal(std::path::PathBuf),
 }
 
+/// The link at `pos` as written in it (`https://…`, `file:a.org`,
+/// `*Heading`), without its description.
+pub fn raw_link_at(doc: &Document, pos: usize) -> Option<String> {
+    let root = doc.parse().syntax();
+    let len = usize::from(root.text_range().end());
+    if len == 0 {
+        return None;
+    }
+    let tok = root
+        .token_at_offset(TextSize::from(pos.min(len - 1) as u32))
+        .right_biased()?;
+    let node = tok.parent_ancestors().find(|a| a.kind() == LINK)?;
+    let link: org_syntax::ast::Link = org_syntax::ast::AstNode::cast(node)?;
+    Some(link.info(doc.parse().context()).raw_link)
+}
+
 /// The link at `pos` and where it leads (`org-open-at-point`).
 pub fn link_at(doc: &Document, pos: usize) -> Option<LinkAction> {
     let root = doc.parse().syntax();

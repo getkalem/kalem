@@ -8494,6 +8494,26 @@ fn plain_commands() -> Vec<Command> {
                 }
             },
         ),
+        // Doom's `SPC m l y` (`+org/yank-link`): the link's target, not
+        // its description, on the clipboard.
+        cmd(
+            "org.link.copy",
+            "Copy Link",
+            "Links",
+            &[],
+            Some(ORG),
+            |ctx, _| {
+                let doc = ctx.doc()?;
+                let model = doc
+                    .model()
+                    .ok_or_else(|| CommandError::new(crate::tr!("msg-not-org")))?;
+                let link = crate::input::raw_link_at(&model, doc.selection.head)
+                    .ok_or_else(|| CommandError::new(crate::tr!("msg-no-link")))?;
+                ctx.messages
+                    .push(crate::tr!("msg-link-copied", link = link.as_str()));
+                request(ctx, Request::CopyText(link))
+            },
+        ),
         cmd(
             "edit.enter",
             "New Line or Item",
@@ -11917,6 +11937,35 @@ mod tests {
                 assert!(!applies, "{} applies in a text file", c.id);
             }
         }
+    }
+
+    #[test]
+    fn copy_link_at_the_cursor() {
+        let reg = CommandRegistry::with_builtins();
+        let config = crate::settings::Config::default();
+        let mut clip = Clipboard::default();
+        let text = "See [[https://kalem.org/x][the site]] and [[file:a.org::*B][a]].\n";
+        let mut copied = Vec::new();
+        for at in [12, 45, 0] {
+            let mut d = doc(text, at);
+            let mut ctx = EditorContext {
+                document: Some(&mut d),
+                clipboard: &mut clip,
+                config: &config,
+                now: Instant::now(),
+                clock: jiff::civil::date(2026, 10, 1).at(9, 0, 0, 0),
+                messages: Vec::new(),
+                requests: Vec::new(),
+            };
+            let r = reg.execute("org.link.copy", &mut ctx, &json!({}));
+            copied.push(match (r, ctx.requests.last()) {
+                (Ok(()), Some(Request::CopyText(t))) => t.clone(),
+                (r, _) => format!("{r:?}"),
+            });
+        }
+        assert_eq!(copied[0], "https://kalem.org/x");
+        assert_eq!(copied[1], "file:a.org::*B");
+        assert!(copied[2].starts_with("Err"), "{}", copied[2]);
     }
 
     #[test]

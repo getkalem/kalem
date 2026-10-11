@@ -1,9 +1,9 @@
 //! The command line's editing commands (`:help ex-cmd-index`), with
 //! ranges (`%`, `.`, `$`, numbers, marks, `/pat/`, `?pat?`, offsets):
 //! `:s`, `:&`, `:~`, `:g`, `:v`, `:d`, `:y`, `:pu`, `:m`, `:t`, `:co`,
-//! `:j`, `:>`, `:<`, `:norm`, `:sor`, `:k`, `:ma`, `:u`, `:red`, `:le`,
-//! `:ret`, `:=`, `:p`, `:reg`, `:marks`, `:set`. What is about files,
-//! windows and buffers goes to the editor's commands.
+//! `:j`, `:>`, `:<`, `:norm`, `:sor`, `:k`, `:ma`, `:u`, `:red`, `:ea`,
+//! `:lat`, `:le`, `:ret`, `:=`, `:p`, `:reg`, `:marks`, `:set`. What is
+//! about files, windows and buffers goes to the editor's commands.
 
 use org_edit::Selection;
 
@@ -482,6 +482,30 @@ impl Vim {
             }
             _ if is("red", "redo") => {
                 let _ = doc.redo_from_start();
+            }
+            // `:earlier 3`, `:later 3`: steps back and on in time, as `g-`
+            // and `g+`; the history has no branches, and no times.
+            _ if is("ea", "earlier") || is("lat", "later") => {
+                let n = match args.trim() {
+                    "" => 1,
+                    a => match a.parse::<usize>() {
+                        Ok(n) => n,
+                        Err(_) => {
+                            out.message = Some((format!("E475: Invalid argument: {a}"), true));
+                            return;
+                        }
+                    },
+                };
+                for _ in 0..n {
+                    let done = if name.starts_with('e') {
+                        doc.undo().is_some()
+                    } else {
+                        doc.redo_from_start().is_some()
+                    };
+                    if !done {
+                        break;
+                    }
+                }
             }
             _ if is("le", "left") => {
                 let indent: usize = args.trim().parse().unwrap_or(0);
