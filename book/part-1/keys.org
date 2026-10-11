@@ -24,16 +24,30 @@ palette.
 With =editor.keymap_profile = "vim"=, every key is Vim's: the modes,
 motions, operators, text objects and counts, registers and macros,
 marks with the jump and change lists, search with Vim's patterns, and
-the command line with ranges, =:s=, =:g=, =:sort=, =:set= and the file
-and window commands (=:w=, =:e=, =:sp=, =:bn=, =:Ex= for the file
-manager, =:Projects=). Some eight hundred key sequences in
+the command line with ranges, =:s=, =:g=, =:sort=, =:set=, its history
+(Up, Down, CTRL-P, CTRL-N) and CTRL-R, and the file and window commands
+(=:w=, =:e=, =:sp=, =:bn=, =:tabnew=, =:Ex= for the file manager,
+=:Projects=); =gq= and =gw= format to =textwidth=, CTRL-W's keys work
+the panes, =ZZ= and =ZQ= close. Some eight hundred key sequences in
 =tests/vim/cases.json= are run in Vim itself and in Kalem, and the text
 and cursor after them must agree; they come from fifteen thousand that
 were tried against Vim, over tabs, Turkish letters and blank lines.
 Not there: Vim script and expressions (=:let=, =:exe=, =\==, CTRL-R
-=), plugins, =:help=, Vim's fold commands (Tab folds Org headings), the
-=:!= filter, =gq=, =:a=, =:i= and =:c=, and the motions over screen
-lines (=gj=, =gk=, =g$=).
+=), mappings (=:map=, =:abbreviate=), =:help=, the =:!= filter, =:a=,
+=:i= and =:c=, and the motions over screen lines (=g$=; in Org =gj=
+and =gk= move by element, as in Doom Emacs). The fold commands =zo=,
+=zc=, =za=, =zM= and =zR= fold Org's headings.
+
+The keys of the Vim plugins Doom Emacs has on are there too, where Vim
+leaves the key unused: vim-surround's =ds(=, =cs"'= and =ysiw)= (=yss=
+the line; a sign such as =*= puts itself on both sides, Org's and
+Markdown's emphasis), vim-commentary's =gc= and =gcc= with the
+language's comment markers, and vim-unimpaired's =] SPC= and =[ SPC=
+(blank lines), =]b= and =[b= (documents), =]w= and =[w= (workspaces),
+=]d= and =[d= (the changes a plugin marks), =]t= and =[t= (TODO, FIXME
+and the like). As in Neovim, =*= and =#= on a selection search for it.
+Where Doom changes a key Vim has (=s=, =Y=, =gt=, =gx=, =<= in Visual
+mode), the key is Vim's.
 
 =:q= closes the pane when the window is split, else the document, as a
 tab closes: Kalem stays open, an empty document taking the last one's

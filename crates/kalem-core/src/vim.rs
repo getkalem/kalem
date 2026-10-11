@@ -11,10 +11,14 @@
 //! CTRL-V to force a motion's kind), text objects (sentences and
 //! paragraphs ported from Vim in `objects`), registers, macros, marks
 //! with the jump and change lists, undo with `U`, `g-` and `g+`, search
-//! with offsets, `.`; and the command line with ranges, `:s`, `:g`,
-//! `:normal`, `:sort`, `:retab` and the file and window commands (`ex`).
-//! In Org documents `>>` and `<<` demote and promote headlines and indent
-//! list items. `tests/vim/cases.json` holds key sequences whose text and
+//! with offsets, `.`; `gq` and `gw` (`format`); CTRL-W's window keys on
+//! the panes; and the command line with its history and CTRL-R, ranges,
+//! `:s`, `:g`, `:normal`, `:sort`, `:retab` and the file and window
+//! commands (`ex`). The keys of the plugins Doom Emacs has on, where Vim
+//! leaves the key unused: vim-surround's `ds`, `cs` and `ys`
+//! (`surround`), vim-commentary's `gc`, vim-unimpaired's `]b`, `] SPC`
+//! and the like. In Org documents `>>` and `<<` demote and promote
+//! headlines and indent list items. `tests/vim/cases.json` holds key sequences whose text and
 //! cursor must come out as in Vim itself (`tools/vim-expected.py`).
 
 mod ex;

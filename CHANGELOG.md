@@ -7,17 +7,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
-- The when-clause key `folderLayer`: the layer serving the folder of a document's file, or the folder the file manager shows, whatever the document's mode (`graph.logseq`). A plugin's button or menu can show on a notes graph's folder before any note of it is opened: the Note graphs plugin's Graph button did not show on a Logseq graph's folder until a page was opened.
-
 ### Changed
 - Enter in Org, `C-c C-c` and the other commands that start from an Org document's text take it from its tree as fast as Org's editing commands do since 0.6.18 (`org_syntax::Parse::text`): Enter at the end of a paragraph of the Org manual (820 KB) 1.1 ms rather than 11 ms.
 - Org tables in long documents: Enter in a table (the next row) parses the document again from the change rather than whole, 3.7 ms rather than 107 ms in a table of the Org manual (820 KB); aligning a table writes its changed rows into the text at once rather than one copy of the document per row, and reads its cells without a string for each piece: Tab in a table of 4,000 rows whose widths change 38 ms rather than 50 ms.
 - The pickers (project files, recent files, the command palette) match what is typed twenty times as fast: the fuzzy matching reads a path's bytes as they come rather than copying it into lowered characters first, so the project file picker over 100,000 paths takes 11 ms a keystroke rather than 220 ms. The palette's copy of the matching is gone; it uses the projects'.
+- Doom's leader table follows Doom: `SPC g b` switches branch and `SPC g B` blames (the table had blame and this line's blame), `SPC o a` is the org agenda's group; Doom's other `SPC g` keys are listed, the git plugin's and a later forge plugin's, and the key hints name `SPC o a`, `SPC g c`, `g f`, `g l` and `g o` as Doom does.
 
 ### Fixed
 - `kalem run PLUGIN COMMAND FILE` with a page of a notes graph (a folder a plugin's layer serves) lets the plugin read the graph's folder, not only the page's own: `kalem run graph graph.backlinks pages/Kalem.md` printed nothing, the plugin unable to read the graph's `logseq/config.edn`.
 - The lists commands offer in the palette show each item's title first. Browse Plugins wrote a plugin's version before its name (`0.0.6: Word documents — …`); the install confirmation wrote what the plugin brings before `Install Rust 0.1.2`, which the graphical palette then cut off; Cancel showed as `: Cancel`; Chapters wrote each chapter's words before its title and its indent. An item's detail (`PaletteItem::detail`: a plugin's version, what an install brings, a chapter's words) is now drawn after its title, dimmed at the right and cut before the title is, in both editors; a list with details is as wide as a file list, and no list is wider than the window's text. A category the list's items share is still written before the title (`Org: Cycle TODO State`, a question before its Merge and Cancel); a title without one stands alone, without the colon, in the graphical editor as in the terminal. A plugin's quick-pick shows an item's detail so too, after its label, rather than in place of the list's title; the menus' items (F10) no longer name their menu twice (`Edit: Edit › Select All`).
 - Recalculating a table whose fields' text refers to fields that refer back (`| $2 | $1 |` with `#+TBLFM: $3=$1+0`) stops with an error rather than freezing Kalem: a field's text is substituted into a formula as it is, references included, as Emacs substitutes it, so such fields were substituted forever (Emacs hangs on the table until `C-g`). Found by recalculating the corpus' tables with their formulas changed at random.
+- In Org's Insert mode with Vim keys, C-RET and C-S-RET make an item (a row, a heading) below or above, as in Normal mode and in Doom Emacs; they cycled the TODO state, the Word-like keys'.
 
 ## [0.6.18] - 2026-10-11
 
