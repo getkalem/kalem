@@ -151,6 +151,59 @@ mod tests {
         assert_eq!(merge3("a\nb\n", "a\nb\nours\n", "a\nb\ntheirs\n"), None);
     }
 
+    use proptest::prelude::*;
+
+    /// The lines of `region` changed by `ops`, one for each line: kept,
+    /// removed, replaced, or a new line put before it; the new lines
+    /// named by `tag`, so that no line is in two places.
+    fn edited(region: &[String], ops: &[u8], tag: &str) -> Vec<String> {
+        let mut out = Vec::new();
+        for (i, l) in region.iter().enumerate() {
+            match ops.get(i).copied().unwrap_or(0) % 4 {
+                0 => out.push(l.clone()),
+                1 => {}
+                2 => out.push(format!("{tag}{i}\n")),
+                _ => {
+                    out.push(format!("{tag}+{i}\n"));
+                    out.push(l.clone());
+                }
+            }
+        }
+        out
+    }
+
+    proptest! {
+        /// Changes on either side of a line neither touched: both kept.
+        #[test]
+        fn changes_apart_are_both_kept(
+            n in 3usize..40,
+            at in 0usize..1000,
+            ours in prop::collection::vec(any::<u8>(), 0..40),
+            theirs in prop::collection::vec(any::<u8>(), 0..40),
+        ) {
+            let base: Vec<String> = (0..n).map(|i| format!("l{i}\n")).collect();
+            let s = 1 + at % (n - 2);
+            let o = edited(&base[..s], &ours, "o");
+            let t = edited(&base[s + 1..], &theirs, "t");
+            let sep = std::slice::from_ref(&base[s]);
+            let ours_text = [&o[..], sep, &base[s + 1..]].concat().concat();
+            let theirs_text = [&base[..s], sep, &t[..]].concat().concat();
+            let want = [&o[..], sep, &t[..]].concat().concat();
+            prop_assert_eq!(merge3(&base.concat(), &ours_text, &theirs_text), Some(want));
+        }
+
+        /// Any three texts: one side unchanged, or both changed alike,
+        /// gives the other; and the merge is the same whichever side is
+        /// whose.
+        #[test]
+        fn any_three_texts(b in "[ab\n]{0,40}", o in "[ab\n]{0,40}", t in "[ab\n]{0,40}") {
+            prop_assert_eq!(merge3(&b, &o, &b), Some(o.clone()));
+            prop_assert_eq!(merge3(&b, &b, &t), Some(t.clone()));
+            prop_assert_eq!(merge3(&b, &o, &o), Some(o.clone()));
+            prop_assert_eq!(merge3(&b, &o, &t), merge3(&b, &t, &o));
+        }
+    }
+
     #[test]
     fn the_longest_common_lines() {
         let a = ["x\n", "a\n", "b\n", "c\n"];
