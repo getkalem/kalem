@@ -1119,6 +1119,26 @@ mod tests {
     }
 
     #[test]
+    fn doom_ctrl_enter_in_org_insert_mode() {
+        let reg = CommandRegistry::with_builtins();
+        let (m, _) = Keymap::build(&reg, Profile::Vim, &[]);
+        let mut insert = org_ctx(&["vimActive", "vimOwnsCtrl"]);
+        insert.set("vimMode", V::Str("insert".into()));
+        assert_eq!(run(&m, "ctrl+enter", &insert).unwrap().0, "org.insertItemBelow");
+        assert_eq!(
+            run(&m, "ctrl+shift+enter", &insert).unwrap().0,
+            "org.insertItemAbove"
+        );
+        // Elsewhere Insert mode keeps the Word-like key.
+        insert.set("editorMode", V::Str("markdown".into()));
+        insert.set("textType", V::Str("markdown".into()));
+        assert_ne!(
+            run(&m, "ctrl+enter", &insert).map(|r| r.0),
+            Some("org.insertItemBelow")
+        );
+    }
+
+    #[test]
     fn word_profile() {
         let reg = CommandRegistry::with_builtins();
         let (m, _) = Keymap::build(&reg, Profile::Word, &[]);

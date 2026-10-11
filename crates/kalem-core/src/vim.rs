@@ -139,6 +139,69 @@ pub trait Host {
     }
 }
 
+/// `gf`'s file: the name at `pos` (the characters of Vim's 'isfname'),
+/// from the document's folder when it is relative, or Vim's error.
+fn file_at(doc: &DocumentState, pos: usize) -> Result<String, String> {
+    let text = doc.text().as_str();
+    let pos = pos.min(text.len());
+    let name_char = |c: char| c.is_alphanumeric() || "/.-_+,#$%~=:".contains(c);
+    let s = text[..pos]
+        .char_indices()
+        .rev()
+        .take_while(|(_, c)| name_char(*c))
+        .last()
+        .map_or(pos, |(i, _)| i);
+    let e = text[pos..].find(|c: char| !name_char(c)).map_or(text.len(), |i| pos + i);
+    let name = text[s..e]
+        .trim_start_matches("file:")
+        .trim_end_matches([':', '.', ','])
+        .to_string();
+    if name.is_empty() {
+        return Err("E446: No file name under cursor".into());
+    }
+    let path = match name.strip_prefix("~/") {
+        Some(rest) => std::env::var_os("HOME")
+            .map_or_else(|| std::path::PathBuf::from(&name), |h| std::path::Path::new(&h).join(rest)),
+        None => {
+            let p = std::path::PathBuf::from(&name);
+            match doc.meta.path.as_ref().and_then(|d| d.parent()) {
+                Some(dir) if p.is_relative() => dir.join(p),
+                _ => p,
+            }
+        }
+    };
+    if !path.exists() {
+        return Err(format!("E447: Can't find file \"{name}\" in path"));
+    }
+    Ok(path.display().to_string())
+}
+
+/// The words `]t` and `[t` go to, as Doom's hl-todo has them.
+const TODO_WORDS: &[&str] = &[
+    "TODO", "FIXME", "HACK", "REVIEW", "NOTE", "DEPRECATED", "BUG", "XXX", "KLUDGE", "TEMP",
+];
+
+/// Where the `n`th TODO word after `from` (before it, not `forward`)
+/// begins.
+fn todo_motion(doc: &DocumentState, from: usize, forward: bool, n: usize) -> Option<usize> {
+    let text = doc.text().as_str();
+    let word = |c: Option<char>| c.is_some_and(is_word);
+    let mut at: Vec<usize> = TODO_WORDS
+        .iter()
+        .flat_map(|w| text.match_indices(w).map(move |(i, _)| (i, w.len())))
+        .filter(|&(i, len)| {
+            !word(text[..i].chars().next_back()) && !word(text[i + len..].chars().next())
+        })
+        .map(|(i, _)| i)
+        .collect();
+    at.sort_unstable();
+    if forward {
+        at.into_iter().filter(|&i| i > from).nth(n - 1)
+    } else {
+        at.into_iter().rev().filter(|&i| i < from).nth(n - 1)
+    }
+}
+
 /// The commands of CTRL-W and `key` (Vim's window commands on Kalem's
 /// panes, as Doom's `SPC w` has them); `count` resizes by that many.
 fn window_command(key: Key, count: Option<usize>) -> Option<Vec<(String, Value)>> {
@@ -3411,6 +3474,59 @@ impl Vim {
                         self.jumping = m.is_some();
                         self.finish_motion(doc, m, host, out);
                     }
+                    // vim-unimpaired's keys as Doom Emacs has them: `] SPC`
+                    // and `[ SPC` blank lines below or above, the cursor
+                    // staying on its text; `]b` and `[b` the next and
+                    // previous document, `]w` and `[w` workspace, `]d` and
+                    // `[d` change a plugin marks (the git plugin's hunks),
+                    // `]e` and `[e` problem of a LaTeX document.
+                    (_, ' ') if self.op.is_none() && !self.visual() => {
+                        self.begin_change();
+                        let line = line_of(doc, self.cursor);
+                        let blank = "\n".repeat(n);
+                        if forward {
+                            let e = line_end(doc, line);
+                            edit(doc, e..e, &blank, self.cursor);
+                        } else {
+                            let s = line_start(doc, line);
+                            let at = self.cursor + n;
+                            edit(doc, s..s, &blank, at);
+                            self.cursor = at;
+                        }
+                        self.changed();
+                        self.reset();
+                    }
+                    (_, 'b' | 'w' | 'd' | 'e') if self.op.is_none() && !self.visual() => {
+                        let id = match (c, forward) {
+                            ('b', true) => "file.next",
+                            ('b', false) => "file.previous",
+                            ('w', true) => "workspace.next",
+                            ('w', false) => "workspace.previous",
+                            ('d', true) => "edit.nextChange",
+                            ('d', false) => "edit.previousChange",
+                            (_, true) => "latex.nextProblem",
+                            (_, false) => "latex.previousProblem",
+                        };
+                        if c == 'e' && doc.meta.mode != crate::DocumentMode::Latex {
+                            self.failed = true;
+                        } else {
+                            for _ in 0..n {
+                                out.commands.push((id.into(), Value::Null));
+                            }
+                        }
+                        self.reset();
+                    }
+                    // `]t` and `[t`: the next or previous TODO, FIXME and
+                    // the like (Doom's hl-todo).
+                    (_, 't') => {
+                        let m = todo_motion(doc, self.cursor, forward, n).map(|to| Motion {
+                            to,
+                            linewise: false,
+                            inclusive: false,
+                        });
+                        self.jumping = m.is_some();
+                        self.finish_motion(doc, m, host, out);
+                    }
                     // `]p`: put after with this line's indent; `[p`, `[P`,
                     // `]P` before.
                     (_, 'p' | 'P') if self.op.is_none() && !self.visual() => {
@@ -3453,6 +3569,23 @@ impl Vim {
                             "code.references"
                         };
                         out.commands.push((id.into(), Value::Null));
+                    }
+                    // `gf`: the file whose name is at the cursor, from the
+                    // document's folder.
+                    Key::Char('f') if !self.visual() && self.op.is_none() => {
+                        self.count = None;
+                        match file_at(doc, self.cursor) {
+                            Ok(path) => out.commands.push((
+                                "file.open".into(),
+                                serde_json::json!({ "path": path }),
+                            )),
+                            Err(e) => out.message = Some((e, true)),
+                        }
+                    }
+                    // `gO`: the outline, as Neovim and Doom have it.
+                    Key::Char('O') if !self.visual() && self.op.is_none() => {
+                        self.count = None;
+                        out.commands.push(("view.outline".into(), Value::Null));
                     }
                     // `gt` and `gT`: the next and previous document, as
                     // Vim's tabs.
@@ -4428,6 +4561,37 @@ impl Vim {
                 at_display_col(doc, *first, *left, self.options.tabstop.max(1))
             }
         };
+        // `*` and `#`: the selected text searched for, forward or back, as
+        // Neovim and Doom's evil-visualstar do.
+        if matches!(c, '*' | '#') {
+            let (a, b) = match &target {
+                Target::Chars(r) => (r.start, r.end),
+                Target::Lines(l1, l2) => (line_start(doc, *l1), line_end(doc, *l2)),
+                Target::Block { .. } => (start, start),
+            };
+            self.mode = Mode::Normal;
+            doc.selection = Selection::caret(self.cursor);
+            let text = &doc.text().as_str()[a..b.min(doc.text().len())];
+            if text.is_empty() {
+                self.failed = true;
+                return self.reset();
+            }
+            let pat = format!("\\V{}", text.replace('\\', "\\\\").replace('\n', "\\n"));
+            let back = c == '#';
+            self.last_search = Some((pat.clone(), back));
+            self.search_offset = None;
+            out.highlights = self.matches(doc, &pat).ok();
+            let n = self.count.take().unwrap_or(1);
+            match self.search_from(doc, &pat, back, a, n) {
+                Some(to) => {
+                    self.jump(doc);
+                    doc.selection = Selection::caret(to);
+                    self.cursor = to;
+                }
+                None => self.failed = true,
+            }
+            return self.reset();
+        }
         // In a block, `I` and `A` type on every line; `c` and `s` change it.
         if let Target::Block {
             first,
@@ -5706,6 +5870,47 @@ mod tests {
         assert_eq!(run("(a)\n", 1, "ds)u"), "|(a)\n");
         // No pair: nothing changes.
         assert_eq!(run("abc\n", 1, "ds("), "a|bc\n");
+    }
+
+    #[test]
+    fn unimpaired_and_doom_keys() {
+        // `] SPC` and `[ SPC`: blank lines, the cursor on its text.
+        assert_eq!(run("ab\ncd\n", 1, "] "), "a|b\n\ncd\n");
+        assert_eq!(run("ab\ncd\n", 1, "2[ "), "\n\na|b\ncd\n");
+        assert_eq!(run("ab\n", 0, "] u"), "|ab\n");
+        // `]t` and `[t`: TODO words, whole.
+        let t = "x\n// TODO a\nNOTES\nFIXME b\n";
+        assert_eq!(run(t, 0, "]t"), "x\n// |TODO a\nNOTES\nFIXME b\n");
+        assert_eq!(run(t, 0, "2]t"), "x\n// TODO a\nNOTES\n|FIXME b\n");
+        assert_eq!(run(t, 18, "[t"), "x\n// |TODO a\nNOTES\nFIXME b\n");
+        assert_eq!(run(t, 0, "d]t"), "|TODO a\nNOTES\nFIXME b\n");
+        // Commands.
+        let ids = |keys: &str| -> Vec<String> {
+            commands_of(keys, false).into_iter().map(|c| c.0).collect()
+        };
+        assert_eq!(ids("]b[b]d[w"), [
+            "file.next",
+            "file.previous",
+            "edit.nextChange",
+            "workspace.previous"
+        ]);
+        assert_eq!(ids("gO"), ["view.outline"]);
+        // Visual `*` and `#`: the selection searched for.
+        assert_eq!(run("ab x ab y a.b ab\n", 0, "vl*"), "ab x |ab y a.b ab\n");
+        assert_eq!(run("ab x ab y a.b ab\n", 0, "vl*n"), "ab x ab y a.b |ab\n");
+        assert_eq!(run("a.b ab a.b\n", 7, "vll#"), "|a.b ab a.b\n");
+        // `gf` on a name that is no file: Vim's error.
+        let mut d = doc("see nofile.zz here\n", DocumentMode::Text { language: None });
+        d.selection = Selection::caret(6);
+        let mut v = Vim::new();
+        let mut h = TestHost::default();
+        v.key(&mut d, Key::Char('g'), &mut h);
+        let out = v.key(&mut d, Key::Char('f'), &mut h);
+        assert!(out.commands.is_empty());
+        assert_eq!(
+            out.message,
+            Some(("E447: Can't find file \"nofile.zz\" in path".into(), true))
+        );
     }
 
     #[test]

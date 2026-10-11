@@ -430,10 +430,13 @@
   { "keys": "alt+shift+k", "command": "table.killRow", "when": "vimCommand && editorMode == org && inTable" },
   { "keys": "alt+shift+j", "command": "table.insertRow", "when": "vimCommand && editorMode == org && inTable" },
   { "keys": "enter", "command": "org.dwim", "when": "vimCommand && editorMode == org" },
-  // Doom's C-RET and C-S-RET: an item, a table row or a heading below or
-  // above the one at the cursor, and Insert mode to type it.
+  // Doom's C-RET and C-S-RET, in Normal and Insert mode: an item, a table
+  // row or a heading below or above the one at the cursor, and Insert
+  // mode to type it.
   { "keys": "ctrl+enter", "command": "org.insertItemBelow", "when": "vimCommand && editorMode == org" },
   { "keys": "ctrl+shift+enter", "command": "org.insertItemAbove", "when": "vimCommand && editorMode == org" },
+  { "keys": "ctrl+enter", "command": "org.insertItemBelow", "when": "vimMode == insert && editorMode == org" },
+  { "keys": "ctrl+shift+enter", "command": "org.insertItemAbove", "when": "vimMode == insert && editorMode == org" },
   // Doom's C-S-h, C-S-j, C-S-k and C-S-l in Normal mode: Org's Shift with
   // the arrows (`org-shiftleft` and the others): a TODO keyword or the
   // priority of a heading, a list's bullet, and a timestamp before them.
