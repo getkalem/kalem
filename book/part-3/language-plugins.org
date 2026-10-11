@@ -13,7 +13,7 @@ runtime and works today. The first is [[file:elixir.org][Elixir]]; [[file:rust.o
 | The servers' service  | =kalem-core/src/lsp.rs=         | Implemented: documents in step, crashes restarted           |
 | The manifest          | =kalem-core/src/languages.rs=   | The =languages= and =servers= sections                      |
 | Syntaxes with =extends= | =kalem-highlight/src/plugins.rs= | Implemented                                              |
-| The plugins           | =getkalem/plugins=              | =elixir=                                                    |
+| The plugins           | =getkalem/plugins=              | =elixir=, =rust=, and =pta='s languages                     |
 
 * Installing a plugin
 
@@ -108,7 +108,11 @@ A plugin is a folder holding a =plugin.json=. Kalem looks in
 folder), where it installs them, and in the folders of the environment
 variable =KALEM_PLUGIN_PATH=, a list like =PATH= whose entries are
 plugin folders or folders of plugins (for developing a plugin in its
-repository). Plugins load when the settings load, before the first
+repository). Both copies of a plugin load when it is installed too, and
+the installed one serves its files: remove it first
+(=kalem plugin remove org.kalem.NAME=, by its full ID) to try the
+other; a plugin found only there has no page in the settings panel.
+Plugins load when the settings load, before the first
 file opens; =kalem lsp status= lists them and the problems met loading
 them.
 
@@ -187,8 +191,8 @@ Beside the fields every plugin has (=id=, =name=, =version=,
   report their work only in their log (Expert): the lines from one
   containing a =start= text to one containing a =done= text show as
   progress in the status bar. =settings= answer the
-  server's =workspace/configuration= requests and are sent once after
-  it starts. =install= is what the status bar says when no candidate is
+  server's =workspace/configuration= requests, are sent once after it
+  starts, and again whenever the user's settings change. =install= is what the status bar says when no candidate is
   found, or when the one found does not start: Kalem never installs a
   server by itself. =version= are the arguments that make the program
   print its version and end (=["--version"]= for rust-analyzer);
@@ -268,7 +272,7 @@ Beside the fields every plugin has (=id=, =name=, =version=,
   for, one after the other, and the text ={selections}= is the
   selection in a list, empty when nothing is selected.
   =shape= is what the answer is: =text= (shown as documentation is,
-  under its =title=, highlighted as =language=), =url= (an =http= or
+  under its =title=, as plain text), =url= (an =http= or
   =https= page, opened in the browser), =location= (gone to), =edits=
   (applied to the document as one undoable change, the cursor where a
   snippet in them puts it), =workspaceEdit= (edits of the project's
@@ -359,14 +363,15 @@ positions, whichever the server takes; Kalem's own offsets are bytes),
 and the save. Nothing waits for a server on the editor's thread: an
 answer arrives while you type, and a server that never answers costs
 nothing but its silence. A server that exits is started again after
-half a second, then one, two, four seconds; after five failures it
-stays stopped, and the status bar says so. A server whose process ends
+one second, then two, four, eight and sixteen; at its sixth exit it
+stays stopped, and the status bar says so (exits are forgotten after
+ten minutes of running). A server whose process ends
 before it answers =initialize= is not started again, since it would end
 the same way (a toolchain's proxy for a component not installed, a
 version manager's shim with no version chosen, =initialize= refused, no
 answer in two minutes): the status bar says at once why, in the
 server's words (the last lines it wrote on its standard error) and
-with the plugin's =install= text. Restart Server
+with the plugin's =install= text. Restart Language Server
 (=code.restartServer=) tries again once it is mended.
 
 | Feature                          | Vim profile        | Word-like profile | Command                                 |
@@ -398,8 +403,8 @@ the server's own word on its state while it does not work fully
 (rust-analyzer's "cargo check failed to start").
 Formatting is applied as one undoable change, and only when the
 document has not changed since it was asked. A server that answers
-with no edits is said to have changed nothing, not to have found the
-file formatted: rust-analyzer answers so when the file is formatted,
+=null= is said to have changed nothing, not to have found the file
+formatted (an empty list of edits is "Already formatted"): rust-analyzer answers so when the file is formatted,
 and also when rustfmt fails (not installed for the project's
 toolchain, or a syntax error), which its log tells
 (=kalem lsp check --log=).
@@ -417,7 +422,8 @@ second, one and two, and says it is still busy only after that.
 Problems are underlined in the text, errors in red, warnings in orange
 (yellow in the terminal) and the rest (information, hints) in blue, a
 problem over several lines on each of them; the line's number is
-colored in the gutter, and the message shows under the mouse. The problems list
+colored in the gutter, and the message shows under the mouse (in the
+window). The problems list
 (=SPC c X=) has the project's files the server reports, open or not.
 A rename shows how many changes in how many files before anything
 changes; edits of open documents are made in their editors as one

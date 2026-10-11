@@ -5,9 +5,11 @@ and settings. Its own README lists the same and is kept with it.
 * What is followed
 
 - *The grammar* of the highlighter is the Sublime syntax of
-  [[https://github.com/princemaple/elixir-sublime-syntax][princemaple/elixir-sublime-syntax]] (MIT), unchanged: Elixir with
-  =~H= sigils highlighted as HEEx, =~L= and =~E= as EEx, Markdown in
-  =@doc= and =@moduledoc=, SQL in =~SQL=; HEEx with components
+  [[https://github.com/princemaple/elixir-sublime-syntax][princemaple/elixir-sublime-syntax]] (MIT), with one addition (EEx's
+  and HEEx's =<%!-- --%>= comment): Elixir with =~H= sigils
+  highlighted as HEEx, =~L= as EEx, Markdown in =@doc= and
+  =@moduledoc=, SQL in the strings of =fragment(…)= and =sql(…)=; HEEx
+  with components
   (=<.button>=, =<Module.comp>=), ={…}= attributes and =<%= … %>=
   blocks highlighted as Elixir. HEEx and EEx extend Sublime Text's
   HTML, which the plugin ships as a base only.
@@ -25,8 +27,8 @@ and settings. Its own README lists the same and is kept with it.
 
 The root is the outermost folder up from the file with a =mix.exs=,
 so an umbrella project is one workspace and its applications under
-=apps/= are workspace folders. A file outside a Mix project is served
-with its folder as the root. ElixirLS builds into =.elixir_ls/= under
+=apps/= are workspace folders. A file outside a Mix project gets no
+server (=requireRoot=), and the status bar says so. ElixirLS builds into =.elixir_ls/= under
 the root with =MIX_ENV= =test= by default; set =mixEnv= in the plugin's
 settings to change it.
 
@@ -49,8 +51,8 @@ OTP 28, with the plugin's corpus project.
   indexes the project; until the index is built it answers
   documentation, definitions and references about the project's own
   code with nothing (the standard library's at once). It reports this
-  work in its log, not as progress, so the status bar shows no
-  progress meanwhile.
+  work in its log, not as progress; the plugin's =busyLog= turns those
+  lines into progress in the status bar.
 - Expert names files by their real paths (=/private/tmp= for =/tmp= on
   macOS); Kalem sends servers the real path and maps places in their
   answers back to the path a file was opened under.

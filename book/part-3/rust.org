@@ -19,7 +19,9 @@ own README lists the same and is kept with it.
 |----------------------------------------------+----------|
 | =.rs=, =#!= with =cargo= or =rust-script=      | Rust     |
 
-=Cargo.toml= and =Cargo.lock= stay Kalem's TOML.
+=Cargo.toml= is served by Taplo and crates-lsp (below) and highlighted
+by Kalem's TOML; =Cargo.lock= stays Kalem's. A =#!= script without the
+=.rs= extension is served but not colored as Rust.
 
 * The project
 
@@ -34,9 +36,11 @@ rustup honors the project's =rust-toolchain.toml=. A file of the
 standard library or of a dependency, reached by going to a
 definition, is served by the rust-analyzer that named it.
 
-A =.rs= file outside any Cargo project is served only when
-rust-analyzer's =linkedProjects= setting names it; a
-=.kalem/settings.toml= in its folder can:
+A =.rs= file outside any Cargo project gets a server that answers
+nothing until rust-analyzer's =linkedProjects= setting names it; a
+=.kalem/settings.toml= in its folder can, read when Kalem starts on
+that file (Kalem reads one such file a session, and the setting then
+holds for every rust-analyzer of the session):
 
 #+begin_src toml
 [plugins."org.kalem.rust".settings.rust-analyzer]
@@ -97,12 +101,15 @@ repository.
   start the indexing over.
 - Highlighting: the names a declaration gives (a struct's, a trait's,
   a constant's, a label) have no color, since Kalem maps no
-  =entity.name.struct= and kin to a color yet; a type where it is used
-  has the keywords' color (=storage.type=); every variable is colored.
+  =entity.name.struct= and kin to a color yet; a type of the project's
+  own, =Self= and a primitive have the keywords' color
+  (=storage.type=), the standard library's types and variants
+  (=Option=, =Some=) the types' color (=support.type=); every variable
+  is colored.
 - Open Documentation in the Browser gives docs.rs's address for any
   crate, which docs.rs has only once the crate is published.
 - rust-analyzer's state shows in the status bar only while it works
-  in part ("cargo check failed to start" for a project whose
+  in part or not at all ("cargo check failed to start" for a project whose
   dependencies Cargo cannot read). Enter in a =//= or =///= comment
   goes on with it as rust-analyzer makes the new line, unless typing
   went on before it answered. Structural Search and Replace puts a
