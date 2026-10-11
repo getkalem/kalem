@@ -177,10 +177,10 @@ What is not edited says why when it is tried: deleted text of a
 tracked change, a field's result, a note's mark, a check box, text
 drawn two ways in the file (=mc:AlternateContent=), a paragraph of a
 text box, an edit across a table's cells, a join across a section
-break, and every edit of a document whose protection is enforced (a
-document protected for comments takes comments, as in Word; the
-Review commands' accepting, rejecting and Track Changes are not
-refused yet). A comment
+break, and every edit of a document whose protection is enforced,
+with accepting and rejecting changes and Track Changes, as Word
+refuses them (a document protected for comments takes comments, and
+one protected for tracked changes keeps Track Changes on). A comment
 in a header or a footer is refused, as Word keeps none there.
 
 * What is written
