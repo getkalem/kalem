@@ -220,6 +220,9 @@ enum Op {
     Toggle,
     Rot13,
     Reindent,
+    /// `gc`: the lines commented out, or in again (vim-commentary's,
+    /// Doom's evil-nerd-commenter).
+    Comment,
 }
 
 impl Op {
@@ -2581,6 +2584,10 @@ impl Vim {
             let (l1, l2) = (line_of(doc, a), line_of(doc, b));
             return self.reindent(doc, l1, l2);
         }
+        if op == Op::Comment {
+            let (l1, l2) = (line_of(doc, a), line_of(doc, b));
+            return self.comment_lines(doc, l1, l2, out);
+        }
         match target {
             Target::Lines(l1, l2) => {
                 let lines: String = (l1..=l2)
@@ -2624,6 +2631,8 @@ impl Vim {
                             self.ai_line = Some(ls);
                         }
                     }
+                    // `gc` is done before.
+                    Op::Comment => {}
                     Op::Indent | Op::Outdent | Op::Reindent => {
                         self.shift_lines(doc, l1, l2, op == Op::Indent, out)
                     }
@@ -2704,6 +2713,8 @@ impl Vim {
                             self.block_corner = Some(top);
                         }
                     }
+                    // `gc` is done before.
+                    Op::Comment => {}
                     Op::Indent | Op::Outdent | Op::Reindent => {
                         self.shift_lines(doc, first, last, op == Op::Indent, out)
                     }
@@ -2730,6 +2741,8 @@ impl Vim {
                             self.enter_insert(doc, r.start);
                         }
                     }
+                    // `gc` is done before.
+                    Op::Comment => {}
                     Op::Indent | Op::Outdent | Op::Reindent => {
                         let (l1, l2) = (
                             line_of(doc, r.start),
@@ -2744,6 +2757,28 @@ impl Vim {
                 }
             }
         }
+    }
+
+    /// `gc`: lines `l1` to `l2` commented out with the markers of the
+    /// language at the cursor (Org's `#`, a source block's own), or in
+    /// again when each is a comment, as Toggle Comment does.
+    fn comment_lines(&mut self, doc: &mut DocumentState, l1: usize, l2: usize, out: &mut Outcome) {
+        doc.selection = Selection::caret(line_start(doc, l1));
+        let Some(style) =
+            crate::code::language_at(doc).and_then(|l| crate::code::comment_style(&l))
+        else {
+            out.message = Some((crate::l10n::tr("msg-no-comment-style"), true));
+            return;
+        };
+        let sel = Selection {
+            anchor: line_start(doc, l1),
+            head: line_end(doc, l2),
+        };
+        let tx = crate::code::toggle_comment(doc.text().as_str(), sel, style);
+        doc.apply(&tx, ChangeKind::Command, Instant::now());
+        let at = first_non_blank(doc, l1.min(last_line(doc)));
+        doc.selection = Selection::caret(at);
+        self.cursor = at;
     }
 
     /// `r` in another case (or ROT13) as `op` says; the length of the
@@ -3484,11 +3519,12 @@ impl Vim {
                         };
                         self.finish_motion(doc, m, host, out);
                     }
-                    Key::Char(c @ ('u' | 'U' | '~' | '?')) => {
+                    Key::Char(c @ ('u' | 'U' | '~' | '?' | 'c')) => {
                         let op = match c {
                             'u' => Op::Lower,
                             'U' => Op::Upper,
                             '?' => Op::Rot13,
+                            'c' => Op::Comment,
                             _ => Op::Toggle,
                         };
                         if self.visual() {
@@ -3745,6 +3781,10 @@ impl Vim {
             }
             return self.reset();
         };
+        // `gcc`: the line commented (`c` is the change operator else).
+        if c == 'c' && matches!(self.op, Some((Op::Comment, _))) && !self.visual() {
+            return self.operator(doc, Op::Comment, host, out);
+        }
         // Operators.
         if let Some(op) = Op::of(c) {
             if self.visual() {
@@ -5475,6 +5515,32 @@ mod tests {
             all.extend(v.key(&mut d, key, &mut host).commands);
         }
         all
+    }
+
+    #[test]
+    fn comment_operator() {
+        let py = DocumentMode::Text {
+            language: Some("py".into()),
+        };
+        let run_py = |text: &str, at: usize, keys: &str| run_in(text, at, keys, py.clone()).0;
+        let t = "a = 1\n  b = 2\nc = 3\n";
+        assert_eq!(run_py(t, 0, "gcc"), "|# a = 1\n  b = 2\nc = 3\n");
+        assert_eq!(run_py(t, 0, "gcj"), "|# a = 1\n#   b = 2\nc = 3\n");
+        assert_eq!(run_py(t, 0, "Vjgc"), "|# a = 1\n#   b = 2\nc = 3\n");
+        assert_eq!(run_py(t, 0, "gccgcc"), "|a = 1\n  b = 2\nc = 3\n");
+        // A count and `.`.
+        assert_eq!(
+            run_py("a\nb\nc\nd\n", 0, "2gccjj."),
+            "# a\n# b\n|# c\n# d\n"
+        );
+        // The cursor on the first line, as after `>ip`.
+        assert_eq!(run_py(t, 6, "gcip"), "|# a = 1\n#   b = 2\n# c = 3\n");
+        // Org's comment lines; plain text has no marker.
+        assert_eq!(
+            run_in("* A\nsome text\n", 4, "gcc", DocumentMode::Org).0,
+            "* A\n|# some text\n"
+        );
+        assert_eq!(run("text\n", 0, "gcc"), "|text\n");
     }
 
     #[test]
