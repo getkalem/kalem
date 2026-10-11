@@ -2822,6 +2822,17 @@ pub fn plugins_changed(cx: &mut App) {
     crate::preferences::apply(Rc::new(new), cx);
 }
 
+/// A layer was added or removed: each window's document is entered
+/// again, the folder a layer serves offered as a project.
+pub fn layers_changed(cx: &mut App) {
+    for w in cx.windows() {
+        let Some(w) = w.downcast::<Workspace>() else {
+            continue;
+        };
+        let _ = w.update(cx, |ws, _, cx| ws.enter_project(cx));
+    }
+}
+
 /// Plugins set marks beside the lines of files: the open ones take
 /// theirs.
 pub fn gutters_written(cx: &mut App) {

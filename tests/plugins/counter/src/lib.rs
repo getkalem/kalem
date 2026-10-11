@@ -154,8 +154,12 @@ impl Plugin for Counter {
                 .collect::<Vec<_>>()
                 .join("\n"))
         })?;
+        // As its answer, and as a notice, which a host that drops the
+        // answers shows.
         command("counter.opened", Scope::all(), |_| {
-            Ok(OPENED.with(|o| o.borrow().join(",")))
+            let opened = OPENED.with(|o| o.borrow().join(","));
+            ui::notify(&format!("opened {opened}"), Level::Info);
+            Ok(opened)
         })?;
         command("counter.deaf", Scope::all(), |_| {
             if let Some(d) = OPENS.with(|o| o.borrow_mut().take()) {

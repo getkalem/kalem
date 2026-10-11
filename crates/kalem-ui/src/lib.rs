@@ -117,6 +117,7 @@ pub fn run(path: Option<PathBuf>) {
     // at once) is seen at the first tick. Counted after, its keys were
     // never bound.
     let plugins_at_start = kalem_core::extensions::generation();
+    let layers_at_start = kalem_core::layers::registered();
     let shared = shared(config);
     shared.problems.set(settings::report_problems(
         &shared.config,
@@ -167,6 +168,7 @@ pub fn run(path: Option<PathBuf>) {
         cx.spawn(async move |cx| {
             let mut first = !started_with_file;
             let mut plugins = plugins_at_start;
+            let mut layers = layers_at_start;
             let mut shown = kalem_core::extensions::shown();
             let mut written = kalem_core::extensions::generated_writes();
             let mut marked = kalem_core::extensions::gutter_writes();
@@ -204,6 +206,14 @@ pub fn run(path: Option<PathBuf>) {
                     if now != plugins {
                         plugins = now;
                         workspace::plugins_changed(cx);
+                    }
+                    // A layer added after the windows' documents were
+                    // entered (its plugin installed, or started late):
+                    // the folders it serves are offered as projects now.
+                    let now = kalem_core::layers::registered();
+                    if now != layers {
+                        layers = now;
+                        workspace::layers_changed(cx);
                     }
                     // What another program wrote in a notes graph's
                     // folder: the plugins hear of it.

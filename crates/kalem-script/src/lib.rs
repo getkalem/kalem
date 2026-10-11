@@ -350,6 +350,20 @@ impl Host {
         self.load(&std::fs::read(path)?)
     }
 
+    /// Compiles the component in the file at `path` into the cache, unless
+    /// it is there: loading it later reads it, as quickly as at a start
+    /// (a plugin installed while Kalem runs, compiled before the editors
+    /// wait for it).
+    pub fn compile_file(&self, path: &Path) -> Result<()> {
+        let bytes = std::fs::read(path)?;
+        match &self.cache {
+            Some(dir) if !dir.join(self.cache_name(&bytes)).is_file() => {
+                self.load(&bytes).map(drop)
+            }
+            _ => Ok(()),
+        }
+    }
+
     /// Loads a component: from the cache when it was compiled before by
     /// this engine with these settings, else compiled and cached.
     pub fn load(&self, bytes: &[u8]) -> Result<Plugin> {

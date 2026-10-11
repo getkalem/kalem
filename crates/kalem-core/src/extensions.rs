@@ -83,6 +83,12 @@ pub trait Extensions: Send {
     ) -> Vec<crate::completers::Item> {
         Vec::new()
     }
+
+    /// A plugin was installed, updated or removed while the editors run
+    /// ([`installed_changed`]): one removed is stopped, one new started as
+    /// it would have been with the editors, and told of the documents
+    /// open ([`open_documents`]).
+    fn installed_changed(&mut self) {}
 }
 
 /// A document a plugin writes (`documents`, plugin API 0.2.5), as the
@@ -539,7 +545,10 @@ fn changed() {
 
 /// Installs the plugins (once, at start). They started on a thread while
 /// the editor read its settings, so they may have read Kalem's defaults:
-/// those watching a setting that differs from its default are told.
+/// those watching a setting that differs from its default are told. And
+/// while the editors opened their first documents, which they are told
+/// of now, as the editors told of them: each `document:open`, then
+/// `app:ready` once the editors were ready.
 pub fn install(extensions: Box<dyn Extensions>) {
     let set = CONFIG
         .lock()
@@ -551,6 +560,14 @@ pub fn install(extensions: Box<dyn Extensions>) {
     let x = installed.insert(extensions);
     if !set.is_empty() {
         x.settings_changed(&set);
+    }
+    // Read under the plugins' lock, as `event` notes them: none missed or
+    // told twice.
+    for (doc, path) in open_documents() {
+        x.event(&Event::DocumentOpen { doc, path });
+    }
+    if ready() {
+        x.event(&Event::AppReady);
     }
     drop(installed);
     // The layers' overlays are asked of the plugins while the editors
@@ -734,12 +751,69 @@ pub fn run(id: &str, args: &Value) -> Result<(), CommandError> {
     x.run(id, &args.to_string()).map_err(CommandError::new)
 }
 
-/// Hands `event` to the plugins: a bus's subscriber.
+/// Hands `event` to the plugins: a bus's subscriber. The documents open
+/// and whether the editors are ready are noted, with or without plugins,
+/// for those that start later ([`install`], [`installed_changed`]).
 pub fn event(event: &Event) -> Reply {
     let mut installed = INSTALLED.lock().unwrap_or_else(|e| e.into_inner());
-    match installed.as_mut().and_then(|x| x.event(event)) {
+    let veto = installed.as_mut().and_then(|x| x.event(event));
+    // Noted after the plugins heard it, under their lock: a plugin this
+    // event started is told of the documents open before it, then hears
+    // this one.
+    let mut open = opened();
+    match event {
+        Event::DocumentOpen { doc, path } => open.documents.push((*doc, path.clone())),
+        Event::DocumentClose { doc } => open.documents.retain(|(d, _)| d != doc),
+        Event::AppReady => open.ready = true,
+        _ => {}
+    }
+    match veto {
         Some(why) => Reply::Veto(why),
         None => Reply::Continue,
+    }
+}
+
+/// What the editors told the plugins of that a plugin starting later
+/// needs to know.
+struct Opened {
+    /// The documents open, in the order they were opened.
+    documents: Vec<(crate::events::DocumentId, Option<std::path::PathBuf>)>,
+    /// Whether the editors are ready (`app:ready`).
+    ready: bool,
+}
+
+static OPENED: Mutex<Opened> = Mutex::new(Opened {
+    documents: Vec::new(),
+    ready: false,
+});
+
+fn opened() -> std::sync::MutexGuard<'static, Opened> {
+    OPENED.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// The documents open, in the order they were opened, as the editors told
+/// the plugins of them: their numbers and files.
+pub fn open_documents() -> Vec<(crate::events::DocumentId, Option<std::path::PathBuf>)> {
+    opened().documents.clone()
+}
+
+/// Whether the editors told the plugins they are ready (`app:ready`).
+pub fn ready() -> bool {
+    opened().ready
+}
+
+/// A plugin was installed, updated or removed while the editors run: the
+/// plugins take the change in ([`Extensions::installed_changed`]). False
+/// when no plugins are installed in the editors, for the host to start
+/// them as at startup.
+pub fn installed_changed() -> bool {
+    let mut installed = INSTALLED.lock().unwrap_or_else(|e| e.into_inner());
+    match installed.as_mut() {
+        Some(x) => {
+            x.installed_changed();
+            true
+        }
+        None => false,
     }
 }
 

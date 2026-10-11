@@ -530,17 +530,22 @@ pub fn bundled_viewers() {
     choose_viewers(true);
 }
 
-/// Chooses the viewers again ([`choose_viewers`]): after a plugin was
+/// Chooses the viewers again ([`choose_viewers`]) and starts or stops the
+/// extension plugins changed (`extensions::changed`): after a plugin was
 /// installed, updated or removed, or turned off or on again.
 pub fn plugins_changed() {
     #[cfg(feature = "plugins")]
-    choose_viewers(false);
+    {
+        choose_viewers(false);
+        extensions::changed();
+    }
 }
 
 /// For an editor: watches the installed plugins while it runs
-/// ([`kalem_core::plugin_store::stamp`], once a second) and chooses the
-/// viewers again once a change has settled, so that a plugin installed or
-/// updated while Kalem runs, from it or from a terminal, opens its files
+/// ([`kalem_core::plugin_store::stamp`], once a second) and, once a change
+/// has settled, chooses the viewers again and starts or stops the
+/// extension plugins changed, so that a plugin installed or updated while
+/// Kalem runs, from it or from a terminal, opens its files and runs
 /// without a restart.
 pub fn watch_plugins() {
     #[cfg(feature = "plugins")]
@@ -561,7 +566,7 @@ pub fn watch_plugins() {
                     let now = kalem_core::plugin_store::stamp();
                     if now == seen && now != chosen_at {
                         chosen_at = now;
-                        choose_viewers(false);
+                        plugins_changed();
                     }
                     seen = now;
                 }

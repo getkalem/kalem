@@ -252,6 +252,9 @@ static REGISTRY: Mutex<Registry> = Mutex::new(Registry {
 
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 
+/// Changes when a layer is added or removed, not when one shows anew.
+static REGISTERED: AtomicU64 = AtomicU64::new(0);
+
 fn registry() -> std::sync::MutexGuard<'static, Registry> {
     REGISTRY.lock().unwrap_or_else(|e| e.into_inner())
 }
@@ -263,6 +266,7 @@ pub fn register(spec: LayerSpec) {
         .retain(|l| !(l.plugin == spec.plugin && l.id == spec.id));
     r.layers.push(spec);
     drop(r);
+    REGISTERED.fetch_add(1, Ordering::Relaxed);
     refresh();
 }
 
@@ -274,6 +278,7 @@ pub fn remove_plugin(plugin: &str) {
     let changed = r.layers.len() != before;
     drop(r);
     if changed {
+        REGISTERED.fetch_add(1, Ordering::Relaxed);
         refresh();
     }
 }
@@ -287,6 +292,13 @@ pub fn layers() -> Vec<LayerSpec> {
 pub fn set_provider(provider: Arc<Provider>) {
     registry().provider = Some(provider);
     refresh();
+}
+
+/// Changes when a layer is added or removed (a plugin started or stopped
+/// while a document is open): the folders a layer serves are looked for
+/// again, a notes graph's offered as a project.
+pub fn registered() -> u64 {
+    REGISTERED.load(Ordering::Relaxed)
 }
 
 /// Changes when the layers or what they show change: views kept of an

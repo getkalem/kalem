@@ -616,6 +616,9 @@ struct Loaded {
     extension: Option<Extension>,
     /// Stopped after a failure; not started again until Kalem restarts.
     failed: bool,
+    /// Removed, or replaced by another version, while Kalem ran: stopped,
+    /// and kept in its place, the others' binding numbers being theirs.
+    gone: bool,
     /// The menus its manifest adds to the menu bar, once it runs.
     menus: Vec<kalem_core::extensions::PluginMenu>,
     /// The buttons its manifest adds to the toolbar, once it runs.
@@ -979,23 +982,95 @@ impl Plugins {
 
     /// Stops plugin `i` after `error`: what it registered is taken back.
     fn fail(&mut self, i: usize, error: &kalem_script::Error) {
+        self.stop(i);
+        let l = &mut self.list[i];
+        l.failed = true;
+        kalem_core::jobs::notice(format!("The plugin {} was stopped: {error}", l.id), true);
+    }
+
+    /// Stops plugin `i`, if it runs: what it registered is taken back.
+    fn stop(&mut self, i: usize) {
         PLUGIN.with(|p| p.set(i as u64 + 1));
         let l = &mut self.list[i];
-        if let Some(mut ext) = l.extension.take() {
-            let _ = ext.deactivate();
-        }
-        l.failed = true;
+        let Some(mut ext) = l.extension.take() else {
+            return;
+        };
+        let _ = ext.deactivate();
         kalem_core::extensions::close_plugin_documents(&l.id);
         kalem_core::extensions::clear_gutter(&l.id, None);
         kalem_core::extensions::remove_menus(&l.id);
         kalem_core::extensions::remove_buttons(&l.id);
         kalem_core::layers::remove_plugin(&l.id);
         kalem_core::completers::plugins::remove_plugin(&l.id);
-        kalem_core::jobs::notice(format!("The plugin {} was stopped: {error}", l.id), true);
+    }
+
+    /// Tells plugin `i`, started while Kalem runs, what it would have
+    /// heard had it started with Kalem: each document open, then that the
+    /// editors are ready.
+    fn tell_late(&mut self, i: usize) {
+        let mut events: Vec<Event> = kalem_core::extensions::open_documents()
+            .into_iter()
+            .map(|(doc, path)| Event::DocumentOpen { doc, path })
+            .collect();
+        if kalem_core::extensions::ready() {
+            events.push(Event::AppReady);
+        }
+        for event in events {
+            PLUGIN.with(|p| p.set(i as u64 + 1));
+            let Some(ext) = self.list[i].extension.as_mut() else {
+                return;
+            };
+            if !ext.wants(x::kind(&to_wit(&event))) {
+                continue;
+            }
+            if let Err(e) = ext.event(&to_wit(&event)) {
+                self.fail(i, &e);
+                return;
+            }
+        }
     }
 }
 
 impl kalem_core::extensions::Extensions for Plugins {
+    fn installed_changed(&mut self) {
+        let now = installed();
+        // Removed, or replaced by another version.
+        for i in 0..self.list.len() {
+            let l = &self.list[i];
+            let kept = now
+                .iter()
+                .any(|n| n.full == l.full && n.version == l.version && n.file == l.file);
+            if !l.gone && !kept {
+                self.stop(i);
+                self.list[i].gone = true;
+            }
+        }
+        // New: started as with Kalem, or by a file open it serves, or the
+        // editors being ready; and told of what it missed.
+        let open = kalem_core::extensions::open_documents();
+        let ready = kalem_core::extensions::ready();
+        for n in now {
+            if self.list.iter().any(|l| !l.gone && l.full == n.full) {
+                continue;
+            }
+            let starts = n.activation.iter().any(|a| {
+                a == "onStartup"
+                    || (a == "onEvent:app:ready" && ready)
+                    || (a == "onFile"
+                        && open.iter().any(|(_, p)| {
+                            p.as_deref()
+                                .is_some_and(|p| n.applies.serves_file(p).is_some())
+                        }))
+            });
+            self.list.push(n);
+            if starts {
+                let i = self.list.len() - 1;
+                self.activate(i);
+                self.tell_late(i);
+            }
+        }
+    }
+
     fn complete(
         &mut self,
         spec: &kalem_core::completers::plugins::PluginCompleterSpec,
@@ -1088,7 +1163,7 @@ impl kalem_core::extensions::Extensions for Plugins {
         };
         for i in 0..self.list.len() {
             let l = &self.list[i];
-            if l.extension.is_some() || l.failed {
+            if l.extension.is_some() || l.failed || l.gone {
                 continue;
             }
             let serves = || {
@@ -1422,6 +1497,7 @@ fn installed() -> Vec<Loaded> {
             limits,
             extension: None,
             failed: false,
+            gone: false,
         });
     }
     list
@@ -1436,25 +1512,60 @@ pub(crate) fn load() {
     if list.is_empty() {
         return;
     }
+    STARTED.store(true, std::sync::atomic::Ordering::SeqCst);
     let _ = std::thread::Builder::new()
         .name("kalem-extensions".into())
-        .spawn(move || {
-            let cache = kalem_core::logging::state_dir().map(|d| d.join("plugin-cache"));
-            let host = match Host::new(cache) {
-                Ok(h) => Arc::new(h),
-                Err(e) => {
-                    kalem_core::jobs::notice(format!("Plugins cannot run: {e}"), true);
-                    return;
-                }
-            };
-            let mut plugins = Plugins { host, list };
-            for i in 0..plugins.list.len() {
-                if plugins.list[i].activation.iter().any(|a| a == "onStartup") {
-                    plugins.activate(i);
-                }
-            }
-            kalem_core::extensions::install(Box::new(plugins));
-        });
+        .spawn(move || start(list));
+}
+
+/// Whether the plugins were started ([`load`], [`changed`]).
+static STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Starts the plugins of `list` that start with Kalem, and offers them all
+/// to the editors.
+fn start(list: Vec<Loaded>) {
+    let host = match Host::new(cache()) {
+        Ok(h) => Arc::new(h),
+        Err(e) => {
+            kalem_core::jobs::notice(format!("Plugins cannot run: {e}"), true);
+            return;
+        }
+    };
+    let mut plugins = Plugins { host, list };
+    for i in 0..plugins.list.len() {
+        if plugins.list[i].activation.iter().any(|a| a == "onStartup") {
+            plugins.activate(i);
+        }
+    }
+    kalem_core::extensions::install(Box::new(plugins));
+}
+
+/// Where compiled plugins are kept.
+fn cache() -> Option<PathBuf> {
+    kalem_core::logging::state_dir().map(|d| d.join("plugin-cache"))
+}
+
+/// The installed plugins changed while Kalem runs (one installed, updated
+/// or removed, from Kalem or a terminal): on the thread watching them,
+/// those new are compiled, then the editors' plugins take the change in
+/// ([`kalem_core::extensions::installed_changed`]), started as at startup
+/// when there were none, so that a plugin installed works without a
+/// restart.
+pub(crate) fn changed() {
+    let list = installed();
+    // Compiled before the plugins' lock is taken, which the editors wait
+    // for: starting them then reads the cache.
+    if let Ok(host) = Host::new(cache()) {
+        for l in &list {
+            let _ = host.compile_file(&l.file);
+        }
+    }
+    if !kalem_core::extensions::installed_changed()
+        && !list.is_empty()
+        && !STARTED.swap(true, std::sync::atomic::Ordering::SeqCst)
+    {
+        start(list);
+    }
 }
 
 /// Loads and starts the installed extension plugin `name` (its manifest's
@@ -1485,8 +1596,7 @@ pub(crate) fn load_one(name: &str) -> Result<String, String> {
     {
         return Ok(id);
     }
-    let cache = kalem_core::logging::state_dir().map(|d| d.join("plugin-cache"));
-    let host = Arc::new(Host::new(cache).map_err(|e| format!("Plugins cannot run: {e}"))?);
+    let host = Arc::new(Host::new(cache()).map_err(|e| format!("Plugins cannot run: {e}"))?);
     let mut plugins = Plugins { host, list };
     plugins.activate(0);
     if plugins.list[0].extension.is_none() {

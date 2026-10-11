@@ -611,6 +611,18 @@ editors' events, and its notifications show in the status line. A
 plugin that traps or runs past its budget is stopped, what it
 registered is taken back, and the user is told.
 
+Neither does an extension plugin need Kalem started again. One
+installed while Kalem runs (Install Suggested Plugin, Browse Plugins,
+or =kalem plugin install= in a terminal) is compiled on a thread and
+started within a second or two as its =activation= says, as if it had
+started with Kalem: it is told of the documents open, each as a
+=document:open=, then of =app:ready=; its layer is drawn on them, and
+a notes graph's folder it serves is offered as a project then. One
+removed stops, what it registered taken back; one updated stops, and
+its new version starts. A plugin that starts after the editors opened
+their first documents (the first start after an install compiles it)
+is told of them the same way.
+
 A manifest may add menus to the menu bar (the system's on macOS, the
 window's own elsewhere, and the list F10 shows in both editors) under
 ="menus"=: each a title, a when-clause on the document, and its items,

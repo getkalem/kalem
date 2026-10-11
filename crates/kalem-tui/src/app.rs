@@ -163,6 +163,9 @@ pub struct App {
     /// The plugins' registrations the commands and keys were built with
     /// (`kalem_core::extensions::generation`).
     plugins_seen: u64,
+    /// The layers the active document's project was entered with
+    /// (`kalem_core::layers::registered`).
+    layers_seen: u64,
     watcher: Option<FileWatcher>,
     changed_files: Rc<RefCell<Vec<PathBuf>>>,
     /// The document.
@@ -549,6 +552,7 @@ impl App {
             keymap_issues: issues,
             bus,
             plugins_seen,
+            layers_seen: kalem_core::layers::registered(),
             watcher,
             changed_files,
             doc,
@@ -5458,6 +5462,15 @@ impl App {
             self.plugins_seen = plugins;
             self.registry = CommandRegistry::with_builtins();
             self.rebuild_keys();
+            self.dirty = true;
+        }
+        // A layer added after the document was entered (its plugin
+        // installed, or started late): the folder it serves is offered
+        // as a project now.
+        let layers = kalem_core::layers::registered();
+        if layers != self.layers_seen {
+            self.layers_seen = layers;
+            self.enter_project();
             self.dirty = true;
         }
         for (id, args) in kalem_core::extensions::take_runs() {

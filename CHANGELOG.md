@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - `kalem run` waits for the programs a plugin's command runs and the requests it makes, and for what their answers do: a command that shows a document once its program ends (the plain text accounting plugin's Balance, Check and reports, run by hledger, Ledger or Beancount) printed nothing, since batch mode stopped as soon as the command returned.
+- An extension plugin installed while Kalem runs (Install Suggested Plugin, Browse Plugins, `kalem plugin install` in a terminal) starts at once, as it would have with Kalem: its commands, keys, menus and layers are there without a restart, and it is told of the documents open. One removed stops, what it registered taken back; one updated is replaced by its new version. Before, only viewers were chosen again: a Logseq graph opened right after the Note graphs plugin was suggested and installed stayed plain Markdown until Kalem was started again.
+- A plugin that starts after the editors opened their first documents (the first start after an install compiles it for a few seconds) is told of them, and of `app:ready`, rather than missing them; and a notes graph's folder is offered as a project once its plugin's layer arrives, not only when the layer was there before the document.
 
 ## [0.6.17] - 2026-10-11
 
