@@ -139,21 +139,22 @@ pub fn export(text: &str, backend: &dyn Backend, settings: &Settings) -> Result<
     let whole = parse_document(&text, file);
     let (parse, keywords) = match &region {
         Some(_) => {
-            if let Some(e) = babel::unknown_call(&text[marks[0]..marks[1]]) {
-                return Err(e);
-            }
-            let body = macros::expand_results(&babel::process(&text[marks[0]..marks[1]]), &parsed);
+            let body = babel::checked_process(&text[marks[0]..marks[1]], None)?;
+            let body = macros::expand_results(&body, &parsed);
             (
                 org_syntax::parse_with(&body, whole.context()),
                 whole.keywords(),
             )
         }
         None => {
-            if let Some(e) = babel::unknown_call(&text) {
-                return Err(e);
-            }
-            let text = macros::expand_results(&babel::process(&text), &parsed);
-            let parse = parse_document(&text, file);
+            let plain = (!reads_setup_files(&text, file)).then_some(&whole);
+            let body = macros::expand_results(&babel::checked_process(&text, plain)?, &parsed);
+            // Most documents leave Babel and `results` nothing to change.
+            let parse = if body == text {
+                whole.clone()
+            } else {
+                parse_document(&body, file)
+            };
             let keywords = parse.keywords();
             (parse, keywords)
         }
@@ -271,6 +272,17 @@ pub(crate) fn parse_document(text: &str, file: Option<&std::path::Path>) -> org_
     }
 }
 
+/// Whether [`parse_document`] of `text` and `org_syntax::parse` may
+/// differ: only a `#+SETUPFILE` keyword makes them.
+pub(crate) fn reads_setup_files(text: &str, file: Option<&std::path::Path>) -> bool {
+    file.is_some()
+        && text.match_indices("#+").any(|(i, _)| {
+            text.as_bytes()[i + 2..]
+                .get(..9)
+                .is_some_and(|k| k.eq_ignore_ascii_case(b"SETUPFILE"))
+        })
+}
+
 /// `org-export-output-file-name`: where exporting `input` (with `text`)
 /// writes, for a back-end whose files end with `extension` (`.html`):
 /// `#+EXPORT_FILE_NAME`, else the input's name, beside the input, with
@@ -335,6 +347,15 @@ pub fn output_file_name_for(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_a_setup_file_keyword_makes_the_parses_differ() {
+        let f = Some(std::path::Path::new("/tmp/a.org"));
+        assert!(reads_setup_files("x\n#+setupfile: s.org\n", f));
+        assert!(reads_setup_files("#+SETUPFILE: \"s.org\"", f));
+        assert!(!reads_setup_files("#+SETUPFILE: s.org", None));
+        assert!(!reads_setup_files("#+TITLE: setupfile\n#+", f));
+    }
 
     #[test]
     fn earlier_kalem_additions_are_dropped_as_emacs_drops_them() {

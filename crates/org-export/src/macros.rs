@@ -565,17 +565,21 @@ pub fn expand_tracking(
     if !text.contains("{{{") {
         return Ok(text.to_string());
     }
-    let parse = crate::parse_document(text, file);
+    let mut tree = Parsed::new(text);
     // `#+MACRO:` definitions come from setup files too; the values of
     // `{{{title}}}` and `{{{keyword}}}` from the document only
-    // (`org-macro--find-keyword-value`).
-    let keywords = org_syntax::parse(text).keywords();
-    let templates = templates(&parse.keywords(), &keywords, file);
+    // (`org-macro--find-keyword-value`); the same without setup files.
+    let keywords = tree.parse.keywords();
+    let definitions = if crate::reads_setup_files(text, file) {
+        crate::parse_document(text, file).keywords()
+    } else {
+        keywords.clone()
+    };
+    let templates = templates(&definitions, &keywords, file);
     let mut counters: HashMap<String, i64> = HashMap::new();
     let mut record: HashSet<(usize, String, Vec<String>)> = HashSet::new();
     let mut text = text.to_string();
     let mut pos = 0;
-    let mut tree = Parsed::new(&text);
     while let Some(m) = next_macro(&text, pos, parsed, &tree) {
         let value = value_of(
             &templates,

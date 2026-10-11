@@ -664,12 +664,23 @@ fn code_again(text: &str, b: &Block, lib: &Library) -> Option<(usize, usize, Str
 /// reference"), even when evaluation is refused. Calls into other files
 /// (`file:name`) are not checked.
 pub fn unknown_call(text: &str) -> Option<String> {
-    let lower = text.to_ascii_lowercase();
-    if !lower.contains("call_") && !lower.contains("#+call:") {
+    if !may_call(&text.to_ascii_lowercase()) {
         return None;
     }
-    let parse = org_syntax::parse(text);
-    let root = parse.syntax();
+    unknown_call_in(&org_syntax::parse(text).syntax())
+}
+
+/// Whether `lower` (a text in lower case) may hold a Babel call.
+fn may_call(lower: &str) -> bool {
+    lower.contains("call_") || lower.contains("#+call:")
+}
+
+/// Whether `lower` (a text in lower case) may hold code Babel changes.
+fn may_change(lower: &str) -> bool {
+    may_call(lower) || lower.contains("src_") || lower.contains("#+begin_src")
+}
+
+fn unknown_call_in(root: &SyntaxNode) -> Option<String> {
     let names: Vec<String> = root
         .descendants()
         .filter(|n| n.kind() == SRC_BLOCK)
@@ -691,15 +702,41 @@ pub fn unknown_call(text: &str) -> Option<String> {
 
 /// `text` with Babel's export changes.
 pub fn process(text: &str) -> String {
-    let lower = text.to_ascii_lowercase();
-    if !lower.contains("src_")
-        && !lower.contains("call_")
-        && !lower.contains("#+begin_src")
-        && !lower.contains("#+call:")
-    {
+    if !may_change(&text.to_ascii_lowercase()) {
         return text.to_string();
     }
-    let parse = org_syntax::parse(text);
+    process_in(text, &org_syntax::parse(text))
+}
+
+/// [`unknown_call`]'s error, else [`process`]'s text, from one parse of
+/// `text`: `parse` when given (`org_syntax::parse` of `text`, or a parse
+/// the same).
+pub(crate) fn checked_process(
+    text: &str,
+    parse: Option<&org_syntax::Parse>,
+) -> Result<String, String> {
+    let lower = text.to_ascii_lowercase();
+    if !may_change(&lower) {
+        return Ok(text.to_string());
+    }
+    let own;
+    let parse = match parse {
+        Some(p) => p,
+        None => {
+            own = org_syntax::parse(text);
+            &own
+        }
+    };
+    if may_call(&lower)
+        && let Some(e) = unknown_call_in(&parse.syntax())
+    {
+        return Err(e);
+    }
+    Ok(process_in(text, parse))
+}
+
+/// [`process`] with `parse`, the parse of `text`.
+fn process_in(text: &str, parse: &org_syntax::Parse) -> String {
     let root = parse.syntax();
     let keywords = parse.keywords();
     let global = global_properties(&keywords);
