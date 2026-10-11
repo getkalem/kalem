@@ -23,6 +23,7 @@ mod normal;
 mod objects;
 mod org;
 mod pattern;
+mod surround;
 
 use std::collections::HashMap;
 use std::ops::Range;
@@ -223,6 +224,9 @@ enum Op {
     /// `gc`: the lines commented out, or in again (vim-commentary's,
     /// Doom's evil-nerd-commenter).
     Comment,
+    /// `ys`: a pair put around the text (vim-surround's, Doom's
+    /// evil-surround), its mark typed after the motion.
+    Surround,
 }
 
 impl Op {
@@ -540,6 +544,8 @@ pub struct Vim {
     history_at: Option<(usize, String)>,
     /// CTRL-R on the command line: a register's name comes next.
     line_register: bool,
+    /// `ds`, `cs` or `ys` waiting for their marks.
+    surround: Option<surround::Surround>,
 }
 
 impl Default for Vim {
@@ -1523,6 +1529,7 @@ impl Vim {
             search_history: Vec::new(),
             history_at: None,
             line_register: false,
+            surround: None,
         }
     }
 
@@ -1798,6 +1805,7 @@ impl Vim {
             && self.count.is_none()
             && self.register.is_none()
             && self.command_line.is_none()
+            && self.surround.is_none()
     }
 
     fn visual(&self) -> bool {
@@ -2588,6 +2596,11 @@ impl Vim {
             let (l1, l2) = (line_of(doc, a), line_of(doc, b));
             return self.comment_lines(doc, l1, l2, out);
         }
+        // `ys`: the mark comes next.
+        if op == Op::Surround {
+            self.surround = Some(surround::Surround::Add(target));
+            return;
+        }
         match target {
             Target::Lines(l1, l2) => {
                 let lines: String = (l1..=l2)
@@ -2631,8 +2644,8 @@ impl Vim {
                             self.ai_line = Some(ls);
                         }
                     }
-                    // `gc` is done before.
-                    Op::Comment => {}
+                    // `gc` and `ys` are done before.
+                    Op::Comment | Op::Surround => {}
                     Op::Indent | Op::Outdent | Op::Reindent => {
                         self.shift_lines(doc, l1, l2, op == Op::Indent, out)
                     }
@@ -2713,8 +2726,8 @@ impl Vim {
                             self.block_corner = Some(top);
                         }
                     }
-                    // `gc` is done before.
-                    Op::Comment => {}
+                    // `gc` and `ys` are done before.
+                    Op::Comment | Op::Surround => {}
                     Op::Indent | Op::Outdent | Op::Reindent => {
                         self.shift_lines(doc, first, last, op == Op::Indent, out)
                     }
@@ -2741,8 +2754,8 @@ impl Vim {
                             self.enter_insert(doc, r.start);
                         }
                     }
-                    // `gc` is done before.
-                    Op::Comment => {}
+                    // `gc` and `ys` are done before.
+                    Op::Comment | Op::Surround => {}
                     Op::Indent | Op::Outdent | Op::Reindent => {
                         let (l1, l2) = (
                             line_of(doc, r.start),
@@ -3135,6 +3148,9 @@ impl Vim {
         host: &mut dyn Host,
         out: &mut Outcome,
     ) {
+        if let Some(s) = self.surround.take() {
+            return self.surround_key(doc, s, key);
+        }
         match self.pending {
             Pending::Register => {
                 self.pending = Pending::None;
@@ -3820,8 +3836,32 @@ impl Vim {
         if self.visual() {
             return self.visual_key(doc, c, host, out);
         }
-        if let Some((op, _)) = self.op {
+        if let Some((op, oc)) = self.op {
             match c {
+                // vim-surround's `ds`, `cs`, `ys` and `yss`.
+                's' if matches!(op, Op::Delete | Op::Change | Op::Yank | Op::Surround) => {
+                    let n = self.count.take().unwrap_or(1) * oc.max(1);
+                    self.op = None;
+                    match op {
+                        Op::Delete => {
+                            self.count = Some(n);
+                            self.surround = Some(surround::Surround::Delete);
+                        }
+                        Op::Change => {
+                            self.count = Some(n);
+                            self.surround = Some(surround::Surround::Change(None));
+                        }
+                        Op::Yank => self.op = Some((Op::Surround, oc)),
+                        _ => {
+                            // `yss`: the line, without its indent.
+                            let l = line_of(doc, self.cursor);
+                            let last = (l + n - 1).min(last_line(doc));
+                            let t = Target::Chars(first_non_blank(doc, l)..line_end(doc, last));
+                            self.begin_change();
+                            self.surround = Some(surround::Surround::Add(t));
+                        }
+                    }
+                }
                 'i' | 'a' => self.pending = Pending::Object(c == 'i'),
                 'f' | 't' | 'F' | 'T' => self.pending = Pending::Find(find_kind(c)),
                 'g' => self.pending = Pending::G,
@@ -4735,7 +4775,8 @@ impl Vim {
     }
 
     fn changed_if(&mut self, op: Op) {
-        if op != Op::Yank {
+        // `ys` changes the text when its mark comes.
+        if !matches!(op, Op::Yank | Op::Surround) {
             self.changed();
         }
     }
@@ -5476,27 +5517,32 @@ mod tests {
         run_in(text, at, keys, DocumentMode::Text { language: None }).0
     }
 
-    /// `keys` with `<Esc>`, `<CR>`, `<BS>`, `<Up>`, `<Down>` and `<C-r>`.
+    /// `keys` with `<Esc>`, `<CR>`, `<BS>`, `<Up>`, `<Down>` and `<C-r>`;
+    /// another `<` is the character.
     fn test_keys(keys: &str) -> Vec<Key> {
+        let named = |name: &str| {
+            Some(match name {
+                "Esc" => Key::Esc,
+                "CR" => Key::Enter,
+                "BS" => Key::Backspace,
+                "Up" => Key::Up,
+                "Down" => Key::Down,
+                n if n.len() == 3 && n.starts_with("C-") => Key::Ctrl(n.chars().nth(2)?),
+                _ => return None,
+            })
+        };
         let mut out = Vec::new();
         let mut chars = keys.chars().peekable();
         while let Some(c) = chars.next() {
-            out.push(
-                if c == '<' && chars.peek().is_some_and(char::is_ascii_alphabetic) {
-                    let name: String = chars.by_ref().take_while(|c| *c != '>').collect();
-                    match name.as_str() {
-                        "Esc" => Key::Esc,
-                        "CR" => Key::Enter,
-                        "BS" => Key::Backspace,
-                        "Up" => Key::Up,
-                        "Down" => Key::Down,
-                        n if n.starts_with("C-") => Key::Ctrl(n.chars().nth(2).expect("a letter")),
-                        _ => panic!("{name}"),
-                    }
-                } else {
-                    Key::Char(c)
-                },
-            );
+            if c == '<' {
+                let name: String = chars.clone().take_while(|c| *c != '>').collect();
+                if let Some(k) = named(&name) {
+                    chars.nth(name.chars().count());
+                    out.push(k);
+                    continue;
+                }
+            }
+            out.push(Key::Char(c));
         }
         out
     }
@@ -5541,6 +5587,44 @@ mod tests {
             "* A\n|# some text\n"
         );
         assert_eq!(run("text\n", 0, "gcc"), "|text\n");
+    }
+
+    #[test]
+    fn surround() {
+        // ds: the pair around the cursor; an opening bracket takes the
+        // blanks inside too.
+        assert_eq!(run("f(a, b) x\n", 3, "ds("), "f|a, b x\n");
+        assert_eq!(run("say \"hi there\" x\n", 6, "ds\""), "say |hi there x\n");
+        assert_eq!(run("( a )\n", 2, "ds("), "|a\n");
+        assert_eq!(run("( a )\n", 2, "ds)"), "| a \n");
+        assert_eq!(run("<p>one</p>\n", 4, "dst"), "|one\n");
+        assert_eq!(run("a *bold* b\n", 4, "ds*"), "a |bold b\n");
+        // cs: the pair changed; an opening bracket puts blanks inside, a
+        // tag is typed to its `>`.
+        assert_eq!(run("'hi'\n", 1, "cs'\""), "|\"hi\"\n");
+        assert_eq!(run("[x]\n", 1, "cs]("), "|( x )\n");
+        assert_eq!(run("[x]\n", 1, "csrb"), "|(x)\n");
+        assert_eq!(
+            run("\"x\"\n", 1, "cs\"<em class=a>"),
+            "|<em class=a>x</em>\n"
+        );
+        assert_eq!(run("<b>x</b>\n", 3, "cst\""), "|\"x\"\n");
+        // ys with a motion or text object, yss the line.
+        assert_eq!(run("one two\n", 0, "ysiw)"), "|(one) two\n");
+        assert_eq!(run("one two\n", 0, "ysiw("), "|( one ) two\n");
+        assert_eq!(run("one two\n", 0, "ysaw*"), "|*one* two\n");
+        assert_eq!(run("one two\n", 4, "ys$]"), "one |[two]\n");
+        assert_eq!(run("  one two\n", 5, "yss\""), "  |\"one two\"\n");
+        assert_eq!(run("one two\n", 0, "ysiw<b>"), "|<b>one</b> two\n");
+        assert_eq!(
+            run("  one\n  two\n", 2, "ysj}"),
+            "  |{\n  one\n  two\n  }\n"
+        );
+        // `.` repeats, `u` undoes in one step.
+        assert_eq!(run("a b\n", 0, "ysiw)W."), "(a) |(b)\n");
+        assert_eq!(run("(a)\n", 1, "ds)u"), "|(a)\n");
+        // No pair: nothing changes.
+        assert_eq!(run("abc\n", 1, "ds("), "a|bc\n");
     }
 
     #[test]
