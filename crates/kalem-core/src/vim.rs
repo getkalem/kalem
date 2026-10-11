@@ -18,6 +18,7 @@
 //! cursor must come out as in Vim itself (`tools/vim-expected.py`).
 
 mod ex;
+mod format;
 mod insert;
 mod normal;
 mod objects;
@@ -227,6 +228,10 @@ enum Op {
     /// `ys`: a pair put around the text (vim-surround's, Doom's
     /// evil-surround), its mark typed after the motion.
     Surround,
+    /// `gq`: the lines formatted to 'textwidth'.
+    Format,
+    /// `gw`: the same, the cursor staying on its text.
+    FormatKeep,
 }
 
 impl Op {
@@ -2596,6 +2601,10 @@ impl Vim {
             let (l1, l2) = (line_of(doc, a), line_of(doc, b));
             return self.comment_lines(doc, l1, l2, out);
         }
+        if matches!(op, Op::Format | Op::FormatKeep) {
+            let (l1, l2) = (line_of(doc, a), line_of(doc, b));
+            return self.format_lines(doc, l1, l2, op == Op::FormatKeep, host);
+        }
         // `ys`: the mark comes next.
         if op == Op::Surround {
             self.surround = Some(surround::Surround::Add(target));
@@ -2644,8 +2653,8 @@ impl Vim {
                             self.ai_line = Some(ls);
                         }
                     }
-                    // `gc` and `ys` are done before.
-                    Op::Comment | Op::Surround => {}
+                    // `gc`, `ys`, `gq` and `gw` are done before.
+                    Op::Comment | Op::Surround | Op::Format | Op::FormatKeep => {}
                     Op::Indent | Op::Outdent | Op::Reindent => {
                         self.shift_lines(doc, l1, l2, op == Op::Indent, out)
                     }
@@ -2726,8 +2735,8 @@ impl Vim {
                             self.block_corner = Some(top);
                         }
                     }
-                    // `gc` and `ys` are done before.
-                    Op::Comment | Op::Surround => {}
+                    // `gc`, `ys`, `gq` and `gw` are done before.
+                    Op::Comment | Op::Surround | Op::Format | Op::FormatKeep => {}
                     Op::Indent | Op::Outdent | Op::Reindent => {
                         self.shift_lines(doc, first, last, op == Op::Indent, out)
                     }
@@ -2754,8 +2763,8 @@ impl Vim {
                             self.enter_insert(doc, r.start);
                         }
                     }
-                    // `gc` and `ys` are done before.
-                    Op::Comment | Op::Surround => {}
+                    // `gc`, `ys`, `gq` and `gw` are done before.
+                    Op::Comment | Op::Surround | Op::Format | Op::FormatKeep => {}
                     Op::Indent | Op::Outdent | Op::Reindent => {
                         let (l1, l2) = (
                             line_of(doc, r.start),
@@ -2770,6 +2779,68 @@ impl Vim {
                 }
             }
         }
+    }
+
+    /// `gq` and `gw` (`keep`: the cursor stays on its text): lines `l1`
+    /// to `l2` formatted to 'textwidth', or with none to the screen's
+    /// width up to 79 columns, as Vim does.
+    fn format_lines(
+        &mut self,
+        doc: &mut DocumentState,
+        l1: usize,
+        l2: usize,
+        keep: bool,
+        host: &mut dyn Host,
+    ) {
+        let width = match self.options.textwidth {
+            0 => host.columns().saturating_sub(1).clamp(1, 79),
+            tw => tw,
+        };
+        let kind = match doc.meta.mode {
+            DocumentMode::Org => format::Kind::Org,
+            DocumentMode::Markdown => format::Kind::Markdown,
+            _ => format::Kind::Text,
+        };
+        let (s, e) = (line_start(doc, l1), line_end(doc, l2));
+        let old = doc.text().as_str()[s..e].to_string();
+        let lines: Vec<&str> = old.split('\n').collect();
+        let new = format::format(&lines, width, self.options.tabstop, kind).join("\n");
+        // `gw`: on the same text after, as many non-blanks before it.
+        let cursor = self.cursor;
+        let before = (s..=e).contains(&cursor).then(|| {
+            old[..cursor - s]
+                .chars()
+                .filter(|c| !c.is_whitespace())
+                .count()
+        });
+        if new != old {
+            // Undo comes back to the cursor where it was.
+            doc.selection = Selection::caret(cursor.min(doc.text().len()));
+            edit(doc, s..e, &new, s);
+        }
+        let at = if keep {
+            match before {
+                Some(n) => {
+                    let mut seen = 0;
+                    let i = new
+                        .char_indices()
+                        .find(|(_, c)| {
+                            let found = !c.is_whitespace() && seen == n;
+                            if !c.is_whitespace() {
+                                seen += 1;
+                            }
+                            found
+                        })
+                        .map_or(new.len(), |(i, _)| i);
+                    s + i
+                }
+                None => cursor.min(doc.text().len()),
+            }
+        } else {
+            first_non_blank(doc, l1 + new.split('\n').count() - 1)
+        };
+        doc.selection = Selection::caret(at);
+        self.cursor = at;
     }
 
     /// `gc`: lines `l1` to `l2` commented out with the markers of the
@@ -3535,12 +3606,14 @@ impl Vim {
                         };
                         self.finish_motion(doc, m, host, out);
                     }
-                    Key::Char(c @ ('u' | 'U' | '~' | '?' | 'c')) => {
+                    Key::Char(c @ ('u' | 'U' | '~' | '?' | 'c' | 'q' | 'w')) => {
                         let op = match c {
                             'u' => Op::Lower,
                             'U' => Op::Upper,
                             '?' => Op::Rot13,
                             'c' => Op::Comment,
+                            'q' => Op::Format,
+                            'w' => Op::FormatKeep,
                             _ => Op::Toggle,
                         };
                         if self.visual() {
@@ -3797,9 +3870,17 @@ impl Vim {
             }
             return self.reset();
         };
-        // `gcc`: the line commented (`c` is the change operator else).
-        if c == 'c' && matches!(self.op, Some((Op::Comment, _))) && !self.visual() {
-            return self.operator(doc, Op::Comment, host, out);
+        // `gcc`, `gqq` and `gww`: the line (`c` is the change operator
+        // else, `w` a motion).
+        if let Some((op @ (Op::Comment | Op::Format | Op::FormatKeep), _)) = self.op
+            && c == match op {
+                Op::Comment => 'c',
+                Op::Format => 'q',
+                _ => 'w',
+            }
+            && !self.visual()
+        {
+            return self.operator(doc, op, host, out);
         }
         // Operators.
         if let Some(op) = Op::of(c) {

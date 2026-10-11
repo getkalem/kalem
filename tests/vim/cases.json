@@ -4238,5 +4238,125 @@
   "name": "sweep_tabs_o_s_2_CR_x",
   "text": "\tone\ttwo\n\t\tdeep\tx\nno tab here\n    four spaces\n",
   "keys": "/o/s+2<CR>x"
+ },
+ {
+  "name": "gq_paragraph",
+  "text": "The quick brown fox jumps over\nthe lazy dog and runs\naway.\n\nNext paragraph.\n",
+  "keys": ":set tw=20<CR>gqip"
+ },
+ {
+  "name": "gq_line",
+  "text": "one two three four five six seven\nend\n",
+  "keys": ":set tw=15<CR>gqq"
+ },
+ {
+  "name": "gq_gqgq",
+  "text": "one two three four five six seven\nend\n",
+  "keys": ":set tw=15<CR>gqgq"
+ },
+ {
+  "name": "gw_keeps_cursor",
+  "text": "aa bb cc dd ee ff gg hh ii jj kk\n",
+  "keys": ":set tw=10<CR>9wgww"
+ },
+ {
+  "name": "gw_paragraph_cursor",
+  "text": "aa bb\ncc dd ee ff gg hh\nii\n",
+  "keys": ":set tw=8<CR>jwwgwip"
+ },
+ {
+  "name": "gq_list_item",
+  "text": "- an item with many words in it\n- next\n",
+  "keys": ":set tw=12<CR>gqip"
+ },
+ {
+  "name": "gq_comment",
+  "text": "# a comment that is rather long\n# more\n",
+  "keys": ":set tw=14<CR>gqip"
+ },
+ {
+  "name": "gq_nested_quote",
+  "text": "> > quoted text that goes on and on\n",
+  "keys": ":set tw=16<CR>gqq"
+ },
+ {
+  "name": "gq_visual",
+  "text": "a b c d e f g h\ni j k\nl\n",
+  "keys": ":set tw=6<CR>Vjgq"
+ },
+ {
+  "name": "gq_default_width",
+  "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\n",
+  "keys": "gqq"
+ },
+ {
+  "name": "gq_joins_short",
+  "text": "a\nb\nc\n\nd\n",
+  "keys": "gqip"
+ },
+ {
+  "name": "gq_indent",
+  "text": "  indented text that wraps around\n",
+  "keys": ":set tw=12<CR>gqq"
+ },
+ {
+  "name": "gq_long_word",
+  "text": "a extraordinarily b\n",
+  "keys": ":set tw=5<CR>gqq"
+ },
+ {
+  "name": "gq_dot",
+  "text": "aa bb cc dd\nee ff gg hh\n",
+  "keys": ":set tw=6<CR>gqqj."
+ },
+ {
+  "name": "gq_two_spaces",
+  "text": "One.  Two three\nfour.\n",
+  "keys": ":set tw=40<CR>gqip"
+ },
+ {
+  "name": "gq_count",
+  "text": "aa bb\ncc dd\nee ff\n",
+  "keys": ":set tw=20<CR>2gqq"
+ },
+ {
+  "name": "gq_undo",
+  "text": "aa bb cc dd\n",
+  "keys": ":set tw=6<CR>wgqqu"
+ },
+ {
+  "name": "cmdline_ctrl_p_history",
+  "text": "a a\na a\n",
+  "keys": ":s/a/b/<CR>j:<C-p><CR>"
+ },
+ {
+  "name": "cmdline_ctrl_p_twice",
+  "text": "a b\na b\n",
+  "keys": ":s/a/x/<CR>:s/b/y/<CR>j:<C-p><C-p><CR>"
+ },
+ {
+  "name": "cmdline_ctrl_r_ctrl_w",
+  "text": "foo bar foo\n",
+  "keys": "w:s/<C-r><C-w>/X/<CR>"
+ },
+ {
+  "name": "cmdline_ctrl_r_register",
+  "text": "one two\none\n",
+  "keys": "yiwj:s/<C-r>\"/1/<CR>"
+ },
+ {
+  "name": "cmdline_ctrl_u",
+  "text": "abc\n",
+  "keys": ":junk<C-u>s/b/B/<CR>"
+ },
+ {
+  "name": "cmdline_ctrl_w",
+  "text": "abc\n",
+  "keys": ":s/b/B/ junk<C-w><CR>"
+ },
+ {
+  "name": "search_ctrl_p_history",
+  "text": "x one\ny two\nz one\n",
+  "keys": "/one<CR>gg/two<CR>gg/<C-p><C-p><CR>x"
  }
 ]

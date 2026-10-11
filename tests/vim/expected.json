@@ -204,6 +204,36 @@
   "line": 1,
   "text": "oneX two;three  four\n\n  five-six seven.eight\nnine\n"
  },
+ "cmdline_ctrl_p_history": {
+  "col": 1,
+  "line": 2,
+  "text": "b a\nb a\n"
+ },
+ "cmdline_ctrl_p_twice": {
+  "col": 1,
+  "line": 2,
+  "text": "x y\nx b\n"
+ },
+ "cmdline_ctrl_r_ctrl_w": {
+  "col": 1,
+  "line": 1,
+  "text": "foo X foo\n"
+ },
+ "cmdline_ctrl_r_register": {
+  "col": 1,
+  "line": 2,
+  "text": "one two\n1\n"
+ },
+ "cmdline_ctrl_u": {
+  "col": 1,
+  "line": 1,
+  "text": "aBc\n"
+ },
+ "cmdline_ctrl_w": {
+  "col": 1,
+  "line": 1,
+  "text": "aBc\n"
+ },
  "count_e_lines": {
   "col": 14,
   "line": 1,
@@ -969,6 +999,81 @@
   "line": 2,
   "text": "first line\nsecnd line\nthird line\nfourth line\nfifth line\n"
  },
+ "gq_comment": {
+  "col": 1,
+  "line": 4,
+  "text": "# a comment\n# that is\n# rather long\n# more\n"
+ },
+ "gq_count": {
+  "col": 1,
+  "line": 1,
+  "text": "aa bb cc dd\nee ff\n"
+ },
+ "gq_default_width": {
+  "col": 1,
+  "line": 2,
+  "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor\nincididunt ut labore et dolore magna aliqua.\n"
+ },
+ "gq_dot": {
+  "col": 1,
+  "line": 4,
+  "text": "aa bb\ncc dd\nee ff\ngg hh\n"
+ },
+ "gq_gqgq": {
+  "col": 1,
+  "line": 3,
+  "text": "one two three\nfour five six\nseven\nend\n"
+ },
+ "gq_indent": {
+  "col": 3,
+  "line": 4,
+  "text": "  indented\n  text that\n  wraps\n  around\n"
+ },
+ "gq_joins_short": {
+  "col": 1,
+  "line": 1,
+  "text": "a b c\n\nd\n"
+ },
+ "gq_line": {
+  "col": 1,
+  "line": 3,
+  "text": "one two three\nfour five six\nseven\nend\n"
+ },
+ "gq_list_item": {
+  "col": 1,
+  "line": 5,
+  "text": "- an item\n  with many\n  words in\n  it\n- next\n"
+ },
+ "gq_long_word": {
+  "col": 1,
+  "line": 3,
+  "text": "a\nextraordinarily\nb\n"
+ },
+ "gq_nested_quote": {
+  "col": 1,
+  "line": 3,
+  "text": "> > quoted text\n> > that goes on\n> > and on\n"
+ },
+ "gq_paragraph": {
+  "col": 1,
+  "line": 3,
+  "text": "The quick brown fox\njumps over the lazy\ndog and runs away.\n\nNext paragraph.\n"
+ },
+ "gq_two_spaces": {
+  "col": 1,
+  "line": 1,
+  "text": "One.  Two three four.\n"
+ },
+ "gq_undo": {
+  "col": 4,
+  "line": 1,
+  "text": "aa bb cc dd\n"
+ },
+ "gq_visual": {
+  "col": 1,
+  "line": 4,
+  "text": "a b c\nd e f\ng h i\nj k\nl\n"
+ },
  "guiw": {
   "col": 1,
   "line": 1,
@@ -978,6 +1083,16 @@
   "col": 1,
   "line": 1,
   "text": " quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "gw_keeps_cursor": {
+  "col": 1,
+  "line": 4,
+  "text": "aa bb cc\ndd ee ff\ngg hh ii\njj kk\n"
+ },
+ "gw_paragraph_cursor": {
+  "col": 4,
+  "line": 2,
+  "text": "aa bb cc\ndd ee ff\ngg hh ii\n"
  },
  "hash_wrap": {
   "col": 6,
@@ -2158,6 +2273,11 @@
   "col": 29,
   "line": 1,
   "text": "The quick brown fox jumps ovr the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "search_ctrl_p_history": {
+  "col": 3,
+  "line": 1,
+  "text": "x ne\ny two\nz one\n"
  },
  "search_ic": {
   "col": 32,
