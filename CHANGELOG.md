@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.17] - 2026-10-11
+
 ### Added
 - A file another program changed while its document has unsaved changes is merged into them when the two changed different lines (`kalem_core::merge`, a three-way merge with the file as last read): both changes are kept, the document stays unsaved, and the status bar says so; only when both changed the same lines does Kalem ask as before. For Logseq or Obsidian open on the same notes, a sync, or git. Files up to 4 MB.
 
