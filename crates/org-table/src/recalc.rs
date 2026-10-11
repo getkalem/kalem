@@ -425,6 +425,28 @@ mod tests {
     }
 
     #[test]
+    fn fields_that_refer_to_each_other_stop_with_an_error() {
+        // Each field's text a reference to the other: substituted for
+        // ever, the editor frozen. The recalculation stops with an error,
+        // as at a reference to no field.
+        let none = |_: &str| None;
+        let env = env(&none);
+        for (table, f) in [
+            ("| $2 | $1 |   |\n", "$3=$1+0"),
+            ("| $2 | $1 |   |\n| 1 | 2 |   |\n", "$3=@1$1+0"),
+            ("| $1..$2 | $1 |   |\n", "$3=$1+0"),
+        ] {
+            let t = Table::parse(table);
+            let eqs = tblfm::parse(f).equations;
+            let e = recalculate(&t, &eqs, &env).unwrap_err();
+            assert!(
+                format!("{e:?}").contains("refer to each other"),
+                "{table}{f}: {e:?}"
+            );
+        }
+    }
+
+    #[test]
     fn letters_beyond_ascii_and_column_zero() {
         let t = Table::parse("| a | b |\n|---+---|\n| 1 |   |\n");
         let none = |_: &str| None;

@@ -784,12 +784,27 @@ impl Evaluator<'_> {
         };
         form = self.remote_indirection(&form, line, col)?;
         form = self.remotes(&form, keep_empty, numbers, &convert)?;
+        // A field's text is substituted as it is, references included, as
+        // Emacs substitutes it; fields that refer to each other (`| $2 | $1
+        // |` with `$3=$1+0`) would be substituted forever, the editor frozen
+        // (Emacs hangs until C-g). Past this many, the formula is an error.
+        let mut substituted = 0usize;
+        let mut substitute = || {
+            substituted += 1;
+            if substituted > MAX_SUBSTITUTIONS {
+                return err(format!(
+                    "Spreadsheet error: references that refer to each other in \"{formula}\""
+                ));
+            }
+            Ok(())
+        };
         // Ranges and fields with `@`.
         while let Some(at) = form.find('@') {
             let m = match_range(&form, at);
             if m.len <= 1 {
                 break;
             }
+            substitute()?;
             let desc = form[at..at + m.len].to_string();
             let v = convert(self.get_range(&desc, line, col)?);
             let rep = make_reference(&v, keep_empty, numbers, lisp);
@@ -800,6 +815,7 @@ impl Evaluator<'_> {
         }
         // Ranges in this row: `$1..$3`.
         while let Some((s, e, n1, n2)) = simple_range(&form) {
+            substitute()?;
             let start = n1.value + if n1.relative { col as i64 } else { 0 } - 1;
             let end = n2.value + if n2.relative { col as i64 } else { 0 };
             if start < 0 || end < start || end as usize > fields.len() {
@@ -811,6 +827,7 @@ impl Evaluator<'_> {
         }
         // Fields in this row: `$3`, `$-1`.
         while let Some((s, e, r)) = field_ref(&form) {
+            substitute()?;
             let n = r.value + if r.relative { col as i64 } else { 0 };
             let idx = if n == 0 { col as i64 } else { n.max(1) } - 1;
             let Some(x) = fields.get(idx as usize) else {
@@ -1034,6 +1051,11 @@ struct ColRef {
     value: i64,
     relative: bool,
 }
+
+/// How many references one evaluation of a formula substitutes at most
+/// (see [`Evaluator::eval_explained`]): more than any formula written by
+/// hand, few enough to stop at once.
+const MAX_SUBSTITUTIONS: usize = 10_000;
 
 /// `\$\(\([-+]\)?[0-9]+\)` at `i`: end and the reference.
 fn col_ref_at(s: &str, i: usize) -> Option<(usize, ColRef)> {
