@@ -8,7 +8,7 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use latex_syntax::{SyntaxElement, SyntaxKind::*, SyntaxNode, signatures};
-use rowan::{GreenNode, NodeOrToken};
+use rowan::{GreenNode, Language, NodeOrToken};
 
 /// An argument of a command, in order.
 #[derive(Debug, Clone, PartialEq)]
@@ -423,51 +423,99 @@ impl std::hash::Hasher for AddressHasher {
     }
 }
 
+/// A paragraph's green node (kept alive with its entry, so that its
+/// address is no other's), its events, and the last version that used it.
 type ByAddress =
-    HashMap<usize, (GreenNode, Arc<Vec<Item>>), std::hash::BuildHasherDefault<AddressHasher>>;
+    HashMap<usize, (GreenNode, Arc<Vec<Item>>, u64), std::hash::BuildHasherDefault<AddressHasher>>;
 
-/// Events per paragraph, by the address of its green node (kept alive
-/// with it).
+/// Events per paragraph, by the address of its green node.
 #[derive(Debug, Default)]
 pub(crate) struct Cache {
     map: ByAddress,
-    used: ByAddress,
+    /// The version being read, counted from 1.
+    version: u64,
+    /// How many entries it used.
+    used: usize,
 }
 
 impl Cache {
     /// The events of the whole document, with positions from 0.
     pub(crate) fn document(&mut self, root: &SyntaxNode) -> Vec<Item> {
         let mut out = Vec::new();
+        self.version += 1;
+        self.used = 0;
         self.children(root, 0, &mut out);
-        // Only what this version uses stays (the tables keep their room).
-        std::mem::swap(&mut self.map, &mut self.used);
-        self.used.clear();
+        // Only what this version uses stays, once the others are as many
+        // as it: an entry used is marked rather than moved to a new table
+        // at each version.
+        if self.map.len() > 2 * self.used + 64 {
+            let v = self.version;
+            self.map.retain(|_, e| e.2 == v);
+        }
         out
     }
 
-    /// The events of the paragraphs among `container`'s children.
+    /// The events of the paragraphs among `container`'s children: read
+    /// from the green children, a red node made only for a paragraph read
+    /// again (a long document's body has tens of thousands, and making
+    /// each one's node was most of an edit's time).
     fn children(&mut self, container: &SyntaxNode, base: usize, out: &mut Vec<Item>) {
-        for p in container.children().filter(|c| c.kind() == PARAGRAPH) {
-            let start = usize::from(p.text_range().start());
-            let items = self.paragraph(&p);
+        let paragraph = latex_syntax::LatexLanguage::kind_to_raw(PARAGRAPH);
+        let mut at = usize::from(container.text_range().start());
+        for (index, child) in container.green().children().enumerate() {
+            let start = at;
+            at += usize::from(child.text_len());
+            let NodeOrToken::Node(g) = child else {
+                continue;
+            };
+            if g.kind() != paragraph {
+                continue;
+            }
+            let items = match self.hit(std::ptr::from_ref(g) as usize) {
+                Some(items) => items,
+                None => {
+                    let found = if at > start {
+                        container.child_or_token_at_range(rowan::TextRange::at(
+                            rowan::TextSize::from(start as u32),
+                            rowan::TextSize::from(1),
+                        ))
+                    } else {
+                        container.children_with_tokens().nth(index)
+                    };
+                    let Some(p) = found.and_then(SyntaxElement::into_node) else {
+                        continue;
+                    };
+                    self.paragraph(&p)
+                }
+            };
             out.push(Item::Nested(start - base, items));
         }
+    }
+
+    /// The events kept for the paragraph whose green node is at `key`,
+    /// kept for the next version too.
+    fn hit(&mut self, key: usize) -> Option<Arc<Vec<Item>>> {
+        let e = self.map.get_mut(&key)?;
+        if e.2 != self.version {
+            e.2 = self.version;
+            self.used += 1;
+        }
+        Some(e.1.clone())
     }
 
     fn paragraph(&mut self, p: &SyntaxNode) -> Arc<Vec<Item>> {
         let green = p.green();
         let key = green as *const rowan::GreenNodeData as usize;
-        if let Some(hit) = self.map.get(&key).or_else(|| self.used.get(&key)) {
-            let hit = hit.clone();
-            self.used.insert(key, hit.clone());
-            return hit.1;
+        if let Some(hit) = self.hit(key) {
+            return hit;
         }
         let green = green.to_owned();
         let base = usize::from(p.text_range().start());
         let mut items = Vec::new();
         self.walk(p, base, &mut items);
         let items = Arc::new(items);
-        self.used.insert(key, (green, items.clone()));
+        self.map.insert(key, (green, items.clone(), self.version));
+        self.used += 1;
         items
     }
 

@@ -490,3 +490,36 @@ fn undeclared_theorems_of_usual_names() {
     let titles: Vec<&str> = m.theorems.iter().map(|t| t.title.as_str()).collect();
     assert_eq!(titles, ["Lemma", "Assumption", "Example"]);
 }
+
+#[test]
+fn labels_are_where_the_text_has_them() {
+    // Labels in paragraphs at every depth, the model's ranges the commands'
+    // own bytes (an offset of a paragraph among its container's children
+    // wrong by one passed every other test).
+    let mut text = String::from("\\documentclass{article}\n\\begin{document}\n");
+    for i in 0..30 {
+        text.push_str(&format!("Para {i} \\label{{p{i}}} text.\n\n"));
+        if i % 3 == 0 {
+            text.push_str(&format!(
+                "\\begin{{itemize}}\n\\item One \\label{{i{i}}}\n\n\\item Two\n\\end{{itemize}}\n\n"
+            ));
+        }
+    }
+    text.push_str("\\end{document}\n");
+    let model = Model::new(&parse(&text));
+    let mut n = 0;
+    for l in &model.labels {
+        let at = text
+            .find(&format!("\\label{{{}}}", l.name))
+            .expect("the label");
+        assert_eq!(
+            &text[l.range.clone()],
+            format!("\\label{{{}}}", l.name),
+            "{}",
+            l.name
+        );
+        assert_eq!(l.range.start, at, "{}", l.name);
+        n += 1;
+    }
+    assert_eq!(n, 40);
+}
