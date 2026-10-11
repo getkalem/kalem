@@ -66,11 +66,7 @@ Files that are not text open through plugins of [getkalem/plugins](https://githu
 </table>
 <p align="center"><i>The PDF built from the article, and a workbook with its formulas and its chart.</i></p>
 
-Programming languages come as plugins too: the syntax, and a language server for diagnostics, completion, hover, rename, code actions and formatting. Today there is one, for Elixir (with Expert or ElixirLS); more follow.
-
-```bash
-kalem plugin install elixir
-```
+Programming languages come as plugins too: the syntax, and a language server for diagnostics, completion, hover, rename, code actions and formatting. Today there are Elixir (with Expert or ElixirLS) and Rust (with rust-analyzer); more follow. Other plugins bring git into the editor, and open Logseq graphs and Obsidian vaults as themselves. *Browse Plugins* in the editor lists them all with what each does, and installs the one you choose ([Install](#install) shows it).
 
 If your format is not here, a plugin adds it: `kalem plugin browse` lists the plugins of the index, and `kalem plugin new` starts your own, in Rust. The plugins live in [getkalem/plugins](https://github.com/getkalem/plugins); the Book's [Part III](book/part-3/overview.org) has the contract.
 
@@ -126,12 +122,21 @@ kalem notes.md                      # the editor; `kalem tui notes.md` for the t
 kalem export notes.org --to html    # the command-line tools: check, fmt, query, export…
 ```
 
+Kalem's core opens Org, Markdown, LaTeX, CSV and BibTeX files, and every other text file as code. The rest comes as plugins you add when you want them: viewers for PDF files, pictures, workbooks and Word documents, programming languages, git, note graphs. In the editor, *Browse Plugins* in the *Kalem* menu or the command palette lists the plugins of the index; choose one, and Kalem says what it is, where it comes from and what it may do, then installs it when you confirm. On the command line, `kalem plugin browse` lists them and `kalem plugin install NAME` installs one.
+
+<table>
+  <tr>
+    <td><img src="assets/screenshot-plugins.png" alt="Browse Plugins in Kalem: the plugins of the index listed in the command palette, each with its version and what it does"></td>
+  </tr>
+</table>
+<p align="center"><i>Browse Plugins: every plugin of the index, with its version and what it does.</i></p>
+
 Settings live in `~/.config/kalem` on Linux and macOS (`$XDG_CONFIG_HOME/kalem` if it is set) and in `%APPDATA%\kalem` on Windows; the log and crash reports in `~/.local/state/kalem`, or `%LOCALAPPDATA%\kalem`. `KALEM_CONFIG_DIR` and `KALEM_STATE_DIR` move them, and `KALEM_LOG=debug` makes the log say more.
 
 ## Not yet
 
 - The Org agenda.
-- Language plugins beyond Elixir.
+- Language plugins beyond Elixir and Rust.
 - Signed installers and a macOS app in the release; a Windows MSI; Linux AppImage and Flatpak packages.
 
 ## Limits
