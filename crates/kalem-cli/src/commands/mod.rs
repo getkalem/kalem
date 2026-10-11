@@ -235,40 +235,50 @@ pub(crate) fn expand_files_of(
     Ok(out)
 }
 
-/// 1-based line and column (in characters) of a byte offset.
-pub(crate) fn line_col(text: &str, offset: usize) -> (usize, usize) {
-    // The line starts of the text last asked about, so that reporting
-    // many diagnostics is not quadratic.
-    thread_local! {
-        static STARTS: std::cell::RefCell<(usize, usize, Vec<usize>)> =
-            const { std::cell::RefCell::new((0, 0, Vec::new())) };
-    }
-    let offset = offset.min(text.len());
-    let start = STARTS.with(|c| {
-        let mut c = c.borrow_mut();
-        if (c.0, c.1) != (text.as_ptr() as usize, text.len()) {
-            let mut v = vec![0];
-            v.extend(text.match_indices('\n').map(|(i, _)| i + 1));
-            *c = (text.as_ptr() as usize, text.len(), v);
+/// The line starts of a text, for the 1-based line and column (in
+/// characters) of its offsets: made once for the many diagnostics of a
+/// file, so that reporting them is not quadratic. (A cache of the last
+/// text's starts known by the text's address and length gave a text the
+/// starts of another made where it had been.)
+pub(crate) struct Lines<'a> {
+    text: &'a str,
+    starts: Vec<usize>,
+    /// The last offset asked for, its line's start and its column: the
+    /// next column on the same line counted on from it.
+    last: std::cell::Cell<(usize, usize, usize)>,
+}
+
+impl<'a> Lines<'a> {
+    pub(crate) fn new(text: &'a str) -> Lines<'a> {
+        let mut starts = vec![0];
+        starts.extend(text.match_indices('\n').map(|(i, _)| i + 1));
+        Lines {
+            text,
+            starts,
+            last: std::cell::Cell::new((usize::MAX, 0, 0)),
         }
-        let i = c.2.partition_point(|&s| s <= offset);
-        (i, c.2[i - 1])
-    });
-    let (line, bol) = start;
-    // Counted on from the last column asked for on the same line.
-    thread_local! {
-        static LAST: std::cell::Cell<(usize, usize, usize, usize)> =
-            const { std::cell::Cell::new((usize::MAX, 0, 0, 0)) };
     }
-    let key = text.as_ptr() as usize ^ text.len();
-    let (k, lbol, loff, lcol) = LAST.get();
-    let col = if k == key && lbol == bol && loff <= offset {
-        lcol + text[loff..offset].chars().count()
-    } else {
-        text[bol..offset].chars().count() + 1
-    };
-    LAST.set((key, bol, offset, col));
-    (line, col)
+
+    /// 1-based line and column (in characters) of a byte offset.
+    pub(crate) fn line_col(&self, offset: usize) -> (usize, usize) {
+        let offset = offset.min(self.text.len());
+        let line = self.starts.partition_point(|&s| s <= offset);
+        let bol = self.starts[line - 1];
+        let (lbol, loff, lcol) = self.last.get();
+        let col = if lbol == bol && loff <= offset {
+            lcol + self.text[loff..offset].chars().count()
+        } else {
+            self.text[bol..offset].chars().count() + 1
+        };
+        self.last.set((bol, offset, col));
+        (line, col)
+    }
+}
+
+/// 1-based line and column (in characters) of a byte offset; [`Lines`]
+/// for many offsets of a text.
+pub(crate) fn line_col(text: &str, offset: usize) -> (usize, usize) {
+    Lines::new(text).line_col(offset)
 }
 
 /// Warnings about citations: `#+BIBLIOGRAPHY` files that cannot be read,
@@ -461,11 +471,12 @@ pub(crate) fn check(
         {
             failed = true;
         }
+        let lines = Lines::new(&text);
         if json {
             let list: Vec<serde_json::Value> = diags
                 .iter()
                 .map(|d| {
-                    let (line, col) = line_col(&text, usize::from(d.range.start()));
+                    let (line, col) = lines.line_col(usize::from(d.range.start()));
                     serde_json::json!({
                         "code": d.code,
                         "severity": format!("{:?}", d.severity).to_lowercase(),
@@ -488,7 +499,7 @@ pub(crate) fn check(
                 .map_err(|e| e.to_string())?;
             }
             for d in &diags {
-                let (line, col) = line_col(&text, usize::from(d.range.start()));
+                let (line, col) = lines.line_col(usize::from(d.range.start()));
                 let sev = match d.severity {
                     org_syntax::Severity::Warning => "warning",
                     org_syntax::Severity::Info => "info",
@@ -530,11 +541,12 @@ fn check_pack(
         Some(kalem_core::packs::Formatted::Text(t)) => Some(t == text),
         _ => None,
     };
+    let lines = Lines::new(text);
     if json {
         let list: Vec<serde_json::Value> = diags
             .iter()
             .map(|d| {
-                let (line, col) = line_col(text, d.range.start);
+                let (line, col) = lines.line_col(d.range.start);
                 serde_json::json!({
                     "code": d.code,
                     "severity": "error",
@@ -555,7 +567,7 @@ fn check_pack(
         return Ok((diags.is_empty(), Some(v)));
     }
     for d in &diags {
-        let (line, col) = line_col(text, d.range.start);
+        let (line, col) = lines.line_col(d.range.start);
         writeln!(
             out,
             "{}:{line}:{col}: error[{}]: {}",
@@ -589,11 +601,12 @@ fn check_latex(
     let diags = latex_check::check(f, text);
     let report = unrendered.then(|| latex_check::unrendered_in(text, Some(f)));
     let ok = roundtrip && !(deny_warnings && diags.iter().any(|d| d.severity == Severity::Warning));
+    let lines = Lines::new(text);
     if json {
         let list: Vec<serde_json::Value> = diags
             .iter()
             .map(|d| {
-                let (line, col) = line_col(text, d.range.start);
+                let (line, col) = lines.line_col(d.range.start);
                 serde_json::json!({
                     "code": d.code,
                     "severity": format!("{:?}", d.severity).to_lowercase(),
@@ -624,7 +637,7 @@ fn check_latex(
         .map_err(|e| e.to_string())?;
     }
     for d in &diags {
-        let (line, col) = line_col(text, d.range.start);
+        let (line, col) = lines.line_col(d.range.start);
         let sev = match d.severity {
             Severity::Warning => "warning",
             Severity::Info => "info",
@@ -798,4 +811,25 @@ pub(crate) fn view(file: &Path, unit: usize, png: bool, output: Option<&Path>) -
             .map_err(|e| e.to_string())?,
     }
     Ok(ExitCode::SUCCESS)
+}
+
+#[cfg(test)]
+mod line_col_tests {
+    use super::*;
+
+    #[test]
+    fn line_and_column_of_texts_one_after_another() {
+        // Texts of the same length, each dropped before the next is made:
+        // the allocator gives the second the first one's place, by which
+        // the line starts of the first were kept (and given to the second).
+        for _ in 0..50 {
+            let a = String::from("one\ntwo\nthree\n");
+            assert_eq!(line_col(&a, 9), (3, 2));
+            drop(a);
+            let b = String::from("onetwothr\ne\nxy");
+            assert_eq!(b.len(), 14);
+            assert_eq!(line_col(&b, 9), (1, 10));
+            assert_eq!(line_col(&b, 12), (3, 1));
+        }
+    }
 }

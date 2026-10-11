@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Recalculating a table whose fields' text refers to fields that refer back (`| $2 | $1 |` with `#+TBLFM: $3=$1+0`) stops with an error rather than freezing Kalem: a field's text is substituted into a formula as it is, references included, as Emacs substitutes it, so such fields were substituted forever (Emacs hangs on the table until `C-g`). Found by recalculating the corpus' tables with their formulas changed at random.
 - In Org's Insert mode with Vim keys, C-RET and C-S-RET make an item (a row, a heading) below or above, as in Normal mode and in Doom Emacs; they cycled the TODO state, the Word-like keys'.
 - After a definition of a LaTeX document changed (`\newcommand`), its formulas were sometimes still judged readable by the formula renderer, or not, with the old definitions: the cache of what it reads was known by the document model's address, which a new model could take after the old one was dropped. Now it holds a weak reference to the model.
+- `kalem check` and `kalem table` could report a file's problems at the lines of the file checked before it: the line starts were kept for the text last asked about, known by its address and length, which the next file's text could take once the last was dropped. Each file's report now has its own.
 
 ## [0.6.18] - 2026-10-11
 
