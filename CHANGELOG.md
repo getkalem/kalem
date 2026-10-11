@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A file another program changed while its document has unsaved changes is merged into them when the two changed different lines (`kalem_core::merge`, a three-way merge with the file as last read): both changes are kept, the document stays unsaved, and the status bar says so; only when both changed the same lines does Kalem ask as before. For Logseq or Obsidian open on the same notes, a sync, or git. Files up to 4 MB.
 
 ### Changed
-- A graph drawn (`graph-view`) looks as Logseq's and Obsidian's: the most common group's nodes grey, the other groups colored; a graph of up to 150 nodes names them all, the heaviest first, a name left out where it would cover one already written until zooming in makes room (the node chosen and the one under the mouse always named); the names smaller and softer. The terminal places its names the same way, in cells.
+- A graph drawn (`graph-view`) looks as Logseq's and Obsidian's: the most common group's nodes grey, the other groups colored; as many names as fit are written, the heaviest first, a name left out where it would cover one already written until zooming in makes room (the node chosen, the one under the mouse and its neighbors always named; of a large graph, the 300 heaviest on the screen tried); the names smaller and softer. The terminal places its names the same way, in cells.
 
 ### Fixed
 - Dragging a node of a graph drawn in the window (`graph-view`, the graph plugin's Graph View) no longer crashes Kalem: the mouse handler asked gpui for an animation frame outside a view's drawing, which aborts the process (0.6.14 to 0.6.16).

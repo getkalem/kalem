@@ -111,7 +111,7 @@ pub struct GraphView {
     moved: bool,
     /// The weight a node needs for its label to be written at any zoom:
     /// the heaviest dozen's.
-    label_weight: u32,
+
     /// The node under the mouse.
     pub hovered: Option<usize>,
     /// The node chosen (clicked, or stepped to with the keys).
@@ -149,7 +149,6 @@ impl GraphView {
         let mut v = GraphView {
             neighbors: neighbors(&graph),
             ranks: ranks(&graph),
-            label_weight: label_weight(&graph),
             graph,
             pos,
             heat: START_HEAT,
@@ -208,7 +207,6 @@ impl GraphView {
         self.pos = pos.into_iter().map(Option::unwrap_or_default).collect();
         self.neighbors = neighbors;
         self.ranks = ranks(&graph);
-        self.label_weight = label_weight(&graph);
         self.graph = graph;
         let find =
             |id: Option<String>| id.and_then(|id| self.graph.nodes.iter().position(|n| n.id == id));
@@ -402,27 +400,13 @@ impl GraphView {
         self.held
     }
 
-    /// Whether a node's label is written: when the nodes are large
-    /// enough on the screen, or it is heavy, marked, under the mouse or
-    /// beside the one under it.
-    pub fn label_shown(&self, i: usize) -> bool {
-        let r = self.radius(i) * self.zoom;
-        // A graph of a few nodes names them all, as Logseq's does.
-        self.graph.nodes.len() <= ALL_LABELS
-            || r >= 7.0
-            || self.graph.nodes[i].weight >= self.label_weight
-            || Some(i) == self.hovered
-            || Some(i) == self.selected
-            || Some(i) == self.graph.focus
-            || self.hovered.is_some_and(|h| self.neighbors[h].contains(&i))
-    }
-
     /// The nodes whose names are written, of those `on` screen at
     /// `places`, each name `width(i)` wide and `height` high under its
-    /// node: those [`GraphView::label_shown`] names, the heaviest first, a
-    /// name left out where it would cover one already written (zooming in
-    /// makes room); the node chosen, the one under the mouse and the one
-    /// in focus always.
+    /// node: the heaviest first, as many as fit, a name left out where it
+    /// would cover one already written (zooming in makes room); the node
+    /// chosen, the one under the mouse and the one in focus always, then
+    /// the neighbors of the one under the mouse. Of a large graph, the
+    /// [`NAMED`] heaviest on the screen are tried.
     pub fn labels(
         &self,
         places: &[[f32; 2]],
@@ -434,8 +418,17 @@ impl GraphView {
         let strong = |i: usize| {
             Some(i) == self.hovered || Some(i) == self.selected || Some(i) == self.graph.focus
         };
-        let mut order: Vec<usize> = (0..n).filter(|&i| on(i) && self.label_shown(i)).collect();
-        order.sort_by_key(|&i| (!strong(i), std::cmp::Reverse(self.graph.nodes[i].weight), i));
+        let near = |i: usize| self.hovered.is_some_and(|h| self.neighbors[h].contains(&i));
+        let mut order: Vec<usize> = (0..n).filter(|&i| on(i)).collect();
+        order.sort_by_key(|&i| {
+            (
+                !strong(i),
+                !near(i),
+                std::cmp::Reverse(self.graph.nodes[i].weight),
+                i,
+            )
+        });
+        order.truncate(NAMED.max(order.iter().take_while(|&&i| strong(i)).count()));
         let mut taken: Vec<[f32; 4]> = Vec::new();
         let mut out = Vec::new();
         for i in order {
@@ -494,16 +487,9 @@ impl GraphView {
     }
 }
 
-/// The weight of the twelfth heaviest node, above 1: the hubs' labels
-/// are written at any zoom.
-/// The nodes a graph may have and still name them all.
-pub const ALL_LABELS: usize = 150;
-
-fn label_weight(graph: &Graph) -> u32 {
-    let mut w: Vec<u32> = graph.nodes.iter().map(|n| n.weight).collect();
-    w.sort_unstable_by(|a, b| b.cmp(a));
-    w.get(11).copied().unwrap_or(1).max(2)
-}
+/// The names of a large graph tried for a frame: its heaviest nodes on
+/// the screen.
+pub const NAMED: usize = 300;
 
 /// Each node's group's rank among the groups, the most common first (and
 /// of two as common, the first named in alphabetical order).
