@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- A folder a plugin's layer serves (a Logseq graph, an Obsidian vault) is offered as a project when one of its notes is opened outside the projects, once a session, and added at once with `projects.auto_add`: its plugin reads projects only, and a graph's folder left out made the plugin see nothing. The layers are asked again when a project is added.
+
 ## [0.6.14] - 2026-10-11
 
 ### Added

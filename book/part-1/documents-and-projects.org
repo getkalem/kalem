@@ -16,7 +16,12 @@ folders you add are projects. /Toggle Adding Projects Automatically/
 folder under version control (Git, Mercurial, Subversion), or with a
 =.projectile= file or a =.kalem= folder (where a project's own settings
 live), join the list by itself when you open one of its files, as in
-Projectile (=projects.auto_add = true=). Nothing is written into the
+Projectile (=projects.auto_add = true=). A folder a plugin's layer
+serves (a Logseq graph by its =logseq/config.edn=, an Obsidian vault by
+its =.obsidian/=) is a project by its nature, and the plugin reads only
+projects' folders: opening one of its notes outside the projects offers
+to add it, once a session (Enter adds it, Escape leaves it), or adds it
+at once with =projects.auto_add=. Nothing is written into the
 folder: the list and the recent files are kept in =projects.toml=
 beside =settings.toml=.
 

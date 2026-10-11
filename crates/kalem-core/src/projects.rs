@@ -71,6 +71,8 @@ pub struct ProjectState {
     trees: HashMap<PathBuf, FolderTree>,
     /// The projects a document was shown from in this session.
     visited: HashSet<PathBuf>,
+    /// The folders offered as projects in this session (a notes graph's).
+    offered: HashSet<PathBuf>,
 }
 
 impl ProjectState {
@@ -81,6 +83,7 @@ impl ProjectState {
             indexes: HashMap::new(),
             trees: HashMap::new(),
             visited: HashSet::new(),
+            offered: HashSet::new(),
         }
     }
 
@@ -170,6 +173,43 @@ impl ProjectState {
         {
             message = Some(m);
         }
+        // A folder a plugin's layer serves (a Logseq graph, an Obsidian
+        // vault) is a project by its nature, and the plugin reads only
+        // projects: added with `auto_add`, else offered once a session.
+        // A project's folder written by another name (a link: `/tmp` and
+        // `/private/tmp`) holds it all the same.
+        let listed = |list: &Projects, root: &Path| {
+            let real = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+            let root = real(root);
+            list.list.iter().any(|p| root.starts_with(real(&p.root)))
+        };
+        if self.list.containing(path).is_none()
+            && let Some((root, layer)) = crate::layers::marker_root(path)
+            && !listed(&self.list, &root)
+        {
+            if auto_add {
+                if let Ok(m) = self.add(&root) {
+                    message = Some(m);
+                }
+            } else if self.offered.insert(root.clone()) {
+                let folder = root.display().to_string();
+                let title = crate::tr!(
+                    "project-offer-layer",
+                    folder = folder.as_str(),
+                    plugin = layer.plugin.as_str()
+                );
+                crate::jobs::offer(vec![crate::palette::PaletteItem {
+                    id: crate::palette::invocation(
+                        "project.add",
+                        &serde_json::json!({ "path": folder }),
+                    ),
+                    also: title.clone(),
+                    title,
+                    category: crate::tr!("project-offer-layer-why"),
+                    keys: String::new(),
+                }]);
+            }
+        }
         let root = self.list.containing(path)?.root.clone();
         self.visited.insert(root.clone());
         let file = path.is_file().then(|| normal(path));
@@ -198,6 +238,8 @@ impl ProjectState {
     pub fn add(&mut self, root: &Path) -> Result<String, String> {
         let i = self.list.add(root)?;
         self.save()?;
+        // What plugins may read changed: their layers are asked again.
+        crate::layers::refresh();
         Ok(crate::tr!(
             "msg-project-added",
             name = self.list.list[i].name.clone()
@@ -838,6 +880,52 @@ pub fn matching(picker: &Picker, input: &str) -> Vec<usize> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_notes_graphs_folder_is_offered_as_a_project() {
+        use super::ProjectState;
+        let base =
+            std::env::temp_dir().join(format!("kalem-core-graphroot-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let graph = base.join("notes");
+        std::fs::create_dir_all(graph.join("kalem-test-graph-marker")).unwrap();
+        std::fs::create_dir_all(graph.join("pages")).unwrap();
+        let note = graph.join("pages/a.md");
+        std::fs::write(&note, "- a\n").unwrap();
+        crate::layers::register(crate::layers::LayerSpec {
+            plugin: "graphtest".into(),
+            id: "notes".into(),
+            markers: vec!["kalem-test-graph-marker".into()],
+            modes: vec!["markdown".into()],
+            open: None,
+        });
+        let mut state = ProjectState::default();
+        let _ = crate::jobs::take_offers();
+        // Without `auto_add`: offered once, the folder named.
+        assert!(state.entered(Some(&note), false).is_none());
+        let offers = crate::jobs::take_offers();
+        let offer = offers
+            .iter()
+            .flatten()
+            .find(|i| i.id.starts_with("project.add "))
+            .expect("an offer");
+        let (_, args) = crate::palette::split_invocation(&offer.id);
+        assert_eq!(args["path"], graph.display().to_string());
+        state.entered(Some(&note), false);
+        assert!(
+            !crate::jobs::take_offers()
+                .iter()
+                .flatten()
+                .any(|i| i.id.starts_with("project.add ")),
+            "offered once"
+        );
+        // With it: added.
+        let mut state = ProjectState::default();
+        assert!(state.entered(Some(&note), true).is_some());
+        assert!(state.list.containing(&note).is_some());
+        crate::layers::remove_plugin("graphtest");
+        let _ = std::fs::remove_dir_all(&base);
+    }
 
     #[test]
     fn folder_tree() {
