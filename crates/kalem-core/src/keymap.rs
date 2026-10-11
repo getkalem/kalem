@@ -850,6 +850,11 @@ fn doom_group(path: &[&str]) -> Option<&'static str> {
         [key] => *key,
         ["n", "r"] => return Some("roam"),
         ["n", "r", "d"] => return Some("by date"),
+        ["o", "a"] => return Some("org agenda"),
+        ["g", "c"] => return Some("create"),
+        ["g", "f"] => return Some("find"),
+        ["g", "l"] => return Some("list"),
+        ["g", "o"] => return Some("open in browser"),
         _ => return None,
     };
     Some(match key {

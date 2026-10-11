@@ -934,9 +934,27 @@ what = "The file manager"
 command = "dired.jump"
 
 [[key]]
-doom = "SPC o a"
-keys = "space o a"
+doom = "SPC o a a"
+keys = "space o a a"
 what = "Agenda"
+reason = "Waits for the agenda (3.5); =kalem query= lists a project's tasks until then"
+
+[[key]]
+doom = "SPC o a t"
+keys = "space o a t"
+what = "TODO list"
+reason = "Waits for the agenda (3.5); =kalem query= lists a project's tasks until then"
+
+[[key]]
+doom = "SPC o a m"
+keys = "space o a m"
+what = "Tags search"
+reason = "Waits for the agenda (3.5); =kalem query= lists a project's tasks until then"
+
+[[key]]
+doom = "SPC o a v"
+keys = "space o a v"
+what = "View search"
 reason = "Waits for the agenda (3.5); =kalem query= lists a project's tasks until then"
 
 [[key]]
@@ -1532,13 +1550,13 @@ reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
 [[key]]
 doom = "SPC g b"
 keys = "space g b"
-what = "Blame"
+what = "Switch branch"
 reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
 
 [[key]]
 doom = "SPC g B"
 keys = "space g shift+b"
-what = "Blame this line"
+what = "Blame"
 reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
 
 [[key]]
@@ -1624,6 +1642,180 @@ doom = "SPC g y"
 keys = "space g y"
 what = "Copy the link to the remote"
 reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g Y"
+keys = "space g shift+y"
+what = "Copy the link to the remote's homepage"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g ."
+keys = "space g ."
+what = "This file's git commands"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g D"
+keys = "space g shift+d"
+what = "Delete this file from git"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g F"
+keys = "space g shift+f"
+what = "Fetch"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g C"
+keys = "space g shift+c"
+what = "Clone a repository"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g c b"
+keys = "space g c b"
+what = "New branch"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g c f"
+keys = "space g c f"
+what = "Fixup commit"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g c r"
+keys = "space g c r"
+what = "Initialize a repository"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g c R"
+keys = "space g c shift+r"
+what = "Clone a repository"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g f f"
+keys = "space g f f"
+what = "Find a file in a revision"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g f g"
+keys = "space g f g"
+what = "Find the git configuration file"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g f c"
+keys = "space g f c"
+what = "Show a commit"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g l r"
+keys = "space g l r"
+what = "List repositories"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g l s"
+keys = "space g l s"
+what = "List submodules"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g o h"
+keys = "space g o h"
+what = "Open the remote's homepage"
+reason = "Needs the git plugin of =getkalem/plugins= (not in the core, D29)"
+
+[[key]]
+doom = "SPC g '"
+keys = "space g '"
+what = "Forge's commands"
+reason = "Needs a forge plugin of =getkalem/plugins= (issues and pull requests; not the git plugin's, D29)"
+
+[[key]]
+doom = "SPC g f i"
+keys = "space g f i"
+what = "Find an issue"
+reason = "Needs a forge plugin of =getkalem/plugins= (issues and pull requests; not the git plugin's, D29)"
+
+[[key]]
+doom = "SPC g f p"
+keys = "space g f p"
+what = "Find a pull request"
+reason = "Needs a forge plugin of =getkalem/plugins= (issues and pull requests; not the git plugin's, D29)"
+
+[[key]]
+doom = "SPC g o r"
+keys = "space g o r"
+what = "Open the remote"
+reason = "Needs a forge plugin of =getkalem/plugins= (issues and pull requests; not the git plugin's, D29)"
+
+[[key]]
+doom = "SPC g o c"
+keys = "space g o c"
+what = "Open a commit on the remote"
+reason = "Needs a forge plugin of =getkalem/plugins= (issues and pull requests; not the git plugin's, D29)"
+
+[[key]]
+doom = "SPC g o i"
+keys = "space g o i"
+what = "Open an issue"
+reason = "Needs a forge plugin of =getkalem/plugins= (issues and pull requests; not the git plugin's, D29)"
+
+[[key]]
+doom = "SPC g o p"
+keys = "space g o p"
+what = "Open a pull request"
+reason = "Needs a forge plugin of =getkalem/plugins= (issues and pull requests; not the git plugin's, D29)"
+
+[[key]]
+doom = "SPC g o I"
+keys = "space g o shift+i"
+what = "Open the issues"
+reason = "Needs a forge plugin of =getkalem/plugins= (issues and pull requests; not the git plugin's, D29)"
+
+[[key]]
+doom = "SPC g o P"
+keys = "space g o shift+p"
+what = "Open the pull requests"
+reason = "Needs a forge plugin of =getkalem/plugins= (issues and pull requests; not the git plugin's, D29)"
+
+[[key]]
+doom = "SPC g l i"
+keys = "space g l i"
+what = "List issues"
+reason = "Needs a forge plugin of =getkalem/plugins= (issues and pull requests; not the git plugin's, D29)"
+
+[[key]]
+doom = "SPC g l p"
+keys = "space g l p"
+what = "List pull requests"
+reason = "Needs a forge plugin of =getkalem/plugins= (issues and pull requests; not the git plugin's, D29)"
+
+[[key]]
+doom = "SPC g l n"
+keys = "space g l n"
+what = "List notifications"
+reason = "Needs a forge plugin of =getkalem/plugins= (issues and pull requests; not the git plugin's, D29)"
+
+[[key]]
+doom = "SPC g c i"
+keys = "space g c i"
+what = "New issue"
+reason = "Needs a forge plugin of =getkalem/plugins= (issues and pull requests; not the git plugin's, D29)"
+
+[[key]]
+doom = "SPC g c p"
+keys = "space g c p"
+what = "New pull request"
+reason = "Needs a forge plugin of =getkalem/plugins= (issues and pull requests; not the git plugin's, D29)"
 
 
 # Notes =SPC n=.
