@@ -701,7 +701,10 @@ fn fill(source: &str, index_urls: &[String], staging: &Path) -> Result<(), Strin
 
 /// Puts the released component `bytes` of entry `e` (its hash checked)
 /// in `staging` with its manifest: the source folder's `plugin.json` at
-/// the release's tag, which must name the entry's plugin and version.
+/// the release's tag, which must name the entry's plugin and version;
+/// and the files the manifest names beside them ([`named_files`]: a
+/// plugin with a language half loads its syntaxes, and loads no language
+/// at all without them), from the same folder at the same tag.
 fn released_component(e: &IndexEntry, bytes: &[u8], staging: &Path) -> Result<(), String> {
     let text = released_manifest(e)?;
     let m: Value =
@@ -727,30 +730,67 @@ fn released_component(e: &IndexEntry, bytes: &[u8], staging: &Path) -> Result<()
         std::fs::create_dir_all(d).map_err(|err| err.to_string())?;
     }
     std::fs::write(&file, bytes).map_err(|err| format!("{}: {err}", file.display()))?;
+    for rel in named_files(&m) {
+        if Path::new(&rel).has_root() || Path::new(&rel).is_absolute() || rel.contains("..") {
+            return Err(format!("{}'s file {rel} is not in its folder", e.name));
+        }
+        let to = staging.join(&rel);
+        if let Some(d) = to.parent() {
+            std::fs::create_dir_all(d).map_err(|err| err.to_string())?;
+        }
+        let got = released_file(e, &rel)?;
+        std::fs::write(&to, got).map_err(|err| format!("{}: {err}", to.display()))?;
+    }
     std::fs::write(staging.join("plugin.json"), &text).map_err(|err| err.to_string())
+}
+
+/// The files manifest `m` names besides its component and itself, which
+/// Kalem reads from the plugin's folder: its syntaxes and their bases.
+fn named_files(m: &Value) -> Vec<String> {
+    ["syntaxes", "syntaxBases"]
+        .iter()
+        .flat_map(|k| strings(&m[*k]))
+        .collect()
 }
 
 /// The manifest of entry `e`'s release: its source folder's `plugin.json`
 /// at the tag the release workflow makes (`NAME-vVERSION`, the folder's
 /// name), or in the folder on disk.
 fn released_manifest(e: &IndexEntry) -> Result<Vec<u8>, String> {
-    if let Some(url) = released_manifest_url(&e.source, &e.version) {
+    released_file(e, "plugin.json").map_err(|err| {
+        format!(
+            "{}: its release has no manifest Kalem finds ({err})",
+            e.name
+        )
+    })
+}
+
+/// File `rel` of entry `e`'s release: in its source folder at the
+/// release's tag, or in the folder on disk.
+fn released_file(e: &IndexEntry, rel: &str) -> Result<Vec<u8>, String> {
+    if let Some(url) = released_file_url(&e.source, &e.version, rel) {
         return fetch(&url);
     }
     match parse_source(&e.source) {
         Source::Dir(d) => {
-            std::fs::read(d.join("plugin.json")).map_err(|err| format!("{}: {err}", d.display()))
+            let f = d.join(rel);
+            std::fs::read(&f).map_err(|err| format!("{}: {err}", f.display()))
         }
-        _ => Err(format!(
-            "{}: its release has no manifest Kalem finds",
-            e.name
-        )),
+        _ => Err(format!("{}: no {rel} Kalem finds", e.name)),
     }
 }
 
 /// Where the manifest of version `version` of a plugin whose source is a
 /// GitHub folder is: the folder at the release's tag.
+#[cfg(test)]
 fn released_manifest_url(source: &str, version: &str) -> Option<String> {
+    released_file_url(source, version, "plugin.json")
+}
+
+/// Where file `rel` of version `version` of a plugin whose source is a
+/// GitHub folder is: the folder at the release's tag, the file's name
+/// written for a URL (`Journal (Base).sublime-syntax`).
+fn released_file_url(source: &str, version: &str, rel: &str) -> Option<String> {
     let Source::GitHub {
         owner, repo, path, ..
     } = parse_source(source)
@@ -758,8 +798,18 @@ fn released_manifest_url(source: &str, version: &str) -> Option<String> {
         return None;
     };
     let folder = path.rsplit('/').next().unwrap_or(&path);
+    let rel: String = rel
+        .chars()
+        .map(|c| match c {
+            ' ' => "%20".to_string(),
+            '#' => "%23".to_string(),
+            '?' => "%3F".to_string(),
+            '%' => "%25".to_string(),
+            c => c.to_string(),
+        })
+        .collect();
     Some(format!(
-        "https://raw.githubusercontent.com/{owner}/{repo}/{folder}-v{version}/{path}/plugin.json"
+        "https://raw.githubusercontent.com/{owner}/{repo}/{folder}-v{version}/{path}/{rel}"
     ))
 }
 
@@ -2007,12 +2057,17 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         let source = dir.join("plugins/counter");
         std::fs::create_dir_all(&source).unwrap();
+        // A component with a language half: its syntaxes come with it.
         let manifest = |version: &str| {
             format!(
-                r#"{{"id":"org.x.counter","name":"Counter","version":"{version}","main":"dist/counter.wasm"}}"#
+                r#"{{"id":"org.x.counter","name":"Counter","version":"{version}","main":"dist/counter.wasm",
+                    "syntaxes":["syntaxes/Count.sublime-syntax"],"syntaxBases":["syntaxes/Count (Base).sublime-syntax"]}}"#
             )
         };
         std::fs::write(source.join("plugin.json"), manifest("0.2.0")).unwrap();
+        std::fs::create_dir_all(source.join("syntaxes")).unwrap();
+        std::fs::write(source.join("syntaxes/Count.sublime-syntax"), "a").unwrap();
+        std::fs::write(source.join("syntaxes/Count (Base).sublime-syntax"), "b").unwrap();
         // The release's asset: a component (its header), alone.
         let component = b"\0asm\x0d\x00\x01\x00rest".to_vec();
         let asset = dir.join("counter.wasm");
@@ -2042,6 +2097,12 @@ mod tests {
             std::fs::read(p.staging.join("dist/counter.wasm")).unwrap(),
             component
         );
+        assert_eq!(
+            std::fs::read_to_string(p.staging.join("syntaxes/Count (Base).sublime-syntax"))
+                .unwrap(),
+            "b"
+        );
+        assert!(p.staging.join("syntaxes/Count.sublime-syntax").is_file());
         assert!(summary(&p).iter().any(|l| l.starts_with("Adds commands")));
         let _ = std::fs::remove_dir_all(&p.staging);
         // A program named by its permission is listed as one it runs, and
@@ -2088,6 +2149,17 @@ mod tests {
             .as_deref(),
             Some(
                 "https://raw.githubusercontent.com/getkalem/plugins/pdf-viewer-v0.1.0/plugins/pdf-viewer/plugin.json"
+            )
+        );
+        assert_eq!(
+            released_file_url(
+                "https://github.com/getkalem/plugins/tree/main/plugins/pta",
+                "0.1.0",
+                "syntaxes/Journal (Base).sublime-syntax"
+            )
+            .as_deref(),
+            Some(
+                "https://raw.githubusercontent.com/getkalem/plugins/pta-v0.1.0/plugins/pta/syntaxes/Journal%20(Base).sublime-syntax"
             )
         );
     }
