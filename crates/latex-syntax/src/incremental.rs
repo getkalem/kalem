@@ -17,7 +17,7 @@ use rowan::NodeOrToken;
 
 use crate::SyntaxKind::*;
 use crate::parser::{Mode, Parser};
-use crate::{Parse, SyntaxElement, SyntaxNode, TextEdit, signatures};
+use crate::{Parse, SyntaxElement, SyntaxNode, TextEdit, TextRange, TextSize, signatures};
 
 fn span(el: &SyntaxElement) -> (usize, usize) {
     let r = el.text_range();
@@ -72,15 +72,21 @@ pub(crate) fn reparse(
     let root = old.syntax();
     let mut container = root.clone();
     let mut mode = Mode::Text;
-    let kids = loop {
-        let kids: Vec<SyntaxElement> = container.children_with_tokens().collect();
-        if kids.is_empty() {
-            return None;
+    // The child of `c` holding byte `p` (the first ending past it), the
+    // last one past the end: found by position, as a long document's body
+    // has tens of thousands of children, which are not all made.
+    let child_at = |c: &SyntaxNode, p: usize| {
+        if p < usize::from(c.text_range().end()) {
+            c.child_or_token_at_range(TextRange::at(TextSize::from(p as u32), TextSize::from(1)))
+        } else {
+            c.last_child_or_token()
         }
-        let a = kids.partition_point(|k| span(k).1 <= s).min(kids.len() - 1);
-        let b = kids.partition_point(|k| span(k).1 <= e).min(kids.len() - 1);
-        if a == b
-            && let Some(p) = kids[a].as_node()
+    };
+    let (a, b) = loop {
+        let a = child_at(&container, s)?;
+        let b = child_at(&container, e)?;
+        if a.index() == b.index()
+            && let Some(p) = a.as_node()
             && p.kind() == PARAGRAPH
             && let Some((body, m)) = inner_body(p, s, e)
         {
@@ -88,22 +94,34 @@ pub(crate) fn reparse(
             mode = m;
             continue;
         }
-        break (kids, a, b);
+        break (a, b);
     };
-    let (kids, a, b) = kids;
     let is_break = |el: &SyntaxElement| el.kind() == PAR_BREAK;
-    let mut i = a;
-    while !(is_break(&kids[i]) && span(&kids[i]).0 < s) && i > 0 {
-        i -= 1;
+    let mut first = a;
+    while !(is_break(&first) && span(&first).0 < s) {
+        match first.prev_sibling_or_token() {
+            Some(p) => first = p,
+            None => break,
+        }
     }
-    let mut j = b;
-    while !(is_break(&kids[j]) && span(&kids[j]).1 > e) && j + 1 < kids.len() {
-        j += 1;
+    let mut last = b;
+    while !(is_break(&last) && span(&last).1 > e) {
+        match last.next_sibling_or_token() {
+            Some(n) => last = n,
+            None => break,
+        }
     }
-    let starts_with_break = is_break(&kids[i]) && span(&kids[i]).0 < s;
-    let ends_with_break = is_break(&kids[j]) && span(&kids[j]).1 > e;
-    let rs = span(&kids[i]).0;
-    let re = span(&kids[j]).1;
+    let (i, j) = (first.index(), last.index());
+    // The children from `first` to `last`.
+    let kids: Vec<SyntaxElement> = std::iter::successors(Some(first), |k| {
+        (k.index() < j).then(|| k.next_sibling_or_token()).flatten()
+    })
+    .collect();
+    let at = |k: usize| &kids[k - i];
+    let starts_with_break = is_break(at(i)) && span(at(i)).0 < s;
+    let ends_with_break = is_break(at(j)) && span(at(j)).1 > e;
+    let rs = span(at(i)).0;
+    let re = span(at(j)).1;
     let is_root = container.parent().is_none();
     // At the ends of an environment's body, the edit keeps off the
     // `\begin` and `\end` around it (`inner_body`); at the ends of the
@@ -128,7 +146,7 @@ pub(crate) fn reparse(
         return None;
     }
     let sections = |from: usize, to: usize| {
-        kids[from..=to].iter().any(|k| {
+        kids[from - i..=to - i].iter().any(|k| {
             k.as_node().is_some_and(|n| {
                 n.descendants_with_tokens()
                     .filter_map(|t| t.into_token())
@@ -143,7 +161,7 @@ pub(crate) fn reparse(
     // A verbatim environment's `\\begin` or `\\end` in the region, before or
     // after the edit, can end or start one elsewhere (inside it `%` is no
     // comment): only a full parse knows.
-    let old_region: String = kids[i..=j].iter().map(|k| k.to_string()).collect();
+    let old_region: String = kids.iter().map(|k| k.to_string()).collect();
     if verbatim_edge(&old_region) || verbatim_edge(&new_text[rs..new_re]) {
         return None;
     }

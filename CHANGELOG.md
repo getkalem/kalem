@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- Typing in a long LaTeX document parses again from fewer of its parts: the paragraph around the edit is found by position among the body's children rather than by making every one of them (a body of 10 MB has tens of thousands). A keystroke's parse in a paper of 1 MB 0.22 ms rather than 0.99 ms; a keystroke in one of 10 MB 32 ms rather than 42 ms.
+
 ## [0.6.19] - 2026-10-11
 
 ### Added
