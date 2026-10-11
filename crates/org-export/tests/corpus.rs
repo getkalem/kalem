@@ -3,7 +3,10 @@
 //! `KALEM_EXPORT_BACKENDS="html md latex" emacs -Q --batch -l tests/emacs/export.el
 //! .cache/worg .cache/export-expected/worg recursive`) and by Kalem. The
 //! test reports how many agree and fails if fewer agree than before
-//! (the numbers below only go up; every file agrees now). Without the corpus it does nothing.
+//! (the numbers below only go up). Every file agrees but `org-syntax`'s
+//! appendix and `org-tutorials/org-publish-html-tutorial`'s symbols, tables
+//! of Org's entities, which render as standards say, not as Org's own
+//! table does (decision D18). Without the corpus it does nothing.
 
 #![allow(clippy::print_stderr)]
 
@@ -114,12 +117,12 @@ fn run(backend: &dyn org_export::Backend, ext: &str, known: usize) {
 
 #[test]
 fn worg_html() {
-    run(&org_export::Html, "html", 287);
+    run(&org_export::Html, "html", 285);
 }
 
 #[test]
 fn worg_md() {
-    run(&org_export::Markdown, "md", 287);
+    run(&org_export::Markdown, "md", 285);
 }
 
 #[test]

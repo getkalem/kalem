@@ -45,8 +45,14 @@ not Org's, for the binaries as much as for the crate.
 - for each character, its renderings: LaTeX's math symbols
   (=fontmath.ltx=, =amssymb.sty=, =latexsym.sty=) before its text
   encodings (the =*enc.dfu= files), LaTeX 2ε being under the LPPL;
-  the HTML name when the HTML Standard gives that name this character,
-  else a numeric reference; ASCII and Latin-1 by the Unicode Character
+  in HTML, the name HTML 4.01 gives the character (=&rarr;=, =&infin;=;
+  of its entity sets, W3C, only which names they hold is read), else
+  the entity's own name when the HTML Standard gives it this character
+  (=&vert;=), else an ASCII character as itself, else the HTML
+  Standard's shortest name for it (=&ctdot;=), else a numeric reference
+  (since 2026-10-11: before, a character was named only by the entity's
+  own name, and HTML 4.01's names, which Org writes, were numbers);
+  ASCII and Latin-1 by the Unicode Character
   Database's decompositions and names, and Kalem's own table of
   symbols.
 
@@ -60,6 +66,10 @@ it: spaces and marks, emoticons, aliases LaTeX defines through others
 What differs from Emacs: the renderings follow the standards, so a few
 characters differ (=\phi= is LaTeX's =ϕ=, =\Amacr= is =Ā=), and the
 ASCII and Latin-1 renderings, Org's own, differ for about 150 names.
-The export cases compared with Emacs still agree. =org-syntax= may be
-published as far as this decision goes.
+The export cases compared with Emacs still agree. Of Worg's 287 files,
+all agree in HTML and Markdown but the two that list Org's entities in
+a table (=org-syntax.org='s appendix, the HTML publishing tutorial's
+symbols), where these characters differ, and so do renderings Org gives
+that no standard does (=\odot= as =o=, =\Idot= as =&idot;=).
+=org-syntax= may be published as far as this decision goes.
 

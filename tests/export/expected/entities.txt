@@ -1,0 +1,10 @@
+Entities written with HTML 4.01's names: [infinity], ->, =>, <-,
+[uparrow] and [downarrow], -> and <-, ... and ..., *, A, +-, [not equal
+to], <= and >=, [element of], [partial differential], [dot], section,
+[dagger], varepsilon, theta, <x>, * and [clubs].
+
+With their own names where HTML has them: alpha, | and ->.
+
+As themselves: / and _.
+
+With the HTML Standard's names, HTML 4.01 having none: dalet and ....

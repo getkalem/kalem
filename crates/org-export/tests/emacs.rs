@@ -219,7 +219,13 @@ fn gfm() {
 #[test]
 fn latex() {
     // Emacs refuses to download the remote image of `images` and stops.
-    run(&org_export::Latex::default(), "tex", &["images"]);
+    // `entities` checks the HTML of entities; their LaTeX is LaTeX's own
+    // command where Org's table has another (decision D18).
+    run(
+        &org_export::Latex::default(),
+        "tex",
+        &["images", "entities"],
+    );
 }
 
 /// A whole LaTeX document as Kalem and Emacs both write it: the creation
@@ -304,7 +310,9 @@ fn text_document() {
 
 #[test]
 fn text() {
-    run(&org_export::Text::default(), "txt", &[]);
+    // `entities` checks the HTML of entities; their ASCII is Unicode's
+    // where Org's table has its own (decision D18).
+    run(&org_export::Text::default(), "txt", &["entities"]);
 }
 
 /// The sample book of `examples/book` (a part, two included chapters,

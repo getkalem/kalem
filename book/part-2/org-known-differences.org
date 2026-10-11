@@ -252,4 +252,10 @@ differ (=\phi= is LaTeX's straight =ϕ= and =\varphi= the curly =φ=;
 =\Amacr= is =Ā=, not =Ã=; =\diams= is the suit's =♦=); the LaTeX of some symbols is the math command where Org
 writes a text one or the reverse; and the ASCII and Latin-1 forms, which
 Org invents, are Unicode's decompositions and names (=\Dagger= is =++=
-in ASCII). The export cases compared with Emacs agree.
+in ASCII). In HTML a character is written with the name HTML 4.01 gives
+it, as Org mostly writes it (=&infin;=, =&rarr;=), and the names Org
+takes from later standards differ for a few (=\ll= is =&ll;=, not
+=&Lt;=). The export cases compared with Emacs agree, and so do Worg's
+files in HTML and Markdown but the two that list Org's entities in a
+table (=org-syntax.org='s appendix, the HTML publishing tutorial's
+symbols).

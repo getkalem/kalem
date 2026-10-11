@@ -15,10 +15,12 @@ What each stands for comes, in this order, from
 
 and the renderings of a character from LaTeX's math symbols (`fontmath.ltx`,
 `amssymb.sty`, `latexsym.sty`) and text encodings (`*enc.dfu`), LPPL 1.3c,
-and the Unicode Character Database (Python's `unicodedata`). No part of
-Emacs or Org is read.
+the HTML Standard's names, HTML 4.01's first (its character entity sets,
+W3C, of which only the names are read), and the Unicode Character Database
+(Python's `unicodedata`). No part of Emacs or Org is read.
 
-    tools/gen-entities.py [--html-entities FILE] [--unicode-math FILE]
+    tools/gen-entities.py [--html-entities FILE] [--html4-entities DIR]
+                          [--unicode-math FILE]
 
 downloads what it is not given into .cache/entities/ and finds the LaTeX
 files with `kpsewhich` (TeX Live).
@@ -35,6 +37,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 DATA = ROOT / "crates/org-syntax/data"
 OUT = ROOT / "crates/org-syntax/src/tables/entities.rs"
 HTML_URL = "https://html.spec.whatwg.org/entities.json"
+HTML4_URL = "https://www.w3.org/TR/html4/"
+HTML4_SETS = ["HTMLlat1.ent", "HTMLsymbol.ent", "HTMLspecial.ent"]
 UNICODE_MATH_COMMIT = "184a23b0cb259d4dc9848ec3db0aa2cd383cae99"
 UNICODE_MATH_URL = (
     "https://raw.githubusercontent.com/latex3/unicode-math/"
@@ -65,6 +69,18 @@ def read_sources(args):
         for k, v in json.loads(fetch(HTML_URL, "entities.json", args.html_entities)).items()
         if k.endswith(";")
     }
+    # The name a character is written with in HTML: HTML 4.01's, the names
+    # every reader has known since 1997 (`&rarr;`, `&hellip;`), standing for
+    # the HTML Standard's character; else the HTML Standard's shortest
+    # (`&ctdot;`), the first in code point order of those as short.
+    html_name = {}
+    for f in HTML4_SETS:
+        given = args.html4_entities and pathlib.Path(args.html4_entities) / f
+        for n in re.findall(r"<!ENTITY (\w+)\s+CDATA", fetch(HTML4_URL + f, f, given)):
+            html_name.setdefault(html[n], n)
+    html4 = set(html_name)
+    for n in sorted(html, key=lambda n: (len(n), n)):
+        html_name.setdefault(html[n], n)
     # unicode-math: command -> character, and character -> commands.
     um_cmd, um_char = {}, {}
     table = fetch(UNICODE_MATH_URL, "unicode-math-table.tex", args.unicode_math)
@@ -103,7 +119,7 @@ def read_sources(args):
     for f in ["t1enc.dfu", "ts1enc.dfu", "omsenc.dfu", "ot1enc.dfu", "utf8enc.dfu"]:
         for m in re.finditer(r"\\DeclareUnicodeCharacter\{([0-9A-F]+)\}\{(.*)\}\s*$", tex_file(f), re.M):
             text_cmds.setdefault(chr(int(m.group(1), 16)), m.group(2).strip())
-    return html, um_cmd, um_char, math, operators, text_cmds
+    return html, html_name, html4, um_cmd, um_char, math, operators, text_cmds
 
 
 def math_char(name, um_cmd):
@@ -207,10 +223,18 @@ def latin1_of(text):
         return ascii_of(text)
 
 
-def html_of(name, ch, html):
-    if html.get(name) == ch:
+def html_of(name, text, html, html_name, html4):
+    """A character HTML 4.01 names by that name; else the entity's own
+    name, when the HTML Standard gives it this text (`&vert;`); else each
+    character, an ASCII one as itself, another by its name or number."""
+    if text in html4:
+        return f"&{html_name[text]};"
+    if html.get(name) == text:
         return f"&{name};"
-    return "".join(c if c.isascii() else f"&#{ord(c)};" for c in ch)
+    return "".join(
+        c if c.isascii() else f"&{html_name[c]};" if c in html_name else f"&#{ord(c)};"
+        for c in text
+    )
 
 
 def kalem_rows():
@@ -228,7 +252,7 @@ def kalem_rows():
 
 
 def entry(name, src, kalem):
-    html, um_cmd, um_char, math, operators, text_cmds = src
+    html, html_name, html4, um_cmd, um_char, math, operators, text_cmds = src
     k = kalem.get(name, [None] * 6)
     utf8, latex, is_math, html_r, ascii_r, latin1_r = k
     spaces = re.fullmatch(r"_ (\d+)", name)
@@ -275,7 +299,7 @@ def entry(name, src, kalem):
         else:
             raise SystemExit(f"{name}: no LaTeX command for {utf8!r}; give it one in entities-kalem.tsv")
     is_math = is_math or "false"
-    html_r = html_r if html_r is not None else html_of(name, utf8, html)
+    html_r = html_r if html_r is not None else html_of(name, utf8, html, html_name, html4)
     ascii_r = ascii_r if ascii_r is not None else ascii_of(utf8)
     latin1_r = latin1_r if latin1_r is not None else latin1_of(utf8)
     return (name, latex, is_math == "true", html_r, ascii_r, latin1_r, utf8)
@@ -298,6 +322,7 @@ def rust(s):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--html-entities")
+    p.add_argument("--html4-entities")
     p.add_argument("--unicode-math")
     args = p.parse_args()
     src = read_sources(args)
@@ -320,9 +345,10 @@ def main():
         "//",
         "// Org's entity names (crates/org-syntax/data/entity-names.txt), each with",
         "// its renderings, made from the HTML Standard's named character",
-        "// references (WHATWG, CC BY 4.0), unicode-math's symbol table and LaTeX's",
-        "// math symbols and text encodings (LPPL 1.3c), the Unicode Character",
-        "// Database, and crates/org-syntax/data/entities-kalem.tsv:",
+        "// references (WHATWG, CC BY 4.0), HTML 4.01's first (W3C), unicode-math's",
+        "// symbol table and LaTeX's math symbols and text encodings (LPPL 1.3c),",
+        "// the Unicode Character Database, and",
+        "// crates/org-syntax/data/entities-kalem.tsv:",
         "// (name, latex, latex_math_p, html, ascii, latin1, utf8).",
         "",
         f"pub(crate) static ENTITIES: [(&str, &str, bool, &str, &str, &str, &str); {len(entries)}] = [",

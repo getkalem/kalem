@@ -62,7 +62,8 @@ LaTeX, HTML, ASCII, Latin-1 and UTF-8 renderings), in
 =crates/org-syntax/src/tables/entities.rs=, is made by
 =tools/gen-entities.py= from standards rather than from Org (decision
 D18): the HTML Standard's named character references (WHATWG, CC BY
-4.0), LaTeX's math symbols and text encodings and unicode-math's symbol
+4.0), HTML 4.01's names first (of its character entity sets, W3C, only
+which names they hold is read), LaTeX's math symbols and text encodings and unicode-math's symbol
 table (LPPL 1.3c), and the Unicode Character Database; only the names,
 which decide what Org reads as an entity, are Org's. See
 [[file:../part-4/decisions/D18-entity-table-provenance.org][D18: Entity
