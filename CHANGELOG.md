@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 - A folder a plugin's layer serves (a Logseq graph, an Obsidian vault) is offered as a project when one of its notes is opened outside the projects, once a session, and added at once with `projects.auto_add`: its plugin reads projects only, and a graph's folder left out made the plugin see nothing. The layers are asked again when a project is added.
+- The folder of a plugin's layer (a Logseq graph, an Obsidian vault) is watched whole once it is a project: a file another program writes, renames or removes there reaches the plugins as `workspace-file-changed`. The editors watched only the files they held open, and a page Logseq or Obsidian wrote while Kalem was open stayed unknown to the graph plugin (its backlinks, its pages, its search) until Kalem started again.
 
 ## [0.6.14] - 2026-10-11
 

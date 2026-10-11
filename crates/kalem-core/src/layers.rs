@@ -243,18 +243,16 @@ fn holds(r: &mut Registry, dir: &Path, marker: &str) -> bool {
     found
 }
 
-/// The layer serving a document at `path` in mode `mode`: the first whose
-/// marker the nearest folder holds.
-/// The folder holding a layer's marker above `path`, whatever the mode,
-/// and the layer: a notes graph's folder (`logseq/config.edn`), a project
-/// by its nature.
+/// The folder holding a layer's marker above `path` (or `path`, a folder),
+/// whatever the mode, and the layer: a notes graph's folder
+/// (`logseq/config.edn`), a project by its nature.
 pub fn marker_root(path: &Path) -> Option<(PathBuf, LayerSpec)> {
     let mut r = registry();
     if r.layers.is_empty() {
         return None;
     }
     let layers = r.layers.clone();
-    for dir in path.ancestors().skip(1) {
+    for dir in path.ancestors().skip(usize::from(!path.is_dir())) {
         for l in &layers {
             if l.markers.iter().any(|m| holds(&mut r, dir, m)) {
                 return Some((dir.to_path_buf(), l.clone()));
@@ -264,6 +262,8 @@ pub fn marker_root(path: &Path) -> Option<(PathBuf, LayerSpec)> {
     None
 }
 
+/// The layer serving a document at `path` in mode `mode`: the first whose
+/// marker the nearest folder holds.
 pub fn layer_for(path: Option<&Path>, mode: &str) -> Option<LayerSpec> {
     let path = path?;
     let mut r = registry();

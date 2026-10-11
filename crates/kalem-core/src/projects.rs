@@ -211,6 +211,12 @@ impl ProjectState {
             }
         }
         let root = self.list.containing(path)?.root.clone();
+        // A notes graph's folder in a project is watched whole: what
+        // another program writes there (Logseq, Obsidian, a sync) reaches
+        // its plugin.
+        if let Some((graph, _)) = crate::layers::marker_root(path) {
+            crate::tree_watch::watch(&graph);
+        }
         self.visited.insert(root.clone());
         let file = path.is_file().then(|| normal(path));
         self.list.used(&root);
@@ -238,8 +244,12 @@ impl ProjectState {
     pub fn add(&mut self, root: &Path) -> Result<String, String> {
         let i = self.list.add(root)?;
         self.save()?;
-        // What plugins may read changed: their layers are asked again.
+        // What plugins may read changed: their layers are asked again,
+        // a notes graph's folder watched.
         crate::layers::refresh();
+        if let Some((graph, _)) = crate::layers::marker_root(root) {
+            crate::tree_watch::watch(&graph);
+        }
         Ok(crate::tr!(
             "msg-project-added",
             name = self.list.list[i].name.clone()

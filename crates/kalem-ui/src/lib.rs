@@ -205,6 +205,15 @@ pub fn run(path: Option<PathBuf>) {
                         plugins = now;
                         workspace::plugins_changed(cx);
                     }
+                    // What another program wrote in a notes graph's
+                    // folder: the plugins hear of it.
+                    let changed = kalem_core::tree_watch::take_changed();
+                    if !changed.is_empty() {
+                        let mut bus = shared.bus.borrow_mut();
+                        for path in changed {
+                            bus.emit(&kalem_core::events::Event::WorkspaceFileChanged { path });
+                        }
+                    }
                     let runs = kalem_core::extensions::take_runs();
                     if !runs.is_empty() {
                         workspace::run_queued(runs, cx);

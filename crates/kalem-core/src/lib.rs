@@ -106,6 +106,7 @@ pub mod tex_pictures;
 pub mod text;
 pub mod theme;
 pub mod toc;
+pub mod tree_watch;
 pub mod view;
 pub mod viewer;
 pub mod vim;

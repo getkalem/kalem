@@ -273,6 +273,13 @@ mode draws it. A plugin calls =layers.refresh= when what its layers
 show depends on other files that changed (a block reference showing
 its block's text): every document a layer serves asks again.
 
+The folder holding a layer's marker, once it is a project, is watched
+whole: a file another program writes there (Logseq or Obsidian open on
+the same graph, a sync) reaches the plugins as =workspace-file-changed=,
+as an open document's does, so that a plugin's index of the folder
+follows it; a file in a =.git= folder does not. An open document of it
+is read again, or the user asked, as always.
+
 A layer may name the plugin's command that opens the link at the cursor
 in the documents it serves (="open": "graph.openLink"=, API 0.2.12): a
 Ctrl-click runs it in place of the mode's own Open Link, so that a link

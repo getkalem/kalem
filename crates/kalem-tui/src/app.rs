@@ -5593,6 +5593,11 @@ impl App {
             self.dirty = true;
         }
         self.bus.dispatch_queued();
+        // What another program wrote in a notes graph's folder: the
+        // plugins hear of it, an open document of it looked at.
+        for path in kalem_core::tree_watch::take_changed() {
+            self.bus.emit(&Event::WorkspaceFileChanged { path });
+        }
         let changed: Vec<PathBuf> = self.changed_files.borrow_mut().drain(..).collect();
         for b in self.docs.iter_mut().flatten() {
             if watches(&b.doc, &changed) && !b.doc.is_modified() {
