@@ -214,7 +214,14 @@ Beside the fields every plugin has (=id=, =name=, =version=,
 
   While the server says it works only in part (=warning=) or not at
   all (=error=), the status bar says its text; while it is not idle it
-  counts as busy, and =kalem lsp check= waits for it.
+  counts as busy, and =kalem lsp check= waits for it. =ignore= names
+  capabilities of the server's that Kalem leaves unused, by their names
+  in its answer to =initialize=: a feature that is wrong, or that the
+  plugin does otherwise. They are taken out of that answer, so nothing
+  asks the server for them: with ="ignore": ["documentFormattingProvider"]=
+  Format Document takes the plugin's =commands.format=, or says there is
+  no formatter. =initializationOptions= are sent as the server starts,
+  for what it reads only then.
 - =commands.format= formats a document when no server formats it: the
   text on its standard input, the formatted text on its output, run in
   the background, ={file}= filled in. It is optional: a plugin states a
@@ -309,7 +316,22 @@ env = { ELS_INSTALL_PREFIX = "/opt/elixir-ls" }
 
 [plugins."org.kalem.rust".servers.crates-lsp]
 enabled = false     # a server beside the language's own, not started
+
+[plugins."org.kalem.pta".servers.beancount-language-server]
+initializationOptions = { journal_file = "~/money/main.beancount" }
+ignore = ["documentFormattingProvider"]
 #+end_src
+
+A server's =initializationOptions= are merged over the manifest's, as
+its =settings= are: a server that reads part of its configuration only
+when it starts (beancount-language-server's main journal) is told the
+user's, and a plugin's manifest may describe such a setting
+(=servers.beancount-language-server.initializationOptions.journal_file=)
+so that its page shows it. =ignore= stands in place of the manifest's:
+the server's capabilities Kalem leaves unused, =[]= for all of them
+used (a server whose formatting the plugin turned off because one
+program of that name formats wrongly, used with another that does
+not).
 
 * What the editor does with a server
 

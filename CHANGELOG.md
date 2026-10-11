@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- A user's `servers.KEY.initializationOptions` for a language plugin's server, merged over the manifest's as its `settings` are: a server that reads part of its configuration only when it starts is told the user's (beancount-language-server's main journal, which the plain text accounting plugin's journals need: an included file checked alone has its accounts reported unknown). A plugin's manifest may describe such a setting, so that its page in the settings panel shows it.
+- A language plugin's server may have capabilities Kalem leaves unused: `"ignore": ["documentFormattingProvider"]` in the manifest's server, or the user's `servers.KEY.ignore` in its place (`[]` for every capability used), taken out of the server's answer to `initialize`, so that nothing asks the server for them. For a server's feature that is wrong, or that the plugin does otherwise: ptimoney's hledger-lsp 0.7.0 formats a journal into one that means something else (an automated posting's `*-1` dropped, `==` written `=`), and Kalem formatted with a server whenever it offered formatting.
+
+### Changed
+- `formatters.TYPE = "off"` turns formatting of the type off altogether: Format Document says so rather than asking the language server, and format on save runs no plugin's formatter command either. It turned off only the type's usual program, and a server's or a plugin's formatter ran all the same.
+
 ## [0.6.15] - 2026-10-11
 
 ### Added

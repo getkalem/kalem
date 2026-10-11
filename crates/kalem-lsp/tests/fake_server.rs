@@ -255,6 +255,27 @@ fn pull() {
     c.shutdown();
 }
 
+fn ignored() {
+    // A capability the configuration ignores is not provided: formatting
+    // is not asked of it.
+    let config = ServerConfig {
+        name: "fake".into(),
+        command: std::env::current_exe().unwrap(),
+        env: vec![("KALEM_LSP_FAKE".into(), "normal".into())],
+        root: std::env::temp_dir(),
+        ignore: vec!["documentFormattingProvider".into()],
+        ..ServerConfig::default()
+    };
+    let c = Client::start(config, Arc::new(|| {})).unwrap();
+    until("ready", || c.is_ready());
+    assert!(!c.provides("documentFormattingProvider"));
+    assert!(c.capabilities()["documentFormattingProvider"].is_null());
+    assert!(c.provides("hoverProvider"));
+    let plain = start("normal", Arc::new(AtomicUsize::new(0)));
+    until("ready", || plain.is_ready());
+    assert!(plain.provides("documentFormattingProvider"));
+}
+
 fn garbage() {
     let c = start("garbage", Arc::new(AtomicUsize::new(0)));
     until("ready", || c.is_ready());
@@ -284,6 +305,7 @@ fn main() {
         ("log work", log_work),
         ("garbage", garbage),
         ("chatty", chatty),
+        ("ignored", ignored),
     ] {
         f();
         println!("test {name} ... ok");

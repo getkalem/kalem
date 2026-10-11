@@ -1685,6 +1685,7 @@ lsp-formatter-missing = The formatter { $program } is not installed
 lsp-formatter-failed = { $command }: { $reason }
 fmt-none = No formatter for { $kind } files: set one as formatters.{ $key } in the settings
 fmt-none-kind = No formatter for { $kind } files
+fmt-off = Formatting { $kind } files is turned off: formatters.{ $key } is off in the settings
 fmt-on-save-failed = Saved without formatting: { $reason }
 lsp-no-server-see = No language server for { $language } (see `kalem lsp status`)
 lsp-what-signature = signatures

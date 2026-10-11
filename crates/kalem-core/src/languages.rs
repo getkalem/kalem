@@ -99,6 +99,12 @@ pub struct ServerSpec {
     pub capabilities: Value,
     /// Its notification of its state (`status`), shown in the status bar.
     pub status: Option<kalem_lsp::StatusSpec>,
+    /// Its capabilities Kalem does not use (`ignore`), by their names in
+    /// its answer to `initialize` (`documentFormattingProvider`): a
+    /// feature of the server's that is wrong, or that the plugin does
+    /// otherwise; the user's `servers.KEY.ignore` in their place (`[]`
+    /// for all of them used).
+    pub ignore: Vec<String>,
 }
 
 /// A request of a server's own that one of Kalem's commands sends (the
@@ -305,6 +311,7 @@ pub fn parse_manifest(dir: &Path, text: &str) -> Result<Option<Plugin>, String> 
                         strings(&s["busyLog"]["start"]),
                         strings(&s["busyLog"]["done"]),
                     ),
+                    ignore: strings(&s["ignore"]),
                 })
                 .collect()
         })
@@ -737,10 +744,11 @@ pub fn resolve_server(plugin: &Plugin, lang: &LanguageSpec, root: Option<&Path>)
     }
 }
 
-/// Server `key` of `plugin` with the user's `servers.KEY` settings
-/// (`command`, `env`) over the manifest's: its program found, with its
-/// arguments, or what to do to install it; `None` when the plugin has no
-/// such server or no command for it.
+/// Server `key` of `plugin` with the user's `servers.KEY` settings over
+/// the manifest's (`command` and `ignore` in their places, `env` added
+/// to, `initializationOptions` merged over, as `settings` are): its program
+/// found, with its arguments, or what to do to install it; `None` when
+/// the plugin has no such server or no command for it.
 #[allow(clippy::type_complexity)]
 pub fn resolve_key(
     plugin: &Plugin,
@@ -756,6 +764,15 @@ pub fn resolve_key(
         spec.candidates.clear();
     }
     spec.env.extend(env_pairs(&over["env"]));
+    if over["ignore"].is_array() {
+        spec.ignore = strings(&over["ignore"]);
+    }
+    // A server that reads some of its configuration only at `initialize`
+    // (beancount-language-server's main journal) is told the user's.
+    merge(
+        &mut spec.initialization_options,
+        &over["initializationOptions"],
+    );
     let (program, args) = spec.command.split_first()?;
     let args = args.to_vec();
     let candidates = std::iter::once(program.clone()).chain(spec.candidates.iter().cloned());
@@ -1027,7 +1044,8 @@ mod tests {
       ],
       "servers": {
         "a": {"name": "A", "command": ["kalem-no-such-program-a", "--stdio"], "install": "get A"},
-        "b": {"name": "B", "command": ["sh"], "settings": {"b": {"x": 1, "y": 2}}}
+        "b": {"name": "B", "command": ["sh"], "settings": {"b": {"x": 1, "y": 2}},
+              "initializationOptions": {"root": "main", "width": 2}, "ignore": ["renameProvider"]}
       }
     }"#;
 
@@ -1092,6 +1110,33 @@ mod tests {
         }
         let s = server_settings(&p, p.server("b").unwrap());
         assert_eq!(s, serde_json::json!({"b": {"x": 1, "y": 3}}));
+        // The user's `initializationOptions` merged over the manifest's,
+        // and the capabilities ignored in place of its.
+        set_user_settings(Some(&serde_json::json!({
+            "org.example.lang": {"servers": {"b": {
+                "initializationOptions": {"root": "/books/main", "deep": {"a": 1}},
+                "ignore": ["documentFormattingProvider"]
+            }}}
+        })));
+        let Some(Ok((b, _, _))) = resolve_key(&p, "b", None) else {
+            panic!("b is found");
+        };
+        assert_eq!(
+            b.initialization_options,
+            serde_json::json!({"root": "/books/main", "width": 2, "deep": {"a": 1}})
+        );
+        assert_eq!(b.ignore, ["documentFormattingProvider"]);
+        set_user_settings(Some(&serde_json::json!({
+            "org.example.lang": {"servers": {"b": {"ignore": []}}}
+        })));
+        let Some(Ok((b, _, _))) = resolve_key(&p, "b", None) else {
+            panic!("b is found");
+        };
+        assert!(b.ignore.is_empty(), "every capability used again");
+        assert_eq!(
+            b.initialization_options,
+            serde_json::json!({"root": "main", "width": 2})
+        );
         // A language's syntax by its name, whatever the syntax's own
         // extensions are.
         assert_eq!(

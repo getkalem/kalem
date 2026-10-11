@@ -54,6 +54,11 @@ pub struct ServerConfig {
     /// The notification in which the server tells its state, when it has
     /// one.
     pub status: Option<StatusSpec>,
+    /// Capabilities of the server's that Kalem does not use, by name
+    /// (`documentFormattingProvider`): taken out of what it announces at
+    /// `initialize`, so that nothing asks it for them (a feature of the
+    /// server's that is wrong, or another program's to do).
+    pub ignore: Vec<String>,
 }
 
 /// Where a server's notification of its state has what Kalem shows
@@ -1438,7 +1443,12 @@ fn reader(inner: Arc<Inner>, stdout: std::process::ChildStdout, init: Pending) {
 }
 
 fn initialized(inner: &Inner, answer: &Value) {
-    let caps = answer["capabilities"].clone();
+    let mut caps = answer["capabilities"].clone();
+    if let Value::Object(c) = &mut caps {
+        for name in &inner.config.ignore {
+            c.remove(name);
+        }
+    }
     let encoding = Encoding::from_name(caps["positionEncoding"].as_str().unwrap_or("utf-16"));
     // The state stays locked while the queue is written, so nothing sent
     // meanwhile overtakes it.

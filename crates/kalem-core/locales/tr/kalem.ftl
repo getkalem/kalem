@@ -1601,6 +1601,7 @@ lsp-formatter-missing = Biçimlendirici { $program } kurulu değil
 lsp-formatter-failed = { $command }: { $reason }
 fmt-none = { $kind } dosyaları için biçimlendirici yok: ayarlarda formatters.{ $key } olarak bir tane belirtin
 fmt-none-kind = { $kind } dosyaları için biçimlendirici yok
+fmt-off = { $kind } dosyalarının biçimlendirilmesi kapalı: ayarlarda formatters.{ $key } off
 fmt-on-save-failed = Biçimlendirilmeden kaydedildi: { $reason }
 lsp-no-server-see = { $language } için dil sunucusu yok (`kalem lsp status` ile bakın)
 lsp-what-signature = imza

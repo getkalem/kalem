@@ -7924,6 +7924,20 @@ fn plain_commands() -> Vec<Command> {
                 if let Some(f) = crate::formatters::user_formatter(ctx.doc()?) {
                     return crate::lsp::format_with(ctx.doc()?, f).map_err(CommandError::new);
                 }
+                // Or turned off (`formatters.TYPE = "off"`): no formatter
+                // runs, the server's neither.
+                if crate::formatters::turned_off(ctx.doc()?) {
+                    let doc = ctx.doc()?;
+                    let key = crate::formatters::names(doc)
+                        .first()
+                        .cloned()
+                        .unwrap_or_default();
+                    return Err(CommandError::new(crate::tr!(
+                        "fmt-off",
+                        kind = doc.meta.mode.title(),
+                        key = key.as_str()
+                    )));
+                }
                 // The language server's formatting (D57); its edits come
                 // back through `lsp::take_outcomes`.
                 if crate::lsp::can(ctx.doc()?, crate::lsp::Kind::Format) {

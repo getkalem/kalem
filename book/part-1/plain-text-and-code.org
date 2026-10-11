@@ -38,7 +38,9 @@ comes before all of these: =[formatters] python = "black -q -"= in
 =settings.toml=, the type a language (=rust=, =python=), a file
 extension (=rs=), a mode (=markdown=) or a file name
 (=cmakelists.txt=), the value the command line with ={file}= for the
-file's path, or =off=. For a type with no formatter known, such as a
+file's path, or =off=, which turns formatting of the type off: a
+language server's and a plugin's formatter neither, on save neither,
+and Format Document says so. For a type with no formatter known, such as a
 workbook or a picture, the command says so and names the setting that
 would add one; a program not installed is named in the status bar. =kalem fmt FILE= formats the same
 way from the command line. The setting =editor.format_on_save= (off by

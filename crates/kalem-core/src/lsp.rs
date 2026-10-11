@@ -633,6 +633,7 @@ fn start_client(plugin: &Plugin, server: &str, root: &Path) -> Result<(String, C
                 busy_done: spec.busy_log.1.clone(),
                 capabilities: spec.capabilities.clone(),
                 status: spec.status.clone(),
+                ignore: spec.ignore.clone(),
             };
             tracing::info!(server = %spec.name, root = %root.display(), "starting language server");
             Client::start(config, wake())

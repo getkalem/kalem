@@ -429,6 +429,13 @@ pub fn user_formatter(doc: &DocumentState) -> Option<Formatter> {
     user_for_file(path, &doc.meta.mode, doc.text().as_str().lines().next())
 }
 
+/// The user turned formatting off for `doc`'s type (`formatters.TYPE =
+/// "off"`): no formatter runs, a language server's and a plugin's
+/// `commands.format` neither.
+pub fn turned_off(doc: &DocumentState) -> bool {
+    matches!(user_entry(&names(doc)), Some(None))
+}
+
 /// The usual formatter of `doc`'s type ([`default_for_file`]).
 pub fn default_formatter(doc: &DocumentState) -> Option<Formatter> {
     let path = doc.meta.path.as_deref()?;
@@ -563,6 +570,9 @@ pub fn run(program: &Path, args: &[String], dir: &Path, text: &str) -> Result<St
 /// when the type has none; `Err` why it failed.
 pub fn format_sync(doc: &DocumentState) -> Result<Option<String>, String> {
     let text = doc.text().as_str();
+    if turned_off(doc) {
+        return Ok(None);
+    }
     if let Some(f) = user_formatter(doc) {
         return format_now(&f, text).map(Some);
     }
@@ -716,7 +726,14 @@ mod tests {
         let py = dir.join("src/a.py");
         std::fs::write(&py, "").unwrap();
         assert!(for_file(&py, &text_mode("py"), None).is_none());
+        // Off for every formatter: the document's own (a language
+        // server's, a plugin's) neither runs on save nor is it asked.
+        let base = crate::settings::Config::default().parse_base();
+        let doc = DocumentState::open(&py, std::default::Default::default(), &base).unwrap();
+        assert!(turned_off(&doc));
+        assert_eq!(format_sync(&doc), Ok(None));
         set_user_table(None);
+        assert!(!turned_off(&doc));
         assert!(for_file(&py, &text_mode("py"), None).is_some());
         // A type with no formatter known.
         assert!(for_file(&foo, &text_mode("foo"), None).is_none());
