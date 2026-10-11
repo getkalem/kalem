@@ -20,9 +20,10 @@ targets, LaTeX's commands and citation keys, the words of the
 document. One contract serves all of them (design §11.12): the core
 runs the completers that apply at the cursor, merges and ranks their
 items, and shows one menu, the same in both editors. The contract is
-a Rust trait in =kalem_core::completers=, implemented only inside
-Kalem today; plugins will implement the same trait through the
-generated bindings (T3.1.9c).
+a Rust trait in =kalem_core::completers=, implemented inside Kalem;
+a plugin offers a completer through the plugin API's =completer=
+export, which Kalem wraps in the same trait (see [[*A plugin's completer][A plugin's
+completer]], below).
 
 The menu opens by itself when a completer's trigger fires as you
 type, and Ctrl+Space or Alt+/ (=edit.complete=) asks for it anywhere.
@@ -49,8 +50,8 @@ The words completer takes words of at least three letters that start
 with the word being typed, ignoring case, from the megabyte of text
 around the cursor, nearest first, at most fifty; in Org documents it
 stays quiet where Org's own completion applies. A dictionary with
-spell checking, a language server bridge and a model are not
-implemented.
+spell checking and a model are not implemented; a language server
+completes the files of a language plugin that names one.
 
 ** The contract
 
@@ -78,7 +79,8 @@ runs on the editor's thread, so it must return quickly; a completer
 whose =slow= is =true= runs on another thread with the context only,
 and long work checks =cancel.cancelled()=. =resolve= gives
 documentation for an item when it is chosen; =hover= gives text about
-the thing under the cursor (no editor shows a hover card yet).
+the thing under the cursor (the editors' hover card shows a language
+server's, not yet a completer's).
 
 | Trigger           | Fires when                                                              |
 |-------------------+-------------------------------------------------------------------------|
@@ -360,6 +362,6 @@ or how many there are; Format Document refuses a text the formatter
 refuses and puts the cursor at the place; =kalem fmt= lists it as "not
 formatted" and fails, and =kalem check= prints each problem as
 =FILE:LINE:COL: error[CODE]: MESSAGE=. The packs themselves are to be
-plugins in =getkalem/plugins= (D29), registered through the plugin
-host that comes with the WebAssembly runtime; until then the contract
+plugins in =getkalem/plugins= (D29), once the plugin API has an
+interface for them; until then the contract
 is in the core with its wiring and tests, and no pack is built in.

@@ -25,7 +25,7 @@ design document, and decisions D9 and D27.
 | =default_keys= | The keys of the Word-like profile                                                         |
 | =scope=        | The text types the command serves (below); required                                       |
 | =when=         | An optional when-clause for the rest: structure at the cursor, a selection, the file kind |
-| =handler=      | What runs it: a Rust function; plugin callbacks are planned                               |
+| =handler=      | What runs it: a Rust function, or a plugin's callback                                     |
 | =args_schema=  | A JSON schema of its arguments, if it takes any                                           |
 | =source=       | Who registered it: Kalem, a plugin by ID, or the user                                     |
 
@@ -308,12 +308,12 @@ level =info=, and both editors say at startup how many problems the
 settings and the keymap have. The built-in profiles have none; a test
 keeps it so.
 
-* What is planned
+* Commands of plugins
 
-Plugins will register commands with =kalem::command(id, spec)=, with
-the title, the handler, the scope and the when-clause, and bindings
-with =kalem::keymap= or in their manifest (T3.1.4, T3.1.12); they
-appear in the same palette, menus and keymap as the built-ins. =kalem
-run PLUGIN COMMAND [FILE...]= runs commands without a window (T3.1.16),
-and the inspection panel shows the registry of the running editor
-(T3.2.1).
+Plugins register commands with =kalem::command(spec, handler)=, the
+spec holding the ID, the title, the scope, the when-clause and default
+keys, and bindings with =kalem::keymap=; they appear in the same
+palette, menus and keymap as the built-ins (see [[file:plugins.org][Plugins]]). =kalem run
+PLUGIN COMMAND [FILE...]= runs them without a window. Planned: key
+bindings in a plugin's manifest, and the inspection panel showing the
+registry of the running editor (T3.2.1).

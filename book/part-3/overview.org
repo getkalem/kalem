@@ -20,7 +20,8 @@ by its task in the former work breakdown, =docs/todo.md=; the plan is
 | Viewer plugins (WASM components, WIT API)    | Available | [[file:plugins.org][Plugins]]                             |
 | Extension plugins: commands, events, panels  | Available | [[file:plugins.org][Plugins]]                             |
 | Plugin repository =getkalem/plugins=, index  | Available | [[file:plugins.org][Plugins]]                             |
-| Modes, completers, renderers as plugins      | Planned   | =crates/kalem-plugin/coverage.toml= |
+| Completers and layers over modes as plugins  | Available | [[file:completers-and-modes.org][Completers, modes and highlighters]]  |
+| Modes, renderers as plugins                  | Planned   | =crates/kalem-plugin/coverage.toml= |
 | Inspection panel, debug socket               | Planned   | T3.2.1 to T3.2.5                    |
 
 "Available" means it works in the current version, in both editors,
@@ -52,23 +53,25 @@ settings, files, projects, search and the plugin loader. Everything
 else is to be a plugin on the public contracts, installed when it is
 wanted (none is built into the binary), and new modes and file types
 are developed in =getkalem/plugins=, never in the core. Today the core holds more than this: the export back-ends
-beyond HTML are built in, because the runtime they would move to
-does not exist yet.
+beyond HTML are built in, because the plugin API has no export
+interface yet.
 
 Highlighters, document modes and completers each have one contract,
 shared by the built-in ones and by plugins (D25), so a plugin can do
 everything a built-in does and the contract is proven before any
 plugin uses it. The completer contract and the document mode contract
 exist in =kalem-core= today ([[file:completers-and-modes.org][Completers, modes and highlighters]]);
-the plugin side of each is phase 3.
+plugins offer completers already, and the plugin side of modes is
+phase 3.
 
 * What you can change today
 
 - *Settings.* =settings.toml= in the settings directory, and
   =.kalem/settings.toml= in a project, which applies over yours. Every
   value is checked; a wrong one is reported and the layer below
-  applies. Tables under =plugins.<id>= and the list =plugins.enabled=
-  are accepted for plugins and wait for the loader. See [[file:../part-1/settings.org][Settings]].
+  applies. Tables under =plugins.<id>= are each plugin's settings; the
+  list =plugins.enabled= is accepted but not read yet (every installed
+  plugin loads). See [[file:../part-1/settings.org][Settings]].
 - *Keys.* =keymap.json=: add, change and remove bindings, with
   arguments, when-clauses and terminal variants. See
   [[file:commands-and-keys.org][Commands, scopes and keys]].
@@ -84,13 +87,15 @@ the plugin side of each is phase 3.
   queries and completes files without a window. See
   [[file:../part-1/the-command-line.org][The command line]].
 
-Adding a command, a completer or a mode today means changing Kalem's
-source: the contracts are Rust types in =kalem-core=, described in the
-chapters that follow for contributors, and for the plugin authors who
-will implement them later.
+An extension plugin adds commands, keys and completers today (see
+[[file:plugins.org][Plugins]]); adding a mode still means changing Kalem's source: the
+contracts are Rust types in =kalem-core=, described in the chapters
+that follow for contributors, and for the plugin authors who will
+implement them later.
 
 - [[file:commands-and-keys.org][Commands, scopes and keys]]: the command registry, scopes, the
   when-clause language and keymap files. Available.
 - [[file:completers-and-modes.org][Completers, modes and highlighters]]: the completer and mode
   contracts as implemented, and highlighting. Mostly available.
-- [[file:plugins.org][Plugins]]: the plugin model in short. Planned.
+- [[file:plugins.org][Plugins]]: the plugin model, its API and its host. Available, but
+  for the parts it marks planned.

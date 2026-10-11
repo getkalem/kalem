@@ -58,22 +58,25 @@ later finds it installed. A panic in your code reaches Kalem's log with
 the names of your functions.
 
 One thing to know: your build replaces the copy you installed from
-the index only when it is /newer/. So raise =version= in
-=plugins/xlsx/plugin.json= (from =0.0.10= to =0.0.11=, say) before
-=kalem plugin dev=; =kalem plugin list= says which copy is in use.
-=kalem plugin remove org.kalem.xlsx= takes your copy out.
+the index, whatever its version; =kalem plugin list= says which copy is
+in use. To go back to the released one, =kalem plugin install xlsx=
+again; =kalem plugin remove org.kalem.xlsx= takes your copy out and
+leaves no workbook viewer until one is installed.
 
 To give your change to others:
 
 - the best way is a pull request to =getkalem/plugins=;
-- or push your fork and tag it =xlsx-v0.0.10=: the repository's release
+- or push your fork, raise =version= in =plugins/xlsx/plugin.json=
+  (to =0.0.11=, say) and tag it =xlsx-v0.0.11= (the tag must name the
+  manifest's version): the repository's release
   workflow builds the component and publishes it (GitHub turns
   workflows off on a fork until you enable them, once, in its Actions
   tab). Then anyone installs it with *Install Plugin from GitHub…* and
   the link of your fork's folder,
-  =https://github.com/YOU/plugins/tree/main/plugins/xlsx=; or adds your
-  fork's =index.json= as a plugin source, after which *Browse Plugins*
-  shows your version in place of the official one.
+  =https://github.com/YOU/plugins/tree/main/plugins/xlsx=. (A fork's
+  =index.json= points at =getkalem/plugins=, as =tools/build-index.py=
+  writes it, so adding it as a plugin source does not give your
+  version.)
 
 * A plugin for a file type of your own
 
@@ -112,8 +115,8 @@ is text is a language plugin's or an extension plugin's (see
 - =plugin.json=: the plugin's id, name, version, what it opens (its
   extension, ="opens": [".dots"]=, and its first bytes,
   ="applies": {"magic": ["44 4F 54 53 00"]}=, so that a file of the
-  format opens whatever its name), its permissions (a viewer needs
-  none) and its limits.
+  format opens whatever its name) and its permissions (a viewer needs
+  none); its limits are Kalem's defaults unless it adds =limits=.
 - =src/lib.rs=: the viewer, and the document it opens. Which files are
   its own is the manifest's to say (=opens=, and =applies= for first
   bytes, whole names or markers: see the chapter on plugins), not its
