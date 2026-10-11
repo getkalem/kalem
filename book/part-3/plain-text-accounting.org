@@ -1,0 +1,155 @@
+The =pta= plugin of =getkalem/plugins= opens hledger, Ledger and
+Beancount journals as themselves: plain text files of dated
+transactions, which the user's own tool (=hledger=, =ledger=,
+=bean-check= and =bean-query=) reads, balances and checks. The plugin
+writes transactions and shows what the tool says; it computes no
+balance of its own, and a file is changed only where a command writes,
+as one undo step. It is one plugin with both halves: a language half
+(syntaxes, servers, settings) and a component that runs the tool. Its
+README and its work list (=plugins/pta/pta_todo.md=) are kept with it.
+
+* What is followed
+
+- *The tool is the oracle.* hledger 1.52, Ledger 3.4 and Beancount 3.2
+  parse, balance, value and check; every figure in a document of the
+  plugin's is the tool's, as the tool writes it. Kalem has no engine of
+  its own for the journals (the owner's decision of 2026-10-11, the
+  plugin's PT12).
+- *The highlighter* is the plugin's own: one base syntax for what the
+  three share (dates, statuses, descriptions, accounts, amounts and
+  commodities, costs, lots, balance assertions, comments and tags,
+  periodic and automated transactions, directives), with hledger,
+  Ledger and Beancount over it, and hledger's CSV rules beside them.
+  A tag is colored only where the tool reads one.
+- *The servers*, where installed, give completion, hover, definition,
+  references and rename: hledger-lsp (ptimoney's or juev's) and
+  beancount-language-server. Ledger has none. Their diagnostics are
+  theirs; the Check document is the tool's word.
+
+| Files                                                      | Language        |
+|------------------------------------------------------------+-----------------|
+| =.journal=, =.hledger=, =.j=, =.hledger.journal=           | hledger         |
+| =.ledger=, =.ldg=                                          | Ledger          |
+| =.beancount=, =.bean=                                      | Beancount       |
+| =.rules=                                                   | hledger's CSV rules |
+
+=.dat= is not claimed. Journals in Org's source blocks and Markdown's
+fenced blocks (=hledger=, =ledger=, =beancount=) are highlighted the
+same.
+
+* The main journal and the tool
+
+A journal that includes others is checked and reported as one. The
+setting =journal= names the main journal; without it, an hledger
+journal's is the one =LEDGER_FILE= names when that one includes the
+file (=hledger files=, asked once until a journal is saved), a
+Beancount journal's the one its server is told, else the file itself.
+The setting =tool= reads a =.ledger= file with Ledger where it is
+installed and with hledger where only hledger is. The journal's folder
+must be one of Kalem's projects: a plugin's programs run there. The
+status bar item names the tool and the main journal
+(=hledger · 2026.journal · ✓=), and the program running while one runs.
+
+* What is shown
+
+Each report is a document of the plugin's (=documents=), written again
+when the journal is saved; =?= in it lists its keys, =q= or Escape
+closes it.
+
+- *Check* (=SPC m k=; on each save): the tool's strictest check
+  (=hledger check --strict=, =ledger --pedantic --explicit balance=,
+  =bean-check=), each problem with its place and the lines the tool
+  quoted; Enter opens the place.
+- *Balance* (=SPC m b=): assets, liabilities and equity at the period's
+  end, then the rest within the period, as a tree that folds; =p= the
+  period, =d= the depth, =v= market values (hledger's =-V
+  --infer-market-prices=, Ledger's =-V=, Beancount's =value()=).
+  Beancount's tree is one =bean-query= a level, run side by side.
+- *Register* (=SPC m g r=, Enter in the Balance): an account's postings
+  with the tool's running total, which within a period stays the
+  account's balance (hledger's =-H=, Ledger's =-d=, Beancount's
+  opening balances); the last 2,000; Enter opens the posting.
+- *Reconcile* (=SPC m R=): the cleared, pending and joint totals, the
+  statement's balance typed and the difference, the postings not
+  cleared; with a statement paired (=SPC m r= in its CSV file), each
+  posting said to be on it or not, and its lines with no posting.
+- *Report…* (=SPC m r=, from 0.2.0): the tool's other reports (cash
+  flow, income statement, budget, forecast, statistics, lists,
+  =print=, Beancount's saved queries) as the tool prints them.
+- *Import* (=SPC m i= in a CSV statement): hledger's dry run through
+  the statement's rules (offered from its header row when it has none),
+  or Ledger's =convert=; =i= imports it.
+
+* What is edited
+
+Each command is one undo step, and changes only what it names.
+
+| Keys (Vim's command mode) | Command | The edit |
+|---+---+---|
+| =SPC m a= | New Transaction | the payee's last transaction as the tool drafts it (=hledger print --match=, =ledger xact=), dated, at its date's place |
+| =SPC m t= | Toggle Status | unmarked, =!=, =*= (Beancount's =txn=, =!=, =*=) after the date |
+| =SPC m y= | Copy Transaction | the transaction again, dated today |
+| =SPC m d= | Delete Transaction | its lines, with its comment lines above and a blank line |
+| ~SPC m =~ | Align Amounts | only the blanks between an account and its amount, at the column =amount_column= (52) |
+| =SPC m s= | Sort Transactions | the transactions by date, each with its comments; refused across a scoping directive |
+| =C= in a Reconcile | Finish Reconciliation | the pending marks cleared, a balance assertion written for the target |
+| =SPC m p= | Fetch Prices | the price program's prices appended (=pricehist=, =bean-price=) |
+
+The keys are Doom Emacs's =:lang ledger= where it has them; =[[= and
+=]]= move between transactions. In the Word-like profile the commands
+are in the Journal menu and the palette, and Enter on a posting aligns
+it first.
+
+* What is written
+
+The tool's own writing where it writes (hledger's import appends to
+the journal itself); otherwise the plugin's edits only, as the table
+says. Amounts the plugin writes take the journal's style (its
+commodities' sides, decimal marks and digit groups, read from the
+tool's JSON). Align Amounts is tested to change no byte but blanks on
+every corpus file, the tool reading each as before. Format Document in
+an hledger or Ledger journal is none: ptimoney's hledger-lsp 0.7.0
+formats a journal into one that means something else, so the plugin
+leaves the server's formatting unused (=servers.hledger-lsp.ignore=).
+
+* Known differences
+
+- The servers, measured on the corpus: the plugin's README has the
+  table (completion, hover, rename, diagnostics and formatting of each).
+- hledger does not read Ledger's value expressions (=(-$132.00)=); a
+  =.ledger= file goes to Ledger where it is installed.
+- ledger-mode's reconcile buffer marks a posting where Space is
+  pressed; a plugin's command edits only the document it runs in, so
+  postings are marked in the journal (=SPC m t=) and the Reconcile
+  document follows on save.
+
+* Not implemented
+
+Beancount's import (the user's beangulp script, which would need
+=python3= among the programs the plugin may run); =hledger= and
+=beancount= source blocks run by Babel; the Reconcile document beside
+the journal in a pane of its own; marking a posting from the Reconcile
+document.
+
+* Limits and performance
+
+The tool reads the whole journal for each call, which runs beside the
+editor. On 200,000 transactions over ten files (the plugin's
+=tests/large.rs=) hledger takes some 8 to 10 s of a processor a call,
+Ledger 1 to 3 s, Beancount some 7 s a query. Kalem takes at most 16 MB
+of a program's output: past it, a report is refused with a notice
+naming a shorter period, never shown cut (hledger's JSON register,
+some 1.3 KB a posting, passes it beyond about 12,000 postings in the
+period). The servers' first completion on that journal: 4.5 s
+(juev's hledger-lsp) to 13 s.
+
+* Code and tests
+
+=plugins/pta= in =getkalem/plugins=: =plugin.json= and =syntaxes/=
+(the language half), =src/= (the component and the parsers of each
+tool's output), =corpus/= (one journal per dialect, error files, a
+statement with its rules). =cargo test -p kalem-plugin-pta= runs the
+conformance test, the syntaxes against the tools, the tools' checks,
+balances, registers, reconciliation, import and prices on the corpus
+(a tool not installed skipped with a note), the servers where
+installed, and the parsers on recorded output.
