@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.18] - 2026-10-11
+
 ### Changed
 - Exporting an Org file parses it fewer times: a step that read a text another had just parsed (macros, Babel, the document after Babel left it as it was) parses it no more. The Org manual (820 KB) exports to HTML in 475 ms rather than 555 ms, Worg's release notes (450 KB) in 200 ms rather than 240 ms.
 - Org's editing commands take the document's text from its tree ten times as fast (`org_syntax::Parse::text`), as each of them starts from it: typing in a table of the Org manual (820 KB) costs 1.7 ms of the command's time a keystroke rather than 6.9 ms, and every Org command on a large file (TODO states, tags, properties, tables, lists, emphasis) gains about as much.
