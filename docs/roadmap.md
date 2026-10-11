@@ -254,9 +254,14 @@ targets are met; no whole-file work on the keystroke path of any mode.
   cursor line) so a line is built once per version, not twice per frame;
   `compute_visible` as ranges when nothing is folded; the character width
   measured once per font change. S/M
-- [ ] R4.5 Highlighter without full passes: `Highlighter::update` takes
+- [~] R4.5 Highlighter without full passes: `Highlighter::update` takes
   the transaction's range instead of diffing two strings, uses `memchr`
   for line counts, and keeps no copy of the text. S/M
+  done (2026-10-11): the line starts are moved past the edit rather than
+  found again in the whole text, the first changed line found by a
+  binary search rather than by counting the line feeds before it (a
+  keystroke in 2.6 MB of Rust: 3.5 ms → 0.8 ms). Open: the transaction's
+  range (the editors pass the whole text), `memchr`, the copy.
 - [ ] R4.6 Markdown and CSV keystrokes: Markdown keeps a diff of the
   edit rather than a copy of the text, with relative positions per
   top-level block (the open half of T2.7c.6); CSV updates widths and the
@@ -267,6 +272,14 @@ targets are met; no whole-file work on the keystroke path of any mode.
   copies; the viewer's render and search no longer share one mutex. M
 - [ ] R4.9 Startup and binary measured in CI with the rest (cold start,
   terminal start, both binary sizes). S
+- [ ] R4.10 Table formulas over text: `org-table`'s Calc adds symbolic
+  terms by cloning the sum so far (`algebra::term` clones its base, `add`
+  ends in `Expr::call("+", vec![a.clone(), b.clone()])`), so `vsum` over
+  a column of words is quadratic (1,000 words 0.55 s), and iterating
+  (`C-u C-u C-c *`) a column formula whose range takes in its own column
+  and a word (`$1=vsum(@I$1..@II$2)` beside `apple`) grows expressions
+  exponentially and runs for minutes. Calc's add taking its left operand
+  by value, and a budget of work per formula. S/M
 
 ## M5 What users ask for (features)
 
