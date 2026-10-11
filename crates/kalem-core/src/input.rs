@@ -44,7 +44,7 @@ fn ancestor(root: &SyntaxNode, pos: usize, kind: SyntaxKind) -> Option<SyntaxNod
 /// the next row in a table; elsewhere a line break that keeps the
 /// indentation, in source blocks too.
 pub fn enter(doc: &Document, point: usize, mark: Option<usize>) -> Result<Transaction, EditError> {
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     if mark.is_some_and(|m| m != point) {
         return Ok(newline(&text, point, mark));
     }
@@ -478,7 +478,7 @@ pub fn apply_completion(
     if c.kind != CompletionKind::Tag {
         return tx;
     }
-    let text = doc.parse().syntax().to_string();
+    let text = doc.parse().text();
     let new_text = tx.apply(&text);
     let new_doc = Document::with_settings(
         org_syntax::parse_with(&new_text, doc.parse().context()),

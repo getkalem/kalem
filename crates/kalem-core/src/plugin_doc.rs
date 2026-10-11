@@ -463,7 +463,7 @@ fn edit_transaction(
         }
         DocEdit::Promote(h) | DocEdit::Demote(h) => {
             let m = org(doc)?;
-            let text = m.parse().syntax().to_string();
+            let text = m.parse().text();
             let ctx = m.parse().context();
             let f = if matches!(e, DocEdit::Promote(_)) {
                 org_edit::headline::promote_subtree
@@ -474,7 +474,7 @@ fn edit_transaction(
         }
         DocEdit::MoveUp(h) | DocEdit::MoveDown(h) => {
             let m = org(doc)?;
-            let text = m.parse().syntax().to_string();
+            let text = m.parse().text();
             let down = matches!(e, DocEdit::MoveDown(_));
             Some(
                 org_edit::headline::move_subtree(&text, at(*h), down, m.parse().context())

@@ -543,7 +543,7 @@ fn org_dwim(ctx: &mut EditorContext<'_>) -> CommandResult {
     let pos = doc.selection.head;
     let when = doc.when_context();
     let on = |k: &str| matches!(when.get(k), Some(crate::when::Value::Bool(true)));
-    let text = model.parse().syntax().to_string();
+    let text = model.parse().text();
     let run = |id: &str, args: Value| Request::Run {
         command: id.to_string(),
         args,
@@ -727,7 +727,7 @@ fn timestamp_change(
 
 /// The text and parse context of a model, for the commands that take text.
 fn text_of(d: &org_model::Document) -> String {
-    d.parse().syntax().to_string()
+    d.parse().text()
 }
 
 fn todo(ctx: &mut EditorContext<'_>, arg: org_edit::todo::TodoArg) -> CommandResult {
