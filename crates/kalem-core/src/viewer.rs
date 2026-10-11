@@ -7422,6 +7422,7 @@ fn run_macro(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
                 ),
                 title: m.name.clone(),
                 category: "Macro".into(),
+                detail: String::new(),
                 keys: String::new(),
                 also: m.name,
             })
@@ -7484,6 +7485,7 @@ fn run_macro(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
                         ),
                         title: (*label).to_string(),
                         category: format!("{title}: {prompt}"),
+                        detail: String::new(),
                         keys: String::new(),
                         also: prompt.clone(),
                     }
@@ -7559,6 +7561,7 @@ fn merge(ctx: &mut EditorContext<'_>, args: &serde_json::Value, center: bool) ->
                 id: crate::palette::invocation(id, &serde_json::json!({ "confirmed": true })),
                 title: "Merge".into(),
                 category: question.clone(),
+                detail: String::new(),
                 keys: String::new(),
                 also: question.clone(),
             },
@@ -7566,6 +7569,7 @@ fn merge(ctx: &mut EditorContext<'_>, args: &serde_json::Value, center: bool) ->
                 id: crate::palette::invocation("viewer.grid.cancel", &serde_json::json!({})),
                 title: "Cancel".into(),
                 category: question.clone(),
+                detail: String::new(),
                 keys: String::new(),
                 also: question,
             },
@@ -7674,6 +7678,7 @@ fn choose_filter(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
         id,
         title,
         category: category.clone(),
+        detail: String::new(),
         keys: String::new(),
         also,
     };
@@ -10348,6 +10353,7 @@ fn sheet_command(ctx: &mut EditorContext<'_>, args: &serde_json::Value, op: &str
                         id: crate::palette::invocation(id, &args),
                         title: title.into(),
                         category: question.clone(),
+                        detail: String::new(),
                         keys: String::new(),
                         also: question.clone(),
                     };
@@ -10867,6 +10873,7 @@ fn save_sheet_csv(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comm
             id: crate::palette::invocation(id, &a),
             title: title.into(),
             category: question.clone(),
+            detail: String::new(),
             keys: String::new(),
             also: question.clone(),
         };
@@ -15133,6 +15140,7 @@ fn menu_item(
         id: crate::palette::invocation(id, &args),
         title: title.into(),
         category: category.into(),
+        detail: String::new(),
         keys: String::new(),
         also: title.into(),
     }

@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - `kalem run PLUGIN COMMAND FILE` with a page of a notes graph (a folder a plugin's layer serves) lets the plugin read the graph's folder, not only the page's own: `kalem run graph graph.backlinks pages/Kalem.md` printed nothing, the plugin unable to read the graph's `logseq/config.edn`.
+- The lists commands offer in the palette show each item's title first. Browse Plugins wrote a plugin's version before its name (`0.0.6: Word documents — …`); the install confirmation wrote what the plugin brings before `Install Rust 0.1.2`, which the graphical palette then cut off; Cancel showed as `: Cancel`; Chapters wrote each chapter's words before its title and its indent. An item's detail (`PaletteItem::detail`: a plugin's version, what an install brings, a chapter's words) is now drawn after its title, dimmed at the right and cut before the title is, in both editors; a list with details is as wide as a file list, and no list is wider than the window's text. A category the list's items share is still written before the title (`Org: Cycle TODO State`, a question before its Merge and Cancel); a title without one stands alone, without the colon, in the graphical editor as in the terminal. A plugin's quick-pick shows an item's detail so too, after its label, rather than in place of the list's title; the menus' items (F10) no longer name their menu twice (`Edit: Edit › Select All`).
 
 ## [0.6.18] - 2026-10-11
 

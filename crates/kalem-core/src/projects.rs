@@ -206,6 +206,7 @@ impl ProjectState {
                     also: title.clone(),
                     title,
                     category: crate::tr!("project-offer-layer-why"),
+                    detail: String::new(),
                     keys: String::new(),
                 }]);
             }
@@ -555,6 +556,7 @@ pub fn picker(
         id,
         title,
         category,
+        detail: String::new(),
         keys,
         also: String::new(),
     };

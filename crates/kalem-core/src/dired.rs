@@ -2972,6 +2972,7 @@ pub(crate) fn commands() -> Vec<Command> {
                             },
                             title: label,
                             category: tr("fm-menu"),
+                            detail: String::new(),
                             keys: String::new(),
                             also: id.replace('.', " "),
                         }),
@@ -3000,6 +3001,7 @@ pub(crate) fn commands() -> Vec<Command> {
                         id: "dired.copyPath".into(),
                         title: v,
                         category: k,
+                        detail: String::new(),
                         keys: String::new(),
                         also: String::new(),
                     })

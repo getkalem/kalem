@@ -3213,6 +3213,7 @@ impl App {
                         ),
                         title: n,
                         category: tr!("category-workspaces"),
+                        detail: String::new(),
                         keys: String::new(),
                         also: String::new(),
                     })

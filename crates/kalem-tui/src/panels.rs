@@ -176,7 +176,12 @@ impl Palette {
         if area.width < 8 || area.height < 3 {
             return;
         }
-        let wide = self.pick.is_some() || self.search.is_some() || self.lines.is_some();
+        // A command list's detail stands at the right of its row, cut
+        // first: the title is what is chosen ("Install Rust 0.1.2" before
+        // what it brings). A file's folder follows its name.
+        let apart = self.pick.is_none() && self.search.is_none() && self.lines.is_none();
+        let details = apart && self.items.iter().any(|it| !it.detail.is_empty());
+        let wide = !apart || details;
         let w = area.width.saturating_sub(4).min(if wide { 90 } else { 70 });
         let x = area.x + (area.width - w) / 2;
         // Lines: a title, a detail and keys (or a mark), made only for the
@@ -201,16 +206,11 @@ impl Palette {
                     let it = matches[n];
                     (it.title.clone(), it.category.clone(), it.keys.clone())
                 }
+                // A choice without a category (a TODO keyword, a refile
+                // target) shows alone.
                 (None, None, _) => {
                     let it = matches[n];
-                    // A choice without a category (a TODO keyword, a
-                    // refile target) shows alone.
-                    let label = if it.category.is_empty() {
-                        it.title.clone()
-                    } else {
-                        format!("{}: {}", it.category, it.title)
-                    };
-                    (label, String::new(), it.keys.clone())
+                    (it.label(), it.detail.clone(), it.keys.clone())
                 }
             }
         };
@@ -326,6 +326,34 @@ impl Palette {
             };
             for dx in 0..w {
                 buf[(x + dx, y)].set_style(style);
+            }
+            if apart && !detail.is_empty() {
+                // The title whole while it leaves the detail three tenths
+                // of the row; the detail in what is left, at the right.
+                let mut room = (w - 2) as usize;
+                if !keys.is_empty() && keys.width() + 12 < room {
+                    room -= keys.width() + 1;
+                    buf.set_stringn(
+                        x + w - keys.width() as u16 - 1,
+                        y,
+                        keys,
+                        keys.width(),
+                        style.add_modifier(Modifier::DIM),
+                    );
+                }
+                let least = detail.width().min(room * 3 / 10);
+                let tw = title.width().min(room.saturating_sub(least + 2));
+                buf.set_stringn(x + 1, y, title, tw, style);
+                let left = room.saturating_sub(tw + 2);
+                let dw = detail.width().min(left);
+                buf.set_stringn(
+                    x + 1 + (room - dw) as u16,
+                    y,
+                    detail,
+                    left,
+                    style.add_modifier(Modifier::DIM),
+                );
+                continue;
             }
             buf.set_stringn(x + 1, y, title, (w - 2) as usize, style);
             let tw = title.width() as u16;

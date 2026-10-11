@@ -95,13 +95,16 @@ fn child(work: &Path) {
         "{}",
         items[0].title
     );
+    // What it brings after the title, not before it; Cancel alone.
     assert!(
         items[0]
-            .category
+            .detail
             .contains("Runs programs on this computer: ZedLS"),
         "{}",
-        items[0].category
+        items[0].detail
     );
+    assert_eq!(items[0].category, "");
+    assert_eq!(items[1].label(), "Cancel");
     choose(&reg, &items[1]);
     assert!(kalem_core::plugin_store::installed().is_empty());
     let staging = work.join("state/plugin-staging");
@@ -229,9 +232,9 @@ fn child(work: &Path) {
         panic!("{req:?}")
     };
     assert!(
-        items[0].category.starts_with("2.0.0 available"),
+        items[0].detail.starts_with("2.0.0 available"),
         "{}",
-        items[0].category
+        items[0].detail
     );
     println!("test update notice ... ok");
 

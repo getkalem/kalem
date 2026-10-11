@@ -40,6 +40,7 @@ pub fn picker_items(doc: &Document, point: usize) -> Vec<PaletteItem> {
             id: crate::palette::invocation(REFILE, &serde_json::json!({ "target": start })),
             title: path.join("/"),
             category: String::new(),
+            detail: String::new(),
             keys: String::new(),
             also: String::new(),
         });

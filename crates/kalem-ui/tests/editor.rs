@@ -774,6 +774,70 @@ fn a_long_prompt_stays_in_the_palette_and_takes_a_paste(cx: &mut TestAppContext)
 }
 
 #[gpui::test]
+fn a_choice_shows_its_title_before_its_detail(cx: &mut TestAppContext) {
+    // A list a command offers: each title first and whole, its detail
+    // dimmed at the right and cut first (the install confirmation's
+    // "Install Rust 0.1.2" before what the plugin brings, Browse Plugins'
+    // version at the right of its long title), no colon before a title
+    // without a category (Cancel), a category still before its title.
+    let (e, cx) = open("* A\n", cx);
+    let item = |category: &str, title: &str, detail: &str| kalem_core::palette::PaletteItem {
+        id: title.into(),
+        title: title.into(),
+        category: category.into(),
+        detail: detail.into(),
+        keys: String::new(),
+        also: String::new(),
+    };
+    let brings = "Rust: highlighting for the current editions · Languages: Rust, TOML · \
+                  Runs programs on this computer: rust-analyzer · From org.kalem.rust";
+    let word = format!(
+        "Word documents — {}",
+        "Opens Word documents as themselves; ".repeat(4)
+    );
+    e.update(cx, |e, cx| {
+        e.open_choice(
+            vec![
+                item("", "Install Rust 0.1.2", brings),
+                item("", "Cancel", ""),
+                item("", &word, "installed 0.0.6"),
+                item("Org", "Cycle TODO State", ""),
+            ],
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    let mut at = |name: &'static str| {
+        cx.debug_bounds(name)
+            .unwrap_or_else(|| panic!("{name} drawn"))
+    };
+    let palette = at("palette");
+    let (title, detail) = (at("palette-0-title"), at("palette-0-detail"));
+    let cancel = at("palette-1-title");
+    let (long, version) = (at("palette-2-title"), at("palette-2-detail"));
+    let org = at("palette-3-title");
+    // Characters of one width in the test platform's text system: a
+    // character's width from the category and title written together.
+    let w = |b: gpui::Bounds<gpui::Pixels>| f32::from(b.size.width);
+    let ch = w(org) / "Org: Cycle TODO State".chars().count() as f32;
+    let near = |a: f32, chars: usize| (a - ch * chars as f32).abs() < 0.5;
+    assert!(near(w(cancel), "Cancel".len()), "Cancel alone, no colon");
+    assert!(
+        near(w(title), "Install Rust 0.1.2".len()),
+        "the title whole"
+    );
+    assert!(detail.left() >= title.right(), "the detail after the title");
+    assert!(detail.right() <= palette.right());
+    assert!(
+        w(version) >= ch * "installed 0.0.6".len() as f32,
+        "the version whole beside a long title"
+    );
+    assert!(long.right() <= version.left() && version.right() <= palette.right());
+    assert!(cx.debug_bounds("palette-1-detail").is_none());
+    cx.simulate_keystrokes("escape");
+}
+
+#[gpui::test]
 fn install_from_github_asks_for_a_link(cx: &mut TestAppContext) {
     // Install Plugin from GitHub: the palette says what it asks for, and
     // a link that is not GitHub's is refused with why.
@@ -952,7 +1016,7 @@ fn word_targets_and_chapters(cx: &mut TestAppContext) {
             .map(|p| {
                 p.matches()
                     .iter()
-                    .map(|i| (i.title.clone(), i.category.clone()))
+                    .map(|i| (i.title.clone(), i.detail.clone()))
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default()

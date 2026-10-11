@@ -276,6 +276,7 @@ impl Workspaces {
                     w.name.clone()
                 },
                 category: category.clone(),
+                detail: String::new(),
                 keys: if i < 9 {
                     format!("SPC TAB {}", i + 1)
                 } else {

@@ -40,6 +40,7 @@ pub fn items(doc: &Document, pos: usize) -> Vec<PaletteItem> {
         id,
         title,
         category,
+        detail: String::new(),
         keys: String::new(),
         also: String::new(),
     };

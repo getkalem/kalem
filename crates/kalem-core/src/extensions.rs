@@ -1461,10 +1461,11 @@ pub fn asking() -> bool {
 pub fn take_requests() -> Vec<crate::command::Request> {
     use crate::command::Request;
     use crate::palette::{PaletteItem, invocation};
-    let item = |title: String, category: String, args: Value| PaletteItem {
+    let item = |title: String, category: String, detail: String, args: Value| PaletteItem {
         id: invocation(ANSWER, &args),
         title,
         category,
+        detail,
         keys: String::new(),
         also: String::new(),
     };
@@ -1501,11 +1502,14 @@ pub fn take_requests() -> Vec<crate::command::Request> {
                     item(
                         label,
                         message.clone(),
+                        String::new(),
                         serde_json::json!({ "request": request, "confirmed": yes }),
                     )
                 })
                 .collect(),
             ),
+            // The list's title before each label, as a question's; an
+            // item's detail dimmed after it, as `pick-item` says.
             Question::Pick { title, items } => Request::Choose(
                 items
                     .into_iter()
@@ -1513,7 +1517,8 @@ pub fn take_requests() -> Vec<crate::command::Request> {
                     .map(|(i, (label, detail))| {
                         item(
                             label,
-                            detail.or_else(|| title.clone()).unwrap_or_default(),
+                            title.clone().unwrap_or_default(),
+                            detail.unwrap_or_default(),
                             serde_json::json!({ "request": request, "picked": i }),
                         )
                     })
@@ -1776,6 +1781,7 @@ pub(crate) fn core_commands() -> Vec<Command> {
                             ),
                             title: p.title,
                             category: p.plugin,
+                            detail: String::new(),
                             keys: String::new(),
                             also: String::new(),
                         })
@@ -1801,6 +1807,7 @@ pub(crate) fn core_commands() -> Vec<Command> {
                             ),
                             title: widget_text(w),
                             category: p.title.clone(),
+                            detail: String::new(),
                             keys: String::new(),
                             also: String::new(),
                         });
@@ -1893,7 +1900,8 @@ mod tests {
         match ours.next() {
             Some(Request::Choose(items)) => {
                 assert_eq!(items[1].title, "b");
-                assert_eq!(items[1].category, "second");
+                assert_eq!(items[1].detail, "second");
+                assert_eq!(items[1].category, "");
             }
             r => panic!("{r:?}"),
         }

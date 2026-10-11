@@ -640,6 +640,7 @@ fn choose_todo_state(ctx: &mut EditorContext<'_>) -> CommandResult {
         id: crate::palette::invocation("org.todo.set", &serde_json::json!({ "state": state })),
         title,
         category: String::new(),
+        detail: String::new(),
         keys: String::new(),
         also: String::new(),
     };
@@ -666,6 +667,7 @@ fn choose_priority(ctx: &mut EditorContext<'_>) -> CommandResult {
         id,
         title,
         category: String::new(),
+        detail: String::new(),
         keys: String::new(),
         also: String::new(),
     };
@@ -1317,6 +1319,7 @@ pub fn export_dialog_items(config: &crate::settings::Config) -> Vec<crate::palet
         id: id.to_string(),
         title,
         category,
+        detail: String::new(),
         keys: String::new(),
         also: id.replace('.', " "),
     };
@@ -1857,6 +1860,7 @@ fn csv_preview(
             id: id.clone(),
             title: r.join("  │  "),
             category: category.clone(),
+            detail: String::new(),
             keys: String::new(),
             also: String::new(),
         })
@@ -2366,6 +2370,7 @@ fn latex_commands() -> Vec<Command> {
                         ),
                         title: format!("{line}: {} {}", if warning { "⚠" } else { "ⓘ" }, x.message),
                         category: x.code.to_string(),
+                        detail: String::new(),
                         keys: String::new(),
                         also: String::new(),
                     }
@@ -2708,6 +2713,7 @@ fn latex_insert_citation(ctx: &mut EditorContext<'_>, args: &Value) -> CommandRe
                 ),
                 title: format!("{}  {}", e.key, crate::cite::describe(e)),
                 category: e.kind.to_lowercase(),
+                detail: String::new(),
                 keys: String::new(),
                 also: String::new(),
             })
@@ -2766,6 +2772,7 @@ fn bookmark_choice(ctx: &mut EditorContext<'_>, command: &str) -> CommandResult 
             id: crate::palette::invocation(command, &serde_json::json!({ "name": b.name })),
             title: b.name.clone(),
             category: crate::tr!("category-bookmarks"),
+            detail: String::new(),
             keys: String::new(),
             also: format!("{} {}", b.path.display(), b.context.trim()),
         })
@@ -3742,6 +3749,7 @@ fn flow_item(
         id: crate::palette::invocation(id, &args),
         title: title.into(),
         category: category.into(),
+        detail: String::new(),
         keys: String::new(),
         also: title.into(),
     }
@@ -4408,6 +4416,7 @@ fn markdown_commands() -> Vec<Command> {
                             ),
                             title: format!("{}: {}", f.key, f.value),
                             category: category.clone(),
+                            detail: String::new(),
                             keys: String::new(),
                             also: String::new(),
                         })
@@ -4416,6 +4425,7 @@ fn markdown_commands() -> Vec<Command> {
                         id: "markdown.frontMatter.set".into(),
                         title: crate::tr!("front-matter-add"),
                         category: category.clone(),
+                        detail: String::new(),
                         keys: String::new(),
                         also: String::new(),
                     });
@@ -4426,6 +4436,7 @@ fn markdown_commands() -> Vec<Command> {
                         ),
                         title: crate::tr!("front-matter-delete", key = f.key.as_str()),
                         category: category.clone(),
+                        detail: String::new(),
                         keys: String::new(),
                         also: String::new(),
                     }));
@@ -5136,6 +5147,7 @@ fn csv_commands() -> Vec<Command> {
                         // A line break shown as one (the lines ran together).
                         title: format!("{name}: {}", v.replace("\r\n", "\n").replace('\n', " ⏎ ")),
                         category: category.clone(),
+                        detail: String::new(),
                         keys: String::new(),
                         also: String::new(),
                     }
@@ -5228,6 +5240,7 @@ fn csv_commands() -> Vec<Command> {
                     ),
                     title: format!("{n:>6}  {}  {v}", crate::csv::bar(n, max, 20)),
                     category: category.clone(),
+                    detail: String::new(),
                     keys: String::new(),
                     also: String::new(),
                 })
@@ -5272,6 +5285,7 @@ fn csv_commands() -> Vec<Command> {
                             crate::csv::bar(b.count, max, 20)
                         ),
                         category: category.clone(),
+                        detail: String::new(),
                         keys: String::new(),
                         also: String::new(),
                     }
@@ -6370,12 +6384,15 @@ fn code_commands() -> Vec<Command> {
 fn plugin_commands() -> Vec<Command> {
     use crate::palette::{PaletteItem, invocation};
     use serde_json::json;
-    fn item(id: String, title: String, category: String) -> PaletteItem {
+    /// An item of the plugins' lists: what it does, and what is said of
+    /// it after (a version, what an install brings).
+    fn item(id: String, title: String, detail: String) -> PaletteItem {
         PaletteItem {
             also: title.clone(),
             id,
             title,
-            category,
+            category: String::new(),
+            detail,
             keys: String::new(),
         }
     }
@@ -6837,7 +6854,7 @@ fn plugin_commands() -> Vec<Command> {
                             .source
                             .clone()
                             .unwrap_or_else(|| p.dir.display().to_string());
-                        let category = match crate::plugin_store::available(&p.id, &p.version) {
+                        let detail = match crate::plugin_store::available(&p.id, &p.version) {
                             Some(v) => {
                                 crate::tr!("plugin-available-from", version = v, from = from)
                             }
@@ -6846,7 +6863,7 @@ fn plugin_commands() -> Vec<Command> {
                         item(
                             invocation("plugin.manage", &json!({ "id": p.id })),
                             format!("{} {}", p.name, p.version),
-                            category,
+                            detail,
                         )
                     })
                     .collect();
@@ -6995,6 +7012,7 @@ fn new_file_target(
             id: crate::palette::invocation(id, &a),
             title: format!("Replace {name}"),
             category: format!("{name} exists"),
+            detail: String::new(),
             keys: String::new(),
             also: String::new(),
         };
@@ -7011,11 +7029,12 @@ fn new_file_target(
 /// that needs such a plugin (New Workbook), `open` none. No plugin is
 /// built into Kalem: each is installed when it is wanted (T3.7.9).
 pub(crate) fn offer_plugins(ctx: &mut EditorContext<'_>, open: Option<String>, name: &str) {
-    let item = |id: String, title: String, category: String| crate::palette::PaletteItem {
+    let item = |id: String, title: String, detail: String| crate::palette::PaletteItem {
         also: title.clone(),
         id,
         title,
-        category,
+        category: String::new(),
+        detail,
         keys: String::new(),
     };
     let file = std::path::Path::new(name)
@@ -7228,6 +7247,7 @@ fn open_as_workbook(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult 
         id: crate::palette::invocation(ID, &a),
         title: title.into(),
         category: category.into(),
+        detail: String::new(),
         keys: String::new(),
         also: title.into(),
     };
@@ -8245,7 +8265,8 @@ fn plain_commands() -> Vec<Command> {
                             &serde_json::json!({ "line": text.line_of(c.start) + 1 }),
                         ),
                         title: format!("{}{}", "   ".repeat(c.level - 1), c.title),
-                        category: match c.target {
+                        category: String::new(),
+                        detail: match c.target {
                             Some(t) => crate::stats::progress(c.words, t),
                             None => crate::stats::thousands(c.words),
                         },
@@ -8569,6 +8590,7 @@ fn plain_commands() -> Vec<Command> {
                                 id: crate::palette::invocation("file.open", &a),
                                 title: crate::tr!("open-create-folder", name = name),
                                 category: crate::tr!("open-no-folder", dir = dir.as_str()),
+                                detail: String::new(),
                                 keys: String::new(),
                                 also: String::new(),
                             };
@@ -8619,6 +8641,7 @@ fn plain_commands() -> Vec<Command> {
                             ),
                             title: t.title.to_string(),
                             category: "LaTeX".into(),
+                            detail: String::new(),
                             keys: String::new(),
                             also: String::new(),
                         })
@@ -9896,6 +9919,7 @@ fn plain_commands() -> Vec<Command> {
                         ),
                         title: n,
                         category: crate::tr!("category-session"),
+                        detail: String::new(),
                         keys: String::new(),
                         also: String::new(),
                     })
@@ -10124,6 +10148,7 @@ fn plain_commands() -> Vec<Command> {
                         ),
                         title: crate::l10n::tr(&format!("theme-{t}")),
                         category: String::new(),
+                        detail: String::new(),
                         keys: if t == current {
                             "•".into()
                         } else {

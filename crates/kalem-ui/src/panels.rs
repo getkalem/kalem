@@ -10,7 +10,7 @@ use std::time::Instant;
 use gpui::prelude::FluentBuilder;
 use gpui::{
     Context, InteractiveElement, IntoElement, Keystroke, MouseButton, ParentElement, SharedString,
-    StatefulInteractiveElement, Styled, Window, div, px,
+    StatefulInteractiveElement, Styled, Window, div, px, relative,
 };
 use kalem_core::command::PickKind;
 use kalem_core::find::{self, FindOptions};
@@ -65,6 +65,7 @@ impl PathPrompt {
                     e.name.clone()
                 },
                 category: String::new(),
+                detail: String::new(),
                 keys: String::new(),
                 also: String::new(),
             })
@@ -1240,18 +1241,21 @@ impl Editor {
                 .iter()
                 .map(|it| (it.title.clone(), it.category.clone(), it.keys.clone()))
                 .collect(),
+            // Commands and the lists commands offer: the title after its
+            // category, as the terminal writes it; the item's detail
+            // apart (a plugin's version, what an install brings).
             None => p
                 .matches()
                 .iter()
-                .map(|it| {
-                    (
-                        format!("{}: {}", it.category, it.title),
-                        String::new(),
-                        it.keys.clone(),
-                    )
-                })
+                .map(|it| (it.label(), it.detail.clone(), it.keys.clone()))
                 .collect(),
         };
+        // A command list's detail stands at the right of its row, cut
+        // first: the title is what is chosen, "Install Rust 0.1.2" before
+        // what it brings. A file's folder follows its name.
+        let apart = p.search.is_none() && p.lines.is_none() && p.pick.is_none() && p.arg.is_none();
+        // A list with details is as wide as a file list: room for both.
+        let details = apart && p.items.iter().any(|it| !it.detail.is_empty());
         let first = p.selected.saturating_sub(11);
         let rows =
             lines
@@ -1260,6 +1264,47 @@ impl Editor {
                 .skip(first)
                 .take(12)
                 .map(|(n, (title, detail, keys))| {
+                    let text = if apart {
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .flex()
+                            .flex_row()
+                            .gap(px(10.))
+                            .child(
+                                div()
+                                    .debug_selector(|| format!("palette-{n}-title"))
+                                    .min_w_0()
+                                    .truncate()
+                                    .child(SharedString::from(title)),
+                            )
+                            .when(!detail.is_empty(), |d| {
+                                // What the title leaves, and three tenths
+                                // of the row at least where it is long.
+                                d.child(
+                                    div()
+                                        .debug_selector(|| format!("palette-{n}-detail"))
+                                        .flex_1()
+                                        .min_w(relative(0.3))
+                                        .truncate()
+                                        .text_right()
+                                        .text_color(theme.muted)
+                                        .child(SharedString::from(detail)),
+                                )
+                            })
+                    } else {
+                        div()
+                            .flex()
+                            .flex_row()
+                            .gap(px(10.))
+                            .overflow_hidden()
+                            .child(SharedString::from(title))
+                            .child(
+                                div()
+                                    .text_color(theme.muted)
+                                    .child(SharedString::from(detail)),
+                            )
+                    };
                     let row = div()
                         .id(("palette-row", n))
                         .debug_selector(|| format!("palette-{n}"))
@@ -1270,21 +1315,10 @@ impl Editor {
                         .px(px(12.))
                         .py(px(3.))
                         .cursor_pointer()
+                        .child(text)
                         .child(
                             div()
-                                .flex()
-                                .flex_row()
-                                .gap(px(10.))
-                                .overflow_hidden()
-                                .child(SharedString::from(title))
-                                .child(
-                                    div()
-                                        .text_color(theme.muted)
-                                        .child(SharedString::from(detail)),
-                                ),
-                        )
-                        .child(
-                            div()
+                                .flex_none()
                                 .text_color(theme.muted)
                                 .child(SharedString::from(keys)),
                         )
@@ -1310,11 +1344,14 @@ impl Editor {
                         .id("palette")
                         .debug_selector(|| "palette".into())
                         .occlude()
-                        .w(px(if p.search.is_some() || p.pick.is_some() {
+                        .w(px(if p.search.is_some() || p.pick.is_some() || details {
                             720.
                         } else {
                             560.
                         }))
+                        // Within a narrow window's text, not under the
+                        // folders or out of the window.
+                        .max_w_full()
                         .flex()
                         .flex_col()
                         .py(px(4.))

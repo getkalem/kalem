@@ -15,6 +15,7 @@ fn item(text: &str, title: String, category: &str, also: String) -> PaletteItem 
         id: crate::palette::invocation(TEXT, &serde_json::json!({ "text": text })),
         title,
         category: category.to_string(),
+        detail: String::new(),
         keys: String::new(),
         also,
     }

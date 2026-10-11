@@ -145,3 +145,65 @@ fn a_file_without_its_plugin_offers_the_plugin_that_opens_it() {
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A list a command offers: each title first and whole, its detail dimmed
+/// at the right (cut first), no colon where there is no category, a
+/// category still before its title: the install confirmation, Browse
+/// Plugins' long titles with their versions, Cancel.
+#[test]
+fn a_choice_shows_its_title_before_its_detail() {
+    use kalem_core::palette::PaletteItem;
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::Rect;
+    use ratatui::style::Modifier;
+    let item = |category: &str, title: &str, detail: &str| PaletteItem {
+        id: title.into(),
+        title: title.into(),
+        category: category.into(),
+        detail: detail.into(),
+        keys: String::new(),
+        also: String::new(),
+    };
+    let brings = "Rust: highlighting for the current editions · Languages: Rust, TOML · \
+                  Runs programs on this computer: rust-analyzer · From org.kalem.rust";
+    let word = format!(
+        "Word documents — {}",
+        "Opens Word documents as themselves; ".repeat(4)
+    );
+    let mut p = kalem_tui::panels::Palette::new(vec![
+        item("", "Install Rust 0.1.2", brings),
+        item("", "Cancel", ""),
+        item("", &word, "installed 0.0.6"),
+        item("Org", "Cycle TODO State", ""),
+    ]);
+    p.ordered = true;
+    let area = Rect::new(0, 0, 100, 10);
+    let mut buf = Buffer::empty(area);
+    p.draw(&mut buf, area, &Caps::full());
+    // The prompt on the palette's first line, the items under it.
+    let row = |y: u16| -> String { (0..area.width).map(|x| buf[(x, y)].symbol()).collect() };
+    let install = row(2);
+    assert!(
+        install
+            .trim()
+            .starts_with("Install Rust 0.1.2  Rust: highlighting"),
+        "{install}"
+    );
+    let at = install.find("Rust: highlighting").unwrap() as u16;
+    assert!(
+        buf[(at, 2)].modifier.contains(Modifier::DIM),
+        "the detail dimmed"
+    );
+    assert!(
+        !buf[(6, 2)].modifier.contains(Modifier::DIM),
+        "the title not"
+    );
+    assert_eq!(row(3).trim(), "Cancel");
+    let browse = row(4);
+    assert!(
+        browse.trim().starts_with("Word documents — Opens"),
+        "{browse}"
+    );
+    assert!(browse.trim_end().ends_with("installed 0.0.6"), "{browse}");
+    assert_eq!(row(5).trim(), "Org: Cycle TODO State");
+}

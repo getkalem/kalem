@@ -1816,6 +1816,7 @@ fn choice(id: String, title: String, category: String) -> crate::palette::Palett
         id,
         title,
         category,
+        detail: String::new(),
         keys: String::new(),
     }
 }
@@ -3326,6 +3327,7 @@ pub fn place_items(places: &[Place]) -> Vec<crate::palette::PaletteItem> {
                 ),
                 title: p.preview.clone(),
                 category: format!("{file}:{}", p.line),
+                detail: String::new(),
                 keys: String::new(),
                 also: p.path.to_string_lossy().into_owned(),
             }

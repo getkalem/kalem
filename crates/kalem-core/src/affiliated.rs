@@ -237,6 +237,7 @@ pub fn picker_items(doc: &Document) -> Vec<PaletteItem> {
                 format!("{target}  {desc}")
             },
             category: kind.to_string(),
+            detail: String::new(),
             keys: String::new(),
             also: String::new(),
         })

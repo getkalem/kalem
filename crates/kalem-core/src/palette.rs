@@ -13,8 +13,14 @@ pub struct PaletteItem {
     pub id: String,
     /// Its title.
     pub title: String,
-    /// Its category.
+    /// What it belongs to, as the list's other items do (a command's
+    /// group, a menu, a question asked): written before its title,
+    /// `category: title` ([`PaletteItem::label`]).
     pub category: String,
+    /// What is said of this item alone (a plugin's version, what an
+    /// install brings, a chapter's words): drawn after its title, dimmed
+    /// at the right, and cut before the title is.
+    pub detail: String,
     /// Its key, if bound.
     pub keys: String,
     /// More words it is found by: its ID and English title (`dired`
@@ -30,6 +36,7 @@ impl PaletteItem {
             id: String::new(),
             title: String::new(),
             category: String::new(),
+            detail: String::new(),
             keys: String::new(),
             also: String::new(),
         }
@@ -38,6 +45,16 @@ impl PaletteItem {
     /// Whether this is a [`PaletteItem::separator`].
     pub fn is_separator(&self) -> bool {
         self.id.is_empty() && self.title.is_empty()
+    }
+
+    /// Its title as a list shows it: after its category, alone without
+    /// one (a TODO keyword, Cancel).
+    pub fn label(&self) -> String {
+        if self.category.is_empty() {
+            self.title.clone()
+        } else {
+            format!("{}: {}", self.category, self.title)
+        }
     }
 }
 
@@ -74,6 +91,7 @@ pub fn items(
             id: c.id.clone(),
             title: c.display_title(),
             category: c.display_category(),
+            detail: String::new(),
             keys: keymap
                 .keys_for(&c.id)
                 .first()
@@ -109,6 +127,7 @@ pub fn binding_items(
         out.push(PaletteItem {
             title: format!("{keys}  {}", c.display_title()),
             category: c.display_category(),
+            detail: String::new(),
             keys: String::new(),
             also: format!("{} {} {}", c.id.replace('.', " "), c.title, b.command),
             id,
@@ -118,9 +137,10 @@ pub fn binding_items(
 }
 
 /// The items of the menus (`crate::menus`) that apply in `ctx`, each
-/// titled by its menu and its label, with its first key written by
-/// `show`: the menus of the terminal editor (F10), and a way to reach
-/// every menu item from the keyboard in the graphical one.
+/// titled by its menu and its label (its menu not again as a category),
+/// with its first key written by `show`: the menus of the terminal
+/// editor (F10), and a way to reach every menu item from the keyboard in
+/// the graphical one.
 pub fn menu_items(
     registry: &CommandRegistry,
     keymap: &Keymap,
@@ -147,7 +167,8 @@ pub fn menu_items(
             out.push(PaletteItem {
                 id: args.as_ref().map_or(id.to_string(), |a| invocation(id, a)),
                 title: format!("{} › {label}", m.name),
-                category: m.name.clone(),
+                category: String::new(),
+                detail: String::new(),
                 keys: keymap
                     .keys_for(id)
                     .first()
@@ -185,8 +206,8 @@ pub fn fuzzy(query: &str, text: &str) -> Option<i64> {
     Some(score)
 }
 
-/// The items matching `input`, best first: by title, then by category and
-/// title.
+/// The items matching `input`, best first: by title, then by category,
+/// title and detail.
 pub fn matches<'a>(items: &'a [PaletteItem], input: &str) -> Vec<&'a PaletteItem> {
     matching(items, input)
         .into_iter()
@@ -203,7 +224,13 @@ pub fn matching(items: &[PaletteItem], input: &str) -> Vec<usize> {
         .enumerate()
         .filter_map(|(n, it)| {
             fuzzy(input, &it.title)
-                .or_else(|| fuzzy(input, &format!("{} {}", it.category, it.title)).map(|s| s + 10))
+                .or_else(|| {
+                    fuzzy(
+                        input,
+                        &format!("{} {} {}", it.category, it.title, it.detail),
+                    )
+                    .map(|s| s + 10)
+                })
                 .or_else(|| fuzzy(input, &it.also).map(|s| s + 20))
                 .or_else(|| fuzzy(&undotted, &it.also).map(|s| s + 20))
                 .map(|s| (s, n))
@@ -294,6 +321,7 @@ mod tests {
             id: t.into(),
             title: t.into(),
             category: String::new(),
+            detail: String::new(),
             keys: String::new(),
             also: String::new(),
         };
@@ -319,10 +347,38 @@ mod tests {
             id: "org.todo.cycle".into(),
             title: "Cycle TODO State".into(),
             category: "Org".into(),
+            detail: String::new(),
             keys: String::new(),
             also: "org todo cycle".into(),
         }];
         assert_eq!(matches(&items, "org.todo.cycle").len(), 1);
         assert_eq!(fuzzy("", "Save"), Some(0));
+    }
+
+    #[test]
+    fn a_label_has_its_category_before_and_no_detail() {
+        let item = |category: &str, title: &str, detail: &str| PaletteItem {
+            id: title.into(),
+            title: title.into(),
+            category: category.into(),
+            detail: detail.into(),
+            keys: String::new(),
+            also: String::new(),
+        };
+        assert_eq!(
+            item("Org", "Cycle TODO State", "").label(),
+            "Org: Cycle TODO State"
+        );
+        // No colon before a title without a category (Cancel).
+        assert_eq!(item("", "Cancel", "").label(), "Cancel");
+        // The detail is drawn apart, after the title.
+        let rust = item(
+            "",
+            "Install Rust 0.1.2",
+            "Rust: highlighting · From org.kalem.rust",
+        );
+        assert_eq!(rust.label(), "Install Rust 0.1.2");
+        // Found by its detail too.
+        assert_eq!(matches(std::slice::from_ref(&rust), "kalem rust").len(), 1);
     }
 }

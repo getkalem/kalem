@@ -127,6 +127,7 @@ pub fn picker_items(bib: &Bibliography) -> Vec<PaletteItem> {
             id: crate::palette::invocation(INSERT, &serde_json::json!({ "key": e.key })),
             title: format!("@{}  {}", e.key, describe(e)),
             category: e.kind.to_lowercase(),
+            detail: String::new(),
             keys: String::new(),
             also: String::new(),
         })
