@@ -137,6 +137,51 @@ pub trait Host {
     }
 }
 
+/// The commands of CTRL-W and `key` (Vim's window commands on Kalem's
+/// panes, as Doom's `SPC w` has them); `count` resizes by that many.
+fn window_command(key: Key, count: Option<usize>) -> Option<Vec<(String, Value)>> {
+    use serde_json::json;
+    let one = |id: &str, args: Value| Some(vec![(id.to_string(), args)]);
+    let dir = |id: &str, d: &str| one(id, json!({ "dir": d }));
+    let by = count.map_or(5, |n| n.min(i32::MAX as usize) as i64);
+    let resize =
+        |axis: &str, sign: i64| one("pane.resize", json!({ "axis": axis, "by": sign * by }));
+    match key {
+        Key::Char('h') | Key::Ctrl('h') | Key::Left => dir("pane.focus", "left"),
+        Key::Char('j') | Key::Ctrl('j') | Key::Down => dir("pane.focus", "down"),
+        Key::Char('k') | Key::Ctrl('k') | Key::Up => dir("pane.focus", "up"),
+        Key::Char('l') | Key::Ctrl('l') | Key::Right => dir("pane.focus", "right"),
+        Key::Char('H') => dir("pane.move", "left"),
+        Key::Char('J') => dir("pane.move", "down"),
+        Key::Char('K') => dir("pane.move", "up"),
+        Key::Char('L') => dir("pane.move", "right"),
+        Key::Char('w') | Key::Ctrl('w') => one("pane.next", Value::Null),
+        Key::Char('W') => one("pane.next", json!({ "back": true })),
+        Key::Char('p') | Key::Ctrl('p') => one("pane.previous", Value::Null),
+        Key::Char('s' | 'S') | Key::Ctrl('s') => one("pane.splitBelow", Value::Null),
+        Key::Char('v') | Key::Ctrl('v') => one("pane.splitRight", Value::Null),
+        Key::Char('n') | Key::Ctrl('n') => one("pane.new", Value::Null),
+        Key::Char('c') => one("pane.close", Value::Null),
+        // `:quit`: the pane, else the document.
+        Key::Char('q') | Key::Ctrl('q') => one("pane.closeOrQuit", Value::Null),
+        Key::Char('o') | Key::Ctrl('o') => one("pane.only", Value::Null),
+        Key::Char('=') => one("pane.balance", Value::Null),
+        Key::Char('+') => resize("column", 1),
+        Key::Char('-') => resize("column", -1),
+        Key::Char('>') => resize("row", 1),
+        Key::Char('<') => resize("row", -1),
+        Key::Char('x') | Key::Ctrl('x') => one("pane.swap", Value::Null),
+        Key::Char('r') | Key::Ctrl('r') => one("pane.rotate", Value::Null),
+        Key::Char('R') => one("pane.rotate", json!({ "back": true })),
+        // The alternate file in a new pane.
+        Key::Char('^') | Key::Ctrl('^' | '6') => Some(vec![
+            ("pane.splitBelow".into(), Value::Null),
+            ("file.last".into(), Value::Null),
+        ]),
+        _ => None,
+    }
+}
+
 /// One character left or right of `pos`: over the shown text in the rich
 /// view, else over the source.
 fn step(doc: &DocumentState, pos: usize, right: bool, rich: bool) -> usize {
@@ -221,6 +266,10 @@ enum Pending {
     Execute,
     /// `z`: what to scroll.
     Z,
+    /// `Z`: `ZZ` writes and closes, `ZQ` closes losing the changes.
+    Quit,
+    /// CTRL-W: the window (pane) command that follows.
+    Window,
     /// `[` (back) or `]`: the bracket, section or put that follows.
     Bracket(bool),
 }
@@ -479,6 +528,15 @@ pub struct Vim {
     /// Where the cursor goes when a block insert ends: the block's top
     /// left corner.
     block_corner: Option<usize>,
+    /// The command lines and the searches typed before, oldest first, for
+    /// Up and Down on the command line.
+    ex_history: Vec<String>,
+    search_history: Vec<String>,
+    /// Up or Down on the command line: the entry shown, and what was
+    /// typed before, which the entries recalled start with.
+    history_at: Option<(usize, String)>,
+    /// CTRL-R on the command line: a register's name comes next.
+    line_register: bool,
 }
 
 impl Default for Vim {
@@ -1458,6 +1516,10 @@ impl Vim {
             search_count: 1,
             storing_block: false,
             block_corner: None,
+            ex_history: Vec::new(),
+            search_history: Vec::new(),
+            history_at: None,
+            line_register: false,
         }
     }
 
@@ -3565,6 +3627,27 @@ impl Vim {
                 self.z_command(doc, key, n, host);
                 return self.reset();
             }
+            Pending::Window => {
+                self.pending = Pending::None;
+                let n = self.count.take();
+                match window_command(key, n) {
+                    Some(cmds) => out.commands.extend(cmds),
+                    None => self.failed = true,
+                }
+                return self.reset();
+            }
+            Pending::Quit => {
+                self.pending = Pending::None;
+                match key {
+                    Key::Char('Z') => self.ex_app(doc, "x", out),
+                    Key::Char('Q') => self.ex_app(doc, "q!", out),
+                    _ => {
+                        self.failed = true;
+                        self.reset();
+                    }
+                }
+                return;
+            }
             Pending::None => {}
         }
         // A count.
@@ -3628,28 +3711,15 @@ impl Vim {
                     self.scroll_lines(doc, key == Key::Ctrl('e'), n, host)
                 }
                 Key::Ctrl('g') if self.op.is_none() => {
-                    let lines = last_line(doc) + 1;
-                    let l = line_of(doc, self.cursor) + 1;
-                    let name = doc
-                        .meta
-                        .path
-                        .as_ref()
-                        .and_then(|p| p.file_name())
-                        .map_or_else(
-                            || "[No Name]".to_string(),
-                            |n| n.to_string_lossy().into_owned(),
-                        );
-                    let modified = if doc.is_modified() { " [Modified]" } else { "" };
-                    out.message = Some((
-                        format!(
-                            "\"{name}\"{modified} {lines} lines --{}%--",
-                            l * 100 / lines.max(1)
-                        ),
-                        false,
-                    ));
+                    out.message = Some((self.file_info(doc), false));
                 }
                 Key::Ctrl('^' | '6') if self.op.is_none() => {
                     out.commands.push(("file.last".into(), Value::Null));
+                }
+                // CTRL-W: the panes, as Vim's windows (Doom's `SPC w`).
+                Key::Ctrl('w') if self.op.is_none() => {
+                    self.pending = Pending::Window;
+                    return;
                 }
                 Key::Ctrl('l') => {}
                 Key::Ctrl('r') if !self.visual() => {
@@ -3795,6 +3865,7 @@ impl Vim {
                 self.count = count;
                 self.pending = Pending::Z;
             }
+            'Z' if self.op.is_none() => self.pending = Pending::Quit,
             '&' => {
                 self.begin_change();
                 self.ex(doc, "s", host, out);
@@ -4887,25 +4958,93 @@ impl Vim {
         host: &mut dyn Host,
         out: &mut Outcome,
     ) {
+        if self.command_line.is_none() {
+            return;
+        }
+        // CTRL-R and a register: its text typed; CTRL-R CTRL-W the word at
+        // the cursor, CTRL-A the WORD, CTRL-L the line.
+        if std::mem::take(&mut self.line_register) {
+            let text = doc.text().as_str();
+            let at = self.cursor.min(text.len());
+            let typed = match key {
+                Key::Ctrl('w') => crate::lines::word_at(text, at).map(|r| text[r].to_string()),
+                Key::Ctrl('a') => {
+                    let (s, e) = (
+                        text[..at].rfind(char::is_whitespace).map_or(0, |i| i + 1),
+                        text[at..]
+                            .find(char::is_whitespace)
+                            .map_or(text.len(), |i| at + i),
+                    );
+                    (s < e).then(|| text[s..e].to_string())
+                }
+                Key::Ctrl('l') => {
+                    let l = line_of(doc, at);
+                    Some(text[line_start(doc, l)..line_end(doc, l)].to_string())
+                }
+                Key::Char(c) => {
+                    self.register = Some(c);
+                    self.fetch(host).map(|r| r.text)
+                }
+                _ => None,
+            };
+            if let (Some(t), Some(line)) = (typed, &mut self.command_line) {
+                // On one line: the last line break left out, the others
+                // as spaces.
+                line.push_str(&t.strip_suffix('\n').unwrap_or(&t).replace('\n', " "));
+            }
+            return;
+        }
+        if !matches!(key, Key::Up | Key::Down | Key::Ctrl('p' | 'n')) {
+            self.history_at = None;
+        }
         let Some(line) = &mut self.command_line else {
             return;
         };
         match key {
-            Key::Esc | Key::Ctrl('[') => {
+            Key::Esc | Key::Ctrl('[' | 'c') => {
                 self.command_line = None;
                 self.reset();
             }
-            Key::Backspace => {
+            Key::Backspace | Key::Ctrl('h') => {
                 line.pop();
                 if line.is_empty() {
                     self.command_line = None;
                     self.reset();
                 }
             }
+            Key::Ctrl('r') => self.line_register = true,
+            // CTRL-U: everything typed; CTRL-W: the word before.
+            Key::Ctrl('u') => line.truncate(1),
+            Key::Ctrl('w') => {
+                let typed = &line[1..];
+                let blank = typed.trim_end_matches(' ').len();
+                let word = |c: char| is_word(c);
+                let kept = match typed[..blank].chars().next_back() {
+                    Some(c) if word(c) => typed[..blank].trim_end_matches(word).len(),
+                    Some(_) => typed[..blank]
+                        .trim_end_matches(|c: char| !word(c) && c != ' ')
+                        .len(),
+                    None => 0,
+                };
+                line.truncate(1 + kept);
+            }
+            Key::Up | Key::Down | Key::Ctrl('p' | 'n') => {
+                let back = matches!(key, Key::Up | Key::Ctrl('p'));
+                self.recall(back, matches!(key, Key::Up | Key::Down));
+            }
             Key::Char(c) => line.push(c),
             Key::Enter => {
                 let line = self.command_line.take().unwrap_or_default();
                 let (kind, rest) = line.split_at(1);
+                let history = if kind == ":" {
+                    &mut self.ex_history
+                } else {
+                    &mut self.search_history
+                };
+                if !rest.is_empty() && !self.replaying && self.macro_depth == 0 {
+                    history.retain(|h| h != rest);
+                    history.push(rest.to_string());
+                }
                 if kind == ":" {
                     self.ex(doc, rest, host, out);
                 } else {
@@ -4920,6 +5059,45 @@ impl Vim {
             }
             _ => {}
         }
+    }
+
+    /// Up and Down on the command line (`prefix`: only the entries that
+    /// start with what was typed, as Vim's arrows; CTRL-P and CTRL-N take
+    /// every entry): the entry before or after the one shown, and past
+    /// the newest what was typed.
+    fn recall(&mut self, back: bool, prefix: bool) {
+        let Some(line) = &self.command_line else {
+            return;
+        };
+        let kind = line[..1].to_string();
+        let history = if kind == ":" {
+            &self.ex_history
+        } else {
+            &self.search_history
+        };
+        let (at, typed) = self
+            .history_at
+            .clone()
+            .unwrap_or_else(|| (history.len(), line[1..].to_string()));
+        let fits = |h: &String| !prefix || h.starts_with(&typed);
+        let found = if back {
+            history[..at.min(history.len())].iter().rposition(fits)
+        } else {
+            history
+                .iter()
+                .enumerate()
+                .skip(at + 1)
+                .find(|(_, h)| fits(h))
+                .map(|(i, _)| i)
+        };
+        let (at, text) = match found {
+            Some(i) => (i, history[i].clone()),
+            // Past the newest: what was typed again.
+            None if !back => (history.len(), typed.clone()),
+            None => return,
+        };
+        self.command_line = Some(format!("{kind}{text}"));
+        self.history_at = Some((at, typed));
     }
 
     /// The motion to the match of `pattern` at `to`, moved by the
@@ -5014,81 +5192,152 @@ impl Vim {
         self.keys.clear();
     }
 
+    /// CTRL-G's and `:file`'s line: the file's name, whether it changed,
+    /// its lines and where the cursor is in them.
+    fn file_info(&self, doc: &DocumentState) -> String {
+        let lines = last_line(doc) + 1;
+        let l = line_of(doc, self.cursor) + 1;
+        let name = doc
+            .meta
+            .path
+            .as_ref()
+            .and_then(|p| p.file_name())
+            .map_or_else(
+                || "[No Name]".to_string(),
+                |n| n.to_string_lossy().into_owned(),
+            );
+        let modified = if doc.is_modified() { " [Modified]" } else { "" };
+        format!(
+            "\"{name}\"{modified} {lines} lines --{}%--",
+            l * 100 / lines.max(1)
+        )
+    }
+
     /// The command line's commands about files, windows and buffers.
     fn ex_app(&mut self, doc: &mut DocumentState, cmd: &str, out: &mut Outcome) {
         let cmd = cmd.trim();
-        let save = || ("app.save".to_string(), Value::Null);
+        // The name, a `!` right after it, and the argument (`:w!`,
+        // `:sp notes.org`, `:b#`).
+        let name_len = cmd
+            .find(|c: char| !c.is_ascii_alphabetic())
+            .unwrap_or(cmd.len());
+        let (name, rest) = cmd.split_at(name_len);
+        let bang = rest.starts_with('!');
+        let arg = rest.strip_prefix('!').unwrap_or(rest).trim();
+        let run = |out: &mut Outcome, id: &str| out.commands.push((id.into(), Value::Null));
+        let open = |out: &mut Outcome, path: &str| {
+            // `#`, the alternate file, is the document before.
+            if path == "#" {
+                out.commands.push(("file.last".into(), Value::Null));
+            } else {
+                out.commands
+                    .push(("file.open".into(), serde_json::json!({ "path": path })));
+            }
+        };
         // `:q` closes the pane, else the document, as closing a tab; it
         // quits only when nothing is left to close (the frontends say
         // when). `:q!` loses the document's changes, not the others'.
-        let quit = || ("pane.closeOrQuit".to_string(), Value::Null);
-        match cmd {
-            "" => {}
-            "w" | "write" => out.commands.push(save()),
-            "q" | "quit" => out.commands.push(quit()),
-            "q!" | "quit!" => out.commands.push((
+        let quit = |out: &mut Outcome, force: bool| {
+            out.commands.push((
                 "pane.closeOrQuit".into(),
-                serde_json::json!({ "force": true }),
-            )),
-            "wq" | "x" | "xit" | "exit" => {
-                out.commands.push(save());
-                out.commands.push(quit());
-            }
-            "qa" | "qall" | "quitall" => out.commands.push(("app.quit".into(), Value::Null)),
-            "qa!" | "qall!" | "quitall!" => {
-                out.commands
-                    .push(("app.quitWithoutSaving".into(), Value::Null));
-            }
-            "wqa" | "wqall" | "xa" | "xall" => {
-                out.commands.push(("file.saveAll".into(), Value::Null));
-                out.commands.push(("app.quit".into(), Value::Null));
-            }
-            // Windows: the panes.
-            "sp" | "split" => out.commands.push(("pane.splitBelow".into(), Value::Null)),
-            "vs" | "vsp" | "vsplit" => out.commands.push(("pane.splitRight".into(), Value::Null)),
-            "clo" | "close" => out.commands.push(("pane.close".into(), Value::Null)),
-            "on" | "only" => out.commands.push(("pane.only".into(), Value::Null)),
-            "new" => out.commands.push(("pane.new".into(), Value::Null)),
-            "noh" | "nohlsearch" => out.highlights = Some(Vec::new()),
-            // Buffers: the open documents.
-            "bn" | "bnext" => out.commands.push(("file.next".into(), Value::Null)),
-            "bp" | "bprevious" | "bN" | "bNext" => {
-                out.commands.push(("file.previous".into(), Value::Null));
-            }
-            "bd" | "bdelete" | "bw" | "bwipeout" => {
-                out.commands.push(("file.close".into(), Value::Null));
-            }
-            "ls" | "buffers" | "files" | "b" | "buffer" => {
-                out.commands.push(("file.switch".into(), Value::Null));
-            }
-            "enew" => out.commands.push(("file.new".into(), Value::Null)),
-            // The file manager, as netrw's `:Explore`, and the projects.
-            "E" | "Ex" | "Explore" | "Dired" => {
-                out.commands.push(("dired.jump".into(), Value::Null));
-            }
-            "Projects" => out.commands.push(("dired.projects".into(), Value::Null)),
-            _ if cmd.starts_with("E ") || cmd.starts_with("Ex ") || cmd.starts_with("Explore ") => {
-                let path = cmd.split_once(' ').map_or("", |x| x.1).trim();
-                out.commands
-                    .push(("file.open".into(), serde_json::json!({ "path": path })));
-            }
-            "e" | "edit" | "e!" | "edit!" => {
-                if cmd.ends_with('!') {
-                    out.commands.push(("app.revert".into(), Value::Null));
+                if force {
+                    serde_json::json!({ "force": true })
                 } else {
-                    out.commands.push(("file.open".into(), Value::Null));
+                    Value::Null
+                },
+            ))
+        };
+        match name {
+            "" if cmd.is_empty() => {}
+            "w" | "write" if arg.is_empty() => run(out, "app.save"),
+            // `:update` and `:x` write only a changed document.
+            "up" | "update" => {
+                if doc.is_modified() {
+                    run(out, "app.save");
                 }
             }
-            _ if cmd.starts_with("e ") || cmd.starts_with("edit ") => {
-                let path = cmd.split_once(' ').map_or("", |x| x.1).trim();
-                out.commands
-                    .push(("file.open".into(), serde_json::json!({ "path": path })));
+            "wa" | "wall" => run(out, "file.saveAll"),
+            "sav" | "saveas" if arg.is_empty() => run(out, "app.saveAs"),
+            "q" | "quit" => quit(out, bang),
+            "wq" => {
+                run(out, "app.save");
+                quit(out, false);
             }
-            "$" => {
+            "x" | "xit" | "exi" | "exit" => {
+                if doc.is_modified() {
+                    run(out, "app.save");
+                }
+                quit(out, false);
+            }
+            "qa" | "qall" | "quita" | "quitall" if bang => run(out, "app.quitWithoutSaving"),
+            "qa" | "qall" | "quita" | "quitall" => run(out, "app.quit"),
+            "wqa" | "wqall" | "xa" | "xall" => {
+                run(out, "file.saveAll");
+                run(out, "app.quit");
+            }
+            "f" | "file" if arg.is_empty() => out.message = Some((self.file_info(doc), false)),
+            // Windows: the panes; a file named opens in the new one.
+            "sp" | "split" | "vs" | "vsp" | "vsplit" => {
+                let below = name.starts_with('s');
+                run(
+                    out,
+                    if below {
+                        "pane.splitBelow"
+                    } else {
+                        "pane.splitRight"
+                    },
+                );
+                if !arg.is_empty() {
+                    open(out, arg);
+                }
+            }
+            "clo" | "close" => run(out, "pane.close"),
+            "on" | "only" => run(out, "pane.only"),
+            "new" if arg.is_empty() => run(out, "pane.new"),
+            "new" => {
+                run(out, "pane.splitBelow");
+                open(out, arg);
+            }
+            "vne" | "vnew" => {
+                run(out, "pane.splitRight");
+                if arg.is_empty() {
+                    run(out, "file.new");
+                } else {
+                    open(out, arg);
+                }
+            }
+            "noh" | "nohlsearch" => out.highlights = Some(Vec::new()),
+            // Buffers and tabs: the open documents, shown as tabs.
+            "bn" | "bnext" | "tabn" | "tabnext" => run(out, "file.next"),
+            "bp" | "bprevious" | "bN" | "bNext" | "tabp" | "tabprevious" | "tabN" | "tabNext" => {
+                run(out, "file.previous")
+            }
+            "bd" | "bdelete" | "bw" | "bwipeout" | "tabc" | "tabclose" => run(out, "file.close"),
+            "tabo" | "tabonly" => run(out, "file.closeOthers"),
+            "b" | "bu" | "buf" | "buffer" if arg == "#" => run(out, "file.last"),
+            "ls" | "buffers" | "files" | "b" | "bu" | "buf" | "buffer" if arg.is_empty() => {
+                run(out, "file.switch")
+            }
+            "ene" | "enew" => run(out, "file.new"),
+            "tabnew" | "tabe" | "tabedit" => {
+                if arg.is_empty() {
+                    run(out, "file.new");
+                } else {
+                    open(out, arg);
+                }
+            }
+            // The file manager, as netrw's `:Explore`, and the projects.
+            "E" | "Ex" | "Explore" | "Dired" if arg.is_empty() => run(out, "dired.jump"),
+            "E" | "Ex" | "Explore" => open(out, arg),
+            "Projects" => run(out, "dired.projects"),
+            "e" | "edit" if bang && arg.is_empty() => run(out, "app.revert"),
+            "e" | "edit" if arg.is_empty() => run(out, "file.open"),
+            "e" | "edit" => open(out, arg),
+            "" if cmd == "$" => {
                 let l = last_line(doc);
                 doc.selection = Selection::caret(first_non_blank(doc, l));
             }
-            _ if cmd.bytes().all(|b| b.is_ascii_digit()) => {
+            "" if cmd.bytes().all(|b| b.is_ascii_digit()) => {
                 let n: usize = cmd.parse().unwrap_or(1);
                 let l = n.saturating_sub(1).min(last_line(doc));
                 doc.selection = Selection::caret(first_non_blank(doc, l));
@@ -5165,20 +5414,7 @@ mod tests {
         d.selection = Selection::caret(at);
         let mut v = Vim::new();
         let mut host = TestHost::default();
-        let mut chars = keys.chars().peekable();
-        while let Some(c) = chars.next() {
-            let key = if c == '<' && chars.peek().is_some_and(char::is_ascii_alphabetic) {
-                let name: String = chars.by_ref().take_while(|c| *c != '>').collect();
-                match name.as_str() {
-                    "Esc" => Key::Esc,
-                    "CR" => Key::Enter,
-                    "BS" => Key::Backspace,
-                    n if n.starts_with("C-") => Key::Ctrl(n.chars().nth(2).expect("a letter")),
-                    _ => panic!("{name}"),
-                }
-            } else {
-                Key::Char(c)
-            };
+        for key in test_keys(keys) {
             let out = v.key(&mut d, key, &mut host);
             if !out.handled {
                 match key {
@@ -5198,6 +5434,191 @@ mod tests {
 
     fn run(text: &str, at: usize, keys: &str) -> String {
         run_in(text, at, keys, DocumentMode::Text { language: None }).0
+    }
+
+    /// `keys` with `<Esc>`, `<CR>`, `<BS>`, `<Up>`, `<Down>` and `<C-r>`.
+    fn test_keys(keys: &str) -> Vec<Key> {
+        let mut out = Vec::new();
+        let mut chars = keys.chars().peekable();
+        while let Some(c) = chars.next() {
+            out.push(
+                if c == '<' && chars.peek().is_some_and(char::is_ascii_alphabetic) {
+                    let name: String = chars.by_ref().take_while(|c| *c != '>').collect();
+                    match name.as_str() {
+                        "Esc" => Key::Esc,
+                        "CR" => Key::Enter,
+                        "BS" => Key::Backspace,
+                        "Up" => Key::Up,
+                        "Down" => Key::Down,
+                        n if n.starts_with("C-") => Key::Ctrl(n.chars().nth(2).expect("a letter")),
+                        _ => panic!("{name}"),
+                    }
+                } else {
+                    Key::Char(c)
+                },
+            );
+        }
+        out
+    }
+
+    /// The commands `keys` ask the frontend to run, in a changed document
+    /// when `modified`.
+    fn commands_of(keys: &str, modified: bool) -> Vec<(String, Value)> {
+        let mut d = doc("one two\n", DocumentMode::Text { language: None });
+        if modified {
+            d.insert_text("x", Instant::now());
+        }
+        let mut v = Vim::new();
+        let mut host = TestHost::default();
+        let mut all = Vec::new();
+        for key in test_keys(keys) {
+            all.extend(v.key(&mut d, key, &mut host).commands);
+        }
+        all
+    }
+
+    #[test]
+    fn command_line_history_and_keys() {
+        let mut d = doc("alpha beta.gamma\n", DocumentMode::Text { language: None });
+        let mut v = Vim::new();
+        let mut h = TestHost::default();
+        let mut feed = |v: &mut Vim, keys: &str| {
+            for k in test_keys(keys) {
+                v.key(&mut d, k, &mut h);
+            }
+        };
+        feed(&mut v, ":set ts=4<CR>:set sw=2<CR>:noh<CR>/beta<CR>");
+        // Up recalls what starts with what was typed; Down comes back to
+        // it.
+        feed(&mut v, ":set<Up>");
+        assert_eq!(v.command_line.as_deref(), Some(":set sw=2"));
+        feed(&mut v, "<Up>");
+        assert_eq!(v.command_line.as_deref(), Some(":set ts=4"));
+        feed(&mut v, "<Up>");
+        assert_eq!(v.command_line.as_deref(), Some(":set ts=4"));
+        feed(&mut v, "<Down><Down>");
+        assert_eq!(v.command_line.as_deref(), Some(":set"));
+        // CTRL-P takes every entry; searches have their own.
+        feed(&mut v, "<C-u><C-p>");
+        assert_eq!(v.command_line.as_deref(), Some(":noh"));
+        feed(&mut v, "<Esc>/<Up>");
+        assert_eq!(v.command_line.as_deref(), Some("/beta"));
+        // CTRL-W takes the word before, CTRL-U the whole line.
+        feed(&mut v, "<Esc>:s/one two<C-w>");
+        assert_eq!(v.command_line.as_deref(), Some(":s/one "));
+        feed(&mut v, "<C-w><C-w>");
+        assert_eq!(v.command_line.as_deref(), Some(":s"));
+        feed(&mut v, "<C-u>");
+        assert_eq!(v.command_line.as_deref(), Some(":"));
+        // CTRL-R CTRL-W: the word at the cursor (on "beta"); CTRL-R and a
+        // register: its text.
+        feed(&mut v, "<Esc>yiw:s/<C-r><C-w>/<C-r>\"");
+        assert_eq!(v.command_line.as_deref(), Some(":s/beta/beta"));
+        feed(&mut v, "<Esc>");
+        assert_eq!(v.command_line, None);
+    }
+
+    #[test]
+    fn window_quit_and_file_commands() {
+        let ids = |keys: &str, modified: bool| -> Vec<String> {
+            commands_of(keys, modified)
+                .into_iter()
+                .map(|c| c.0)
+                .collect()
+        };
+        let one = |keys: &str| commands_of(keys, false);
+        // CTRL-W as Vim's window keys, on the panes.
+        assert_eq!(
+            one("<C-w>h"),
+            [(
+                "pane.focus".to_string(),
+                serde_json::json!({ "dir": "left" })
+            )]
+        );
+        assert_eq!(
+            one("<C-w><C-l>"),
+            [(
+                "pane.focus".to_string(),
+                serde_json::json!({ "dir": "right" })
+            )]
+        );
+        assert_eq!(
+            ids("<C-w>v<C-w>s<C-w>o<C-w>q", false),
+            [
+                "pane.splitRight",
+                "pane.splitBelow",
+                "pane.only",
+                "pane.closeOrQuit"
+            ]
+        );
+        assert_eq!(
+            one("3<C-w>+"),
+            [(
+                "pane.resize".to_string(),
+                serde_json::json!({ "axis": "column", "by": 3 })
+            )]
+        );
+        // CTRL-W and a key it does not know: nothing, and the next key is
+        // a command again.
+        assert_eq!(ids("<C-w>%<C-w>w", false), ["pane.next"]);
+        // ZZ writes only a changed document; ZQ loses the changes.
+        assert_eq!(ids("ZZ", false), ["pane.closeOrQuit"]);
+        assert_eq!(ids("ZZ", true), ["app.save", "pane.closeOrQuit"]);
+        assert_eq!(
+            one("ZQ"),
+            [(
+                "pane.closeOrQuit".to_string(),
+                serde_json::json!({ "force": true })
+            )]
+        );
+        // `!` after a name, and a file after it.
+        assert_eq!(ids(":w!<CR>", false), ["app.save"]);
+        assert_eq!(ids(":wq!<CR>", false), ["app.save", "pane.closeOrQuit"]);
+        assert_eq!(ids(":x!<CR>", true), ["app.save", "pane.closeOrQuit"]);
+        assert_eq!(ids(":bd!<CR>", false), ["file.close"]);
+        assert_eq!(ids(":up<CR>", false), Vec::<String>::new());
+        assert_eq!(ids(":update<CR>", true), ["app.save"]);
+        assert_eq!(ids(":wa<CR>", false), ["file.saveAll"]);
+        assert_eq!(ids(":e #<CR>", false), ["file.last"]);
+        assert_eq!(ids(":b#<CR>", false), ["file.last"]);
+        assert_eq!(
+            ids(":tabn<CR>:tabp<CR>:tabc<CR>", false),
+            ["file.next", "file.previous", "file.close"]
+        );
+        // The editor's settings from `:set`; `no` before an option Kalem
+        // does not keep is no error.
+        assert_eq!(
+            one(":set nonu<CR>"),
+            [(
+                "settings.set".to_string(),
+                serde_json::json!({ "key": "editor.line_numbers", "value": false })
+            )]
+        );
+        assert_eq!(
+            one(":set wrap<CR>"),
+            [(
+                "settings.set".to_string(),
+                serde_json::json!({ "key": "editor.soft_wrap", "value": true })
+            )]
+        );
+        assert_eq!(ids(":set nu!<CR>", false), ["view.toggleLineNumbers"]);
+        let mut d = doc("a\n", DocumentMode::Text { language: None });
+        let mut v = Vim::new();
+        let mut h = TestHost::default();
+        for k in test_keys(":set nohls nolist nocul<CR>") {
+            let out = v.key(&mut d, k, &mut h);
+            assert!(out.message.is_none(), "{:?}", out.message);
+        }
+        assert_eq!(
+            commands_of(":vs notes.org<CR>", false),
+            [
+                ("pane.splitRight".to_string(), Value::Null),
+                (
+                    "file.open".to_string(),
+                    serde_json::json!({ "path": "notes.org" })
+                )
+            ]
+        );
     }
 
     #[test]

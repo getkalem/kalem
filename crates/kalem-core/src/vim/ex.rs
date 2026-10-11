@@ -1261,10 +1261,32 @@ impl Vim {
             }
             return Ok(());
         }
-        // Options of the editor (numbers, wrapping) are its settings;
-        // others Vim has that Kalem does not keep are accepted quietly.
+        // Options of the editor are its settings, for every document as
+        // `SPC t l` and Alt+Z have them: `:set nu`, `:set nowrap`, `:set
+        // nu!`.
+        let setting = match flag_name {
+            "nu" | "number" => Some(("editor.line_numbers", "view.toggleLineNumbers")),
+            "wrap" => Some(("editor.soft_wrap", "view.toggleWrap")),
+            _ => None,
+        };
+        if let Some((key, toggle_id)) = setting
+            && value.is_none()
+            && !show
+        {
+            out.commands.push(if toggle {
+                (toggle_id.into(), serde_json::Value::Null)
+            } else {
+                (
+                    "settings.set".into(),
+                    serde_json::json!({ "key": key, "value": on }),
+                )
+            });
+            return Ok(());
+        }
+        // Others Vim has that Kalem does not keep are accepted quietly,
+        // with `no` and `inv` too.
         if matches!(
-            name,
+            flag_name,
             "nu" | "number"
                 | "rnu"
                 | "relativenumber"
