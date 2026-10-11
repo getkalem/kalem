@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A language plugin's server may have capabilities Kalem leaves unused: `"ignore": ["documentFormattingProvider"]` in the manifest's server, or the user's `servers.KEY.ignore` in its place (`[]` for every capability used), taken out of the server's answer to `initialize`, so that nothing asks the server for them. For a server's feature that is wrong, or that the plugin does otherwise: ptimoney's hledger-lsp 0.7.0 formats a journal into one that means something else (an automated posting's `*-1` dropped, `==` written `=`), and Kalem formatted with a server whenever it offered formatting.
 
 ### Changed
+- A plugin's keys in the files of a language its manifest declares (`textType == journal`) come before the profile's there, as its keys in its own documents do, so that Enter in a journal can be the plain text accounting plugin's (a posting's amount aligned, then the new line, as in ledger-mode); the profile's `enter` came first and the plugin's never ran. Such keys are no longer reported as bound for a text type Kalem does not know.
 - `formatters.TYPE = "off"` turns formatting of the type off altogether: Format Document says so rather than asking the language server, and format on save runs no plugin's formatter command either. It turned off only the type's usual program, and a server's or a plugin's formatter ran all the same.
 
 ## [0.6.15] - 2026-10-11

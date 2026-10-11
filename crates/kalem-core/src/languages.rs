@@ -584,6 +584,19 @@ pub fn plugins() -> Vec<Arc<Plugin>> {
         .unwrap_or_default()
 }
 
+/// Whether the text type `t` (`journal`, `hledger`) is that of the files
+/// of a language the plugin with the short ID `short` declares (`pta` of
+/// `org.kalem.pta`): the language's id or one of its extensions.
+pub fn serves_type(short: &str, t: &str) -> bool {
+    plugins().iter().any(|p| {
+        p.id.rsplit('.').next() == Some(short)
+            && p.languages.iter().any(|l| {
+                l.id.eq_ignore_ascii_case(t)
+                    || l.extensions.iter().any(|e| e.eq_ignore_ascii_case(t))
+            })
+    })
+}
+
 /// The problems met loading plugins, their syntaxes' with them.
 pub fn problems() -> Vec<String> {
     wait();

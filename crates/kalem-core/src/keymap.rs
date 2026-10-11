@@ -67,6 +67,14 @@ pub const DEFAULT_LEADER: &str = "space";
 /// `editor.vim.leader`), in Vim's command mode only. Bound in every mode,
 /// a plugin's `space g g` made Space start a key sequence in insert mode,
 /// where it typed no space.
+/// Whether `t` is the text type of the files of a language declared by
+/// the plugin whose command `command` is (`pta.newline` in a `journal`).
+fn plugin_language(command: &str, t: &str) -> bool {
+    command
+        .split_once('.')
+        .is_some_and(|(plugin, _)| crate::languages::serves_type(plugin, t))
+}
+
 fn plugin_leader(mut b: Binding, leader: Option<&KeyChord>) -> Binding {
     let starts = b.keys.0.first().is_some_and(|c| {
         c.mods == crate::keys::Modifiers::default()
@@ -392,18 +400,20 @@ impl Keymap {
         }
         // The plugins' bindings, as default keys (`crate::extensions`), to
         // the commands there are.
-        // A plugin's keys in its own documents (`textType == git-status`)
-        // or in the notes its layer serves (`editorLayer == graph.logseq`)
-        // come after the profile's, so that Tab, Enter or a letter there
-        // are the plugin's; the user's still come last.
+        // A plugin's keys in its own documents (`textType == git-status`),
+        // in the files of a language it declares (`textType == journal`,
+        // as a major mode's in Emacs) or in the notes its layer serves
+        // (`editorLayer == graph.logseq`) come after the profile's, so
+        // that Tab, Enter or a letter there are the plugin's; the user's
+        // still come last.
         let own_kind = |b: &Binding| {
             b.when.iter().any(|w| {
-                w.values("textType")
+                w.values("textType").iter().any(|t| {
+                    crate::command::plugin_kind(registry, t) || plugin_language(&b.command, t)
+                }) || w
+                    .values("editorLayer")
                     .iter()
-                    .any(|t| crate::command::plugin_kind(registry, t))
-                    || w.values("editorLayer")
-                        .iter()
-                        .any(|l| crate::command::plugin_layer(registry, l))
+                    .any(|l| crate::command::plugin_layer(registry, l))
             })
         };
         let (in_own_documents, plugins): (Vec<Binding>, Vec<Binding>) =
@@ -503,6 +513,7 @@ impl Keymap {
             for t in b.when.iter().flat_map(|w| w.values("textType")) {
                 if !crate::command::known_text_type(&t)
                     && !crate::command::plugin_kind(registry, &t)
+                    && !plugin_language(&b.command, &t)
                 {
                     issues.push(KeymapIssue {
                         kind: IssueKind::UnknownTextType,
