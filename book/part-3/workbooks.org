@@ -26,8 +26,9 @@ are =docs/history/excel_todo.md=, =excel_todo2.md= and
   the new results of the formulas an edit changes.
 - *The corpus* is made by =tests/corpus/make.py=: workbooks written by
   openpyxl and the same saved again by LibreOffice Calc, as =.xlsx=,
-  =.ods= and =.xls=. The tests check that each saves back byte for
-  byte, which parts and cells an edit changes, values through their
+  =.ods= and =.xls=. The tests check that each =.xlsx= saves back byte
+  for byte, that the =.ods= and =.xls= read as the same workbook,
+  which parts and cells an edit changes, values through their
   formats, and the formula engine.
 
 * Which files
@@ -35,8 +36,11 @@ are =docs/history/excel_todo.md=, =excel_todo2.md= and
 =.xlsx=, =.xlsm=, =.xltx= and =.xltm= are opened and edited as
 themselves. A workbook encrypted with a password to open (Excel 2007's
 standard encryption, Excel 2010's agile one) asks for it. =.xls=,
-=.xlsb= and =.ods= are read through calamine and shown; to edit one,
-Kalem converts it, and asks before saving it back in its own format.
+=.xlsb= and =.ods= are read through calamine and shown. An =.ods= is
+converted to a workbook as it opens, and Kalem asks before saving it
+back as =.ods=. An =.xls= or =.xlsb= is shown read only: the plugin
+never writes them, and Save As =.xlsx= or =.ods= makes a new workbook
+to edit.
 
 * What is read
 
@@ -68,11 +72,12 @@ fills, borders and alignment, notes and comments marked, frozen panes
 kept still; charts, pictures and slicers float over the cells where
 their anchors put them. The formula bar shows the cell as entered;
 the status bar names the sheet and the selection, and sums a
-selection of several cells: Average, Count and Sum, then Min, Max and
-the Numerical Count when some values are not numbers. The menus have
+selection of several cells: Average, Count and Sum, the Numerical
+Count when some values are not numbers, then Min and Max (only the
+Count when none is a number). The menus have
 the workbook's commands where Excel has them (/Format/, /Insert/, the
-menus /Data/, /Formulas/ and /Chart/), the toolbar Excel's Home
-buttons, and a right click on a cell what is there: a note's, a
+menus /Data/, /Formulas/ and /Chart/), the toolbar (in the window)
+Excel's Home buttons and Insert Chart, and a right click on a cell what is there: a note's, a
 link's, a list's, a table's or a pivot table's items. In the terminal
 the grid is drawn with box lines, a number too wide for its column as
 =#=.
@@ -113,8 +118,8 @@ lists them by menu.
 The formula engine is IronCalc, in getkalem's fork, inside the plugin.
 It is trusted cell by cell: before an edit it computes the whole
 workbook, and only the cells whose result equals the one the file
-stores get new results after an edit; the others lose their stored
-result, to be computed by Excel or LibreOffice when they open the
+stores get new results after an edit; the others an edit changed lose
+their stored result, to be computed by Excel or LibreOffice when they open the
 file. =NOW()= and =TODAY()= are computed in the local time zone.
 Calculation is automatic, automatic except data tables, or manual, as
 the workbook says; circular references are found, or computed
@@ -136,8 +141,10 @@ about 120 of its library functions, and Excel's object model for data:
 =CurrentRegion=, =Find=, =Copy=, every worksheet function through
 =WorksheetFunction=, =Collection= and =Scripting.Dictionary=, =MsgBox=
 and =InputBox= as the editor's questions. A run undoes in one step.
-Files, the network, =Shell=, =Declare= and other workbooks stop the
-macro with a message naming the call and the line; a budget of steps
+Files, the network, =Shell= and other workbooks stop the macro with a
+message naming the call and the line (a =Declare= is set aside and
+listed in the run's report, and a call of what it declares stops the
+macro); a budget of steps
 and time stops an endless loop. Since xlsx 0.0.10 macros
 also format cells (=Font=, =Interior=, =Borders=, =NumberFormat=,
 alignment, widths, merging), rename and hide sheets, use =Resume= and
@@ -150,8 +157,9 @@ only the edited parts are written; every other entry of the ZIP
 archive (charts, pivot caches, drawings, pictures, the VBA project,
 external links, printer settings, custom XML) is copied with its local
 header. Within a sheet part only the cells, rows and elements an edit
-changed are written again. A save sets =calcPr fullCalcOnLoad=, so
-that Excel computes the formulas when it opens the file, and writes
+changed are written again. An edit of a workbook that has formulas
+sets =calcPr fullCalcOnLoad=, so that Excel computes the formulas
+when it opens the file, and writes
 the new results of the formulas the edit changed (the engine's, where
 it is trusted) or drops their stored results; the calculation chain is
 dropped when a formula is removed, as the standard allows and Excel
@@ -162,8 +170,8 @@ again with it.
 
 - Save As another workbook kind (=.xlsm= as =.xlsx= drops the VBA
   project, which a =.xlsx= may not hold) or as =.ods=, written by the
-  plugin; an encrypted workbook saved as =.ods= is not encrypted, and
-  Kalem says so.
+  plugin; an encrypted workbook saved as =.ods= is not encrypted (the
+  plugin says so, but Kalem does not show it yet).
 - Save Sheet as CSV writes the sheet shown as Excel's CSV UTF-8 does;
   Export as CSV or Text writes Excel's other text types (semicolons,
   tabs, Windows-1254 and Windows-1252), the sheet shown or every
@@ -203,7 +211,7 @@ again with it.
 * Limits and performance
 
 The plugin asks for 4 GB, the most a component can address: a sheet
-of a million rows needs about 2. The undo history keeps the last
+of a million rows of ten cells needs about 2. The undo history keeps the last
 hundred edits, as Excel does, sharing the sheets an edit leaves alone
 (since xlsx 0.0.10; fewer when they would hold more than a
 gigabyte).

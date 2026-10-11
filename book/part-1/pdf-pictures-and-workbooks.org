@@ -21,9 +21,11 @@ terminal's graphics (kitty's, iTerm2's or Sixel), else in half-block
 cells, and with colors off shows its text.
 
 - PDF :: Pages with their outline in the sidebar, their page labels and
-  their links: one to a page turns to it, and one that leaves the
-  document (a web address, a file, another program) asks first and
-  shows where it goes. Text is selected and copied as on paper. A PDF
+  their links: one to a page turns to it, and a web address (or a
+  =mailto:=) asks first and shows where it goes; a link to another file
+  or program does nothing yet. In the window, text is selected with the
+  mouse and copied (=y=, which copies the page's picture when nothing
+  is selected). A PDF
   that LaTeX built goes back to its source line on Ctrl-click (Cmd-click
   on macOS). A PDF with a password asks for it, hidden as typed, and
   keeps it until Kalem quits.
@@ -42,15 +44,15 @@ cells, and with colors off shows its text.
   by name. The menus have its commands where Excel has them, and a
   right click on a cell offers what is there (a note's, a link's, a
   table's, a pivot table's items); the status bar sums the cells
-  selected: their Average, Count and Sum, then their Min, Max and, when
-  some are not numbers, the Numerical Count. Saving writes only what you
+  selected: their Average, Count and Sum, the Numerical Count when
+  some are not numbers, then their Min and Max. Saving writes only what you
   changed, every other part of the file copied byte for byte, and asks
-  Excel to recalculate the formulas when it opens the file. An =.ods=, =.xls= or =.xlsb= is
-  converted as it opens: Kalem asks before saving it back in its own
-  format, saying what it keeps (number formats are lost), and Save As
-  =.xlsx= leaves the original alone. A workbook with a password to open
+  Excel to recalculate the formulas when it opens the file. An =.ods= is
+  converted as it opens: Kalem asks before saving it back as =.ods=,
+  saying what it keeps (number formats are lost). An =.xls= or =.xlsb=
+  is shown read only. Save As =.xlsx= leaves the original alone. A workbook with a password to open
   asks for it, and is saved encrypted again with it (saved as =.ods=, it
-  is not encrypted, and Kalem says so). [[file:../part-3/workbooks.org][Workbooks]] has the details.
+  is not encrypted, and Kalem does not say so yet). [[file:../part-3/workbooks.org][Workbooks]] has the details.
 
 Word documents (=.docx=, =.docm=, =.dotx=, =.dotm=) open through the
 =docx= plugin, installed from the plugin list: as a document of the

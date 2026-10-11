@@ -118,7 +118,8 @@ does, in the body, a table cell, the header, the footer and the notes:
   selection it takes the look of the selection's first character. A
   deletion shortens, empties or removes the runs it covers.
 - Enter splits the paragraph, the elements open where it splits with
-  it; after a heading the new paragraph takes the style's next style.
+  it; Enter at the end of a paragraph whose style names a next style
+  (a heading's, =Normal=) gives the new paragraph that style.
   Backspace at a paragraph's start joins it to the one before; a
   deletion across paragraphs is one edit.
 - Each of Kalem's edits is one step of the document's own history:
@@ -135,7 +136,7 @@ the selected text, or of the word at the cursor:
 
 | Command              | What it writes                                                     |
 |----------------------+--------------------------------------------------------------------|
-| Bold, Italic, Underline, Strike Through | =w:b= and =w:bCs=, =w:i= and =w:iCs=, =w:u=, =w:strike= in each run's =w:rPr=; off again, taken away, and written off (=w:val="0"=) where a style still turns it on |
+| Bold, Italic, Underline, Strike Through | =w:b= and =w:bCs=, =w:i= and =w:iCs=, =w:u=, =w:strike= in each run's =w:rPr=; off again, taken away, and written off (=w:val="0"=, an underline =w:val="none"=) where a style still turns it on |
 | Superscript, Subscript | =w:vertAlign=                                                    |
 | Font, Font Size      | =w:rFonts= (=w:ascii= and =w:hAnsi=, the theme's fonts that would win taken away), =w:sz= and =w:szCs= in half points |
 | Text Color           | =w:color=; Automatic takes it away                                 |
@@ -152,8 +153,9 @@ A run is cut where the range starts or ends inside it; every property
 goes where the schema's sequence puts it, since Word repairs a file
 whose properties are out of order. In a document that tracks changes,
 each run's old properties are kept in a =w:rPrChange= and each
-paragraph's in a =w:pPrChange=: Accept Change and Reject Change keep
-or undo them.
+paragraph's in a =w:pPrChange=: Accept Change keeps them, Reject
+Change undoes a run's (a paragraph's is not rejected yet, and Reject
+All Changes leaves it).
 
 The commands of the /Review/ category act on the annotations:
 
@@ -161,7 +163,7 @@ The commands of the /Review/ category act on the annotations:
 |----------------------+--------------------------------------------------------------------|
 | Next Change, Previous Change | Moves to the next or the previous tracked change           |
 | Accept Change        | Keeps the change at the cursor: an insertion's text stays, a deletion's goes, a deleted paragraph mark joins its paragraphs (in the body only), a formatting change keeps the new look |
-| Reject Change        | Undoes it: an insertion's text goes, a deletion's text comes back, a formatting change restores the old look |
+| Reject Change        | Undoes it: an insertion's text goes, a deletion's text comes back, a run's formatting change restores the old look (a paragraph's is refused for now) |
 | Accept All Changes, Reject All Changes | The same for every change, in every part of the document |
 | Track Changes        | Turns tracking on or off (=w:trackRevisions= in the settings)       |
 | Next Comment, Previous Comment | Moves to the next or the previous comment                |
@@ -176,7 +178,9 @@ tracked change, a field's result, a note's mark, a check box, text
 drawn two ways in the file (=mc:AlternateContent=), a paragraph of a
 text box, an edit across a table's cells, a join across a section
 break, and every edit of a document whose protection is enforced (a
-document protected for comments takes comments, as in Word). A comment
+document protected for comments takes comments, as in Word; the
+Review commands' accepting, rejecting and Track Changes are not
+refused yet). A comment
 in a header or a footer is refused, as Word keeps none there.
 
 * What is written
@@ -199,8 +203,9 @@ password is saved encrypted again with it.
 
 * Export and conversion
 
-None. Save As writes the document in its own format only; another
-format is refused, saying so.
+None. Save As writes the document as a Word package whatever name is
+chosen: the plugin's refusal of another format is not asked for yet,
+so name the copy =.docx= (or the kind it was).
 
 * Known differences
 
@@ -232,13 +237,14 @@ format is refused, saying so.
 Measured on 2026-10-09 on an Apple M1 Max, with the plugin's library in
 a release build: a document of 20,000 paragraphs (4.4 MB of
 =document.xml=) is opened and laid out as blocks in 0.18 s in 82 MB;
-the save takes 7 ms. The component is 1.1 MB as released, its
-functions' names kept for backtraces. Kalem fetches a document's items
+the save takes 7 ms (2026-10-10). The component is 2.0 MB as released
+with its picture decoders, its functions' names kept for backtraces. Kalem fetches a document's items
 from it 2,048 at a time when it opens one; the document of 20,000
 paragraphs opens in Kalem in 0.34 s.
 
 An edit does not walk the document again. The plugin keeps the body as
-it walked it, and every sixteen paragraphs where the walk was (the
+it walked it, and every sixteen elements of the body (a table is one)
+where the walk was (the
 lists' counts, the fields and comments open); an edit walks again from
 the last such place before it until the walk is where it was before,
 usually a few paragraphs on, and the paragraphs after it are those of
