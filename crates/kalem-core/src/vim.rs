@@ -3050,7 +3050,7 @@ impl Vim {
             doc.selection = Selection::caret(s + (line.len() - t.len()));
             let result = if heading {
                 doc.run(now, |d, p, _| {
-                    let text = d.parse().syntax().to_string();
+                    let text = d.parse().text();
                     if right {
                         org_edit::headline::demote(&text, p, d.parse().context())
                     } else {

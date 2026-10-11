@@ -16,7 +16,7 @@ pub(super) fn element_motion(
     let model = doc
         .model()
         .ok_or_else(|| "Not an Org document".to_string())?;
-    let text = model.parse().syntax().to_string();
+    let text = model.parse().text();
     let ctx = model.parse().context();
     let mut pos = from.min(text.len());
     for _ in 0..n.max(1) {
@@ -39,7 +39,7 @@ pub(super) fn heading_motion(
     n: usize,
 ) -> Option<usize> {
     let model = doc.model()?;
-    let text = model.parse().syntax().to_string();
+    let text = model.parse().text();
     let n = i64::try_from(n.max(1)).unwrap_or(1);
     let pos = from.min(text.len());
     Some(org_edit::motion::heading_same_level(
@@ -60,7 +60,7 @@ pub(super) fn next_motion(
     n: usize,
 ) -> Option<usize> {
     let model = doc.model()?;
-    let text = model.parse().syntax().to_string();
+    let text = model.parse().text();
     let ctx = model.parse().context();
     let mut pos = from.min(text.len());
     for _ in 0..n.max(1) {
