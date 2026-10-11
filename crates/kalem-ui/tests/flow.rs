@@ -146,3 +146,68 @@ fn a_flowing_document_is_drawn_and_typed_into(cx: &mut TestAppContext) {
     assert_eq!(kind, Some(true));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Save As another kind: the plugin's refusal said, the document's file
+/// as it was; a kind it writes saved, what it loses said as a warning.
+#[gpui::test]
+fn save_as_another_kind_says_the_plugins_answer(cx: &mut TestAppContext) {
+    kalem_core::viewer::register(Arc::new(flowdoc::Flows));
+    let dir = std::env::temp_dir().join(format!("kalem-ui-flow-save-as-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("notes.org"), "* Notes\n").unwrap();
+    let file = dir.join("a.flow");
+    std::fs::write(&file, b"# Title\nPlain and *bold* text\n\0\n").unwrap();
+    let settings = dir.join("settings.toml");
+    std::fs::write(&settings, "[ui]\nlanguage = \"en\"\n").unwrap();
+    let mut shared = kalem_ui::shared_in(Config::default(), Some(settings));
+    shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
+        dir.join("projects.toml"),
+    )));
+    let shared = Rc::new(shared);
+    let notes = dir.join("notes.org");
+    let (ws, cx) = cx.add_window_view(|window, cx| {
+        let e = kalem_ui::editor::open(Some(&notes), shared, Theme::light(), cx).unwrap();
+        window.focus(&gpui::Focusable::focus_handle(e.read(cx), cx), cx);
+        Workspace::new(e, window, cx)
+    });
+    cx.run_until_parked();
+    ws.update_in(cx, |ws, window, cx| ws.open(&file, None, window, cx));
+    cx.run_until_parked();
+    let was = ws.read_with(cx, |ws, cx| ws.editor.read(cx).doc.meta.path.clone());
+    let mut save_as = |name: &str| {
+        ws.update_in(cx, |ws, window, cx| {
+            ws.editor.update(cx, |e, cx| {
+                e.run_command("app.saveAs", serde_json::Value::Null, window, cx)
+            })
+        });
+        cx.run_until_parked();
+        cx.simulate_new_path_selection(|_| Some(dir.join(name)));
+        cx.run_until_parked();
+        ws.read_with(cx, |ws, cx| {
+            let e = ws.editor.read(cx);
+            (
+                e.status.clone().unwrap_or_default(),
+                e.doc.meta.path.clone(),
+            )
+        })
+    };
+    let (status, path) = save_as("a.docx");
+    assert_eq!(
+        status,
+        (
+            "Not saved: Kalem does not write a .flow as a .docx yet".to_string(),
+            true
+        )
+    );
+    assert_eq!(path, was);
+    assert!(!dir.join("a.docx").exists());
+    let ((m, warning), _) = save_as("a.txt");
+    assert!(
+        m.starts_with("Saved ") && m.ends_with("a.txt; not kept: Bold: a .txt file is plain text"),
+        "{m}"
+    );
+    assert!(warning);
+    assert!(dir.join("a.txt").exists());
+    std::fs::remove_dir_all(&dir).unwrap();
+}

@@ -375,6 +375,7 @@ mode-text = Text
 
 msg-saved = Saved
 msg-saved-as = Saved { $path }
+msg-saved-losses = { $saved }; not kept: { $losses }
 msg-not-saved = Not saved: { $reason }
 msg-plugin-document-not-saved = { $title } is a view a plugin writes: there is no file to save
 msg-copied = Copied

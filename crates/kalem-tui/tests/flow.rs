@@ -89,6 +89,59 @@ fn a_flowing_document_is_shown_and_edited() {
     assert!(saved.contains("Very Plain and bold text^"), "{saved}");
 }
 
+/// Save As another kind: the plugin's refusal said, the document's file
+/// as it was; a kind it writes saved, what it loses said as a warning.
+#[test]
+fn save_as_another_kind_says_the_plugins_answer() {
+    kalem_core::viewer::register(Arc::new(flowdoc::Flows));
+    let dir = std::env::temp_dir().join(format!("kalem-tui-flow-save-as-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("a.flow");
+    std::fs::write(&file, b"# Title\nPlain and *bold* text\n\0\n").unwrap();
+    let mut app = App::with_keymap(
+        Some(&file),
+        Config::default(),
+        Caps::full(),
+        &[],
+        Vec::new(),
+    )
+    .unwrap();
+    assert_eq!(app.doc.meta.mode, DocumentMode::Flow);
+    let was = app.doc.meta.path.clone().unwrap();
+    // The prompt starts with the document's path: erased, then the name.
+    let save_as = |app: &mut App, name: &str| {
+        let current = app.doc.meta.path.clone().unwrap();
+        app.run_command("app.saveAs", serde_json::json!({}));
+        for _ in 0..current.display().to_string().chars().count() {
+            key(app, KeyCode::Backspace, KeyModifiers::NONE);
+        }
+        for c in name.chars() {
+            key(app, KeyCode::Char(c), KeyModifiers::NONE);
+        }
+        key(app, KeyCode::Enter, KeyModifiers::NONE);
+    };
+    save_as(&mut app, "a.docx");
+    assert_eq!(
+        app.status_message(),
+        Some((
+            "Not saved: Kalem does not write a .flow as a .docx yet",
+            true
+        ))
+    );
+    assert!(!dir.join("a.docx").exists());
+    assert_eq!(app.doc.meta.path.as_ref(), Some(&was));
+    save_as(&mut app, "a.txt");
+    let (m, warning) = app.status_message().unwrap();
+    assert!(
+        m.starts_with("Saved ") && m.ends_with("a.txt; not kept: Bold: a .txt file is plain text"),
+        "{m}"
+    );
+    assert!(warning);
+    assert!(dir.join("a.txt").exists());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// A picture alone on its line, as the plugin draws it: its text without
 /// a graphics protocol, the image over its rows with one, its text again
 /// with the cursor on it.

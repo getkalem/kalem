@@ -84,11 +84,18 @@ pub fn drive(
                 Request::ShowGenerated(_) => {}
                 Request::CloseGenerated(n) => out.shown.retain(|s| *s != n),
                 Request::Save => {
-                    if let Ok(d) = ctx.doc()
-                        && let Err(e) = d.save(Default::default(), false)
-                    {
-                        let _ = writeln!(err, "kalem run: not saved: {e}");
-                        out.failed = true;
+                    if let Ok(d) = ctx.doc() {
+                        match d.save(Default::default(), false) {
+                            Ok(losses) => {
+                                for loss in losses {
+                                    let _ = writeln!(err, "kalem run: not kept: {loss}");
+                                }
+                            }
+                            Err(e) => {
+                                let _ = writeln!(err, "kalem run: not saved: {e}");
+                                out.failed = true;
+                            }
+                        }
                     }
                 }
                 Request::Open { path: Some(p) } | Request::OpenAt { path: p, .. } => {
@@ -253,8 +260,11 @@ pub fn run(
         // What the command changed is kept, as `kalem fmt` keeps it.
         if doc.is_modified() {
             match doc.save(Default::default(), false) {
-                Ok(()) => {
+                Ok(losses) => {
                     let _ = writeln!(err, "kalem run: saved {}", file.display());
+                    for loss in losses {
+                        let _ = writeln!(err, "kalem run: {}: not kept: {loss}", file.display());
+                    }
                 }
                 Err(e) => {
                     let _ = writeln!(err, "kalem run: {}: not saved: {e}", file.display());

@@ -170,8 +170,8 @@ again with it.
 
 - Save As another workbook kind (=.xlsm= as =.xlsx= drops the VBA
   project, which a =.xlsx= may not hold) or as =.ods=, written by the
-  plugin; an encrypted workbook saved as =.ods= is not encrypted (the
-  plugin says so, but Kalem does not show it yet).
+  plugin; an encrypted workbook saved as =.ods= is not encrypted, as
+  the message after the save says.
 - Save Sheet as CSV writes the sheet shown as Excel's CSV UTF-8 does;
   Export as CSV or Text writes Excel's other text types (semicolons,
   tabs, Windows-1254 and Windows-1252), the sheet shown or every

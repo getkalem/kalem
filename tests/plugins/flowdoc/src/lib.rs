@@ -4,7 +4,8 @@
 //! `- ` a list item, `|a|b|` a table's row of one-paragraph cells, `---`
 //! a horizontal rule, `*word*` bold. Its last paragraph is a footnote
 //! that the first one's `^` marks. Comments and tracking live in the
-//! document, not the file.
+//! document, not the file. Saved as `.txt`, it loses its bold, and says
+//! so; it writes no other kind.
 
 use kalem_viewer::{
     Anchor, Annotation, AnnotationKind, Aside, AsideKind, Detection, FileHandle, FlowAlign,
@@ -452,6 +453,20 @@ impl ViewerDocument for Doc {
         Ok(kalem_viewer::SaveOutput {
             bytes: (self.state.lines.join("\n") + "\n").into_bytes(),
             losses: Vec::new(),
+        })
+    }
+
+    /// A `.txt` file: the lines without bold, said lost. No other kind.
+    fn save_as(&mut self, extension: &str) -> Result<kalem_viewer::SaveOutput> {
+        if extension != "txt" {
+            return Err(ViewerError(format!(
+                "Kalem does not write a .flow as a .{extension} yet"
+            )));
+        }
+        let out = self.save()?;
+        Ok(kalem_viewer::SaveOutput {
+            bytes: out.bytes.into_iter().filter(|b| *b != b'*').collect(),
+            losses: vec!["Bold: a .txt file is plain text".into()],
         })
     }
 

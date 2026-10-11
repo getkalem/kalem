@@ -14,6 +14,7 @@ use gpui::{
     Pixels, Point, SharedString, UTF16Selection, Window, px,
 };
 use kalem_core::command::{Clipboard, EditorContext, Request};
+use kalem_core::document::saved_message;
 use kalem_core::keymap::{Keymap, KeymapIssue, Lookup};
 use kalem_core::keys::{KeyChord, KeySequence};
 use kalem_core::settings::Config;
@@ -2073,8 +2074,9 @@ impl Editor {
             return;
         }
         match self.doc.save(self.shared.config.save_options(), false) {
-            Ok(()) => {
-                self.after_save(path, Some(tr!("msg-saved")), Some(window), cx);
+            Ok(losses) => {
+                let message = saved_message(tr!("msg-saved"), &losses);
+                self.after_save(path, Some(message), Some(window), cx);
             }
             Err(kalem_core::document::SaveError::ChangedOnDisk) => {
                 let (overwrite, cancel) = (tr!("dialog-overwrite"), tr!("dialog-cancel"));
@@ -2090,8 +2092,9 @@ impl Editor {
                         let _ = this.update_in(cx, |e, window, cx| {
                             // Overwritten: the same steps as a save.
                             match e.doc.save(e.shared.config.save_options(), true) {
-                                Ok(()) => {
-                                    e.after_save(path, Some(tr!("msg-saved")), Some(window), cx)
+                                Ok(losses) => {
+                                    let message = saved_message(tr!("msg-saved"), &losses);
+                                    e.after_save(path, Some(message), Some(window), cx)
                                 }
                                 Err(err) => {
                                     e.message(tr!("msg-not-saved", reason = err.to_string()), true)
@@ -2156,13 +2159,14 @@ impl Editor {
 
     /// After a save to `path`, whichever way it was made (Save, Overwrite,
     /// Save As, a save before closing): `document:after-save`, the
-    /// language servers told, the conflict cleared, `message` shown, and
+    /// language servers told, the conflict cleared, `message` shown (a
+    /// warning with what the file could not keep, [`saved_message`]), and
     /// with a window a LaTeX build when `latex.build_on_save` asks for one
     /// (a document saved while a build runs is built when it ends).
     fn after_save(
         &mut self,
         path: std::path::PathBuf,
-        message: Option<String>,
+        message: Option<(String, bool)>,
         window: Option<&mut Window>,
         cx: &mut Context<'_, Self>,
     ) {
@@ -2175,11 +2179,12 @@ impl Editor {
             });
         kalem_core::lsp::saved(&self.doc);
         self.disk_conflict = false;
-        // Saved, but not formatted: the reason, over the plain word.
-        if let Some(m) = self.not_formatted.take() {
-            self.message(m, true);
-        } else if let Some(m) = message {
-            self.message(m, false);
+        // Saved, but not formatted: the reason, over the plain word; what
+        // the file could not keep, over both.
+        match (message, self.not_formatted.take()) {
+            (Some((m, true)), _) | (_, Some(m)) => self.message(m, true),
+            (Some((m, false)), None) => self.message(m, false),
+            (None, None) => {}
         }
         if let Some(window) = window
             && self.doc.latex().is_some()
@@ -2228,12 +2233,13 @@ impl Editor {
                         return;
                     }
                     match e.doc.save_as(&path, e.shared.config.save_options()) {
-                        Ok(()) => {
+                        Ok(losses) => {
                             // The new name's mode (`x.py` is Python).
                             if e.doc.mode_for_name(&e.shared.config.parse_base()) {
                                 e.mode_changed(cx);
                             }
-                            let message = tr!("msg-saved-as", path = path.display().to_string());
+                            let saved = tr!("msg-saved-as", path = path.display().to_string());
+                            let message = saved_message(saved, &losses);
                             e.after_save(path, Some(message), Some(window), cx);
                         }
                         Err(err) => e.message(tr!("msg-not-saved", reason = err.to_string()), true),
@@ -2376,7 +2382,14 @@ impl Editor {
         }
         self.doc.before_save(&self.shared.config, Instant::now());
         match self.doc.save(self.shared.config.save_options(), false) {
-            Ok(()) => {
+            Ok(losses) => {
+                // What the file could not keep is said all the same.
+                if let (m, true) = saved_message(
+                    tr!("msg-saved-as", path = path.display().to_string()),
+                    &losses,
+                ) {
+                    self.message(m, true);
+                }
                 self.shared
                     .bus
                     .borrow_mut()

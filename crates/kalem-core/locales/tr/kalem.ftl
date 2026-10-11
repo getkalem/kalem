@@ -364,6 +364,7 @@ mode-text = Metin
 
 msg-saved = Kaydedildi
 msg-saved-as = Kaydedildi: { $path }
+msg-saved-losses = { $saved }; korunmayan: { $losses }
 msg-not-saved = Kaydedilmedi: { $reason }
 msg-plugin-document-not-saved = { $title } bir eklentinin yazdığı bir görünüm: kaydedilecek dosya yok
 msg-copied = Kopyalandı

@@ -148,6 +148,40 @@ fn typing_enter_and_backspace_are_the_plugins_edits() {
     );
 }
 
+/// Save As another kind asks the plugin for it (API 0.2.3's `formats`):
+/// one it writes is written with what it loses, again on each save under
+/// that name; one it does not write is refused with its reason, the
+/// document's file left as it was.
+#[test]
+fn save_as_another_kind_asks_the_plugin() {
+    let (mut d, path) = open(DOC);
+    let at = d.text().as_str().find("Plain").unwrap();
+    edit(&mut d, at..at, "Very ");
+    let was = d.meta.path.clone();
+    let docx = path.with_extension("docx");
+    let e = d.save_as(&docx, Default::default()).unwrap_err();
+    assert_eq!(e.to_string(), "Kalem does not write a .flow as a .docx yet");
+    assert!(!docx.exists());
+    assert_eq!(d.meta.path, was);
+    assert!(d.is_modified());
+    let txt = path.with_extension("txt");
+    let losses = d.save_as(&txt, Default::default()).unwrap();
+    assert_eq!(losses, ["Bold: a .txt file is plain text"]);
+    let written = std::fs::read_to_string(&txt).unwrap();
+    assert!(written.contains("Very Plain and bold text^"), "{written}");
+    assert!(!d.is_modified());
+    let end = d.text().as_str().find("an item").unwrap() + "an item".len();
+    edit(&mut d, end..end, "s");
+    let losses = d.save(Default::default(), false).unwrap();
+    assert_eq!(losses.len(), 1);
+    assert!(std::fs::read_to_string(&txt).unwrap().contains("an items"));
+    // Its own kind, whatever the case: the plugin's save, nothing lost.
+    let flow = path.with_file_name("b.FLOW");
+    assert!(d.save_as(&flow, Default::default()).unwrap().is_empty());
+    let written = std::fs::read_to_string(&flow).unwrap();
+    assert!(written.starts_with("# Title\n"), "{written}");
+}
+
 /// Edits of every kind, each read again as the plugin tells what changed
 /// (API 0.2.9): the lines are those a whole reading gives.
 #[test]

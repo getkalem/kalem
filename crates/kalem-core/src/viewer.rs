@@ -313,6 +313,9 @@ pub struct ViewerState {
     /// OpenDocument spreadsheet edited as a workbook made of it). Saving
     /// in that format writes a new file of what the conversion keeps.
     pub converted_from: Option<String>,
+    /// The extension of the file opened, in lower case: the kind its
+    /// plugin's `save` writes. Saving under another asks its `save_as`.
+    extension: String,
     /// The document, shared with the thread that renders it.
     doc: Arc<Mutex<Box<dyn ViewerDocument>>>,
     structure: Structure,
@@ -655,6 +658,13 @@ impl std::fmt::Debug for ViewerState {
     }
 }
 
+/// The extension of `path`, in lower case: the kind of file a viewer's
+/// document is saved as.
+pub(crate) fn extension_of(path: &Path) -> String {
+    path.extension()
+        .map_or(String::new(), |e| e.to_string_lossy().to_ascii_lowercase())
+}
+
 /// `f`'s result, or its panic as an error: a viewer of native code (a
 /// test's) that cannot read a file must not end the editor.
 fn guarded<T>(f: impl FnOnce() -> T) -> Result<T, String> {
@@ -750,6 +760,7 @@ impl ViewerState {
         Ok(ViewerState {
             viewer,
             converted_from,
+            extension: extension_of(path),
             doc: Arc::new(Mutex::new(doc)),
             structure,
             sizes,
@@ -1849,13 +1860,18 @@ impl ViewerState {
         self.viewer.extensions().contains(&"xlsx")
     }
 
-    /// The bytes of the file as `extension` asks: the viewer's own for
-    /// its format, a workbook written as `.ods`, or one the viewer only
-    /// shows (`.xls`, `.xlsb`, `.ods`) made an `.xlsx`.
-    pub fn save_as_format(&mut self, extension: &str) -> Result<Vec<u8>, String> {
+    /// The file as `extension` asks, and what it loses: the viewer's own
+    /// kind as its plugin saves it, another kind as its plugin writes it
+    /// (a workbook as `.ods`) or refuses to (a `.docx` as a `.docm`), or a
+    /// workbook the viewer only shows (`.xls`, `.xlsb`, `.ods`) made an
+    /// `.xlsx`.
+    pub fn save_as_format(&mut self, extension: &str) -> Result<SaveOutput, String> {
         let ext = extension.to_ascii_lowercase();
         if !self.is_workbook() {
-            return self.save().map(|o| o.bytes);
+            if ext == self.extension {
+                return self.save();
+            }
+            return self.doc().save_as(&ext).map_err(|e| e.to_string());
         }
         let editable = self.grid_layout_of(0).is_some_and(|l| l.editable);
         match ext.as_str() {
@@ -1864,15 +1880,16 @@ impl ViewerState {
             "xlsx" | "xlsm" | "xltx" | "xltm" if !editable => {
                 let viewer = self.viewer.clone();
                 let mut doc = self.doc();
-                crate::workbook_io::to_xlsx(viewer.as_ref(), doc.as_mut(), &ext)
+                crate::workbook_io::to_xlsx(viewer.as_ref(), doc.as_mut(), &ext).map(|bytes| {
+                    SaveOutput {
+                        bytes,
+                        losses: Vec::new(),
+                    }
+                })
             }
             // The plugin writes its other kinds and `.ods`, and says which
             // it does not write.
-            _ => self
-                .doc()
-                .save_as(&ext)
-                .map(|o| o.bytes)
-                .map_err(|e| e.to_string()),
+            _ => self.doc().save_as(&ext).map_err(|e| e.to_string()),
         }
     }
 

@@ -456,6 +456,20 @@ fn mergeable(text: &str) -> Option<std::sync::Arc<str>> {
     (text.len() <= MERGED_UP_TO).then(|| std::sync::Arc::from(text))
 }
 
+/// What an editor says after a save: `saved` (the plain word, the file's
+/// name), followed by what the file could not keep; and whether that is
+/// a warning (something was lost).
+pub fn saved_message(saved: String, losses: &[String]) -> (String, bool) {
+    if losses.is_empty() {
+        return (saved, false);
+    }
+    let losses = losses.join("; ");
+    (
+        crate::tr!("msg-saved-losses", saved = saved, losses = losses),
+        true,
+    )
+}
+
 impl DocumentState {
     /// A document with `text` (already decoded, line endings as in the
     /// file) and metadata.
@@ -1104,18 +1118,20 @@ impl DocumentState {
         r
     }
 
-    /// Saves a document of flowing text: the bytes its plugin writes.
+    /// Saves a document of flowing text: the bytes its plugin writes for
+    /// the file's extension (it may refuse another kind than its own),
+    /// and what they lose.
     fn save_flowed(
         &mut self,
         path: &Path,
         options: SaveOptions,
         force: bool,
-    ) -> Result<(), SaveError> {
+    ) -> Result<Vec<String>, SaveError> {
         let Some(f) = self.flow.as_deref_mut() else {
-            return Ok(());
+            return Ok(Vec::new());
         };
         if !f.viewer.modified() && self.disk.is_some() {
-            return Ok(());
+            return Ok(Vec::new());
         }
         if !force && let Some(known) = self.disk {
             match files::check(path, &known).map_err(SaveError::Io)? {
@@ -1125,34 +1141,29 @@ impl DocumentState {
         }
         let out = f
             .viewer
-            .save()
+            .save_as_format(&crate::viewer::extension_of(path))
             .map_err(|e| SaveError::Io(std::io::Error::other(e)))?;
-        for loss in &out.losses {
-            tracing::warn!(path = %path.display(), loss, "lost on save");
-        }
         self.disk = Some(files::write(path, &out.bytes, options).map_err(SaveError::Io)?);
         self.mark_saved();
-        Ok(())
+        Ok(out.losses)
     }
 
-    /// Saves a viewer's edits: the bytes the plugin writes, written
-    /// atomically as text is.
+    /// Saves a viewer's edits: the bytes the plugin writes for the file's
+    /// extension, written atomically as text is, and what they lose.
     fn save_viewed(
         &mut self,
         path: &Path,
         options: SaveOptions,
         force: bool,
-    ) -> Result<(), SaveError> {
+    ) -> Result<Vec<String>, SaveError> {
         let Some(v) = self.viewer.as_deref_mut() else {
-            return Ok(());
+            return Ok(Vec::new());
         };
         // Save As (no file known yet) writes even without edits.
         if !v.modified() && self.disk.is_some() {
-            return Ok(());
+            return Ok(Vec::new());
         }
-        let ext = path
-            .extension()
-            .map_or(String::new(), |e| e.to_string_lossy().to_ascii_lowercase());
+        let ext = crate::viewer::extension_of(path);
         // Written back in the format it was converted from: only once the
         // user has agreed to what that keeps.
         if !self.conversion_accepted && v.converted_from.as_deref() == Some(ext.as_str()) {
@@ -1169,19 +1180,10 @@ impl DocumentState {
         let converted = v.is_workbook()
             && !v.grid_editable()
             && matches!(ext.as_str(), "xlsx" | "xlsm" | "xltx" | "xltm");
-        let bytes = if v.is_workbook() {
-            v.save_as_format(&ext)
-                .map_err(|e| SaveError::Io(std::io::Error::other(e)))?
-        } else {
-            let out = v
-                .save()
-                .map_err(|e| SaveError::Io(std::io::Error::other(e)))?;
-            for loss in &out.losses {
-                tracing::warn!(path = %path.display(), loss, "lost on save");
-            }
-            out.bytes
-        };
-        self.disk = Some(files::write(path, &bytes, options).map_err(SaveError::Io)?);
+        let out = v
+            .save_as_format(&ext)
+            .map_err(|e| SaveError::Io(std::io::Error::other(e)))?;
+        self.disk = Some(files::write(path, &out.bytes, options).map_err(SaveError::Io)?);
         if converted && let Some(old) = self.viewer.as_deref() {
             let mut state = crate::viewer::ViewerState::open(old.viewer.clone(), path)
                 .map_err(|e| SaveError::Io(std::io::Error::other(e)))?;
@@ -1189,7 +1191,7 @@ impl DocumentState {
             state.go_to(old.unit);
             self.viewer = Some(Box::new(state));
         }
-        Ok(())
+        Ok(out.losses)
     }
 
     /// Shows the file `delta` places after this one among the files of
@@ -1236,10 +1238,12 @@ impl DocumentState {
     }
 
     /// Saves to the document's file. Unless `force`, fails if another
-    /// program changed the file since it was read or saved.
-    pub fn save(&mut self, options: SaveOptions, force: bool) -> Result<(), SaveError> {
+    /// program changed the file since it was read or saved. What the file
+    /// could not keep (a plugin's format) comes back, for the user to be
+    /// told; nothing for text.
+    pub fn save(&mut self, options: SaveOptions, force: bool) -> Result<Vec<String>, SaveError> {
         if self.dired.is_some() {
-            return Ok(());
+            return Ok(Vec::new());
         }
         let path = self.meta.path.clone().ok_or(SaveError::NoPath)?;
         if self.viewer.is_some() {
@@ -1271,10 +1275,9 @@ impl DocumentState {
         self.disk = Some(files::write(&path, &bytes, options).map_err(SaveError::Io)?);
         self.disk_text = mergeable(self.text.as_str());
         self.mark_saved();
-        Ok(())
+        Ok(Vec::new())
     }
 
-    /// Saves to `path`, which becomes the document's file.
     /// Takes the mode the document's name and text say, after Save As
     /// gave it a new name (a new document typed as Python and saved as
     /// `x.py` stayed Org until reopened); `true` when it changed.
@@ -1290,13 +1293,18 @@ impl DocumentState {
         true
     }
 
-    pub fn save_as(&mut self, path: &Path, options: SaveOptions) -> Result<(), SaveError> {
-        self.meta.path = Some(path.to_path_buf());
-        self.disk = None;
-        self.save(options, true)?;
+    /// Saves to `path`, which becomes the document's file. What the file
+    /// could not keep comes back, as from [`Self::save`]; a save that
+    /// fails (a plugin refusing the kind the name asks) leaves the
+    /// document's file as it was.
+    pub fn save_as(&mut self, path: &Path, options: SaveOptions) -> Result<Vec<String>, SaveError> {
+        let was = (self.meta.path.replace(path.to_path_buf()), self.disk.take());
+        let losses = self.save(options, true).inspect_err(|_| {
+            (self.meta.path, self.disk) = was;
+        })?;
         // The new file holds the text as it shows.
         self.meta.lossy = false;
-        Ok(())
+        Ok(losses)
     }
 
     /// Checks the file after a `workspace:file-changed` event: reloads the

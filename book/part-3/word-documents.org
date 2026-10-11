@@ -203,9 +203,9 @@ password is saved encrypted again with it.
 
 * Export and conversion
 
-None. Save As writes the document as a Word package whatever name is
-chosen: the plugin's refusal of another format is not asked for yet,
-so name the copy =.docx= (or the kind it was).
+None. Save As writes the document in its own kind only: a name of
+another kind (=report.docm= for a =.docx=, =report.pdf=) is refused
+with the plugin's reason, and the document keeps its file.
 
 * Known differences
 

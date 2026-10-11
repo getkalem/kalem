@@ -15,6 +15,7 @@ use kalem_core::command::{
     Clipboard, EditorContext, FileManagerRequest, PickKind, ProjectRequest, Request,
 };
 use kalem_core::dired::{Answer, Place, Question};
+use kalem_core::document::saved_message;
 use kalem_core::events::{ChangeDebouncer, DocumentId, Event, EventBus, EventKind, Reply};
 use kalem_core::files::{FileWatcher, OpenError};
 use kalem_core::keymap::{self, Keymap, KeymapIssue, Lookup};
@@ -417,6 +418,18 @@ fn watches(doc: &DocumentState, changed: &[PathBuf]) -> bool {
             .dired
             .as_deref()
             .is_some_and(|s| s.subdirs.iter().any(|d| changed.contains(d)))
+}
+
+/// What `doc`'s save lost, each after its file's name (Save All saves
+/// several).
+fn named_losses(doc: &DocumentState, losses: Vec<String>) -> impl Iterator<Item = String> {
+    let name = doc
+        .meta
+        .path
+        .as_deref()
+        .and_then(Path::file_name)
+        .map_or(String::new(), |n| n.to_string_lossy().into_owned());
+    losses.into_iter().map(move |l| format!("{name}: {l}"))
 }
 
 /// The folder of `path` when it is not there.
@@ -1472,8 +1485,12 @@ impl App {
             },
             ProjectRequest::SaveAll => match &project {
                 Some(root) => {
-                    let n = self.save_all(Some(root));
-                    Ok(tr!("msg-saved-count", count = n.to_string()))
+                    let (n, losses) = self.save_all(Some(root));
+                    // What a file could not keep: shown as a warning.
+                    match saved_message(tr!("msg-saved-count", count = n.to_string()), &losses) {
+                        (m, false) => Ok(m),
+                        (m, true) => Err(m),
+                    }
                 }
                 None => Err(tr!("msg-no-project")),
             },
@@ -1586,8 +1603,10 @@ impl App {
         use kalem_core::command::DocumentsRequest as D;
         match r {
             D::SaveAll => {
-                let n = self.save_all(None);
-                self.message(tr!("msg-saved-count", count = n.to_string()), false);
+                let (n, losses) = self.save_all(None);
+                let (m, warn) =
+                    saved_message(tr!("msg-saved-count", count = n.to_string()), &losses);
+                self.message(m, warn);
             }
             D::CloseOthers => self.close_others(self.doc_id),
             D::CloseAll => {
@@ -1652,7 +1671,7 @@ impl App {
 
     /// Saves the modified documents with a file (of the project at
     /// `root`, or all); how many were saved.
-    fn save_all(&mut self, root: Option<&Path>) -> usize {
+    fn save_all(&mut self, root: Option<&Path>) -> (usize, Vec<String>) {
         let under = |d: &DocumentState| {
             d.meta
                 .path
@@ -1661,16 +1680,22 @@ impl App {
         };
         let options = self.config.save_options();
         let mut n = 0;
+        let mut lost = Vec::new();
         for b in self.docs.iter_mut().flatten() {
-            if b.doc.is_modified() && under(&b.doc) && b.doc.save(options, false).is_ok() {
+            if b.doc.is_modified()
+                && under(&b.doc)
+                && let Ok(losses) = b.doc.save(options, false)
+            {
                 n += 1;
+                lost.extend(named_losses(&b.doc, losses));
             }
         }
         if self.doc.is_modified() && under(&self.doc) {
-            self.save(false);
+            let losses = self.save(false);
             n += usize::from(!self.doc.is_modified());
+            lost.extend(named_losses(&self.doc, losses));
         }
-        n
+        (n, lost)
     }
 
     /// Closes the unmodified documents of the project at `root`.
@@ -1889,8 +1914,12 @@ impl App {
                 Some(r) => self.request(r),
                 None => self.message(tr!("msg-no-panel"), false),
             },
-            Request::Save => self.save(false),
-            Request::SaveAs if self.doc.generated.is_some() => self.save(false),
+            Request::Save => {
+                self.save(false);
+            }
+            Request::SaveAs if self.doc.generated.is_some() => {
+                self.save(false);
+            }
             Request::SaveAs => {
                 let current = self
                     .doc
@@ -2844,16 +2873,17 @@ impl App {
         std::mem::take(&mut self.output)
     }
 
-    /// Saves, asking the event bus first.
-    fn save(&mut self, force: bool) {
+    /// Saves, asking the event bus first; what the file could not keep,
+    /// once said.
+    fn save(&mut self, force: bool) -> Vec<String> {
         if let Some(title) = self.doc.generated_title() {
             let m = tr!("msg-plugin-document-not-saved", title = title.to_string());
             self.message(m, false);
-            return;
+            return Vec::new();
         }
         let Some(path) = self.doc.meta.path.clone() else {
             self.request(Request::SaveAs);
-            return;
+            return Vec::new();
         };
         // A file opened in a folder that is not there (`kalem tui new/a.txt`,
         // or the folder deleted since).
@@ -2861,7 +2891,7 @@ impl App {
             && let Some(dir) = missing_folder(&path)
         {
             self.ask_create_folder(path, &dir, false);
-            return;
+            return Vec::new();
         }
         let event = Event::DocumentBeforeSave {
             doc: self.doc_id,
@@ -2871,12 +2901,12 @@ impl App {
         self.bus.settle(&event, &outcome);
         if let Some((_, reason)) = outcome.veto {
             self.message(tr!("msg-not-saved", reason = reason), true);
-            return;
+            return Vec::new();
         }
         let mut not_formatted = self.doc.before_save(&self.config, Instant::now());
         self.after_change(true);
         match self.doc.save(self.config.save_options(), force) {
-            Ok(()) => {
+            Ok(losses) => {
                 if let Some(w) = &mut self.watcher {
                     let _ = w.watch(&path);
                 }
@@ -2885,19 +2915,13 @@ impl App {
                     path: path.clone(),
                 });
                 kalem_core::lsp::saved(&self.doc);
-                // Saved, but not formatted: the reason, over the plain word.
-                match not_formatted.take() {
-                    Some(m) => self.message(m, true),
-                    None => self.message(
-                        tr!("msg-saved-as", path = path.display().to_string()),
-                        false,
-                    ),
-                }
+                self.say_saved(&path, &losses, not_formatted.take());
                 // A LaTeX document builds on save when asked to; one
                 // saved while a build runs is built when it ends.
                 if self.doc.latex().is_some() && self.config.bool("latex.build_on_save") {
                     self.run_command("latex.build", serde_json::Value::Null);
                 }
+                losses
             }
             Err(kalem_core::document::SaveError::ChangedOnDisk) => {
                 self.ask(
@@ -2905,6 +2929,7 @@ impl App {
                     &tr!("prompt-overwrite"),
                     String::new(),
                 );
+                Vec::new()
             }
             Err(kalem_core::document::SaveError::Converted { format }) => {
                 self.ask(
@@ -2912,8 +2937,22 @@ impl App {
                     &tr!("prompt-save-converted", format = format),
                     String::new(),
                 );
+                Vec::new()
             }
-            Err(e) => self.message(tr!("msg-not-saved", reason = e.to_string()), true),
+            Err(e) => {
+                self.message(tr!("msg-not-saved", reason = e.to_string()), true);
+                Vec::new()
+            }
+        }
+    }
+
+    /// What a save to `path` says: the file's name; the reason it was not
+    /// formatted over that; what the file could not keep over both.
+    fn say_saved(&mut self, path: &Path, losses: &[String], not_formatted: Option<String>) {
+        let saved = tr!("msg-saved-as", path = path.display().to_string());
+        match (saved_message(saved, losses), not_formatted) {
+            ((m, true), _) | (_, Some(m)) => self.message(m, true),
+            ((m, false), None) => self.message(m, false),
         }
     }
 
@@ -5091,7 +5130,9 @@ impl App {
                         }
                         self.after_change(true);
                     }
-                    (PromptKind::Overwrite, true, _) => self.save(true),
+                    (PromptKind::Overwrite, true, _) => {
+                        self.save(true);
+                    }
                     (PromptKind::ReplaceFile(path), true, _) => {
                         let path = path.clone();
                         self.save_as_to(path);
@@ -5246,7 +5287,7 @@ impl App {
         let mut not_formatted = self.doc.before_save(&self.config, Instant::now());
         self.after_change(true);
         match self.doc.save_as(&path, self.config.save_options()) {
-            Ok(()) => {
+            Ok(losses) => {
                 if let Some(w) = &mut self.watcher {
                     let _ = w.watch(&path);
                 }
@@ -5264,14 +5305,7 @@ impl App {
                     self.refresh_vim();
                     self.dirty = true;
                 }
-                // Saved, but not formatted: the reason, over the plain word.
-                match not_formatted.take() {
-                    Some(m) => self.message(m, true),
-                    None => self.message(
-                        tr!("msg-saved-as", path = path.display().to_string()),
-                        false,
-                    ),
-                }
+                self.say_saved(&path, &losses, not_formatted.take());
             }
             Err(e) => self.message(tr!("msg-not-saved", reason = e.to_string()), true),
         }
