@@ -154,6 +154,7 @@ and a string compare equal when the string reads as that number.
 | =fileKind=       | =org=; only in Org documents                                                                                                         | document    |
 | =editorLanguage= | A plain text file's language, as detected (=rs=, =python=)                                                                           | document    |
 | =editorLayer=    | The layer serving the document, its plugin and its ID (=graph.logseq=; Layers over a mode)                                           | document    |
+| =folderLayer=    | The layer serving the folder of the document's file, or the folder the file manager shows, in any mode (=graph.logseq=)              | document    |
 | =vcs=            | The version control holding the document's file (=git=, =hg=, =jj=, =svn=…); without a file, the first project's folder's            | document    |
 | =textType=       | The text type at the cursor (see [[*Text types][Text types]])                                                                                         | cursor      |
 | =hasSelection=   | Text is selected                                                                                                                     | cursor      |

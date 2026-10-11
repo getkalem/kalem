@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- The when-clause key `folderLayer`: the layer serving the folder of a document's file, or the folder the file manager shows, whatever the document's mode (`graph.logseq`). A plugin's button or menu can show on a notes graph's folder before any note of it is opened: the Note graphs plugin's Graph button did not show on a Logseq graph's folder until a page was opened.
+
 ## [0.6.18] - 2026-10-11
 
 ### Changed

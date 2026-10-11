@@ -299,6 +299,9 @@ pub struct DocumentState {
     gutter_seen: (u64, u64),
     /// The version control holding its file, found for that path.
     vcs: std::cell::RefCell<Option<(PathBuf, Option<&'static str>)>>,
+    /// The layer serving its folder, found for that path and the layers'
+    /// generation.
+    folder_layer: std::cell::RefCell<Option<(PathBuf, u64, Option<String>)>>,
     /// The overlays of the layer serving it (`crate::layers`), as last
     /// asked.
     layer: std::cell::RefCell<Option<crate::layers::Cached>>,
@@ -523,6 +526,7 @@ impl DocumentState {
             gutter: Vec::new(),
             gutter_seen: (0, 0),
             vcs: std::cell::RefCell::new(None),
+            folder_layer: std::cell::RefCell::new(None),
             layer: std::cell::RefCell::new(None),
             csv_filter: None,
             csv_filter_column: None,
@@ -2959,7 +2963,33 @@ impl DocumentState {
         if let Some(l) = self.layer_name() {
             c.set("editorLayer", Value::Str(l));
         }
+        if let Some(l) = self.folder_layer() {
+            c.set("folderLayer", Value::Str(l));
+        }
         c
+    }
+
+    /// The layer serving the folder this document's file is in, or the
+    /// folder it is (the file manager's), whatever the document's mode
+    /// (`crate::layers::marker_root`): the when-clause key `folderLayer`,
+    /// named as `editorLayer` is. A notes graph's button shows on its
+    /// folder by it, before any note is opened.
+    pub fn folder_layer(&self) -> Option<String> {
+        if !crate::layers::any() {
+            return None;
+        }
+        let path = self.meta.path.as_deref()?;
+        let generation = crate::layers::generation();
+        let mut cache = self.folder_layer.borrow_mut();
+        if let Some((p, g, l)) = cache.as_ref()
+            && p == path
+            && *g == generation
+        {
+            return l.clone();
+        }
+        let l = crate::layers::marker_root(path).map(|(_, l)| format!("{}.{}", l.plugin, l.id));
+        *cache = Some((path.to_path_buf(), generation, l.clone()));
+        l
     }
 
     /// The layer serving this document (`crate::layers`), named as the
@@ -3195,6 +3225,9 @@ impl DocumentState {
         c.set("textType", Value::Str(self.text_type()));
         if let Some(l) = self.layer_name() {
             c.set("editorLayer", Value::Str(l));
+        }
+        if let Some(l) = self.folder_layer() {
+            c.set("folderLayer", Value::Str(l));
         }
         let Some((parse, _)) = self.parse() else {
             return c;

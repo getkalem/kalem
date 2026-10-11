@@ -317,6 +317,22 @@ fn a_layer_over_markdown() {
         Some("org.test.layer.test.ids")
     );
     assert_eq!(key(&outside.when_context()), None);
+    // The folder's layer, in any mode: a note, a text file in the
+    // graph, the graph's folder as the file manager shows it; not a file
+    // outside.
+    let folder = |c: &crate::when::Context| match c.get("folderLayer") {
+        Some(crate::when::Value::Str(s)) => Some(s.clone()),
+        _ => None,
+    };
+    let layer = Some("org.test.layer.test.ids");
+    assert_eq!(folder(&d.document_context()).as_deref(), layer);
+    let txt = doc(dir.join("graph/pages/notes.txt"));
+    assert_eq!(key(&txt.document_context()), None);
+    assert_eq!(folder(&txt.document_context()).as_deref(), layer);
+    let listing = doc(dir.join("graph"));
+    assert_eq!(folder(&listing.when_context()).as_deref(), layer);
+    assert_eq!(folder(&listing.document_context()).as_deref(), layer);
+    assert_eq!(folder(&outside.document_context()), None);
     remove_plugin("org.test.layer");
     assert!(d.overlays().is_none());
     let _ = std::fs::remove_dir_all(&dir);
