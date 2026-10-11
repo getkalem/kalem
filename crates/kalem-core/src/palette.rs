@@ -183,28 +183,8 @@ pub fn menu_items(
 
 /// A fuzzy match of `query` in `text`: every query character in order,
 /// ignoring case. Lower scores are better: early, contiguous matches and
-/// matches at word starts.
-pub fn fuzzy(query: &str, text: &str) -> Option<i64> {
-    let t: Vec<char> = text.chars().flat_map(char::to_lowercase).collect();
-    let mut score = 0i64;
-    let mut at = 0usize;
-    let mut last: Option<usize> = None;
-    for q in query.chars().flat_map(char::to_lowercase) {
-        if q == ' ' {
-            continue;
-        }
-        let i = at + t[at..].iter().position(|c| *c == q)?;
-        let word_start = i == 0 || !t[i - 1].is_alphanumeric();
-        score += match last {
-            Some(l) if l + 1 == i => 0,
-            _ if word_start => 1,
-            _ => 3 + (i - at) as i64,
-        };
-        last = Some(i);
-        at = i + 1;
-    }
-    Some(score)
-}
+/// matches at word starts. The projects' matching, which it copied.
+pub use kalem_project::fuzzy;
 
 /// The items matching `input`, best first: by title, then by category,
 /// title and detail.
