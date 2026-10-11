@@ -5,8 +5,9 @@
 //! notices on standard error, its questions answered as a script would
 //! leave them (a prompt with the text it offers, else cancelled; a choice
 //! with nothing; a confirmation with no). A file the command changed is
-//! saved. The folders named (a file's own) are in the plugin's workspace
-//! with the projects for the run.
+//! saved. The folders named (a file's own, and the notes graph's a file
+//! is a page of) are in the plugin's workspace with the projects for the
+//! run.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -200,6 +201,15 @@ pub fn run(
         }
     }
     let id = crate::extensions::load_one(plugin)?;
+    // A file of a folder a plugin's layer serves (a notes graph's, its
+    // plugin now started): that folder too, as the editors offer it as a
+    // project, so that the plugin reads the graph the file is a page of.
+    for f in files {
+        let f = std::path::absolute(f).unwrap_or_else(|_| f.clone());
+        if let Some((root, _)) = kalem_core::layers::marker_root(&f) {
+            kalem_core::extensions::name_folder(root);
+        }
+    }
     for (text, _) in kalem_core::jobs::take_notices() {
         let _ = writeln!(err, "{text}");
     }
