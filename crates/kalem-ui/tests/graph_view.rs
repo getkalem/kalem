@@ -119,6 +119,17 @@ fn a_graph_is_drawn_chosen_panned_and_shown_as_text(cx: &mut TestAppContext) {
     assert_eq!(selected(cx), Some(2));
     cx.simulate_keystrokes("shift-tab shift-tab");
     assert_eq!(selected(cx), Some(0));
+    // Dragging a node moves it, the layout settling around it (the
+    // handler asked for a frame outside a view's drawing, which gpui
+    // does not allow: 0.6.14 to 0.6.16 crashed here).
+    let b = place(cx, 1);
+    cx.simulate_mouse_down(b, MouseButton::Left, none);
+    let to = b + point(px(40.0), px(25.0));
+    cx.simulate_mouse_move(to, Some(MouseButton::Left), none);
+    cx.simulate_mouse_up(to, MouseButton::Left, none);
+    cx.run_until_parked();
+    let moved = place(cx, 1) - b;
+    assert!(f32::from(moved.x) > 20.0, "{moved:?}");
     // Dragging the background pans: node `a` follows the mouse.
     let a = place(cx, 0);
     let blank = area.origin + point(px(5.0), px(5.0));

@@ -243,7 +243,7 @@ impl Editor {
                     cx.notify();
                 }),
             )
-            .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, window, cx| {
+            .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, _, cx| {
                 let (at, size) = this.graph_point(ev.position);
                 let drag = this.graph_ui.drag;
                 let Some(v) = this.doc.graph_view.as_deref_mut() else {
@@ -260,9 +260,11 @@ impl Editor {
                         this.graph_ui.drag = Some(Drag::Pan(ev.position));
                         cx.notify();
                     }
+                    // Drawn again, the layout going on from there: a frame
+                    // is asked for while drawing, not here, outside a
+                    // view's drawing (gpui's `current_view` panics).
                     Some(Drag::Node(i)) => {
                         v.drag(i, at, size);
-                        window.request_animation_frame();
                         cx.notify();
                     }
                     None => {
