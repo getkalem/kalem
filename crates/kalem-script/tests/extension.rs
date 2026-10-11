@@ -356,12 +356,18 @@ fn the_host_refuses_what_is_not_the_plugins() {
     };
     let out = run(&mut ext, "counter.refused").unwrap();
     let errors: Vec<&str> = out.lines().collect();
-    assert_eq!(errors.len(), 4, "{out}");
+    assert_eq!(errors.len(), 3, "{out}");
     assert!(errors[0].contains("not the plugin's"), "{}", errors[0]);
     assert!(errors[1].contains("no scope"), "{}", errors[1]);
     assert!(errors[2].contains("already registered"), "{}", errors[2]);
-    assert!(errors[3].contains("the plugin's own"), "{}", errors[3]);
     let s = fake.0.lock().unwrap();
+    // Its own command is queued, not refused: run after the call, as
+    // after a question's answer the plugin edits the document so.
+    assert!(
+        s.ran.iter().any(|(id, _)| id == "counter.count"),
+        "{:?}",
+        s.ran
+    );
     assert!(!s.commands.contains_key("other.thing"));
     assert!(!s.commands.contains_key("counter.none"));
 }

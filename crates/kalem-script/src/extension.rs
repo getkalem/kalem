@@ -597,13 +597,10 @@ impl api::Host for Session {
     }
 
     fn run(&mut self, id: String, args: String) -> Result<(), String> {
-        // The plugin is inside a call: running its own command would enter
-        // it again, which a component does not allow.
-        if self.owns(&id) {
-            return Err(format!(
-                "Command `{id}` is the plugin's own: call its function"
-            ));
-        }
+        // The command is queued, run once the plugin's call returns (the
+        // editors' `Editor::run`), so a plugin's own command does not enter
+        // the plugin again: the way it edits the document after a
+        // question's answer, as its commands alone reach the editor.
         self.editor.run(&id, &args)
     }
 

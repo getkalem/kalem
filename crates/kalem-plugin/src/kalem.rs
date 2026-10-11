@@ -193,9 +193,10 @@ pub fn command(
     })
 }
 
-/// Runs a command, built in or another plugin's, with arguments as JSON
-/// (`"null"` for none), once the plugin's call returns. A plugin runs its
-/// own commands as functions.
+/// Runs a command, built in, another plugin's or the plugin's own, with
+/// arguments as JSON (`"null"` for none), once the plugin's call returns:
+/// after a question's answer, the plugin's own command is how it edits
+/// the document, as only its commands reach the editor.
 pub fn run(id: &str, args: &str) -> Result<(), String> {
     api::run(id, args)
 }

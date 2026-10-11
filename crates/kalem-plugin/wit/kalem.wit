@@ -209,10 +209,12 @@ interface kalem {
     /// new, its scope names no type, or a key does not parse.
     command: func(spec: command-spec) -> result<disposable, string>;
 
-    /// Runs a command, built in or another plugin's, with its arguments
-    /// as JSON (`null` for none), once the plugin's call returns: right
-    /// after the plugin's command, in its context, or at the editor's
-    /// next tick. Refused at once when there is no such command.
+    /// Runs a command, built in, another plugin's or the plugin's own,
+    /// with its arguments as JSON (`null` for none), once the plugin's
+    /// call returns: right after the plugin's command, in its context, or
+    /// at the editor's next tick. A plugin's own command run so reaches
+    /// the editor after a question's answer, which reaches none. Refused
+    /// at once when there is no such command.
     run: func(id: string, args: string) -> result<_, string>;
 
     /// Binds `keys` to a command, when `when` holds (and the command's

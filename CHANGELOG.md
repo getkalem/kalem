@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A layer of a plugin's manifest may name the plugin's command that opens links in the documents it serves (`"open"`), which a Ctrl-click runs in place of the mode's: a link followed by the graph's own rules.
 
 ### Fixed
+- A plugin may run its own command with `kalem.run`: it is queued, run once the plugin's call returns, as another's is. It was refused, and a plugin that asks a question and then edits the document (which only its commands reach) could not: the graph plugin's Insert Link, Insert Block Reference, Set Priority, Schedule, Deadline and Rename Page stopped after the answer with "is the plugin's own".
 - A plugin's own settings reach it in the editors. Kalem starts the plugins while the editor reads its settings, and a plugin that read them as it started got nothing and never heard of them (the graph plugin's `graphs` was never seen in `kalem tui`, only in `kalem run`). Until the editor gives its settings, a plugin now reads Kalem's defaults, and the plugins watching a setting that differs from its default are told once the settings come.
 
 ## [0.6.13] - 2026-10-10
