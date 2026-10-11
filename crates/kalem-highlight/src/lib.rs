@@ -502,13 +502,27 @@ impl Highlighter {
         let suf = common_suffix(a, b, a.len().min(b.len()) - pre);
         let added = line_feeds(&b[pre..b.len() - suf]);
         let delta = added as isize - line_feeds(&a[pre..a.len() - suf]) as isize;
-        // The first line changed, and the last in the new text.
-        let first = line_feeds(&a[..pre]);
+        // The first line changed (the lines starting at or before `pre`),
+        // and the last in the new text.
+        let first = self.starts.partition_point(|&s| s <= pre) - 1;
         let last = first + added;
         let colored = self.lines.len();
+        // The line starts moved rather than found again in the whole text:
+        // those in the changed part found there, those after it shifted.
+        let (old_end, new_end) = (a.len() - suf, b.len() - suf);
+        let after = self.starts.partition_point(|&s| s <= old_end);
+        let shift = b.len() as isize - a.len() as isize;
+        self.starts.splice(
+            first + 1..after,
+            // Bytes: `pre` may fall inside a character (`é` and `ü`
+            // begin alike), never a line feed.
+            (pre..new_end).filter(|&i| b[i] == b'\n').map(|i| i + 1),
+        );
+        for s in &mut self.starts[first + 1 + added..] {
+            *s = s.saturating_add_signed(shift);
+        }
         self.text.clear();
         self.text.push_str(text);
-        self.starts = line_starts(text);
         if first >= colored {
             // Only lines not colored yet changed.
             return;
@@ -741,8 +755,28 @@ mod tests {
             "",
         ] {
             h.update(new);
+            assert_eq!(h.starts, line_starts(new), "{new:?}");
             h.color_to(usize::MAX);
             assert_eq!(h.lines, highlight(rust, new), "{new:?}");
+        }
+    }
+
+    #[test]
+    fn line_starts_moved_as_found_again() {
+        // Edits of every kind at every place of a short text: the starts
+        // kept up to date are the starts of the new text.
+        let rust = Language::find("rs").unwrap();
+        let text = "a\nbé\n\nc d\n";
+        for (a, b) in (0..=text.len()).flat_map(|a| (a..=text.len()).map(move |b| (a, b))) {
+            if !text.is_char_boundary(a) || !text.is_char_boundary(b) {
+                continue;
+            }
+            for insert in ["", "x", "\n", "\n\n", "y\nz", "é\n", "ü", "ü\né"] {
+                let new = format!("{}{insert}{}", &text[..a], &text[b..]);
+                let mut h = Highlighter::new(rust, text);
+                h.update(&new);
+                assert_eq!(h.starts, line_starts(&new), "{a}..{b} {insert:?}");
+            }
         }
     }
 
