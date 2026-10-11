@@ -88,6 +88,7 @@
   // Neotree and Treemacs; F2 renames and Delete moves to the trash, as in
   // graphical file managers.
   { "keys": "enter", "command": "dired.open" },
+  { "keys": "o", "command": "dired.openInPane" },
   { "keys": "^", "command": "dired.up" },
   { "keys": "i", "command": "dired.insertSubdir" },
   { "keys": "shift+k", "command": "dired.removeSubdir" },

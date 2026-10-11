@@ -95,7 +95,7 @@ held they are copied. Dropped on a document they are linked at the
 pointer, in its syntax: =[[file:sub/b.org][b.org]]= in Org,
 =[b.org](sub/b.org)= in Markdown, =\href{…}{…}= in LaTeX, relative to the
 document's folder when they are in it or below. /Open in New Pane/ in
-the menu opens the entry beside the listing.
+the menu, or =o= as in Emacs, opens the entry beside the listing.
 
 =e= makes the names editable, as Emacs's wdired does: change them with
 any editing command (=old/a.txt= moves the file there), then Ctrl+S

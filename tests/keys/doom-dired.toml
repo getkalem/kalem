@@ -71,7 +71,7 @@ emacs = "q"
 [[key]]
 doom = "o"
 keys = "o"
-reason = "Split View shows one document in both panes; opening another document in the other pane is not there yet"
+command = "dired.openInPane"
 what = "Open in the other pane"
 
 [[key]]
