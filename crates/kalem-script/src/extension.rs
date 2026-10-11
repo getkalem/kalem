@@ -35,8 +35,8 @@ pub use bindings::exports::kalem::plugin::{completer, layer};
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
 pub use bindings::kalem::plugin::{
-    clock, clock_2, decorations, diagnostics, documents, editor, fs, fs_2, http, layers, net,
-    process, settings, styled_documents,
+    clock, clock_2, decorations, diagnostics, documents, editor, fs, fs_2, graph_view, http,
+    layers, net, process, settings, styled_documents,
 };
 
 /// An edit a plugin asked for, applied when its command returns, its
@@ -430,6 +430,29 @@ pub trait Editor: Send + 'static {
 
     /// Closes plugin `plugin`'s document `doc`.
     fn close_document(&mut self, plugin: &str, doc: u64);
+
+    /// Shows plugin `plugin`'s document `spec` drawn as graph `g`, `text`
+    /// its source (`graph-view`, API 0.2.12); its number.
+    fn open_graph(
+        &mut self,
+        _plugin: &str,
+        _spec: documents::DocumentSpec,
+        _g: graph_view::Graph,
+        _text: String,
+    ) -> Result<u64, String> {
+        Err("This editor draws no graphs".into())
+    }
+
+    /// Writes plugin `plugin`'s graph document `doc` anew.
+    fn set_graph(
+        &mut self,
+        _plugin: &str,
+        _doc: u64,
+        _g: graph_view::Graph,
+        _text: String,
+    ) -> Result<(), String> {
+        Err("This editor draws no graphs".into())
+    }
 
     /// Plugin `plugin` marks the lines of the file at `path` (lines from
     /// 1), in place of its earlier marks there.
@@ -928,6 +951,46 @@ impl documents::Host for Session {
         let plugin = self.plugin.clone();
         self.editor.close_document(&plugin, doc);
     }
+}
+
+/// Nodes and edges a graph has at most.
+pub const MAX_GRAPH: usize = 200_000;
+
+impl graph_view::Host for Session {
+    fn open(
+        &mut self,
+        spec: documents::DocumentSpec,
+        g: graph_view::Graph,
+        text: String,
+    ) -> Result<u64, String> {
+        if !self.named_own(&spec.id) {
+            return Err(format!(
+                "Document `{}` is not the plugin's: its ID starts `{}.`",
+                spec.id, self.plugin
+            ));
+        }
+        check_document(&text, &[])?;
+        check_graph(&g)?;
+        let plugin = self.plugin.clone();
+        self.editor.open_graph(&plugin, spec, g, text)
+    }
+
+    fn set(&mut self, doc: u64, g: graph_view::Graph, text: String) -> Result<(), String> {
+        check_document(&text, &[])?;
+        check_graph(&g)?;
+        let plugin = self.plugin.clone();
+        self.editor.set_graph(&plugin, doc, g, text)
+    }
+}
+
+/// A graph within its limits.
+fn check_graph(g: &graph_view::Graph) -> Result<(), String> {
+    if g.nodes.len() > MAX_GRAPH || g.edges.len() > MAX_GRAPH {
+        return Err(format!(
+            "A graph has at most {MAX_GRAPH} nodes and {MAX_GRAPH} edges"
+        ));
+    }
+    Ok(())
 }
 
 impl styled_documents::Host for Session {
@@ -1460,6 +1523,12 @@ impl Extension {
         )
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
         styled_documents::add_to_linker::<_, HasSelf<Session>>(
+            &mut linker,
+            |d: &mut crate::Data<Session>| &mut d.user,
+        )
+        .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        // Documents drawn as graphs (API 0.2.12), as documents are.
+        graph_view::add_to_linker::<_, HasSelf<Session>>(
             &mut linker,
             |d: &mut crate::Data<Session>| &mut d.user,
         )

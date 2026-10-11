@@ -387,7 +387,7 @@ account's.
 * Versions of the plugin API
 
 The plugin API is the WIT package =kalem:plugin= (=crates/kalem-plugin/wit=),
-version 0.2.11; a component's manifest names the version it was built
+version 0.2.12; a component's manifest names the version it was built
 against (="api": "^0.2.1"=), and Kalem tries it when its own API is of
 the same 0.MINOR and no earlier. The rules, so that a plugin built once
 keeps working:
@@ -489,6 +489,10 @@ keeps working:
   =completer= when a component exports it, as =layer=; an export of an
   earlier 0.2.x (=layer@0.2.10=) is found by the later name.
   =layer.wit= of 0.2.10 is frozen (=wit-frozen/0.2.10=).
+- 0.2.12 added, for extension plugins, the imports =graph-view= (a
+  document drawn as a graph, below) and =fs-2= (files moved and put in
+  the trash under =fs:write:workspace=). =completer.wit= and
+  =clock-2.wit= of 0.2.11 are frozen (=wit-frozen/0.2.11=).
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 - An addition is general, or it waits. It names what several plugins
@@ -737,7 +741,7 @@ asks for them, with the permissions of §11.6:
 | Permission | Reaches |
 |-
 | =fs:read:workspace= | reading files in the projects' folders |
-| =fs:write:workspace= | reading and writing there |
+| =fs:write:workspace= | reading and writing there, moving files and putting them in the trash (=fs-2=, API 0.2.12) |
 | =fs:read:all= | reading any file |
 | =net:fetch:DOMAIN= | HTTP to that domain and its subdomains; =*= for any |
 | =subprocess:PROGRAM= | running the program PROGRAM (a bare name: =git=) in a project's folder |
@@ -878,6 +882,35 @@ use kalem_plugin::documents::{self, Color, StyledSpan, TextStyle};
 
 let styles = [StyledSpan { start: 1, end: 3, style: TextStyle::color(Color::Red) }];
 documents::open_styled(&spec, " M README.md\n", None, &styles)?;
+#+end_src
+
+A plugin's document may be drawn as a graph (=graph-view=, API
+0.2.12): the plugin gives the nodes, each an id, a label, a group (the
+nodes of a group share a color) and a weight (how large it is drawn),
+the edges between them by their ids, a node to keep in the middle if
+any, and the command run with ={"node": id}= when the user opens one.
+The editor lays the nodes out (they push each other away, edges pull
+their ends together), a few steps a frame until the layout settles, and
+draws them: in the window as colored dots joined by lines, the labels
+of the heavier ones and of those near the mouse written beside them; in
+the terminal with Braille dots. Dragging pans, the wheel (or =+= and
+=-=) zooms, a node dragged moves, a click or Tab chooses one, a double
+click or Enter opens it. The document's text, written with the graph,
+is what Show Source, search and a terminal show; written again, the
+nodes still there keep their places. The graph plugin's Graph View and
+Local Graph are such documents.
+
+#+begin_src rust
+use kalem_plugin::documents::Spec;
+use kalem_plugin::graph_view::{self, Edge, Graph};
+
+let g = Graph {
+    nodes: vec![graph_view::node("a", "A", "pages", 3), graph_view::node("b", "B", "pages", 1)],
+    edges: vec![Edge { from: "a".into(), to: "b".into() }],
+    focus: None,
+    command: "notes.openNode".into(),
+};
+graph_view::open(&Spec::new("notes.graph", "", "Graph", "notes-graph"), &g, "A\nB\n")?;
 #+end_src
 
 The first plugins planned:

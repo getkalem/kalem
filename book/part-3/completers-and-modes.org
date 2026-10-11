@@ -273,6 +273,12 @@ mode draws it. A plugin calls =layers.refresh= when what its layers
 show depends on other files that changed (a block reference showing
 its block's text): every document a layer serves asks again.
 
+A layer may name the plugin's command that opens the link at the cursor
+in the documents it serves (="open": "graph.openLink"=, API 0.2.12): a
+Ctrl-click runs it in place of the mode's own Open Link, so that a link
+is followed by the plugin's rules (a Logseq page's aliases, an Obsidian
+note's shortest path); the command leaves to the mode what is not its.
+
 The plugin's keys in the documents a layer serves are bound with a
 when-clause naming it, =editorLayer == graph.logseq=, and such keys
 come before the profile's and Vim's there, as a plugin's keys in its

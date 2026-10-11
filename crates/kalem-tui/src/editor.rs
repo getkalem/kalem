@@ -41,6 +41,8 @@ pub struct EditorView {
     pub folds: Folds,
     /// The source view: plain text, no folding.
     pub source: bool,
+    /// Where a plugin's graph was last drawn (`crate::graph_view`).
+    pub graph_area: Option<Rect>,
     /// Scroll to the cursor on the next frame.
     pub follow: bool,
     /// Ranges to mark, such as search matches (sorted).
@@ -2206,6 +2208,20 @@ impl EditorView {
         buf: &mut Buffer,
         area: Rect,
     ) -> Option<(u16, u16)> {
+        // A plugin's document drawn as a graph, unless its source is shown.
+        if !self.source
+            && let Some(v) = doc.graph_view.as_deref()
+        {
+            self.graph_area = Some(area);
+            crate::graph_view::draw(
+                v,
+                buf,
+                area,
+                ratatui::style::Color::Indexed(245),
+                ratatui::style::Color::Reset,
+            );
+            return None;
+        }
         // A viewer's document in a pane without focus: its text.
         if let Some(v) = doc.viewer.as_deref() {
             for (i, line) in v.text_now().lines().take(area.height as usize).enumerate() {

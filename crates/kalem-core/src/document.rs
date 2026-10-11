@@ -280,6 +280,10 @@ pub struct DocumentState {
     notice: Option<String>,
     /// A document a plugin writes ([`GeneratedDoc`]).
     pub generated: Option<GeneratedDoc>,
+    /// The graph a plugin's document is drawn as (`crate::graph_view`,
+    /// plugin API 0.2.12): laid out and seen through the window, its
+    /// text the source.
+    pub graph_view: Option<Box<crate::graph_view::GraphView>>,
     /// The styles its plugin gave the text of such a document, in order.
     generated_styles: Vec<StyleSpan>,
     /// The marks plugins set beside its lines ([`GutterMark`]), by the
@@ -495,6 +499,7 @@ impl DocumentState {
             flow: None,
             notice: None,
             generated: None,
+            graph_view: None,
             generated_styles: Vec::new(),
             gutter: Vec::new(),
             gutter_seen: (0, 0),
@@ -627,11 +632,27 @@ impl DocumentState {
         };
         let mut d = DocumentState::new("", meta, settings);
         d.read_only = true;
+        d.sync_graph(g.number);
         d.generated = Some(g);
         d.replace_shown(text);
         d.generated_styles = fit_spans(text, styles);
         d.place_shown_cursor(Some(cursor.unwrap_or(0)), 0);
         d
+    }
+
+    /// The graph plugin document `number` is drawn as, taken in: laid out
+    /// anew, or the layout kept for the nodes still there.
+    fn sync_graph(&mut self, number: u64) {
+        match (
+            crate::extensions::generated_graph(number),
+            &mut self.graph_view,
+        ) {
+            (Some(g), Some(v)) => v.update(g),
+            (Some(g), None) => {
+                self.graph_view = Some(Box::new(crate::graph_view::GraphView::new(g)));
+            }
+            (None, _) => self.graph_view = None,
+        }
     }
 
     /// The plugin wrote its document again (`g`, its title and version):
@@ -648,6 +669,7 @@ impl DocumentState {
         self.replace_shown(text);
         self.generated_styles = fit_spans(text, styles);
         self.place_shown_cursor(cursor, line);
+        self.sync_graph(g.number);
         self.generated = Some(g);
     }
 

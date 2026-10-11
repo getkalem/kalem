@@ -714,7 +714,7 @@ fn files_are_reached_only_as_granted() {
         ),
         Ok("null".into())
     );
-    assert_eq!(fake.0.lock().unwrap().trashed, [to.clone()]);
+    assert_eq!(fake.0.lock().unwrap().trashed, std::slice::from_ref(&to));
     assert!(
         call(
             &mut ext,

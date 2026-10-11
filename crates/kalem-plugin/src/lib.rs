@@ -131,6 +131,7 @@ pub mod decorations;
 pub mod documents;
 pub mod editor;
 pub mod fs;
+pub mod graph_view;
 pub mod kalem;
 pub mod layer;
 pub mod net;

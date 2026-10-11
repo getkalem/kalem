@@ -3356,6 +3356,9 @@ impl App {
             self.settings_mouse(m);
             return;
         }
+        if self.graph_mouse(&m) {
+            return;
+        }
         let shift = m.modifiers.contains(KeyModifiers::SHIFT);
         // A click in another pane focuses it first.
         if let MouseEventKind::Down(_) = m.kind
@@ -3913,6 +3916,117 @@ impl App {
     }
 
     /// Background work of an open list: search results, files found.
+    /// The keys of a plugin's graph: Enter opens the node chosen, Tab and
+    /// Shift+Tab choose another (the heaviest first), the arrows pan, `+`
+    /// and `-` zoom, `0` fits it. Whether the key was the graph's.
+    fn graph_key(&mut self, k: &KeyEvent) -> bool {
+        if self.editor.source
+            || k.modifiers
+                .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
+        {
+            return false;
+        }
+        let size = self
+            .editor
+            .graph_area
+            .map_or([160.0, 160.0], crate::graph_view::size);
+        let Some(v) = self.doc.graph_view.as_deref_mut() else {
+            return false;
+        };
+        let middle = [size[0] / 2.0, size[1] / 2.0];
+        match k.code {
+            KeyCode::Enter => {
+                self.open_graph_node();
+                return true;
+            }
+            KeyCode::Tab => {
+                v.select_next(false);
+                v.center_on_selected();
+            }
+            KeyCode::BackTab => {
+                v.select_next(true);
+                v.center_on_selected();
+            }
+            KeyCode::Left => v.pan_by([8.0, 0.0]),
+            KeyCode::Right => v.pan_by([-8.0, 0.0]),
+            KeyCode::Up => v.pan_by([0.0, 8.0]),
+            KeyCode::Down => v.pan_by([0.0, -8.0]),
+            KeyCode::Char('+') | KeyCode::Char('=') => v.zoom_at(1.25, middle, size),
+            KeyCode::Char('-') => v.zoom_at(0.8, middle, size),
+            KeyCode::Char('0') => v.fit(size),
+            _ => return false,
+        }
+        self.dirty = true;
+        true
+    }
+
+    /// A click on a plugin's graph chooses the node under it, a double
+    /// click opens it, the wheel zooms. Whether the mouse was the graph's.
+    fn graph_mouse(&mut self, m: &crossterm::event::MouseEvent) -> bool {
+        let Some(area) = self.editor.graph_area.filter(|_| !self.editor.source) else {
+            return false;
+        };
+        if self.doc.graph_view.is_none()
+            || !area.contains(ratatui::layout::Position::new(m.column, m.row))
+        {
+            return false;
+        }
+        let size = crate::graph_view::size(area);
+        let at = [
+            f32::from(m.column - area.x) * crate::graph_view::DOTS.0 + 1.0,
+            f32::from(m.row - area.y) * crate::graph_view::DOTS.1 + 2.0,
+        ];
+        let now = Instant::now();
+        let double = self.last_click.is_some_and(|(t, x, y)| {
+            now.duration_since(t) < Duration::from_millis(400) && x == m.column && y == m.row
+        });
+        let Some(v) = self.doc.graph_view.as_deref_mut() else {
+            return false;
+        };
+        match m.kind {
+            MouseEventKind::Down(MouseButton::Left) => {
+                self.last_click = Some((now, m.column, m.row));
+                // A cell holds eight dots: the nearest node within one.
+                v.selected = v.node_at(at, size).or_else(|| {
+                    let p = v.to_layout(at, size);
+                    (0..v.graph().nodes.len())
+                        .map(|i| {
+                            let q = v.place(i);
+                            (
+                                ((q[0] - p[0]).powi(2) + (q[1] - p[1]).powi(2)).sqrt() * v.zoom,
+                                i,
+                            )
+                        })
+                        .filter(|(d, _)| *d <= 4.0)
+                        .min_by(|a, b| a.0.total_cmp(&b.0))
+                        .map(|(_, i)| i)
+                });
+                if double && v.selected.is_some() {
+                    self.open_graph_node();
+                }
+            }
+            MouseEventKind::ScrollUp => v.zoom_at(1.15, at, size),
+            MouseEventKind::ScrollDown => v.zoom_at(1.0 / 1.15, at, size),
+            _ => return false,
+        }
+        self.dirty = true;
+        true
+    }
+
+    /// Opens the node of the graph chosen: the plugin's command with its
+    /// id.
+    fn open_graph_node(&mut self) {
+        let Some(v) = self.doc.graph_view.as_deref() else {
+            return;
+        };
+        let Some(i) = v.selected else {
+            return;
+        };
+        let command = v.graph().command.clone();
+        let id = v.graph().nodes[i].id.clone();
+        self.run_command(&command, serde_json::json!({ "node": id }));
+    }
+
     fn tick_palette(&mut self) {
         let Some(p) = &mut self.palette else { return };
         if let Some(s) = &mut p.search {
@@ -4404,6 +4518,9 @@ impl App {
             }
         }
         if self.find.is_some() && self.find_key(&k) {
+            return;
+        }
+        if self.doc.graph_view.is_some() && self.graph_key(&k) {
             return;
         }
         if self.outline.as_ref().is_some_and(|o| o.focus) && self.outline_key(&k) {
@@ -5312,6 +5429,19 @@ impl App {
 
     pub fn tick(&mut self, now: Instant) {
         self.close_stopped_viewer();
+        // A plugin's graph: its layout a few steps a frame, fitted to the
+        // window while it spreads.
+        if !self.editor.source
+            && let Some(v) = self.doc.graph_view.as_deref_mut()
+        {
+            if v.moving() {
+                v.step(Duration::from_millis(8));
+                self.dirty = true;
+            }
+            if let Some(area) = self.editor.graph_area {
+                v.follow(crate::graph_view::size(area));
+            }
+        }
         // An edit a document's plugin refused (flowing text), and why.
         if let Some(n) = self.doc.take_notice() {
             self.message(n, true);

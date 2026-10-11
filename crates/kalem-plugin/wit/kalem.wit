@@ -282,6 +282,7 @@ world extension {
     import documents;
     import decorations;
     import styled-documents;
+    import graph-view;
     import editor;
     export plugin;
 }

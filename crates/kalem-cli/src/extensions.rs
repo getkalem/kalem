@@ -273,6 +273,37 @@ impl Editor for Bridge {
         kalem_core::extensions::close_generated(plugin, doc);
     }
 
+    fn open_graph(
+        &mut self,
+        plugin: &str,
+        spec: x::documents::DocumentSpec,
+        g: x::graph_view::Graph,
+        text: String,
+    ) -> Result<u64, String> {
+        kalem_core::extensions::open_graph(
+            plugin,
+            kalem_core::extensions::GeneratedSpec {
+                id: spec.id,
+                key: spec.key,
+                title: spec.title,
+                kind: spec.kind,
+                language: spec.language,
+            },
+            core_graph(g),
+            text,
+        )
+    }
+
+    fn set_graph(
+        &mut self,
+        plugin: &str,
+        doc: u64,
+        g: x::graph_view::Graph,
+        text: String,
+    ) -> Result<(), String> {
+        kalem_core::extensions::set_graph(plugin, doc, core_graph(g), text)
+    }
+
     fn set_gutter(
         &mut self,
         plugin: &str,
@@ -708,6 +739,25 @@ fn completion_item(item: x::completer::Item, point: usize) -> kalem_core::comple
     out.detail = item.detail;
     out.documentation = item.documentation;
     out
+}
+
+/// A plugin's graph as the core's.
+fn core_graph(g: x::graph_view::Graph) -> kalem_core::graph_view::Graph {
+    let edges: Vec<(String, String)> = g.edges.into_iter().map(|e| (e.from, e.to)).collect();
+    kalem_core::graph_view::Graph::new(
+        g.nodes
+            .into_iter()
+            .map(|n| kalem_core::graph_view::Node {
+                id: n.id,
+                label: n.label,
+                group: n.group,
+                weight: n.weight,
+            })
+            .collect(),
+        &edges,
+        g.focus.as_deref(),
+        g.command,
+    )
 }
 
 /// A layer's overlays as the core's.

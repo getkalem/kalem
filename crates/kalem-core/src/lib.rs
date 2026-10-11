@@ -36,6 +36,7 @@ pub mod formatters;
 pub mod formula_edit;
 pub mod formulas;
 pub mod front_matter;
+pub mod graph_view;
 pub mod images;
 pub mod input;
 pub mod insert;

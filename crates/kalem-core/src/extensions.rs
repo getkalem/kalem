@@ -109,6 +109,9 @@ pub struct Generated {
     pub cursor: Option<usize>,
     /// The styles of its text (`styled-documents`, API 0.2.6).
     pub styles: Vec<crate::StyleSpan>,
+    /// The graph it is drawn as (`graph-view`, API 0.2.12), its text
+    /// being what the source view, search and a terminal show.
+    pub graph: Option<std::sync::Arc<crate::graph_view::Graph>>,
     /// Incremented by each write.
     pub version: u64,
 }
@@ -1008,6 +1011,80 @@ pub fn open_generated(
     cursor: Option<usize>,
     styles: Vec<crate::StyleSpan>,
 ) -> Result<u64, String> {
+    open_document(plugin, spec, text, cursor, styles, None)
+}
+
+/// Opens plugin `plugin`'s document `spec` drawn as `graph` (`graph-view`,
+/// API 0.2.12), `text` its source; its number.
+pub fn open_graph(
+    plugin: &str,
+    spec: GeneratedSpec,
+    graph: crate::graph_view::Graph,
+    text: String,
+) -> Result<u64, String> {
+    check_graph_command(plugin, &graph)?;
+    open_document(
+        plugin,
+        spec,
+        text,
+        None,
+        Vec::new(),
+        Some(std::sync::Arc::new(graph)),
+    )
+}
+
+/// Writes plugin `plugin`'s graph document `number` again.
+pub fn set_graph(
+    plugin: &str,
+    number: u64,
+    graph: crate::graph_view::Graph,
+    text: String,
+) -> Result<(), String> {
+    check_graph_command(plugin, &graph)?;
+    set_document(
+        plugin,
+        number,
+        text,
+        None,
+        Vec::new(),
+        Some(std::sync::Arc::new(graph)),
+    )
+}
+
+/// A graph's command for its nodes is the plugin's own.
+fn check_graph_command(plugin: &str, graph: &crate::graph_view::Graph) -> Result<(), String> {
+    if graph
+        .command
+        .strip_prefix(plugin)
+        .is_some_and(|r| r.starts_with('.') && r.len() > 1)
+    {
+        Ok(())
+    } else {
+        Err(format!(
+            "A graph's command is one of the plugin's (`{plugin}.…`), not `{}`",
+            graph.command
+        ))
+    }
+}
+
+/// The graph document `number` is drawn as, if any.
+pub fn generated_graph(number: u64) -> Option<std::sync::Arc<crate::graph_view::Graph>> {
+    GENERATED
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&number)?
+        .graph
+        .clone()
+}
+
+fn open_document(
+    plugin: &str,
+    spec: GeneratedSpec,
+    text: String,
+    cursor: Option<usize>,
+    styles: Vec<crate::StyleSpan>,
+    graph: Option<std::sync::Arc<crate::graph_view::Graph>>,
+) -> Result<u64, String> {
     // Its kind is the plugin's own, as its commands' IDs are: `git-…`.
     if !spec.kind.starts_with(&format!("{plugin}-")) || spec.kind.len() <= plugin.len() + 1 {
         return Err(format!(
@@ -1036,6 +1113,7 @@ pub fn open_generated(
                 text,
                 cursor,
                 styles,
+                graph,
                 version,
             },
         );
@@ -1054,6 +1132,17 @@ pub fn set_generated(
     cursor: Option<usize>,
     styles: Vec<crate::StyleSpan>,
 ) -> Result<(), String> {
+    set_document(plugin, number, text, cursor, styles, None)
+}
+
+fn set_document(
+    plugin: &str,
+    number: u64,
+    text: String,
+    cursor: Option<usize>,
+    styles: Vec<crate::StyleSpan>,
+    graph: Option<std::sync::Arc<crate::graph_view::Graph>>,
+) -> Result<(), String> {
     let mut docs = GENERATED.lock().unwrap_or_else(|e| e.into_inner());
     let g = docs
         .get_mut(&number)
@@ -1062,6 +1151,7 @@ pub fn set_generated(
     g.text = text;
     g.cursor = cursor;
     g.styles = styles;
+    g.graph = graph;
     g.version += 1;
     drop(docs);
     GENERATED_WRITES.fetch_add(1, Ordering::Relaxed);

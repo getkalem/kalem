@@ -34,6 +34,11 @@ impl Spec {
         })
     }
 
+    /// The record the interfaces take.
+    pub(crate) fn inner(&self) -> &DocumentSpec {
+        &self.0
+    }
+
     /// Its highlighter (`diff`).
     pub fn language(mut self, language: &str) -> Spec {
         self.0.language = Some(language.into());

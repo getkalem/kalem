@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- The plugin API is 0.2.12. A plugin's document may be drawn as a graph of nodes and edges (the `graph-view` import): the plugin gives the nodes (an id, a label, a group, a weight) and the edges, and a command; the editor lays them out with forces a few steps a frame until the layout settles, draws them (the window with colored dots, lines and labels, the terminal with Braille dots), lets the user pan, zoom, drag a node and choose one (a click, Tab), and opens a node (a double click, Enter) by running the command with its id. The document's text, which the plugin writes with the graph, is what Show Source, search and a narrow terminal show; written again, the nodes still there keep their places. For the graph plugin's Graph View and Local Graph, as Logseq's and Obsidian's.
+- The `fs-2` import (API 0.2.12): a plugin with `fs:write:workspace` moves files and folders and puts them in the trash; open documents follow their files, as after a move in the file manager.
+- A layer of a plugin's manifest may name the plugin's command that opens links in the documents it serves (`"open"`), which a Ctrl-click runs in place of the mode's: a link followed by the graph's own rules.
+
 ### Fixed
 - A plugin's own settings reach it in the editors. Kalem starts the plugins while the editor reads its settings, and a plugin that read them as it started got nothing and never heard of them (the graph plugin's `graphs` was never seen in `kalem tui`, only in `kalem run`). Until the editor gives its settings, a plugin now reads Kalem's defaults, and the plugins watching a setting that differs from its default are told once the settings come.
 

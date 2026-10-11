@@ -11,6 +11,7 @@ pub mod chart;
 pub mod clipboard;
 pub mod datepicker;
 pub mod editor;
+pub mod graph_view;
 pub mod icon;
 pub mod keys;
 pub mod line;

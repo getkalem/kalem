@@ -385,6 +385,8 @@ pub struct Editor {
     pub preview_cache: crate::preview::Cache,
     /// The view of a file a viewer plugin opened.
     pub viewer_view: crate::viewer::ViewerView,
+    /// The window's side of a plugin's document drawn as a graph.
+    pub graph_ui: crate::graph_view::GraphUi,
     /// The command palette, when open.
     pub palette: Option<crate::panels::Palette>,
     /// What to type into the list opening now, resumed.
@@ -557,6 +559,7 @@ impl Editor {
             preview: None,
             preview_cache: Default::default(),
             viewer_view: Default::default(),
+            graph_ui: Default::default(),
             palette: None,
             find: None,
             date_picker: None,
@@ -2531,6 +2534,11 @@ impl Editor {
             return;
         }
         if self.find_key(&ev.keystroke, cx) {
+            cx.stop_propagation();
+            return;
+        }
+        // A graph's own keys (Enter opens the node chosen, Tab chooses).
+        if self.doc.graph_view.is_some() && self.graph_key(ev, window, cx) {
             cx.stop_propagation();
             return;
         }
@@ -5129,7 +5137,11 @@ impl gpui::Render for Editor {
         let outline = self.outline_panel(cx);
         let preview = self.preview_panel(cx);
         let plugin_panel = self.plugin_panel_view(cx);
-        let panes = match (self.viewer_element(window, cx), other) {
+        let shown = match self.graph_element(window, cx) {
+            Some(g) => Some(g),
+            None => self.viewer_element(window, cx),
+        };
+        let panes = match (shown, other) {
             (Some(v), _) => vec![v],
             (None, Some(o)) if self.left => {
                 vec![active, o.border_l_1().border_color(theme.border)]
