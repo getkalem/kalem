@@ -407,12 +407,48 @@ impl GraphView {
     /// beside the one under it.
     pub fn label_shown(&self, i: usize) -> bool {
         let r = self.radius(i) * self.zoom;
-        r >= 7.0
+        // A graph of a few nodes names them all, as Logseq's does.
+        self.graph.nodes.len() <= ALL_LABELS
+            || r >= 7.0
             || self.graph.nodes[i].weight >= self.label_weight
             || Some(i) == self.hovered
             || Some(i) == self.selected
             || Some(i) == self.graph.focus
             || self.hovered.is_some_and(|h| self.neighbors[h].contains(&i))
+    }
+
+    /// The nodes whose names are written, of those `on` screen at
+    /// `places`, each name `width(i)` wide and `height` high under its
+    /// node: those [`GraphView::label_shown`] names, the heaviest first, a
+    /// name left out where it would cover one already written (zooming in
+    /// makes room); the node chosen, the one under the mouse and the one
+    /// in focus always.
+    pub fn labels(
+        &self,
+        places: &[[f32; 2]],
+        on: impl Fn(usize) -> bool,
+        width: impl Fn(usize) -> f32,
+        height: f32,
+    ) -> Vec<usize> {
+        let n = self.graph.nodes.len().min(places.len());
+        let strong = |i: usize| {
+            Some(i) == self.hovered || Some(i) == self.selected || Some(i) == self.graph.focus
+        };
+        let mut order: Vec<usize> = (0..n).filter(|&i| on(i) && self.label_shown(i)).collect();
+        order.sort_by_key(|&i| (!strong(i), std::cmp::Reverse(self.graph.nodes[i].weight), i));
+        let mut taken: Vec<[f32; 4]> = Vec::new();
+        let mut out = Vec::new();
+        for i in order {
+            let (p, w) = (places[i], width(i));
+            let top = p[1] + self.radius(i) * self.zoom + 2.0;
+            let r = [p[0] - w / 2.0, top, p[0] + w / 2.0, top + height];
+            let covers = |t: &[f32; 4]| r[0] < t[2] && t[0] < r[2] && r[1] < t[3] && t[1] < r[3];
+            if strong(i) || !taken.iter().any(covers) {
+                taken.push(r);
+                out.push(i);
+            }
+        }
+        out
     }
 
     /// Whether node `i` is drawn faint: the mouse is over another that is
@@ -422,10 +458,12 @@ impl GraphView {
             .is_some_and(|h| h != i && !self.neighbors[h].contains(&i))
     }
 
-    /// The color of node `i`: a place in a palette of `n`, by its
-    /// group, the most common group the first color.
-    pub fn color(&self, i: usize, n: usize) -> usize {
-        self.ranks[i] % n.max(1)
+    /// The color of node `i`: none for the most common group, drawn in a
+    /// neutral color as Logseq and Obsidian draw their pages grey; for the
+    /// others a place in a palette of `n` by their group, the next most
+    /// common the first color.
+    pub fn color(&self, i: usize, n: usize) -> Option<usize> {
+        self.ranks[i].checked_sub(1).map(|r| r % n.max(1))
     }
 
     /// Steps the choice to the heaviest neighbor of the node chosen, or
@@ -458,6 +496,9 @@ impl GraphView {
 
 /// The weight of the twelfth heaviest node, above 1: the hubs' labels
 /// are written at any zoom.
+/// The nodes a graph may have and still name them all.
+pub const ALL_LABELS: usize = 150;
+
 fn label_weight(graph: &Graph) -> u32 {
     let mut w: Vec<u32> = graph.nodes.iter().map(|n| n.weight).collect();
     w.sort_unstable_by(|a, b| b.cmp(a));
@@ -652,6 +693,32 @@ mod tests {
             .map(|(a, b)| (format!("n{a}"), format!("n{b}")))
             .collect();
         Arc::new(Graph::new(nodes, &edges, None, "p.open".into()))
+    }
+
+    #[test]
+    fn names_written_heaviest_first_none_over_another() {
+        // Three nodes side by side, the middle one the heaviest: its name
+        // is written, its neighbors' would cover it; far apart, all.
+        let g = Graph::new(
+            vec![node("a", 1), node("b", 5), node("c", 1)],
+            &[],
+            None,
+            "p.open".into(),
+        );
+        let mut v = GraphView::new(Arc::new(g));
+        let near = [[100.0, 100.0], [130.0, 100.0], [160.0, 100.0]];
+        let all = |_| true;
+        assert_eq!(v.labels(&near, all, |_| 50.0, 14.0), [1]);
+        let far = [[100.0, 100.0], [300.0, 100.0], [500.0, 100.0]];
+        assert_eq!(v.labels(&far, all, |_| 50.0, 14.0), [1, 0, 2]);
+        // The node chosen is named whatever it covers: then the heaviest's
+        // name would cover its, and the first's no longer covers any.
+        v.selected = Some(2);
+        assert_eq!(v.labels(&near, all, |_| 50.0, 14.0), [2, 0]);
+        // Nodes off the screen are not named.
+        assert_eq!(v.labels(&far, |i| i != 0, |_| 50.0, 14.0), [2, 1]);
+        // The most common group drawn neutral, the others colored.
+        assert_eq!(v.color(0, 8), None);
     }
 
     fn dist(v: &GraphView, a: usize, b: usize) -> f32 {

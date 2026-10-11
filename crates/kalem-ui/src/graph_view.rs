@@ -17,8 +17,9 @@ use gpui::{
 
 use crate::editor::Editor;
 
-/// The groups' colors, the most common group's first: soft, apart from
-/// one another, readable on light and dark backgrounds.
+/// The groups' colors but the most common group's (the theme's muted
+/// grey): soft, apart from one another, readable on light and dark
+/// backgrounds.
 const PALETTE: [u32; 8] = [
     0x4E79A7, 0xF28E2B, 0x59A14F, 0xE15759, 0x76B7B2, 0xEDC948, 0xB07AA1, 0x9C755F,
 ];
@@ -45,8 +46,9 @@ pub struct GraphUi {
 struct Frame {
     /// Each node's place in the window, radius, color and faintness.
     nodes: Vec<([f32; 2], f32, gpui::Hsla, bool)>,
-    /// The labels written: where, and what.
-    labels: Vec<([f32; 2], SharedString, bool)>,
+    /// The labels written: where, what, whether faint, and whether in
+    /// the text's own color (the node chosen or under the mouse).
+    labels: Vec<([f32; 2], SharedString, bool, bool)>,
     /// The edges: ends, and whether they touch the node under the mouse.
     edges: Vec<([f32; 2], [f32; 2], bool, bool)>,
     /// The node chosen and the focus: where, and their radius.
@@ -73,12 +75,20 @@ impl Editor {
         let theme = self.theme.clone();
         let entity = cx.entity();
         let palette = PALETTE.map(|c| gpui::Hsla::from(gpui::rgb(c)));
+        let neutral = theme.muted;
         let (edge, near, faint_edge) = (
             theme.muted.opacity(0.35),
             theme.link.opacity(0.9),
             theme.muted.opacity(0.08),
         );
-        let (text, faint_text, ring) = (theme.foreground, theme.muted.opacity(0.4), theme.caret);
+        // The names soft, as Logseq's; the one chosen or under the mouse
+        // in the text's color.
+        let (text, soft_text, faint_text, ring) = (
+            theme.foreground,
+            theme.foreground.opacity(0.7),
+            theme.muted.opacity(0.4),
+            theme.caret,
+        );
         let font = theme.font.clone();
         let canvas = gpui::canvas(
             move |bounds, _window, cx| {
@@ -87,7 +97,7 @@ impl Editor {
                     let v = e.doc.graph_view.as_deref_mut()?;
                     let size = [f32::from(bounds.size.width), f32::from(bounds.size.height)];
                     v.follow(size);
-                    Some(frame(v, size, &palette))
+                    Some(frame(v, size, &palette, neutral))
                 })
             },
             move |bounds, frame, window, cx| {
@@ -138,12 +148,18 @@ impl Editor {
                         .border_widths(px(2.0)),
                     );
                 }
-                let size = px(12.0);
-                for (p, label, faint) in &f.labels {
+                let size = px(11.0);
+                for (p, label, faint, strong) in &f.labels {
                     let run = gpui::TextRun {
                         len: label.len(),
                         font: gpui::font(SharedString::from(font.clone())),
-                        color: if *faint { faint_text } else { text },
+                        color: if *faint {
+                            faint_text
+                        } else if *strong {
+                            text
+                        } else {
+                            soft_text
+                        },
                         background_color: None,
                         underline: None,
                         strikethrough: None,
@@ -352,6 +368,7 @@ fn frame(
     v: &kalem_core::graph_view::GraphView,
     size: [f32; 2],
     palette: &[gpui::Hsla; 8],
+    neutral: gpui::Hsla,
 ) -> Frame {
     let g = v.graph();
     let n = g.nodes.len();
@@ -382,20 +399,31 @@ fn frame(
         let faint = v.hovered.is_some() && !near;
         f.edges.push((pa, pb, near, faint));
     }
+    // The names, none over another: an 11-pixel font's letters about six
+    // pixels wide.
+    let named = v.labels(
+        &screen,
+        |i| on(screen[i], radius[i]),
+        |i| g.nodes[i].label.chars().count() as f32 * 6.2,
+        14.0,
+    );
+    for i in named {
+        let (p, r) = (screen[i], radius[i]);
+        let strong = Some(i) == v.hovered || Some(i) == v.selected;
+        f.labels.push((
+            [p[0], p[1] + r + 2.0],
+            crate::one_line(&g.nodes[i].label),
+            v.faint(i),
+            strong,
+        ));
+    }
     for i in 0..n {
         let (p, r) = (screen[i], radius[i]);
         if !on(p, r) {
             continue;
         }
-        f.nodes
-            .push((p, r, palette[v.color(i, palette.len())], v.faint(i)));
-        if v.label_shown(i) {
-            f.labels.push((
-                [p[0], p[1] + r + 2.0],
-                crate::one_line(&g.nodes[i].label),
-                v.faint(i),
-            ));
-        }
+        let color = v.color(i, palette.len()).map_or(neutral, |c| palette[c]);
+        f.nodes.push((p, r, color, v.faint(i)));
         if Some(i) == v.selected || Some(i) == g.focus {
             f.rings
                 .push((p, r, Some(i) == g.focus && Some(i) != v.selected));

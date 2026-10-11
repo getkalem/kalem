@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- A graph drawn (`graph-view`) looks as Logseq's and Obsidian's: the most common group's nodes grey, the other groups colored; a graph of up to 150 nodes names them all, the heaviest first, a name left out where it would cover one already written until zooming in makes room (the node chosen and the one under the mouse always named); the names smaller and softer. The terminal places its names the same way, in cells.
+
 ## [0.6.16] - 2026-10-11
 
 ### Added

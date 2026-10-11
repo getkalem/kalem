@@ -13,8 +13,8 @@ use ratatui::widgets::canvas::{Canvas, Line, Points};
 
 use kalem_core::graph_view::GraphView;
 
-/// The groups' colors in the 256 of terminals, the most common group's
-/// first, as near as they come to the window's.
+/// The groups' colors in the 256 of terminals but the most common
+/// group's (grey), as near as they come to the window's.
 const PALETTE: [u8; 8] = [67, 208, 71, 167, 109, 221, 139, 137];
 
 /// The dots a cell holds across and down.
@@ -62,7 +62,10 @@ pub fn draw(v: &GraphView, buf: &mut Buffer, area: Rect, edge: Color, text: Colo
             ctx.layer();
             for (i, &(x, y)) in places.iter().enumerate() {
                 let r = f64::from((v.radius(i) * v.zoom).clamp(1.0, 6.0));
-                let color = Color::Indexed(PALETTE[v.color(i, PALETTE.len())]);
+                // The most common group grey, as Logseq draws pages.
+                let color = v
+                    .color(i, PALETTE.len())
+                    .map_or(Color::Indexed(246), |c| Color::Indexed(PALETTE[c]));
                 // A disc of dots.
                 let mut dots = Vec::new();
                 let steps = r.ceil() as i32;
@@ -80,13 +83,20 @@ pub fn draw(v: &GraphView, buf: &mut Buffer, area: Rect, edge: Color, text: Colo
                 });
             }
             ctx.layer();
-            let heavy = heavy(v);
-            for (i, &(x, y)) in places.iter().enumerate() {
+            // Named under them, none over another (a name takes whole
+            // cells), the heaviest first and the one chosen always.
+            let screen: Vec<[f32; 2]> = (0..n).map(|i| v.to_screen(v.place(i), size)).collect();
+            let inside =
+                |p: [f32; 2]| p[0] >= 0.0 && p[1] >= 0.0 && p[0] <= size[0] && p[1] <= size[1];
+            let named = v.labels(
+                &screen,
+                |i| inside(screen[i]),
+                |i| g.nodes[i].label.chars().count() as f32 * DOTS.0 + DOTS.0,
+                DOTS.1 * 1.5,
+            );
+            for i in named {
+                let (x, y) = places[i];
                 let chosen = Some(i) == v.selected || Some(i) == v.hovered;
-                // Heavy nodes, and the one chosen, named under them.
-                if !(chosen || g.nodes[i].weight >= heavy) {
-                    continue;
-                }
                 let label = &g.nodes[i].label;
                 let w = label.chars().count() as f64 * f64::from(DOTS.0);
                 let style = if chosen {
@@ -102,12 +112,4 @@ pub fn draw(v: &GraphView, buf: &mut Buffer, area: Rect, edge: Color, text: Colo
             }
         });
     canvas.render(area, buf);
-}
-
-/// The weight above which a node's label is written in the terminal,
-/// where labels take whole cells: the heaviest eight.
-fn heavy(v: &GraphView) -> u32 {
-    let mut w: Vec<u32> = v.graph().nodes.iter().map(|n| n.weight).collect();
-    w.sort_unstable_by(|a, b| b.cmp(a));
-    w.get(7).copied().unwrap_or(1).max(2)
 }
