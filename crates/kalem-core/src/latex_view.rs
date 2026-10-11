@@ -63,11 +63,14 @@ pub struct LatexState {
     reparsed: Option<(latex_syntax::GreenNode, Range<usize>, isize)>,
 }
 
-/// The definitions of a model (by its address) and, by formula, whether
-/// the math renderer reads it.
+/// The definitions of a model and, by formula, whether the math renderer
+/// reads it.
 #[derive(Debug)]
 struct FormulaCache {
-    model: usize,
+    /// The model: a weak reference, which keeps its address from being
+    /// another model's (by its address alone, a model made after the last
+    /// was dropped could take it, and the definitions of the last be used).
+    model: std::sync::Weak<latex_model::Model>,
     macros: String,
     reads: std::collections::HashMap<String, bool>,
 }
@@ -6562,16 +6565,30 @@ pub fn renderer_reads(doc: &crate::DocumentState, source: &str) -> bool {
         return true;
     };
     let model = state.model();
-    let key = Arc::as_ptr(&model) as usize;
     let mut cache = state.formulas.borrow_mut();
-    if cache.as_ref().is_none_or(|c| c.model != key) {
-        *cache = None;
+    if cache
+        .as_ref()
+        .is_none_or(|c| !std::ptr::eq(c.model.as_ptr(), Arc::as_ptr(&model)))
+    {
+        let key = Arc::downgrade(&model);
+        // A new model (each keystroke makes one): what the renderer reads
+        // depends on the definitions only, which typing in the text leaves
+        // as they were, so the formulas read are kept with them.
+        let macros = org_math::source::macros(&math_definitions(doc));
+        match cache.as_mut() {
+            Some(c) if c.macros == macros => c.model = key,
+            _ => {
+                *cache = Some(FormulaCache {
+                    model: key,
+                    macros,
+                    reads: std::collections::HashMap::new(),
+                });
+            }
+        }
     }
-    let c = cache.get_or_insert_with(|| FormulaCache {
-        model: key,
-        macros: org_math::source::macros(&math_definitions(doc)),
-        reads: std::collections::HashMap::new(),
-    });
+    let Some(c) = cache.as_mut() else {
+        return true;
+    };
     if let Some(&r) = c.reads.get(source) {
         return r;
     }
@@ -8464,6 +8481,28 @@ mod tests {
         assert_eq!(find("gone.bib"), doc.join("gone.bib"));
         assert_eq!(find("../x/central.bib"), doc.join("../x/central.bib"));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn formulas_read_with_the_definitions_as_they_are() {
+        // What the renderer reads is kept while typing leaves the
+        // definitions as they were, and found again when one changes.
+        let text = "\\documentclass{article}\n\\newcommand{\\pick}{y}\n\\begin{document}\nSee $\\pick + x$ and text.\n\\end{document}\n";
+        let f = "$\\pick + x$";
+        let mut d = doc(text);
+        assert!(renderer_reads(&d, f));
+        let edit = |d: &mut crate::DocumentState, at: std::ops::Range<usize>, s: &str| {
+            let mut tx = org_edit::Transaction::new("Typing");
+            tx.edit(at, s);
+            d.apply(&tx, org_edit::ChangeKind::Typing, std::time::Instant::now());
+        };
+        let at = d.text().as_str().find(" and").unwrap();
+        edit(&mut d, at..at, "x");
+        assert!(renderer_reads(&d, f));
+        let def = d.text().as_str().find("{y}").unwrap() + 1;
+        edit(&mut d, def..def + 1, "\\ifnum1=1 a\\else b\\fi");
+        assert!(!renderer_reads(&d, f));
+        assert!(!renderer_reads(&doc(d.text().as_str()), f));
     }
 
     #[test]

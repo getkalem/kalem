@@ -256,8 +256,10 @@ targets are met; no whole-file work on the keystroke path of any mode.
   them, moved after them; whole after an edit in the preamble, of a
   `\newtheorem` or near `\iffalse` (29 ms → 0.7 ms at 10 MB, 2.6 ms →
   0.06 ms at 1 MB; a test compares them with the blocks made whole after
-  each of 300 random edits). Open: the screen model's rebuild, the
-  project keystroke.
+  each of 300 random edits). The formulas the renderer reads kept while
+  the definitions stay the same (the screen at 1 MB 9.5 ms → 2.5 ms, a
+  keystroke 10.9 ms → 3.9 ms). Open: the rest of the screen model's
+  rebuild, the project keystroke.
 - [ ] R4.4 GUI frame: a `LineView` cache keyed by (version, line,
   cursor line) so a line is built once per version, not twice per frame;
   `compute_visible` as ranges when nothing is folded; the character width
