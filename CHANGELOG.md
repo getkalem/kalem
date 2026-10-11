@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- A plugin's own settings reach it in the editors. Kalem starts the plugins while the editor reads its settings, and a plugin that read them as it started got nothing and never heard of them (the graph plugin's `graphs` was never seen in `kalem tui`, only in `kalem run`). Until the editor gives its settings, a plugin now reads Kalem's defaults, and the plugins watching a setting that differs from its default are told once the settings come.
+
 ## [0.6.13] - 2026-10-10
 
 ### Added

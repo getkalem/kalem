@@ -24,8 +24,8 @@
 //! the editors draw again when [`shown`] changes.
 
 use std::collections::BTreeMap;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{LazyLock, Mutex};
 
 use serde_json::Value;
 
@@ -534,9 +534,22 @@ fn changed() {
     GENERATION.fetch_add(1, Ordering::Relaxed);
 }
 
-/// Installs the plugins (once, at start).
+/// Installs the plugins (once, at start). They started on a thread while
+/// the editor read its settings, so they may have read Kalem's defaults:
+/// those watching a setting that differs from its default are told.
 pub fn install(extensions: Box<dyn Extensions>) {
-    *INSTALLED.lock().unwrap_or_else(|e| e.into_inner()) = Some(extensions);
+    let set = CONFIG
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .map(|c| c.changed_keys(&DEFAULTS))
+        .unwrap_or_default();
+    let mut installed = INSTALLED.lock().unwrap_or_else(|e| e.into_inner());
+    let x = installed.insert(extensions);
+    if !set.is_empty() {
+        x.settings_changed(&set);
+    }
+    drop(installed);
     // The layers' overlays are asked of the plugins while the editors
     // draw: while a call of theirs runs, the drawing asks again later
     // rather than wait.
@@ -703,17 +716,25 @@ pub fn event(event: &Event) -> Reply {
 
 static CONFIG: Mutex<Option<crate::settings::Config>> = Mutex::new(None);
 
+/// Kalem's defaults: what the plugins read until an editor gives its
+/// settings.
+static DEFAULTS: LazyLock<crate::settings::Config> = LazyLock::new(Default::default);
+
 /// The editors' settings, read by plugins (`kalem.settings`): given at
 /// start and after each reload; the plugins watching a key that changed
-/// are told.
+/// are told. The first settings given are a change from Kalem's defaults,
+/// what a plugin started before them read ([`setting`]).
 pub fn set_config(config: &crate::settings::Config) {
-    let changed = {
+    let keys = {
         let mut c = CONFIG.lock().unwrap_or_else(|e| e.into_inner());
-        let changed = c.as_ref().map(|old| config.changed_keys(old));
+        let keys = match c.as_ref() {
+            Some(old) => config.changed_keys(old),
+            None => config.changed_keys(&DEFAULTS),
+        };
         *c = Some(config.clone());
-        changed
+        keys
     };
-    if let Some(keys) = changed.filter(|k| !k.is_empty()) {
+    if !keys.is_empty() {
         let mut installed = INSTALLED.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(x) = installed.as_mut() {
             x.settings_changed(&keys);
@@ -721,13 +742,16 @@ pub fn set_config(config: &crate::settings::Config) {
     }
 }
 
-/// Setting `parts` (a dotted key's parts) of the editors' settings.
+/// Setting `parts` (a dotted key's parts) of the editors' settings, Kalem's
+/// default before an editor gives them.
 pub fn setting(parts: &[&str]) -> Option<Value> {
     CONFIG
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .as_ref()
-        .and_then(|c| c.get_path(parts).cloned())
+        .unwrap_or(&DEFAULTS)
+        .get_path(parts)
+        .cloned()
 }
 
 /// Sets plugin `id`'s own setting `key` to `value` (`null` removes it) in

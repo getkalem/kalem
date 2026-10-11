@@ -74,6 +74,11 @@ required-features = ["components"]
 name = "viewer_choice"
 required-features = ["plugins"]
 
+# A plugin's own setting given by the editor after the plugin started.
+[[test]]
+name = "settings_at_start"
+required-features = ["plugins"]
+
 # `kalem plugin check` on the installed extension plugins (a test plugin).
 [[test]]
 name = "plugin_check"
