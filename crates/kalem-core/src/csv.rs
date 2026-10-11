@@ -877,6 +877,68 @@ impl Index {
     pub fn fits(&self, len: usize) -> bool {
         self.len == len
     }
+
+    /// This index of a text moved to `text`, which first differs from it
+    /// at `pre` and is the same from `changed_end` (`delta` bytes longer):
+    /// the starts before the record holding `pre` kept, those from it found
+    /// again until one is where one was before (then the rest moved) or the
+    /// old index had found no more. `None` when the preamble or the end of
+    /// the records may have changed.
+    fn moved(
+        &self,
+        old: &str,
+        text: &str,
+        d: &Dialect,
+        (pre, changed_end, delta): (usize, usize, isize),
+    ) -> Option<Index> {
+        let end = body_end(text).max(preamble(text));
+        if preamble(text) != *self.starts.first()?
+            || end != text.len()
+            || body_end(old) != old.len()
+        {
+            return None;
+        }
+        let r0 = self.starts.partition_point(|&s| s <= pre).checked_sub(1)?;
+        let mut starts = self.starts[..=r0].to_vec();
+        let mut complete = false;
+        let last_known = *self.starts.last()?;
+        if r0 + 1 < self.starts.len() || self.complete {
+            let mut at = self.starts[r0];
+            loop {
+                let r = scan(text, at, d);
+                if r.next >= end || r.next == at {
+                    complete = true;
+                    break;
+                }
+                at = r.next;
+                let was = at.checked_add_signed(-delta);
+                if at >= changed_end
+                    && let Some(was) = was
+                    && let Ok(k) = self.starts.binary_search(&was)
+                {
+                    starts.extend(
+                        self.starts[k..]
+                            .iter()
+                            .map(|&s| s.saturating_add_signed(delta)),
+                    );
+                    complete = self.complete;
+                    break;
+                }
+                starts.push(at);
+                // Past what the old index had found: the rest is found
+                // when asked for.
+                if !self.complete && was.is_some_and(|w| w > last_known) {
+                    break;
+                }
+            }
+        }
+        Some(Index {
+            starts,
+            complete,
+            len: text.len(),
+            end,
+        })
+    }
 }
 
 /// All records of `text` as values, for tests and conversions.
@@ -1497,6 +1559,202 @@ pub fn column_stats_of(
     (count > 0).then(|| (count, sum, sum / count as f64, min, max))
 }
 
+/// A column's numbers record by record, with the text they were read
+/// from: the status bar reads them at every keystroke, and an edit
+/// changes the records around it only (R4.6).
+#[derive(Debug)]
+struct ColumnValues {
+    /// The document's serial, the column and the dialect.
+    key: (u64, usize, Dialect),
+    text: std::sync::Arc<str>,
+    /// Where each record starts.
+    starts: Vec<usize>,
+    /// The column's number in each record, where it has one.
+    values: Vec<Option<f64>>,
+}
+
+thread_local! {
+    static COLUMN: std::cell::RefCell<Option<ColumnValues>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// The records of `text` from the one at `at` (row `starts.len()`), each
+/// one's start and column `col`'s number pushed, read as [`Index`] reads
+/// them, until the end or until `rest` takes the records from a start on
+/// (true: it pushed them).
+fn read_column(
+    text: &str,
+    d: &Dialect,
+    col: usize,
+    mut at: usize,
+    starts: &mut Vec<usize>,
+    values: &mut Vec<Option<f64>>,
+    mut rest: impl FnMut(usize, &mut Vec<usize>, &mut Vec<Option<f64>>) -> bool,
+) {
+    let end = body_end(text).max(preamble(text));
+    loop {
+        starts.push(at);
+        let r = scan(text, at, d);
+        values.push(
+            r.fields
+                .get(col)
+                .and_then(|f| quantity(&value(text, f, d), d.delimiter == b';')),
+        );
+        if r.next >= end || r.next == at || rest(r.next, starts, values) {
+            return;
+        }
+        at = r.next;
+    }
+}
+
+/// Where `new` first differs from `old`, where its common end starts,
+/// and how much longer it is: the bytes compared a chunk at a time (as
+/// slices, fast), then one by one.
+fn changed(old: &str, new: &str) -> (usize, usize, isize) {
+    let (a, b) = (old.as_bytes(), new.as_bytes());
+    let n = a.len().min(b.len());
+    let mut pre = 0;
+    while pre + 64 <= n && a[pre..pre + 64] == b[pre..pre + 64] {
+        pre += 64;
+    }
+    pre += a[pre..n]
+        .iter()
+        .zip(&b[pre..n])
+        .take_while(|(x, y)| x == y)
+        .count();
+    let max_suf = n - pre;
+    let mut suf = 0;
+    while suf + 64 <= max_suf
+        && a[a.len() - suf - 64..a.len() - suf] == b[b.len() - suf - 64..b.len() - suf]
+    {
+        suf += 64;
+    }
+    suf += a[..a.len() - suf]
+        .iter()
+        .rev()
+        .zip(b[..b.len() - suf].iter().rev())
+        .take(max_suf - suf)
+        .take_while(|(x, y)| x == y)
+        .count();
+    (pre, b.len() - suf, b.len() as isize - a.len() as isize)
+}
+
+/// [`column_stats_of`] of the document's text, its column's numbers kept
+/// from the last text's where its records are the same: those from the
+/// record the text first differs in are read again, until a record starts
+/// where one started in the last text, after the change.
+fn column_stats_kept(
+    serial: u64,
+    text: &str,
+    d: &Dialect,
+    col: usize,
+    kept: Option<&[bool]>,
+) -> Option<(usize, f64, f64, f64, f64)> {
+    COLUMN.with(|c| {
+        let mut c = c.borrow_mut();
+        let key = (serial, col, *d);
+        let old = c.take().filter(|o| o.key == key);
+        let (starts, values) = match old {
+            Some(o) if &*o.text == text => (o.starts, o.values),
+            Some(o) => column_moved(&o, text, d, col).unwrap_or_else(|| column_whole(text, d, col)),
+            None => column_whole(text, d, col),
+        };
+        let (mut count, mut sum, mut min, mut max) =
+            (0usize, 0.0, f64::INFINITY, f64::NEG_INFINITY);
+        for (i, x) in values.iter().enumerate().skip(usize::from(d.header)) {
+            if kept.is_some_and(|k| !k.get(i).copied().unwrap_or(true)) {
+                continue;
+            }
+            let Some(x) = *x else {
+                continue;
+            };
+            count += 1;
+            sum += x;
+            min = f64::min(min, x);
+            max = f64::max(max, x);
+        }
+        *c = Some(ColumnValues {
+            key,
+            text: text.into(),
+            starts,
+            values,
+        });
+        (count > 0).then(|| (count, sum, sum / count as f64, min, max))
+    })
+}
+
+/// Every record's start and column `col`'s number in it.
+fn column_whole(text: &str, d: &Dialect, col: usize) -> (Vec<usize>, Vec<Option<f64>>) {
+    let (mut starts, mut values) = (Vec::new(), Vec::new());
+    read_column(
+        text,
+        d,
+        col,
+        preamble(text),
+        &mut starts,
+        &mut values,
+        |_, _, _| false,
+    );
+    (starts, values)
+}
+
+/// The records' starts and numbers of `old` moved to `text`: those before
+/// the record the texts first differ in kept, the records from it read
+/// again until one starts where one of `old` started after the change,
+/// the rest moved. `None` when the change reaches the first record, the
+/// preamble or a `Local Variables:` block at the end.
+fn column_moved(
+    old: &ColumnValues,
+    text: &str,
+    d: &Dialect,
+    col: usize,
+) -> Option<(Vec<usize>, Vec<Option<f64>>)> {
+    let (pre, changed_end, delta) = changed(&old.text, text);
+    if preamble(text) != *old.starts.first()?
+        || body_end(text) != text.len()
+        || body_end(&old.text) != old.text.len()
+    {
+        return None;
+    }
+    // The record holding the first byte that differs: those before it end
+    // before it, read as they were.
+    let r0 = old.starts.partition_point(|&s| s <= pre).checked_sub(1)?;
+    if r0 == 0 {
+        return None;
+    }
+    let mut starts = old.starts[..r0].to_vec();
+    let mut values = old.values[..r0].to_vec();
+    read_column(
+        text,
+        d,
+        col,
+        old.starts[r0],
+        &mut starts,
+        &mut values,
+        |next, starts, values| {
+            // Past the change, the text is the old one's moved: a record
+            // starting where one started then is followed by the same records.
+            if next < changed_end {
+                return false;
+            }
+            let Some(was) = next.checked_add_signed(-delta) else {
+                return false;
+            };
+            let Ok(k) = old.starts.binary_search(&was) else {
+                return false;
+            };
+            starts.extend(
+                old.starts[k..]
+                    .iter()
+                    .map(|&s| s.saturating_add_signed(delta)),
+            );
+            values.extend_from_slice(&old.values[k..]);
+            true
+        },
+    );
+    Some((starts, values))
+}
+
 /// How the grid shows a CSV document (view state, never written to the
 /// file; T2.7d.9).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -1789,6 +2047,10 @@ pub struct Layout {
     pub gutter: usize,
     /// Record starts, found as far as the view needed.
     pub index: std::cell::RefCell<Index>,
+    /// The widths of the columns' values, before those set by hand.
+    natural: Vec<usize>,
+    /// The number of line feeds, when the grid numbers the rows.
+    lines: Option<usize>,
 }
 
 /// A value right-aligned in a column: a number as spreadsheets write it,
@@ -1839,44 +2101,34 @@ impl Layout {
     /// The layout of `text` in `dialect`, shown as `view` and `columns`
     /// say.
     pub fn with_columns(text: &str, dialect: Dialect, view: View, columns: Columns) -> Layout {
-        let mut index = Index::new(text);
-        let mut widths: Vec<usize> = Vec::new();
-        // Per column: numeric and non-empty data values.
-        let mut counts: Vec<(usize, usize)> = Vec::new();
-        let comma = dialect.delimiter == b';';
-        for i in 0..1000 {
-            let Some(r) = index.record(text, i, &dialect) else {
-                break;
-            };
-            for (j, f) in r.fields.iter().enumerate() {
-                let w = field_width(&text[f.range.clone()]).min(MAX_WIDTH);
-                if j >= widths.len() {
-                    widths.push(w);
-                    counts.push((0, 0));
-                } else {
-                    widths[j] = widths[j].max(w);
-                }
-                if i == 0 && dialect.header {
-                    continue;
-                }
-                let v = value(text, f, &dialect);
-                if !v.trim().is_empty() {
-                    counts[j].1 += 1;
-                    if numeric_value(&v, comma) {
-                        counts[j].0 += 1;
-                    }
-                }
+        Layout::with_index(text, dialect, view, columns, Index::new(text), None)
+    }
+
+    /// The layout of `text` with `index` (its records as far as known);
+    /// `kept`: the natural widths and kinds of the columns and the number
+    /// of lines, when known the same as the text's.
+    fn with_index(
+        text: &str,
+        dialect: Dialect,
+        view: View,
+        columns: Columns,
+        mut index: Index,
+        kept: Option<(Vec<usize>, Vec<bool>, Option<usize>)>,
+    ) -> Layout {
+        let (natural, numeric, lines) = match kept {
+            Some(k) => k,
+            None => {
+                let (w, n) = measure(text, &dialect, &mut index);
+                (w, n, None)
             }
-        }
-        let numeric = counts
-            .iter()
-            .map(|&(n, all)| all > 0 && n * 5 >= all * 4)
-            .collect();
-        let gutter = if view.coordinates || view.sheet {
-            (memchr_count(text) + 1).to_string().len()
-        } else {
-            0
         };
+        let lines = if view.coordinates || view.sheet {
+            Some(lines.unwrap_or_else(|| memchr_count(text)))
+        } else {
+            None
+        };
+        let gutter = lines.map_or(0, |l| (l + 1).to_string().len());
+        let mut widths = natural.clone();
         for (&j, &w) in &columns.widths {
             if j < widths.len() {
                 widths[j] = w;
@@ -1890,7 +2142,41 @@ impl Layout {
             columns,
             gutter,
             index: std::cell::RefCell::new(index),
+            natural,
+            lines,
         }
+    }
+
+    /// This layout of `old` moved to `text` (`change` as [`changed`] gives
+    /// it): the index moved, the columns measured again only when the
+    /// change is in their first thousand records, the lines counted in
+    /// the change.
+    fn moved(&self, old: &str, text: &str, change: (usize, usize, isize)) -> Option<Layout> {
+        let (pre, changed_end, delta) = change;
+        let index = self
+            .index
+            .borrow()
+            .moved(old, text, &self.dialect, change)?;
+        let measured = self
+            .index
+            .borrow()
+            .starts
+            .get(1000)
+            .is_some_and(|&s| s <= pre);
+        let lines = self.lines.and_then(|l| {
+            let old_end = changed_end.checked_add_signed(-delta)?;
+            let gone = memchr_count(old.get(pre..old_end)?);
+            Some(l - gone + memchr_count(&text[pre..changed_end]))
+        });
+        let kept = measured.then(|| (self.natural.clone(), self.numeric.clone(), lines));
+        Some(Layout::with_index(
+            text,
+            self.dialect,
+            self.view,
+            self.columns.clone(),
+            index,
+            kept,
+        ))
     }
 
     /// The row and the record starting at byte `line_start`, when a record
@@ -1908,6 +2194,44 @@ fn memchr_count(text: &str) -> usize {
     text.bytes().filter(|&b| b == b'\n').count()
 }
 
+/// The natural widths of the columns and which hold numbers or dates
+/// (most of the non-empty values), from the first thousand records.
+fn measure(text: &str, dialect: &Dialect, index: &mut Index) -> (Vec<usize>, Vec<bool>) {
+    let mut widths: Vec<usize> = Vec::new();
+    // Per column: numeric and non-empty data values.
+    let mut counts: Vec<(usize, usize)> = Vec::new();
+    let comma = dialect.delimiter == b';';
+    for i in 0..1000 {
+        let Some(r) = index.record(text, i, dialect) else {
+            break;
+        };
+        for (j, f) in r.fields.iter().enumerate() {
+            let w = field_width(&text[f.range.clone()]).min(MAX_WIDTH);
+            if j >= widths.len() {
+                widths.push(w);
+                counts.push((0, 0));
+            } else {
+                widths[j] = widths[j].max(w);
+            }
+            if i == 0 && dialect.header {
+                continue;
+            }
+            let v = value(text, f, dialect);
+            if !v.trim().is_empty() {
+                counts[j].1 += 1;
+                if numeric_value(&v, comma) {
+                    counts[j].0 += 1;
+                }
+            }
+        }
+    }
+    let numeric = counts
+        .iter()
+        .map(|&(n, all)| all > 0 && n * 5 >= all * 4)
+        .collect();
+    (widths, numeric)
+}
+
 /// What a memo is for: the text's version and a length or column.
 /// A memo's key: the document (its serial: two documents both start at
 /// version 0), its version, a length or column, and the dialect.
@@ -1916,8 +2240,13 @@ type Key = (u64, u64, usize, Dialect);
 /// The status bar numbers' memo key: the column's, and the filter.
 type StatsKey = (Key, Option<(String, Option<usize>)>);
 
-/// The layout last computed, with what it was computed for.
-type LayoutMemo = ((Key, View, Columns), std::rc::Rc<Layout>);
+/// The layout last computed, with what it was computed for and the text
+/// it was computed from.
+type LayoutMemo = (
+    (Key, View, Columns),
+    std::rc::Rc<Layout>,
+    std::sync::Arc<str>,
+);
 
 thread_local! {
     static LAYOUT: std::cell::RefCell<Option<LayoutMemo>> =
@@ -1946,18 +2275,24 @@ pub fn layout(doc: &crate::DocumentState) -> std::rc::Rc<Layout> {
         doc.csv_columns.clone(),
     );
     LAYOUT.with(|l| {
-        if let Some((k, v)) = &*l.borrow()
+        if let Some((k, v, _)) = &*l.borrow()
             && *k == key
         {
             return v.clone();
         }
-        let v = std::rc::Rc::new(Layout::with_columns(
-            doc.text().as_str(),
-            dialect,
-            doc.csv_view,
-            doc.csv_columns.clone(),
-        ));
-        *l.borrow_mut() = Some((key, v.clone()));
+        // The layout of an earlier text of the document seen the same way:
+        // moved through the edit rather than made again (R4.6).
+        let moved = l
+            .borrow()
+            .as_ref()
+            .and_then(|((k, view, cols), old, old_text)| {
+                let same = k.0 == key.0.0 && k.3 == key.0.3 && *view == key.1 && *cols == key.2;
+                same.then(|| old.moved(old_text, text, changed(old_text, text)))?
+            });
+        let v = std::rc::Rc::new(moved.unwrap_or_else(|| {
+            Layout::with_columns(text, dialect, doc.csv_view, doc.csv_columns.clone())
+        }));
+        *l.borrow_mut() = Some((key, v.clone(), text.into()));
         v
     })
 }
@@ -3111,30 +3446,35 @@ fn column_status(doc: &crate::DocumentState) -> Option<String> {
         }
         // With a filter on, the rows it shows.
         let kept = kept_rows(doc);
-        let v = column_stats_of(doc.text().as_str(), &layout.dialect, col, kept.as_deref()).map(
-            |(n, sum, avg, min, max)| {
-                // Very large sums in powers of ten (written out, 1e300
-                // took three hundred digits).
-                let f = |x: f64| {
-                    if !x.is_finite() || x.abs() >= 1e15 {
-                        format!("{x:e}")
-                    } else {
-                        crate::formulas::number(x)
-                    }
-                };
-                format!(
-                    "{}   {}",
-                    crate::tr!("status-table-count", count = n),
-                    crate::tr!(
-                        "status-table-numbers",
-                        sum = f(sum),
-                        average = f(avg),
-                        min = f(min),
-                        max = f(max)
-                    )
+        let v = column_stats_kept(
+            doc.serial(),
+            doc.text().as_str(),
+            &layout.dialect,
+            col,
+            kept.as_deref(),
+        )
+        .map(|(n, sum, avg, min, max)| {
+            // Very large sums in powers of ten (written out, 1e300
+            // took three hundred digits).
+            let f = |x: f64| {
+                if !x.is_finite() || x.abs() >= 1e15 {
+                    format!("{x:e}")
+                } else {
+                    crate::formulas::number(x)
+                }
+            };
+            format!(
+                "{}   {}",
+                crate::tr!("status-table-count", count = n),
+                crate::tr!(
+                    "status-table-numbers",
+                    sum = f(sum),
+                    average = f(avg),
+                    min = f(min),
+                    max = f(max)
                 )
-            },
-        );
+            )
+        });
         *s.borrow_mut() = Some((key, v.clone()));
         v
     })
@@ -3179,6 +3519,128 @@ mod tests {
     }
 
     use super::*;
+
+    #[test]
+    fn layouts_moved_through_edits_are_those_made_whole() {
+        // As the numbers above: after each random edit, the layout moved
+        // from the last text's (its index as far as it was found, its
+        // columns, its row numbers' width) is the one made whole.
+        let mut text = String::from("id,name,qty,price,note\n");
+        for i in 0..1500 {
+            let note = if i % 7 == 0 {
+                "\"two\nlines\"".to_string()
+            } else {
+                format!("\"n, {i}\"")
+            };
+            text.push_str(&format!("{i},item {i},{},{}.5,{note}\n", i % 13, i % 50));
+        }
+        let pieces = [
+            "1",
+            "x",
+            ",",
+            "\n",
+            "\"",
+            "\"\"",
+            "-2",
+            "",
+            "1e3",
+            "é",
+            "long text here",
+        ];
+        let d = detect(&text);
+        let view = View {
+            coordinates: true,
+            ..View::default()
+        };
+        let mut lay = Layout::with_columns(&text, d, view, Columns::default());
+        let mut seed = 9u64;
+        let mut rand = |n: usize| {
+            seed = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (seed >> 33) as usize % n.max(1)
+        };
+        for step in 0..400 {
+            // The view finds some of the index: rows near a place.
+            let _ = lay
+                .index
+                .borrow_mut()
+                .row_at(&text, rand(text.len() + 1), &d);
+            let old = text.clone();
+            let mut a = if rand(2) == 0 {
+                rand(text.len() + 1)
+            } else {
+                text.len() - rand(200).min(text.len())
+            };
+            while !text.is_char_boundary(a) {
+                a -= 1;
+            }
+            let mut b = (a + rand(3)).min(text.len());
+            while !text.is_char_boundary(b) {
+                b -= 1;
+            }
+            text.replace_range(a..b.max(a), pieces[rand(pieces.len())]);
+            let whole = Layout::with_columns(&text, d, view, Columns::default());
+            lay = lay
+                .moved(&old, &text, changed(&old, &text))
+                .unwrap_or_else(|| Layout::with_columns(&text, d, view, Columns::default()));
+            assert_eq!(
+                (&lay.widths, &lay.numeric, lay.gutter),
+                (&whole.widths, &whole.numeric, whole.gutter),
+                "step {step}"
+            );
+            let (mut x, mut y) = (lay.index.borrow_mut(), whole.index.borrow_mut());
+            assert_eq!(x.count(&text, &d), y.count(&text, &d), "step {step}");
+            assert_eq!(x.starts, y.starts, "step {step}");
+        }
+    }
+
+    #[test]
+    fn column_numbers_kept_through_edits_are_those_read_whole() {
+        // Files with quoted fields over lines, amounts and a header; edits
+        // of every kind at random places, a quote opened and closed among
+        // them. After each, the sums kept from the last text's are those
+        // read whole.
+        let mut text = String::from("id,name,qty,price,note\n");
+        for i in 0..300 {
+            let note = if i % 7 == 0 {
+                "\"two\nlines\"".to_string()
+            } else {
+                format!("\"n, {i}\"")
+            };
+            text.push_str(&format!("{i},item {i},{},{}.5,{note}\n", i % 13, i % 50));
+        }
+        let pieces = [
+            "1", "x", ",", "\n", "\"", "\"\"", "-2", "$5", "(3)", "", "1e3", "é",
+        ];
+        let d = detect(&text);
+        let mut seed = 5u64;
+        let mut rand = |n: usize| {
+            seed = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (seed >> 33) as usize % n.max(1)
+        };
+        for step in 0..600 {
+            let mut a = rand(text.len() + 1);
+            while !text.is_char_boundary(a) {
+                a -= 1;
+            }
+            let mut b = (a + rand(3)).min(text.len());
+            while !text.is_char_boundary(b) {
+                b -= 1;
+            }
+            text.replace_range(a..b.max(a), pieces[rand(pieces.len())]);
+            let col = rand(6);
+            let kept: Option<Vec<bool>> =
+                (rand(3) == 0).then(|| (0..400).map(|i| i % 3 != 0).collect());
+            assert_eq!(
+                column_stats_kept(1, &text, &d, col, kept.as_deref()),
+                column_stats_of(&text, &d, col, kept.as_deref()),
+                "step {step}"
+            );
+        }
+    }
 
     #[test]
     fn records_give_the_text_back() {

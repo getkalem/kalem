@@ -272,10 +272,17 @@ targets are met; no whole-file work on the keystroke path of any mode.
   binary search rather than by counting the line feeds before it (a
   keystroke in 2.6 MB of Rust: 3.5 ms → 0.8 ms). Open: the transaction's
   range (the editors pass the whole text), `memchr`, the copy.
-- [ ] R4.6 Markdown and CSV keystrokes: Markdown keeps a diff of the
+- [~] R4.6 Markdown and CSV keystrokes: Markdown keeps a diff of the
   edit rather than a copy of the text, with relative positions per
   top-level block (the open half of T2.7c.6); CSV updates widths and the
   index from the edited record on, not from the start. M
+  done (2026-10-11), CSV: the layout's record index moved through an
+  edit (the records from the edited one read again until one starts where
+  one did, the rest moved), the columns measured again only for an edit
+  in their first thousand records, the row numbers' width from the line
+  feeds of the change; the status bar's column numbers kept record by
+  record the same way (100,000 rows: a keystroke's layout and status
+  50 ms → 3 ms). Open: Markdown.
 - R4.7 Withdrawn (owner, 2026-10-04) with Kalem's own format.
 - [ ] R4.8 A worker pool for background parses, renders and searches
   instead of a thread per task, with `Arc<str>` snapshots instead of
