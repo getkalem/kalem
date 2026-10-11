@@ -246,6 +246,7 @@ fn a_layer_over_markdown() {
         id: "test.ids".into(),
         markers: vec!["logseq/config.edn".into()],
         modes: vec!["markdown".into()],
+        open: Some("layer.openLink".into()),
     });
     let text = "- one **bold**\n  id:: 6512\n- two\n";
     let doc = |path: std::path::PathBuf| {
@@ -274,9 +275,15 @@ fn a_layer_over_markdown() {
     let n = asked.load(Ordering::Relaxed);
     let _ = crate::mode_view::blocks(&d);
     assert_eq!(asked.load(Ordering::Relaxed), n);
+    // A Ctrl-click on a link runs the layer's command for links.
+    assert_eq!(crate::mode_view::open_link_command(&d), "layer.openLink");
     // A file outside the graph, or in another mode: no layer.
     let outside = doc(dir.join("a.md"));
     assert!(outside.overlays().is_none());
+    assert_eq!(
+        crate::mode_view::open_link_command(&outside),
+        "markdown.openLink"
+    );
     assert!(
         !crate::mode_view::blocks(&outside)
             .iter()

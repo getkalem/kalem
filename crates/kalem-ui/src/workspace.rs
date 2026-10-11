@@ -1492,10 +1492,13 @@ impl Workspace {
                         }
                     });
                 }
-                self.editor.update(cx, |e, cx| {
-                    e.status = Some((message, error));
-                    cx.notify();
-                });
+                // A plugin's move (`Request::FilesMoved`) says nothing.
+                if !message.is_empty() {
+                    self.editor.update(cx, |e, cx| {
+                        e.status = Some((message, error));
+                        cx.notify();
+                    });
+                }
             }
         }
     }

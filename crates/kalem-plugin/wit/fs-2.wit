@@ -1,0 +1,17 @@
+package kalem:plugin@0.2.12;
+
+/// Files moved and put in the trash (API 0.2.12), under the permission
+/// that writes them (`fs:write:workspace`), as `fs.write`: a page renamed
+/// with its file, a note moved to another folder. Kalem's open documents
+/// follow their files, as after a move in the file manager; a document
+/// with unsaved changes keeps them.
+interface fs-2 {
+    /// Moves the file or folder `from` to `to` (another name, another
+    /// folder), `to`'s folder made when missing; refused when `to`
+    /// exists.
+    rename: func(%from: string, to: string) -> result<_, string>;
+
+    /// Moves the file or folder `path` to the system's trash, where the
+    /// user can take it back from.
+    trash: func(path: string) -> result<_, string>;
+}

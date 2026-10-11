@@ -2040,6 +2040,13 @@ impl App {
                 }
                 FileManagerRequest::Leave => self.leave_file_manager(),
             },
+            Request::FilesMoved(kind, out) => {
+                self.follow_files(kind, &out);
+                if self.doc.dired.is_some() {
+                    self.doc.refresh_listing();
+                }
+                self.dirty = true;
+            }
             Request::FileOp(op) => match kalem_core::dired::Task::new(&op) {
                 Ok(t) => {
                     self.task = Some(t);

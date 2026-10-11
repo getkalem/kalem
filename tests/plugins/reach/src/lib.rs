@@ -1,5 +1,5 @@
-//! An extension plugin for tests: commands reading, writing and listing
-//! files and fetching URLs, their arguments as JSON (`{"path": …}`), so
+//! An extension plugin for tests: commands reading, writing, listing,
+//! moving (API 0.2.12) and trashing files and fetching URLs, their arguments as JSON (`{"path": …}`), so
 //! that the host's grants decide what succeeds.
 
 use std::cell::RefCell;
@@ -36,6 +36,10 @@ impl Plugin for Reach {
             fs::write(&arg(a, "path"), &arg(a, "text")).map(|()| "null".into())
         })?;
         command("reach.list", |a| fs::list(&arg(a, "dir")).map(|l| l.join("\n")))?;
+        command("reach.rename", |a| {
+            fs::rename(&arg(a, "from"), &arg(a, "to")).map(|()| "null".into())
+        })?;
+        command("reach.trash", |a| fs::trash(&arg(a, "path")).map(|()| "null".into()))?;
         command("reach.fetch", |a| {
             net::fetch(&net::get(&arg(a, "url")), |r| {
                 let s = match r {

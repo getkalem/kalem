@@ -35,8 +35,8 @@ pub use bindings::exports::kalem::plugin::{completer, layer};
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
 pub use bindings::kalem::plugin::{
-    clock, clock_2, decorations, diagnostics, documents, editor, fs, http, layers, net, process,
-    settings, styled_documents,
+    clock, clock_2, decorations, diagnostics, documents, editor, fs, fs_2, http, layers, net,
+    process, settings, styled_documents,
 };
 
 /// An edit a plugin asked for, applied when its command returns, its
@@ -378,6 +378,17 @@ pub trait Editor: Send + 'static {
 
     /// The folders of the projects, where `fs:*:workspace` reaches.
     fn workspace(&mut self) -> Vec<std::path::PathBuf>;
+
+    /// Plugin `plugin` moved the file or folder `from` to `to` (`fs-2`,
+    /// API 0.2.12): open documents follow it.
+    fn moved(&mut self, _plugin: &str, _from: &std::path::Path, _to: &std::path::Path) {}
+
+    /// Moves `path` to the system's trash for plugin `plugin` (`fs-2`,
+    /// API 0.2.12), open documents of it closed unless they have unsaved
+    /// changes.
+    fn trash(&mut self, _plugin: &str, path: &std::path::Path) -> Result<(), String> {
+        Err(format!("{} cannot go to the trash here", path.display()))
+    }
 
     /// What plugin `plugin`'s layers show changed: the documents they
     /// serve ask again (`layers.refresh`, API 0.2.10).
@@ -795,6 +806,35 @@ impl fs::Host for Session {
             .collect();
         out.sort();
         Ok(out)
+    }
+}
+
+impl fs_2::Host for Session {
+    fn rename(&mut self, from: String, to: String) -> Result<(), String> {
+        let real_from = self.reach(&from, true)?;
+        let real_to = self.reach(&to, true)?;
+        if !real_from.exists() {
+            return Err(format!("{from}: no such file or folder"));
+        }
+        if real_to.exists() {
+            return Err(format!("{to} exists already"));
+        }
+        if let Some(dir) = real_to.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| format!("{to}: {e}"))?;
+        }
+        std::fs::rename(&real_from, &real_to).map_err(|e| format!("{from}: {e}"))?;
+        let plugin = self.plugin.clone();
+        self.editor.moved(&plugin, &real_from, &real_to);
+        Ok(())
+    }
+
+    fn trash(&mut self, path: String) -> Result<(), String> {
+        let real = self.reach(&path, true)?;
+        if !real.exists() {
+            return Err(format!("{path}: no such file or folder"));
+        }
+        let plugin = self.plugin.clone();
+        self.editor.trash(&plugin, &real)
     }
 }
 
@@ -1442,6 +1482,12 @@ impl Extension {
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
         if grants.fs() {
             fs::add_to_linker::<_, HasSelf<Session>>(
+                &mut linker,
+                |d: &mut crate::Data<Session>| &mut d.user,
+            )
+            .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+            // Moves and the trash (API 0.2.12), which write as `fs.write`.
+            fs_2::add_to_linker::<_, HasSelf<Session>>(
                 &mut linker,
                 |d: &mut crate::Data<Session>| &mut d.user,
             )

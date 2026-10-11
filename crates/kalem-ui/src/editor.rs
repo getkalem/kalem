@@ -1767,6 +1767,11 @@ impl Editor {
                 kalem_core::projects::After::Search,
             )),
             Request::FileManager(r) => self.file_manager_request(r, cx),
+            Request::FilesMoved(kind, out) => cx.emit(DocEvent::FilesChanged {
+                message: String::new(),
+                error: false,
+                outcome: Some((kind, out)),
+            }),
             Request::FileOp(op) => match kalem_core::dired::Task::new(&op) {
                 Ok(t) => self.ask_task(t, window, cx),
                 Err(e) => self.message(e, true),
@@ -3339,7 +3344,7 @@ impl Editor {
         if open && widget.is_none() {
             self.doc.move_cursor(pos, false);
             let id = kalem_core::mode_view::open_link_command(&self.doc);
-            self.run_command(id, Value::Null, window, cx);
+            self.run_command(&id, Value::Null, window, cx);
             return;
         }
         if let Some((src, Widget::Checkbox(_))) = widget {

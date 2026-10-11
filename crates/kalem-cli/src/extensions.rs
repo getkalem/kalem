@@ -175,6 +175,14 @@ impl Editor for Bridge {
         kalem_core::extensions::workspace()
     }
 
+    fn moved(&mut self, _plugin: &str, from: &std::path::Path, to: &std::path::Path) {
+        kalem_core::extensions::moved(from, to);
+    }
+
+    fn trash(&mut self, _plugin: &str, path: &std::path::Path) -> Result<(), String> {
+        kalem_core::extensions::trash(path)
+    }
+
     fn refresh_layers(&mut self, _plugin: &str) {
         kalem_core::layers::refresh();
     }
@@ -609,6 +617,11 @@ fn manifest_layers(id: &str, m: &serde_json::Value) -> Vec<kalem_core::layers::L
                         id: l["id"].as_str()?.to_string(),
                         markers: strings(&l["markers"]),
                         modes: strings(&l["modes"]),
+                        // Only a command of the plugin's own.
+                        open: l["open"]
+                            .as_str()
+                            .filter(|c| c.strip_prefix(id).is_some_and(|r| r.starts_with('.')))
+                            .map(str::to_string),
                     };
                     (!spec.markers.is_empty() && !spec.modes.is_empty()).then_some(spec)
                 })

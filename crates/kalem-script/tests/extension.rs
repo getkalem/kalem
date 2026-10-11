@@ -30,6 +30,9 @@ struct State {
     panels: BTreeMap<String, Option<WidgetTree>>,
     own: BTreeMap<String, String>,
     workspace: Vec<std::path::PathBuf>,
+    /// Files moved and trashed (`fs-2`).
+    moved: Vec<(std::path::PathBuf, std::path::PathBuf)>,
+    trashed: Vec<std::path::PathBuf>,
     fetched: Vec<(u64, String)>,
     spawned: Vec<(u64, String, Vec<String>, std::path::PathBuf)>,
     killed: Vec<u64>,
@@ -145,6 +148,20 @@ impl Editor for Fake {
 
     fn workspace(&mut self) -> Vec<std::path::PathBuf> {
         self.0.lock().unwrap().workspace.clone()
+    }
+
+    fn moved(&mut self, _plugin: &str, from: &std::path::Path, to: &std::path::Path) {
+        self.0
+            .lock()
+            .unwrap()
+            .moved
+            .push((from.to_path_buf(), to.to_path_buf()));
+    }
+
+    fn trash(&mut self, _plugin: &str, path: &std::path::Path) -> Result<(), String> {
+        std::fs::remove_file(path).map_err(|e| e.to_string())?;
+        self.0.lock().unwrap().trashed.push(path.to_path_buf());
+        Ok(())
     }
 
     fn document(&mut self) -> Option<Box<dyn kalem_script::extension::DocumentAccess + '_>> {
@@ -651,6 +668,14 @@ fn files_are_reached_only_as_granted() {
         )
     };
     assert!(write(&mut ext, &root.join("b.txt")).is_err());
+    let rename = |ext: &mut Extension, from: &std::path::Path, to: &std::path::Path| {
+        call(
+            ext,
+            "reach.rename",
+            serde_json::json!({ "from": p(from), "to": p(to) }),
+        )
+    };
+    assert!(rename(&mut ext, &root.join("a.txt"), &root.join("z.txt")).is_err());
     // A link out of the project is followed, and refused.
     #[cfg(unix)]
     {
@@ -667,6 +692,37 @@ fn files_are_reached_only_as_granted() {
         "new"
     );
     assert!(write(&mut ext, &dir.join("c.txt")).is_err());
+    // Moving (API 0.2.12): into a folder made for it, the editor told;
+    // not over a file, not out of the project.
+    let (mut ext, fake) = reach(&["fs:write:workspace", "net:fetch:example.com"], &root)
+        .unwrap()
+        .unwrap();
+    let (from, to) = (root.join("new/b.txt"), root.join("moved/c.txt"));
+    assert_eq!(rename(&mut ext, &from, &to), Ok("null".into()));
+    assert!(!from.exists() && std::fs::read_to_string(&to).unwrap() == "new");
+    assert_eq!(fake.0.lock().unwrap().moved, [(from.clone(), to.clone())]);
+    let e = rename(&mut ext, &root.join("a.txt"), &to).unwrap_err();
+    assert!(e.contains("exists"), "{e}");
+    assert!(rename(&mut ext, &to, &dir.join("c.txt")).is_err());
+    assert!(rename(&mut ext, &from, &root.join("x.txt")).is_err());
+    // The trash.
+    assert_eq!(
+        call(
+            &mut ext,
+            "reach.trash",
+            serde_json::json!({ "path": p(&to) })
+        ),
+        Ok("null".into())
+    );
+    assert_eq!(fake.0.lock().unwrap().trashed, [to.clone()]);
+    assert!(
+        call(
+            &mut ext,
+            "reach.trash",
+            serde_json::json!({ "path": p(&dir.join("secret.txt")) })
+        )
+        .is_err()
+    );
 
     let (mut ext, _) = reach(&["fs:read:all", "net:fetch:example.com"], &root)
         .unwrap()

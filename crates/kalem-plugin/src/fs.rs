@@ -19,3 +19,16 @@ pub fn write(path: &str, text: &str) -> Result<(), String> {
 pub fn list(dir: &str) -> Result<Vec<String>, String> {
     api::list(dir)
 }
+
+/// Moves the file or folder `from` to `to`, its folder made when
+/// missing; refused when `to` exists (`fs-2`, API 0.2.12). Kalem's open
+/// documents follow it.
+pub fn rename(from: &str, to: &str) -> Result<(), String> {
+    crate::extension::kalem::plugin::fs_2::rename(from, to)
+}
+
+/// Moves the file or folder `path` to the system's trash (`fs-2`, API
+/// 0.2.12).
+pub fn trash(path: &str) -> Result<(), String> {
+    crate::extension::kalem::plugin::fs_2::trash(path)
+}

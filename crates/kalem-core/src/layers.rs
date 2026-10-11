@@ -145,6 +145,10 @@ pub struct LayerSpec {
     pub markers: Vec<String>,
     /// The modes it serves, by name (`markdown`, `org`).
     pub modes: Vec<String>,
+    /// The plugin's command that opens the link at the cursor in the
+    /// documents it serves, in place of the mode's own on a Ctrl-click
+    /// (`graph.openLink`, a link followed by the plugin's own rules).
+    pub open: Option<String>,
 }
 
 /// What asking a layer for overlays gave.

@@ -241,6 +241,10 @@ pub enum Request {
     Shell(ShellOp),
     /// Stop the file operations that are running.
     CancelFileOps,
+    /// A plugin moved or trashed files (`fs-2`, plugin API 0.2.12): open
+    /// documents follow them, as after a file operation, and the file
+    /// manager's listings are read again.
+    FilesMoved(kalem_fs::OpKind, kalem_fs::Outcome),
     /// Open the completion menu at the cursor (`crate::completers`).
     Complete,
     /// Put this text on the system clipboard.

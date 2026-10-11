@@ -127,13 +127,21 @@ pub fn highlight_language(doc: &DocumentState) -> Option<&str> {
     }
 }
 
-/// The command a Ctrl-click (Cmd-click) on a link runs in `doc`.
-pub fn open_link_command(doc: &DocumentState) -> &'static str {
+/// The command a Ctrl-click (Cmd-click) on a link runs in `doc`: the
+/// command for links of the layer serving it (`crate::layers`), else the
+/// mode's.
+pub fn open_link_command(doc: &DocumentState) -> String {
+    if let Some(open) = crate::layers::layer_for(doc.meta.path.as_deref(), doc.meta.mode.name())
+        .and_then(|l| l.open)
+    {
+        return open;
+    }
     match doc.meta.mode {
         DocumentMode::Latex => "latex.link.open",
         DocumentMode::Markdown => "markdown.openLink",
         _ => "org.link.open",
     }
+    .to_string()
 }
 
 /// The command a click on a checkbox runs in `doc`.

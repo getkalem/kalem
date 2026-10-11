@@ -686,6 +686,32 @@ pub fn entries() -> Vec<Entry> {
     bindings().into_iter().map(Entry::Add).collect()
 }
 
+/// A plugin moved `from` to `to` (`fs-2`, API 0.2.12): the editors'
+/// documents follow.
+pub fn moved(from: &std::path::Path, to: &std::path::Path) {
+    queue_request(crate::command::Request::FilesMoved(
+        kalem_fs::OpKind::Move,
+        kalem_fs::Outcome {
+            done: vec![(from.to_path_buf(), Some(to.to_path_buf()))],
+            ..kalem_fs::Outcome::default()
+        },
+    ));
+}
+
+/// Moves `path` to the trash for a plugin (`fs-2`, API 0.2.12): the
+/// editors' documents of it are closed unless they have unsaved changes.
+pub fn trash(path: &std::path::Path) -> Result<(), String> {
+    kalem_fs::trash_paths(&[path.to_path_buf()])?;
+    queue_request(crate::command::Request::FilesMoved(
+        kalem_fs::OpKind::Trash,
+        kalem_fs::Outcome {
+            done: vec![(path.to_path_buf(), None)],
+            ..kalem_fs::Outcome::default()
+        },
+    ));
+    Ok(())
+}
+
 /// Queues command `id` with `args` (a plugin's `kalem.run`).
 pub fn queue_run(id: &str, args: Value) {
     state().runs.push((id.to_string(), args));

@@ -1,0 +1,12 @@
+package kalem:plugin@0.2.11;
+
+/// The user's local time (API 0.2.11), which `clock` gives only as a
+/// time zone's name: a journal's day, a date written in a file, a
+/// timestamp shown, each as the user's calendar has it.
+interface clock-2 {
+    /// Seconds east of UTC in the user's time zone at the instant `at`
+    /// (milliseconds since January 1, 1970, UTC), daylight saving time
+    /// included: 10800 in Istanbul, -14400 in New York in summer; 0 where
+    /// the zone is not known.
+    offset: func(at: s64) -> s32;
+}
