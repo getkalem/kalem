@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.20] - 2026-10-13
+
 ### Changed
 - Typing in a long LaTeX document parses again from fewer of its parts: the paragraph around the edit is found by position among the body's children rather than by making every one of them (a body of 10 MB has tens of thousands). A keystroke's parse in a paper of 1 MB 0.22 ms rather than 0.99 ms; a keystroke in one of 10 MB 32 ms rather than 42 ms.
 - Typing in a long LaTeX document updates its model (sections, labels, citations, numbers) from the paragraphs' parts the parse shares, without making a node for each of the body's paragraphs or moving every one's events to a new table at each keystroke: the model after a keystroke in a paper of 1 MB 0.37 ms rather than 1.0 ms, of 10 MB 11 ms rather than 24 ms; a keystroke in the 10 MB paper 17 ms rather than 32 ms.
