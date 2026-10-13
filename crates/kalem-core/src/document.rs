@@ -1897,7 +1897,7 @@ impl DocumentState {
         {
             return self.paste(&links, None, true, now);
         }
-        let mut text = text.replace("\r\n", "\n");
+        let mut text = crate::paste::normalize_line_breaks(text);
         // Paste as Block: the cells written over, as a spreadsheet pastes.
         if std::mem::take(&mut self.csv_paste_block)
             && self.meta.mode == DocumentMode::Csv
@@ -2260,7 +2260,7 @@ impl DocumentState {
         if self.meta.mode != DocumentMode::Csv || !self.extra.is_empty() {
             return false;
         }
-        let text = text.replace("\r\n", "\n");
+        let text = crate::paste::normalize_line_breaks(text);
         let text = text.strip_suffix('\n').unwrap_or(&text);
         if text.is_empty() {
             return false;
@@ -3288,6 +3288,37 @@ impl DocumentState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn paste_preserves_external_line_breaks_and_undo() {
+        let clipboard = "bir\r\n\r\niki\rüç\u{2028}dört\u{2029}beş\n  six\tseven\n";
+        let normalized = "bir\n\niki\nüç\ndört\nbeş\n  six\tseven\n";
+        for mode in [DocumentMode::Org, DocumentMode::Text { language: None }] {
+            for ending in [LineEnding::Lf, LineEnding::CrLf] {
+                for plain in [false, true] {
+                    let mut d = org("before OLD after");
+                    d.meta.mode = mode.clone();
+                    d.meta.line_ending = ending;
+                    d.selection = Selection {
+                        anchor: 10,
+                        head: 7,
+                    };
+                    d.paste(clipboard, None, plain, Instant::now());
+                    let inserted = if ending == LineEnding::CrLf {
+                        normalized.replace('\n', "\r\n")
+                    } else {
+                        normalized.to_string()
+                    };
+                    assert_eq!(d.text().as_str(), format!("before {inserted} after"));
+                    assert_eq!(d.selection, Selection::caret(7 + inserted.len()));
+                    d.undo();
+                    assert_eq!(d.text().as_str(), "before OLD after");
+                    d.redo();
+                    assert_eq!(d.text().as_str(), format!("before {inserted} after"));
+                }
+            }
+        }
+    }
 
     #[test]
     fn indenting_plain_text() {

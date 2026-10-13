@@ -603,6 +603,45 @@ fn pasting_html(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn pasting_external_line_breaks(cx: &mut TestAppContext) {
+    let (e, cx) = open("before OLD after\n", cx);
+    at(&e, 7, cx);
+    cx.simulate_keystrokes("shift-right shift-right shift-right");
+    cx.write_to_clipboard(gpui::ClipboardItem::new_string(
+        "bir\r\n\r\niki\rüç\u{2028}dört\u{2029}beş\n  six\n".into(),
+    ));
+    cx.simulate_keystrokes(&format!("{}-v", primary()));
+    assert_eq!(
+        text(&e, cx),
+        "before bir\n\niki\nüç\ndört\nbeş\n  six\n after\n"
+    );
+    cx.simulate_keystrokes(&format!("{}-z", primary()));
+    assert_eq!(text(&e, cx), "before OLD after\n");
+}
+
+#[gpui::test]
+fn pasting_external_html_paragraphs(cx: &mut TestAppContext) {
+    let (e, cx) = open_with(
+        "before after\n",
+        || Some("<p>first</p><p><br></p><p>last <b>word</b></p>".into()),
+        cx,
+    );
+    at(&e, 7, cx);
+    cx.write_to_clipboard(gpui::ClipboardItem::new_string(
+        "first\n\n\n\nlast word".into(),
+    ));
+    cx.simulate_keystrokes(&format!("{}-v", primary()));
+    assert_eq!(
+        text(&e, cx),
+        "before \n\nfirst\n\n\n\nlast *word*\n\nafter\n"
+    );
+    cx.simulate_keystrokes(&format!("{}-z", primary()));
+    assert_eq!(text(&e, cx), "before after\n");
+    cx.simulate_keystrokes(&format!("{}-shift-v", primary()));
+    assert_eq!(text(&e, cx), "before first\n\n\n\nlast wordafter\n");
+}
+
+#[gpui::test]
 fn source_view(cx: &mut TestAppContext) {
     let (e, cx) = open("* Head\nSome *bold* \\alpha\n", cx);
     at(&e, 7, cx);

@@ -8,6 +8,14 @@ use std::ops::Range;
 use org_model::Document;
 use org_syntax::{SyntaxKind, SyntaxNode};
 
+/// Clipboard line separators as LF, before adapting them to the document.
+/// A CRLF pair is one break; a standalone CR and Unicode line/paragraph
+/// separators also mark lines in text copied from other applications.
+pub(crate) fn normalize_line_breaks(text: &str) -> String {
+    text.replace("\r\n", "\n")
+        .replace(['\r', '\u{2028}', '\u{2029}'], "\n")
+}
+
 /// What a paste does to the document: `range` is replaced by `text`, and
 /// the caret goes to `cursor` bytes into `text`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -296,14 +304,22 @@ fn blocks_at(full: &str, sel: Range<usize>, org: &str) -> Insertion {
     let e = eol(full, sel.end);
     let first = org.lines().next().unwrap_or("");
     let last = org.lines().last().unwrap_or("");
-    let prefix = if !full[b..sel.start].trim().is_empty() && block_line(first) {
-        "\n"
+    let separator = |line: &str| {
+        if block_line(line) {
+            "\n"
+        } else if org.contains('\n') {
+            "\n\n"
+        } else {
+            ""
+        }
+    };
+    let prefix = if !full[b..sel.start].trim().is_empty() {
+        separator(first)
     } else {
         ""
     };
-    let suffix = if !full[sel.end..e].trim().is_empty() && (org.contains('\n') || block_line(last))
-    {
-        "\n"
+    let suffix = if !full[sel.end..e].trim().is_empty() {
+        separator(last)
     } else {
         ""
     };
@@ -726,7 +742,7 @@ fn styled(attrs: &[(String, String)]) -> Styled {
                 s.sub |= v == "sub";
                 s.sup |= v == "super";
             }
-            "white-space" => s.pre |= v.starts_with("pre"),
+            "white-space" => s.pre |= v.starts_with("pre") || v == "break-spaces",
             _ => {}
         }
     }
@@ -917,7 +933,20 @@ fn blocks(nodes: &[Node], depth: usize) -> Vec<Block> {
                     });
                 }
             }
-            _ => out.extend(blocks(children, depth)),
+            _ => {
+                let inner = blocks(children, depth);
+                // Empty paragraphs and contenteditable lines such as
+                // <div><br></div> carry spacing too. Wrapper elements
+                // alone must not create extra paragraphs.
+                if inner.is_empty() && matches!(name.as_str(), "p" | "div") {
+                    out.push(Block {
+                        text: String::new(),
+                        list: false,
+                    });
+                } else {
+                    out.extend(inner);
+                }
+            }
         }
     }
     flush(&mut inline, &mut out);
@@ -1604,6 +1633,26 @@ mod tests {
         assert_eq!(html_to_org("<!-- x --><script>alert(1)</script>"), None);
     }
 
+    #[test]
+    fn clipboard_html_keeps_empty_paragraphs() {
+        assert_eq!(
+            org("<p>first</p><p><br></p><p>last <b>word</b></p>"),
+            "first\n\n\n\nlast *word*"
+        );
+        assert_eq!(
+            org("<div>first <b>word</b></div><div><br></div><div>last</div>"),
+            "first *word*\n\n\n\nlast"
+        );
+    }
+
+    #[test]
+    fn clipboard_preserved_whitespace_uses_plain_text() {
+        assert_eq!(
+            html_to_org("<p style=\"white-space: break-spaces\">first\n\n<b>second</b></p>"),
+            None
+        );
+    }
+
     proptest::proptest! {
         #[test]
         fn never_panics(
@@ -1654,6 +1703,10 @@ mod tests {
             "#+begin_src sh\na\tb^x\n#+end_src\n"
         );
         // HTML blocks start on a line of their own.
+        assert_eq!(
+            paste("ab\n", 1..1, "x\n\ny", Some("<p>x</p><p>y</p>")),
+            "a\n\nx\n\ny^\n\nb\n"
+        );
         assert_eq!(
             paste("ab\n", 1..1, "x", Some("<ul><li>x</li></ul>")),
             "a\n- x^\nb\n"

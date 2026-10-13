@@ -254,6 +254,12 @@ Paste (Ctrl+V) converts: cells from a spreadsheet become a table, and
 text copied from a web page or a word processor becomes Org with its
 headings, emphasis, links, lists and tables (the graphical editor
 reads that HTML on macOS, and on Linux through =wl-paste= or =xclip=).
+Empty paragraphs in copied HTML stay empty, and several pasted paragraphs
+are separated from the text on either side of the cursor. Text with
+preserved whitespace (for example, copied code) uses the clipboard's plain
+text so its indentation and line breaks stay intact. Clipboard line breaks,
+including CR, CRLF and Unicode line and paragraph separators, become the
+document's line endings.
 Paste as Plain Text (Ctrl+Shift+V) inserts the text as it is, as any
 paste in a source block does. /Copy as Rich Text/ (Edit menu) copies
 the selection, or the whole document, as HTML with the Org text

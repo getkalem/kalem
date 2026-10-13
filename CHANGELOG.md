@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Typing in a long LaTeX document updates its model (sections, labels, citations, numbers) from the paragraphs' parts the parse shares, without making a node for each of the body's paragraphs or moving every one's events to a new table at each keystroke: the model after a keystroke in a paper of 1 MB 0.37 ms rather than 1.0 ms, of 10 MB 11 ms rather than 24 ms; a keystroke in the 10 MB paper 17 ms rather than 32 ms.
 
 ### Fixed
+- Pasting external text recognizes CR and Unicode line and paragraph separators as well as CRLF, keeping line breaks, blank lines and indentation. Rich HTML paste keeps empty paragraphs, separates multiple paragraphs from the surrounding text, and uses plain text for CSS `break-spaces` content so its whitespace is not collapsed.
 - Saving tells what the file could not keep, as its plugin reports it: a workbook with a password to open saved as `.ods` says, after the save, that the `.ods` file is not encrypted (the losses were only logged). Save As under another kind than a plugin's document's own asks its plugin for that kind, in a document of flowing text too: Save As `report.docm` from a `.docx` wrote the `.docx` package under the new name, and is now refused with the plugin's reason, as Save As `.png` from a `.jpg` picture is. A refused Save As leaves the document's file as it was: it took the new name though nothing was written. `kalem run` prints the losses too.
 
 ## [0.6.19] - 2026-10-11
