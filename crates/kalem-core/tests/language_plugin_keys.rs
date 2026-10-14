@@ -57,5 +57,27 @@ fn a_plugins_keys_in_its_languages_files() {
     assert_eq!(enter(&m, "lead").as_deref(), Some("lead.newline"));
     // Another plain text file: the profile's Enter.
     assert_eq!(enter(&m, "txt").as_deref(), Some("edit.newline"));
+    // Vim's insert mode: a binding written for it (`vimMode == insert`)
+    // goes before the mode's own Enter; one that is not, does not.
+    kalem_core::extensions::add_binding(
+        2,
+        "enter",
+        "lead.newline",
+        Some("(textType == lg || textType == lead) && vimMode == insert"),
+    )
+    .expect("bound");
+    let (m, _) = Keymap::build(&reg, Profile::Vim, &[]);
+    let insert = |text_type: &str| {
+        let mut ctx = Context::default();
+        ctx.set("editorMode", Value::Str("text".into()));
+        ctx.set("textType", Value::Str(text_type.into()));
+        ctx.set("vimMode", Value::Str("insert".into()));
+        ctx.flag("vimActive", true);
+        ctx
+    };
+    let enter_keys = KeySequence::parse("enter").expect("keys");
+    assert!(m.insert_bound(&enter_keys, &insert("lg")));
+    assert!(!m.insert_bound(&enter_keys, &insert("txt")));
+    assert!(!m.insert_bound(&KeySequence::parse("tab").expect("keys"), &insert("lg")));
     let _ = std::fs::remove_dir_all(&dir);
 }

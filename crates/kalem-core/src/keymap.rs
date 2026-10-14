@@ -623,6 +623,22 @@ impl Keymap {
         })
     }
 
+    /// Whether a binding written for Vim's insert mode (its when-clause
+    /// looks at `vimMode`, as `vimMode == insert` does) applies to
+    /// `pressed`, or starts with it, in `ctx`: such keys go to the keymap
+    /// before insert mode's own Enter, Tab and Backspace, so that a
+    /// plugin's Enter in a file of its language runs there too.
+    pub fn insert_bound(&self, pressed: &KeySequence, ctx: &Context) -> bool {
+        self.bindings.iter().any(|a| {
+            a.binding
+                .when
+                .as_ref()
+                .is_some_and(|w| w.mentions("vimMode"))
+                && (a.binding.keys == *pressed || a.binding.keys.starts_with(pressed))
+                && a.when.as_ref().is_none_or(|w| w.eval(ctx))
+        })
+    }
+
     /// What may follow `pressed` in `ctx`: each next key with the command
     /// it runs, or `None` for a group of longer bindings (with the
     /// commands in it), in the order of the bindings.

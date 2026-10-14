@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- In Vim's insert mode, a key binding written for it (its when-clause looks at `vimMode`, such as `vimMode == insert`) comes before the mode's own Enter, Tab and Backspace, as a binding that looks at `vimCommand` comes before the normal mode's keys: the plain text accounting plugin's Enter in a journal aligns the posting's amount before the new line in insert mode too. Other bindings leave insert mode's keys as they were.
+
 ## [0.6.20] - 2026-10-13
 
 ### Changed

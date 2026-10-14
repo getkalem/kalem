@@ -2695,6 +2695,13 @@ impl Editor {
             return !(line || colon);
         }
         let Some(v) = &self.vim else { return false };
+        // In insert mode, the keys bound for it (`vimMode == insert`).
+        if v.takes_text() && v.command_line.is_none() {
+            return self
+                .shared
+                .keymap
+                .insert_bound(&KeySequence(vec![chord.clone()]), &self.context());
+        }
         if v.takes_text() || v.command_line.is_some() || !v.idle_command() {
             return false;
         }

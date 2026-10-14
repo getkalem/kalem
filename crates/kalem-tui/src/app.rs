@@ -4658,6 +4658,15 @@ impl App {
             return !(line || colon);
         }
         let Some(v) = &self.vim else { return false };
+        // In insert mode, the keys bound for it (`vimMode == insert`).
+        if v.takes_text() && v.command_line.is_none() {
+            let Some(chord) = input::chord(k, self.caps.kitty_keyboard) else {
+                return false;
+            };
+            return self
+                .keymap
+                .insert_bound(&KeySequence(vec![chord]), &self.context());
+        }
         if v.takes_text() || v.command_line.is_some() || !v.idle_command() {
             return false;
         }

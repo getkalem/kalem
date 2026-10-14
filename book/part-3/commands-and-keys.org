@@ -280,6 +280,13 @@ makes Ctrl+C a prefix wherever it applies, and Copy on Ctrl+C never
 runs there (the keymap reports it as shadowed by a prefix), which is
 why that file removes Copy from Ctrl+C first.
 
+In Vim's insert mode, Enter, Tab and Backspace are the mode's own (a
+new line indented as the last, the text's tab stops), before any key
+binding, except a binding written for insert mode: one whose condition
+looks at =vimMode= (=vimMode == insert=) comes first, as a plugin's
+Enter in a file of its language does (the plain text accounting
+plugin aligns a posting's amount, then the new line).
+
 ** Terminals
 
 A terminal without an enhanced keyboard protocol cannot send every
