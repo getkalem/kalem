@@ -344,6 +344,30 @@ fn save_as_does_what_a_save_does_first() {
     assert_eq!(std::fs::read_to_string(&target).unwrap(), "* A\nbody\n");
 }
 
+/// A prompt's offered text goes with Ctrl+U, as on Vim's command line
+/// and in a shell (it stayed, what was typed added to it); Ctrl+A,
+/// Ctrl+E, Ctrl+W and Ctrl+K edit the line as a shell does.
+#[test]
+fn ctrl_u_clears_a_prompts_offered_text() {
+    let mut t = open("* A\n");
+    let current = t.app.doc.meta.path.clone().unwrap();
+    let target = current.with_file_name("cleared.org");
+    t.app.run_command("app.saveAs", serde_json::json!({}));
+    let ctrl = |t: &mut T, c: char| t.key(KeyCode::Char(c), KeyModifiers::CONTROL);
+    ctrl(&mut t, 'u');
+    t.typ(&target.display().to_string());
+    ctrl(&mut t, 'a');
+    t.typ("junk ");
+    ctrl(&mut t, 'w');
+    ctrl(&mut t, 'e');
+    t.typ("zz");
+    t.key(KeyCode::Left, KeyModifiers::NONE);
+    t.key(KeyCode::Left, KeyModifiers::NONE);
+    ctrl(&mut t, 'k');
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(std::fs::read_to_string(&target).unwrap(), "* A\n");
+}
+
 #[test]
 fn save_as_asks_before_replacing() {
     let mut t = open("* A\n");

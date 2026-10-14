@@ -43,6 +43,20 @@ pub fn from_key(name: &str, word: bool, line: bool) -> Option<LineKey> {
     })
 }
 
+/// The edit for Ctrl and the letter `c` in a terminal, as readline and
+/// Vim's command line have them: Ctrl+A and Ctrl+E go to either end,
+/// Ctrl+U and Ctrl+K delete to it, Ctrl+W deletes the word before.
+pub fn from_control(c: char) -> Option<LineKey> {
+    Some(match c {
+        'a' => LineKey::Home,
+        'e' => LineKey::End,
+        'u' => LineKey::KillToStart,
+        'k' => LineKey::KillToEnd,
+        'w' => LineKey::WordBackspace,
+        _ => return None,
+    })
+}
+
 /// The byte offset of the cursor in `text`, `back` characters from the
 /// end (clamped).
 pub fn cursor(text: &str, back: usize) -> usize {
@@ -228,5 +242,9 @@ mod tests {
         assert_eq!(t, "şıu");
         apply(&mut t, &mut back, LineKey::End);
         assert_eq!(back, 0);
+        // A terminal's Ctrl keys.
+        let keys: Vec<LineKey> = "aukwe".chars().filter_map(from_control).collect();
+        assert_eq!(keys, [Home, KillToStart, KillToEnd, WordBackspace, End]);
+        assert_eq!(from_control('x'), None);
     }
 }

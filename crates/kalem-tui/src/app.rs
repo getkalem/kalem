@@ -6520,6 +6520,13 @@ impl App {
 /// The edit a key makes in a one-line input: the arrows, Home, End,
 /// Backspace and Delete, by words with Ctrl or Alt.
 fn line_key(k: &KeyEvent) -> Option<kalem_core::line_edit::LineKey> {
+    // Ctrl+U, Ctrl+W and the rest, as on Vim's command line and in a
+    // shell.
+    if let KeyCode::Char(c) = k.code
+        && k.modifiers == KeyModifiers::CONTROL
+    {
+        return kalem_core::line_edit::from_control(c);
+    }
     let name = match k.code {
         KeyCode::Left => "left",
         KeyCode::Right => "right",

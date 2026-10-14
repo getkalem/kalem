@@ -213,6 +213,11 @@ reaches Kalem only when the terminal sends it: in macOS Terminal, set
 keyboard protocol (kitty, WezTerm, Ghostty, foot) send every key as it
 is.
 
+In the terminal editor's palette and prompts, the line edits as in a
+shell or on Vim's command line: Ctrl+A and Ctrl+E go to its start and
+end, Ctrl+U and Ctrl+K delete to them, and Ctrl+W deletes the word
+before the cursor.
+
 * Doom's leader map in Kalem
 
 Every key of Doom Emacs's leader map, and what it does in Kalem or why
