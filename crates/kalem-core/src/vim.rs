@@ -1053,7 +1053,9 @@ fn word_end(doc: &DocumentState, mut pos: usize, big: bool) -> usize {
         pos += c.len_utf8();
     }
     if char_at(doc, pos).is_none() {
-        return len.saturating_sub(1);
+        // The last character, where it starts: a byte before the end is
+        // inside it when it is more than one.
+        return len - char_before(doc, len).map_or(0, char::len_utf8);
     }
     word_end_from(doc, pos, big)
 }
@@ -6345,6 +6347,16 @@ mod tests {
         assert_eq!(run("ab\n", 0, "999999999999] "), "|ab\n");
         // An editor command a count repeats runs a thousand times at most.
         assert_eq!(commands_of("999999999999]b", false).len(), 1000);
+    }
+
+    #[test]
+    fn e_at_the_end_of_a_text_ending_in_a_wide_character() {
+        // A text without a final line feed whose last character is more
+        // than a byte: `e` with nowhere to go went to that character's
+        // last byte, inside it.
+        assert_eq!(run("café", 3, "e"), "caf|é");
+        assert_eq!(run("café", 0, "2e"), "caf|é");
+        assert_eq!(run("a 😀", 0, "ee"), "a |😀");
     }
 
     #[test]
