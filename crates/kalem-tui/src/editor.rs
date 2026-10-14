@@ -619,7 +619,7 @@ impl<'a> Layout<'a> {
             sorted.sort_unstable();
             let mut ranges: Vec<Range<usize>> = Vec::new();
             for l in sorted {
-                let r = text.line_start(l)..(text.line_range(l).end + 1).min(len + 1);
+                let r = text.line_start(l)..text.after_line(l).min(len + 1);
                 match ranges.last_mut() {
                     Some(last) if last.end >= r.start => last.end = last.end.max(r.end),
                     _ => ranges.push(r),
@@ -696,7 +696,7 @@ impl<'a> Layout<'a> {
                         continue;
                     }
                 }
-                hidden.push(text.line_start(first + 1)..text.line_range(last).end + 1);
+                hidden.push(text.line_start(first + 1)..text.after_line(last));
             }
         }
         // A LaTeX paragraph over several lines away from the cursor shows as
@@ -715,7 +715,7 @@ impl<'a> Layout<'a> {
                     continue;
                 }
                 paragraphs.push(p.clone());
-                hidden.push(text.line_start(first + 1)..text.line_range(last).end + 1);
+                hidden.push(text.line_start(first + 1)..text.after_line(last));
             }
         }
         if !hidden.is_empty() {

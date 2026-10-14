@@ -94,9 +94,10 @@ impl DocumentState {
                 return;
             }
         }
+        let m = tx.mapper();
         let after: Vec<Selection> = all
             .iter()
-            .map(|s| Selection::caret(tx.map(ordered(*s).1, Assoc::After)))
+            .map(|s| Selection::caret(m.map(ordered(*s).1, Assoc::After)))
             .collect();
         self.apply_at_cursors(tx, after, primary, now);
     }
@@ -121,9 +122,10 @@ impl DocumentState {
             // Two cursors reaching into the same character: once.
             let _ = tx.replace(r, "");
         }
+        let m = tx.mapper();
         let after: Vec<Selection> = all
             .iter()
-            .map(|s| Selection::caret(tx.map(ordered(*s).0, Assoc::Before)))
+            .map(|s| Selection::caret(m.map(ordered(*s).0, Assoc::Before)))
             .collect();
         self.apply_at_cursors(tx, after, primary, now);
     }

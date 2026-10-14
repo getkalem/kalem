@@ -1887,10 +1887,11 @@ impl Folds {
     /// Moves the folds through an edit. Folds whose headline is gone are
     /// dropped by the next [`Folds::retain`].
     pub fn map(&mut self, tx: &Transaction) {
+        let m = tx.mapper();
         self.folds = self
             .folds
             .iter()
-            .map(|(h, f)| (tx.map(*h, Assoc::After), *f))
+            .map(|(h, f)| (m.map(*h, Assoc::After), *f))
             .collect();
     }
 

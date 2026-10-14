@@ -191,9 +191,99 @@ pub fn narrowed(
     Ok(out)
 }
 
+/// Runs `command` on `doc` as Emacs runs it on a file whose lines end in
+/// CR LF: on the text with line feeds alone (Emacs reads such a file so,
+/// and writes the CRs back), so that the end of a line is before its CR
+/// and nothing typed there splits the pair. Its change comes back to the
+/// document as it is, with a CR before each line feed it made, as edits
+/// of the lines it changed. `command` gets the document and a function
+/// that takes a position of `doc` to that text. A document whose line
+/// feeds are not all after a CR is run as it is.
+pub fn with_line_feeds(
+    doc: &Document,
+    command: impl FnOnce(&Document, &dyn Fn(usize) -> usize) -> Result<Transaction, EditError>,
+) -> Result<Transaction, EditError> {
+    let text = doc.parse().text();
+    // Where each CR LF's CR is.
+    let crs: Vec<usize> = text.match_indices("\r\n").map(|(i, _)| i).collect();
+    if crs.is_empty() || crs.len() != text.matches('\n').count() {
+        return command(doc, &|p| p);
+    }
+    let plain = text.replace("\r\n", "\n");
+    // A position of the text, there: one byte fewer for each CR before it,
+    // and at a line's end when it was between a CR and its line feed.
+    let to_plain = |p: usize| {
+        let p = p.min(text.len());
+        p - crs.partition_point(|&c| c < p)
+    };
+    // A position of a text with line feeds alone, in the same text with
+    // CR LF.
+    fn with_crs(text: &str, q: usize) -> usize {
+        q + text[..q.min(text.len())].matches('\n').count()
+    }
+    let sub = Document::with_settings(
+        org_syntax::parse_with(&plain, doc.parse().context()),
+        std::sync::Arc::new(doc.settings().clone()),
+        None,
+    );
+    let t = command(&sub, &to_plain).map_err(|e| EditError {
+        message: e.message,
+        point: e.point.map(|p| with_crs(&plain, p)),
+    })?;
+    if !t.fits(&plain) {
+        return Err(EditError {
+            message: "The command's edit does not fit the text".into(),
+            point: None,
+        });
+    }
+    let after = t.apply(&plain);
+    let mut out = Transaction::new(t.label.clone());
+    for e in crate::buffer::line_edits(&text, &after.replace('\n', "\r\n")) {
+        out.edit(e.range, e.insert);
+    }
+    out.selection_after = t.selection_after.map(|s| Selection {
+        anchor: with_crs(&after, s.anchor),
+        head: with_crs(&after, s.head),
+    });
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn crlf_lines_as_line_feeds() {
+        // The end of a heading's line is before its CR, as Emacs has it:
+        // a tag set at it does not split the CR LF.
+        let text = "* A\r\nbody\r\n* B\r\n";
+        let doc = Document::new(org_syntax::parse(text));
+        let t = with_line_feeds(&doc, |d, at| {
+            let eol = d.parse().text()[at(0)..].find('\n').unwrap() + at(0);
+            let mut t = Transaction::new("t");
+            t.edit(eol..eol, " :x:");
+            Ok(t.select(Selection::caret(eol + 4)))
+        })
+        .unwrap();
+        assert_eq!(t.apply(text), "* A :x:\r\nbody\r\n* B\r\n");
+        assert_eq!(t.selection_after, Some(Selection::caret(7)));
+        // A line added: with its CR.
+        let t = with_line_feeds(&doc, |_, at| {
+            let mut t = Transaction::new("t");
+            t.edit(at(5)..at(5), "new\n");
+            Ok(t)
+        })
+        .unwrap();
+        assert_eq!(t.apply(text), "* A\r\nnew\r\nbody\r\n* B\r\n");
+        // Between a CR and its line feed is the line's end.
+        let t = with_line_feeds(&doc, |_, at| {
+            let mut t = Transaction::new("t");
+            t.edit(at(4)..at(4), "!");
+            Ok(t)
+        })
+        .unwrap();
+        assert_eq!(t.apply(text), "* A!\r\nbody\r\n* B\r\n");
+    }
 
     #[test]
     fn ranges() {

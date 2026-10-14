@@ -166,6 +166,26 @@ impl Transaction {
         self
     }
 
+    /// Whether the transaction can be applied to `text`: its edits in
+    /// order and apart, each within the text and on character
+    /// boundaries. One made for another text (a server's answer to an
+    /// older version, a plugin's mistake, an undo step the text no longer
+    /// matches) is refused by its callers rather than applied in the
+    /// wrong place, or ending the program on a slice of the text.
+    pub fn fits(&self, text: &str) -> bool {
+        let mut at = 0;
+        self.edits.iter().all(|e| {
+            let r = &e.range;
+            let ok = at <= r.start
+                && r.start <= r.end
+                && r.end <= text.len()
+                && text.is_char_boundary(r.start)
+                && text.is_char_boundary(r.end);
+            at = r.end;
+            ok
+        })
+    }
+
     /// Whether the transaction changes nothing.
     pub fn is_empty(&self) -> bool {
         self.edits
@@ -243,6 +263,25 @@ impl Transaction {
         (pos as isize + shift) as usize
     }
 
+    /// [`Transaction::map`] for many positions: each in a time that grows
+    /// with the logarithm of the edits rather than with their number, so
+    /// that the cursors, marks and line marks of a transaction with an
+    /// edit for each of them (typing with many cursors) are not mapped in
+    /// a time that grows with its square.
+    pub fn mapper(&self) -> Mapper<'_> {
+        let mut shifts = Vec::with_capacity(self.edits.len() + 1);
+        let mut shift = 0isize;
+        shifts.push(shift);
+        for e in &self.edits {
+            shift += e.insert.len() as isize - e.range.len() as isize;
+            shifts.push(shift);
+        }
+        Mapper {
+            edits: &self.edits,
+            shifts,
+        }
+    }
+
     /// The smallest single replacement equivalent to this transaction, for
     /// an incremental reparse: the range it covers in the text before, and
     /// the new text of that range.
@@ -261,6 +300,48 @@ impl Transaction {
             range: org_syntax::TextRange::new((start as u32).into(), (end as u32).into()),
             insert,
         })
+    }
+}
+
+/// Maps positions through a transaction's edits ([`Transaction::mapper`]).
+#[derive(Debug)]
+pub struct Mapper<'a> {
+    edits: &'a [Edit],
+    /// How far the edits before each one, and all of them, move the text.
+    shifts: Vec<isize>,
+}
+
+impl Mapper<'_> {
+    /// Where `pos` goes, as [`Transaction::map`] has it.
+    pub fn map(&self, pos: usize, assoc: Assoc) -> usize {
+        let at = |i: usize, p: usize| (p as isize + self.shifts[i]) as usize;
+        // The edits that start before `pos`; the last of them may hold it.
+        let k = self.edits.partition_point(|e| e.range.start < pos);
+        if let Some(e) = k.checked_sub(1).map(|i| &self.edits[i])
+            && pos < e.range.end
+        {
+            let start = at(k - 1, e.range.start);
+            return match assoc {
+                Assoc::Before => start,
+                Assoc::After => start + e.insert.len(),
+            };
+        }
+        // Those that start at it: insertions there go before it or after
+        // it, and a replacement there holds it.
+        let mut i = k;
+        while let Some(e) = self.edits.get(i).filter(|e| e.range.start == pos) {
+            if !e.range.is_empty() {
+                return match assoc {
+                    Assoc::Before => at(i, pos),
+                    Assoc::After => at(i, pos) + e.insert.len(),
+                };
+            }
+            if assoc == Assoc::Before {
+                break;
+            }
+            i += 1;
+        }
+        at(i, pos)
     }
 }
 
@@ -302,5 +383,57 @@ mod tests {
         t.delete(3..4).unwrap();
         t.edit(0..1, "c");
         assert!(t.edits.is_empty());
+    }
+
+    #[test]
+    fn fits_only_a_text_it_was_made_for() {
+        let mut t = Transaction::new("t");
+        t.replace(1..3, "x").unwrap();
+        assert!(t.fits("abc"));
+        // Past the end, or inside a character.
+        assert!(!t.fits("ab"));
+        assert!(!t.fits("éa"));
+        // Out of order, as a list pushed by hand may be.
+        t.edits.push(Edit {
+            range: 0..1,
+            insert: String::new(),
+        });
+        assert!(!t.fits("abcdef"));
+    }
+
+    #[test]
+    fn the_mapper_maps_as_map() {
+        let mut t = Transaction::new("t");
+        t.insert(0, "<").unwrap();
+        t.insert(3, "ab").unwrap();
+        t.insert(3, "c").unwrap();
+        t.replace(3..6, "XY").unwrap();
+        t.delete(8..10).unwrap();
+        t.replace(12..13, "long text").unwrap();
+        t.insert(20, ">").unwrap();
+        let m = t.mapper();
+        for pos in 0..=24 {
+            for assoc in [Assoc::Before, Assoc::After] {
+                assert_eq!(m.map(pos, assoc), t.map(pos, assoc), "{pos} {assoc:?}");
+            }
+        }
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn the_mapper_maps_as_map_whatever_the_edits(
+            ops in proptest::collection::vec((0usize..40, 0usize..4, 0usize..3), 0..12),
+        ) {
+            let mut t = Transaction::new("t");
+            for (at, len, n) in ops {
+                let _ = t.replace(at..at + len, "x".repeat(n));
+            }
+            let m = t.mapper();
+            for pos in 0..50 {
+                for assoc in [Assoc::Before, Assoc::After] {
+                    proptest::prop_assert_eq!(m.map(pos, assoc), t.map(pos, assoc));
+                }
+            }
+        }
     }
 }

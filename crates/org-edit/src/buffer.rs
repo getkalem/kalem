@@ -4,7 +4,7 @@
 
 use unicode_width::UnicodeWidthChar;
 
-use crate::transaction::{Selection, Transaction};
+use crate::transaction::{Edit, Selection, Transaction};
 
 /// An error a command signals, with the message Emacs shows. The text is
 /// unchanged; `point` is where Emacs leaves the cursor, if it moved it
@@ -355,12 +355,15 @@ impl Buf {
             .map_or(self.text.len(), |i| pos + i)
     }
 
-    /// The transaction from the original text to the current one: one
-    /// replacement covering the changed part.
+    /// The transaction from the original text to the current one: a
+    /// replacement for each run of lines changed ([`line_edits`]), so that
+    /// marks, cursors and the narrowing between two changes far apart
+    /// (a table's rows aligned, a heading and its drawer) stay where they
+    /// are, and the undo step holds the changes alone.
     pub(crate) fn transaction(&self, label: &str) -> Transaction {
         let mut t = Transaction::new(label);
-        if let Some((range, new)) = self.changed() {
-            t.edit(range, new);
+        for e in line_edits(&self.original, &self.text) {
+            t.edit(e.range, e.insert);
         }
         t.select(Selection::caret(self.point))
     }
@@ -368,32 +371,208 @@ impl Buf {
     /// The part of the original text changed, and its new text; none when
     /// the text is as it was.
     pub(crate) fn changed(&self) -> Option<(std::ops::Range<usize>, &str)> {
-        let (a, b) = (self.original.as_bytes(), self.text.as_bytes());
-        let mut pre = a.iter().zip(b).take_while(|(x, y)| x == y).count();
-        while !self.original.is_char_boundary(pre) || !self.text.is_char_boundary(pre) {
-            pre -= 1;
-        }
-        let max_suf = a.len().min(b.len()) - pre;
-        let mut suf = a
-            .iter()
-            .rev()
-            .zip(b.iter().rev())
-            .take(max_suf)
-            .take_while(|(x, y)| x == y)
-            .count();
-        while !self.original.is_char_boundary(a.len() - suf)
-            || !self.text.is_char_boundary(b.len() - suf)
-        {
-            suf -= 1;
-        }
-        (pre + suf < a.len() || pre + suf < b.len())
-            .then(|| (pre..a.len() - suf, &self.text[pre..b.len() - suf]))
+        changed_part(&self.original, &self.text)
     }
+}
+
+/// The most differing lines [`line_edits`] looks for before it takes the
+/// whole changed part for one replacement.
+const MOST_DIFFERENCES: usize = 256;
+
+/// The edits from `old` to `new`: their lines compared (Myers's
+/// difference), each run of lines that differ one replacement without
+/// the bytes it shares at its start and end. Texts that differ in more
+/// than [`MOST_DIFFERENCES`] lines are one replacement of the part
+/// between what they share at the start and at the end.
+pub(crate) fn line_edits(old: &str, new: &str) -> Vec<Edit> {
+    let Some((range, insert)) = changed_part(old, new) else {
+        return Vec::new();
+    };
+    // Whole lines: from the start of the first changed line to the end of
+    // the last, which the two texts share.
+    let start = old[..range.start].rfind('\n').map_or(0, |i| i + 1);
+    let tail = old[range.end..]
+        .find('\n')
+        .map_or(old.len() - range.end, |i| i + 1);
+    let new_end = range.start + insert.len();
+    let (a, b) = (&old[start..range.end + tail], &new[start..new_end + tail]);
+    let la: Vec<&str> = a.split_inclusive('\n').collect();
+    let lb: Vec<&str> = b.split_inclusive('\n').collect();
+    let Some(hunks) = differing_lines(&la, &lb, MOST_DIFFERENCES) else {
+        return vec![Edit {
+            range,
+            insert: insert.to_string(),
+        }];
+    };
+    let offsets = |lines: &[&str]| {
+        let mut at = vec![0];
+        for l in lines {
+            at.push(at.last().unwrap_or(&0) + l.len());
+        }
+        at
+    };
+    let (oa, ob) = (offsets(&la), offsets(&lb));
+    hunks
+        .into_iter()
+        .filter_map(|(x, y)| {
+            let (r, s) = changed_part(&a[oa[x.start]..oa[x.end]], &b[ob[y.start]..ob[y.end]])?;
+            let at = start + oa[x.start];
+            Some(Edit {
+                range: at + r.start..at + r.end,
+                insert: s.to_string(),
+            })
+        })
+        .collect()
+}
+
+/// The part of `old` that `new` changes, and its new text: what lies
+/// between the bytes they share at the start and at the end, on
+/// character boundaries; `None` when they are the same.
+fn changed_part<'a>(old: &str, new: &'a str) -> Option<(std::ops::Range<usize>, &'a str)> {
+    let (a, b) = (old.as_bytes(), new.as_bytes());
+    let mut pre = a.iter().zip(b).take_while(|(x, y)| x == y).count();
+    while !old.is_char_boundary(pre) || !new.is_char_boundary(pre) {
+        pre -= 1;
+    }
+    let max_suf = a.len().min(b.len()) - pre;
+    let mut suf = a
+        .iter()
+        .rev()
+        .zip(b.iter().rev())
+        .take(max_suf)
+        .take_while(|(x, y)| x == y)
+        .count();
+    while !old.is_char_boundary(a.len() - suf) || !new.is_char_boundary(b.len() - suf) {
+        suf -= 1;
+    }
+    (pre + suf < a.len() || pre + suf < b.len())
+        .then(|| (pre..a.len() - suf, &new[pre..b.len() - suf]))
+}
+
+/// The runs of lines that differ between `a` and `b`, as pairs of ranges
+/// of their lines in order, by Myers's greedy algorithm; `None` when they
+/// differ in more than `most` lines.
+#[allow(clippy::type_complexity)]
+fn differing_lines(
+    a: &[&str],
+    b: &[&str],
+    most: usize,
+) -> Option<Vec<(std::ops::Range<usize>, std::ops::Range<usize>)>> {
+    let (n, m) = (a.len() as isize, b.len() as isize);
+    let most = most.min(a.len() + b.len()) as isize;
+    let off = most + 1;
+    let mut v = vec![0isize; 2 * most as usize + 3];
+    // The furthest point of each diagonal before each step, to go back.
+    let mut trace: Vec<Vec<isize>> = Vec::new();
+    let mut end = None;
+    'search: for d in 0..=most {
+        trace.push(v.clone());
+        for k in (-d..=d).step_by(2) {
+            let i = (k + off) as usize;
+            let mut x = if k == -d || (k != d && v[i - 1] < v[i + 1]) {
+                v[i + 1]
+            } else {
+                v[i - 1] + 1
+            };
+            let mut y = x - k;
+            while x < n && y < m && a[x as usize] == b[y as usize] {
+                x += 1;
+                y += 1;
+            }
+            v[i] = x;
+            if x >= n && y >= m {
+                end = Some(d);
+                break 'search;
+            }
+        }
+    }
+    let end = end?;
+    // Back from the end: the lines the two share, last first.
+    let mut same = Vec::new();
+    let (mut x, mut y) = (n, m);
+    for d in (0..=end).rev() {
+        let v = &trace[d as usize];
+        let k = x - y;
+        let i = (k + off) as usize;
+        let prev = if k == -d || (k != d && v[i - 1] < v[i + 1]) {
+            k + 1
+        } else {
+            k - 1
+        };
+        let px = if d == 0 { 0 } else { v[(prev + off) as usize] };
+        let py = if d == 0 { 0 } else { px - prev };
+        while x > px && y > py {
+            x -= 1;
+            y -= 1;
+            same.push((x as usize, y as usize));
+        }
+        (x, y) = (px, py);
+    }
+    same.reverse();
+    // The runs between the lines they share.
+    let mut hunks = Vec::new();
+    let (mut pa, mut pb) = (0, 0);
+    for (sa, sb) in same.into_iter().chain([(a.len(), b.len())]) {
+        if sa > pa || sb > pb {
+            hunks.push((pa..sa, pb..sb));
+        }
+        (pa, pb) = (sa + 1, sb + 1);
+    }
+    Some(hunks)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::transaction::Assoc;
+
+    #[test]
+    fn changes_far_apart_are_edits_apart() {
+        let old = "| a |\n|b|\nkept 1\nkept 2\n| c |\n";
+        let new = "| a  |\n|b|\nkept 1\nkept 2\n| cc |\n";
+        let edits = line_edits(old, new);
+        assert_eq!(edits.len(), 2, "{edits:?}");
+        let mut t = Transaction::new("t");
+        for e in &edits {
+            t.edit(e.range.clone(), e.insert.clone());
+        }
+        assert_eq!(t.apply(old), new);
+        // A position between them stays where it was.
+        let kept = old.find("kept 2").unwrap();
+        assert_eq!(&new[t.map(kept, Assoc::After)..][..6], "kept 2");
+        // Lines added and taken away, apart.
+        let new = "| a |\n|b|\nadded\nkept 1\nkept 2\n";
+        let edits = line_edits(old, new);
+        assert_eq!(edits.len(), 2, "{edits:?}");
+        assert!(line_edits(old, old).is_empty());
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn line_edits_make_the_new_text(
+            old in proptest::collection::vec("[ab\n]{0,4}", 0..12),
+            new in proptest::collection::vec("[ab\n]{0,4}", 0..12),
+        ) {
+            let (old, new) = (old.concat(), new.concat());
+            let mut t = Transaction::new("t");
+            for e in line_edits(&old, &new) {
+                t.replace(e.range, e.insert).unwrap();
+            }
+            proptest::prop_assert_eq!(t.apply(&old), new);
+        }
+
+        #[test]
+        fn too_many_differences_are_one_edit(n in 0usize..40) {
+            let old: String = (0..n).map(|i| format!("{i}\n")).collect();
+            let new: String = (0..n).map(|i| format!("x{i}\n")).collect();
+            let edits = differing_lines(
+                &old.split_inclusive('\n').collect::<Vec<_>>(),
+                &new.split_inclusive('\n').collect::<Vec<_>>(),
+                3,
+            );
+            proptest::prop_assert_eq!(edits.is_none(), n * 2 > 3);
+        }
+    }
 
     /// [`Buf::replace_lines`] the way `org-table-align` did it, a line at a
     /// time.

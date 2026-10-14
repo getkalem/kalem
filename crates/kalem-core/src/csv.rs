@@ -3006,14 +3006,15 @@ impl Frozen {
     /// Moves the records through `tx`: a record an edit takes away whole
     /// (with its line ending, or a text replaced around it) goes.
     pub fn map(&mut self, tx: &Transaction) {
+        let m = tx.mapper();
         self.records.retain_mut(|(r, _)| {
             let gone = tx
                 .edits
                 .iter()
                 .any(|e| e.range.start <= r.start && r.end <= e.range.end && e.range != *r);
             if !gone {
-                let start = tx.map(r.start, org_edit::Assoc::Before);
-                let end = tx.map(r.end, org_edit::Assoc::After).max(start);
+                let start = m.map(r.start, org_edit::Assoc::Before);
+                let end = m.map(r.end, org_edit::Assoc::After).max(start);
                 *r = start..end;
             }
             !gone

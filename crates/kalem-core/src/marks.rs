@@ -32,8 +32,9 @@ impl Marks {
     pub fn map(&mut self, tx: &Transaction) {
         // Text put right where a mark is goes before it: a line opened
         // above a marked line moves the mark down with its line.
+        let m = tx.mapper();
         for p in self.named.values_mut() {
-            *p = tx.map(*p, Assoc::After);
+            *p = m.map(*p, Assoc::After);
         }
         for p in self
             .jumps
@@ -41,7 +42,7 @@ impl Marks {
             .chain(self.changes.iter_mut())
             .chain(self.held.iter_mut())
         {
-            *p = tx.map(*p, Assoc::After);
+            *p = m.map(*p, Assoc::After);
         }
     }
 

@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A language server whose output Kalem can no longer read (a message too large) is ended, where it was left running while Kalem took it for stopped; a document opened again while open is closed first, as the protocol wants; and a client dropped without being shut down no longer holds up its thread for up to two seconds.
 - Edits sent to a language server that do not fit the text, a range inside a character among them, send the whole text rather than ranges the server would put in the wrong place, or ending Kalem.
 - On Linux and macOS, a file whose name has a backslash or is not UTF-8 is named to language servers by its own path, and a relative path from the working folder.
+- An edit that does not fit a document's text, such as a language server's answer to an older version, a plugin's mistake or an undo step the text no longer matches, is refused, where it could crash Kalem or change the wrong place; such an undo step forgets the history rather than apply it. A selection a command leaves past the text or inside a character is put on the text.
+- Undoing Line Endings sets the line endings back too, so that the document is as it was and a paste after it no longer brings CR LF into a text of line feeds; Redo sets them again.
+- In a file whose lines end in CR LF, the end of a line is before its carriage return: End and Org's commands no longer put the cursor or text between the carriage return and its line feed, which split the pair. Org's commands see such a file with line feeds alone, as Emacs does, and write the carriage returns back.
+- An Org command that changes two places far apart, such as a table's rows aligned or a heading and its drawer, keeps the cursors, marks and line marks between them where they are, and its undo step holds only what changed.
+- A failure of the Org parser no longer ends Kalem: it is logged, the document keeps its last tree, and Org's commands say so until the text changes.
 
 ## [0.6.27] - 2026-10-15
 

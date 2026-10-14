@@ -35,4 +35,4 @@ pub mod typing;
 
 pub use buffer::EditError;
 pub use history::{ChangeKind, History, Replay};
-pub use transaction::{Assoc, Edit, OverlapError, Selection, Transaction};
+pub use transaction::{Assoc, Edit, Mapper, OverlapError, Selection, Transaction};

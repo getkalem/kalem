@@ -449,7 +449,8 @@ impl Live {
                 .iter()
                 .any(|e| e.range.start <= r.end && r.start <= e.range.end)
         };
-        let carry = |r: &Range<usize>| tx.map(r.start, Assoc::After)..tx.map(r.end, Assoc::Before);
+        let m = tx.mapper();
+        let carry = |r: &Range<usize>| m.map(r.start, Assoc::After)..m.map(r.end, Assoc::Before);
         let kept: Vec<Diagnostic> = d
             .iter()
             .filter(|x| !touched(&x.range))

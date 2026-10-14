@@ -67,10 +67,61 @@ fn spawn_parse(base: &Parse, text: &str, version: u64) -> Pending {
     let text = text.to_string();
     tracing::debug!(version, bytes = text.len(), "background parse started");
     std::thread::spawn(move || {
-        let _ = send.send(base.parse_again(&text));
+        if let Some(parse) = parse_again(&base, &text, version) {
+            let _ = send.send(parse);
+        }
     });
     Pending { version, result }
 }
+
+/// `base.parse_again(text)`, or `None` when the parser panics (a bug in
+/// it): logged, and the document goes on with the tree it had rather than
+/// the panic ending Kalem, on whichever thread the parse ran.
+fn parse_again(base: &Parse, text: &str, version: u64) -> Option<Parse> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        #[cfg(test)]
+        if text.contains(PARSE_FAILS) {
+            panic!("a parse made to fail");
+        }
+        base.parse_again(text)
+    }))
+    .inspect_err(|_| {
+        tracing::error!(
+            version,
+            bytes = text.len(),
+            "the Org parser failed on this text; the last tree is kept"
+        );
+    })
+    .ok()
+}
+
+/// `parse.try_reparse(text, edit)`, or `None` (the whole text parsed
+/// again in the background) when the parser panics.
+fn try_reparse(
+    parse: &Parse,
+    text: &str,
+    edit: &org_syntax::TextEdit,
+    version: u64,
+) -> Option<(Parse, ReparseLevel)> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        #[cfg(test)]
+        if text.contains(PARSE_FAILS) {
+            panic!("a parse made to fail");
+        }
+        parse.try_reparse(text, edit)
+    }))
+    .inspect_err(|_| tracing::error!(version, "the Org parser failed on an edit"))
+    .ok()
+    .flatten()
+}
+
+/// A text the parser fails on, in tests.
+#[cfg(test)]
+const PARSE_FAILS: &str = "\u{0}the parser fails here\u{0}";
+
+/// The label of the step [`DocumentState::set_line_ending`] makes: its
+/// undo and redo set the line endings back too.
+const LINE_ENDINGS: &str = "Line Endings";
 
 /// A full parse running in the background.
 #[derive(Debug)]
@@ -92,6 +143,10 @@ struct OrgState {
     cache: Arc<ModelCache>,
     model: Option<(u64, Arc<Document>)>,
     last_level: Option<ReparseLevel>,
+    /// The version of the text the parser failed on (a bug, logged): its
+    /// parse is not tried again on the caller's thread, which it would
+    /// end, and the document has no model until the text changes.
+    failed: Option<u64>,
 }
 
 /// A cell of a CSV grid being typed into or edited (`csv_edit`): its row
@@ -252,6 +307,9 @@ pub struct DocumentState {
     /// ([`Self::is_modified`]).
     saved_meta: (LineEnding, bool, &'static encoding_rs::Encoding),
     saved_text: Option<(usize, u64)>,
+    /// The line endings the Line Endings steps of the history to undo and
+    /// to redo go back to, the last on top, as their steps are.
+    endings: (Vec<LineEnding>, Vec<LineEnding>),
     /// Whether the text at a version is the saved one, worked out once.
     back_to_saved: std::cell::Cell<Option<(u64, bool)>>,
     org: Option<OrgState>,
@@ -527,6 +585,7 @@ impl DocumentState {
             cache: ModelCache::new(),
             model: None,
             last_level: None,
+            failed: None,
         });
         let latex = (meta.mode == DocumentMode::Latex).then(|| {
             let mut l = crate::latex_view::LatexState::new(text.as_str());
@@ -554,6 +613,7 @@ impl DocumentState {
             extra: Vec::new(),
             expansions: Vec::new(),
             history: History::new(),
+            endings: Default::default(),
             meta,
             narrowing: None,
             row_edit: None,
@@ -677,6 +737,7 @@ impl DocumentState {
             self.apply_raw(&tx);
         }
         self.history = History::new();
+        self.endings = Default::default();
         self.mark_saved();
     }
 
@@ -923,6 +984,7 @@ impl DocumentState {
                 cache: ModelCache::new(),
                 model: None,
                 last_level: None,
+                failed: None,
             });
         } else if mode != DocumentMode::Org {
             self.org = None;
@@ -1716,6 +1778,7 @@ impl DocumentState {
         if self.history.depth() > e.steps {
             while self.history.depth() > e.steps && self.undo().is_some() {}
             self.history.forget_redo();
+            self.endings.1.clear();
         }
         let Some((_, _, rec, _)) = crate::csv::cell_at(self) else {
             return true;
@@ -1830,7 +1893,7 @@ impl DocumentState {
             return;
         }
         let text = self.text().as_str();
-        let mut tx = Transaction::new("Line Endings");
+        let mut tx = Transaction::new(LINE_ENDINGS);
         if ending == LineEnding::CrLf {
             for (i, _) in text.match_indices('\n') {
                 if i == 0 || text.as_bytes()[i - 1] != b'\r' {
@@ -1842,11 +1905,13 @@ impl DocumentState {
                 tx.edit(i..i + 1, "");
             }
         }
+        let before = self.meta.line_ending;
         self.meta.line_ending = ending;
         if tx.edits.is_empty() {
             self.version += 1;
         } else {
             self.apply(&tx, ChangeKind::Command, now);
+            self.endings.0.push(before);
         }
     }
 
@@ -1946,21 +2011,32 @@ impl DocumentState {
             self.apply_flow(tx, after);
             return;
         }
+        // An edit made for another text (a server's answer to an older
+        // version, a plugin's mistake) is refused, not applied in the
+        // wrong place or ending Kalem on a slice of the text.
+        if !tx.fits(self.text.as_str()) {
+            tracing::warn!(label = %tx.label, "an edit that does not fit the text was refused");
+            return;
+        }
         self.history
             .record(tx, self.text.as_str(), before, after, kind, now);
+        if !tx.is_empty() {
+            self.endings.1.clear();
+        }
         // A command's edit (rows or columns moved) ends cells Enter and Tab
         // move within; typing into the active cell does not.
         if kind == ChangeKind::Command {
             self.csv_rect = None;
         }
         self.apply_raw(tx);
-        self.selection = after;
+        self.selection = self.clamped(after);
         if !self.extra.is_empty() {
+            let m = tx.mapper();
             let mapped = std::mem::take(&mut self.extra)
                 .into_iter()
                 .map(|s| Selection {
-                    anchor: tx.map(s.anchor, org_edit::Assoc::After),
-                    head: tx.map(s.head, org_edit::Assoc::After),
+                    anchor: m.map(s.anchor, org_edit::Assoc::After),
+                    head: m.map(s.head, org_edit::Assoc::After),
                 })
                 .collect();
             self.set_extra(mapped);
@@ -2228,11 +2304,11 @@ impl DocumentState {
         tx.edit(a..b, text);
         // In an environment's name: the other end too (T2.7h.15).
         let mut caret = a + text.len();
-        if let Some(m) = self.latex_mirror(a..b) {
-            let _ = tx.replace(m.clone(), text);
-            if m.start < a {
-                caret = (caret as isize + text.len() as isize - m.len() as isize) as usize;
-            }
+        if let Some(m) = self.latex_mirror(a..b)
+            && tx.replace(m.clone(), text).is_ok()
+            && m.start < a
+        {
+            caret = (caret as isize + text.len() as isize - m.len() as isize) as usize;
         }
         let tx = tx.select(Selection::caret(caret));
         self.apply(&tx, ChangeKind::Typing, now);
@@ -2772,16 +2848,20 @@ impl DocumentState {
         let parts = vec![range];
         let mut tx = Transaction::new("Delete");
         let mut caret = start;
-        if let [one] = parts.as_slice()
-            && let Some(m) = self.latex_mirror(one.clone())
-        {
-            let _ = tx.replace(m.clone(), "");
-            if m.start < one.start {
-                caret -= m.len();
-            }
-        }
+        let mirror = match parts.as_slice() {
+            [one] => self.latex_mirror(one.clone()),
+            _ => None,
+        };
         for r in parts {
             tx.edit(r, "");
+        }
+        // The other end of an environment's name, when it is apart from
+        // what is deleted: the caret moves only when it is deleted too.
+        if let Some(m) = mirror
+            && tx.replace(m.clone(), "").is_ok()
+            && m.start < start
+        {
+            caret -= m.len();
         }
         let tx = tx.select(Selection::caret(caret));
         self.apply(&tx, ChangeKind::Typing, now);
@@ -2820,12 +2900,40 @@ impl DocumentState {
         }
         let replay = self.history.undo()?;
         self.csv_edit = None;
-        for t in &replay.transactions {
-            self.apply_raw(t);
+        if !self.replay(&replay, false) {
+            return None;
         }
-        self.selection = replay.selection;
+        self.selection = self.clamped(replay.selection);
         self.extra.clear();
         Some(replay.label)
+    }
+
+    /// Applies an undo (or, `redo`, a redo) step's transactions, and the
+    /// line endings of a Line Endings step. False, and the history
+    /// forgotten, when one does not fit the text (a change made around the
+    /// history): it is not applied in the wrong place.
+    fn replay(&mut self, replay: &org_edit::Replay, redo: bool) -> bool {
+        for t in &replay.transactions {
+            if !t.fits(self.text.as_str()) {
+                tracing::error!(label = %t.label, "an undo step does not fit the text; the history is forgotten");
+                self.history = History::new();
+                self.endings = Default::default();
+                return false;
+            }
+            self.apply_raw(t);
+        }
+        if replay.label == LINE_ENDINGS {
+            let (from, to) = if redo {
+                (&mut self.endings.1, &mut self.endings.0)
+            } else {
+                (&mut self.endings.0, &mut self.endings.1)
+            };
+            if let Some(e) = from.pop() {
+                to.push(self.meta.line_ending);
+                self.meta.line_ending = e;
+            }
+        }
+        true
     }
 
     /// Redoes the last undone step with the cursor where the step began,
@@ -2839,12 +2947,10 @@ impl DocumentState {
         }
         let replay = self.history.redo()?;
         self.csv_edit = None;
-        for t in &replay.transactions {
-            self.apply_raw(t);
+        if !self.replay(&replay, true) {
+            return None;
         }
-        let len = self.text().len();
-        let at = replay.start.head.min(len);
-        self.selection = Selection::caret(at);
+        self.selection = self.clamped(Selection::caret(replay.start.head));
         self.extra.clear();
         Some(replay.label)
     }
@@ -2862,10 +2968,10 @@ impl DocumentState {
         }
         let replay = self.history.redo()?;
         self.csv_edit = None;
-        for t in &replay.transactions {
-            self.apply_raw(t);
+        if !self.replay(&replay, true) {
+            return None;
         }
-        self.selection = replay.selection;
+        self.selection = self.clamped(replay.selection);
         self.extra.clear();
         Some(replay.label)
     }
@@ -2875,12 +2981,19 @@ impl DocumentState {
         if tx.is_empty() {
             return;
         }
+        // Its callers refuse such an edit first; nothing is moved for one
+        // that gets here all the same.
+        if !tx.fits(self.text.as_str()) {
+            tracing::error!(label = %tx.label, "an edit that does not fit the text was refused");
+            return;
+        }
         self.changes.push(tx.clone());
         self.marks.map(tx);
         // A mark goes with its line: text put at the line's start goes
         // before it.
-        for m in &mut self.gutter {
-            m.0 = tx.map(m.0, org_edit::Assoc::After);
+        let m = tx.mapper();
+        for g in &mut self.gutter {
+            g.0 = m.map(g.0, org_edit::Assoc::After);
         }
         if let Some(f) = self.csv_frozen.get_mut() {
             f.map(tx);
@@ -2912,11 +3025,12 @@ impl DocumentState {
             org.pending.is_none() && org.since.is_empty() && org.parse_version + 1 == version;
         if current
             && let Some(edit) = &edit
-            && let Some((parse, level)) = org.parse.try_reparse(text, edit)
+            && let Some((parse, level)) = try_reparse(&org.parse, text, edit, version)
         {
             org.parse = parse;
             org.parse_version = version;
             org.last_level = Some(level);
+            org.failed = None;
             return;
         }
         // Behind: remember the edit for position mapping and parse the
@@ -3005,6 +3119,7 @@ impl DocumentState {
                 // one even if edits came in meanwhile; then parse again.
                 org.parse = parse;
                 org.parse_version = for_version;
+                org.failed = None;
                 org.since.retain(|(v, _)| *v > for_version);
                 tracing::debug!(
                     version = for_version,
@@ -3018,6 +3133,11 @@ impl DocumentState {
             }
             Err(TryRecvError::Empty) => false,
             Err(TryRecvError::Disconnected) => {
+                // The parser failed on that text (logged): the last tree
+                // stays, and the next command does not parse it again on
+                // its own thread, which the failure would end.
+                let failed = p.version;
+                org.failed = Some(failed);
                 org.pending = None;
                 false
             }
@@ -3031,13 +3151,32 @@ impl DocumentState {
         if org.pending.is_none() && org.since.is_empty() {
             return;
         }
+        let version = self.version;
         let parse = match org.pending.take() {
-            Some(p) if p.version == self.version => p.result.recv().ok(),
-            _ => None,
+            // None when the parser failed on its thread.
+            Some(p) if p.version == version => p.result.recv().ok(),
+            // Not tried again here: it would fail the same way.
+            _ if org.failed == Some(version) => None,
+            _ => parse_again(&org.parse, self.text.as_str(), version),
         };
-        org.parse = parse.unwrap_or_else(|| org.parse.parse_again(self.text.as_str()));
-        org.parse_version = self.version;
+        let Some(parse) = parse else {
+            // The parser failed on the text (logged): the last tree stays,
+            // behind it, and there is no model until the text changes.
+            org.failed = Some(version);
+            return;
+        };
+        org.parse = parse;
+        org.parse_version = version;
         org.since.clear();
+        org.failed = None;
+    }
+
+    /// Whether the parser failed on the text as it is (a bug, logged):
+    /// Org commands wait for the next change.
+    pub fn parse_failed(&self) -> bool {
+        self.org
+            .as_ref()
+            .is_some_and(|o| o.failed == Some(self.version))
     }
 
     /// The parse, and whether it is for the current text. When it is not,
@@ -3246,6 +3385,10 @@ impl DocumentState {
     /// unchanged subtrees across versions.
     pub fn model(&mut self) -> Option<Arc<Document>> {
         self.wait_for_parse();
+        // None of a text the parser failed on: the tree is of another.
+        if self.parse_failed() {
+            return None;
+        }
         let settings = self.settings.clone();
         let file = self
             .meta
@@ -3287,17 +3430,36 @@ impl DocumentState {
     ) -> Result<(), EditError> {
         let Some(model) = self.model() else {
             return Err(EditError {
-                message: "Not an Org document".into(),
+                message: if self.parse_failed() {
+                    "Kalem could not read this text (a bug, in its log); try again after the next change".into()
+                } else {
+                    "Not an Org document".into()
+                },
                 point: None,
             });
         };
         let sel = self.selection;
         let mark = (sel.anchor != sel.head).then_some(sel.anchor);
-        let result = match self.narrowing.clone() {
-            Some(r) => org_edit::narrow::narrowed(&model, r.clone(), sel.head, |sub, p| {
-                command(sub, p, mark.map(|m| m.clamp(r.start, r.end) - r.start))
-            }),
-            None => command(&model, sel.head, mark),
+        let narrowing = self.narrowing.clone();
+        let run = |model: &Document, at: &dyn Fn(usize) -> usize| {
+            let (head, mark) = (at(sel.head), mark.map(at));
+            match narrowing {
+                Some(r) => {
+                    let r = at(r.start)..at(r.end);
+                    org_edit::narrow::narrowed(model, r.clone(), head, |sub, p| {
+                        command(sub, p, mark.map(|m| m.clamp(r.start, r.end) - r.start))
+                    })
+                }
+                None => command(model, head, mark),
+            }
+        };
+        // A command on CR LF lines sees them as Emacs does, with line feeds
+        // alone, so that the end of a line is before its CR; typing, which
+        // does not look for the ends of lines, runs on the text as it is.
+        let result = if kind == ChangeKind::Command && self.meta.line_ending == LineEnding::CrLf {
+            org_edit::narrow::with_line_feeds(&model, run)
+        } else {
+            run(&model, &|p| p)
         };
         match result {
             Ok(tx) => {
@@ -3628,7 +3790,8 @@ mod tests {
         std::fs::write(&p, "* TODO A\r\nbody, edited\r\n").unwrap();
         assert_eq!(d.external_change(now).unwrap(), ExternalChange::Reloaded);
         assert_eq!(d.text().as_str(), "* TODO A\r\nbody, edited\r\n");
-        assert_eq!(d.selection.head, 9);
+        // At the end of the heading, before its CR, where the command left it.
+        assert_eq!(d.selection.head, 8);
         assert!(!d.is_modified());
         d.undo();
         assert_eq!(d.text().as_str(), "* TODO A\r\nbody\r\n");
@@ -3998,11 +4161,111 @@ mod tests {
         assert!(d.is_modified());
         d.undo();
         assert!(!d.is_modified());
-        // New line endings, the text's change undone: still a change.
+        // New line endings undone: the text and its line endings as they
+        // were, no change; redone, a change again.
         d.set_line_ending(LineEnding::CrLf, now);
         d.undo();
         assert_eq!(d.text().as_str(), "one!\n");
+        assert_eq!(d.meta.line_ending, LineEnding::Lf);
+        assert!(!d.is_modified());
+        d.redo();
+        assert_eq!(d.text().as_str(), "one!\r\n");
+        assert_eq!(d.meta.line_ending, LineEnding::CrLf);
         assert!(d.is_modified());
+        // Undone again, typing after it: the redo forgotten, its line
+        // endings too.
+        d.undo();
+        typed(&mut d, 0..0, "x");
+        assert!(d.redo().is_none());
+        assert_eq!(d.meta.line_ending, LineEnding::Lf);
+    }
+
+    #[test]
+    fn edits_that_do_not_fit_the_text_are_refused() {
+        let now = Instant::now();
+        let mut d = org("héllo world\n");
+        // Past the end, inside a character, out of order: nothing changes,
+        // nothing to undo, and no crash.
+        let bad: [&[(usize, usize)]; 3] = [&[(20, 21)], &[(2, 3)], &[(6, 7), (0, 1)]];
+        for edits in bad {
+            let mut tx = Transaction::new("Bad");
+            tx.edits = edits
+                .iter()
+                .map(|&(a, b)| org_edit::Edit {
+                    range: a..b,
+                    insert: "x".into(),
+                })
+                .collect();
+            d.apply(&tx, ChangeKind::Command, now);
+        }
+        assert_eq!(d.text().as_str(), "héllo world\n");
+        assert!(d.undo().is_none());
+        // A selection past the text, or inside a character, is put on it.
+        let mut tx = Transaction::new("Sel");
+        tx.edit(0..0, "");
+        d.apply(&tx.select(Selection::caret(2)), ChangeKind::Command, now);
+        assert_eq!(d.selection, Selection::caret(1));
+        // An undo step the text no longer matches (the text changed around
+        // the history): forgotten, not applied in the wrong place.
+        let mut tx = Transaction::new("Delete");
+        tx.edit(7..12, "");
+        d.apply(&tx, ChangeKind::Command, now);
+        let mut around = Transaction::new("Around");
+        around.edit(0..7, "");
+        d.apply_raw(&around);
+        assert_eq!(d.text().as_str(), "\n");
+        assert!(d.undo().is_none());
+        assert_eq!(d.text().as_str(), "\n");
+        assert!(d.undo().is_none());
+    }
+
+    #[test]
+    fn a_parser_failure_keeps_the_last_tree() {
+        let now = Instant::now();
+        let mut d = org("* A\ntext\n");
+        assert!(d.model().is_some());
+        // The parser fails on the text: no crash on this thread, and no
+        // model of a tree that is not of the text.
+        typing(&mut d, 9, PARSE_FAILS, now);
+        assert!(d.model().is_none());
+        assert!(d.parse_failed());
+        let e = d
+            .run_as(now, ChangeKind::Command, |_, _, _| {
+                Ok(Transaction::new("x"))
+            })
+            .unwrap_err();
+        assert!(e.message.contains("could not read"), "{}", e.message);
+        // The text changed again: parsed, its tree current.
+        d.undo();
+        assert!(!d.parse_failed());
+        assert!(d.model().is_some());
+        assert!(d.parse().is_some_and(|(_, current)| current));
+    }
+
+    #[test]
+    fn org_commands_see_crlf_lines_as_line_feeds() {
+        let now = Instant::now();
+        let meta = Metadata {
+            path: None,
+            mode: DocumentMode::Org,
+            line_ending: LineEnding::CrLf,
+            bom: false,
+            encoding: encoding_rs::UTF_8,
+            lossy: false,
+        };
+        let mut d = DocumentState::new("* A\r\n* B\r\n", meta, Arc::new(Settings::default()));
+        // A command that puts text at the end of the heading's line: before
+        // the CR, not between it and the line feed.
+        d.run_as(now, ChangeKind::Command, |m, p, _| {
+            let text = m.parse().text();
+            let eol = p + text[p..].find('\n').unwrap();
+            let mut t = Transaction::new("End");
+            t.edit(eol..eol, " :x:");
+            Ok(t.select(Selection::caret(eol + 4)))
+        })
+        .unwrap();
+        assert_eq!(d.text().as_str(), "* A :x:\r\n* B\r\n");
+        assert_eq!(d.selection, Selection::caret(7));
     }
     fn org(text: &str) -> DocumentState {
         let meta = Metadata {

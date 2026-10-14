@@ -98,11 +98,26 @@ impl Text {
         self.lines[line.min(self.lines.len() - 1)]
     }
 
-    /// The byte range of line `line`, without its line feed.
+    /// The byte range of line `line`, without its line ending: the line
+    /// feed, and in a CR LF text the carriage return before it, so that
+    /// the end of a line is never between the two.
     pub fn line_range(&self, line: usize) -> Range<usize> {
         let s = self.line_start(line);
-        let e = self.lines.get(line + 1).map_or(self.text.len(), |n| n - 1);
+        let e = match self.lines.get(line + 1) {
+            Some(&next) if next - 1 > s && self.text.as_bytes()[next - 2] == b'\r' => next - 2,
+            Some(&next) => next - 1,
+            None => self.text.len(),
+        };
         s..e
+    }
+
+    /// Where the line after `line` starts; one past the end of the text
+    /// for the last line, as though it ended with a line break.
+    pub fn after_line(&self, line: usize) -> usize {
+        self.lines
+            .get(line + 1)
+            .copied()
+            .unwrap_or(self.text.len() + 1)
     }
 
     /// The line containing `offset`.
@@ -110,8 +125,13 @@ impl Text {
         self.lines.partition_point(|&l| l <= offset) - 1
     }
 
-    /// (line, column in characters) of `offset`.
+    /// (line, column in characters) of `offset`, taken to the end of the
+    /// text and to the start of the character it is in.
     pub fn line_col(&self, offset: usize) -> (usize, usize) {
+        let mut offset = offset.min(self.text.len());
+        while !self.text.is_char_boundary(offset) {
+            offset -= 1;
+        }
         let line = self.line_of(offset);
         let col = self.text[self.lines[line]..offset].chars().count();
         (line, col)
@@ -195,6 +215,23 @@ mod tests {
         );
         assert_eq!(detect_indent("a\n\tb\n\t\tc\n"), Some(Indent::Tabs));
         assert_eq!(detect_indent("a\nb\n"), None);
+    }
+
+    #[test]
+    fn crlf_lines_end_before_their_cr() {
+        let t = Text::new("ab\r\n\r\ncé\r\nlast");
+        assert_eq!(t.line_range(0), 0..2);
+        assert_eq!(t.line_range(1), 4..4);
+        assert_eq!(t.line_range(3), 11..15);
+        // The end of a line: before its CR, never between it and the LF.
+        assert_eq!(t.offset(0, 9), 2);
+        assert_eq!(t.after_line(0), 4);
+        assert_eq!(t.after_line(3), 16);
+        // A lone CR is a character of its line.
+        assert_eq!(Text::new("a\r\rb\n").line_range(0), 0..4);
+        // An offset past the end or inside a character is taken back.
+        assert_eq!(t.line_col(99), (3, 4));
+        assert_eq!(t.line_col(8), (2, 1));
     }
 
     #[test]

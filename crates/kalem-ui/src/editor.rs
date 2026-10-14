@@ -3604,8 +3604,9 @@ impl Editor {
             2 => self.select_word(pos),
             3 => {
                 let text = self.doc.text();
-                let r = text.line_range(text.line_of(pos));
-                let end = (r.end + 1).min(text.len());
+                let line = text.line_of(pos);
+                let r = text.line_range(line);
+                let end = text.after_line(line).min(text.len());
                 self.doc.move_cursor(r.start, false);
                 self.doc.move_cursor(end, true);
             }
