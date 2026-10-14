@@ -7,6 +7,7 @@
 // (roadmap R2.2).
 #![warn(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+pub mod canvas_view;
 pub mod chart;
 pub mod clipboard;
 pub mod datepicker;

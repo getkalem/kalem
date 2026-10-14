@@ -1,0 +1,105 @@
+package kalem:plugin@0.2.16;
+
+/// Documents drawn as a canvas of shapes where the plugin places them
+/// (API 0.2.16): a Logseq whiteboard, an Obsidian canvas, a diagram, a
+/// mind map with a layout of its own. The plugin gives each shape's place,
+/// size, kind, text and colors, and the connectors between shapes; the
+/// editor draws them as placed (in the window with lines, fills and text,
+/// in the terminal with braille dots and the text in cells) and lets the
+/// user pan, zoom and open a shape that leads somewhere, which runs the
+/// canvas's command with `{"shape": target}`. The document's text, which
+/// the plugin writes with the canvas (its shapes' text in reading order),
+/// is what the source view, search and copying show.
+interface canvas-view {
+    use documents.{document-spec};
+
+    /// A point of the canvas, in its own units (a whiteboard's pixels): x
+    /// to the right, y down.
+    record point {
+        x: f32,
+        y: f32,
+    }
+
+    /// What a shape is drawn as.
+    variant shape-kind {
+        /// A rectangle, its corners rounded by so many units.
+        box(f32),
+        /// An ellipse in its bounds.
+        ellipse,
+        /// Text alone, with no outline.
+        text,
+        /// A frame around other shapes, its text written at its top.
+        group,
+        /// A picture: an image file's whole path, drawn in its bounds (the
+        /// terminal writes its name); only a file in Kalem's projects.
+        image(string),
+        /// A line through points, from the shape's corner (a pen's
+        /// stroke).
+        stroke(list<point>),
+    }
+
+    /// A shape.
+    record shape {
+        /// The plugin's name for it, which connectors name.
+        id: string,
+        kind: shape-kind,
+        /// Its top left corner, its width and its height.
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        /// What is written in it, wrapped to its width; a line feed
+        /// starts a line.
+        text: string,
+        /// Its fill and its line: a color's name (`red`, `orange`,
+        /// `yellow`, `green`, `cyan`, `blue`, `purple`, `gray`) or
+        /// `#rrggbb`; empty or another for the theme's own (a box's line,
+        /// no fill).
+        fill: string,
+        stroke: string,
+        /// Its line dashed.
+        dashed: bool,
+        /// Where opening it leads, handed to the canvas's command; none
+        /// for a shape that leads nowhere.
+        target: option<string>,
+    }
+
+    /// A line between two shapes, from the side of one facing the other,
+    /// or between points.
+    record connector {
+        /// The shapes it joins, by id; none for an end at a point.
+        %from: option<string>,
+        to: option<string>,
+        /// Its ends where they are not at shapes.
+        start: point,
+        end: point,
+        /// What is written at its middle.
+        label: string,
+        /// An arrow at its start, at its end.
+        arrow-start: bool,
+        arrow-end: bool,
+        /// Its color and whether it is dashed, as a shape's line.
+        stroke: string,
+        dashed: bool,
+    }
+
+    /// What is drawn.
+    record canvas {
+        /// In the order they are drawn, the first under the others.
+        shapes: list<shape>,
+        /// Drawn over the shapes.
+        connectors: list<connector>,
+        /// The plugin's command run with `{"shape": target}` when the user
+        /// opens a shape (a double click, Enter).
+        command: string,
+    }
+
+    /// Shows `c` as the plugin's document `spec`, `text` its source; its
+    /// number. Shown again, and written anew, when one of the same ID and
+    /// key is open.
+    open: func(spec: document-spec, c: canvas, text: string) -> result<u64, string>;
+
+    /// Writes document `doc` anew, the view staying where it looks. An
+    /// error once the user closed it.
+    set: func(doc: u64, c: canvas, text: string) -> result<_, string>;
+}

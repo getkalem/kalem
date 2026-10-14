@@ -3512,6 +3512,9 @@ impl App {
             self.settings_mouse(m);
             return;
         }
+        if self.canvas_mouse(&m) {
+            return;
+        }
         if self.graph_mouse(&m) {
             return;
         }
@@ -4219,6 +4222,109 @@ impl App {
         true
     }
 
+    /// A canvas's keys: Enter opens the shape chosen, Tab and Shift+Tab
+    /// choose another that leads somewhere, the arrows pan, `+` and `-`
+    /// zoom, `0` fits. Whether the key was the canvas's.
+    fn canvas_key(&mut self, k: &KeyEvent) -> bool {
+        if self.editor.source
+            || k.modifiers
+                .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
+        {
+            return false;
+        }
+        if self
+            .vim
+            .as_ref()
+            .is_some_and(|v| v.command_line.is_some() || !(v.takes_text() || v.idle_command()))
+        {
+            return false;
+        }
+        let size = self
+            .editor
+            .canvas_area
+            .map_or([160.0, 160.0], crate::canvas_view::size);
+        let Some(v) = self.doc.canvas_view.as_deref_mut() else {
+            return false;
+        };
+        let middle = [size[0] / 2.0, size[1] / 2.0];
+        match k.code {
+            KeyCode::Enter => {
+                self.open_canvas_shape();
+                return true;
+            }
+            KeyCode::Tab => {
+                v.select_next(false);
+                v.center_on_selected();
+            }
+            KeyCode::BackTab => {
+                v.select_next(true);
+                v.center_on_selected();
+            }
+            KeyCode::Left => v.pan_by([8.0, 0.0]),
+            KeyCode::Right => v.pan_by([-8.0, 0.0]),
+            KeyCode::Up => v.pan_by([0.0, 8.0]),
+            KeyCode::Down => v.pan_by([0.0, -8.0]),
+            KeyCode::Char('+') | KeyCode::Char('=') => v.zoom_at(1.25, middle, size),
+            KeyCode::Char('-') => v.zoom_at(0.8, middle, size),
+            KeyCode::Char('0') => v.fit(size),
+            _ => return false,
+        }
+        self.dirty = true;
+        true
+    }
+
+    /// A click on a plugin's canvas chooses the shape under it, a double
+    /// click opens it, the wheel zooms. Whether the mouse was the canvas's.
+    fn canvas_mouse(&mut self, m: &crossterm::event::MouseEvent) -> bool {
+        let Some(area) = self.editor.canvas_area.filter(|_| !self.editor.source) else {
+            return false;
+        };
+        if self.doc.canvas_view.is_none()
+            || !area.contains(ratatui::layout::Position::new(m.column, m.row))
+        {
+            return false;
+        }
+        let size = crate::canvas_view::size(area);
+        let at = [
+            f32::from(m.column - area.x) * crate::canvas_view::DOTS.0 + 1.0,
+            f32::from(m.row - area.y) * crate::canvas_view::DOTS.1 + 2.0,
+        ];
+        let now = Instant::now();
+        let double = self.last_click.is_some_and(|(t, x, y)| {
+            now.duration_since(t) < Duration::from_millis(400) && x == m.column && y == m.row
+        });
+        let Some(v) = self.doc.canvas_view.as_deref_mut() else {
+            return false;
+        };
+        match m.kind {
+            MouseEventKind::Down(MouseButton::Left) => {
+                self.last_click = Some((now, m.column, m.row));
+                v.selected = v.shape_at(at, size);
+                if double && v.selected.is_some() {
+                    self.open_canvas_shape();
+                }
+            }
+            MouseEventKind::ScrollUp => v.zoom_at(1.15, at, size),
+            MouseEventKind::ScrollDown => v.zoom_at(1.0 / 1.15, at, size),
+            _ => return false,
+        }
+        self.dirty = true;
+        true
+    }
+
+    /// Opens the shape of the canvas chosen, when it leads somewhere: the
+    /// plugin's command with its target.
+    fn open_canvas_shape(&mut self) {
+        let Some(v) = self.doc.canvas_view.as_deref() else {
+            return;
+        };
+        let Some(target) = v.target().map(str::to_string) else {
+            return;
+        };
+        let command = v.canvas().command.clone();
+        self.run_command(&command, serde_json::json!({ "shape": target }));
+    }
+
     /// Opens the node of the graph chosen: the plugin's command with its
     /// id.
     fn open_graph_node(&mut self) {
@@ -4740,6 +4846,9 @@ impl App {
             }
         }
         if self.find.is_some() && self.find_key(&k) {
+            return;
+        }
+        if self.doc.canvas_view.is_some() && self.canvas_key(&k) {
             return;
         }
         if self.doc.graph_view.is_some() && self.graph_key(&k) {
@@ -5659,6 +5768,17 @@ impl App {
 
     pub fn tick(&mut self, now: Instant) {
         self.close_stopped_viewer();
+        // A plugin's canvas: fitted to the window until the user moves it.
+        if !self.editor.source
+            && let Some(v) = self.doc.canvas_view.as_deref_mut()
+            && let Some(area) = self.editor.canvas_area
+        {
+            let before = (v.center, v.zoom);
+            v.follow(crate::canvas_view::size(area));
+            if (v.center, v.zoom) != before {
+                self.dirty = true;
+            }
+        }
         // A plugin's graph: its layout a few steps a frame, fitted to the
         // window while it spreads.
         if !self.editor.source

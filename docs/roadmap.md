@@ -334,7 +334,8 @@ Writers (Org and Markdown)
   any mode (`view.narrowToLines`, 2026-10-14, the plugin's K20) gives
   its Zoom into a block in Markdown notes; lines under lines typed into
   (plugin API 0.2.15, `layer-3`, 2026-10-14, the plugin's K21) its
-  embedded blocks edited in place. M
+  embedded blocks edited in place; canvases (plugin API 0.2.16,
+  `canvas-view`, the plugin's K22) its whiteboards drawn. M
 - [ ] R5.6 Babel (T3.4.1–T3.4.9): header arguments, executors for shell,
   Python, R and gnuplot behind the plugin host's trust model, results
   blocks, tangling. L (after the plugin permissions, R5.11)

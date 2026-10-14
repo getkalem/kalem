@@ -118,6 +118,9 @@ pub struct Generated {
     /// The graph it is drawn as (`graph-view`, API 0.2.12), its text
     /// being what the source view, search and a terminal show.
     pub graph: Option<std::sync::Arc<crate::graph_view::Graph>>,
+    /// The canvas it is drawn as (`canvas-view`, API 0.2.16), its text
+    /// being what the source view, search and copying show.
+    pub canvas: Option<std::sync::Arc<crate::canvas_view::Canvas>>,
     /// Incremented by each write.
     pub version: u64,
 }
@@ -1133,7 +1136,60 @@ pub fn open_generated(
     cursor: Option<usize>,
     styles: Vec<crate::StyleSpan>,
 ) -> Result<u64, String> {
-    open_document(plugin, spec, text, cursor, styles, None)
+    open_document(plugin, spec, text, cursor, styles, Drawn::default())
+}
+
+/// Opens plugin `plugin`'s document `spec` drawn as `canvas`
+/// (`canvas-view`, API 0.2.16), `text` its source; its number.
+pub fn open_canvas(
+    plugin: &str,
+    spec: GeneratedSpec,
+    canvas: crate::canvas_view::Canvas,
+    text: String,
+) -> Result<u64, String> {
+    check_command(plugin, &canvas.command)?;
+    open_document(
+        plugin,
+        spec,
+        text,
+        None,
+        Vec::new(),
+        Drawn {
+            graph: None,
+            canvas: Some(std::sync::Arc::new(canvas)),
+        },
+    )
+}
+
+/// Writes plugin `plugin`'s canvas document `number` again.
+pub fn set_canvas(
+    plugin: &str,
+    number: u64,
+    canvas: crate::canvas_view::Canvas,
+    text: String,
+) -> Result<(), String> {
+    check_command(plugin, &canvas.command)?;
+    set_document(
+        plugin,
+        number,
+        text,
+        None,
+        Vec::new(),
+        Drawn {
+            graph: None,
+            canvas: Some(std::sync::Arc::new(canvas)),
+        },
+    )
+}
+
+/// The canvas document `number` is drawn as, if any.
+pub fn generated_canvas(number: u64) -> Option<std::sync::Arc<crate::canvas_view::Canvas>> {
+    GENERATED
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&number)?
+        .canvas
+        .clone()
 }
 
 /// Opens plugin `plugin`'s document `spec` drawn as `graph` (`graph-view`,
@@ -1144,14 +1200,17 @@ pub fn open_graph(
     graph: crate::graph_view::Graph,
     text: String,
 ) -> Result<u64, String> {
-    check_graph_command(plugin, &graph)?;
+    check_command(plugin, &graph.command)?;
     open_document(
         plugin,
         spec,
         text,
         None,
         Vec::new(),
-        Some(std::sync::Arc::new(graph)),
+        Drawn {
+            graph: Some(std::sync::Arc::new(graph)),
+            canvas: None,
+        },
     )
 }
 
@@ -1162,29 +1221,31 @@ pub fn set_graph(
     graph: crate::graph_view::Graph,
     text: String,
 ) -> Result<(), String> {
-    check_graph_command(plugin, &graph)?;
+    check_command(plugin, &graph.command)?;
     set_document(
         plugin,
         number,
         text,
         None,
         Vec::new(),
-        Some(std::sync::Arc::new(graph)),
+        Drawn {
+            graph: Some(std::sync::Arc::new(graph)),
+            canvas: None,
+        },
     )
 }
 
-/// A graph's command for its nodes is the plugin's own.
-fn check_graph_command(plugin: &str, graph: &crate::graph_view::Graph) -> Result<(), String> {
-    if graph
-        .command
+/// The command a document's drawing runs (its nodes', its shapes') is
+/// the plugin's own.
+fn check_command(plugin: &str, command: &str) -> Result<(), String> {
+    if command
         .strip_prefix(plugin)
         .is_some_and(|r| r.starts_with('.') && r.len() > 1)
     {
         Ok(())
     } else {
         Err(format!(
-            "A graph's command is one of the plugin's (`{plugin}.…`), not `{}`",
-            graph.command
+            "A drawing's command is one of the plugin's (`{plugin}.…`), not `{command}`"
         ))
     }
 }
@@ -1199,13 +1260,21 @@ pub fn generated_graph(number: u64) -> Option<std::sync::Arc<crate::graph_view::
         .clone()
 }
 
+/// What a plugin's document is drawn as, besides its text: a graph
+/// (API 0.2.12) or a canvas (API 0.2.16).
+#[derive(Default)]
+struct Drawn {
+    graph: Option<std::sync::Arc<crate::graph_view::Graph>>,
+    canvas: Option<std::sync::Arc<crate::canvas_view::Canvas>>,
+}
+
 fn open_document(
     plugin: &str,
     spec: GeneratedSpec,
     text: String,
     cursor: Option<usize>,
     styles: Vec<crate::StyleSpan>,
-    graph: Option<std::sync::Arc<crate::graph_view::Graph>>,
+    drawn: Drawn,
 ) -> Result<u64, String> {
     // Its kind is the plugin's own, as its commands' IDs are: `git-…`.
     if !spec.kind.starts_with(&format!("{plugin}-")) || spec.kind.len() <= plugin.len() + 1 {
@@ -1235,7 +1304,8 @@ fn open_document(
                 text,
                 cursor,
                 styles,
-                graph,
+                graph: drawn.graph,
+                canvas: drawn.canvas,
                 version,
             },
         );
@@ -1254,7 +1324,7 @@ pub fn set_generated(
     cursor: Option<usize>,
     styles: Vec<crate::StyleSpan>,
 ) -> Result<(), String> {
-    set_document(plugin, number, text, cursor, styles, None)
+    set_document(plugin, number, text, cursor, styles, Drawn::default())
 }
 
 fn set_document(
@@ -1263,7 +1333,7 @@ fn set_document(
     text: String,
     cursor: Option<usize>,
     styles: Vec<crate::StyleSpan>,
-    graph: Option<std::sync::Arc<crate::graph_view::Graph>>,
+    drawn: Drawn,
 ) -> Result<(), String> {
     let mut docs = GENERATED.lock().unwrap_or_else(|e| e.into_inner());
     let g = docs
@@ -1273,7 +1343,8 @@ fn set_document(
     g.text = text;
     g.cursor = cursor;
     g.styles = styles;
-    g.graph = graph;
+    g.graph = drawn.graph;
+    g.canvas = drawn.canvas;
     g.version += 1;
     drop(docs);
     GENERATED_WRITES.fetch_add(1, Ordering::Relaxed);

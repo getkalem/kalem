@@ -14,6 +14,7 @@ pub mod bibstyle;
 pub mod bibtex;
 pub mod bookmarks;
 mod builtin;
+pub mod canvas_view;
 pub mod chart_math;
 pub mod cite;
 pub mod code;

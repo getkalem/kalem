@@ -1,0 +1,59 @@
+package kalem:plugin@0.2.15;
+
+/// Layers whose lines under a line may be typed into (API 0.2.15;
+/// `kalem_core::layers`, `kalem_core::row_edit`): what `layer-2` gives,
+/// and with a line under a line the text of a file it shows, which the
+/// editor lets the user edit where the line is drawn and writes back to
+/// that file: an embedded block typed into in the note embedding it, a
+/// task renamed in a query's results, a search's matches corrected in
+/// place. A plugin exporting `layer-3` is asked by it, not by `layer-2`.
+///
+/// A line with a source is typed into as a one-line input once the user
+/// clicks it or runs Edit Line Under Line (`view.editRow`): Enter writes
+/// what was typed in place of the source's text, Escape drops it, Up and
+/// Down go to the line before or after. It is written in the file's open
+/// document when that has unsaved changes, else in the file, which the
+/// layer then reads again; the source's text is checked first, so a file
+/// changed since is left as it is, with a message. Only files in Kalem's
+/// projects (the plugins' workspace) are written.
+interface layer-3 {
+    use layer.{span, lines};
+    use layer-2.{piece};
+
+    /// The text of a file a line under a line shows: in file `path`, line
+    /// `line` (from 0) from byte `column` of it to its end (its line feed
+    /// left out), which held `text` when the layer was asked.
+    record source {
+        path: string,
+        line: u32,
+        column: u32,
+        text: string,
+    }
+
+    /// A line drawn under a line, as `layer-2`'s, and the text of a file
+    /// it shows, which may be typed into; none for a line only shown.
+    record virtual-line {
+        indent: u32,
+        pieces: list<piece>,
+        source: option<source>,
+    }
+
+    /// Lines drawn under the line holding byte `at`.
+    record below {
+        at: u64,
+        lines: list<virtual-line>,
+    }
+
+    /// What a layer changes: `layer-2`'s overlay set, with lines under
+    /// lines that may show a file's text.
+    record overlay-set {
+        spans: list<span>,
+        lines: list<lines>,
+        below: list<below>,
+    }
+
+    /// The overlays of layer `layer` (an ID of the manifest's `layers`)
+    /// for the document of file `path` (none for one not saved yet) with
+    /// `text`, as `layer-2`'s `overlays` gives them.
+    overlays: func(layer: string, path: option<string>, text: string) -> overlay-set;
+}

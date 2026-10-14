@@ -308,6 +308,10 @@ pub struct DocumentState {
     /// plugin API 0.2.12): laid out and seen through the window, its
     /// text the source.
     pub graph_view: Option<Box<crate::graph_view::GraphView>>,
+    /// The canvas a plugin's document is drawn as (`crate::canvas_view`,
+    /// plugin API 0.2.16): its shapes where the plugin placed them, seen
+    /// through the window, its text the source.
+    pub canvas_view: Option<Box<crate::canvas_view::CanvasView>>,
     /// Whether saving ends the text with a line feed (Vim's
     /// 'fixendofline', which the Vim layer sets while it edits the
     /// document); otherwise the file is written as the text is.
@@ -563,6 +567,7 @@ impl DocumentState {
             notice: None,
             generated: None,
             graph_view: None,
+            canvas_view: None,
             final_newline: false,
             generated_styles: Vec::new(),
             gutter: Vec::new(),
@@ -717,6 +722,16 @@ impl DocumentState {
                 self.graph_view = Some(Box::new(crate::graph_view::GraphView::new(g)));
             }
             (None, _) => self.graph_view = None,
+        }
+        match (
+            crate::extensions::generated_canvas(number),
+            &mut self.canvas_view,
+        ) {
+            (Some(c), Some(v)) => v.update(c),
+            (Some(c), None) => {
+                self.canvas_view = Some(Box::new(crate::canvas_view::CanvasView::new(c)));
+            }
+            (None, _) => self.canvas_view = None,
         }
     }
 

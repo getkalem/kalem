@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.15;
+package kalem:plugin@0.2.16;
 
 /// Layers over a mode's view with lines of their own (API 0.2.13;
 /// `kalem_core::layers`): what `layer` gives, and lines drawn under a line

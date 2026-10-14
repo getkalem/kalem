@@ -59,7 +59,8 @@ the same files (wasmtime). It holds eight worlds, three kinds:
 - =extension=: a plugin that adds to the editor rather than opening
   files. It imports =kalem=, =editor=, =ui=, =settings=, =diagnostics=,
   =clock= and =clock-2=, =layers=, =documents=, =styled-documents=,
-  =decorations=, =problems=, =graph-view=, and =fs= (with =fs-2=), =net= and
+  =decorations=, =problems=, =graph-view=, =canvas-view=, and =fs= (with
+  =fs-2=), =net= and
   =process= when its permissions grant them, and exports =plugin=
   (below). =extension-layer=, =extension-completer=,
   =extension-layer-2= and =extension-layer-3= are the same world with a
@@ -400,7 +401,7 @@ account's.
 * Versions of the plugin API
 
 The plugin API is the WIT package =kalem:plugin=
-(=crates/kalem-plugin/wit=), version 0.2.15; a component's manifest
+(=crates/kalem-plugin/wit=), version 0.2.16; a component's manifest
 names the version it was built against (="api": "^0.2.1"=), and Kalem
 tries it when its own API is of the same 0.MINOR and no earlier. A
 component built against a later version is not installed, and one
@@ -528,6 +529,9 @@ updated itself. The rules, so that a plugin built once keeps working:
   described in [[file:completers-and-modes.org][Completers, modes and highlighters]]. The host asks
   =layer-3= in place of =layer-2= when a component exports it.
   =problems.wit= of 0.2.14 is frozen (=wit-frozen/0.2.14=).
+- 0.2.16 added, for extension plugins, the import =canvas-view=: a
+  document drawn as a canvas of shapes where the plugin places them
+  (below). =layer-3.wit= of 0.2.15 is frozen (=wit-frozen/0.2.15=).
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 - An addition is general, or it waits. It names what several plugins
@@ -991,6 +995,41 @@ let g = Graph {
     command: "notes.openNode".into(),
 };
 graph_view::open(&Spec::new("notes.graph", "", "Graph", "notes-graph"), &g, "A\nB\n")?;
+#+end_src
+
+A plugin's document may be drawn as a canvas instead (=canvas-view=,
+API 0.2.16), its shapes where the plugin places them, for a whiteboard,
+a canvas or a diagram with a layout of its own: each shape an id, a
+kind (a box with rounded corners, an ellipse, text alone, a frame
+around others, a picture of an image file in Kalem's projects, a pen's
+line through points), its place and size, its text, its fill and line
+(a color's name or =#rrggbb=, else the theme's), and where opening it
+leads; connectors between shapes by their ids (from the side of one
+facing the other) or between points, with a label, arrows and a color.
+The window draws them with lines, fills, pictures and their text
+wrapped in them, in a font that grows with the zoom; the terminal draws
+the outlines, ellipses, lines and arrows with Braille dots and writes
+the text in the cells inside each shape, a picture's name in place of
+it. Dragging pans, the wheel (or =+= and =-=) zooms, =0= fits, a click
+or Tab chooses a shape (Tab goes through those that lead somewhere, in
+reading order), a double click or Enter opens it: the canvas's command
+runs with ={"shape": target}=. The document's text, written with the
+canvas, is what Show Source, search and copying show; written again,
+the view stays where it looks. The graph plugin draws Logseq's
+whiteboards and Obsidian's canvases so.
+
+#+begin_src rust
+use kalem_plugin::canvas_view::{self, Canvas, ShapeKind};
+use kalem_plugin::documents::Spec;
+
+let mut page = canvas_view::shape("a", ShapeKind::Box(8.0), [0.0, 0.0, 240.0, 100.0], "A page");
+page.target = Some("page:A page".into());
+let c = Canvas {
+    shapes: vec![page],
+    connectors: Vec::new(),
+    command: "notes.openShape".into(),
+};
+canvas_view::open(&Spec::new("notes.board", "", "Board", "notes-board"), &c, "A page\n")?;
 #+end_src
 
 The first plugins planned:

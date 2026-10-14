@@ -43,6 +43,8 @@ pub struct EditorView {
     pub source: bool,
     /// Where a plugin's graph was last drawn (`crate::graph_view`).
     pub graph_area: Option<Rect>,
+    /// Where a plugin's canvas was last drawn (`crate::canvas_view`).
+    pub canvas_area: Option<Rect>,
     /// Scroll to the cursor on the next frame.
     pub follow: bool,
     /// Ranges to mark, such as search matches (sorted).
@@ -2312,6 +2314,22 @@ impl EditorView {
         buf: &mut Buffer,
         area: Rect,
     ) -> Option<(u16, u16)> {
+        // A plugin's document drawn as a canvas, unless its source is
+        // shown.
+        if !self.source
+            && let Some(v) = doc.canvas_view.as_deref()
+        {
+            self.canvas_area = Some(area);
+            crate::canvas_view::draw(
+                v,
+                buf,
+                area,
+                ratatui::style::Color::Indexed(245),
+                ratatui::style::Color::Reset,
+                ratatui::style::Color::Indexed(242),
+            );
+            return None;
+        }
         // A plugin's document drawn as a graph, unless its source is shown.
         if !self.source
             && let Some(v) = doc.graph_view.as_deref()

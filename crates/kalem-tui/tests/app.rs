@@ -5738,6 +5738,81 @@ fn vim_command_line_over_a_graph() {
 }
 
 #[test]
+fn a_canvas_drawn_where_its_shapes_are() {
+    // A plugin's whiteboard (`canvas-view`, API 0.2.16): shapes where it
+    // placed them, their text in them, a connector between two.
+    use kalem_core::canvas_view::{Canvas, CanvasView, Connector, Shape, ShapeKind};
+    let mut t = with_config("", Config::default(), (60, 16));
+    let shape = |id: &str, kind: ShapeKind, rect: [f32; 4], text: &str| Shape {
+        id: id.into(),
+        kind,
+        rect,
+        text: text.into(),
+        fill: None,
+        stroke: None,
+        dashed: false,
+        target: Some(text.into()),
+    };
+    let canvas = Canvas::new(
+        vec![
+            shape("a", ShapeKind::Box(4.0), [0.0, 0.0, 160.0, 60.0], "Plans"),
+            shape("b", ShapeKind::Ellipse, [300.0, 0.0, 160.0, 60.0], "Notes"),
+            shape("c", ShapeKind::Text, [0.0, 120.0, 300.0, 20.0], "A sketch"),
+        ],
+        vec![(
+            Some("a".into()),
+            Some("b".into()),
+            Connector {
+                from: None,
+                to: None,
+                start: [0.0, 0.0],
+                end: [0.0, 0.0],
+                label: String::new(),
+                arrow_start: false,
+                arrow_end: true,
+                stroke: None,
+                dashed: false,
+            },
+        )],
+        "test.open".into(),
+    );
+    t.app.doc.canvas_view = Some(Box::new(CanvasView::new(std::sync::Arc::new(canvas))));
+    // Fitted to the window at the first tick, its text in its shapes.
+    t.draw();
+    t.app.tick(std::time::Instant::now());
+    let screen: Vec<String> = (0..15).map(|y| t.row(y)).collect();
+    let all = screen.join("\n");
+    for word in ["Plans", "Notes", "A sketch"] {
+        assert!(all.contains(word), "{word} in\n{all}");
+    }
+    // Braille dots for the outlines and the connector.
+    assert!(
+        all.chars().any(|c| ('\u{2801}'..='\u{28ff}').contains(&c)),
+        "{all}"
+    );
+    // Tab chooses the shapes that lead somewhere in reading order, Enter
+    // runs the canvas's command with the one chosen.
+    t.key(KeyCode::Tab, KeyModifiers::NONE);
+    let chosen = |t: &T| {
+        t.app
+            .doc
+            .canvas_view
+            .as_ref()
+            .and_then(|v| v.target().map(str::to_string))
+    };
+    assert_eq!(chosen(&t).as_deref(), Some("Plans"));
+    t.key(KeyCode::Tab, KeyModifiers::NONE);
+    assert_eq!(chosen(&t).as_deref(), Some("Notes"));
+    let zoom = |t: &T| t.app.doc.canvas_view.as_ref().map_or(0.0, |v| v.zoom);
+    let before = zoom(&t);
+    t.typ("+");
+    assert!(zoom(&t) > before);
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    let status = t.row(15);
+    assert!(status.contains("test.open"), "{status}");
+}
+
+#[test]
 fn a_document_made_current_again_is_told_to_the_plugins() {
     // `file.open` of a document open in the background makes it current:
     // the plugins hear the cursor is in it at once, so that a command of

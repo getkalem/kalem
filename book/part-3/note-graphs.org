@@ -170,9 +170,9 @@ kalem run graph graph.backlinksDocument ~/notes/pages/Kalem.md
 
 * What it does not do
 
-Whiteboards and canvases are listed and their links resolve, but
-Kalem does not draw them: following one shows the file in the file
-manager, to be opened in its application. Flashcards, the applications' plugins and their
+Whiteboards and canvases are drawn, read only: following one shows its
+shapes where Logseq or Obsidian places them (Kalem 0.6.27 and later),
+to be changed in its application. The applications' plugins and their
 syntax (but Dataview's inline fields), PDF highlights drawn over the
 PDF and real-time sync are not there; a graph synced with Syncthing or
 git goes on being so.

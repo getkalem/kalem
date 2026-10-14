@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.15;
+package kalem:plugin@0.2.16;
 
 /// The user's local time (API 0.2.11), which `clock` gives only as a
 /// time zone's name: a journal's day, a date written in a file, a

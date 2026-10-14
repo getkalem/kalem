@@ -306,6 +306,37 @@ impl Editor for Bridge {
         kalem_core::extensions::set_graph(plugin, doc, core_graph(g), text)
     }
 
+    fn open_canvas(
+        &mut self,
+        plugin: &str,
+        spec: x::documents::DocumentSpec,
+        c: x::canvas_view::Canvas,
+        text: String,
+    ) -> Result<u64, String> {
+        kalem_core::extensions::open_canvas(
+            plugin,
+            kalem_core::extensions::GeneratedSpec {
+                id: spec.id,
+                key: spec.key,
+                title: spec.title,
+                kind: spec.kind,
+                language: spec.language,
+            },
+            core_canvas(c),
+            text,
+        )
+    }
+
+    fn set_canvas(
+        &mut self,
+        plugin: &str,
+        doc: u64,
+        c: x::canvas_view::Canvas,
+        text: String,
+    ) -> Result<(), String> {
+        kalem_core::extensions::set_canvas(plugin, doc, core_canvas(c), text)
+    }
+
     fn set_gutter(
         &mut self,
         plugin: &str,
@@ -777,6 +808,65 @@ fn completion_item(item: x::completer::Item, point: usize) -> kalem_core::comple
     out.detail = item.detail;
     out.documentation = item.documentation;
     out
+}
+
+/// A plugin's canvas as the core's: an image only of a file in Kalem's
+/// projects, the theme's colors where the plugin names none it knows.
+fn core_canvas(c: x::canvas_view::Canvas) -> kalem_core::canvas_view::Canvas {
+    use kalem_core::canvas_view::{Color, Connector, Shape, ShapeKind};
+    use x::canvas_view::ShapeKind as K;
+    let shapes = c
+        .shapes
+        .into_iter()
+        .map(|s| Shape {
+            kind: match s.kind {
+                K::Box(r) => ShapeKind::Box(r.max(0.0)),
+                K::Ellipse => ShapeKind::Ellipse,
+                K::Text => ShapeKind::Text,
+                K::Group => ShapeKind::Group,
+                K::Image(path) => {
+                    let path = PathBuf::from(path);
+                    if path.is_absolute() && kalem_core::row_edit::writable(&path) {
+                        ShapeKind::Image(path)
+                    } else {
+                        ShapeKind::Box(0.0)
+                    }
+                }
+                K::Stroke(points) => {
+                    ShapeKind::Stroke(points.into_iter().map(|p| [p.x, p.y]).collect())
+                }
+            },
+            id: s.id,
+            rect: [s.x, s.y, s.width.max(0.0), s.height.max(0.0)],
+            text: s.text,
+            fill: Color::parse(&s.fill),
+            stroke: Color::parse(&s.stroke),
+            dashed: s.dashed,
+            target: s.target,
+        })
+        .collect();
+    let connectors = c
+        .connectors
+        .into_iter()
+        .map(|k| {
+            (
+                k.from,
+                k.to,
+                Connector {
+                    from: None,
+                    to: None,
+                    start: [k.start.x, k.start.y],
+                    end: [k.end.x, k.end.y],
+                    label: k.label,
+                    arrow_start: k.arrow_start,
+                    arrow_end: k.arrow_end,
+                    stroke: Color::parse(&k.stroke),
+                    dashed: k.dashed,
+                },
+            )
+        })
+        .collect();
+    kalem_core::canvas_view::Canvas::new(shapes, connectors, c.command)
 }
 
 /// A plugin's graph as the core's.

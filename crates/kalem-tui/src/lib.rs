@@ -8,6 +8,7 @@
 #![warn(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 pub mod app;
+pub mod canvas_view;
 pub mod caps;
 pub mod chart;
 pub mod editor;

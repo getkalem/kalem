@@ -36,8 +36,8 @@ pub use bindings::exports::kalem::plugin::{completer, layer, layer_2, layer_3};
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
 pub use bindings::kalem::plugin::{
-    clock, clock_2, decorations, diagnostics, documents, editor, fs, fs_2, graph_view, http,
-    layers, net, problems, process, settings, styled_documents,
+    canvas_view, clock, clock_2, decorations, diagnostics, documents, editor, fs, fs_2, graph_view,
+    http, layers, net, problems, process, settings, styled_documents,
 };
 
 /// An edit a plugin asked for, applied when its command returns, its
@@ -453,6 +453,29 @@ pub trait Editor: Send + 'static {
         _text: String,
     ) -> Result<(), String> {
         Err("This editor draws no graphs".into())
+    }
+
+    /// Shows plugin `plugin`'s document `spec` drawn as canvas `c`, `text`
+    /// its source (`canvas-view`, API 0.2.16); its number.
+    fn open_canvas(
+        &mut self,
+        _plugin: &str,
+        _spec: documents::DocumentSpec,
+        _c: canvas_view::Canvas,
+        _text: String,
+    ) -> Result<u64, String> {
+        Err("This editor draws no canvases".into())
+    }
+
+    /// Writes plugin `plugin`'s canvas document `doc` anew.
+    fn set_canvas(
+        &mut self,
+        _plugin: &str,
+        _doc: u64,
+        _c: canvas_view::Canvas,
+        _text: String,
+    ) -> Result<(), String> {
+        Err("This editor draws no canvases".into())
     }
 
     /// Plugin `plugin` marks the lines of the file at `path` (lines from
@@ -964,6 +987,56 @@ impl documents::Host for Session {
         let plugin = self.plugin.clone();
         self.editor.close_document(&plugin, doc);
     }
+}
+
+/// Shapes and connectors a canvas has at most.
+pub const MAX_CANVAS: usize = 200_000;
+
+impl canvas_view::Host for Session {
+    fn open(
+        &mut self,
+        spec: documents::DocumentSpec,
+        c: canvas_view::Canvas,
+        text: String,
+    ) -> Result<u64, String> {
+        if !self.named_own(&spec.id) {
+            return Err(format!(
+                "Document `{}` is not the plugin's: its ID starts `{}.`",
+                spec.id, self.plugin
+            ));
+        }
+        check_document(&text, &[])?;
+        check_canvas(&c)?;
+        let plugin = self.plugin.clone();
+        self.editor.open_canvas(&plugin, spec, c, text)
+    }
+
+    fn set(&mut self, doc: u64, c: canvas_view::Canvas, text: String) -> Result<(), String> {
+        check_document(&text, &[])?;
+        check_canvas(&c)?;
+        let plugin = self.plugin.clone();
+        self.editor.set_canvas(&plugin, doc, c, text)
+    }
+}
+
+/// A canvas within its limits: so many shapes and connectors, and points
+/// of strokes in all.
+fn check_canvas(c: &canvas_view::Canvas) -> Result<(), String> {
+    let points: usize = c
+        .shapes
+        .iter()
+        .map(|s| match &s.kind {
+            canvas_view::ShapeKind::Stroke(p) => p.len(),
+            _ => 0,
+        })
+        .sum();
+    if c.shapes.len() > MAX_CANVAS || c.connectors.len() > MAX_CANVAS || points > 4 * MAX_CANVAS {
+        return Err(format!(
+            "A canvas has at most {MAX_CANVAS} shapes, {MAX_CANVAS} connectors and {} points of strokes",
+            4 * MAX_CANVAS
+        ));
+    }
+    Ok(())
 }
 
 /// Nodes and edges a graph has at most.
@@ -1572,6 +1645,12 @@ impl Extension {
         )
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
         styled_documents::add_to_linker::<_, HasSelf<Session>>(
+            &mut linker,
+            |d: &mut crate::Data<Session>| &mut d.user,
+        )
+        .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        // Documents drawn as canvases (API 0.2.16), as documents are.
+        canvas_view::add_to_linker::<_, HasSelf<Session>>(
             &mut linker,
             |d: &mut crate::Data<Session>| &mut d.user,
         )

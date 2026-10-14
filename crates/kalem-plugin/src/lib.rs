@@ -145,6 +145,7 @@ pub mod extension {
 }
 
 pub mod adapter;
+pub mod canvas_view;
 pub mod clock;
 pub mod completer;
 pub mod decorations;

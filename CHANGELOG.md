@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- Plugin API 0.2.16, the import `canvas-view`: a plugin's document drawn as a canvas of shapes where the plugin places them, for whiteboards, canvases and diagrams with a layout of their own. Boxes, ellipses, text, frames, pictures of image files in Kalem's projects and pen strokes, each with its text, colors and where it leads, and connectors between shapes or points with labels and arrows, drawn in the window (lines, fills, pictures, text wrapped in a font that grows with the zoom) and in the terminal (Braille outlines and lines, the text in the cells inside each shape). Dragging pans, the wheel zooms, `0` fits, Tab chooses the next shape that leads somewhere, a double click or Enter opens it with the plugin's command. For the graph plugin's Logseq whiteboards and Obsidian canvases.
+
 ## [0.6.26] - 2026-10-15
 
 ### Added
