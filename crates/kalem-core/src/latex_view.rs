@@ -2366,14 +2366,13 @@ pub(crate) fn own_wrapper(model: &latex_model::Model, name: &str) -> bool {
             body = r[..close].trim();
             continue;
         }
-        // A formatting command, a color, a box around the whole.
-        let cmd: String = body
-            .strip_prefix('\\')
-            .map(|r| r.chars().take_while(char::is_ascii_alphabetic).collect())
-            .unwrap_or_default();
-        let after = &body[(cmd.len() + 1).min(body.len())..];
+        // A formatting command, a color, a box around the whole: the
+        // command's name and what follows it, both empty when the body
+        // does not begin with a command.
+        let rest = body.strip_prefix('\\').unwrap_or_default();
+        let (cmd, after) = rest.split_at(rest.bytes().take_while(u8::is_ascii_alphabetic).count());
         if !cmd.is_empty()
-            && (format_style(&cmd).is_some() || cmd == "mbox")
+            && (format_style(cmd).is_some() || cmd == "mbox")
             && let Some(r) = after.strip_prefix('{')
             && let Some(close) = matching_brace(r)
             && r[close + 1..].trim().is_empty()
@@ -8797,6 +8796,18 @@ mod tests {
             (dingbat(51), dingbat(52), dingbat(108)),
             (Some("✓"), Some("✔"), Some("●"))
         );
+    }
+
+    #[test]
+    fn a_macro_whose_body_begins_with_a_wide_character() {
+        // A body that does not begin with a command was cut at its second
+        // byte, inside a first character of more than one byte: opening
+        // the document crashed (an arXiv paper's emoji macro).
+        let text = "\\documentclass{article}\n\\newcommand{\\happy}[1]{😀#1}\n\\newcommand{\\cafe}[1]{é{#1}}\n\\begin{document}\nA \\happy{x} \\cafe{y}\n\\end{document}\n";
+        let d = doc(text);
+        let m = d.latex().unwrap().model();
+        assert!(!own_wrapper(&m, "happy") && !own_wrapper(&m, "cafe"));
+        assert!(shown(&d, 4, None).display().starts_with("A "));
     }
 
     #[test]

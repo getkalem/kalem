@@ -14,6 +14,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Typing in a paragraph of an Org document whose macros are shown expanded (the Org manual's `{{{kbd(...)}}}`) no longer works out every macro's expansion again at each keystroke: an edit inside a paragraph that touches no macro moves the expansions after it. In the manual, from a key to its frame takes 5.7 ms at the median rather than 13.5 (15.6 ms rather than 22 at the 99th percentile), the latency benchmark's instructions a third of what they were.
 - Typing in a LaTeX document that includes nothing is faster: whether each package it uses has a file of its own beside it was looked for on the disk for each paragraph drawn, at each keystroke. In a 180 kB article, from a key to its frame takes 8.4 ms at the median rather than 33.7 (12 ms rather than 76 at the 99th percentile).
 
+### Fixed
+- A LaTeX document with a macro whose definition begins with a character of more than one byte, such as `\newcommand{\happy}[1]{😀#1}`, no longer crashes Kalem as it is shown or typed: the definition was read from its second byte, inside that character.
+
 ## [0.6.26] - 2026-10-15
 
 ### Added
