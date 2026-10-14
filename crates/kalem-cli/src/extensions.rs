@@ -636,6 +636,8 @@ struct Loaded {
     full: String,
     /// Its manifest's version.
     version: String,
+    /// Its manifest's `api` requirement.
+    api: Option<String>,
     /// What its manifest permits.
     grants: x::Grants,
     file: PathBuf,
@@ -971,19 +973,32 @@ impl Plugins {
     fn activate(&mut self, i: usize) {
         PLUGIN.with(|p| p.set(i as u64 + 1));
         let l = &mut self.list[i];
-        let started = l
-            .instantiate(&self.host)
-            .and_then(|mut ext| match ext.activate() {
-                Ok(Ok(())) => Ok(ext),
-                Ok(Err(e)) => {
-                    let _ = ext.deactivate();
-                    Err(e)
-                }
-                Err(e) => {
-                    let _ = ext.deactivate();
-                    Err(e.to_string())
-                }
-            });
+        // Built for a later plugin API: not started, as it would be refused
+        // for an import this host lacks, which reads as a permission.
+        let newer = kalem_script::api_newer(l.api.as_deref()).then(|| {
+            kalem_core::tr!(
+                "plugin-api-newer",
+                name = l.id.clone(),
+                version = l.version.clone(),
+                api = l.api.clone().unwrap_or_default(),
+                ours = kalem_script::API_VERSION
+            )
+        });
+        let started = match newer {
+            Some(why) => Err(why),
+            None => l.instantiate(&self.host),
+        }
+        .and_then(|mut ext| match ext.activate() {
+            Ok(Ok(())) => Ok(ext),
+            Ok(Err(e)) => {
+                let _ = ext.deactivate();
+                Err(e)
+            }
+            Err(e) => {
+                let _ = ext.deactivate();
+                Err(e.to_string())
+            }
+        });
         match started {
             Ok(ext) => {
                 l.extension = Some(ext);
@@ -1522,6 +1537,7 @@ fn installed() -> Vec<Loaded> {
             id,
             full: p.id.clone(),
             version: p.version.clone(),
+            api: m["api"].as_str().map(str::to_string),
             grants: x::Grants::from_permissions(&strings(&m["permissions"])),
             file: p.dir.join(main),
             activation,

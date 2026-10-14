@@ -964,7 +964,9 @@ pub(crate) fn installed_viewers() -> Vec<(
             // A copy built in (a build of one's own) opens its files
             // meanwhile; a release has none.
             let built_in = embedded().iter().any(|(c, _)| short(c.id) == short(&p.id));
-            let key = if built_in {
+            let key = if kalem_script::api_newer(api) {
+                "plugin-api-newer"
+            } else if built_in {
                 "plugin-api-mismatch-built-in"
             } else {
                 "plugin-api-mismatch"
@@ -1018,6 +1020,13 @@ where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
 {
+    // A plugin is installed only for this host's plugin API or an earlier
+    // one.
+    #[cfg(feature = "plugins")]
+    kalem_core::plugin_store::set_host_api(kalem_core::plugin_store::HostApi {
+        version: kalem_script::API_VERSION,
+        newer: kalem_script::api_newer,
+    });
     let cli = match Cli::try_parse_from(args) {
         Ok(cli) => cli,
         Err(e) => {

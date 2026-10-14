@@ -45,23 +45,39 @@ pub fn api_compatible(requirement: Option<&str>) -> bool {
     let Some(req) = requirement.map(str::trim).filter(|r| !r.is_empty()) else {
         return true;
     };
-    let nums = |v: &str| -> Vec<u64> {
-        v.trim_start_matches(['^', '~', '='])
-            .split('.')
-            .map_while(|p| p.trim().parse().ok())
-            .collect()
-    };
-    let (want, have) = (nums(req), nums(API_VERSION));
+    let (want, have) = (numbers(req), numbers(API_VERSION));
     let same = match (want.first(), want.get(1)) {
         (Some(0), Some(minor)) => have.first() == Some(&0) && have.get(1) == Some(minor),
         (Some(0), None) => have.first() == Some(&0),
         (Some(major), _) => have.first() == Some(major),
         (None, _) => true,
     };
+    same && !after(&want, &have)
+}
+
+/// Whether a manifest's `api` requirement, or the version a plugin
+/// imports a part of the API at, is later than this host's: the plugin
+/// needs a newer Kalem, not a new build of its own.
+pub fn api_newer(requirement: Option<&str>) -> bool {
+    requirement
+        .map(str::trim)
+        .filter(|r| !r.is_empty())
+        .is_some_and(|r| after(&numbers(r), &numbers(API_VERSION)))
+}
+
+/// A version's numbers, a requirement's operator left out (`^0.2.14` is
+/// 0, 2 and 14).
+fn numbers(v: &str) -> Vec<u64> {
+    v.trim_start_matches(['^', '~', '='])
+        .split('.')
+        .map_while(|p| p.trim().parse().ok())
+        .collect()
+}
+
+/// Whether version `a` comes after `b`, a missing number a zero.
+fn after(a: &[u64], b: &[u64]) -> bool {
     let at = |v: &[u64], i: usize| v.get(i).copied().unwrap_or(0);
-    same && (0..3)
-        .map(|i| at(&have, i))
-        .ge((0..3).map(|i| at(&want, i)))
+    (0..3).map(|i| at(a, i)).gt((0..3).map(|i| at(b, i)))
 }
 
 use std::fmt;
@@ -162,6 +178,9 @@ pub enum Error {
     Invalid(String),
     /// The component imports what the host did not grant.
     NotGranted(Vec<String>),
+    /// The component imports a part of the plugin API at a version later
+    /// than this host's ([`API_VERSION`]): it needs a newer Kalem.
+    NewerApi(String),
     /// A call ran past its time budget and was stopped.
     Timeout(Duration),
     /// The plugin asked for more memory than its limit.
@@ -183,6 +202,10 @@ impl fmt::Display for Error {
                     names.join(", ")
                 )
             }
+            Error::NewerApi(v) => write!(
+                f,
+                "the plugin needs plugin API {v}, and this Kalem has {API_VERSION}: update Kalem"
+            ),
             Error::Timeout(t) => write!(f, "the plugin ran past its {} ms", t.as_millis()),
             Error::Memory(m) => write!(f, "the plugin asked for more than its {} MB", m >> 20),
             Error::Trap(e) => write!(f, "the plugin failed: {e}"),
@@ -575,7 +598,10 @@ impl Plugin {
     ) -> Result<Instance<T>> {
         let pre = linker.instantiate_pre(&self.component).map_err(|e| {
             match not_granted(&e, &self.imports(host)) {
-                Some(name) => Error::NotGranted(vec![name]),
+                Some(name) => match newer_api(&name) {
+                    Some(version) => Error::NewerApi(version),
+                    None => Error::NotGranted(vec![name]),
+                },
                 None => Error::Invalid(format!("{e:#}")),
             }
         })?;
@@ -619,6 +645,13 @@ fn not_granted(e: &wasmtime::Error, imports: &[String]) -> Option<String> {
         let (name, _) = rest.split_once('`')?;
         imports.iter().find(|i| *i == name).cloned()
     })
+}
+
+/// The version of `import`, a part of the plugin API
+/// (`kalem:plugin/problems@0.2.14`), when it is later than this host's.
+fn newer_api(import: &str) -> Option<String> {
+    let (_, version) = import.strip_prefix("kalem:plugin/")?.split_once('@')?;
+    api_newer(Some(version)).then(|| version.to_string())
 }
 
 /// The ticks of `time`, one more so that a call is never cut short.
@@ -832,6 +865,19 @@ mod tests {
         assert!(super::api_compatible(Some("^0.2.14")));
         // Built against a later 0.2.x: it may import what this host lacks.
         assert!(!super::api_compatible(Some("^0.2.99")));
+        // Later than this host's: the plugin needs a newer Kalem.
+        assert!(super::api_newer(Some("^0.2.99")));
+        assert!(super::api_newer(Some("^0.3")));
+        assert!(super::api_newer(Some("1.0")));
+        assert!(!super::api_newer(Some("^0.2.14")));
+        assert!(!super::api_newer(Some("^0.1")));
+        assert!(!super::api_newer(None));
+        assert_eq!(
+            super::newer_api("kalem:plugin/problems@0.2.99").as_deref(),
+            Some("0.2.99")
+        );
+        assert_eq!(super::newer_api("kalem:plugin/fs@0.2.0"), None);
+        assert_eq!(super::newer_api("wasi:io/streams@0.9.0"), None);
     }
 
     /// An empty folder of the test's own.

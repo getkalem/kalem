@@ -1719,6 +1719,7 @@ plugin-not-turned-off = { $id } kapatılmamıştı
 plugin-now-used = { $plugin } { $version } artık dosyalarını açıyor
 plugin-api-mismatch = { $name } { $version } eklenti API'si { $api } için derlenmiş, bu Kalem'inki { $ours }: eklentiyi Eklentilere Göz At'tan güncelleyin; o zamana dek dosyaları açılmaz
 plugin-api-mismatch-built-in = { $name } { $version } eklenti API'si { $api } için derlenmiş, bu Kalem'inki { $ours }: eklentiyi güncelleyin (o zamana dek dosyalarını Kalem'e yerleşik olan açar)
+plugin-api-newer = { $name } { $version } eklenti API'si { $api } istiyor, bu Kalem'inki { $ours }: kullanmak için Kalem'i güncelleyin
 plugin-update = { $name } eklentisini güncelle
 plugin-from-short = kaynak: { $source }
 plugin-remove = { $name } eklentisini kaldır

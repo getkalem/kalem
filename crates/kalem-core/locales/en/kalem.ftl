@@ -1810,6 +1810,7 @@ plugin-not-turned-off = { $id } was not turned off
 plugin-now-used = { $plugin } { $version } opens its files now
 plugin-api-mismatch = { $name } { $version } was built for plugin API { $api }, and this Kalem's is { $ours }: update the plugin from Browse Plugins; its files do not open until then
 plugin-api-mismatch-built-in = { $name } { $version } was built for plugin API { $api }, and this Kalem's is { $ours }: update the plugin (the one built into Kalem opens its files meanwhile)
+plugin-api-newer = { $name } { $version } needs plugin API { $api }, and this Kalem has { $ours }: update Kalem to use it
 plugin-from-short = from { $source }
 plugin-remove = Remove { $name }
 plugin-asks-first = asks first

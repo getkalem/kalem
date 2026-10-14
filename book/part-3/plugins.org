@@ -399,11 +399,14 @@ account's.
 
 * Versions of the plugin API
 
-The plugin API is the WIT package =kalem:plugin= (=crates/kalem-plugin/wit=),
-version 0.2.14; a component's manifest names the version it was built
-against (="api": "^0.2.1"=), and Kalem tries it when its own API is of
-the same 0.MINOR and no earlier. The rules, so that a plugin built once
-keeps working:
+The plugin API is the WIT package =kalem:plugin=
+(=crates/kalem-plugin/wit=), version 0.2.14; a component's manifest
+names the version it was built against (="api": "^0.2.1"=), and Kalem
+tries it when its own API is of the same 0.MINOR and no earlier. A
+component built against a later version is not installed, and one
+installed already does not start: Kalem says to update Kalem, naming
+both versions, where one built against an earlier 0.MINOR is to be
+updated itself. The rules, so that a plugin built once keeps working:
 
 - A released interface never changes: no function, field, case or type
   of it is added, removed or altered. The released ones (=viewer=,

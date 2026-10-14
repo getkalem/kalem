@@ -232,6 +232,39 @@ const TWO: &str = r#"
     (export "log" (func $a)) (export "logger" (func $b)))))))
 "#;
 
+/// A component importing a part of the plugin API at a later version than
+/// the host's, and one at an earlier version.
+const LATER: &str = r#"
+(component
+  (import "kalem:plugin/problems@0.2.99" (instance (export "f" (func)))))
+"#;
+const EARLIER: &str = r#"
+(component
+  (import "kalem:plugin/fs@0.2.0" (instance (export "f" (func)))))
+"#;
+
+#[test]
+fn an_import_of_a_later_api_asks_for_a_newer_kalem() {
+    let host = Host::new(None).unwrap();
+    let p = host.load(&wasm(LATER)).unwrap();
+    match p.instantiate(&host, &host.linker::<()>(), (), Limits::default()) {
+        Err(e @ Error::NewerApi(_)) => assert_eq!(
+            e.to_string(),
+            format!(
+                "the plugin needs plugin API 0.2.99, and this Kalem has {}: update Kalem",
+                kalem_script::API_VERSION
+            )
+        ),
+        other => panic!("{other:?}"),
+    }
+    // An earlier part not granted is a permission the plugin lacks.
+    let p = host.load(&wasm(EARLIER)).unwrap();
+    match p.instantiate(&host, &host.linker::<()>(), (), Limits::default()) {
+        Err(Error::NotGranted(names)) => assert_eq!(names, ["kalem:plugin/fs@0.2.0"]),
+        other => panic!("{other:?}"),
+    }
+}
+
 #[test]
 fn the_import_not_granted_is_named_exactly() {
     let host = Host::new(None).unwrap();

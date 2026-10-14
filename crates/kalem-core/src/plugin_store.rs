@@ -105,6 +105,23 @@ pub fn serving<'a>(
     found
 }
 
+/// The plugin API of this Kalem's plugin host, which the host gives at
+/// start: a component built for a later one is not installed.
+#[derive(Debug, Clone, Copy)]
+pub struct HostApi {
+    /// Its version (`0.2.14`).
+    pub version: &'static str,
+    /// Whether a manifest's `api` requirement asks for a later version.
+    pub newer: fn(Option<&str>) -> bool,
+}
+
+static HOST_API: std::sync::OnceLock<HostApi> = std::sync::OnceLock::new();
+
+/// Gives the plugin host's API, once.
+pub fn set_host_api(api: HostApi) {
+    let _ = HOST_API.set(api);
+}
+
 /// A plugin downloaded and unpacked, waiting for the user's yes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Prepared {
@@ -859,6 +876,20 @@ fn read_prepared(source: &str, staging: &Path) -> Result<Prepared, String> {
         }
     } else if m.get("languages").is_none() {
         return Err(crate::tr!("plugin-nothing-to-load", id = id.as_str()));
+    }
+    // Built for a later plugin API than the host's: Kalem needs updating,
+    // which the plugin's own update would not do.
+    if component
+        && let Some(host) = HOST_API.get()
+        && (host.newer)(m["api"].as_str())
+    {
+        return Err(crate::tr!(
+            "plugin-api-newer",
+            name = name.as_str(),
+            version = m["version"].as_str().unwrap_or(""),
+            api = m["api"].as_str().unwrap_or(""),
+            ours = host.version
+        ));
     }
     let replaces = installed()
         .into_iter()
@@ -2030,6 +2061,22 @@ mod tests {
         let p = read_prepared("x", &dir).unwrap();
         assert_eq!(p.opens, [".v"]);
         assert!(summary(&p).iter().any(|l| l.starts_with("Opens: .v")));
+        // Built for a later plugin API than the host's: refused, saying
+        // that Kalem needs updating.
+        set_host_api(HostApi {
+            version: "0.2.14",
+            newer: |api| api.is_some_and(|a| a.starts_with("^0.99")),
+        });
+        std::fs::write(
+            dir.join("plugin.json"),
+            r#"{"id":"org.x.view","name":"V","version":"2","main":"dist/v.wasm","opens":[".v"],
+                "api":"^0.99"}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            read_prepared("x", &dir).unwrap_err(),
+            "V 2 needs plugin API ^0.99, and this Kalem has 0.2.14: update Kalem to use it"
+        );
         std::fs::write(
             dir.join("plugin.json"),
             r#"{"id":"org.x.lang","name":"L","version":"1","permissions":["subprocess"],
