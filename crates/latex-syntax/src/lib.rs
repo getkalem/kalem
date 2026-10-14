@@ -74,7 +74,12 @@ impl TextEdit {
 impl Drop for Parse {
     fn drop(&mut self) {
         const NEED: usize = 64 * 1024 * 1024;
-        if stacker::remaining_stack().is_some_and(|r| r >= NEED) {
+        // A small tree is not deep enough to need a stack of its own (4 kB
+        // nest no more than 2,000 levels): it is dropped where it is, not
+        // on 64 MB mapped and unmapped for it.
+        if usize::from(self.green.text_len()) < 4096
+            || stacker::remaining_stack().is_some_and(|r| r >= NEED)
+        {
             return;
         }
         let green = std::mem::replace(
