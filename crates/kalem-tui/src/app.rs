@@ -3970,6 +3970,16 @@ impl App {
         {
             return false;
         }
+        // Vim's keys while its command line is open or a command is half
+        // typed: Enter runs `:q`, `0` goes on the line or after `d`. In
+        // insert mode the graph's keys stay its own.
+        if self
+            .vim
+            .as_ref()
+            .is_some_and(|v| v.command_line.is_some() || !(v.takes_text() || v.idle_command()))
+        {
+            return false;
+        }
         let size = self
             .editor
             .graph_area

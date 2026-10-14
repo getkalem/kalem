@@ -5616,3 +5616,38 @@ fn file_menu_separators_in_the_terminal() {
     let rows = screen(&mut t);
     assert!(!rows.iter().any(|r| r.contains("────────")), "{rows:#?}");
 }
+
+#[test]
+fn vim_command_line_over_a_graph() {
+    use kalem_core::graph_view::{Graph, GraphView, Node};
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let mut t = with_config("", config, (60, 12));
+    let node = |id: &str| Node {
+        id: id.into(),
+        label: id.into(),
+        group: String::new(),
+        weight: 1,
+    };
+    let graph = Graph::new(
+        vec![node("a"), node("b")],
+        &[("a".into(), "b".into())],
+        None,
+        "graph.open".into(),
+    );
+    t.app.doc.graph_view = Some(Box::new(GraphView::new(std::sync::Arc::new(graph))));
+    let zoom = |t: &T| t.app.doc.graph_view.as_ref().map_or(0.0, |v| v.zoom);
+    // No Vim command typed: the graph's keys, `+` zooms.
+    let before = zoom(&t);
+    t.typ("+");
+    assert!(zoom(&t) > before);
+    // On Vim's command line the keys are the line's: `+` and `-` typed,
+    // not zooms.
+    let before = zoom(&t);
+    t.typ(":+-");
+    assert_eq!(zoom(&t), before);
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    // `:q` and Enter close it, as in a text document.
+    t.typ(":q");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(t.app.quit);
+}

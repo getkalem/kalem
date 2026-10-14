@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - In code, a closing bracket typed alone on its line no longer goes a level further back than the line of its opening bracket: with Vim's keys, whose Enter keeps the indentation, `}` ended every block one level to the left of its `if` or `fn`. The bracket now takes the indentation of its opening bracket's line, as Vim's `smartindent` does, and is typed as it is where there is no opening bracket.
+- With Vim's keys, `:q` and the rest of the command line work while a plugin's graph is shown (Graph View): the graph took Enter, so the command never ran, and `0`, `+`, `-`, Tab and the arrows zoomed or moved it rather than going on the line or finishing a command such as `d0`. In insert mode the graph's keys stay its own.
 
 ## [0.6.21] - 2026-10-14
 
