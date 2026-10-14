@@ -14,12 +14,15 @@ pub const MAX_MESSAGE: usize = 256 << 20;
 /// is still in step (the body was read whole).
 pub fn read(r: &mut impl BufRead) -> io::Result<Option<Value>> {
     let mut length: Option<usize> = None;
-    let mut line = String::new();
+    let mut line = Vec::new();
     loop {
         line.clear();
-        if r.read_line(&mut line)? == 0 {
+        if r.read_until(b'\n', &mut line)? == 0 {
             return Ok(None);
         }
+        // Read as bytes: a server's stray output that is not UTF-8 must
+        // not take the header after it along.
+        let line = String::from_utf8_lossy(&line);
         let l = line.trim_end_matches(['\r', '\n']);
         if l.is_empty() {
             if length.is_some() {
@@ -84,5 +87,13 @@ mod tests {
         let mut r = io::Cursor::new(buf);
         assert_eq!(read(&mut r).unwrap().unwrap()["n"], 1);
         assert_eq!(read(&mut r).unwrap().unwrap()["n"], 2);
+    }
+
+    #[test]
+    fn stray_output_that_is_not_utf8() {
+        let mut buf = b"caf\xe9 ".to_vec();
+        write(&mut buf, &json!({"n": 1})).unwrap();
+        let mut r = io::Cursor::new(buf);
+        assert_eq!(read(&mut r).unwrap().unwrap()["n"], 1);
     }
 }

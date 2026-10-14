@@ -12,7 +12,11 @@
 //! client has the report already; a save adds a note to them, and the
 //! server asks the client to ask again); `busy` (its first two hovers
 //! answered "content modified", as rust-analyzer answers while it loads a
-//! project). Requests of its own, as rust-analyzer has: `fake/expand`
+//! project); `pull-cancel` (as `pull`, its first `textDocument/diagnostic`
+//! answered "content modified", and nothing said after it); `huge` (a
+//! header of a message too large to read after `initialize`, its process
+//! id on standard error, and then it hangs). A `didOpen` of a document
+//! open already is told in a `window/logMessage`. Requests of its own, as rust-analyzer has: `fake/expand`
 //! (a name and an expansion), `fake/docs` (a page's address),
 //! `fake/parent` (the document's first line), `fake/join` (the first two
 //! lines joined), `fake/reload` (nothing), `fake/onEnter` (a `//` comment
@@ -173,7 +177,9 @@ pub fn serve(behavior: &str) {
     let mut texts: HashMap<String, String> = HashMap::new();
     let mut root: Option<std::path::PathBuf> = None;
     // `pull`: the words pushed, and whether a save has been seen.
-    let pushed: &[(&str, i64)] = if behavior == "pull" {
+    let pull = behavior == "pull" || behavior == "pull-cancel";
+    let mut cancel_pull = behavior == "pull-cancel";
+    let pushed: &[(&str, i64)] = if pull {
         &[("TODO", 2)]
     } else {
         &[("TODO", 2), ("bad", 1), ("SPAN", 3)]
@@ -223,11 +229,19 @@ pub fn serve(behavior: &str) {
                     "executeCommandProvider": {"commands": ["fake.cmd"]},
                     "inlayHintProvider": true,
                 }}});
-                if behavior == "pull" {
+                if pull {
                     answer["result"]["capabilities"]["diagnosticProvider"] =
                         json!({"interFileDependencies": false, "workspaceDiagnostics": false});
                 }
                 send(&mut out, answer);
+                if behavior == "huge" {
+                    let _ = writeln!(std::io::stderr(), "pid {}", std::process::id());
+                    let _ = out.write_all(b"Content-Length: 999999999999\r\n\r\n");
+                    let _ = out.flush();
+                    loop {
+                        std::thread::sleep(std::time::Duration::from_secs(60));
+                    }
+                }
                 if behavior == "chatty" {
                     // A line of its standard error that is not UTF-8,
                     // then one that is: both reach the log.
@@ -272,6 +286,13 @@ pub fn serve(behavior: &str) {
                     std::process::exit(3);
                 }
                 let text = p["textDocument"]["text"].as_str().unwrap_or("").to_string();
+                if texts.contains_key(&uri) {
+                    send(
+                        &mut out,
+                        json!({"jsonrpc": "2.0", "method": "window/logMessage",
+                            "params": {"type": 1, "message": format!("didOpen of {uri}, open already")}}),
+                    );
+                }
                 send(&mut out, publish(&json!(real(&uri)), &found(&text, pushed)));
                 texts.insert(uri, text);
             }
@@ -312,6 +333,16 @@ pub fn serve(behavior: &str) {
                         }}),
                     );
                 }
+            }
+            "textDocument/didClose" => {
+                texts.remove(&uri);
+            }
+            "textDocument/diagnostic" if cancel_pull => {
+                cancel_pull = false;
+                send(
+                    &mut out,
+                    json!({"jsonrpc": "2.0", "id": id, "error": {"code": -32801, "message": "content modified"}}),
+                );
             }
             "textDocument/diagnostic" => {
                 let text = texts.get(&uri).cloned().unwrap_or_default();
@@ -426,7 +457,7 @@ pub fn serve(behavior: &str) {
                 send(&mut out, answer);
             }
             "textDocument/didSave" => {
-                if behavior == "pull" {
+                if pull {
                     saved = true;
                     send(
                         &mut out,

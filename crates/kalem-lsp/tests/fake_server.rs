@@ -1,6 +1,6 @@
 //! The client against a fake server: this binary started again with
 //! `KALEM_LSP_FAKE` set to a behavior (`normal`, `silent`, `crash`,
-//! `refuse`, `garbage`, `absent`, `pull`).
+//! `refuse`, `garbage`, `absent`, `pull`, `pull-cancel`, `huge`).
 
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
@@ -67,6 +67,36 @@ fn normal() {
     let h = c.request("textDocument/hover", json!({"textDocument": {"uri": uri}, "position": kalem_lsp::position::position("😀bad\nb", 5, c.encoding()).to_json()}));
     let v = h.wait(Duration::from_secs(5)).unwrap();
     assert_eq!(kalem_lsp::features::hover_text(&v).unwrap(), "at 0:3");
+    // An edit inside a character, or one that does not make the text
+    // after it: the whole text is sent, not a range the server would put
+    // in the wrong place.
+    c.did_change(
+        uri,
+        "😀bad\nb",
+        &[Edit {
+            range: 1..2,
+            text: "x".into(),
+        }],
+        "TODO\n",
+    );
+    until("the whole text", || {
+        c.diagnostics(uri)
+            .iter()
+            .any(|d| d["message"] == "TODO found")
+    });
+    // Opened again while open: closed first, so the server never sees a
+    // second didOpen.
+    c.did_open(uri, "elixir", "SPAN");
+    let h = c.request(
+        "textDocument/hover",
+        json!({"textDocument": {"uri": uri}, "position": {"line": 0, "character": 0}}),
+    );
+    h.wait(Duration::from_secs(5)).unwrap();
+    assert!(
+        !c.log().iter().any(|l| l.contains("open already")),
+        "{:?}",
+        c.log()
+    );
     until("config", || {
         c.log().iter().any(|l| l.contains("dialyzerEnabled"))
     });
@@ -82,9 +112,15 @@ fn silent() {
     // Never answered: the caller is not blocked, and a wait times out.
     assert!(p.poll().is_none());
     assert!(p.wait(Duration::from_millis(100)).is_err());
+    // Dropped: the server is ended on another thread, the dropping one
+    // not kept waiting for it.
     let t = Instant::now();
     drop(c);
-    assert!(t.elapsed() < Duration::from_secs(3));
+    assert!(
+        t.elapsed() < Duration::from_millis(300),
+        "{:?}",
+        t.elapsed()
+    );
 }
 
 fn crash() {
@@ -250,10 +286,61 @@ fn pull() {
         !log.iter().any(|l| l.contains("[client] diagnostics of")),
         "{log:?}"
     );
-    // Closed: forgotten.
+    // Closed: what it gave when asked is forgotten, what it pushed stays,
+    // the server's to clear.
+    c.did_change(
+        uri,
+        "bad bad",
+        &[Edit {
+            range: 0..0,
+            text: "TODO ".into(),
+        }],
+        "TODO bad bad",
+    );
+    until("pushed again", || {
+        messages(&c).contains(&"TODO found".to_string())
+    });
     c.did_close(uri);
-    assert!(c.diagnostics(uri).is_empty());
+    assert_eq!(messages(&c), ["TODO found"]);
+    assert!(c.all_published().iter().any(|(u, _)| u == uri));
     c.shutdown();
+}
+
+/// A server that cancels a request for diagnostics and then says nothing
+/// (rust-analyzer loading a project): asked again after a moment, not
+/// only when the server next speaks.
+fn pull_cancel() {
+    let c = start("pull-cancel", Arc::new(AtomicUsize::new(0)));
+    let uri = "file:///x.ex";
+    c.did_open(uri, "elixir", "bad");
+    until("asked again", || {
+        c.diagnostics(uri)
+            .iter()
+            .any(|d| d["message"] == "bad found")
+    });
+    c.shutdown();
+}
+
+/// A server whose output cannot be read on (a message too large): ended,
+/// not left running while the client takes it for exited.
+fn huge() {
+    let c = start("huge", Arc::new(AtomicUsize::new(0)));
+    until("exit", || c.has_exited());
+    assert!(c.log().iter().any(|l| l.contains("read failed")));
+    #[cfg(unix)]
+    {
+        let pid = c
+            .log()
+            .iter()
+            .find_map(|l| l.strip_prefix("[stderr] pid ").map(str::to_string))
+            .expect("its process id");
+        let alive = std::process::Command::new("kill")
+            .args(["-0", &pid])
+            .status()
+            .unwrap()
+            .success();
+        assert!(!alive, "the server still runs");
+    }
 }
 
 fn ignored() {
@@ -303,6 +390,8 @@ fn main() {
         ("refuse", refuse),
         ("absent", absent),
         ("pull", pull),
+        ("pull cancelled", pull_cancel),
+        ("huge", huge),
         ("log work", log_work),
         ("garbage", garbage),
         ("chatty", chatty),

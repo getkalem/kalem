@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- A language server that cancels a request for diagnostics or inlay hints and then says nothing, as rust-analyzer does while it loads a project, is asked again after 300 ms: the diagnostics or hints stayed missing until the server next spoke.
+- Closing a document no longer takes its file's problems off the project's list while the language server still holds them: what a server pushed stays until the server clears it, as for the project's files that are not open.
+- A formatting answer with one edit Kalem cannot read is refused whole: the others were made, and left the document neither as it was nor as the server meant it.
+- A language server whose output Kalem can no longer read (a message too large) is ended, where it was left running while Kalem took it for stopped; a document opened again while open is closed first, as the protocol wants; and a client dropped without being shut down no longer holds up its thread for up to two seconds.
+- Edits sent to a language server that do not fit the text, a range inside a character among them, send the whole text rather than ranges the server would put in the wrong place, or ending Kalem.
+- On Linux and macOS, a file whose name has a backslash or is not UTF-8 is named to language servers by its own path, and a relative path from the working folder.
+
 ## [0.6.27] - 2026-10-15
 
 ### Added

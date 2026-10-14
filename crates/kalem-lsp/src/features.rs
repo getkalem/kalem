@@ -244,7 +244,7 @@ pub fn snippet_insert(s: &str) -> (String, usize) {
                 Some(d) if d.is_ascii_digit() => {
                     let mut n = 0u32;
                     while let Some(d) = chars.peek().and_then(|d| d.to_digit(10)) {
-                        n = n * 10 + d;
+                        n = n.saturating_mul(10).saturating_add(d);
                         chars.next();
                     }
                     place(n, out.len(), &mut first);
@@ -253,7 +253,7 @@ pub fn snippet_insert(s: &str) -> (String, usize) {
                     chars.next();
                     let mut n: Option<u32> = None;
                     while let Some(d) = chars.peek().and_then(|d| d.to_digit(10)) {
-                        n = Some(n.unwrap_or(0) * 10 + d);
+                        n = Some(n.unwrap_or(0).saturating_mul(10).saturating_add(d));
                         chars.next();
                     }
                     if let Some(n) = n {
@@ -483,7 +483,9 @@ pub fn completion_items(answer: &Value, keep_raw: bool) -> (Vec<CompletionItem>,
 }
 
 /// The text edits of a formatting answer, as byte ranges of `text`,
-/// sorted and checked not to overlap.
+/// sorted and checked not to overlap; `None` when one of them cannot be
+/// read, for the others alone would leave the text neither as it was
+/// nor as the server meant it.
 pub fn text_edits(
     text: &str,
     answer: &Value,
@@ -498,13 +500,13 @@ pub fn text_edits(
     let lines = Lines::new(text);
     let mut edits: Vec<(Range<usize>, String)> = list
         .iter()
-        .filter_map(|e| {
+        .map(|e| {
             Some((
                 lines.byte_range(e.get("range")?, enc)?,
                 e["newText"].as_str()?.to_string(),
             ))
         })
-        .collect();
+        .collect::<Option<_>>()?;
     edits.sort_by_key(|(r, _)| (r.start, r.end));
     if edits.windows(2).any(|w| w[0].0.end > w[1].0.start) {
         return None;
@@ -667,6 +669,8 @@ mod tests {
         assert_eq!(snippet_text("f(${1:a}, $2)$0"), ("f(a, )".into(), Some(2)));
         assert_eq!(snippet_text("${0:x} y"), ("x y".into(), Some(0)));
         assert_eq!(snippet_text("plain"), ("plain".into(), None));
+        // A tab stop's number too long for its type: no overflow.
+        assert_eq!(snippet_insert("a$99999999999b").0, "ab");
     }
 
     #[test]
@@ -689,6 +693,10 @@ mod tests {
                          {"range": {"start": {"line": 0, "character": 4}, "end": {"line": 0, "character": 6}}, "newText": " "}]);
         let e = text_edits(text, &ans, Encoding::Utf16).unwrap();
         assert_eq!(apply(text, &e), "a = 1\n");
+        // One edit without its new text: none is applied.
+        let mut half = ans.clone();
+        half[1]["newText"] = Value::Null;
+        assert_eq!(text_edits(text, &half, Encoding::Utf16), None);
     }
 
     #[test]

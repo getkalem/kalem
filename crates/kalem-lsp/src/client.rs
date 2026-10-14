@@ -293,6 +293,9 @@ struct Hinted {
 
 /// The server cancelled the request (LSP 3.17): ask again.
 pub const SERVER_CANCELLED: i64 = -32802;
+/// How long after a server cancelled a request for diagnostics or inlay
+/// hints they are asked for again.
+const ASK_AGAIN_AFTER: Duration = Duration::from_millis(300);
 /// The server's state changed under the request (a project loaded, a
 /// document changed): ask again, and do not show it (LSP 3.17).
 pub const CONTENT_MODIFIED: i64 = -32801;
@@ -740,6 +743,7 @@ impl Inner {
         let now = Instant::now();
         let mut changed = Vec::new();
         let mut again = Vec::new();
+        let mut later = false;
         {
             let mut all = self.hinted.lock().expect("hinted");
             for (uri, h) in all.iter_mut() {
@@ -758,7 +762,8 @@ impl Inner {
                         }
                         Err(e) if e.code == SERVER_CANCELLED || e.code == CONTENT_MODIFIED => {
                             h.again = true;
-                            h.not_before = Some(now + Duration::from_millis(300));
+                            h.not_before = Some(now + ASK_AGAIN_AFTER);
+                            later = true;
                         }
                         Err(e) => {
                             // None for this version: not asked again
@@ -785,6 +790,26 @@ impl Inner {
         for uri in again {
             self.ask_hints(&uri, None);
         }
+        if later {
+            self.poll_later();
+        }
+    }
+
+    /// Looks at the answers again once [`ASK_AGAIN_AFTER`] has passed:
+    /// the reader looks only as messages come, and a server that cancelled
+    /// a request and went quiet (loading a project) would otherwise leave
+    /// the diagnostics or hints asked for missing until it spoke again.
+    fn poll_later(self: &Arc<Self>) {
+        let weak = Arc::downgrade(self);
+        let _ = std::thread::Builder::new()
+            .name(format!("lsp-again:{}", self.config.name))
+            .spawn(move || {
+                std::thread::sleep(ASK_AGAIN_AFTER + Duration::from_millis(10));
+                if let Some(inner) = weak.upgrade() {
+                    inner.poll_pulls();
+                    inner.poll_hints();
+                }
+            });
     }
 
     /// Asks for the diagnostics of every open document.
@@ -807,6 +832,7 @@ impl Inner {
         let now = Instant::now();
         let mut changed = Vec::new();
         let mut again = Vec::new();
+        let mut later = false;
         {
             let mut all = self.pulled.lock().expect("pulled");
             for (uri, p) in all.iter_mut() {
@@ -827,7 +853,8 @@ impl Inner {
                         }
                         Err(e) if e.code == SERVER_CANCELLED || e.code == CONTENT_MODIFIED => {
                             p.again = true;
-                            p.not_before = Some(now + Duration::from_millis(300));
+                            p.not_before = Some(now + ASK_AGAIN_AFTER);
+                            later = true;
                         }
                         Err(e) => self.log(format!("[client] diagnostics of {uri}: {e}")),
                     }
@@ -847,6 +874,36 @@ impl Inner {
         for uri in again {
             self.pull(&uri);
         }
+        if later {
+            self.poll_later();
+        }
+    }
+
+    /// Asks the server to stop, waits a moment, and ends the process.
+    fn shutdown(self: &Arc<Self>) {
+        if self.shutting_down.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let ready = {
+            let st = self.state.read().expect("state");
+            st.ready && !st.exited
+        };
+        if ready {
+            let p = self.request("shutdown", Value::Null, false);
+            let _ = p.wait(Duration::from_millis(1500));
+            self.notify("exit", Value::Null);
+        }
+        // The process locked only to look: `kill` and the reader's own
+        // look at its exit are not kept waiting meanwhile.
+        for _ in 0..20 {
+            if matches!(self.child.lock().expect("child").try_wait(), Ok(Some(_))) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        let mut child = self.child.lock().expect("child");
+        let _ = child.kill();
+        let _ = child.wait();
     }
 }
 
@@ -1399,30 +1456,42 @@ impl Client {
             .collect()
     }
 
-    /// Opens a document.
+    /// Opens a document. One open already is closed first, as the
+    /// protocol wants (a server refuses a second `didOpen`, or keeps the
+    /// text it had), and its versions go on from the last.
     pub fn did_open(&self, uri: &str, language_id: &str, text: &str) {
-        self.inner
-            .versions
-            .lock()
-            .expect("versions")
-            .insert(uri.to_string(), 1);
-        self.notify(
-            "textDocument/didOpen",
-            json!({
-                "textDocument": { "uri": uri, "languageId": language_id, "version": 1, "text": text }
-            }),
-        );
+        {
+            // Sent under the lock: versions reach the server in order.
+            let mut versions = self.inner.versions.lock().expect("versions");
+            let version = match versions.get(uri) {
+                Some(&n) => {
+                    self.notify(
+                        "textDocument/didClose",
+                        json!({ "textDocument": { "uri": uri } }),
+                    );
+                    n + 1
+                }
+                None => 1,
+            };
+            versions.insert(uri.to_string(), version);
+            self.notify(
+                "textDocument/didOpen",
+                json!({
+                    "textDocument": { "uri": uri, "languageId": language_id, "version": version, "text": text }
+                }),
+            );
+        }
         self.inner.pull(uri);
     }
 
     /// A document changed from `before` by `edits` (in order) to `after`.
     /// Sent as ranges when the server takes them, else whole.
     pub fn did_change(&self, uri: &str, before: &str, edits: &[Edit], after: &str) {
-        let version = {
-            let mut v = self.inner.versions.lock().expect("versions");
-            let Some(n) = v.get_mut(uri) else { return };
-            *n += 1;
-            *n
+        // The version taken and the change sent under one lock: two
+        // threads' changes reach the server in the order of their versions.
+        let mut versions = self.inner.versions.lock().expect("versions");
+        let Some(version) = versions.get_mut(uri) else {
+            return;
         };
         let (incremental, enc) = {
             let st = self.inner.state.read().expect("state");
@@ -1433,32 +1502,19 @@ impl Client {
                 .unwrap_or(1);
             (st.ready && kind == 2, st.encoding)
         };
-        let changes = if incremental && edits.len() == 1 {
-            // One edit (the editor's usual): its range in `before` as it
-            // is, without a copy of the document.
-            let e = &edits[0];
-            let r = e.range.start.min(before.len())..e.range.end.min(before.len());
-            vec![json!({ "range": range_json(before, r, enc), "text": e.text })]
-        } else if incremental && !edits.is_empty() && edits.len() <= 8 {
-            let mut text = before.to_string();
-            let mut out = Vec::new();
-            for e in edits {
-                let r = e.range.start.min(text.len())..e.range.end.min(text.len());
-                out.push(json!({ "range": range_json(&text, r.clone(), enc), "text": e.text }));
-                text.replace_range(r, &e.text);
-            }
-            debug_assert_eq!(text, after);
-            out
-        } else {
-            vec![json!({ "text": after })]
-        };
+        let changes = incremental
+            .then(|| content_changes(before, edits, after, enc))
+            .flatten()
+            .unwrap_or_else(|| vec![json!({ "text": after })]);
+        *version += 1;
         self.notify(
             "textDocument/didChange",
             json!({
-                "textDocument": { "uri": uri, "version": version },
+                "textDocument": { "uri": uri, "version": *version },
                 "contentChanges": changes,
             }),
         );
+        drop(versions);
         self.inner.pull(uri);
     }
 
@@ -1477,7 +1533,10 @@ impl Client {
         self.notify("textDocument/didSave", params);
     }
 
-    /// A document was closed.
+    /// A document was closed. What the server gave when asked about it
+    /// and its inlay hints are forgotten; what it pushed stays, as for
+    /// the project's files that are not open: the server clears it if it
+    /// will (LSP), and the file's problems stay listed meanwhile.
     pub fn did_close(&self, uri: &str) {
         if self
             .inner
@@ -1492,11 +1551,6 @@ impl Client {
                 json!({ "textDocument": { "uri": uri } }),
             );
         }
-        self.inner
-            .diagnostics
-            .lock()
-            .expect("diagnostics")
-            .remove(&crate::uri::normalize(uri));
         self.inner.pulled.lock().expect("pulled").remove(uri);
         self.inner.hinted.lock().expect("hinted").remove(uri);
         self.inner.published.fetch_add(1, Ordering::Relaxed);
@@ -1507,31 +1561,66 @@ impl Client {
         self.inner.versions.lock().expect("versions").len()
     }
 
-    /// Asks the server to stop, waits a moment, and ends the process.
+    /// Asks the server to stop, waits a moment (two seconds at most for
+    /// a server that does not answer), and ends the process.
     pub fn shutdown(&self) {
-        if self.inner.shutting_down.swap(true, Ordering::SeqCst) {
-            return;
-        }
-        if self.is_ready() {
-            let p = self.inner.request("shutdown", Value::Null, false);
-            let _ = p.wait(Duration::from_millis(1500));
-            self.inner.notify("exit", Value::Null);
-        }
-        let mut child = self.inner.child.lock().expect("child");
-        for _ in 0..20 {
-            if matches!(child.try_wait(), Ok(Some(_))) {
-                return;
-            }
-            std::thread::sleep(Duration::from_millis(25));
-        }
-        let _ = child.kill();
-        let _ = child.wait();
+        self.inner.shutdown();
     }
 }
 
 impl Drop for Client {
+    /// Shuts the server down on a thread of its own: dropping a client
+    /// does not keep its thread waiting for the server.
     fn drop(&mut self) {
-        self.shutdown();
+        if self.inner.shutting_down.load(Ordering::SeqCst) {
+            return;
+        }
+        let inner = Arc::clone(&self.inner);
+        let name = format!("lsp-stop:{}", inner.config.name);
+        if std::thread::Builder::new()
+            .name(name)
+            .spawn(move || inner.shutdown())
+            .is_err()
+        {
+            let _ = self.inner.child.lock().expect("child").kill();
+        }
+    }
+}
+
+/// `edits` (in order, each in the text those before it made) as the
+/// ranges of an incremental change; `None` where they do not take
+/// `before` to `after` (a range past the end or inside a character,
+/// edits made for another text), and the whole text is sent instead.
+fn content_changes(before: &str, edits: &[Edit], after: &str, enc: Encoding) -> Option<Vec<Value>> {
+    let fits = |text: &str, r: &Range<usize>| {
+        r.start <= r.end
+            && r.end <= text.len()
+            && text.is_char_boundary(r.start)
+            && text.is_char_boundary(r.end)
+    };
+    match edits {
+        // One edit (the editor's usual): its range in `before` as it is,
+        // without a copy of the document.
+        [e] => (fits(before, &e.range)
+            && before.len() - e.range.len() + e.text.len() == after.len())
+        .then(|| {
+            vec![json!({ "range": range_json(before, e.range.clone(), enc), "text": e.text })]
+        }),
+        _ if !edits.is_empty() && edits.len() <= 8 => {
+            let mut text = before.to_string();
+            let mut out = Vec::with_capacity(edits.len());
+            for e in edits {
+                if !fits(&text, &e.range) {
+                    return None;
+                }
+                out.push(
+                    json!({ "range": range_json(&text, e.range.clone(), enc), "text": e.text }),
+                );
+                text.replace_range(e.range.clone(), &e.text);
+            }
+            (text == after).then_some(out)
+        }
+        _ => None,
     }
 }
 
@@ -1548,6 +1637,9 @@ fn reader(inner: Arc<Inner>, stdout: std::process::ChildStdout, init: Pending) {
             }
             Err(e) => {
                 inner.log(format!("[client] read failed: {e}"));
+                // Its output no longer read, the server would block
+                // writing it: ended, not left running as one exited.
+                let _ = inner.child.lock().expect("child").kill();
                 break;
             }
         };
@@ -1710,5 +1802,27 @@ mod queue_tests {
             false
         );
         assert_eq!(client_capabilities(&Value::Null), own_capabilities());
+    }
+
+    /// Edits sent as ranges only where they take the text before to the
+    /// text after: one inside a character, past the end, or made for
+    /// another text is sent as the whole text.
+    #[test]
+    fn content_changes_only_where_they_fit() {
+        let e = |r: Range<usize>, t: &str| Edit {
+            range: r,
+            text: t.into(),
+        };
+        let enc = Encoding::Utf16;
+        let one = content_changes("😀a", &[e(4..5, "b")], "😀b", enc).unwrap();
+        assert_eq!(one[0]["range"]["start"]["character"], 2);
+        assert!(content_changes("😀a", &[e(1..2, "b")], "b😀a", enc).is_none());
+        assert!(content_changes("ab", &[e(1..9, "")], "a", enc).is_none());
+        // One edit is checked by its length alone, not by a copy.
+        assert!(content_changes("ab", &[e(0..1, "x")], "xyz", enc).is_none());
+        let two = [e(0..1, "x"), e(1..2, "y")];
+        assert_eq!(content_changes("ab", &two, "xy", enc).unwrap().len(), 2);
+        assert!(content_changes("ab", &two, "xz", enc).is_none());
+        assert!(content_changes("😀", &[e(0..0, "a"), e(2..3, "")], "a", enc).is_none());
     }
 }
