@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.23] - 2026-10-14
+
 ### Fixed
 - With Vim's keys, a saved file ends with a line feed, as Vim writes it ('fixendofline'; `:set nofixeol` keeps a file without one): a new file typed and saved, or one whose only line was deleted and typed again, lost its final line feed. The default keys still save the text as it is.
 - With Vim's keys, `:qa!` quits at once, dropping the unsaved changes, as Vim does: the bang is the consent. It asked first, as Quit Without Saving from the palette (Doom's `SPC q Q`) still does.
