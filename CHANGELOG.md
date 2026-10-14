@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.22] - 2026-10-14
+
 ### Added
 - Plugin API 0.2.14, the `problems` import: an extension plugin tells what its tool finds wrong in a file, each problem at a line, a column and a length, with a severity, a message and the tool's name, and both editors draw it as a language server's diagnostic: the wavy line, the line number's color, the status bar on the cursor's line, the hover card and List Problems, beside the server's own, or alone in a language without a server. A plugin sets a file's problems whole and sets them again when they change; they ask for no permission.
 - Inlay hints from language servers: the short texts a server would show in a line (a type, a parameter's name, a journal's elided amount or running balance) drawn in place, dimmed and in italics, in both editors, the cursor passing over them. Kalem asks for the whole file's when the server is ready and after each change, and again when the server says they changed; meanwhile the hints shown move with the edits. The setting `editor.inlay_hints` (on) and Toggle Inlay Hints show or hide them.
