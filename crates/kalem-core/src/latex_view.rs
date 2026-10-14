@@ -235,6 +235,11 @@ struct ProjectView {
     cache: latex_model::project::ProjectCache,
     disk: DiskCache,
     last: Option<(latex_syntax::GreenNode, Arc<latex_model::Model>)>,
+    /// Whether the root document stands alone, for the packages it used
+    /// then and when that was looked at: their files beside it are looked
+    /// for again when the packages change, or a while after (one made
+    /// meanwhile), not for each paragraph drawn.
+    alone: Option<(Vec<String>, std::time::Instant, bool)>,
 }
 
 /// Files read from the disk, kept while their modification time stays.
@@ -322,14 +327,27 @@ impl ProjectView {
         // package of its own beside it (`\\usepackage{macros}`) is
         // included.
         let dir = self.root.parent().unwrap_or(std::path::Path::new(""));
-        if self.root == self.path
-            && own.includes.is_empty()
-            && !own
-                .packages
-                .iter()
-                .any(|p| dir.join(format!("{}.sty", p.name)).is_file())
-        {
-            return None;
+        if self.root == self.path && own.includes.is_empty() {
+            let names: Vec<&str> = own.packages.iter().map(|p| p.name.as_str()).collect();
+            let alone = match &self.alone {
+                Some((known, at, alone))
+                    if known.iter().map(String::as_str).eq(names.iter().copied())
+                        && at.elapsed() < std::time::Duration::from_secs(2) =>
+                {
+                    *alone
+                }
+                _ => {
+                    let alone = !names
+                        .iter()
+                        .any(|name| dir.join(format!("{name}.sty")).is_file());
+                    let names = names.iter().map(|n| n.to_string()).collect();
+                    self.alone = Some((names, std::time::Instant::now(), alone));
+                    alone
+                }
+            };
+            if alone {
+                return None;
+            }
         }
         if let Some((g, m)) = &self.last
             && same(g, parse.green())
@@ -547,6 +565,7 @@ impl LatexState {
                     cache,
                     disk: DiskCache::default(),
                     last: None,
+                    alone: None,
                 });
                 self.root = None;
                 true
@@ -9826,6 +9845,29 @@ mod tests {
         )
         .unwrap();
         d.wait_for_latex_project();
+        assert_eq!(formula_failures(&d), Vec::new());
+        // A document that uses it only once it is typed in: its definitions
+        // at once, whether the document stands alone asked again when its
+        // packages change (not a while after).
+        let line = "\\usepackage{macros}\n";
+        let alone = dir.join("alone.tex");
+        std::fs::write(&alone, text.replace(line, "")).unwrap();
+        let mut d = crate::DocumentState::open(
+            &alone,
+            std::sync::Arc::new(org_model::Settings::default()),
+            &base,
+        )
+        .unwrap();
+        d.wait_for_latex_project();
+        assert!(!formula_failures(&d).is_empty());
+        let at = text.find(line).unwrap();
+        let mut tx = org_edit::Transaction::new("Edit");
+        tx.edit(at..at, line);
+        d.apply(
+            &tx,
+            org_edit::ChangeKind::Command,
+            std::time::Instant::now(),
+        );
         assert_eq!(formula_failures(&d), Vec::new());
         let _ = std::fs::remove_dir_all(&dir);
     }
