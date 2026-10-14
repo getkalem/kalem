@@ -2135,6 +2135,11 @@ fn settle_picker(ws: &Entity<Workspace>, cx: &mut VisualTestContext) {
 #[gpui::test]
 fn folder_tree(cx: &mut TestAppContext) {
     let (ws, dir, cx) = open_project(false, cx);
+    // Hidden by default, the file manager listing a folder (asked by the
+    // owner, 2026-10-14); Toggle Folder Tree shows it.
+    assert!(!ws.read_with(cx, |ws, _| ws.shared.config.bool("ui.folder_tree")));
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("view.toggleFolderTree"));
+    cx.run_until_parked();
     // The project's files are found in the background.
     for _ in 0..300 {
         cx.run_until_parked();
@@ -2169,6 +2174,9 @@ fn folder_tree(cx: &mut TestAppContext) {
     ws.update(cx, |_, cx| cx.notify());
     cx.run_until_parked();
     assert!(cx.debug_bounds("tree-0").is_some(), "the tree back");
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("view.toggleFolderTree"));
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("tree-0").is_none(), "the tree hidden again");
 }
 
 #[gpui::test]

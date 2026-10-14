@@ -9021,7 +9021,17 @@ fn plain_commands() -> Vec<Command> {
             "View",
             &[],
             Some("inProject"),
-            |ctx, _| request(ctx, Request::Project(ProjectRequest::RevealInTree)),
+            |ctx, _| {
+                // The tree hidden (as it is by default), revealing shows it.
+                if !ctx.config.bool("ui.folder_tree") {
+                    ctx.requests.push(Request::SetSetting {
+                        key: "ui.folder_tree".into(),
+                        value: true.into(),
+                        quiet: true,
+                    });
+                }
+                request(ctx, Request::Project(ProjectRequest::RevealInTree))
+            },
         ),
         cmd(
             "project.switch",

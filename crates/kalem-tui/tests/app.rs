@@ -1565,7 +1565,14 @@ fn screen(t: &mut T) -> Vec<String> {
 
 #[test]
 fn folder_tree_in_the_terminal() {
+    // Hidden by default, the file manager listing a folder (asked by the
+    // owner, 2026-10-14); Reveal in Folder Tree shows it.
     let (mut t, dir) = project_app(Config::default());
+    settle(&mut t);
+    assert!(!screen(&mut t).join("\n").contains("Folders"));
+    t.app.config_dir = Some(test_config(&dir));
+    t.app
+        .run_command("view.revealInTree", serde_json::Value::Null);
     // The project's files are found in the background.
     let mut rows = screen(&mut t);
     for _ in 0..300 {
@@ -1609,14 +1616,6 @@ fn folder_tree_in_the_terminal() {
     t.app
         .run_command("view.revealInTree", serde_json::Value::Null);
     assert!(screen(&mut t).join("\n").contains("     b.org"));
-    // The setting hides it.
-    let (mut t, _) = project_app(Config::from_layers(&[(
-        Layer::User,
-        None,
-        "[ui]\nfolder_tree = false\n",
-    )]));
-    settle(&mut t);
-    assert!(!screen(&mut t).join("\n").contains("Folders"));
 }
 
 #[test]

@@ -48,9 +48,11 @@ never lists =.git= itself or binary files.
 
 * The folder tree
 
-When the document is in a project and the open files are on the left,
-the project's folders and files are listed below them, folders first,
-with the same ignore rules. A click opens or closes a folder or opens
-a file, and the document's file is marked. /Reveal in Folder Tree/
-opens the folders down to the document's file; /Toggle Folder Tree/
-shows or hides the tree, saving the setting =ui.folder_tree=.
+The folder tree is hidden at first, as the file manager lists a folder
+(/File Manager/, =SPC o -= with Vim's keys). /Toggle Folder Tree/
+shows or hides it, saving the setting =ui.folder_tree=, and /Reveal in
+Folder Tree/ shows it. When the document is in a project and the open
+files are on the left, the project's folders and files are then listed
+below them, folders first, with the same ignore rules. A click opens
+or closes a folder or opens a file, and the document's file is marked.
+/Reveal in Folder Tree/ opens the folders down to the document's file.

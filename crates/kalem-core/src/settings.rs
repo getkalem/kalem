@@ -273,8 +273,8 @@ pub const SPECS: &[Spec] = &[
     Spec {
         key: "ui.folder_tree",
         kind: Kind::Bool,
-        default: "true",
-        description: "The sidebar on the left shows the current project's folders and files below the open files",
+        default: "false",
+        description: "The sidebar on the left shows the current project's folders and files below the open files (the file manager lists a folder's)",
     },
     Spec {
         key: "org.table_auto_recalc",
