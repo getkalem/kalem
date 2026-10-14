@@ -135,6 +135,30 @@ impl Printer<'_> {
                 self.compose(&args[1], 0, false)
             ));
         }
+        // A sum nested to the left, one level a term, written term by term
+        // as the operators below write it, rather than by recursion, which
+        // a long one (`vsum` over a column of words) ran out of stack in.
+        if (f == "+" || f == "-") && args.len() == 2 && prec <= 180 {
+            let mut rights = Vec::new();
+            let (mut op, mut xs) = (f, args);
+            loop {
+                rights.push((op, &xs[1]));
+                match &xs[0] {
+                    Expr::Call(g, ys) if (g == "+" || g == "-") && ys.len() == 2 => {
+                        (op, xs) = (g.as_str(), ys.as_slice());
+                    }
+                    _ => break,
+                }
+            }
+            let mut s = self.compose(&xs[0], 180, false);
+            for (op, right) in rights.into_iter().rev() {
+                s.push(' ');
+                s.push_str(op);
+                s.push(' ');
+                s.push_str(&self.compose(right, 181, false));
+            }
+            return s;
+        }
         let op = op_for(f);
         match op {
             Some(o) if (args.len() == 2 || (f == "if" && args.len() == 3)) && o.right != -1 => {

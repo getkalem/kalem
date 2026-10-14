@@ -5,6 +5,7 @@
 //! products (`a 3 b` is `3 a b`) and spread over sums (`2 (a + 1)` is
 //! `2 a + 2`).
 
+use std::borrow::Cow;
 use std::cell::Cell;
 use std::cmp::Ordering;
 
@@ -211,6 +212,26 @@ fn term(e: &Expr) -> (Num, Expr) {
     }
 }
 
+/// [`term`] without copying the base, `None` for 1: comparing a long sum
+/// with a term copied the whole sum.
+fn term_ref(e: &Expr) -> (Num, Option<&Expr>) {
+    fn base(x: &Expr) -> Option<&Expr> {
+        (*x != Expr::int(1)).then_some(x)
+    }
+    match e {
+        Expr::Num(n) => (n.clone(), None),
+        Expr::Call(f, xs) if f == "*" && xs.len() == 2 => match num_of(&xs[0]) {
+            Some(c) => (c.clone(), base(&xs[1])),
+            None => (Num::int(1), Some(e)),
+        },
+        Expr::Call(f, xs) if f == "neg" => {
+            let (c, x) = term_ref(&xs[0]);
+            (c.neg(), x)
+        }
+        _ => (Num::int(1), base(e)),
+    }
+}
+
 /// `k x`, simplified.
 fn scaled(k: Num, x: Expr, env: &Env) -> Expr {
     // A coefficient that is a modulo form takes the number in.
@@ -268,8 +289,8 @@ fn combine(a: &Expr, b: &Expr, sign: i8, env: &Env) -> Option<Expr> {
         };
         return Some(mul(&k, &xa, env));
     }
-    let (ka, xa) = term(a);
-    let (kb, xb) = term(b);
+    let (ka, xa) = term_ref(a);
+    let (kb, xb) = term_ref(b);
     if xa != xb {
         return None;
     }
@@ -278,7 +299,7 @@ fn combine(a: &Expr, b: &Expr, sign: i8, env: &Env) -> Option<Expr> {
     } else {
         num::sub(&ka, &kb, &env.prec)
     };
-    Some(scaled(k, xa, env))
+    Some(scaled(k, xa.cloned().unwrap_or_else(|| Expr::int(1)), env))
 }
 
 /// A modulo form `a mod m` (Calc's `(mod a m)`): the parser cannot
@@ -342,101 +363,151 @@ pub(crate) fn modular(op: &str, a: &Expr, b: &Expr, env: &Env) -> Option<Expr> {
 
 /// `math-add`.
 pub(crate) fn add(a: &Expr, b: &Expr, env: &Env) -> Expr {
-    if let Some(r) = modular("+", a, b, env) {
-        return r;
+    add_cow(Cow::Borrowed(a), b, env)
+}
+
+/// [`add`] taking its left operand: a sum built term by term (`vsum`, a
+/// column's `+`) grows without being copied at each term.
+pub(crate) fn add_owned(a: Expr, b: &Expr, env: &Env) -> Expr {
+    add_cow(Cow::Owned(a), b, env)
+}
+
+fn add_cow(a: Cow<'_, Expr>, b: &Expr, env: &Env) -> Expr {
+    by_terms(a, b, true, env)
+}
+
+/// `a + b` (`plus`) or `a - b`. Sums are kept left-nested: when no rule
+/// but that one applies, `a + (p - q)` is `(a + p) - q` and `a - (p + q)`
+/// is `(a - p) - q`, the terms of a long `b` taken one after another
+/// rather than by recursion.
+fn by_terms(mut a: Cow<'_, Expr>, mut b: &Expr, plus: bool, env: &Env) -> Expr {
+    let mut rights = Vec::new();
+    let mut acc = loop {
+        let step = if plus {
+            add_rules(a, b, env)
+        } else {
+            sub_rules(a, b, env)
+        };
+        match step {
+            Ok(r) => break r,
+            Err(rest) => {
+                let Expr::Call(f, xs) = b else {
+                    unreachable!("a sum")
+                };
+                rights.push((f == "+", &xs[1]));
+                (a, b) = (rest, &xs[0]);
+            }
+        }
+    };
+    for (sum, right) in rights.into_iter().rev() {
+        acc = if sum == plus {
+            add_owned(acc, right, env)
+        } else {
+            sub_owned(acc, right, env)
+        };
     }
-    if let Some(r) = super::cplx::arith("+", a, b, env) {
-        return r;
+    acc
+}
+
+/// `a + b` by the first of [`add`]'s rules that applies; `a` back when
+/// none does and `b` is a sum or a difference, added by its terms.
+fn add_rules<'a>(a: Cow<'a, Expr>, b: &Expr, env: &Env) -> Result<Expr, Cow<'a, Expr>> {
+    if let Some(r) = modular("+", &a, b, env) {
+        return Ok(r);
     }
-    match (a, b) {
+    if let Some(r) = super::cplx::arith("+", &a, b, env) {
+        return Ok(r);
+    }
+    match (&*a, b) {
         (Expr::Date(d), Expr::Num(n)) | (Expr::Num(n), Expr::Date(d)) => {
-            return Expr::Date(num::add(d, n, &env.prec));
+            return Ok(Expr::Date(num::add(d, n, &env.prec)));
         }
         // Two dates add up to a plain number.
-        (Expr::Date(x), Expr::Date(y)) => return Expr::Num(num::add(x, y, &env.prec)),
-        (Expr::Num(x), Expr::Num(y)) => return Expr::Num(num::add(x, y, &env.prec)),
+        (Expr::Date(x), Expr::Date(y)) => return Ok(Expr::Num(num::add(x, y, &env.prec))),
+        (Expr::Num(x), Expr::Num(y)) => return Ok(Expr::Num(num::add(x, y, &env.prec))),
         (Expr::Vec(x), Expr::Vec(y)) => {
-            return if x.len() == y.len() {
+            return Ok(if x.len() == y.len() {
                 Expr::Vec(x.iter().zip(y).map(|(p, q)| add(p, q, env)).collect())
             } else {
-                Expr::call("+", vec![a.clone(), b.clone()])
-            };
+                Expr::call("+", vec![(*a).clone(), b.clone()])
+            });
         }
         (Expr::Vec(x), y) if distributes(y) || x.is_empty() => {
-            return Expr::Vec(x.iter().map(|p| add(p, y, env)).collect());
+            return Ok(Expr::Vec(x.iter().map(|p| add(p, y, env)).collect()));
         }
         (x, Expr::Vec(y)) if distributes(x) || y.is_empty() => {
-            return Expr::Vec(y.iter().map(|q| add(x, q, env)).collect());
+            return Ok(Expr::Vec(y.iter().map(|q| add(x, q, env)).collect()));
         }
         (Expr::Vec(_), _) | (_, Expr::Vec(_)) => {
-            return Expr::call("+", vec![a.clone(), b.clone()]);
+            return Ok(Expr::call("+", vec![(*a).clone(), b.clone()]));
         }
         _ => {}
     }
-    if is_nan(a) || is_nan(b) {
-        return nan();
+    if is_nan(&a) || is_nan(b) {
+        return Ok(nan());
     }
     // An infinite term absorbs finite ones: `528.2 + x inf` is `x inf`.
-    match (infinitep(a), infinitep(b)) {
-        (true, false) if infinity(a).is_none() => return a.clone(),
-        (false, true) if infinity(b).is_none() => return b.clone(),
+    match (infinitep(&a), infinitep(b)) {
+        (true, false) if infinity(&a).is_none() => return Ok(a.into_owned()),
+        (false, true) if infinity(b).is_none() => return Ok(b.clone()),
         _ => {}
     }
-    match (infinity(a), infinity(b)) {
+    match (infinity(&a), infinity(b)) {
         (Some((sa, ka)), Some((sb, kb))) => {
-            return if ka == "uinf" || kb == "uinf" || sa != sb {
+            return Ok(if ka == "uinf" || kb == "uinf" || sa != sb {
                 nan()
             } else {
-                a.clone()
-            };
+                a.into_owned()
+            });
         }
-        (Some(_), None) => return a.clone(),
-        (None, Some(_)) => return b.clone(),
+        (Some(_), None) => return Ok(a.into_owned()),
+        (None, Some(_)) => return Ok(b.clone()),
         _ => {}
     }
-    if is_zero(a) {
-        return b.clone();
+    if is_zero(&a) {
+        return Ok(b.clone());
     }
     if is_zero(b) {
-        return a.clone();
+        return Ok(a.into_owned());
     }
     if looks_neg(b) {
         let nb = neg(b, env);
         if !looks_neg(&nb) {
-            return sub(a, &nb, env);
+            return Ok(sub_cow(a, &nb, env));
         }
     }
-    if let Expr::Call(f, xs) = a
+    if let Expr::Call(f, xs) = &*a
         && f == "neg"
         && !looks_neg(b)
     {
-        return sub(b, &xs[0], env);
+        return Ok(sub(b, &xs[0], env));
     }
-    if let Some(r) = combine(a, b, 1, env) {
-        return r;
+    if let Some(r) = combine(&a, b, 1, env) {
+        return Ok(r);
     }
-    if let Expr::Call(f, xs) = a
-        && xs.len() == 2
-    {
-        if f == "+" && combine(&xs[1], b, 1, env).is_some() {
-            return add(&xs[0], &add(&xs[1], b, env), env);
+    // A last term like `b`: `(p + q) + b` is `p + (q + b)`, `(p - q) + b`
+    // is `p + (b - q)`, the sum's parts taken rather than copied.
+    let like = match &*a {
+        Expr::Call(f, xs) if xs.len() == 2 && f == "+" && combine(&xs[1], b, 1, env).is_some() => {
+            Some(true)
         }
-        if f == "-" && combine(b, &xs[1], -1, env).is_some() {
-            return add(&xs[0], &sub(b, &xs[1], env), env);
+        Expr::Call(f, xs) if xs.len() == 2 && f == "-" && combine(b, &xs[1], -1, env).is_some() => {
+            Some(false)
         }
+        _ => None,
+    };
+    if let Some(plus) = like {
+        let (p, q) = parts(a);
+        return Ok(if plus {
+            add_owned(p, &add_owned(q, b, env), env)
+        } else {
+            add_owned(p, &sub(b, &q, env), env)
+        });
     }
-    // Sums are kept left-nested: `a + (p - q)` is `(a + p) - q`.
-    if let Expr::Call(f, xs) = b
-        && xs.len() == 2
-    {
-        if f == "+" {
-            return add(&add(a, &xs[0], env), &xs[1], env);
-        }
-        if f == "-" {
-            return sub(&add(a, &xs[0], env), &xs[1], env);
-        }
+    if is_sum(b) {
+        return Err(a);
     }
-    Expr::call("+", vec![a.clone(), b.clone()])
+    Ok(Expr::call("+", vec![a.into_owned(), b.clone()]))
 }
 
 /// Whether a scalar is spread over a vector's elements: numbers and
@@ -447,69 +518,100 @@ fn distributes(e: &Expr) -> bool {
 
 /// `math-sub`.
 pub(crate) fn sub(a: &Expr, b: &Expr, env: &Env) -> Expr {
-    if let Some(r) = modular("-", a, b, env) {
-        return r;
+    sub_cow(Cow::Borrowed(a), b, env)
+}
+
+/// [`sub`] taking its left operand, as [`add_owned`] does.
+pub(crate) fn sub_owned(a: Expr, b: &Expr, env: &Env) -> Expr {
+    sub_cow(Cow::Owned(a), b, env)
+}
+
+fn sub_cow(a: Cow<'_, Expr>, b: &Expr, env: &Env) -> Expr {
+    by_terms(a, b, false, env)
+}
+
+/// `a - b` by the first of [`sub`]'s rules that applies; `a` back when
+/// none does and `b` is a sum or a difference, taken by its terms.
+fn sub_rules<'a>(a: Cow<'a, Expr>, b: &Expr, env: &Env) -> Result<Expr, Cow<'a, Expr>> {
+    if let Some(r) = modular("-", &a, b, env) {
+        return Ok(r);
     }
-    if let Some(r) = super::cplx::arith("-", a, b, env) {
-        return r;
+    if let Some(r) = super::cplx::arith("-", &a, b, env) {
+        return Ok(r);
     }
     // Less a modulo form, or a term with one as its coefficient, is plus
     // its negation (`- 1 mod 3` is `+ 2 mod 3`).
     if mod_form(b).is_some()
         || matches!(b, Expr::Call(f, xs) if f == "*" && xs.len() == 2 && mod_form(&xs[0]).is_some())
     {
-        return add(a, &neg(b, env), env);
+        return Ok(add_cow(a, &neg(b, env), env));
     }
-    match (a, b) {
-        (Expr::Date(x), Expr::Date(y)) => return Expr::Num(num::sub(x, y, &env.prec)),
-        (Expr::Date(x), Expr::Num(n)) => return Expr::Date(num::sub(x, n, &env.prec)),
-        (Expr::Num(x), Expr::Num(y)) => return Expr::Num(num::sub(x, y, &env.prec)),
-        (Expr::Vec(_), _) | (_, Expr::Vec(_)) => return add(a, &neg(b, env), env),
+    match (&*a, b) {
+        (Expr::Date(x), Expr::Date(y)) => return Ok(Expr::Num(num::sub(x, y, &env.prec))),
+        (Expr::Date(x), Expr::Num(n)) => return Ok(Expr::Date(num::sub(x, n, &env.prec))),
+        (Expr::Num(x), Expr::Num(y)) => return Ok(Expr::Num(num::sub(x, y, &env.prec))),
+        (Expr::Vec(_), _) | (_, Expr::Vec(_)) => return Ok(add(&a, &neg(b, env), env)),
         _ => {}
     }
-    if is_nan(a) || is_nan(b) || infinity(a).is_some() || infinity(b).is_some() {
-        return add(a, &neg(b, env), env);
+    if is_nan(&a) || is_nan(b) || infinity(&a).is_some() || infinity(b).is_some() {
+        return Ok(add_cow(a, &neg(b, env), env));
     }
     if is_zero(b) {
-        return a.clone();
+        return Ok(a.into_owned());
     }
-    if is_zero(a) {
-        return neg(b, env);
+    if is_zero(&a) {
+        return Ok(neg(b, env));
     }
-    if a == b {
-        return Expr::int(0);
+    if *a == *b {
+        return Ok(Expr::int(0));
     }
     if looks_neg(b) {
         let nb = neg(b, env);
         if !looks_neg(&nb) {
-            return add(a, &nb, env);
+            return Ok(add_cow(a, &nb, env));
         }
     }
-    if let Some(r) = combine(a, b, -1, env) {
-        return r;
+    if let Some(r) = combine(&a, b, -1, env) {
+        return Ok(r);
     }
-    if let Expr::Call(f, xs) = a
-        && xs.len() == 2
-    {
-        if f == "+" && combine(&xs[1], b, -1, env).is_some() {
-            return add(&xs[0], &sub(&xs[1], b, env), env);
+    // A last term like `b`: `(p + q) - b` is `p + (q - b)`, `(p - q) - b`
+    // is `p - (q + b)`, the sum's parts taken rather than copied.
+    let like = match &*a {
+        Expr::Call(f, xs) if xs.len() == 2 && f == "+" && combine(&xs[1], b, -1, env).is_some() => {
+            Some(true)
         }
-        if f == "-" && combine(&xs[1], b, 1, env).is_some() {
-            return sub(&xs[0], &add(&xs[1], b, env), env);
+        Expr::Call(f, xs) if xs.len() == 2 && f == "-" && combine(&xs[1], b, 1, env).is_some() => {
+            Some(false)
         }
+        _ => None,
+    };
+    if let Some(plus) = like {
+        let (p, q) = parts(a);
+        return Ok(if plus {
+            add_owned(p, &sub_owned(q, b, env), env)
+        } else {
+            sub_owned(p, &add_owned(q, b, env), env)
+        });
     }
-    // `a - (p + q)` is `(a - p) - q`, `a - (p - q)` is `(a - p) + q`.
-    if let Expr::Call(f, xs) = b
-        && xs.len() == 2
-    {
-        if f == "+" {
-            return sub(&sub(a, &xs[0], env), &xs[1], env);
-        }
-        if f == "-" {
-            return add(&sub(a, &xs[0], env), &xs[1], env);
-        }
+    if is_sum(b) {
+        return Err(a);
     }
-    Expr::call("-", vec![a.clone(), b.clone()])
+    Ok(Expr::call("-", vec![a.into_owned(), b.clone()]))
+}
+
+/// Whether `e` is a sum or a difference of two terms.
+pub(crate) fn is_sum(e: &Expr) -> bool {
+    matches!(e, Expr::Call(f, xs) if (f == "+" || f == "-") && xs.len() == 2)
+}
+
+/// The two operands of `a`, a binary call: taken, not copied, when `a` is
+/// owned.
+fn parts(a: Cow<'_, Expr>) -> (Expr, Expr) {
+    let Expr::Call(_, xs) = a.into_owned() else {
+        unreachable!("a binary call")
+    };
+    let [p, q]: [Expr; 2] = xs.try_into().expect("two operands");
+    (p, q)
 }
 
 /// `math-neg`.

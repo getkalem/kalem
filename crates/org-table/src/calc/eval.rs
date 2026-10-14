@@ -9,8 +9,8 @@ use num_integer::Integer;
 use num_traits::{FromPrimitive, One, Signed, ToPrimitive, Zero};
 
 use super::algebra::{
-    self, Cmp, add, compare, div, inf, infinity, is_constant, is_nan, is_vec, is_zero, looks_neg,
-    mul, nan, neg, neg_inf, sub,
+    self, Cmp, add, add_owned, compare, div, inf, infinity, is_constant, is_nan, is_vec, is_zero,
+    looks_neg, mul, nan, neg, neg_inf, sub, sub_owned,
 };
 use super::cplx;
 use super::expr::Expr;
@@ -72,6 +72,30 @@ pub fn normalize(e: &Expr, env: &Env) -> Expr {
             Expr::Intv(*m, Box::new(a), Box::new(b))
         }
         Expr::Call(f, args) if f == "if" && args.len() == 3 => normalize_if(args, env),
+        // A sum nested to the left, one level a term: its terms normalized
+        // and added one after another rather than by recursion, which a
+        // long sum (`vsum` over a column of words) ran out of stack in.
+        Expr::Call(f, args) if (f == "+" || f == "-") && args.len() == 2 => {
+            let mut rights = Vec::new();
+            let mut left = e;
+            while let Expr::Call(g, xs) = left
+                && (g == "+" || g == "-")
+                && xs.len() == 2
+            {
+                rights.push((g == "+", &xs[1]));
+                left = &xs[0];
+            }
+            let mut acc = normalize(left, env);
+            for (plus, right) in rights.into_iter().rev() {
+                let right = normalize(right, env);
+                acc = if plus {
+                    add_owned(acc, &right, env)
+                } else {
+                    sub_owned(acc, &right, env)
+                };
+            }
+            acc
+        }
         Expr::Call(f, args) => {
             let args: Vec<Expr> = args.iter().map(|x| normalize(x, env)).collect();
             apply(f, args, env)
@@ -170,8 +194,14 @@ fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
         return nan();
     }
     match (f, n) {
-        ("+", 2) => add(&args[0], &args[1], env),
-        ("-", 2) => sub(&args[0], &args[1], env),
+        ("+", 2) => {
+            let [a, b]: [Expr; 2] = args.try_into().expect("two arguments");
+            add_owned(a, &b, env)
+        }
+        ("-", 2) => {
+            let [a, b]: [Expr; 2] = args.try_into().expect("two arguments");
+            sub_owned(a, &b, env)
+        }
         ("*", 2) => mul(&args[0], &args[1], env),
         ("/", 2) => div(&args[0], &args[1], env),
         // `mod(a, b)` is `a % b`.
@@ -561,8 +591,8 @@ fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
             },
             _ => keep(f, args),
         },
-        ("vsum", _) => reduce(f, args, env, add, Expr::int(0)),
-        ("vprod", _) => reduce(f, args, env, mul, Expr::int(1)),
+        ("vsum", _) => reduce(f, args, env, add_owned, Expr::int(0)),
+        ("vprod", _) => reduce(f, args, env, |a, b, e| mul(&a, b, e), Expr::int(1)),
         ("vmax", _) => reduce(
             f,
             args,
@@ -577,8 +607,8 @@ fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
             |a, b, e| min_max("min", vec![a.clone(), b.clone()], e),
             inf(),
         ),
-        ("vcount", _) => match flatten(&args) {
-            Some(v) => Expr::int(v.len() as i64),
+        ("vcount", _) => match elements(&args).map(|v| v.len()) {
+            Some(n) => Expr::int(n as i64),
             None => keep(f, args),
         },
         ("vlen", 1) => match &args[0] {
@@ -671,23 +701,72 @@ fn fold(args: Vec<Expr>, env: &Env, op: fn(&Expr, &Expr, &Env) -> Expr, ident: E
 
 /// `math-flatten-many-vecs`: the elements of vectors and the scalars
 /// among `args`, or `None` if one is neither.
-fn flatten(args: &[Expr]) -> Option<Vec<Expr>> {
-    let mut out = Vec::new();
-    fn walk(e: &Expr, out: &mut Vec<Expr>) {
+fn elements(args: &[Expr]) -> Option<Vec<&Expr>> {
+    fn walk<'a>(e: &'a Expr, out: &mut Vec<&'a Expr>) {
         match e {
             Expr::Vec(v) => v.iter().for_each(|x| walk(x, out)),
-            other => out.push(other.clone()),
+            other => out.push(other),
         }
     }
+    let mut out = Vec::new();
     for a in args {
         match a {
-            Expr::Vec(_) => walk(a, &mut out),
-            Expr::Num(_) | Expr::Date(_) => out.push(a.clone()),
-            _ if infinity(a).is_some() => out.push(a.clone()),
+            Expr::Vec(_) | Expr::Num(_) | Expr::Date(_) => walk(a, &mut out),
+            _ if infinity(a).is_some() => out.push(a),
             _ => return None,
         }
     }
     Some(out)
+}
+
+/// The elements of the vectors among `args` and its other arguments, as
+/// [`elements`] has them but taken rather than copied: copying recurses
+/// as deep as an expression is, a long sum as deep as it is long.
+fn take_elements(args: Vec<Expr>) -> Vec<Expr> {
+    fn walk(e: Expr, out: &mut Vec<Expr>) {
+        match e {
+            Expr::Vec(v) => v.into_iter().for_each(|x| walk(x, out)),
+            other => out.push(other),
+        }
+    }
+    let mut out = Vec::new();
+    args.into_iter().for_each(|a| walk(a, &mut out));
+    out
+}
+
+/// The most symbolic terms a sum or a product of a vector's elements takes
+/// (`vsum` over a column of words): past them Calc signals an error, `#ERROR`
+/// in the field, rather than build an expression nested as deep, which the
+/// work and the stack do not bear. Emacs stops at about a thousand (Lisp's
+/// `max-lisp-eval-depth`).
+pub(crate) const MAX_TERMS: usize = 5_000;
+
+/// Whether `items` hold more symbolic terms than [`MAX_TERMS`], each of a
+/// sum's counted; Calc's error signalled if so.
+fn too_many_terms(items: &[Expr]) -> bool {
+    let symbolic: usize = items
+        .iter()
+        .filter(|x| !(is_constant(x) || infinity(x).is_some()))
+        .map(terms)
+        .sum();
+    let over = symbolic > MAX_TERMS;
+    if over {
+        algebra::fail();
+    }
+    over
+}
+
+/// The terms of `e`: a sum's (`a - (b + c)` has three), or `e` itself.
+fn terms(e: &Expr) -> usize {
+    let mut n = 0;
+    let mut todo = vec![e];
+    while let Some(x) = todo.pop() {
+        match x {
+            Expr::Call(_, xs) if algebra::is_sum(x) => todo.extend(xs),
+            _ => n += 1,
+        }
+    }
+    n
 }
 
 /// `math-reduce-many-vecs`: vectors flattened and reduced with two more
@@ -696,34 +775,38 @@ fn reduce(
     f: &str,
     args: Vec<Expr>,
     env: &Env,
-    op: impl Fn(&Expr, &Expr, &Env) -> Expr,
+    // Taking the result so far, so that it is not copied at each element.
+    op: impl Fn(Expr, &Expr, &Env) -> Expr,
     ident: Expr,
 ) -> Expr {
     let wide = env.extra();
     let mut constant: Option<Expr> = None;
     let mut symbolic = Vec::new();
-    for a in &args {
+    for a in args {
         match a {
             Expr::Vec(_) => {
                 let mut items = Vec::new();
                 if let Some(c) = constant.take() {
                     items.push(c);
                 }
-                let mut flat = flatten(std::slice::from_ref(a)).unwrap_or_default();
+                let mut flat = take_elements(vec![a]);
+                if too_many_terms(&flat) {
+                    return nan();
+                }
                 items.append(&mut flat);
                 let mut it = items.into_iter();
                 constant = Some(match it.next() {
-                    Some(first) => it.fold(first, |acc, x| op(&acc, &x, &wide)),
+                    Some(first) => it.fold(first, |acc, x| op(acc, &x, &wide)),
                     None => ident.clone(),
                 });
             }
-            _ if is_constant(a) || infinity(a).is_some() => {
+            _ if is_constant(&a) || infinity(&a).is_some() => {
                 constant = Some(match constant.take() {
-                    Some(c) => op(&c, a, &wide),
-                    None => a.clone(),
+                    Some(c) => op(c, &a, &wide),
+                    None => a,
                 });
             }
-            _ => symbolic.push(a.clone()),
+            _ => symbolic.push(a),
         }
     }
     match constant {
@@ -732,7 +815,7 @@ fn reduce(
             if symbolic.is_empty() {
                 c
             } else {
-                op(&c, &keep(f, symbolic), env)
+                op(c, &keep(f, symbolic), env)
             }
         }
         None if symbolic.is_empty() => ident,
@@ -742,28 +825,29 @@ fn reduce(
 
 /// `calcFunc-vmean`.
 fn vmean(args: Vec<Expr>, env: &Env) -> Expr {
-    let Some(flat) = flatten(&args) else {
+    if elements(&args).is_none_or(|v| v.is_empty()) {
         return keep("vmean", args);
-    };
-    if flat.is_empty() {
-        return keep("vmean", args);
+    }
+    let flat = take_elements(args);
+    if too_many_terms(&flat) {
+        return nan();
     }
     let wide = env.extra();
     let len = flat.len() as i64;
     let mut it = flat.into_iter();
     let first = it.next().expect("not empty");
-    let sum = it.fold(first, |acc, x| add(&acc, &x, &wide));
+    let sum = it.fold(first, |acc, x| add_owned(acc, &x, &wide));
     normalize(&div(&sum, &Expr::int(len), &wide), env)
 }
 
 /// `calcFunc-vmedian`.
 fn vmedian(args: Vec<Expr>, env: &Env) -> Expr {
-    let Some(mut flat) = flatten(&args) else {
+    let numbers: Option<Vec<Expr>> = elements(&args)
+        .filter(|v| !v.is_empty() && v.iter().all(|x| matches!(x, Expr::Num(_))))
+        .map(|v| v.into_iter().cloned().collect());
+    let Some(mut flat) = numbers else {
         return keep("vmedian", args);
     };
-    if flat.is_empty() || !flat.iter().all(|x| matches!(x, Expr::Num(_))) {
-        return keep("vmedian", args);
-    }
     let len = flat.len();
     flat.sort_by(|a, b| match (a, b) {
         (Expr::Num(x), Expr::Num(y)) => num::cmp(x, y, &env.prec),

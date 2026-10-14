@@ -464,4 +464,57 @@ mod tests {
         let eqs = tblfm::parse("$0=1").equations;
         assert!(recalculate(&t, &eqs, &env).is_err());
     }
+
+    #[test]
+    fn long_symbolic_sums() {
+        // `vsum` over a column of words: their sum, the evaluation and the
+        // printing iterating over its terms (they recursed, a level a term,
+        // past the stack of a thread); past `MAX_TERMS` Calc's error, as
+        // Emacs errs, rather than an expression nested as deep.
+        let none = |_: &str| None;
+        let env = env(&none);
+        let words = |n: usize| {
+            let mut t = String::from("| w | s |\n|---+---|\n");
+            for i in 0..n {
+                t.push_str(&format!("| w{i} | |\n"));
+            }
+            t.push_str("|---+---|\n| | |\n");
+            Table::parse(&t)
+        };
+        let eqs = tblfm::parse("@>$2=vsum(@I$1..@II$1)").equations;
+        let (t, _) = recalculate(&words(2000), &eqs, &env).unwrap();
+        let sum = t.field(t.rows.len() - 1, 2);
+        assert!(sum.starts_with("w0 + w1 + w2 + "), "{}", &sum[..40]);
+        assert!(sum.ends_with(" + w1998 + w1999"));
+        let over = crate::calc::eval::MAX_TERMS + 1;
+        let (t, _) = recalculate(&words(over), &eqs, &env).unwrap();
+        assert_eq!(t.field(t.rows.len() - 1, 2), "#ERROR");
+        // A column formula over its own column and a word, iterated: its
+        // sum grows at each pass; it ends at #ERROR rather than abort.
+        let t = Table::parse("| s | w |\n|---+---|\n| | apple |\n| | 1 |\n|---+---|\n");
+        let eqs = tblfm::parse("$1=vsum(@I$1..@II$2)").equations;
+        let (t, _) = iterate(&t, &eqs, &env, 10).unwrap();
+        assert_eq!(t.field(2, 1), "#ERROR");
+        // What is refused is depth, not length: a vector of many negative
+        // numbers is summed; brackets nested past the bound are refused.
+        let modes = crate::calc::Modes::default();
+        let negatives: Vec<String> = (1..=20_000).map(|i| format!("-{i}")).collect();
+        let sum = crate::calc::eval(&format!("vsum([{}])", negatives.join(", ")), &modes);
+        assert_eq!(sum.unwrap(), "-200010000");
+        let deep = format!("{}1{}", "(".repeat(100_000), ")".repeat(100_000));
+        let refused = crate::calc::eval(&deep, &modes).unwrap_err();
+        assert_eq!(refused.message, "The formula nests too deeply for Calc");
+        let open = format!("{}1", "(".repeat(100_000));
+        let refused = crate::calc::eval(&open, &modes).unwrap_err();
+        assert_eq!(refused.message, "The formula nests too deeply for Calc");
+        // A sum's terms count, each: two fields of 3,000 make too many.
+        let long: Vec<String> = (0..3000).map(|i| format!("w{i}")).collect();
+        let row = format!("| {} | |\n", long.join(" + "));
+        let t = Table::parse(&format!(
+            "| w | s |\n|---+---|\n{row}{row}|---+---|\n| | |\n"
+        ));
+        let eqs = tblfm::parse("@>$2=vsum(@I$1..@II$1)").equations;
+        let (t, _) = recalculate(&t, &eqs, &env).unwrap();
+        assert_eq!(t.field(t.rows.len() - 1, 2), "#ERROR");
+    }
 }

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- A table formula's Calc sum of symbolic terms is built in a time proportional to its terms: `vsum` over a column of 1,000 words took 332 ms and takes 1.3 ms, over 2,000 words 1.34 s and 2.5 ms. The sum was copied whole at each term it gained.
+
+### Fixed
+- A table formula whose Calc sum grows long no longer crashes Kalem by running out of stack: `vsum` over a column of several thousand words, or a column formula over its own column iterated (`C-u C-u C-c *`), whose sum doubles at each pass, went a level deeper for each term. Past 5,000 symbolic terms, or a formula nested as deep, the field shows `#ERROR`, as Emacs errs (at about a thousand, Lisp's `max-lisp-eval-depth`); a vector of numbers of any length is summed as before.
+
 ## [0.6.23] - 2026-10-14
 
 ### Fixed
