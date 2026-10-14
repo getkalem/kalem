@@ -146,7 +146,9 @@ two trees compare directly.
   second tree of the normalized text and reparse incrementally there.
 - *Line endings.* A file with =\r\n= line endings is parsed as Emacs
   parses it after decoding: carriage returns are in the tree but in no
-  value.
+  value. Commands run on the text with line feeds alone, as Emacs's run
+  on the decoded buffer, and their changes come back with the carriage
+  returns.
 - *Character classes.* Word, blank and case tables are generated from
   Emacs (=tools/gen-tables.el=), so emphasis boundaries and case folding
   agree with Org for every Unicode character.

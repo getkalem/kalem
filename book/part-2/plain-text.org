@@ -543,9 +543,13 @@ line feed (Emacs's =mac=, the files of classic Mac OS); otherwise LF.
   return turned into a line feed, and saved with every line feed turned
   back into a carriage return, so it has lines and is written as it
   was. In other files a lone carriage return is not a line break.
-- In a CR LF document, commands and typing insert bare line feeds, and
-  saving writes a carriage return before every line feed that lacks one
-  (=files::encode=). Pasted text has its CR LF made LF first and, in a
+- In a CR LF document, typing and most commands insert bare line feeds,
+  and saving writes a carriage return before every line feed that lacks
+  one (=files::encode=). Org's commands see the text with line feeds
+  alone, as Emacs does, and put the carriage returns back in the lines
+  they change. The end of a line is before its carriage return: the
+  cursor at a line's end, and text put there, never come between the
+  two. Pasted text has its CR LF made LF first and, in a
   CR LF document, every line feed made CR LF again.
 - In an LF document nothing is added: a file with mixed line endings
   keeps each one as it was, and new lines get LF.

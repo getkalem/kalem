@@ -4,7 +4,7 @@ kept; a write-protected file is not saved over (Save As writes
 another). The status bar names line endings that are not LF (=CRLF=)
 and a byte order mark (=BOM=); /Line Endings: LF/, /Line Endings:
 CRLF/ and /Byte Order Mark: Add or Remove/ (in the palette) change
-them from the next save. When another program changes an open file, Kalem reloads it
+them from the next save; Undo after /Line Endings/ sets them back. When another program changes an open file, Kalem reloads it
 if you have no unsaved changes. With unsaved changes, the other
 program's are merged in when they changed other lines (Logseq writing
 another block of the page you are typing in): yours stay, unsaved, and
