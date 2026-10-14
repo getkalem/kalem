@@ -18,6 +18,10 @@ use kalem_script::extension::{
 use kalem_script::extension::{documents, http, process};
 use kalem_script::{Error, Host, Limits};
 
+/// A problem as the fake keeps it: line, column, length, severity,
+/// message and source.
+type Problem = (u32, u32, u32, String, String, Option<String>);
+
 /// What the fake editor holds.
 #[derive(Debug, Default)]
 struct State {
@@ -43,6 +47,9 @@ struct State {
     styles: Vec<(u64, u64, String, bool)>,
     /// The marks plugins set: plugin, then line and kind, by file.
     gutters: BTreeMap<std::path::PathBuf, (String, Vec<(u32, String)>)>,
+    /// The problems plugins set: plugin, then line, column, length,
+    /// severity, message and source, by file.
+    problems: BTreeMap<std::path::PathBuf, (String, Vec<Problem>)>,
     /// The plugins that said their layers changed.
     refreshed: Vec<String>,
 }
@@ -258,6 +265,37 @@ impl Editor for Fake {
                 s.gutters.remove(&p);
             }
             None => s.gutters.clear(),
+        }
+    }
+
+    fn set_problems(
+        &mut self,
+        plugin: &str,
+        path: std::path::PathBuf,
+        problems: Vec<kalem_script::extension::problems::Problem>,
+    ) -> Result<(), String> {
+        let list = problems
+            .into_iter()
+            .map(|p| {
+                let severity = format!("{:?}", p.severity);
+                (p.line, p.column, p.length, severity, p.message, p.source)
+            })
+            .collect();
+        self.0
+            .lock()
+            .unwrap()
+            .problems
+            .insert(path, (plugin.to_string(), list));
+        Ok(())
+    }
+
+    fn clear_problems(&mut self, _plugin: &str, path: Option<std::path::PathBuf>) {
+        let mut s = self.0.lock().unwrap();
+        match path {
+            Some(p) => {
+                s.problems.remove(&p);
+            }
+            None => s.problems.clear(),
         }
     }
 
@@ -1087,6 +1125,79 @@ fn a_plugin_marks_the_lines_of_files() {
     assert!(e.contains("At most"), "{e}");
     call(&mut ext, "run.unmark", serde_json::json!({ "path": path })).unwrap();
     assert!(fake.0.lock().unwrap().gutters.is_empty());
+}
+
+#[test]
+fn a_plugin_sets_the_problems_of_files() {
+    let root = std::env::temp_dir().canonicalize().unwrap();
+    let (mut ext, fake) = match runner(&["subprocess:git"], &root) {
+        None => return,
+        Some(r) => r.unwrap(),
+    };
+    let file = root.join("books.journal");
+    let path = file.display().to_string();
+    call(
+        &mut ext,
+        "run.problems",
+        serde_json::json!({ "path": path, "problems": [
+            { "line": 3, "column": 0, "length": 0, "severity": "error",
+              "message": "unbalanced", "source": "hledger" },
+            { "line": 9, "column": 5, "length": 4, "severity": "warning",
+              "message": "unknown account" },
+        ] }),
+    )
+    .unwrap();
+    {
+        let s = fake.0.lock().unwrap();
+        let (plugin, problems) = &s.problems[&file];
+        assert_eq!(plugin, "run");
+        assert_eq!(
+            problems,
+            &[
+                (
+                    3,
+                    0,
+                    0,
+                    "Severity::Error".to_string(),
+                    "unbalanced".to_string(),
+                    Some("hledger".to_string())
+                ),
+                (
+                    9,
+                    5,
+                    4,
+                    "Severity::Warning".to_string(),
+                    "unknown account".to_string(),
+                    None
+                ),
+            ]
+        );
+    }
+    // A relative path, or too many problems, are refused before the editor.
+    let e = call(
+        &mut ext,
+        "run.problems",
+        serde_json::json!({ "path": "books.journal", "problems": [{ "line": 1 }] }),
+    )
+    .unwrap_err();
+    assert!(e.contains("absolute"), "{e}");
+    let many: Vec<serde_json::Value> = (0..=kalem_script::extension::MAX_MARKS)
+        .map(|n| serde_json::json!({ "line": n }))
+        .collect();
+    let e = call(
+        &mut ext,
+        "run.problems",
+        serde_json::json!({ "path": path, "problems": many }),
+    )
+    .unwrap_err();
+    assert!(e.contains("At most"), "{e}");
+    call(
+        &mut ext,
+        "run.unproblem",
+        serde_json::json!({ "path": path }),
+    )
+    .unwrap();
+    assert!(fake.0.lock().unwrap().problems.is_empty());
 }
 
 #[test]

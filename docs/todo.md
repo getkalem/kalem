@@ -463,7 +463,7 @@ The owner removed Kalem's own format on 2026-10-04: its parser, its specificatio
 
 - [ ] T3.1.9d Extension points: document views (editor area and panel) and dynamic blocks
 
-- [ ] T3.1.9e Extension points: diagnostics (shown in both frontends, run by `kalem check`), importers, paste handlers
+- [~] T3.1.9e Extension points: diagnostics (shown in both frontends, run by `kalem check`), importers, paste handlers (in part, 2026-10-14: a plugin's problems in files, the `problems` import of API 0.2.14, drawn in both editors as a language server's diagnostics, beside a server's or alone; open: checks that `kalem check` runs, fixes, importers, paste handlers)
 
 - [ ] T3.1.9f Extension points: agenda views, capture templates, themes, plugin CLI subcommands
 

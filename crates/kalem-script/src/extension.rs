@@ -36,7 +36,7 @@ pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
 pub use bindings::kalem::plugin::{
     clock, clock_2, decorations, diagnostics, documents, editor, fs, fs_2, graph_view, http,
-    layers, net, process, settings, styled_documents,
+    layers, net, problems, process, settings, styled_documents,
 };
 
 /// An edit a plugin asked for, applied when its command returns, its
@@ -466,6 +466,21 @@ pub trait Editor: Send + 'static {
     /// Plugin `plugin` takes its marks away from the file at `path`, or
     /// from every file.
     fn clear_gutter(&mut self, plugin: &str, path: Option<std::path::PathBuf>);
+
+    /// Plugin `plugin` sets the problems of the file at `path` (API
+    /// 0.2.14), in place of its earlier ones there.
+    fn set_problems(
+        &mut self,
+        _plugin: &str,
+        _path: std::path::PathBuf,
+        _problems: Vec<problems::Problem>,
+    ) -> Result<(), String> {
+        Err("This editor shows no problems".into())
+    }
+
+    /// Plugin `plugin` takes its problems away from the file at `path`,
+    /// or from every file.
+    fn clear_problems(&mut self, _plugin: &str, _path: Option<std::path::PathBuf>) {}
 
     /// The document the plugin's command runs in; `None` outside one.
     fn document(&mut self) -> Option<Box<dyn DocumentAccess + '_>>;
@@ -1042,6 +1057,29 @@ impl decorations::Host for Session {
     }
 }
 
+impl problems::Host for Session {
+    fn set(&mut self, path: String, list: Vec<problems::Problem>) -> Result<(), String> {
+        let p = std::path::PathBuf::from(&path);
+        if !p.is_absolute() {
+            return Err(format!("`{path}` is not an absolute path"));
+        }
+        if list.len() > MAX_MARKS {
+            return Err(format!(
+                "At most {MAX_MARKS} problems a file, not {}",
+                list.len()
+            ));
+        }
+        let plugin = self.plugin.clone();
+        self.editor.set_problems(&plugin, p, list)
+    }
+
+    fn clear(&mut self, path: Option<String>) {
+        let plugin = self.plugin.clone();
+        self.editor
+            .clear_problems(&plugin, path.map(std::path::PathBuf::from));
+    }
+}
+
 impl process::Host for Session {
     fn run(&mut self, command: process::Command) -> Result<u64, String> {
         if !self.grants.programs.contains(&command.program) {
@@ -1513,6 +1551,13 @@ impl Extension {
         )
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
         documents::add_to_linker::<_, HasSelf<Session>>(
+            &mut linker,
+            |d: &mut crate::Data<Session>| &mut d.user,
+        )
+        .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        // A plugin's problems in files (API 0.2.14), without a permission:
+        // they are drawn, never written.
+        problems::add_to_linker::<_, HasSelf<Session>>(
             &mut linker,
             |d: &mut crate::Data<Session>| &mut d.user,
         )

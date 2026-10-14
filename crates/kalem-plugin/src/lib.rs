@@ -145,6 +145,7 @@ pub mod graph_view;
 pub mod kalem;
 pub mod layer;
 pub mod net;
+pub mod problems;
 pub mod process;
 pub mod settings;
 pub mod ui;

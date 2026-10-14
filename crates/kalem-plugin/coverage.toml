@@ -46,7 +46,9 @@ interface = "ui"
 
 [[point]]
 name = "Diagnostics"
-planned = "T3.1.9e"
+# A plugin's problems in files (API 0.2.14); checks `kalem check` runs
+# and fixes are T3.1.9e's rest.
+interface = "problems"
 
 [[point]]
 name = "Export backends and filters"

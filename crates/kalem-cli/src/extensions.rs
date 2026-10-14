@@ -331,6 +331,37 @@ impl Editor for Bridge {
     fn clear_gutter(&mut self, plugin: &str, path: Option<PathBuf>) {
         kalem_core::extensions::clear_gutter(plugin, path.as_deref());
     }
+
+    fn set_problems(
+        &mut self,
+        plugin: &str,
+        path: PathBuf,
+        problems: Vec<x::problems::Problem>,
+    ) -> Result<(), String> {
+        use kalem_core::lsp::Severity as S;
+        use x::problems::Severity as W;
+        let problems = problems
+            .into_iter()
+            .map(|p| kalem_core::extensions::PluginProblem {
+                line: p.line,
+                column: p.column,
+                length: p.length,
+                severity: match p.severity {
+                    W::Error => S::Error,
+                    W::Warning => S::Warning,
+                    W::Information => S::Information,
+                    W::Hint => S::Hint,
+                },
+                message: p.message,
+                source: p.source.unwrap_or_else(|| plugin.to_string()),
+            })
+            .collect();
+        kalem_core::extensions::set_problems(plugin, &path, problems)
+    }
+
+    fn clear_problems(&mut self, plugin: &str, path: Option<PathBuf>) {
+        kalem_core::extensions::clear_problems(plugin, path.as_deref());
+    }
 }
 
 /// A plugin's styled stretches in the core's terms.
@@ -998,6 +1029,7 @@ impl Plugins {
         let _ = ext.deactivate();
         kalem_core::extensions::close_plugin_documents(&l.id);
         kalem_core::extensions::clear_gutter(&l.id, None);
+        kalem_core::extensions::clear_problems(&l.id, None);
         kalem_core::extensions::remove_menus(&l.id);
         kalem_core::extensions::remove_buttons(&l.id);
         kalem_core::layers::remove_plugin(&l.id);

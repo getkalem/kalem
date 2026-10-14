@@ -3,13 +3,15 @@
 //! (`{"program": …, "args": […], "cwd": …, "stdin": …}`), so that the
 //! host's grants decide what runs, and a command telling how the last run
 //! ended; and commands writing documents of their own through the
-//! `documents` interface (API 0.2.5).
+//! `documents` interface (API 0.2.5); and commands setting the problems
+//! of files through the `problems` interface (API 0.2.14).
 
 use std::cell::RefCell;
 
 use kalem_plugin::decorations::{self, Mark};
 use kalem_plugin::documents::{self, Spec};
 use kalem_plugin::kalem::{self, Plugin, Scope};
+use kalem_plugin::problems::{self, Problem, Severity};
 use kalem_plugin::process::{self, Command};
 use serde_json::Value;
 
@@ -150,6 +152,33 @@ impl Plugin for Run {
         command("run.unmark", |a| {
             let v: Value = serde_json::from_str(a).map_err(|e| e.to_string())?;
             decorations::clear_gutter(v["path"].as_str());
+            Ok("null".into())
+        })?;
+        command("run.problems", |a| {
+            let v: Value = serde_json::from_str(a).map_err(|e| e.to_string())?;
+            let list: Vec<Problem> = v["problems"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|p| Problem {
+                    line: p["line"].as_u64().unwrap_or_default() as u32,
+                    column: p["column"].as_u64().unwrap_or_default() as u32,
+                    length: p["length"].as_u64().unwrap_or_default() as u32,
+                    severity: match p["severity"].as_str() {
+                        Some("warning") => Severity::Warning,
+                        Some("information") => Severity::Information,
+                        Some("hint") => Severity::Hint,
+                        _ => Severity::Error,
+                    },
+                    message: p["message"].as_str().unwrap_or_default().to_string(),
+                    source: p["source"].as_str().map(str::to_string),
+                })
+                .collect();
+            problems::set(v["path"].as_str().unwrap_or_default(), &list).map(|()| "null".into())
+        })?;
+        command("run.unproblem", |a| {
+            let v: Value = serde_json::from_str(a).map_err(|e| e.to_string())?;
+            problems::clear(v["path"].as_str());
             Ok("null".into())
         })?;
         command("run.current", |_| {

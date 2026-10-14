@@ -1403,6 +1403,113 @@ pub fn gutter_writes() -> u64 {
     GUTTER_WRITES.load(Ordering::Relaxed)
 }
 
+/// A problem a plugin finds in a file (`problems`, API 0.2.14): its
+/// tool's error or warning, drawn as a language server's diagnostic is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PluginProblem {
+    /// Its line, from 1.
+    pub line: u32,
+    /// Its column, from 1, in characters; 0 for the whole line.
+    pub column: u32,
+    /// How many characters it covers from its column; 0 for the rest of
+    /// the line.
+    pub length: u32,
+    pub severity: crate::lsp::Severity,
+    pub message: String,
+    /// Who says so: the plugin's word, else the plugin.
+    pub source: String,
+}
+
+/// The problems plugins find in files (`problems`), by file: the version
+/// of its problems, and each plugin's.
+#[allow(clippy::type_complexity)]
+static PROBLEMS: Mutex<BTreeMap<std::path::PathBuf, (u64, BTreeMap<String, Vec<PluginProblem>>)>> =
+    Mutex::new(BTreeMap::new());
+/// Changes with every write of problems.
+static PROBLEM_WRITES: AtomicU64 = AtomicU64::new(0);
+
+/// Problems a plugin sets in a file at most.
+pub const MAX_PROBLEMS: usize = 10_000;
+
+/// Plugin `plugin` sets the problems of file `path`, in place of its
+/// earlier ones there; the editors draw them again.
+pub fn set_problems(
+    plugin: &str,
+    path: &std::path::Path,
+    problems: Vec<PluginProblem>,
+) -> Result<(), String> {
+    if problems.len() > MAX_PROBLEMS {
+        return Err(format!(
+            "At most {MAX_PROBLEMS} problems a file, not {}",
+            problems.len()
+        ));
+    }
+    let key = problem_key(path);
+    let mut p = PROBLEMS.lock().unwrap_or_else(|e| e.into_inner());
+    let entry = p.entry(key).or_default();
+    let had = entry.1.get(plugin);
+    if had.is_none_or(Vec::is_empty) && problems.is_empty() || had == Some(&problems) {
+        return Ok(());
+    }
+    if problems.is_empty() {
+        entry.1.remove(plugin);
+    } else {
+        entry.1.insert(plugin.to_string(), problems);
+    }
+    entry.0 = PROBLEM_WRITES.fetch_add(1, Ordering::Relaxed) + 1;
+    shown_changed();
+    Ok(())
+}
+
+/// Plugin `plugin` takes its problems away from file `path`, or from
+/// every file.
+pub fn clear_problems(plugin: &str, path: Option<&std::path::Path>) {
+    let key = path.map(problem_key);
+    let mut p = PROBLEMS.lock().unwrap_or_else(|e| e.into_inner());
+    let mut changed = false;
+    for (file, entry) in p.iter_mut() {
+        if key.as_ref().is_some_and(|k| k != file) {
+            continue;
+        }
+        if entry.1.remove(plugin).is_some() {
+            entry.0 = PROBLEM_WRITES.fetch_add(1, Ordering::Relaxed) + 1;
+            changed = true;
+        }
+    }
+    if changed {
+        shown_changed();
+    }
+}
+
+/// The version of the problems of the file at canonical path `real` (as
+/// the language servers' documents hold it), 0 when none was ever set:
+/// no call to the file system, as it is asked for every line drawn.
+pub fn problems_version(real: &std::path::Path) -> u64 {
+    if PROBLEM_WRITES.load(Ordering::Relaxed) == 0 {
+        return 0;
+    }
+    let p = PROBLEMS.lock().unwrap_or_else(|e| e.into_inner());
+    p.get(real).map_or(0, |e| e.0)
+}
+
+/// The problems of the file at canonical path `real`, every plugin's in
+/// the order of their lines.
+pub fn plugin_problems(real: &std::path::Path) -> Vec<PluginProblem> {
+    let p = PROBLEMS.lock().unwrap_or_else(|e| e.into_inner());
+    let Some((_, by_plugin)) = p.get(real) else {
+        return Vec::new();
+    };
+    let mut v: Vec<PluginProblem> = by_plugin.values().flatten().cloned().collect();
+    v.sort_by_key(|p| (p.line, p.column));
+    v
+}
+
+/// A file's key among the problems: its canonical path as the language
+/// servers' documents hold it (without Windows' `\\?\` prefix).
+fn problem_key(path: &std::path::Path) -> std::path::PathBuf {
+    dunce::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+}
+
 /// Hands how run `run` ended to its plugin (from the thread that ran it).
 pub fn process_done(run: u64, result: Result<ProcessExit, String>) {
     let mut installed = INSTALLED.lock().unwrap_or_else(|e| e.into_inner());

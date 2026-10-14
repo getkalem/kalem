@@ -1,0 +1,41 @@
+package kalem:plugin@0.2.14;
+
+/// What a plugin finds wrong in files (API 0.2.14): its tool's errors and
+/// warnings, drawn as a language server's diagnostics are (the wavy line,
+/// the line number's color, the status line, the hover, the problems
+/// list), beside the server's own; where the file's language has no
+/// server, alone. A plugin sets a file's problems whole, as the file is
+/// on disk, and sets them again when they change.
+interface problems {
+    /// How serious a problem is.
+    enum severity {
+        error,
+        warning,
+        information,
+        hint,
+    }
+
+    /// A problem at a place of a file.
+    record problem {
+        /// Its line, from 1.
+        line: u32,
+        /// Its column, from 1, in characters; 0 for the whole line.
+        column: u32,
+        /// How many characters it covers from its column; 0 for the rest
+        /// of the line.
+        length: u32,
+        severity: severity,
+        /// What is wrong; its first line is the one the status line shows.
+        message: string,
+        /// Who says so (`hledger`); the plugin's name when none.
+        source: option<string>,
+    }
+
+    /// The problems of the file at `path` (absolute), in place of the
+    /// plugin's earlier ones there; none takes them away.
+    set: func(path: string, problems: list<problem>) -> result<_, string>;
+
+    /// Takes the plugin's problems away from the file at `path`, or from
+    /// every file.
+    clear: func(path: option<string>);
+}

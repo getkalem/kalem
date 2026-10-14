@@ -30,9 +30,9 @@ type Key = (String, String, PathBuf);
 /// A document's diagnostics in byte ranges and lines, with what they were
 /// read for.
 struct DiagCache {
-    /// Each client (its address) and its publication count, and the
-    /// text's change count.
-    key: (Vec<(usize, u64)>, u64),
+    /// Each client (its address) and its publication count, the text's
+    /// change count, and the version of the plugins' problems.
+    key: (Vec<(usize, u64)>, u64, u64),
     list: Vec<Diagnostic>,
     /// The line of each diagnostic's start.
     lines: Vec<usize>,
@@ -128,13 +128,15 @@ impl Doc {
             .collect()
     }
 
-    /// The diagnostics of every server serving it, in the order of their
+    /// The diagnostics of every server serving it, and the problems
+    /// plugins found in its file (API 0.2.14), in the order of their
     /// starts, each with its server's name when it gives no source; read
-    /// again only when the text or a server's diagnostics changed (the
-    /// status bar asks on every frame).
+    /// again only when the text, a server's diagnostics or the plugins'
+    /// problems changed (the status bar asks on every frame).
     fn diagnostics(&mut self) -> Option<&DiagCache> {
         let clients = self.clients();
-        if clients.is_empty() {
+        let written = crate::extensions::problems_version(&self.real);
+        if clients.is_empty() && written == 0 {
             return None;
         }
         let key = (
@@ -143,18 +145,31 @@ impl Doc {
                 .map(|c| (Arc::as_ptr(c) as usize, c.published()))
                 .collect(),
             self.text_rev,
+            written,
         );
         if self.diags.as_ref().is_none_or(|d| d.key != key) {
             let mut list = Vec::new();
+            let problems = crate::extensions::plugin_problems(&self.real);
             for c in &clients {
                 let mut own =
                     features::diagnostics(&self.text, &c.diagnostics(&self.uri), c.encoding());
-                if clients.len() > 1 {
+                if clients.len() > 1 || !problems.is_empty() {
                     for d in &mut own {
                         d.source.get_or_insert_with(|| c.name().to_string());
                     }
                 }
                 list.extend(own);
+            }
+            for p in &problems {
+                if let Some(range) = self.problem_range(p) {
+                    list.push(Diagnostic {
+                        range,
+                        severity: p.severity,
+                        message: p.message.clone(),
+                        source: Some(p.source.clone()),
+                        code: None,
+                    });
+                }
             }
             list.sort_by_key(|d| d.range.start);
             let stale = clients.iter().any(|c| c.diagnostics_stale(&self.uri));
@@ -174,6 +189,36 @@ impl Doc {
             });
         }
         self.diags.as_ref()
+    }
+
+    /// Where a plugin's problem is in the text: the characters of its line
+    /// from its column (the rest of the line when its length is 0), or the
+    /// line from its first non-blank when its column is 0; none past the
+    /// text's last line.
+    fn problem_range(&mut self, p: &crate::extensions::PluginProblem) -> Option<Range<usize>> {
+        let line = (p.line as usize).checked_sub(1)?;
+        let start = *self.line_starts().get(line)?;
+        let end = self.text[start..]
+            .find('\n')
+            .map_or(self.text.len(), |n| start + n);
+        let text = self.text[start..end].trim_end_matches('\r');
+        let byte = |chars: usize| {
+            text.char_indices()
+                .nth(chars)
+                .map_or(text.len(), |(i, _)| i)
+        };
+        let (from, to) = if p.column == 0 {
+            (text.len() - text.trim_start().len(), text.trim_end().len())
+        } else {
+            let from = byte(p.column as usize - 1);
+            let to = if p.length == 0 {
+                text.trim_end().len()
+            } else {
+                byte(p.column as usize - 1 + p.length as usize)
+            };
+            (from, to)
+        };
+        Some(start + from..start + to.max(from))
     }
 }
 
@@ -2791,7 +2836,19 @@ pub fn status(path: &Path, at: usize) -> Option<String> {
     with(|s| {
         let d = s.docs.get_mut(path)?;
         let Some(c) = d.opened_in.clone() else {
-            return d.missing.clone();
+            // No server: a plugin's problem on the cursor's line, else why
+            // no server runs.
+            let line = d.line_of(at);
+            let here = d.diagnostics().and_then(|cache| {
+                let i = cache.lines.iter().position(|&l| l == line)?;
+                let diag = &cache.list[i];
+                let first = diag.message.lines().next().unwrap_or("");
+                Some(match diag.source.as_deref() {
+                    Some(src) => format!("{src}: {first}"),
+                    None => first.to_string(),
+                })
+            });
+            return here.or_else(|| d.missing.clone());
         };
         let name = c.name().to_string();
         // The servers beside it, whose work and state come after its own.
