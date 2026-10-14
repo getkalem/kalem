@@ -107,10 +107,13 @@ the journal itself); otherwise the plugin's edits only, as the table
 says. Amounts the plugin writes take the journal's style (its
 commodities' sides, decimal marks and digit groups, read from the
 tool's JSON). Align Amounts is tested to change no byte but blanks on
-every corpus file, the tool reading each as before. Format Document in
-an hledger or Ledger journal is none: ptimoney's hledger-lsp 0.7.0
-formats a journal into one that means something else, so the plugin
-leaves the server's formatting unused (=servers.hledger-lsp.ignore=).
+every corpus file, the tool reading each as before. Format Document
+(and saving with =editor.format_on_save= on) is Align Amounts over the
+whole journal, the plugin's formatter (plugin API 0.2.16); in a
+Beancount journal the server's formatting comes first when it runs.
+ptimoney's hledger-lsp 0.7.0 formats a journal into one that means
+something else, so the plugin leaves its formatting unused
+(=servers.hledger-lsp.ignore=).
 
 * Known differences
 
