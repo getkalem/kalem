@@ -1630,6 +1630,14 @@ fn documents_and_projects_in_the_terminal() {
     assert!(t.app.context_flag("editorFocus"));
     let rows = screen(&mut t);
     assert!(rows[1].contains("> "), "{rows:?}");
+    // With Vim's keys, the leader's: Vim's normal mode takes Ctrl+G.
+    let (mut v, _) = project_app(Config::from_layers(&[(
+        Layer::User,
+        None,
+        "editor.keymap_profile = \"vim\"\n",
+    )]));
+    let status_line = status(&mut v);
+    assert!(status_line.ends_with("Space :  commands"), "{status_line}");
     t.key(KeyCode::Esc, KeyModifiers::NONE);
     // Ctrl+O asks for a file, starting in the document's folder.
     t.key(KeyCode::Char('o'), KeyModifiers::CONTROL);
@@ -3813,7 +3821,9 @@ fn latex_diagnostics_in_the_terminal() {
     let mut t = with_file("Some {\\bf x} here.\n", "d.tex", Config::default(), (50, 6));
     t.at(7);
     let mut found = false;
-    for _ in 0..300 {
+    // Worked out on a thread: up to 15 s, for a machine busy with other
+    // builds (3 s were too few there).
+    for _ in 0..1500 {
         t.app.tick(std::time::Instant::now());
         if t.app.doc.latex_diagnostics().is_some() {
             found = true;

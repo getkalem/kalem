@@ -6419,19 +6419,28 @@ impl App {
                 crate::panels::accent_style(caps, bar),
             ),
             None => {
+                let palette = self.keymap.keys_for("view.palette");
+                // With Vim's keys, the leader's (`SPC :`): Vim takes Ctrl+G
+                // in its normal mode, where the hint is read.
+                let leader = format!("{} ", self.config.vim_leader());
                 let keys = self
-                    .keymap
-                    .keys_for("view.palette")
-                    .iter()
-                    .filter(|k| k.0.len() == 1)
-                    .map(|k| k.to_string())
-                    .find(|k| k.starts_with("ctrl"))
-                    .or_else(|| {
-                        self.keymap
-                            .keys_for("view.palette")
-                            .first()
+                    .vim
+                    .is_some()
+                    .then(|| {
+                        palette
+                            .iter()
                             .map(|k| k.to_string())
-                    });
+                            .find(|k| k.starts_with(&leader))
+                    })
+                    .flatten()
+                    .or_else(|| {
+                        palette
+                            .iter()
+                            .filter(|k| k.0.len() == 1)
+                            .map(|k| k.to_string())
+                            .find(|k| k.starts_with("ctrl"))
+                    })
+                    .or_else(|| palette.first().map(|k| k.to_string()));
                 // And the file manager's, which a click opens too.
                 let files = self.keymap.keys_for("dired.jump").first().map(|k| {
                     format!(
