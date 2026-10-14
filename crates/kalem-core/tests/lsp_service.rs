@@ -196,6 +196,11 @@ fn main() {
     edit(&mut doc, 0..1, "");
     let lines = lsp::hover_lines("```elixir\ndef f\n```\n\na b c d e f", 5, 3);
     assert_eq!(lines, ["def f", "", "a b c …"]);
+    // rust-analyzer's: the signature as code, a rule, the documentation's
+    // Markdown as text; in the code, Markdown is code.
+    let ra = "```rust\nfn f(a: [u8; 2])\n```\n\n---\n\n[`add`](https://docs.rs/x) taking `a`";
+    let lines = lsp::hover_lines(ra, 40, 9);
+    assert_eq!(lines, ["fn f(a: [u8; 2])", "", "add taking a"]);
     println!("test hover ... ok");
 
     // Inlay hints: the server's at their places in the line's view, moved

@@ -3284,6 +3284,58 @@ fn front_matter_end(text: &str) -> Option<usize> {
     None
 }
 
+/// A line of Markdown as text, as a hover's documentation shows it: a
+/// link its text, inline code without its backticks, a heading without
+/// its marks, a thematic break (`---`) an empty line.
+pub fn plain_line(line: &str) -> String {
+    let t = line.trim();
+    if t.len() >= 3
+        && ["-", "*", "_"]
+            .iter()
+            .any(|c| t.chars().all(|x| x.to_string() == *c))
+    {
+        return String::new();
+    }
+    let indent = line.len() - line.trim_start().len();
+    let hashes = line[indent..].len() - line[indent..].trim_start_matches('#').len();
+    let line = if (1..=6).contains(&hashes) && line[indent + hashes..].starts_with(' ') {
+        &line[indent + hashes + 1..]
+    } else {
+        line
+    };
+    let mut out = String::with_capacity(line.len());
+    let mut rest = line;
+    while let Some(i) = rest.find(['[', '`']) {
+        out.push_str(&rest[..i]);
+        let r = &rest[i..];
+        if let Some(code) = r.strip_prefix('`') {
+            match code.find('`') {
+                Some(j) => {
+                    out.push_str(&code[..j]);
+                    rest = &code[j + 1..];
+                }
+                None => {
+                    out.push('`');
+                    rest = code;
+                }
+            }
+            continue;
+        }
+        // `[text](target)`: the text.
+        if let Some(close) = r.find(']')
+            && r[close + 1..].starts_with('(')
+            && let Some(end) = r[close + 1..].find(')')
+        {
+            out.push_str(&plain_line(&r[1..close]));
+            rest = &r[close + 1 + end + 1..];
+            continue;
+        }
+        out.push('[');
+        rest = &r[1..];
+    }
+    out.push_str(rest);
+    out
+}
 /// The headings of a Markdown document for the outline sidebar.
 pub fn outline_items(doc: &crate::DocumentState) -> Vec<crate::view::OutlineItem> {
     let Some(md) = ready(doc) else {
@@ -3409,6 +3461,21 @@ mod tests {
         assert_eq!(section_of(&h, 35, 70), 30..50);
         assert_eq!(section_of(&h, 60, 70), 50..70);
         assert_eq!(section_of(&[], 5, 70), 0..70);
+    }
+
+    #[test]
+    fn markdown_lines_as_text() {
+        assert_eq!(
+            plain_line("[`add`](https://docs.rs/x/fn.add.html) taking `a`, as [here](u)."),
+            "add taking a, as here."
+        );
+        assert_eq!(plain_line("# Examples"), "Examples");
+        assert_eq!(plain_line("---"), "");
+        assert_eq!(
+            plain_line("a[i] and [b] stay, `open"),
+            "a[i] and [b] stay, `open"
+        );
+        assert_eq!(plain_line("#hashtag"), "#hashtag");
     }
 
     /// Tab nests an item (and what it holds) under the one before it, at

@@ -1566,13 +1566,23 @@ pub fn take_outcomes(path: &Path, version: u64) -> Vec<Outcome> {
 }
 
 /// Hover text as lines of at most `width` characters, at most `max`
-/// of them: code fences dropped, paragraphs wrapped at spaces.
+/// of them: code fences dropped, Markdown outside them read as text
+/// ([`crate::markdown::plain_line`]), paragraphs wrapped at spaces.
 pub fn hover_lines(text: &str, width: usize, max: usize) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
+    let mut code = false;
     for line in text.lines() {
         if line.trim_start().starts_with("```") {
+            code = !code;
             continue;
         }
+        let plain;
+        let line = if code {
+            line
+        } else {
+            plain = crate::markdown::plain_line(line);
+            plain.as_str()
+        };
         let mut cur = String::new();
         for word in line.split(' ') {
             if !cur.is_empty() && cur.chars().count() + 1 + word.chars().count() > width {
@@ -1583,7 +1593,10 @@ pub fn hover_lines(text: &str, width: usize, max: usize) -> Vec<String> {
             }
             cur.push_str(word);
         }
-        out.push(cur);
+        // One blank line where there were more (a rule between two).
+        if !(cur.is_empty() && out.last().is_some_and(String::is_empty)) {
+            out.push(cur);
+        }
     }
     while out.last().is_some_and(String::is_empty) {
         out.pop();
