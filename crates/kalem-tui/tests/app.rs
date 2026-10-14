@@ -5310,6 +5310,23 @@ fn vim_quit_closes_the_pane_first() {
     assert!(t.app.quit);
 }
 
+/// An edit undone leaves the document as it was saved: `:q` quits, as in
+/// Vim, where it said there were changes; the title has no mark.
+#[test]
+fn vim_quit_after_an_edit_undone() {
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let mut t = with_config("* A\n", config, (60, 10));
+    t.typ("ox");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    assert!(t.app.doc.is_modified());
+    t.typ("u");
+    assert_eq!(t.text(), "* A\n");
+    assert!(!t.app.doc.is_modified());
+    t.typ(":q");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(t.app.quit);
+}
+
 #[test]
 fn vim_force_quit_loses_one_document() {
     // `:q!` loses this document's changes, not the others': it closes

@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - The status bar names the most serious problem of the cursor's line, or of those under the cursor: it named the first on the line, so that rust-analyzer's “expected due to this” beside the type stood for the error “mismatched types” after it.
+- A document whose edits are undone back to the text it was saved (or opened) with is no longer modified: its title has no mark, closing and quitting do not ask, and Vim's `:q` quits. It stayed modified until saved again. Line endings, a byte order mark or an encoding changed since still count.
 
 ## [0.6.24] - 2026-10-14
 

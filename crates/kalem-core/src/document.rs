@@ -54,6 +54,13 @@ pub struct Metadata {
 
 /// Starts a full parse of `text` (version `version`) in the background,
 /// with the configuration of `base`.
+/// A hash of `text`, to know a saved text again.
+fn text_hash(text: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::hash::DefaultHasher::new();
+    text.hash(&mut h);
+    h.finish()
+}
 fn spawn_parse(base: &Parse, text: &str, version: u64) -> Pending {
     let (send, result) = std::sync::mpsc::channel();
     let base = base.clone();
@@ -239,6 +246,14 @@ pub struct DocumentState {
     version: u64,
     /// The version the file was last saved (or opened) at.
     saved_version: u64,
+    /// The line endings, byte order mark and encoding the file was saved
+    /// (or opened) with, and the saved text's length and hash, taken at
+    /// the first edit after: an edit undone back to them is no change
+    /// ([`Self::is_modified`]).
+    saved_meta: (LineEnding, bool, &'static encoding_rs::Encoding),
+    saved_text: Option<(usize, u64)>,
+    /// Whether the text at a version is the saved one, worked out once.
+    back_to_saved: std::cell::Cell<Option<(u64, bool)>>,
     org: Option<OrgState>,
     /// The parse of a LaTeX document.
     latex: Option<crate::latex_view::LatexState>,
@@ -522,6 +537,9 @@ impl DocumentState {
             text,
             version: 0,
             saved_version: 0,
+            saved_meta: (meta.line_ending, meta.bom, meta.encoding),
+            saved_text: None,
+            back_to_saved: std::cell::Cell::new(None),
             org,
             latex,
             settings,
@@ -1827,7 +1845,30 @@ impl DocumentState {
         if let Some(f) = &self.flow {
             return f.viewer.modified();
         }
-        self.version != self.saved_version || self.viewer.as_ref().is_some_and(|v| v.modified())
+        (self.version != self.saved_version && !(self.saved_version != u64::MAX && self.as_saved()))
+            || self.viewer.as_ref().is_some_and(|v| v.modified())
+    }
+
+    /// Whether the text and its line endings, mark and encoding are what
+    /// was saved again (an edit undone), compared once a version.
+    fn as_saved(&self) -> bool {
+        let Some((len, hash)) = self.saved_text else {
+            return false;
+        };
+        let text = self.text.as_str();
+        if text.len() != len
+            || self.saved_meta != (self.meta.line_ending, self.meta.bom, self.meta.encoding)
+        {
+            return false;
+        }
+        if let Some((v, same)) = self.back_to_saved.get()
+            && v == self.version
+        {
+            return same;
+        }
+        let same = text_hash(text) == hash;
+        self.back_to_saved.set(Some((self.version, same)));
+        same
     }
 
     /// Whether the text was edited since it was saved: [`Self::is_modified`]
@@ -1836,7 +1877,7 @@ impl DocumentState {
         if let Some(f) = &self.flow {
             return f.viewer.modified();
         }
-        self.version != self.deleted_saved.unwrap_or(self.saved_version)
+        (self.version != self.deleted_saved.unwrap_or(self.saved_version) && !self.as_saved())
             || self.viewer.as_ref().is_some_and(|v| v.modified())
     }
 
@@ -1851,6 +1892,8 @@ impl DocumentState {
     /// Records that the current text was saved.
     pub fn mark_saved(&mut self) {
         self.saved_version = self.version;
+        self.saved_meta = (self.meta.line_ending, self.meta.bom, self.meta.encoding);
+        self.saved_text = None;
         self.deleted_saved = None;
     }
 
@@ -2828,6 +2871,11 @@ impl DocumentState {
             self.narrowing = Some(
                 tx.map(r.start, org_edit::Assoc::Before)..tx.map(r.end, org_edit::Assoc::After),
             );
+        }
+        // The first edit after a save: the saved text, to know it again.
+        if self.version == self.saved_version {
+            let text = self.text.as_str();
+            self.saved_text = Some((text.len(), text_hash(text)));
         }
         self.text.apply(&tx.edits);
         self.version += 1;
@@ -3903,6 +3951,40 @@ mod tests {
         );
     }
 
+    #[test]
+    fn an_edit_undone_is_no_change() {
+        let now = Instant::now();
+        let mut d = org("one\n");
+        let typed = |d: &mut DocumentState, range: std::ops::Range<usize>, s: &str| {
+            let mut tx = Transaction::new("Typing");
+            tx.edit(range, s);
+            d.apply(&tx, ChangeKind::Command, now);
+        };
+        typed(&mut d, 3..3, "!");
+        assert!(d.is_modified());
+        d.undo();
+        assert!(!d.is_modified(), "back to the text opened");
+        d.redo();
+        assert!(d.is_modified());
+        // After a save, the text saved is the one to come back to.
+        d.mark_saved();
+        d.undo();
+        assert!(d.is_modified(), "the text before the save");
+        assert!(d.has_unsaved_edits());
+        d.redo();
+        assert!(!d.is_modified());
+        assert!(!d.has_unsaved_edits());
+        // The same length, another text.
+        typed(&mut d, 0..1, "O");
+        assert!(d.is_modified());
+        d.undo();
+        assert!(!d.is_modified());
+        // New line endings, the text's change undone: still a change.
+        d.set_line_ending(LineEnding::CrLf, now);
+        d.undo();
+        assert_eq!(d.text().as_str(), "one!\n");
+        assert!(d.is_modified());
+    }
     fn org(text: &str) -> DocumentState {
         let meta = Metadata {
             path: None,
