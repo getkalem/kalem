@@ -1499,14 +1499,14 @@ fn content_end(text: &str, r: &Range<usize>) -> usize {
 }
 
 struct Blocks<'a> {
-    text: String,
+    text: &'a str,
     ctx: &'a ParseContext,
     out: Vec<Block>,
 }
 
 impl Blocks<'_> {
     fn add(&mut self, kind: BlockKind, range: Range<usize>, depth: usize, headline: Option<usize>) {
-        let content_end = content_end(&self.text, &range);
+        let content_end = content_end(self.text, &range);
         self.out.push(Block {
             kind,
             range,
@@ -1580,10 +1580,13 @@ pub fn outline_indent(keywords: &[(String, String)], setting: bool) -> bool {
         .unwrap_or(setting)
 }
 
-/// The document's blocks, in order. Together they cover the whole text.
-pub fn blocks(root: &SyntaxNode, ctx: &ParseContext) -> Vec<Block> {
+/// The document's blocks, in order. Together they cover the whole text,
+/// `text`, the tree's (the document's when the parse is for it: making it
+/// again from the tree took a quarter of a keystroke in a long document).
+pub fn blocks(root: &SyntaxNode, ctx: &ParseContext, text: &str) -> Vec<Block> {
+    debug_assert_eq!(usize::from(root.text_range().len()), text.len());
     let mut b = Blocks {
-        text: root.text().to_string(),
+        text,
         ctx,
         out: Vec::new(),
     };
@@ -2095,7 +2098,7 @@ mod tests {
         use super::*;
         let t = "* A\ntext\n** B\nmore\n* C\n";
         let p = org_syntax::parse(t);
-        let b = blocks(&p.syntax(), p.context());
+        let b = blocks(&p.syntax(), p.context(), t);
         let shown = |f: &Folds| {
             f.visible(&b)
                 .iter()
@@ -2128,7 +2131,7 @@ mod tests {
         use super::*;
         let t = "intro\n* A\ntext\n** B\nmore\n";
         let p = org_syntax::parse(t);
-        let b = blocks(&p.syntax(), p.context());
+        let b = blocks(&p.syntax(), p.context(), t);
         assert_eq!(outline_depth(&b, 0), 0);
         assert_eq!(outline_depth(&b, t.find("* A").unwrap()), 1);
         assert_eq!(outline_depth(&b, t.find("text").unwrap()), 1);
@@ -2154,7 +2157,7 @@ mod tests {
     fn export_and_comment_blocks() {
         let t = "#+begin_export html\n<b>x</b>\n#+end_export\n#+begin_comment\nhidden\n#+end_comment\n#+begin_export md\n*x*\n#+end_export\n";
         let p = org_syntax::parse(t);
-        let kinds: Vec<BlockKind> = blocks(&p.syntax(), p.context())
+        let kinds: Vec<BlockKind> = blocks(&p.syntax(), p.context(), t)
             .into_iter()
             .map(|b| b.kind)
             .collect();
@@ -2415,7 +2418,7 @@ mod tests {
         assert!(files.len() > 10);
         for t in &files {
             let p = org_syntax::parse(t);
-            let bs = blocks(&p.syntax(), p.context());
+            let bs = blocks(&p.syntax(), p.context(), t);
             let mut at = 0;
             for b in &bs {
                 assert_eq!(b.range.start, at, "gap before {b:?}");
@@ -2503,7 +2506,7 @@ mod tests {
     fn block_kinds() {
         let t = "\n#+TITLE: T\n* A\n\nText.\n- a\n  - b\n- c\n\n** B\n#+begin_src rust\nx\n#+end_src\n* C\n";
         let p = org_syntax::parse(t);
-        let bs = blocks(&p.syntax(), p.context());
+        let bs = blocks(&p.syntax(), p.context(), t);
         let kinds: Vec<(&BlockKind, &str, usize)> = bs
             .iter()
             .map(|b| (&b.kind, &t[b.range.start..b.content_end], b.depth))
@@ -2534,7 +2537,7 @@ mod tests {
     fn folding() {
         let t = "* A\na\n** B\nb\n*** C\nc\n** D\n* E\ne\n";
         let p = org_syntax::parse(t);
-        let bs = blocks(&p.syntax(), p.context());
+        let bs = blocks(&p.syntax(), p.context(), t);
         let shown = |f: &Folds| -> String {
             f.visible(&bs)
                 .iter()

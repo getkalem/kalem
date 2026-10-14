@@ -250,7 +250,7 @@ impl ModeView for Org {
 
     fn blocks(&self, doc: &DocumentState) -> Vec<Block> {
         match doc.parse() {
-            Some((p, true)) => view::blocks(&p.syntax(), p.context()),
+            Some((p, true)) => view::blocks(&p.syntax(), p.context(), doc.text().as_str()),
             _ => Vec::new(),
         }
     }
