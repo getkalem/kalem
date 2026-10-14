@@ -462,20 +462,29 @@ enum Target {
 }
 
 /// The options `:set` changes (`:help options`), with Kalem's defaults
-/// where Vim's differ: 'autoindent' on, 'shiftwidth' 2, 'expandtab',
-/// 'softtabstop' following 'shiftwidth', 'backspace' as
-/// `indent,eol,start` (always), 'nrformats' `bin,hex`.
+/// where Vim's differ: 'autoindent' on, 'shiftwidth' and 'expandtab' as
+/// the document is indented until set, 'softtabstop' following
+/// 'shiftwidth', 'backspace' as `indent,eol,start` (always), 'nrformats'
+/// `bin,hex`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Options {
-    /// 'shiftwidth': columns for `>>`, `<<`, CTRL-T and CTRL-D (0: 'tabstop').
+    /// 'shiftwidth': columns for `>>`, `<<`, CTRL-T and CTRL-D (0: 'tabstop';
+    /// until `:set`, see `shiftwidth_set`).
     pub shiftwidth: usize,
+    /// Whether 'shiftwidth' was set: until then it is the document's
+    /// indentation unit, as Tab and a closing bracket indent.
+    pub shiftwidth_set: bool,
     /// 'tabstop': the columns a tab takes.
     pub tabstop: usize,
     /// 'softtabstop': the columns Tab and Backspace go (negative:
     /// 'shiftwidth').
     pub softtabstop: isize,
-    /// 'expandtab': spaces instead of tabs.
+    /// 'expandtab': spaces instead of tabs (until `:set`, see
+    /// `expandtab_set`).
     pub expandtab: bool,
+    /// Whether 'expandtab' was set: until then the document's indentation
+    /// decides (spaces or tabs).
+    pub expandtab_set: bool,
     /// 'autoindent': a new line gets the indent of the one before.
     pub autoindent: bool,
     /// 'ignorecase' in patterns.
@@ -498,9 +507,11 @@ impl Default for Options {
     fn default() -> Self {
         Options {
             shiftwidth: 2,
+            shiftwidth_set: false,
             tabstop: 8,
             softtabstop: -1,
             expandtab: true,
+            expandtab_set: false,
             autoindent: true,
             ignorecase: false,
             smartcase: false,
@@ -2977,7 +2988,7 @@ impl Vim {
     /// empty.
     fn reindent(&mut self, doc: &mut DocumentState, l1: usize, l2: usize) {
         let ts = self.options.tabstop.max(1);
-        let sw = self.shiftwidth();
+        let sw = self.shiftwidth(doc);
         // Braces open before the first line (not in strings).
         let depth_of = |t: &str| -> isize {
             let mut d = 0isize;
@@ -3010,7 +3021,7 @@ impl Vim {
                 depth
             };
             if fnb < e {
-                let want = insert::indent_string(here as usize * sw, ts, self.options.expandtab);
+                let want = insert::indent_string(here as usize * sw, ts, self.expandtab(doc));
                 if doc.text().as_str()[s..fnb] != want {
                     edit(doc, s..fnb, &want, s);
                 }
@@ -3064,7 +3075,7 @@ impl Vim {
             } else {
                 // 'shiftwidth' columns more or less; empty lines stay.
                 let ts = self.options.tabstop.max(1);
-                let sw = self.shiftwidth();
+                let sw = self.shiftwidth(doc);
                 let blank = line.len() - line.trim_start_matches([' ', '\t']).len();
                 let width = insert::vcol(doc, s + blank, ts);
                 let new = if right {
@@ -3073,7 +3084,7 @@ impl Vim {
                     width.saturating_sub(sw)
                 };
                 if !line.is_empty() && new != width {
-                    let indent = insert::indent_string(new, ts, self.options.expandtab);
+                    let indent = insert::indent_string(new, ts, self.expandtab(doc));
                     edit(doc, s..s + blank, &indent, s);
                 }
                 Ok(())
@@ -3150,7 +3161,7 @@ impl Vim {
                     let rest = l.trim_start_matches([' ', '\t']);
                     format!(
                         "{}{rest}",
-                        insert::indent_string(w, ts, self.options.expandtab)
+                        insert::indent_string(w, ts, self.expandtab(doc))
                     )
                 })
                 .collect();
@@ -5201,8 +5212,8 @@ impl Vim {
             Key::Tab => {
                 let pos = doc.selection.head;
                 let ts = self.options.tabstop.max(1);
-                let text = if self.options.expandtab {
-                    let sts = self.soft_tab();
+                let text = if self.expandtab(doc) {
+                    let sts = self.soft_tab(doc);
                     let step = if sts > 0 { sts } else { ts };
                     let col = insert::vcol(doc, pos, ts);
                     " ".repeat((col / step + 1) * step - col)
@@ -6254,7 +6265,7 @@ mod tests {
         assert_eq!(run(t, 0, "~~"), "ON|e two three\nfour\nfive\n");
         assert_eq!(run(t, 0, "gUiw"), "|ONE two three\nfour\nfive\n");
         assert_eq!(run(t, 0, "gUU"), "|ONE TWO THREE\nfour\nfive\n");
-        assert_eq!(run(t, 0, ">>"), "  |one two three\nfour\nfive\n");
+        assert_eq!(run(t, 0, ">>"), "    |one two three\nfour\nfive\n");
         assert_eq!(run("  a\n", 2, "<<"), "|a\n");
         assert_eq!(run("f(a, (b))\n", 5, "di("), "f(a, (|))\n");
         assert_eq!(run("f(a, (b))\n", 3, "da("), "|f\n");
@@ -6263,6 +6274,20 @@ mod tests {
             "say \"y|o\" x\n"
         );
         assert_eq!(run("a\nb\n\nc\n", 0, "dap"), "|c\n");
+    }
+
+    #[test]
+    fn shiftwidth_as_the_document_is_indented() {
+        // Until `:set`, 'shiftwidth' and 'expandtab' are the document's
+        // indentation, what Tab and a closing bracket indent by.
+        assert_eq!(run("a\n    b\n", 0, ">>"), "    |a\n    b\n");
+        assert_eq!(run("a\n  b\n", 0, ">>"), "  |a\n  b\n");
+        assert_eq!(run("a\n\tb\n", 0, ">>"), "\t|a\n\tb\n");
+        assert_eq!(run("a\n  b\n    c\n", 4, "<<"), "a\n|b\n    c\n");
+        // Set, they are as set, whatever the text.
+        assert_eq!(run("a\n    b\n", 0, ":set sw=3<CR>>>"), "   |a\n    b\n");
+        assert_eq!(run("a\n\tb\n", 0, ":set sw=2 et<CR>>>"), "  |a\n\tb\n");
+        assert_eq!(run("a\n  b\n", 0, ":set sw+=1<CR>>>"), "   |a\n  b\n");
     }
 
     #[test]

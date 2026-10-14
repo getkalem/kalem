@@ -14,6 +14,7 @@ use super::{
     line_of, line_start,
 };
 use crate::mode::DocumentMode;
+use crate::text::Indent;
 
 /// A key insert mode waits for.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -365,7 +366,7 @@ impl Vim {
             Erase::Char => {
                 // Blanks back to the soft tab stop before; a tab the stop
                 // is inside of becomes spaces up to it ('softtabstop').
-                let sts = self.soft_tab();
+                let sts = self.soft_tab(doc);
                 if sts > 0 && matches!(char_before(doc, head), Some(' ' | '\t')) {
                     let ts = self.options.tabstop.max(1);
                     let want = (vcol(doc, head, ts) - 1) / sts * sts;
@@ -439,18 +440,34 @@ impl Vim {
 
     /// The width of a soft tab: 'softtabstop', or 'shiftwidth' when it is
     /// negative; 0 for none.
-    pub(super) fn soft_tab(&self) -> usize {
+    pub(super) fn soft_tab(&self, doc: &DocumentState) -> usize {
         match self.options.softtabstop {
-            n if n < 0 => self.shiftwidth(),
+            n if n < 0 => self.shiftwidth(doc),
             n => n as usize,
         }
     }
 
-    pub(super) fn shiftwidth(&self) -> usize {
-        if self.options.shiftwidth == 0 {
-            self.options.tabstop
-        } else {
+    /// 'shiftwidth' for `doc`: as `:set`, else the document's indentation
+    /// unit, as Tab and a closing bracket indent; 0 or a tab is 'tabstop'.
+    pub(super) fn shiftwidth(&self, doc: &DocumentState) -> usize {
+        let sw = if self.options.shiftwidth_set {
             self.options.shiftwidth
+        } else {
+            match doc.indent_unit() {
+                Indent::Spaces(n) => n,
+                Indent::Tabs => 0,
+            }
+        };
+        if sw == 0 { self.options.tabstop } else { sw }
+    }
+
+    /// 'expandtab' for `doc`: as `:set`, else whether the document is
+    /// indented with spaces.
+    pub(super) fn expandtab(&self, doc: &DocumentState) -> bool {
+        if self.options.expandtab_set {
+            self.options.expandtab
+        } else {
+            !matches!(doc.indent_unit(), Indent::Tabs)
         }
     }
 
@@ -459,7 +476,7 @@ impl Vim {
     /// 'autoindent' copies).
     pub(super) fn indent_like(&self, doc: &DocumentState, upto: usize) -> String {
         let ts = self.options.tabstop.max(1);
-        indent_string(vcol(doc, upto, ts), ts, self.options.expandtab)
+        indent_string(vcol(doc, upto, ts), ts, self.expandtab(doc))
     }
 
     /// Enter: a new line, indented as this one with 'autoindent' (the
@@ -504,14 +521,14 @@ impl Vim {
     fn tab(&mut self, doc: &mut DocumentState) {
         let head = doc.selection.head.min(doc.text().len());
         let ts = self.options.tabstop.max(1);
-        let sts = self.soft_tab();
-        if !self.options.expandtab && sts == 0 {
+        let sts = self.soft_tab(doc);
+        if !self.expandtab(doc) && sts == 0 {
             return self.type_text(doc, "\t");
         }
         let step = if sts > 0 { sts } else { ts };
         let col = vcol(doc, head, ts);
         let want = (col / step + 1) * step;
-        if self.options.expandtab {
+        if self.expandtab(doc) {
             return self.type_text(doc, &" ".repeat(want - col));
         }
         // Tabs where a run of blanks reaches a tab stop.
@@ -539,7 +556,7 @@ impl Vim {
         let line = line_of(doc, head);
         let (s, fnb) = (line_start(doc, line), first_non_blank(doc, line));
         let ts = self.options.tabstop.max(1);
-        let sw = self.shiftwidth();
+        let sw = self.shiftwidth(doc);
         let width = vcol(doc, fnb, ts);
         let new = if right {
             (width / sw + 1) * sw
@@ -548,7 +565,7 @@ impl Vim {
         } else {
             (width - 1) / sw * sw
         };
-        let indent = indent_string(new, ts, self.options.expandtab);
+        let indent = indent_string(new, ts, self.expandtab(doc));
         let caret = if head >= fnb {
             head - (fnb - s) + indent.len()
         } else {

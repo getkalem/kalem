@@ -62,12 +62,13 @@ rows and columns), Control or Alt with Enter, and Ctrl+Space for
 completion; on macOS, Command keeps the Word-like keys. In Org
 documents =>>= and =<<= demote and promote headings and indent list
 items. Kalem's defaults differ from Vim's where Vim keeps Vi's:
-=autoindent= is on, =shiftwidth= is 2 with =expandtab=, =backspace= is
-=indent,eol,start=, =nrformats= is =bin,hex= and =joinspaces= is off;
-=:set= changes them for the document. =editor.vim.leader= makes
-another key the leader, and =editor.vim.modes= limits Vim keys to some
-kinds of documents: =org=, =markdown=, =csv=, =latex=, =text= and
-=directory=.
+=autoindent= is on, =shiftwidth= and =expandtab= are the document's
+own indentation (four spaces, two, or a tab, as Tab and a closing
+bracket indent) until set, =backspace= is =indent,eol,start=,
+=nrformats= is =bin,hex= and =joinspaces= is off; =:set= changes them
+for the document. =editor.vim.leader= makes another key the leader,
+and =editor.vim.modes= limits Vim keys to some kinds of documents:
+=org=, =markdown=, =csv=, =latex=, =text= and =directory=.
 
 ** The leader
 

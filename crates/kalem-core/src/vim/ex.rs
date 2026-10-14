@@ -512,7 +512,7 @@ impl Vim {
                 let ts = self.options.tabstop.max(1);
                 for l in (a..=b).rev() {
                     let (s, fnb) = (line_start(doc, l), first_non_blank(doc, l));
-                    let ind = super::insert::indent_string(indent, ts, self.options.expandtab);
+                    let ind = super::insert::indent_string(indent, ts, self.expandtab(doc));
                     // Blank lines too, as in Vim.
                     if doc.text().as_str()[s..fnb] != ind {
                         edit(doc, s..fnb, &ind, s);
@@ -552,7 +552,7 @@ impl Vim {
                     } else {
                         width.saturating_sub(len) / 2
                     };
-                    let ind = super::insert::indent_string(want, ts, self.options.expandtab);
+                    let ind = super::insert::indent_string(want, ts, self.expandtab(doc));
                     let s = line_start(doc, l);
                     if doc.text().as_str()[s..fnb] != ind {
                         edit(doc, s..fnb, &ind, s);
@@ -575,7 +575,7 @@ impl Vim {
                     .ok()
                     .filter(|n| *n > 0)
                     .unwrap_or(old_ts);
-                let et = self.options.expandtab;
+                let et = self.expandtab(doc);
                 let blanks = |from: usize, to: usize| {
                     if et {
                         return " ".repeat(to - from);
@@ -656,7 +656,7 @@ impl Vim {
                     .collect();
                 out.message = Some((list.join("  "), false));
             }
-            _ if is("se", "set") || is("setl", "setlocal") => self.set(args, out),
+            _ if is("se", "set") || is("setl", "setlocal") => self.set(args, doc, out),
             _ => {
                 let cmd = if range.is_some() || bang {
                     rest.to_string()
@@ -1166,7 +1166,15 @@ impl Vim {
 
     /// `:set`: options by name, `no` and `inv` before a flag, `!` after,
     /// `?` to show, `=`, `+=`, `-=` for numbers and lists.
-    pub(super) fn set(&mut self, args: &str, out: &mut Outcome) {
+    pub(super) fn set(&mut self, args: &str, doc: &DocumentState, out: &mut Outcome) {
+        // 'shiftwidth' and 'expandtab' not set yet are the document's: as
+        // they are now, for `?` and `+=`.
+        if !self.options.shiftwidth_set {
+            self.options.shiftwidth = self.shiftwidth(doc);
+        }
+        if !self.options.expandtab_set {
+            self.options.expandtab = self.expandtab(doc);
+        }
         for item in args.split_whitespace() {
             if let Err(e) = self.set_one(item, out) {
                 out.message = Some((e, true));
@@ -1214,10 +1222,11 @@ impl Vim {
             if show {
                 let v = *b;
                 out.message = Some((format!("{}{flag_name}", if v { "  " } else { "no" }), false));
-            } else if toggle {
-                *b = !*b;
             } else {
-                *b = on;
+                *b = if toggle { !*b } else { on };
+                if matches!(flag_name, "et" | "expandtab") {
+                    o.expandtab_set = true;
+                }
             }
             return Ok(());
         }
@@ -1242,6 +1251,9 @@ impl Vim {
                         Some('^') => *v * x,
                         _ => x,
                     };
+                    if matches!(name, "sw" | "shiftwidth") {
+                        o.shiftwidth_set = true;
+                    }
                 }
                 (NumOpt::I(v), Some(val)) => {
                     let x: isize = val

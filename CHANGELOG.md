@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- With Vim's keys, `>>`, `<<`, and Ctrl+T and Ctrl+D in insert mode shift by the document's own indentation until `:set shiftwidth` sets it (as many spaces as it indents by, or a tab in a file indented with tabs), as Tab and a closing bracket do; it was always two spaces. `expandtab` follows the document the same way until set.
+
 ### Fixed
 - In code, a closing bracket typed alone on its line no longer goes a level further back than the line of its opening bracket: with Vim's keys, whose Enter keeps the indentation, `}` ended every block one level to the left of its `if` or `fn`. The bracket now takes the indentation of its opening bracket's line, as Vim's `smartindent` does, and is typed as it is where there is no opening bracket.
 

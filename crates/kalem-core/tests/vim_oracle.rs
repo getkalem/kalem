@@ -105,6 +105,12 @@ fn run(text: &str, keys: &str) -> (String, usize, usize) {
     let mut v = Vim::new();
     // Vim's own keys: no leader (Kalem's is Space).
     v.leader = None;
+    // Kalem's defaults as tools/vim-expected.py gives them to Vim, set:
+    // 'shiftwidth' and 'expandtab' as there, not as the text is indented.
+    v.options.shiftwidth = 2;
+    v.options.shiftwidth_set = true;
+    v.options.expandtab = true;
+    v.options.expandtab_set = true;
     let mut host = TestHost::default();
     let mut all = parse_keys(keys);
     all.extend([Key::Esc, Key::Esc]);
