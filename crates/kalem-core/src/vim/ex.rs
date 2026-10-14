@@ -1209,6 +1209,7 @@ impl Vim {
         fn flag<'o>(o: &'o mut super::Options, f: &str) -> Option<&'o mut bool> {
             Some(match f {
                 "et" | "expandtab" => &mut o.expandtab,
+                "fixeol" | "fixendofline" => &mut o.fixendofline,
                 "ai" | "autoindent" => &mut o.autoindent,
                 "ic" | "ignorecase" => &mut o.ignorecase,
                 "scs" | "smartcase" => &mut o.smartcase,

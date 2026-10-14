@@ -289,6 +289,10 @@ pub struct DocumentState {
     /// plugin API 0.2.12): laid out and seen through the window, its
     /// text the source.
     pub graph_view: Option<Box<crate::graph_view::GraphView>>,
+    /// Whether saving ends the text with a line feed (Vim's
+    /// 'fixendofline', which the Vim layer sets while it edits the
+    /// document); otherwise the file is written as the text is.
+    pub final_newline: bool,
     /// The styles its plugin gave the text of such a document, in order.
     generated_styles: Vec<StyleSpan>,
     /// The marks plugins set beside its lines ([`GutterMark`]), by the
@@ -536,6 +540,7 @@ impl DocumentState {
             notice: None,
             generated: None,
             graph_view: None,
+            final_newline: false,
             generated_styles: Vec::new(),
             gutter: Vec::new(),
             gutter_seen: (0, 0),
@@ -1271,11 +1276,28 @@ impl DocumentState {
                 encoding: self.meta.encoding.name(),
             });
         }
+        self.fix_final_newline();
         let bytes = files::encode(self.text.as_str(), &self.meta);
         self.disk = Some(files::write(&path, &bytes, options).map_err(SaveError::Io)?);
         self.disk_text = mergeable(self.text.as_str());
         self.mark_saved();
         Ok(Vec::new())
+    }
+
+    /// Ends a text that does not end with a line feed with one, as Vim
+    /// writes a file with 'fixendofline': before saving, when
+    /// [`Self::final_newline`] asks it, as an edit, so that the text is
+    /// what the file holds. An empty text stays empty; the cursor stays.
+    pub fn fix_final_newline(&mut self) {
+        let text = self.text.as_str();
+        if !self.final_newline || text.is_empty() || text.ends_with('\n') {
+            return;
+        }
+        let end = text.len();
+        let mut tx = Transaction::new("Final line feed");
+        tx.edit(end..end, "\n");
+        let tx = tx.select(self.selection);
+        self.apply(&tx, ChangeKind::Command, Instant::now());
     }
 
     /// Takes the mode the document's name and text say, after Save As

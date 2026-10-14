@@ -485,6 +485,9 @@ pub struct Options {
     /// Whether 'expandtab' was set: until then the document's indentation
     /// decides (spaces or tabs).
     pub expandtab_set: bool,
+    /// 'fixendofline': a saved text ends with a line feed (the document
+    /// is told: `DocumentState::final_newline`).
+    pub fixendofline: bool,
     /// 'autoindent': a new line gets the indent of the one before.
     pub autoindent: bool,
     /// 'ignorecase' in patterns.
@@ -512,6 +515,7 @@ impl Default for Options {
             softtabstop: -1,
             expandtab: true,
             expandtab_set: false,
+            fixendofline: true,
             autoindent: true,
             ignorecase: false,
             smartcase: false,
@@ -1748,6 +1752,9 @@ impl Vim {
         if self.macro_depth == 0 {
             self.failed = false;
         }
+        // Vim writes a file with a final line feed ('fixendofline'): the
+        // document, edited with Vim's keys, is saved so.
+        doc.final_newline = self.options.fixendofline;
         // Horizontal motions in the rich view read the current parse.
         if host.rich_view()
             && matches!(
@@ -6288,6 +6295,33 @@ mod tests {
         assert_eq!(run("a\n    b\n", 0, ":set sw=3<CR>>>"), "   |a\n    b\n");
         assert_eq!(run("a\n\tb\n", 0, ":set sw=2 et<CR>>>"), "  |a\n\tb\n");
         assert_eq!(run("a\n  b\n", 0, ":set sw+=1<CR>>>"), "   |a\n  b\n");
+    }
+
+    #[test]
+    fn saved_with_a_final_line_feed() {
+        // Vim's 'fixendofline': edited with Vim's keys, the text saved ends
+        // with a line feed, unless `:set nofixeol`; an empty text stays
+        // empty.
+        let saved = |text: &str, keys: &str| {
+            let mut d = doc(text, DocumentMode::Text { language: None });
+            let mut v = Vim::new();
+            let mut host = TestHost::default();
+            for key in test_keys(keys) {
+                if !v.key(&mut d, key, &mut host).handled
+                    && let Key::Char(c) = key
+                {
+                    d.insert_text(&c.to_string(), Instant::now());
+                }
+            }
+            d.fix_final_newline();
+            d.text().as_str().to_string()
+        };
+        assert_eq!(saved("", "iabc<Esc>"), "abc\n");
+        assert_eq!(saved("x\n", "ddiabc<Esc>"), "abc\n");
+        assert_eq!(saved("x\n", "dd"), "");
+        assert_eq!(saved("a\nb", "x"), "\nb\n");
+        assert_eq!(saved("abc", ":set nofixeol<CR>x"), "bc");
+        assert_eq!(saved("abc", ":set nofixeol fixeol<CR>x"), "bc\n");
     }
 
     #[test]

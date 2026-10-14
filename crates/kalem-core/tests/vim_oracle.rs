@@ -130,6 +130,9 @@ fn run(text: &str, keys: &str) -> (String, usize, usize) {
             _ => {}
         }
     }
+    // The text as saved, as the recorder takes Vim's: with its final line
+    // feed ('fixendofline').
+    d.fix_final_newline();
     let t = d.text().as_str().to_string();
     let head = d.selection.head.min(t.len());
     let line_start = t[..head].rfind('\n').map_or(0, |i| i + 1);

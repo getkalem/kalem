@@ -4368,5 +4368,15 @@
   "name": "ex_earlier_default",
   "text": "abc\n",
   "keys": "x<sync>x<sync>:ea<CR>"
+ },
+ {
+  "name": "fixeol_only_line_deleted_then_typed",
+  "text": "x\n",
+  "keys": "ddiabc<Esc>"
+ },
+ {
+  "name": "fixeol_all_deleted_then_typed",
+  "text": "one\ntwo\n",
+  "keys": "ggdGitext<Esc>"
  }
 ]

@@ -939,6 +939,16 @@
   "line": 4,
   "text": "first line\nsecond line\nthird line\nfirst line\nfourth line\nfifth line\n"
  },
+ "fixeol_all_deleted_then_typed": {
+  "col": 4,
+  "line": 1,
+  "text": "text\n"
+ },
+ "fixeol_only_line_deleted_then_typed": {
+  "col": 3,
+  "line": 1,
+  "text": "abc\n"
+ },
  "gJ_count": {
   "col": 22,
   "line": 1,
