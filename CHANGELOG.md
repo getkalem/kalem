@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - With Vim's keys, `.` with a count replaces the change's count wherever it was typed: after `d3w`, `2.` deletes two words, where it deleted six.
 - With Vim's keys, a macro recorded with the arrow keys replays them, and a macro that calls itself runs until a command fails, as in Vim (`qa0xj@aq` on every line of a file); it stopped silently after 21 calls. A macro that never fails stops after a million keys, with a message.
 - With Vim's keys, in a file of CR LF lines, `di{` on a block over several lines no longer deletes the line of the opening brace, and `r` over a selection of several lines no longer turns each line's carriage return into the typed character.
+- Undo and Redo of a change made at several cursors bring the other cursors back where they were; they left the one cursor.
+- Typing right after Undo or Redo is an undo step of its own: it could join the typing before the step undone, so that the next undo took both back.
 
 ## [0.6.27] - 2026-10-15
 

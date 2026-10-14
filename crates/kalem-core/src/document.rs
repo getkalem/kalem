@@ -2018,6 +2018,11 @@ impl DocumentState {
             tracing::warn!(label = %tx.label, "an edit that does not fit the text was refused");
             return;
         }
+        let extra_before = if tx.is_empty() {
+            Vec::new()
+        } else {
+            self.extra.clone()
+        };
         self.history
             .record(tx, self.text.as_str(), before, after, kind, now);
         if !tx.is_empty() {
@@ -2040,6 +2045,10 @@ impl DocumentState {
                 })
                 .collect();
             self.set_extra(mapped);
+        }
+        // The other cursors kept with the step, for undo and redo.
+        if !tx.is_empty() {
+            self.history.set_cursors(&extra_before, &self.extra);
         }
         self.settle_csv_edit();
     }
@@ -2882,9 +2891,21 @@ impl DocumentState {
     /// made again another way (Enter's new line as a language server makes
     /// it), so one undo takes both back.
     pub fn apply_joined(&mut self, tx: &Transaction, now: Instant) {
+        // Only into the change just made: after an undo or a redo the last
+        // step is another, and the edit was made for a text gone since.
+        if !self.history.can_join_last() {
+            return;
+        }
         self.history.join_next(true);
         self.apply(tx, ChangeKind::Command, now);
         self.history.join_next(false);
+    }
+
+    /// The other cursors as they are now, kept as those after the last
+    /// undo step (a change at many cursors sets them after applying it).
+    pub(crate) fn record_cursors(&mut self) {
+        let extra = self.extra.clone();
+        self.history.set_cursors(&[], &extra);
     }
 
     /// Undoes the last step; returns its label.
@@ -2904,7 +2925,7 @@ impl DocumentState {
             return None;
         }
         self.selection = self.clamped(replay.selection);
-        self.extra.clear();
+        self.set_extra(replay.extra.clone());
         Some(replay.label)
     }
 
@@ -2972,7 +2993,7 @@ impl DocumentState {
             return None;
         }
         self.selection = self.clamped(replay.selection);
-        self.extra.clear();
+        self.set_extra(replay.extra.clone());
         Some(replay.label)
     }
 
@@ -4178,6 +4199,43 @@ mod tests {
         typed(&mut d, 0..0, "x");
         assert!(d.redo().is_none());
         assert_eq!(d.meta.line_ending, LineEnding::Lf);
+    }
+
+    #[test]
+    fn undo_brings_the_other_cursors_back() {
+        let now = Instant::now();
+        let mut d = org("ab\nab\n");
+        d.selection = Selection::caret(0);
+        d.set_extra(vec![Selection::caret(3)]);
+        d.insert_at_cursors(|_| "x".into(), now);
+        assert_eq!(d.text().as_str(), "xab\nxab\n");
+        d.undo();
+        assert_eq!(d.text().as_str(), "ab\nab\n");
+        assert_eq!(
+            (d.selection, d.extra.clone()),
+            (Selection::caret(0), vec![Selection::caret(3)])
+        );
+        d.redo();
+        assert_eq!(
+            (d.selection, d.extra.clone()),
+            (Selection::caret(1), vec![Selection::caret(5)])
+        );
+    }
+
+    #[test]
+    fn a_servers_edit_joins_only_the_change_just_made() {
+        let now = Instant::now();
+        let mut d = org("ab\n");
+        typing(&mut d, 2, "c", now);
+        d.undo();
+        // Its answer comes after the undo: not joined to the step before,
+        // and the change undone can still be redone.
+        let mut t = Transaction::new("Server");
+        t.edit(0..0, "z");
+        d.apply_joined(&t, now);
+        assert_eq!(d.text().as_str(), "ab\n");
+        assert!(d.redo().is_some());
+        assert_eq!(d.text().as_str(), "abc\n");
     }
 
     #[test]

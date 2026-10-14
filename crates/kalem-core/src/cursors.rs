@@ -211,9 +211,10 @@ impl DocumentState {
             return;
         }
         let tx = tx.select(after[primary]);
-        self.extra.clear();
+        // The other cursors kept: the undo step takes them as they were.
         self.apply(&tx, ChangeKind::Typing, now);
         self.set_cursors(after, primary);
+        self.record_cursors();
     }
 
     /// A cursor on the line below the last one (`up`: above the first),
@@ -395,10 +396,11 @@ mod tests {
         d.break_undo_group();
         d.delete_backward(now);
         assert_eq!(d.text().as_str(), "-one\n-two\n-three\n");
-        // One undo step.
+        // One undo step, the cursors back where they were.
         d.undo();
         assert_eq!(d.text().as_str(), "- one\n- two\n- three\n");
-        assert!(d.extra.is_empty());
+        assert_eq!(d.selection, Selection::caret(14));
+        assert_eq!(d.extra, vec![Selection::caret(2), Selection::caret(8)]);
     }
 
     #[test]
