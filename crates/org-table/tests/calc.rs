@@ -11,7 +11,7 @@
 use org_table::calc;
 
 /// Differences known in `calc-cases.txt`.
-const KNOWN: usize = 273;
+const KNOWN: usize = 256;
 
 #[test]
 fn agrees_with_emacs() {
@@ -130,4 +130,18 @@ fn empty_vectors_by_formulas() {
     assert_eq!(ev("892.48 / Price + []"), "892.48 / Price + []");
     assert_eq!(ev("[] + 5"), "[]");
     assert_eq!(ev("nan + []"), "[]");
+}
+
+/// A term that looks negative before one that does not: the second less
+/// the first's negation, as Emacs writes them.
+#[test]
+fn negative_looking_terms_go_after() {
+    let m = calc::Modes::default();
+    let ev = |f: &str| calc::eval(f, &m).unwrap();
+    assert_eq!(ev("-2 a + 3"), "3 - 2 a");
+    assert_eq!(ev("a / -2 + 3.5"), "3.5 - a / 2");
+    assert_eq!(ev("-3 + a"), "a - 3");
+    assert_eq!(ev("-1:2 + a"), "a - 1:2");
+    assert_eq!(ev("-a b + c"), "c - a b");
+    assert_eq!(ev("-a - 3 + b"), "-a - 3 + b");
 }

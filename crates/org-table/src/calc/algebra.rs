@@ -482,6 +482,13 @@ fn add_rules<'a>(a: Cow<'a, Expr>, b: &Expr, env: &Env) -> Result<Expr, Cow<'a, 
     {
         return Ok(sub(b, &xs[0], env));
     }
+    // Another term that looks negative first (`-2 a`, `a / -2`, `-3`) and
+    // one that does not after it: the second less the first's negation
+    // (`-2 a + 3` is `3 - 2 a`, as `math-add-symb-fancy` writes it); a sum
+    // after it is gone through term by term below.
+    if looks_neg(&a) && !looks_neg(b) && !is_sum(b) {
+        return Ok(sub(b, &neg(&a, env), env));
+    }
     if let Some(r) = combine(&a, b, 1, env) {
         return Ok(r);
     }
