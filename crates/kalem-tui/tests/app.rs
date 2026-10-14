@@ -3819,6 +3819,9 @@ fn latex_diagnostics_in_the_terminal() {
             found = true;
             break;
         }
+        // A pass under way waited for, not a time: with the whole suite
+        // running, a busy machine took more than three seconds.
+        t.app.doc.wait_for_latex_diagnostics();
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
     assert!(found, "diagnostics worked out");

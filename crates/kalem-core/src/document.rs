@@ -2823,6 +2823,15 @@ impl DocumentState {
         }
     }
 
+    /// Waits for the LaTeX diagnostics being worked out, if they are, to
+    /// be ready for the next poll (tests: not a time, which a busy machine
+    /// may pass).
+    pub fn wait_for_latex_diagnostics(&mut self) {
+        if let Some(l) = &mut self.latex {
+            l.diagnostics.wait();
+        }
+    }
+
     /// Works the LaTeX diagnostics out now rather than in the background
     /// (tests).
     pub fn update_latex_diagnostics(&mut self) {

@@ -369,6 +369,18 @@ impl Live {
         self.mapped || self.current(version).is_none()
     }
 
+    /// Waits for the pass being worked out, if one is, to finish (tests):
+    /// the next poll shows it, as when it finishes on its own.
+    pub fn wait(&mut self) {
+        if let Some((version, rx)) = self.pending.take() {
+            let (tx, again) = std::sync::mpsc::channel();
+            if let Ok(d) = rx.recv() {
+                let _ = tx.send(d);
+            }
+            self.pending = Some((version, again));
+        }
+    }
+
     /// How many times diagnostics were installed: caches of what they
     /// show start again when it changes.
     pub fn generation(&self) -> u64 {
