@@ -43,6 +43,26 @@ struct DiagCache {
     by_line: HashMap<usize, Severity>,
 }
 
+impl DiagCache {
+    /// The problem the status bar names for the cursor at byte `at`, on
+    /// line `line`: the most serious of those under the cursor, else of
+    /// those starting on the line, so that a hint beside an error
+    /// (rust-analyzer's "expected due to this") does not stand for it.
+    fn on_line(&self, line: usize, at: usize) -> Option<&Diagnostic> {
+        let here = || {
+            self.list
+                .iter()
+                .zip(&self.lines)
+                .filter(move |&(_, &l)| l == line)
+                .map(|(d, _)| d)
+        };
+        here()
+            .filter(|d| d.range.start <= at && at < d.range.end.max(d.range.start + 1))
+            .min_by_key(|d| d.severity)
+            .or_else(|| here().min_by_key(|d| d.severity))
+    }
+}
+
 impl Doc {
     /// The line starts of the text.
     fn line_starts(&mut self) -> &[usize] {
@@ -3013,8 +3033,7 @@ pub fn status(path: &Path, at: usize) -> Option<String> {
             // no server runs.
             let line = d.line_of(at);
             let here = d.diagnostics().and_then(|cache| {
-                let i = cache.lines.iter().position(|&l| l == line)?;
-                let diag = &cache.list[i];
+                let diag = cache.on_line(line, at)?;
                 let first = diag.message.lines().next().unwrap_or("");
                 Some(match diag.source.as_deref() {
                     Some(src) => format!("{src}: {first}"),
@@ -3030,9 +3049,8 @@ pub fn status(path: &Path, at: usize) -> Option<String> {
         let cache = d.diagnostics()?;
         // The problem on the cursor's line, unless the text moved since.
         if !cache.stale
-            && let Some(i) = cache.lines.iter().position(|&l| l == line)
+            && let Some(diag) = cache.on_line(line, at)
         {
-            let diag = &cache.list[i];
             let first = diag.message.lines().next().unwrap_or("");
             let src = diag.source.as_deref().unwrap_or(&name);
             return Some(format!("{src}: {first}"));
@@ -3786,5 +3804,39 @@ fn requested(
             text: crate::tr!("lsp-request-done", server = a.client.name(), what = title),
             error: false,
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_status_names_the_problem_that_matters() {
+        let d = |range: Range<usize>, severity, message: &str| Diagnostic {
+            range,
+            severity,
+            message: message.into(),
+            source: Some("rustc".into()),
+            code: None,
+        };
+        // `let broken: u32 = "text";`, the hint at `u32` first.
+        let cache = DiagCache {
+            key: (Vec::new(), 0, 0),
+            list: vec![
+                d(16..19, Severity::Hint, "expected due to this"),
+                d(22..28, Severity::Error, "mismatched types"),
+                d(40..45, Severity::Warning, "unused"),
+            ],
+            lines: vec![0, 0, 1],
+            stale: false,
+            by_line: HashMap::new(),
+        };
+        let at = |line, at| cache.on_line(line, at).map(|d| d.message.as_str());
+        assert_eq!(at(0, 28), Some("mismatched types"));
+        assert_eq!(at(0, 0), Some("mismatched types"));
+        assert_eq!(at(0, 17), Some("expected due to this"));
+        assert_eq!(at(1, 41), Some("unused"));
+        assert_eq!(at(2, 50), None);
     }
 }

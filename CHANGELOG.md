@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- The status bar names the most serious problem of the cursor's line, or of those under the cursor: it named the first on the line, so that rust-analyzer's “expected due to this” beside the type stood for the error “mismatched types” after it.
+
 ## [0.6.24] - 2026-10-14
 
 ### Added
