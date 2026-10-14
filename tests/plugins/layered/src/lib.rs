@@ -5,7 +5,8 @@
 //! an open `((`, with the closing `))`. By `layer-2` (API 0.2.13) its
 //! layer draws a line `embedded …` under each line with `{{embed …}}`,
 //! which by `layer-3` (API 0.2.15) shows the text after `{{embed `, to
-//! be typed into.
+//! be typed into. Its formatter `lines` (API 0.2.16) takes the blanks off
+//! the ends of lines, and refuses a tab, at its place.
 
 use kalem_plugin::completer::{self, Item, ItemKind, Request};
 use kalem_plugin::kalem::{self, Plugin, Scope};
@@ -181,6 +182,27 @@ impl Plugin for Layered {
                 item
             })
             .collect()
+    }
+
+    fn format(
+        id: &str,
+        request: &kalem_plugin::formatter::Request,
+    ) -> Result<String, kalem_plugin::formatter::Refusal> {
+        use kalem_plugin::formatter::refusal;
+        if id != "lines" {
+            return Err(refusal("no such formatter", None));
+        }
+        if let Some(at) = request.text.find('\t') {
+            return Err(refusal("a tab", Some(at)));
+        }
+        Ok(request
+            .text
+            .split_inclusive('\n')
+            .map(|l| {
+                let feed = if l.ends_with('\n') { "\n" } else { "" };
+                format!("{}{feed}", l.trim_end())
+            })
+            .collect())
     }
 }
 

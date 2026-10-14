@@ -12,6 +12,8 @@
 //! `python`, `elixir`), a file extension (`rs`, `ex`), a mode (`markdown`,
 //! `org`), or a file name (`cmakelists.txt`), in lower case.
 
+pub mod plugins;
+
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
@@ -450,12 +452,12 @@ pub fn has_formatter(doc: &DocumentState) -> bool {
 }
 
 /// A formatter is known for `doc`'s type, whether or not `doc` has a
-/// file yet.
+/// file yet: the user's, a usual one, or a running plugin's.
 pub fn known(doc: &DocumentState) -> bool {
     let names = names(doc);
     match user_entry(&names) {
         Some(set) => set.is_some(),
-        None => default_entry(&names).is_some(),
+        None => default_entry(&names).is_some() || plugins::for_names(&names).is_some(),
     }
 }
 
@@ -566,6 +568,7 @@ pub fn run(program: &Path, args: &[String], dir: &Path, text: &str) -> Result<St
 /// The text of `doc` formatted now, through the formatter Format Document
 /// would run, but for a language server's (which answers later): the
 /// user's, the language plugin's `commands.format`, a language pack's,
+/// a plugin's `formatter` (API 0.2.16),
 /// the type's usual program, or Kalem's own for Org and LaTeX. `Ok(None)`
 /// when the type has none; `Err` why it failed.
 pub fn format_sync(doc: &DocumentState) -> Result<Option<String>, String> {
@@ -583,6 +586,17 @@ pub fn format_sync(doc: &DocumentState) -> Result<Option<String>, String> {
         return match f {
             crate::packs::Formatted::Text(t) => Ok(Some(t)),
             crate::packs::Formatted::Refused(d) => Err(d.message),
+        };
+    }
+    // A plugin's formatter (API 0.2.16).
+    if let Some(spec) = plugins::for_doc(doc) {
+        return match plugins::format(&spec, doc) {
+            plugins::Answer::Text(t) => Ok(Some(t)),
+            plugins::Answer::Refused { message, .. } => Err(message),
+            plugins::Answer::Busy => {
+                Err(crate::tr!("fmt-plugin-busy", plugin = spec.plugin.as_str()))
+            }
+            plugins::Answer::Failed(why) => Err(why),
         };
     }
     if let Some(f) = default_formatter(doc) {

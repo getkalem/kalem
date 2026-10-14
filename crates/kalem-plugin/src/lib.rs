@@ -94,7 +94,10 @@ pub mod viewer {
 /// `extension-layer-2` world: those, and the `layer-2` interface of layers
 /// with lines of their own (API 0.2.13; [`layer`]); with the feature
 /// `layer-3`, the `extension-layer-3` world: those, and the `layer-3`
-/// interface, whose lines under lines may be typed into (API 0.2.15).
+/// interface, whose lines under lines may be typed into (API 0.2.15);
+/// with the feature `formatter`, the `extension-formatter` world: those,
+/// and the `formatter` interface of its languages' documents formatted
+/// (API 0.2.16; [`formatter`]).
 #[allow(
     missing_debug_implementations,
     unreachable_pub,
@@ -134,10 +137,18 @@ pub mod extension {
         export_macro_name: "export_extension",
         default_bindings_module: "kalem_plugin::extension",
     });
-    #[cfg(feature = "layer-3")]
+    #[cfg(all(feature = "layer-3", not(feature = "formatter")))]
     wit_bindgen::generate!({
         path: "wit",
         world: "extension-layer-3",
+        pub_export_macro: true,
+        export_macro_name: "export_extension",
+        default_bindings_module: "kalem_plugin::extension",
+    });
+    #[cfg(feature = "formatter")]
+    wit_bindgen::generate!({
+        path: "wit",
+        world: "extension-formatter",
         pub_export_macro: true,
         export_macro_name: "export_extension",
         default_bindings_module: "kalem_plugin::extension",
@@ -151,6 +162,7 @@ pub mod completer;
 pub mod decorations;
 pub mod documents;
 pub mod editor;
+pub mod formatter;
 pub mod fs;
 pub mod graph_view;
 pub mod kalem;

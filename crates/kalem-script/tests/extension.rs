@@ -1382,3 +1382,50 @@ fn a_completer() {
         assert!(counter.complete("refs", &request("((")).unwrap().is_none());
     }
 }
+
+/// A plugin exporting a formatter (API 0.2.16): the text formatted, or
+/// its refusal with its place; a plugin without the export has none.
+#[test]
+fn a_formatter() {
+    use kalem_script::extension::formatter::Request;
+    let Some(bytes) = common::component("layered") else {
+        return;
+    };
+    let host = Host::new(None).unwrap();
+    let plugin = host.load(&bytes).unwrap();
+    let mut ext = Extension::new(
+        &host,
+        &plugin,
+        "layered",
+        Box::new(Fake::default()),
+        Grants::default(),
+        Limits::default(),
+    )
+    .unwrap();
+    ext.activate().unwrap().unwrap();
+    assert!(ext.has_formatters());
+    let request = |text: &str| Request {
+        path: Some("/g/a.txt".into()),
+        text: text.into(),
+        text_type: "text".into(),
+    };
+    let out = ext
+        .format("lines", &request("a  \nb\t\n"))
+        .unwrap()
+        .unwrap();
+    let refusal = out.expect_err("a tab");
+    assert_eq!((refusal.message.as_str(), refusal.at), ("a tab", Some(5)));
+    let out = ext.format("lines", &request("a  \nb \n")).unwrap().unwrap();
+    assert_eq!(out.ok().as_deref(), Some("a\nb\n"));
+    assert!(
+        ext.format("other", &request("a"))
+            .unwrap()
+            .unwrap()
+            .is_err()
+    );
+    // A plugin built without the feature exports no formatter.
+    if let Some((mut counter, _)) = counter(Limits::default()) {
+        assert!(!counter.has_formatters());
+        assert!(counter.format("lines", &request("a")).unwrap().is_none());
+    }
+}

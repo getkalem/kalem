@@ -1,0 +1,42 @@
+package kalem:plugin@0.2.16;
+
+/// Formatting by a plugin (API 0.2.16; `kalem_core::formatters::plugins`):
+/// a document's text written as its language writes it, for Format
+/// Document and `editor.format_on_save`. A plugin declares its formatters
+/// in its manifest:
+///
+/// ```json
+/// "formatters": [{"id": "journal", "types": ["hledger", "ledger"]}]
+/// ```
+///
+/// `types` are the text types it formats (all when missing). Format
+/// Document asks it where neither the user's formatter of the type, nor
+/// a language server, nor a language plugin's `commands.format` formats
+/// the document, before the type's usual program. The editor asks and
+/// waits for the answer: a formatter answers from the text alone,
+/// quickly, and uses neither the `editor` interface nor a question to
+/// the user. While another call of the plugin runs, it is not asked.
+interface formatter {
+    /// What is formatted.
+    record request {
+        /// The file of the document; none for one not saved yet.
+        path: option<string>,
+        /// The document's whole text.
+        text: string,
+        /// Its text type (`hledger`, `journal`).
+        text-type: string,
+    }
+
+    /// Why a text is not formatted: what is wrong, and where (a byte of
+    /// the text) when the formatter can say; the editor puts the cursor
+    /// there.
+    record refusal {
+        message: string,
+        at: option<u64>,
+    }
+
+    /// The text of `request` as the plugin's formatter `formatter` (an ID
+    /// of the manifest's `formatters`) writes it: the whole new text, which
+    /// the editor applies as the least change, one undo step; or why not.
+    format: func(formatter: string, request: request) -> result<string, refusal>;
+}

@@ -231,8 +231,9 @@ Beside the fields every plugin has (=id=, =name=, =version=,
   the background, ={file}= filled in. It is optional: a plugin states a
   formatter only when its language has one. A formatter the user sets in
   the =formatters= setting for the type comes before the plugin's; when
-  a plugin has none, the language's usual program runs when it is
-  installed (the chapter [[file:../part-1/plain-text-and-code.org][Plain text and code]]).
+  a plugin has none, an extension plugin's formatter for the type is
+  asked (the chapter [[file:plugins.org][Plugins]]), then the language's usual program
+  runs when it is installed (the chapter [[file:../part-1/plain-text-and-code.org][Plain text and code]]).
 - =commands.run=, =commands.test= and =commands.testAtPoint= are the
   project's run and test commands, =["cargo", "test"]= for Rust and
   =["mix", "test", "{file}:{line}"]= for the test at the cursor in

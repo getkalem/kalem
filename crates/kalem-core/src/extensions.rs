@@ -84,6 +84,22 @@ pub trait Extensions: Send {
         Vec::new()
     }
 
+    /// The text plugin `spec.plugin`'s formatter `spec.id` gives for
+    /// `text` of the file at `path`, of type `kind`
+    /// (`crate::formatters::plugins`, API 0.2.16).
+    fn format(
+        &mut self,
+        spec: &crate::formatters::plugins::PluginFormatterSpec,
+        _path: Option<&std::path::Path>,
+        _text: &str,
+        _kind: &str,
+    ) -> crate::formatters::plugins::Answer {
+        crate::formatters::plugins::Answer::Failed(crate::tr!(
+            "fmt-plugin-gone",
+            plugin = spec.plugin.as_str()
+        ))
+    }
+
     /// A plugin was installed, updated or removed while the editors run
     /// ([`installed_changed`]): one removed is stopped, one new started as
     /// it would have been with the editors, and told of the documents
@@ -605,6 +621,27 @@ pub fn install(extensions: Box<dyn Extensions>) {
                     .as_mut()
                     .map_or_else(Vec::new, |x| x.complete(spec, ctx)),
                 Err(std::sync::TryLockError::WouldBlock) => Vec::new(),
+            }
+        },
+    ));
+    // The plugins' formatters are asked by Format Document and on save,
+    // on the editor's thread: while a call of theirs runs, they are busy.
+    crate::formatters::plugins::set_provider(std::sync::Arc::new(
+        |spec: &crate::formatters::plugins::PluginFormatterSpec,
+         path: Option<&std::path::Path>,
+         text: &str,
+         kind: &str| {
+            use crate::formatters::plugins::Answer;
+            match INSTALLED.try_lock() {
+                Ok(mut installed) => installed.as_mut().map_or_else(
+                    || Answer::Failed(String::new()),
+                    |x| x.format(spec, path, text, kind),
+                ),
+                Err(std::sync::TryLockError::Poisoned(e)) => e.into_inner().as_mut().map_or_else(
+                    || Answer::Failed(String::new()),
+                    |x| x.format(spec, path, text, kind),
+                ),
+                Err(std::sync::TryLockError::WouldBlock) => Answer::Busy,
             }
         },
     ));

@@ -63,8 +63,10 @@ the same files (wasmtime). It holds eight worlds, three kinds:
   =fs-2=), =net= and
   =process= when its permissions grant them, and exports =plugin=
   (below). =extension-layer=, =extension-completer=,
-  =extension-layer-2= and =extension-layer-3= are the same world with a
-  layer, a completer, or both, exported.
+  =extension-layer-2=, =extension-layer-3= and =extension-formatter=
+  are the same world exporting more: a layer, then a completer, then a
+  layer's lines under lines, then lines that show a file's text, then a
+  formatter, each with those before it.
 
 =crates/kalem-plugin/coverage.toml= lists every extension point of the
 design (§11.10 to §11.13) with the WIT interface that defines it or the
@@ -531,7 +533,13 @@ updated itself. The rules, so that a plugin built once keeps working:
   =problems.wit= of 0.2.14 is frozen (=wit-frozen/0.2.14=).
 - 0.2.16 added, for extension plugins, the import =canvas-view=: a
   document drawn as a canvas of shapes where the plugin places them
-  (below). =layer-3.wit= of 0.2.15 is frozen (=wit-frozen/0.2.15=).
+  (below); and the export =formatter= in the world
+  =extension-formatter= (=kalem-plugin='s feature =formatter=, which
+  exports =layer-3= and those before it too): a plugin's formatters,
+  declared in its manifest by the text types they format, which Format
+  Document asks (below). The host binds =formatter= when a component
+  exports it, as =completer=. =layer-3.wit= of 0.2.15 is frozen
+  (=wit-frozen/0.2.15=).
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 - An addition is general, or it waits. It names what several plugins
@@ -948,6 +956,32 @@ problems::set("/home/a/books/2026.journal", &[Problem {
     line: 12, column: 0, length: 0, severity: Severity::Error,
     message: "This transaction is unbalanced".into(), source: Some("hledger".into()),
 }])?;
+#+end_src
+
+A plugin also formats files (=formatter=, API 0.2.16). Its manifest
+declares each formatter, an id and the text types it formats
+(="formatters": [{"id": "journal", "types": ["ledger", "hledger"]}]=),
+and Format Document and =editor.format_on_save= ask it for the whole
+text of a file of those types, with the file's path and the type: it
+answers with the formatted text, or refuses with a message and, when it
+says, the byte of the text the cursor is put at. It comes after a
+language server's formatting and a language plugin's =commands.format=,
+and before the language's usual program; the =formatters= setting of
+the type comes first, and its =off= turns it off too. Kalem replaces the
+lines that changed, as one step to undo. A plugin busy with another
+call is not waited for: the status bar says to format again. It asks
+for no permission: the text is the editor's, and what it answers goes
+into the document, which the user saves.
+
+#+begin_src rust
+use kalem_plugin::formatter::{self, Refusal, Request};
+
+fn format(id: &str, request: &Request) -> Result<String, Refusal> {
+    match id {
+        "journal" => Ok(align(&request.text)),
+        _ => Err(formatter::refusal("No such formatter", None)),
+    }
+}
 #+end_src
 
 A plugin's document may be styled (=styled-documents=, API 0.2.6):

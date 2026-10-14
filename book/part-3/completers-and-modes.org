@@ -381,6 +381,7 @@ or how many there are; Format Document refuses a text the formatter
 refuses and puts the cursor at the place; =kalem fmt= lists it as "not
 formatted" and fails, and =kalem check= prints each problem as
 =FILE:LINE:COL: error[CODE]: MESSAGE=. The packs themselves are to be
-plugins in =getkalem/plugins= (D29), once the plugin API has an
-interface for them; until then the contract
-is in the core with its wiring and tests, and no pack is built in.
+plugins in =getkalem/plugins= (D29). The plugin API gives three of the
+hooks so far, =completer= (0.2.11), =problems= for the diagnostics
+(0.2.14) and =formatter= (0.2.16), and not the outline; the contract is
+in the core with its wiring and tests, and no pack is built in.

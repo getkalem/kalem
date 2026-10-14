@@ -28,8 +28,9 @@ around it); /Shrink Selection/ (Ctrl+Alt+Left) goes back.
 
 /Format Document/ (Shift+Alt+F; =SPC c f= in the Vim profile) formats
 the whole file with the formatter of its type, as Emacs's format-all
-does: a language server's formatting where one serves the file, else a
-language plugin's formatter command, else the language's usual program
+language server's formatting where one serves the file, else a
+language plugin's formatter command, else a plugin's formatter for the
+type, else the language's usual program
 when it is installed (=rustfmt=, =mix format=, =ruff= or =black=,
 =prettier=, =gofmt=, =clang-format=, =shfmt=, =stylua=, =zig fmt= and
 others), run from the project's root with the text on its standard

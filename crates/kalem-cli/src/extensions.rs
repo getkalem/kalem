@@ -691,6 +691,8 @@ struct Loaded {
     layers: Vec<kalem_core::layers::LayerSpec>,
     /// The completers its manifest declares, once it runs (API 0.2.11).
     completers: Vec<kalem_core::completers::plugins::PluginCompleterSpec>,
+    /// The formatters its manifest declares, once it runs (API 0.2.16).
+    formatters: Vec<kalem_core::formatters::plugins::PluginFormatterSpec>,
 }
 
 /// A manifest's `layers` for plugin `id` (its short ID): each an ID, the
@@ -765,6 +767,39 @@ fn manifest_completers(
                         priority: c["priority"]
                             .as_i64()
                             .map_or(5, |p| p.clamp(-100, 100) as i32),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// A manifest's `formatters` for plugin `id` (its short ID): each an ID
+/// and the types it formats (lower case); one without an ID is left out.
+fn manifest_formatters(
+    id: &str,
+    m: &serde_json::Value,
+) -> Vec<kalem_core::formatters::plugins::PluginFormatterSpec> {
+    m["formatters"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|f| {
+                    let name = f["id"].as_str().filter(|s| !s.trim().is_empty())?;
+                    let types = f["types"]
+                        .as_array()
+                        .map(|t| {
+                            t.iter()
+                                .filter_map(|e| e.as_str())
+                                .map(|s| s.trim().to_lowercase())
+                                .filter(|s| !s.is_empty())
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    Some(kalem_core::formatters::plugins::PluginFormatterSpec {
+                        plugin: id.to_string(),
+                        id: name.to_string(),
+                        types,
                     })
                 })
                 .collect()
@@ -1116,6 +1151,11 @@ impl Plugins {
                         kalem_core::completers::plugins::register(c);
                     }
                 }
+                if l.extension.as_ref().is_some_and(Extension::has_formatters) {
+                    for f in l.formatters.clone() {
+                        kalem_core::formatters::plugins::register(f);
+                    }
+                }
             }
             Err(e) => {
                 l.failed = true;
@@ -1147,6 +1187,7 @@ impl Plugins {
         kalem_core::extensions::remove_buttons(&l.id);
         kalem_core::layers::remove_plugin(&l.id);
         kalem_core::completers::plugins::remove_plugin(&l.id);
+        kalem_core::formatters::plugins::remove_plugin(&l.id);
     }
 
     /// Tells plugin `i`, started while Kalem runs, what it would have
@@ -1241,6 +1282,51 @@ impl kalem_core::extensions::Extensions for Plugins {
             Err(e) => {
                 self.fail(i, &e);
                 Vec::new()
+            }
+        }
+    }
+
+    fn format(
+        &mut self,
+        spec: &kalem_core::formatters::plugins::PluginFormatterSpec,
+        path: Option<&std::path::Path>,
+        text: &str,
+        kind: &str,
+    ) -> kalem_core::formatters::plugins::Answer {
+        use kalem_core::formatters::plugins::Answer;
+        let gone = || {
+            Answer::Failed(kalem_core::tr!(
+                "fmt-plugin-gone",
+                plugin = spec.plugin.as_str()
+            ))
+        };
+        let Some(i) = self
+            .list
+            .iter()
+            .position(|l| l.id == spec.plugin && l.extension.is_some())
+        else {
+            return gone();
+        };
+        PLUGIN.with(|p| p.set(i as u64 + 1));
+        let Some(ext) = self.list[i].extension.as_mut() else {
+            return gone();
+        };
+        let request = x::formatter::Request {
+            path: path.map(|p| p.to_string_lossy().into_owned()),
+            text: text.to_string(),
+            text_type: kind.to_string(),
+        };
+        match ext.format(&spec.id, &request) {
+            Ok(Some(Ok(t))) => Answer::Text(t),
+            Ok(Some(Err(r))) => Answer::Refused {
+                message: r.message,
+                at: r.at.map(|a| a as usize),
+            },
+            Ok(None) => gone(),
+            Err(e) => {
+                let why = e.to_string();
+                self.fail(i, &e);
+                Answer::Failed(why)
             }
         }
     }
@@ -1632,6 +1718,7 @@ fn installed() -> Vec<Loaded> {
             buttons: manifest_buttons(&id, &m),
             layers: manifest_layers(&id, &m),
             completers: manifest_completers(&id, &m),
+            formatters: manifest_formatters(&id, &m),
             id,
             full: p.id.clone(),
             version: p.version.clone(),

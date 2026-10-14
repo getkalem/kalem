@@ -39,6 +39,10 @@ layer-2 = ["completer"]
 # file's text, typed into in place (API 0.2.15), which the editor asks in
 # place of `layer-2`.
 layer-3 = ["layer-2"]
+# The `extension-formatter` world: an extension plugin exporting the
+# `formatter` interface too, its languages' documents formatted (API
+# 0.2.16), and the interfaces above (none of them unless it answers).
+formatter = ["layer-3"]
 
 [dev-dependencies]
 toml_edit = { version = "0.25", default-features = false, features = ["parse"] }

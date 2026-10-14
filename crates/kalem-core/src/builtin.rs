@@ -8010,6 +8010,35 @@ fn plain_commands() -> Vec<Command> {
                         crate::lines::replace_differing(t, &new, "Format Document")
                     });
                 }
+                // A plugin's formatter (API 0.2.16); a refusal at its
+                // place, when it says one.
+                if let Some(spec) = crate::formatters::plugins::for_doc(ctx.doc()?) {
+                    use crate::formatters::plugins::Answer;
+                    let new = match crate::formatters::plugins::format(&spec, ctx.doc()?) {
+                        Answer::Text(t) => t,
+                        Answer::Refused { message, at } => {
+                            if let Some(at) = at {
+                                let doc = ctx.doc()?;
+                                let mut at = at.min(doc.text().len());
+                                while !doc.text().as_str().is_char_boundary(at) {
+                                    at -= 1;
+                                }
+                                doc.selection = org_edit::Selection::caret(at);
+                            }
+                            return Err(CommandError::new(message));
+                        }
+                        Answer::Busy => {
+                            return Err(CommandError::new(crate::tr!(
+                                "fmt-plugin-busy",
+                                plugin = spec.plugin.as_str()
+                            )));
+                        }
+                        Answer::Failed(why) => return Err(CommandError::new(why)),
+                    };
+                    return lines_command(ctx, |t, _| {
+                        crate::lines::replace_differing(t, &new, "Format Document")
+                    });
+                }
                 // The language's usual formatter (`formatters::DEFAULTS`),
                 // when the user did not turn it off.
                 if let Some(f) = crate::formatters::default_formatter(ctx.doc()?) {

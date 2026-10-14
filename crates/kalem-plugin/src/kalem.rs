@@ -103,6 +103,20 @@ pub trait Plugin {
     ) -> Vec<crate::completer::Item> {
         Vec::new()
     }
+
+    /// The text of `request` as the plugin's formatter `formatter` (its
+    /// manifest's `formatters`) writes it, or why not (API 0.2.16, the
+    /// feature `formatter`); by default, a refusal.
+    #[cfg(feature = "formatter")]
+    fn format(
+        _formatter: &str,
+        _request: &crate::formatter::Request,
+    ) -> Result<String, crate::formatter::Refusal> {
+        Err(crate::formatter::refusal(
+            "This plugin formats nothing",
+            None,
+        ))
+    }
 }
 
 type CommandFn = Box<dyn FnMut(&str) -> Result<String, String>>;
@@ -468,6 +482,7 @@ macro_rules! export_plugin {
         $crate::__export_completer!($plugin);
         $crate::__export_layer_2!($plugin);
         $crate::__export_layer_3!($plugin);
+        $crate::__export_formatter!($plugin);
 
         $crate::extension::export_extension!(__KalemPlugin);
     };
@@ -576,5 +591,31 @@ macro_rules! __export_layer_3 {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __export_layer_3 {
+    ($plugin:ty) => {};
+}
+
+/// The `formatter` interface of [`export_plugin!`] with the feature
+/// `formatter`.
+#[cfg(feature = "formatter")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_formatter {
+    ($plugin:ty) => {
+        impl $crate::extension::exports::kalem::plugin::formatter::Guest for __KalemPlugin {
+            fn format(
+                formatter: ::std::string::String,
+                request: $crate::formatter::Request,
+            ) -> ::std::result::Result<::std::string::String, $crate::formatter::Refusal> {
+                <$plugin as $crate::kalem::Plugin>::format(&formatter, &request)
+            }
+        }
+    };
+}
+
+/// Nothing without the feature `formatter`.
+#[cfg(not(feature = "formatter"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_formatter {
     ($plugin:ty) => {};
 }

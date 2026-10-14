@@ -34,7 +34,8 @@
 /// export, 0.2.11 the `completer` export and the `clock-2` import of
 /// extensions, 0.2.12 their `fs-2` and `graph-view` imports, 0.2.13 the
 /// `layer-2` export, 0.2.14 the `problems` import of extensions, 0.2.15
-/// their `layer-3` export, 0.2.16 their `canvas-view` import.
+/// their `layer-3` export, 0.2.16 their `canvas-view` import and
+/// `formatter` export.
 pub const API_VERSION: &str = "0.2.16";
 
 /// Whether a manifest's `api` requirement (`^0.2`, `0.2`, `^0.2.1`)
@@ -864,6 +865,8 @@ mod tests {
         assert!(super::api_compatible(Some("^0.2.12")));
         assert!(super::api_compatible(Some("^0.2.13")));
         assert!(super::api_compatible(Some("^0.2.14")));
+        assert!(super::api_compatible(Some("^0.2.15")));
+        assert!(super::api_compatible(Some("^0.2.16")));
         // Built against a later 0.2.x: it may import what this host lacks.
         assert!(!super::api_compatible(Some("^0.2.99")));
         // Later than this host's: the plugin needs a newer Kalem.

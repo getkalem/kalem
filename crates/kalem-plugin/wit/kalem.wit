@@ -322,3 +322,11 @@ world extension-layer-3 {
     include extension-layer-2;
     export layer-3;
 }
+
+/// An extension plugin formatting its languages' documents too (API
+/// 0.2.16): the `extension-layer-3` world, and the `formatter` interface
+/// it exports.
+world extension-formatter {
+    include extension-layer-3;
+    export formatter;
+}

@@ -18,13 +18,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use wasmtime::component::{HasSelf, Resource, ResourceTable};
 
 mod bindings {
-    // `extension-layer-3`: the `extension` world and the `layer` (API
-    // 0.2.10), `completer` (API 0.2.11), `layer-2` (API 0.2.13) and
-    // `layer-3` (API 0.2.15) interfaces it may export, bound one by one
-    // (`Extension::new`).
+    // `extension-formatter`: the `extension` world and the `layer` (API
+    // 0.2.10), `completer` (API 0.2.11), `layer-2` (API 0.2.13), `layer-3`
+    // (API 0.2.15) and `formatter` (API 0.2.16) interfaces it may export,
+    // bound one by one (`Extension::new`).
     wasmtime::component::bindgen!({
         path: "../kalem-plugin/wit",
-        world: "extension-layer-3",
+        world: "extension-formatter",
         with: {
             "kalem:plugin/kalem.disposable": super::Registration,
         },
@@ -32,7 +32,7 @@ mod bindings {
 }
 
 pub use api::{CommandSpec, Event, EventKind, Reply, Scope};
-pub use bindings::exports::kalem::plugin::{completer, layer, layer_2, layer_3};
+pub use bindings::exports::kalem::plugin::{completer, formatter, layer, layer_2, layer_3};
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
 pub use bindings::kalem::plugin::{
@@ -1580,6 +1580,9 @@ pub struct Extension {
     /// The `completer` interface, when the component exports it (API
     /// 0.2.11).
     completer: Option<completer::Guest>,
+    /// The `formatter` interface, when the component exports it (API
+    /// 0.2.16).
+    formatter: Option<formatter::Guest>,
 }
 
 impl std::fmt::Debug for Extension {
@@ -1763,6 +1766,16 @@ impl Extension {
                 .load(&mut *store, i)
                 .map(Some)
         })?;
+        let formatter = instance.bindings(|store, i| {
+            let pre = i.instance_pre(&*store);
+            let name = format!("kalem:plugin/formatter@{}", crate::API_VERSION);
+            if pre.component().get_export_index(None, &name).is_none() {
+                return Ok(None);
+            }
+            formatter::GuestIndices::new(&pre)?
+                .load(&mut *store, i)
+                .map(Some)
+        })?;
         Ok(Extension {
             instance,
             api,
@@ -1770,6 +1783,7 @@ impl Extension {
             layer_2,
             layer_3,
             completer,
+            formatter,
         })
     }
 
@@ -1861,6 +1875,26 @@ impl Extension {
         };
         self.instance
             .run(|s| c.call_complete(s, id, request))
+            .map(Some)
+    }
+
+    /// Whether the plugin exports formatters (API 0.2.16).
+    pub fn has_formatters(&self) -> bool {
+        self.formatter.is_some()
+    }
+
+    /// The text of `request` as the plugin's formatter `id` writes it, or
+    /// its refusal; `None` when the plugin exports no formatter.
+    pub fn format(
+        &mut self,
+        id: &str,
+        request: &formatter::Request,
+    ) -> crate::Result<Option<Result<String, formatter::Refusal>>> {
+        let Some(f) = &self.formatter else {
+            return Ok(None);
+        };
+        self.instance
+            .run(|s| f.call_format(s, id, request))
             .map(Some)
     }
 
