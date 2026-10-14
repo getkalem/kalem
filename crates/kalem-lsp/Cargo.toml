@@ -16,6 +16,13 @@ tracing = "0.1"
 
 [dev-dependencies]
 proptest = "1"
+# The fake server, for this crate's own tests.
+kalem-lsp = { path = ".", features = ["fake"] }
+
+[features]
+# The fake language server the tests start (kalem_lsp::fake): not in
+# Kalem's binaries.
+fake = []
 
 [lints]
 workspace = true

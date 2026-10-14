@@ -65,6 +65,8 @@ kalem-viewer.workspace = true
 
 [dev-dependencies]
 proptest = "1"
+# The fake language server of the service's tests.
+kalem-lsp = { workspace = true, features = ["fake"] }
 # The reference RFC 4180 reader and writer of the CSV conformance test.
 csv = "1"
 

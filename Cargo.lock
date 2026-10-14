@@ -4338,6 +4338,7 @@ dependencies = [
 name = "kalem-lsp"
 version = "0.6.27"
 dependencies = [
+ "kalem-lsp",
  "proptest",
  "serde_json",
  "tracing",

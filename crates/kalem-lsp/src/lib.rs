@@ -17,6 +17,9 @@
 //! - [`find_program`]: where a server's program is.
 
 pub mod client;
+/// The fake server of the tests, built only for them (the feature
+/// `fake`, which the tests' dev-dependencies turn on).
+#[cfg(feature = "fake")]
 #[doc(hidden)]
 pub mod fake;
 pub mod features;
