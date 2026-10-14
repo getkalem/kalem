@@ -432,10 +432,10 @@ fn add_rules<'a>(a: Cow<'a, Expr>, b: &Expr, env: &Env) -> Result<Expr, Cow<'a, 
                 Expr::call("+", vec![(*a).clone(), b.clone()])
             });
         }
-        (Expr::Vec(x), y) if distributes(y) || x.is_empty() => {
+        (Expr::Vec(x), y) if distributes(y) => {
             return Ok(Expr::Vec(x.iter().map(|p| add(p, y, env)).collect()));
         }
-        (x, Expr::Vec(y)) if distributes(x) || y.is_empty() => {
+        (x, Expr::Vec(y)) if distributes(x) => {
             return Ok(Expr::Vec(y.iter().map(|q| add(x, q, env)).collect()));
         }
         (Expr::Vec(_), _) | (_, Expr::Vec(_)) => {
@@ -521,7 +521,8 @@ fn add_rules<'a>(a: Cow<'a, Expr>, b: &Expr, env: &Env) -> Result<Expr, Cow<'a, 
 }
 
 /// Whether a scalar is spread over a vector's elements: numbers and
-/// infinities are, formulas are not (`[1] + x` stays).
+/// infinities are, formulas are not, over an empty vector either (`[1] + x`
+/// and `a []` stay, as in Calc).
 fn distributes(e: &Expr) -> bool {
     matches!(e, Expr::Num(_)) || infinity(e).is_some() || super::cplx::parts(e).is_some()
 }
@@ -774,10 +775,10 @@ fn mul_rules<'a>(a: Cow<'a, Expr>, b: &Expr, env: &Env) -> Step<'a> {
                 Expr::call("*", vec![(*a).clone(), b.clone()])
             });
         }
-        (Expr::Vec(x), y) if distributes(y) || x.is_empty() => {
+        (Expr::Vec(x), y) if distributes(y) => {
             return Step::Done(Expr::Vec(x.iter().map(|p| mul(p, y, env)).collect()));
         }
-        (x, Expr::Vec(y)) if distributes(x) || y.is_empty() => {
+        (x, Expr::Vec(y)) if distributes(x) => {
             return Step::Done(Expr::Vec(y.iter().map(|q| mul(x, q, env)).collect()));
         }
         (Expr::Vec(_), _) | (_, Expr::Vec(_)) => {

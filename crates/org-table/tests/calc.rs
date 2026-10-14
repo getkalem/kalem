@@ -11,7 +11,7 @@
 use org_table::calc;
 
 /// Differences known in `calc-cases.txt`.
-const KNOWN: usize = 275;
+const KNOWN: usize = 273;
 
 #[test]
 fn agrees_with_emacs() {
@@ -118,4 +118,16 @@ fn gcd_with_a_zero() {
     assert_eq!(ev("gcd(1:2, 0)"), "1:2");
     assert_eq!(ev("gcd(-6, 0)"), "6");
     assert_eq!(ev("gcd(1.5, 3)"), "gcd(1.5, 3)");
+}
+
+/// An empty vector by a formula stays a formula, as in Emacs: it took
+/// anything for spread over its no elements.
+#[test]
+fn empty_vectors_by_formulas() {
+    let m = calc::Modes::default();
+    let ev = |f: &str| calc::eval(f, &m).unwrap();
+    assert_eq!(ev("(8) + a*[]"), "8 + a []");
+    assert_eq!(ev("892.48 / Price + []"), "892.48 / Price + []");
+    assert_eq!(ev("[] + 5"), "[]");
+    assert_eq!(ev("nan + []"), "[]");
 }
