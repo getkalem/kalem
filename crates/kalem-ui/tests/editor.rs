@@ -3698,7 +3698,10 @@ fn latex_figure_dialog(cx: &mut TestAppContext) {
                 .and_then(|p| p.arg.as_ref().map(|a| a.label.clone()))
         })
     };
-    assert_eq!(label(&e, cx).as_deref(), Some("Insert Figure: width"));
+    assert_eq!(
+        label(&e, cx).as_deref(),
+        Some("Insert Figure: width (0.8: 80% of the line)")
+    );
     cx.simulate_keystrokes("enter");
     assert_eq!(label(&e, cx).as_deref(), Some("Insert Figure: caption"));
     cx.simulate_input("A cat");

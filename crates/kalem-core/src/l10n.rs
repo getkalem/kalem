@@ -262,6 +262,38 @@ mod tests {
             let cat = format!("category-{}", c.category.to_lowercase());
             assert!(en.contains(&cat), "{cat} ({})", c.id);
         }
+        // Every argument a built-in command requires has a label for its
+        // prompt, but those given by other commands (an item's number) or
+        // by keys (a direction).
+        const GIVEN: [&str; 13] = [
+            "code.applyEdit",
+            "code.dropEdit",
+            "code.runAction",
+            "code.structuralReplace",
+            "pane.focus",
+            "pane.move",
+            "plugin.cancelInstall",
+            "plugin.confirmInstall",
+            "plugin.forFile",
+            "plugin.manage",
+            "plugin.remove",
+            "plugin.removeConfirmed",
+            "settings.item",
+        ];
+        let mut unlabelled = Vec::new();
+        for c in reg.commands().filter(|c| !GIVEN.contains(&c.id.as_str())) {
+            let required = c
+                .args_schema
+                .as_ref()
+                .and_then(|s| s["required"].as_array());
+            for name in required.into_iter().flatten().filter_map(|n| n.as_str()) {
+                let k = format!("arg-{}-{name}", c.id.replace('.', "-"));
+                if !en.contains(&k) {
+                    unlabelled.push(k);
+                }
+            }
+        }
+        assert!(unlabelled.is_empty(), "{unlabelled:?}");
         // No message is defined twice (Fluent keeps the first).
         for lang in ["en", "tr"] {
             let k = keys(lang);
