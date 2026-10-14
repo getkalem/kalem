@@ -251,7 +251,8 @@ impl Workspace {
         if doc.dired.is_none() && doc.viewer.is_none() {
             self.last_document = Some(self.editor.clone());
         }
-        if self.editor != editor {
+        let switched = self.editor != editor;
+        if switched {
             self.previous = Some(self.editor.clone());
             // A pane that showed it shows the one the focused pane left.
             let focus = self.layout.focus();
@@ -266,6 +267,11 @@ impl Workspace {
             }
         }
         self.editor = editor.clone();
+        // The plugins hear that the cursor is in it now, as at its next
+        // motion: a document shown again from the background sent nothing.
+        if switched {
+            editor.update(cx, |e, _| e.announce_selection());
+        }
         self.spaces.showing(doc_key(&editor));
         let focus = gpui::Focusable::focus_handle(editor.read(cx), cx);
         window.focus(&focus, cx);

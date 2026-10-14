@@ -1120,6 +1120,21 @@ impl Editor {
         self.cursor_block = block;
     }
 
+    /// Tells the plugins that the cursor is in this document, as its next
+    /// motion would: when it is made current again.
+    pub fn announce_selection(&mut self) {
+        let sel = (self.doc.selection.anchor, self.doc.selection.head);
+        self.sent_selection = Some(sel);
+        self.shared
+            .bus
+            .borrow_mut()
+            .emit(&kalem_core::events::Event::SelectionChanged {
+                doc: self.doc_id,
+                anchor: sel.0,
+                head: sel.1,
+            });
+    }
+
     /// After edits or motion: moves the folds, updates the list, shows the
     /// cursor.
     pub fn after_change(&mut self, cx: &mut Context<'_, Self>) {
