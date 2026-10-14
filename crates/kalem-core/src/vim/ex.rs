@@ -8,8 +8,8 @@
 use org_edit::Selection;
 
 use super::{
-    DocumentState, Host, Key, Mode, Outcome, Vim, edit, first_non_blank, last_line, line_end,
-    line_of, line_span, line_start, pattern::Pattern,
+    DocumentState, Host, Key, Mode, Outcome, Vim, edit, first_line, first_non_blank, last_line,
+    line_end, line_of, line_span, line_start, pattern::Pattern,
 };
 
 /// A command line's range (first and last line, if any) and the rest.
@@ -251,7 +251,7 @@ impl Vim {
         let cur = line_of(doc, self.cursor);
         let t = cmd.trim_start();
         if let Some(rest) = t.strip_prefix('%') {
-            return Ok((Some((0, last_line(doc))), rest));
+            return Ok((Some((first_line(doc), last_line(doc))), rest));
         }
         let Some((a, mut rest)) = self.address(doc, t, cur)? else {
             return Ok((None, t));
@@ -330,9 +330,11 @@ impl Vim {
         }
         let cur = line_of(doc, self.cursor);
         let last = last_line(doc);
-        // Lines past the last: a command refuses them (E16); a line number
-        // alone goes to the last line.
-        let past = |l: usize| l != usize::MAX && l > last;
+        // Lines past the last, or before the first of a narrowed document: a
+        // command refuses them (E16); a line number alone goes to the
+        // nearest.
+        let first = first_line(doc);
+        let past = |l: usize| l != usize::MAX && (l > last || l < first);
         if let Some((ra, rb)) = range
             && !name.is_empty()
             && (past(ra) || past(rb))
@@ -342,7 +344,13 @@ impl Vim {
         }
         let (a, b) = range.unwrap_or((cur, cur));
         // Line 0 is the first for a command that works on lines.
-        let fix = |l: usize| if l == usize::MAX { 0 } else { l.min(last) };
+        let fix = |l: usize| {
+            if l == usize::MAX {
+                first
+            } else {
+                l.clamp(first, last)
+            }
+        };
         let (a, b) = (fix(a), fix(b).max(fix(a)));
         let is = |short: &str, long: &str| name.len() >= short.len() && long.starts_with(name);
         match name {
@@ -360,12 +368,12 @@ impl Vim {
             "g" | "v" => {
                 let invert = name == "v" || args.starts_with('!');
                 let args = args.strip_prefix('!').unwrap_or(args);
-                let (a, b) = range.unwrap_or((0, last));
+                let (a, b) = range.unwrap_or((first, last));
                 self.global(doc, args, a, b, invert, host, out);
             }
             _ if is("g", "global") || is("v", "vglobal") => {
                 let invert = name.starts_with('v') || bang;
-                let (a, b) = range.unwrap_or((0, last));
+                let (a, b) = range.unwrap_or((first, last));
                 self.global(doc, args, a, b, invert, host, out);
             }
             _ if is("d", "delete") => {
@@ -670,7 +678,7 @@ impl Vim {
 
     /// The cursor to `line`'s first non-blank.
     fn goto_line(&mut self, doc: &mut DocumentState, line: usize) {
-        let p = first_non_blank(doc, line.min(last_line(doc)));
+        let p = first_non_blank(doc, line.clamp(first_line(doc), last_line(doc)));
         doc.selection = Selection::caret(p);
         self.cursor = p;
     }

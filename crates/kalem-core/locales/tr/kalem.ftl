@@ -277,6 +277,7 @@ cmd-table-nextRow = Sonraki Satır
 cmd-view-narrowToSubtree = Alt Ağaca Daralt
 cmd-view-narrowToElement = Öğeye Daralt
 cmd-view-narrowToBlock = Bloğa Daralt
+cmd-view-narrowToLines = Satırlara Daralt
 cmd-view-widen = Genişlet
 
 ## Komut kategorileri.

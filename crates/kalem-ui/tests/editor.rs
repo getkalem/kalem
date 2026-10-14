@@ -1508,6 +1508,31 @@ fn focus_narrowing_and_line_width(cx: &mut TestAppContext) {
     assert!(width.is_some_and(|w| w > gpui::px(641.)), "{width:?}");
 }
 
+#[gpui::test]
+fn a_markdown_note_narrowed_to_lines(cx: &mut TestAppContext) {
+    // A plugin's zoom into an outliner's block (`view.narrowToLines`).
+    let text = "# Notes\n- alpha\n  - beta\n  - gamma\n- delta\n";
+    let (e, cx) = open_named(text, "n.md", || None, cx);
+    let visible =
+        |e: &Entity<Editor>, cx: &mut VisualTestContext| e.read_with(cx, |e, _| e.visible.clone());
+    let all = visible(&e, cx);
+    cx.dispatch_action(kalem_ui::editor::RunCommand::with(
+        "view.narrowToLines",
+        serde_json::json!({"start": 2, "end": 4}),
+    ));
+    assert_eq!(visible(&e, cx), [1, 2, 3]);
+    // The cursor stays in it: taken to the end of the text, it stops at
+    // the end of its last line.
+    let head = e.update(cx, |e, cx| {
+        e.doc.move_cursor(text.len(), false);
+        e.after_change(cx);
+        e.doc.selection.head
+    });
+    assert_eq!(head, text.find("\n- delta").unwrap());
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("view.widen"));
+    assert_eq!(visible(&e, cx), all);
+}
+
 /// An editor with the Vim profile.
 fn open_vim<'a>(
     text: &str,

@@ -1219,6 +1219,32 @@ fn focus_mode_and_text_column() {
 }
 
 #[test]
+fn a_markdown_note_narrowed_to_lines() {
+    // A plugin's zoom into an outliner's block (`view.narrowToLines`).
+    let text = "# Notes\n- alpha\n  - beta\n  - gamma\n- delta\n";
+    let mut t = with_file(text, "n.md", Config::default(), (60, 10));
+    t.app.run_command(
+        "view.narrowToLines",
+        serde_json::json!({"start": 2, "end": 4}),
+    );
+    let rows: Vec<String> = (0..6).map(|y| t.row(y)).collect();
+    let shows = |w: &str| rows.iter().any(|r| r.contains(w));
+    assert!(shows("alpha") && shows("gamma"), "{rows:?}");
+    assert!(!shows("Notes") && !shows("delta"), "{rows:?}");
+    // The cursor stays in it: Ctrl+End to the end of its last line, and
+    // what is typed there is in it.
+    t.key(KeyCode::End, KeyModifiers::CONTROL);
+    assert_eq!(t.app.doc.selection.head, text.find("\n- delta").unwrap());
+    t.typ("!");
+    assert!(t.text().contains("gamma!\n- delta"));
+    t.key(KeyCode::Home, KeyModifiers::CONTROL);
+    assert_eq!(t.app.doc.selection.head, text.find("- alpha").unwrap());
+    // Widen: the whole note again, the window where it was.
+    t.app.run_command("view.widen", serde_json::json!({}));
+    assert!((0..6).any(|y| t.row(y).contains("delta")));
+}
+
+#[test]
 fn document_modes() {
     let dir = std::env::temp_dir().join(format!("kalem-tui-modes-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);

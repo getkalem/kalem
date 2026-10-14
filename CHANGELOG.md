@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- Narrowing in any mode: Narrow to Lines (`view.narrowToLines`) shows only the selected lines, or the lines `start` to `end` a plugin names, in Markdown, code and plain text as in Org, so that an outliner's plugin zooms into a block (the graph plugin's Zoom). In a narrowed document of any mode the cursor stays in the part shown (a motion, Go to Line or Ctrl+End past it stops at its edge), Find and Replace All work in it, and with Vim's keys `gg`, `G`, searches, an operator's motion and the command line's ranges (`%`, a line number) keep to it, as Emacs keeps a narrowed buffer; a document stays narrowed when its mode changes.
+
 ### Changed
 - A table formula's Calc sum of symbolic terms is built in a time proportional to its terms: `vsum` over a column of 1,000 words took 332 ms and takes 1.3 ms, over 2,000 words 1.34 s and 2.5 ms. The sum was copied whole at each term it gained.
 - The sidebar no longer lists the project's folders and files below the open files at first: the file manager lists a folder (`SPC o -` with Vim's keys). Toggle Folder Tree shows the tree again, saving `ui.folder_tree`, now off by default, and Reveal in Folder Tree shows it too.

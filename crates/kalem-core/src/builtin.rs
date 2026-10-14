@@ -239,6 +239,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("org.insert.drawer", object(&[("name", "string", true)])),
         ("org.caption.set", object(&[("caption", "string", true)])),
         ("edit.gotoLine", object(&[("line", "integer", true)])),
+        (
+            "view.narrowToLines",
+            object(&[("start", "integer", false), ("end", "integer", false)]),
+        ),
         ("lines.sort", object(&[("reverse", "boolean", false)])),
         ("file.reopenWithEncoding", {
             let mut s = object(&[("encoding", "string", true)]);
@@ -11866,6 +11870,45 @@ fn plain_commands() -> Vec<Command> {
             Some(ORG),
             |ctx, _| narrow(ctx, org_edit::narrow::block),
         ),
+        // In any mode: the lines `start` to `end` (from 1) a plugin names
+        // (an outliner's block, a function), else the selection's lines.
+        cmd(
+            "view.narrowToLines",
+            "Narrow to Lines",
+            "View",
+            &[],
+            Some(TEXT_ONLY),
+            |ctx, args| {
+                let line = |k: &str| {
+                    args.get(k)
+                        .and_then(|v| v.as_u64().or_else(|| v.as_str()?.trim().parse().ok()))
+                        .map(|n| (n as usize).max(1) - 1)
+                };
+                let bad = || CommandError::new(crate::l10n::tr("msg-bad-line"));
+                let doc = ctx.doc()?;
+                let (first, last) = match (line("start"), line("end")) {
+                    (Some(s), e) => (s, e.unwrap_or(s)),
+                    (None, Some(_)) => return Err(bad()),
+                    (None, None) => {
+                        let s = doc.selection;
+                        let (a, b) = (s.anchor.min(s.head), s.anchor.max(s.head));
+                        let t = doc.text();
+                        // A selection that ends at a line's start leaves
+                        // that line out.
+                        let mut last = t.line_of(b);
+                        if b > a && t.line_start(last) == b {
+                            last -= 1;
+                        }
+                        (t.line_of(a), last)
+                    }
+                };
+                if last < first {
+                    return Err(bad());
+                }
+                doc.narrow_to_lines(first, last);
+                Ok(())
+            },
+        ),
         cmd("view.widen", "Widen", "View", &[], None, |ctx, _| {
             ctx.doc()?.narrowing = None;
             Ok(())
@@ -13133,6 +13176,80 @@ mod tests {
         assert_eq!(
             d.narrowing.clone().map(|r| &d.text().as_str()[r]),
             Some("* P\n** a\n** b\n")
+        );
+    }
+
+    #[test]
+    fn narrowed_to_lines_in_any_mode() {
+        let reg = CommandRegistry::with_builtins();
+        let mut d = doc("# A\n- one\n  - two\n- three\n", 0);
+        d.set_mode(DocumentMode::Markdown, &org_syntax::ParseContext::default());
+        let mut clip = Clipboard::default();
+        let config = crate::settings::Config::default();
+        let clock = jiff::civil::date(2026, 10, 14).at(10, 0, 0, 0);
+        let mut ctx = EditorContext {
+            document: Some(&mut d),
+            clipboard: &mut clip,
+            config: &config,
+            now: Instant::now(),
+            clock,
+            messages: Vec::new(),
+            requests: Vec::new(),
+        };
+        // Lines a plugin names, from 1: the cursor taken into them.
+        reg.execute(
+            "view.narrowToLines",
+            &mut ctx,
+            &json!({"start": 2, "end": 3}),
+        )
+        .unwrap();
+        let shown = |d: &DocumentState| {
+            d.narrowing
+                .clone()
+                .map(|r| d.text().as_str()[r].to_string())
+        };
+        let d = ctx.document.as_deref_mut().unwrap();
+        assert_eq!(shown(d).as_deref(), Some("- one\n  - two\n"));
+        assert_eq!(d.selection, org_edit::Selection::caret(4));
+        // It stays when the mode changes; the cursor stays in it, at the
+        // end of its last line, not past its line feed.
+        d.set_mode(
+            DocumentMode::Text { language: None },
+            &org_syntax::ParseContext::default(),
+        );
+        assert!(d.narrowing.is_some());
+        d.move_cursor(d.text().len(), false);
+        assert!(d.confine());
+        assert_eq!(d.selection.head, "# A\n- one\n  - two".len());
+        assert!(!d.confine());
+        // Without lines: the selection's, the line it ends at the start
+        // of left out.
+        reg.execute("view.widen", &mut ctx, &json!({})).unwrap();
+        let d = ctx.document.as_deref_mut().unwrap();
+        d.selection = org_edit::Selection {
+            anchor: 0,
+            head: "# A\n- one\n".len(),
+        };
+        reg.execute("view.narrowToLines", &mut ctx, &json!({}))
+            .unwrap();
+        let d = ctx.document.as_deref_mut().unwrap();
+        assert_eq!(shown(d).as_deref(), Some("# A\n- one\n"));
+        // The last line without a line feed, and lines past the text.
+        reg.execute(
+            "view.narrowToLines",
+            &mut ctx,
+            &json!({"start": 4, "end": 9}),
+        )
+        .unwrap();
+        let d = ctx.document.as_deref_mut().unwrap();
+        assert_eq!(shown(d).as_deref(), Some("- three\n"));
+        assert!(
+            reg.execute(
+                "view.narrowToLines",
+                &mut ctx,
+                &json!({"start": 3, "end": 2})
+            )
+            .is_err()
         );
     }
 

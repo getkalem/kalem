@@ -74,6 +74,21 @@ pub fn find_with(text: &str, query: &str, opts: FindOptions) -> Result<Vec<Range
         .collect())
 }
 
+/// [`find_with`] in `part` of `text`, a narrowed document's: the matches
+/// wholly inside it, all of them without a part.
+pub fn find_in(
+    text: &str,
+    query: &str,
+    opts: FindOptions,
+    part: Option<&Range<usize>>,
+) -> Result<Vec<Range<usize>>, String> {
+    let mut all = find_with(text, query, opts)?;
+    if let Some(p) = part {
+        all.retain(|m| m.start >= p.start && m.end <= p.end);
+    }
+    Ok(all)
+}
+
 /// The byte ranges of every literal match of `query` in `text`, in order
 /// and without overlaps.
 pub fn find_all(text: &str, query: &str) -> Vec<Range<usize>> {
@@ -180,7 +195,19 @@ pub fn replace_all_with(
     with: &str,
     opts: FindOptions,
 ) -> Result<Option<Transaction>, String> {
-    let matches = find_with(text, query, opts)?;
+    replace_all_in(text, query, with, opts, None)
+}
+
+/// [`replace_all_with`] in `part` of `text`, a narrowed document's
+/// ([`find_in`]).
+pub fn replace_all_in(
+    text: &str,
+    query: &str,
+    with: &str,
+    opts: FindOptions,
+    part: Option<&Range<usize>>,
+) -> Result<Option<Transaction>, String> {
+    let matches = find_in(text, query, opts, part)?;
     let Some(last) = matches.last().cloned() else {
         return Ok(None);
     };
@@ -275,5 +302,23 @@ mod tests {
             replacement(t, 2..10, "x", "$2", FindOptions::default()).unwrap(),
             "$2"
         );
+    }
+
+    #[test]
+    fn found_and_replaced_in_a_narrowed_part() {
+        let t = "a x\nb x\nc x\n";
+        let part = 4..8;
+        let o = FindOptions::default();
+        let found = find_in(t, "x", o, Some(&part)).unwrap();
+        assert_eq!((found.len(), found[0].clone()), (1, 6..7));
+        assert_eq!(find_in(t, "x", o, None).unwrap().len(), 3);
+        // A match across its edge is not in it.
+        assert!(find_in(t, "x\nc", o, Some(&part)).unwrap().is_empty());
+        let tx = replace_all_in(t, "x", "y", o, Some(&part))
+            .unwrap()
+            .unwrap();
+        let mut d = crate::text::Text::new(t.to_string());
+        d.apply(&tx.edits);
+        assert_eq!(d.as_str(), "a x\nb y\nc x\n");
     }
 }

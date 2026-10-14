@@ -742,14 +742,22 @@ fn line_of(doc: &DocumentState, pos: usize) -> usize {
 }
 
 /// The last line as Vim counts them: not the empty one after a final line
-/// feed.
+/// feed; in a narrowed document, its part's.
 fn last_line(doc: &DocumentState) -> usize {
+    if doc.narrowing.is_some() {
+        return doc.text().line_of(*doc.reachable().end());
+    }
     let n = doc.text().line_count();
     if n > 1 && doc.text().as_str().ends_with('\n') {
         n - 2
     } else {
         n - 1
     }
+}
+
+/// The first line: in a narrowed document, its part's.
+fn first_line(doc: &DocumentState) -> usize {
+    doc.text().line_of(*doc.reachable().start())
 }
 
 fn line_start(doc: &DocumentState, line: usize) -> usize {
@@ -3583,7 +3591,9 @@ impl Vim {
                     Key::Char('g') => {
                         self.jumping = true;
                         let n = self.count.take();
-                        let l = n.map_or(0, |c| c.saturating_sub(1)).min(last_line(doc));
+                        let l = n
+                            .map_or(first_line(doc), |c| c.saturating_sub(1))
+                            .clamp(first_line(doc), last_line(doc));
                         let m = Some(Motion {
                             to: first_non_blank(doc, l),
                             linewise: true,
@@ -4362,7 +4372,12 @@ impl Vim {
     /// 'smartcase'.
     fn matches(&self, doc: &DocumentState, pattern: &str) -> Result<Vec<Range<usize>>, String> {
         let p = pattern::Pattern::new(pattern, self.options.ignorecase, self.options.smartcase)?;
-        Ok(p.find_all(doc.text().as_str()))
+        let mut all = p.find_all(doc.text().as_str());
+        // A narrowed document is searched in its part.
+        if let Some(r) = &doc.narrowing {
+            all.retain(|m| m.start >= r.start && m.end <= r.end);
+        }
+        Ok(all)
     }
 
     /// The start of the `count`th match of `pattern` after `from` (before
@@ -4937,6 +4952,9 @@ impl Vim {
             self.failed = true;
             return self.reset();
         };
+        // A narrowed document's motions stop at its edges, an operator's
+        // too.
+        m.to = doc.confined(m.to);
         if self.visual() {
             self.jumping = false;
             self.cursor = m.to;
@@ -6461,5 +6479,43 @@ mod tests {
         assert_eq!(r(e, 8, "dae"), "Some |here.\n");
         // Nothing to act on: nothing happens.
         assert_eq!(r("plain\n", 1, "die"), "p|lain\n");
+    }
+
+    /// `keys` on Markdown `text` narrowed to lines `first..=last` (from 0)
+    /// with the cursor at `at`: the text with `|` at the cursor.
+    fn run_narrowed(text: &str, (first, last): (usize, usize), at: usize, keys: &str) -> String {
+        let mut d = doc(text, DocumentMode::Markdown);
+        d.narrow_to_lines(first, last);
+        d.selection = Selection::caret(at);
+        let mut v = Vim::new();
+        let mut host = TestHost::default();
+        for key in test_keys(keys) {
+            v.key(&mut d, key, &mut host);
+        }
+        let mut s = d.text().as_str().to_string();
+        s.insert(d.selection.head, '|');
+        s
+    }
+
+    #[test]
+    fn a_narrowed_document_keeps_motions_and_commands_in_its_lines() {
+        // Lines 1 to 3 shown: "- b x", "  - c x", "- d x".
+        let text = "a x\n- b x\n  - c x\n- d x\ne x\n";
+        let at = text.find("c x").unwrap();
+        let run = |keys: &str| run_narrowed(text, (1, 3), at, keys);
+        // gg and G: its first and last lines.
+        assert_eq!(run("gg"), "a x\n|- b x\n  - c x\n- d x\ne x\n");
+        assert_eq!(run("G"), "a x\n- b x\n  - c x\n|- d x\ne x\n");
+        assert_eq!(run("5G"), "a x\n- b x\n  - c x\n|- d x\ne x\n");
+        // An operator's motion stops at its edge.
+        assert_eq!(run("dG"), "a x\n|- b x\ne x\n");
+        assert_eq!(run("dgg"), "a x\n|- d x\ne x\n");
+        // Searches find in it only.
+        assert_eq!(run("/e<CR>"), "a x\n- b x\n  - |c x\n- d x\ne x\n");
+        assert_eq!(run("/d<CR>"), "a x\n- b x\n  - c x\n- |d x\ne x\n");
+        // `:%s` substitutes in it; a line outside it is refused.
+        assert_eq!(run(":%s/x/y/<CR>"), "a x\n- b y\n  - c y\n|- d y\ne x\n");
+        assert_eq!(run(":1d<CR>"), "a x\n- b x\n  - |c x\n- d x\ne x\n");
+        assert_eq!(run(":9<CR>"), "a x\n- b x\n  - c x\n|- d x\ne x\n");
     }
 }

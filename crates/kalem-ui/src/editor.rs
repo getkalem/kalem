@@ -1138,6 +1138,8 @@ impl Editor {
     /// After edits or motion: moves the folds, updates the list, shows the
     /// cursor.
     pub fn after_change(&mut self, cx: &mut Context<'_, Self>) {
+        // A narrowed document keeps the cursor in its part.
+        self.doc.confine();
         let changes = self.doc.take_changes();
         let now = Instant::now();
         for tx in &changes {

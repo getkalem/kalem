@@ -7,7 +7,11 @@
   dropped on or, on the lower half, after it.
 - Focus mode (F8) :: only the section you are writing in.
 - Narrowing :: /Narrow to Subtree/, /Element/ or /Block/ in the command
-  palette shows only that part; /Widen/ shows everything again.
+  palette shows only that part of an Org document, and /Narrow to
+  Lines/ the selected lines of any document, Markdown and code too (a
+  plugin names the lines it narrows to: an outliner's zoom into a
+  block). The cursor, Find and Vim's =gg=, =G=, searches and =:%s=
+  keep to the part shown; /Widen/ shows everything again.
 - Soft wrap (Alt+Z) :: long lines wrap at the window's edge, or scroll
   sideways.
 - Word counts :: the status bar counts the words of the document and

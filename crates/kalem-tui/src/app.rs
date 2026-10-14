@@ -1837,6 +1837,8 @@ impl App {
 
     /// Updates the view after edits or cursor motion.
     fn after_change(&mut self, moved: bool) {
+        // A narrowed document keeps the cursor in its part.
+        let moved = self.doc.confine() || moved;
         let now = Instant::now();
         let changes = self.doc.take_changes();
         for tx in &changes {
@@ -4167,7 +4169,12 @@ impl App {
             return;
         }
         let Some(f) = &mut self.find else { return };
-        match kalem_core::find::find_with(self.doc.text().as_str(), &f.query, f.options()) {
+        match kalem_core::find::find_in(
+            self.doc.text().as_str(),
+            &f.query,
+            f.options(),
+            self.doc.narrowing.as_ref(),
+        ) {
             Ok(m) => {
                 f.matches = m;
                 f.error = None;
@@ -4220,8 +4227,13 @@ impl App {
                 let (q, r, opts) = (f.query.clone(), f.replacement.clone(), f.options());
                 self.last_regex = f.regex;
                 if let Some(r) = r
-                    && let Ok(Some(tx)) =
-                        kalem_core::find::replace_all_with(self.doc.text().as_str(), &q, &r, opts)
+                    && let Ok(Some(tx)) = kalem_core::find::replace_all_in(
+                        self.doc.text().as_str(),
+                        &q,
+                        &r,
+                        opts,
+                        self.doc.narrowing.as_ref(),
+                    )
                 {
                     let n = tx.edits.len();
                     self.doc

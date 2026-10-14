@@ -159,7 +159,7 @@ and a string compare equal when the string reads as that number.
 | =textType=       | The text type at the cursor (see [[*Text types][Text types]])                                                                                         | cursor      |
 | =hasSelection=   | Text is selected                                                                                                                     | cursor      |
 | =hasComments=    | The text has a comment syntax (Toggle Comment); not in a viewer or the file manager                                                  | document    |
-| =narrowed=       | The document is narrowed to a part                                                                                                   | editor      |
+| =narrowed=       | The document is narrowed to a part, in any mode                                                                                      | editor      |
 | =modified=       | The document has unsaved changes                                                                                                     | editor      |
 | =wdired=         | The file manager's listing is being edited                                                                                           | editor      |
 | =onHeadline=     | The cursor is on a heading line (or an inline task)                                                                                  | cursor, Org |

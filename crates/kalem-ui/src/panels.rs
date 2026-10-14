@@ -1006,7 +1006,12 @@ impl Editor {
             self.highlights.clear();
             return;
         };
-        match find::find_with(self.doc.text().as_str(), &f.query, f.options()) {
+        match find::find_in(
+            self.doc.text().as_str(),
+            &f.query,
+            f.options(),
+            self.doc.narrowing.as_ref(),
+        ) {
             Ok(m) => {
                 f.matches = m;
                 f.error = None;
@@ -1091,7 +1096,13 @@ impl Editor {
     fn replace_all(&mut self, cx: &mut Context<'_, Self>) {
         let Some(f) = &self.find else { return };
         let with = f.replacement.clone().unwrap_or_default();
-        match find::replace_all_with(self.doc.text().as_str(), &f.query, &with, f.options()) {
+        match find::replace_all_in(
+            self.doc.text().as_str(),
+            &f.query,
+            &with,
+            f.options(),
+            self.doc.narrowing.as_ref(),
+        ) {
             Ok(Some(tx)) => {
                 let n = tx.edits.len();
                 self.doc.apply(&tx, ChangeKind::Command, Instant::now());

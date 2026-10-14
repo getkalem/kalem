@@ -255,8 +255,9 @@ pub struct DocumentState {
     history: History,
     /// File and mode information.
     pub meta: Metadata,
-    /// The narrowed part of the text, if any (view state; commands see only
-    /// this part).
+    /// The narrowed part of the text, if any, in any mode (view state):
+    /// the views show only it, the cursor stays in it
+    /// ([`DocumentState::confine`]), and Org's commands see only it.
     pub narrowing: Option<std::ops::Range<usize>>,
     /// Positions that move with the text: Vim's marks, jump list and
     /// change list.
@@ -888,7 +889,6 @@ impl DocumentState {
             });
         } else if mode != DocumentMode::Org {
             self.org = None;
-            self.narrowing = None;
         }
         if mode != DocumentMode::Latex {
             self.latex = None;
@@ -1082,6 +1082,67 @@ impl DocumentState {
             anchor: fix(s.anchor),
             head: fix(s.head),
         }
+    }
+
+    /// Narrows the document to lines `first..=last` (from 0), in any mode:
+    /// the views show them only and the cursor stays in them. Lines past
+    /// the text are its last.
+    pub fn narrow_to_lines(&mut self, first: usize, last: usize) {
+        let text = &self.text;
+        let n = text.line_count();
+        let last = last.min(n - 1);
+        let first = first.min(last);
+        let end = if last + 1 < n {
+            text.line_start(last + 1)
+        } else {
+            text.len()
+        };
+        self.narrowing = Some(text.line_start(first)..end);
+        self.confine();
+    }
+
+    /// Where the cursor may be: in a narrowed document its part, up to the
+    /// end of its last line (the line after the line feed that ends it is
+    /// not shown); else the whole text.
+    pub fn reachable(&self) -> std::ops::RangeInclusive<usize> {
+        let text = self.text.as_str();
+        let Some(r) = &self.narrowing else {
+            return 0..=text.len();
+        };
+        let start = r.start.min(text.len());
+        let mut end = r.end.min(text.len()).max(start);
+        if end > start && text.as_bytes()[end - 1] == b'\n' {
+            end -= 1;
+            if end > start && text.as_bytes()[end - 1] == b'\r' {
+                end -= 1;
+            }
+        }
+        start..=end
+    }
+
+    /// `pos` kept where the cursor may be ([`DocumentState::reachable`]).
+    pub fn confined(&self, pos: usize) -> usize {
+        let r = self.reachable();
+        pos.clamp(*r.start(), *r.end())
+    }
+
+    /// The selection and the other cursors kept in the narrowed part, as
+    /// Emacs keeps point in a narrowed buffer: a motion, a search or Go to
+    /// Line that went past it stops at its edge. Whether one moved.
+    pub fn confine(&mut self) -> bool {
+        if self.narrowing.is_none() {
+            return false;
+        }
+        let fix = |s: &Selection| Selection {
+            anchor: self.confined(s.anchor),
+            head: self.confined(s.head),
+        };
+        let selection = fix(&self.selection);
+        let extra: Vec<Selection> = self.extra.iter().map(fix).collect();
+        let moved = selection != self.selection || extra != self.extra;
+        self.selection = selection;
+        self.extra = extra;
+        moved
     }
 
     /// Undoes or redoes the plugin's last step of a document of flowing

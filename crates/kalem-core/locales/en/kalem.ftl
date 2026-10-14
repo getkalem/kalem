@@ -281,6 +281,7 @@ cmd-table-nextRow = Next Row
 cmd-view-narrowToSubtree = Narrow to Subtree
 cmd-view-narrowToElement = Narrow to Element
 cmd-view-narrowToBlock = Narrow to Block
+cmd-view-narrowToLines = Narrow to Lines
 cmd-view-widen = Widen
 
 ## Command categories.

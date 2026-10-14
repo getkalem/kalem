@@ -330,7 +330,9 @@ Writers (Org and Markdown)
   `path` and `kalem run` (T3.1.16), on the branch `graph-mode`; wiki
   links stay the core's (T2.7c.9), the Obsidian half of T2.7c.12 is
   the plugin's layer. The plugin's 0.1.0 runs on Kalem 0.6.8 without
-  the layer; its 0.2.0 needs the release with API 0.2.10. M
+  the layer; its 0.2.0 needs the release with API 0.2.10. Narrowing in
+  any mode (`view.narrowToLines`, 2026-10-14, the plugin's K20) gives
+  its Zoom into a block in Markdown notes. M
 - [ ] R5.6 Babel (T3.4.1–T3.4.9): header arguments, executors for shell,
   Python, R and gnuplot behind the plugin host's trust model, results
   blocks, tangling. L (after the plugin permissions, R5.11)
