@@ -2476,19 +2476,16 @@ impl DocumentState {
             return;
         }
         let s = self.selection;
-        // In code, a closing bracket alone on its line goes back a level.
+        // In code, a closing bracket alone on its line goes back to the
+        // indentation of its opening bracket's line.
         if s.anchor == s.head
             && matches!(self.meta.mode, DocumentMode::Text { language: Some(_) })
-            && let Some(r) = crate::code::dedent_for(
-                self.text.as_str(),
-                s.head,
-                text,
-                &crate::code::indent_text(self),
-            )
+            && let Some((r, indent)) = crate::code::dedent_for(self.text.as_str(), s.head, text)
         {
+            let typed = format!("{indent}{text}");
             let mut tx = Transaction::new("Typing");
-            tx.edit(r.clone(), text);
-            let tx = tx.select(Selection::caret(r.start + text.len()));
+            tx.edit(r.clone(), &typed);
+            let tx = tx.select(Selection::caret(r.start + typed.len()));
             self.apply(&tx, ChangeKind::Typing, now);
             return;
         }

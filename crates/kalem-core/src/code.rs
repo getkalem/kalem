@@ -80,31 +80,36 @@ fn match_at(text: &str, at: usize) -> Option<(usize, usize)> {
     let b = text.as_bytes();
     let (want, forward) = partner(*b.get(at)?)?;
     let me = b[at];
+    if !forward {
+        return open_before(b, at, want, me).map(|i| (i, at));
+    }
     let mut depth = 0usize;
-    if forward {
-        let end = (at + REACH).min(b.len());
-        for (i, &c) in b[at + 1..end].iter().enumerate() {
-            if c == me {
-                depth += 1;
-            } else if c == want {
-                if depth == 0 {
-                    return Some((at, at + 1 + i));
-                }
-                depth -= 1;
+    let end = (at + REACH).min(b.len());
+    for (i, &c) in b[at + 1..end].iter().enumerate() {
+        if c == me {
+            depth += 1;
+        } else if c == want {
+            if depth == 0 {
+                return Some((at, at + 1 + i));
             }
+            depth -= 1;
         }
-    } else {
-        let start = at.saturating_sub(REACH);
-        for i in (start..at).rev() {
-            let c = b[i];
-            if c == me {
-                depth += 1;
-            } else if c == want {
-                if depth == 0 {
-                    return Some((i, at));
-                }
-                depth -= 1;
+    }
+    None
+}
+
+/// The opening bracket `open` that a closing `close` at `at` matches, the
+/// pairs between skipped.
+fn open_before(b: &[u8], at: usize, open: u8, close: u8) -> Option<usize> {
+    let mut depth = 0usize;
+    for i in (at.saturating_sub(REACH)..at).rev() {
+        if b[i] == close {
+            depth += 1;
+        } else if b[i] == open {
+            if depth == 0 {
+                return Some(i);
             }
+            depth -= 1;
         }
     }
     None
@@ -323,23 +328,37 @@ pub fn newline(text: &str, sel: Selection, unit: &str, language: Option<&str>) -
 }
 
 /// Typing a closing bracket where only indentation is before it on the
-/// line: one level less of it first (`unit`), when the line is indented
-/// deeper than the line of the opening bracket.
-pub fn dedent_for(
-    text: &str,
+/// line: the line indented as the line of its opening bracket, when that
+/// is less (Enter in code indents a level deeper after the bracket; where
+/// the line is as deep, as Vim's 'autoindent' keeps it, the bracket is
+/// typed there). The line's indentation and what replaces it; `None` to
+/// type the bracket as it is (no opening bracket, no deeper, or tabs and
+/// spaces mixed).
+pub fn dedent_for<'a>(
+    text: &'a str,
     pos: usize,
     typed: &str,
-    unit: &str,
-) -> Option<std::ops::Range<usize>> {
-    if !matches!(typed, "}" | ")" | "]") || unit.is_empty() {
-        return None;
-    }
+) -> Option<(std::ops::Range<usize>, &'a str)> {
+    let close = match typed {
+        "}" => b'}',
+        ")" => b')',
+        "]" => b']',
+        _ => return None,
+    };
     let bol = text[..pos].rfind('\n').map_or(0, |i| i + 1);
-    let before = &text[bol..pos];
-    if !before.chars().all(|c| c == ' ' || c == '\t') || !before.ends_with(unit) {
+    let blanks = &text[bol..pos];
+    if !blanks.bytes().all(|c| c == b' ' || c == b'\t') {
         return None;
     }
-    Some(pos - unit.len()..pos)
+    let (open, _) = partner(close)?;
+    let at = open_before(text.as_bytes(), pos, open, close)?;
+    let line = text[..at].rfind('\n').map_or(0, |i| i + 1);
+    let width = text[line..at]
+        .bytes()
+        .take_while(|c| *c == b' ' || *c == b'\t')
+        .count();
+    let indent = &text[line..line + width];
+    (indent.len() < blanks.len() && blanks.starts_with(indent)).then_some((bol..pos, indent))
 }
 
 #[cfg(test)]
@@ -432,7 +451,45 @@ mod tests {
         let t = "  a";
         let (n, _) = apply(t, newline(t, Selection::caret(3), "    ", Some("rs")));
         assert_eq!(n, "  a\n  ");
-        assert_eq!(dedent_for("{\n        ", 10, "}", "    "), Some(6..10));
-        assert_eq!(dedent_for("{\n  x ", 6, "}", "    "), None);
+    }
+
+    #[test]
+    fn closing_brackets_go_back_to_their_opening_line() {
+        // The text with `typed` typed at its end.
+        let close = |t: &str, typed: &str| {
+            dedent_for(t, t.len(), typed)
+                .map(|(r, indent)| format!("{}{indent}{typed}", &t[..r.start]))
+        };
+        // Enter in code: a level deeper after the bracket; the closing one
+        // goes back to the opening one's line.
+        let t = "fn a() {";
+        let (t, _) = apply(t, newline(t, Selection::caret(8), "    ", Some("rs")));
+        assert_eq!(close(&t, "}").as_deref(), Some("fn a() {\n}"));
+        assert_eq!(
+            close("    if a {\n            ", "}").as_deref(),
+            Some("    if a {\n    }")
+        );
+        assert_eq!(
+            close("\tif a {\n\t\t", "}").as_deref(),
+            Some("\tif a {\n\t}")
+        );
+        // Vim's 'autoindent': as deep as the opening line, typed there.
+        assert_eq!(close("    if a {\n    ", "}"), None);
+        assert_eq!(close("    if a {\n    b();\n    ", "}"), None);
+        // The pairs between skipped, the bracket's own kind matched.
+        assert_eq!(
+            close("f(\n    g(x),\n    ", ")").as_deref(),
+            Some("f(\n    g(x),\n)")
+        );
+        assert_eq!(
+            close("{\n    a {}\n    ", "}").as_deref(),
+            Some("{\n    a {}\n}")
+        );
+        // No opening bracket, text before it, or tabs and spaces mixed:
+        // the bracket as typed.
+        assert_eq!(close("    ", "}"), None);
+        assert_eq!(close("[\n    ", "}"), None);
+        assert_eq!(close("{\n  x ", "}"), None);
+        assert_eq!(close("\tif a {\n        ", "}"), None);
     }
 }
