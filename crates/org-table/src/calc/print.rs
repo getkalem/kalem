@@ -74,14 +74,6 @@ fn round_bracket(s: String) -> String {
     format!("({s})")
 }
 
-/// The first term of a product (`math-prod-first-term`).
-fn first_term(e: &Expr) -> &Expr {
-    match e {
-        Expr::Call(f, a) if f == "*" && a.len() == 2 => first_term(&a[0]),
-        _ => e,
-    }
-}
-
 /// The last term of a product (`math-prod-last-term`).
 fn last_term(e: &Expr) -> &Expr {
     match e {
@@ -90,6 +82,23 @@ fn last_term(e: &Expr) -> &Expr {
     }
 }
 
+/// A product's two factors as written: side by side when the second
+/// begins with a letter, a digit or a bracket (`2 x`, `a (b + c)`), else
+/// with `*`, as after a variable, where `(` would make a call of it.
+fn side_by_side(lhs: String, rhs: String, left: &Expr) -> String {
+    let nextc = rhs.chars().next();
+    let juxtapose = nextc.is_some_and(|c| {
+        c.is_ascii_alphanumeric()
+            || ('α'..='ω').contains(&c)
+            || ('Α'..='Ω').contains(&c)
+            || matches!(c, '.' | '_' | '#' | '(' | '[' | '{')
+    }) && !(matches!(last_term(left), Expr::Var(_)) && nextc == Some('('));
+    if juxtapose && !lhs.is_empty() {
+        format!("{lhs} {rhs}")
+    } else {
+        format!("{lhs}*{rhs}")
+    }
+}
 fn is_integer_valued(e: &Expr) -> bool {
     match e {
         Expr::Num(Num::Int(_)) => true,
@@ -177,25 +186,30 @@ impl Printer<'_> {
                         self.compose(&args[2], o.right, false)
                     );
                 }
+                if f == "*" {
+                    // A product nested to the right, `x (y z)` as Calc keeps
+                    // them: written from its last factor out rather than by
+                    // recursion, which a long one (`vprod` over a column of
+                    // words) ran out of stack in.
+                    let mut lefts = vec![&args[0]];
+                    let mut right = &args[1];
+                    while let Expr::Call(g, ys) = right
+                        && g == "*"
+                        && ys.len() == 2
+                    {
+                        lefts.push(&ys[0]);
+                        right = &ys[1];
+                    }
+                    let mut rhs = self.compose(right, o.right, false);
+                    for left in lefts.into_iter().rev() {
+                        rhs = side_by_side(self.compose(left, o.left, false), rhs, left);
+                    }
+                    return rhs;
+                }
                 let mut lhs = self.compose(&args[0], o.left, false);
                 let rhs = self.compose(&args[1], o.right, f == "/");
                 if o.text == "^" && lhs.starts_with('-') {
                     lhs = round_bracket(lhs);
-                }
-                if f == "*" {
-                    let nextc = rhs.chars().next();
-                    let juxtapose = nextc.is_some_and(|c| {
-                        c.is_ascii_alphanumeric()
-                            || ('α'..='ω').contains(&c)
-                            || ('Α'..='Ω').contains(&c)
-                            || matches!(c, '.' | '_' | '#' | '(' | '[' | '{')
-                    }) && !(matches!(last_term(&args[0]), Expr::Var(_))
-                        && nextc == Some('('));
-                    let _ = first_term(&args[1]);
-                    if juxtapose && !lhs.is_empty() {
-                        return format!("{lhs} {rhs}");
-                    }
-                    return format!("{lhs}*{rhs}");
                 }
                 let tight = o.text == "^"
                     || o.text == "_"

@@ -659,11 +659,67 @@ fn power(e: &Expr) -> (Expr, Expr) {
 
 /// `math-mul`.
 pub(crate) fn mul(a: &Expr, b: &Expr, env: &Env) -> Expr {
-    if let Some(r) = modular("*", a, b, env) {
-        return r;
+    mul_cow(Cow::Borrowed(a), b, env)
+}
+
+/// [`mul`] taking its left operand, as [`add_owned`] does: a product
+/// built factor by factor (`vprod`) is not copied at each factor.
+pub(crate) fn mul_owned(a: Expr, b: &Expr, env: &Env) -> Expr {
+    mul_cow(Cow::Owned(a), b, env)
+}
+
+/// What a product's first factor, or a negation, makes of the product of
+/// the rest by the other operand ([`mul_rules`]).
+enum Outer {
+    /// A factor before it: `x (rest b)`.
+    Factor(Expr),
+    /// A number times it, multiplied again.
+    Number(Expr),
+    /// Negated.
+    Neg,
+}
+
+/// [`mul`]. Products are kept nested to the right, `x (y z)`: a product
+/// times `b` is its first factor times the rest's product with `b`, the
+/// factors of a long one gone through one after another rather than by
+/// recursion.
+fn mul_cow(mut a: Cow<'_, Expr>, b: &Expr, env: &Env) -> Expr {
+    let mut outer = Vec::new();
+    let mut acc = loop {
+        match mul_rules(a, b, env) {
+            Step::Done(r) => break r,
+            Step::Inside(o, rest) => {
+                outer.push(o);
+                a = rest;
+            }
+        }
+    };
+    for o in outer.into_iter().rev() {
+        acc = match o {
+            Outer::Factor(x) => Expr::call("*", vec![x, acc]),
+            Outer::Number(k) => mul_owned(k, &acc, env),
+            Outer::Neg => neg(&acc, env),
+        };
     }
-    if let Some(r) = super::cplx::arith("*", a, b, env) {
-        return r;
+    acc
+}
+
+/// What [`mul_rules`] made of a product: it, or the first factor (or the
+/// negation) to go past and the rest.
+enum Step<'a> {
+    Done(Expr),
+    Inside(Outer, Cow<'a, Expr>),
+}
+
+/// `a b` by the first of [`mul`]'s rules that applies; when `a` is a
+/// product or a negation and none before applies, what to do with the
+/// product of its rest (or the negated) by `b`, and that rest.
+fn mul_rules<'a>(a: Cow<'a, Expr>, b: &Expr, env: &Env) -> Step<'a> {
+    if let Some(r) = modular("*", &a, b, env) {
+        return Step::Done(r);
+    }
+    if let Some(r) = super::cplx::arith("*", &a, b, env) {
+        return Step::Done(r);
     }
     // `math-mul-zero`: a zero modulo form times a formula is 0.
     let zero_mod = |e: &Expr| mod_form(e).is_some_and(|(k, _)| k.is_zero());
@@ -675,8 +731,8 @@ pub(crate) fn mul(a: &Expr, b: &Expr, env: &Env) -> Expr {
             && super::cplx::parts(e).is_none()
             && infinity(e).is_none()
     };
-    if (zero_mod(a) && formula(b)) || (zero_mod(b) && formula(a)) {
-        return Expr::int(0);
+    if (zero_mod(&a) && formula(b)) || (zero_mod(b) && formula(&a)) {
+        return Step::Done(Expr::int(0));
     }
     // A number or modulo form times `(k mod m) x`: one coefficient.
     let modcoef = |e: &Expr| match e {
@@ -686,131 +742,158 @@ pub(crate) fn mul(a: &Expr, b: &Expr, env: &Env) -> Expr {
         _ => None,
     };
     let scalar = |e: &Expr| matches!(e, Expr::Num(_)) || mod_form(e).is_some();
-    if scalar(a)
+    if scalar(&a)
         && let Some((c, x)) = modcoef(b)
     {
-        return mul(&mul(a, &c, env), &x, env);
+        return Step::Done(mul(&mul(&a, &c, env), &x, env));
     }
     if scalar(b)
-        && let Some((c, x)) = modcoef(a)
+        && let Some((c, x)) = modcoef(&a)
     {
-        return mul(&mul(b, &c, env), &x, env);
+        return Step::Done(mul(&mul(b, &c, env), &x, env));
     }
-    match (a, b) {
-        (Expr::Num(x), Expr::Num(y)) => return Expr::Num(num::mul(x, y, &env.prec)),
+    match (&*a, b) {
+        (Expr::Num(x), Expr::Num(y)) => return Step::Done(Expr::Num(num::mul(x, y, &env.prec))),
         (Expr::Vec(x), Expr::Vec(y)) => {
             // The dot product of two vectors.
-            return if x.len() == y.len() && !x.iter().chain(y).any(is_vec) {
+            return Step::Done(if x.len() == y.len() && !x.iter().chain(y).any(is_vec) {
                 let mut terms = x.iter().zip(y).map(|(p, q)| mul(p, q, env));
                 let first = terms.next().unwrap_or(Expr::int(0));
                 terms.fold(first, |acc, t| add(&acc, &t, env))
             } else {
-                Expr::call("*", vec![a.clone(), b.clone()])
-            };
+                Expr::call("*", vec![(*a).clone(), b.clone()])
+            });
         }
         (Expr::Vec(x), y) if distributes(y) || x.is_empty() => {
-            return Expr::Vec(x.iter().map(|p| mul(p, y, env)).collect());
+            return Step::Done(Expr::Vec(x.iter().map(|p| mul(p, y, env)).collect()));
         }
         (x, Expr::Vec(y)) if distributes(x) || y.is_empty() => {
-            return Expr::Vec(y.iter().map(|q| mul(x, q, env)).collect());
+            return Step::Done(Expr::Vec(y.iter().map(|q| mul(x, q, env)).collect()));
         }
         (Expr::Vec(_), _) | (_, Expr::Vec(_)) => {
-            if is_zero(a) || is_zero(b) {
-                return if is_zero(a) { a.clone() } else { b.clone() };
+            if is_zero(&a) || is_zero(b) {
+                return Step::Done(if is_zero(&a) { (*a).clone() } else { b.clone() });
             }
-            return Expr::call("*", vec![a.clone(), b.clone()]);
+            return Step::Done(Expr::call("*", vec![(*a).clone(), b.clone()]));
         }
         _ => {}
     }
-    if is_nan(a) || is_nan(b) {
-        return nan();
+    if is_nan(&a) || is_nan(b) {
+        return Step::Done(nan());
     }
-    if let Some(r) = mul_infinite(a, b) {
-        return r;
+    if let Some(r) = mul_infinite(&a, b) {
+        return Step::Done(r);
     }
-    if is_zero(a) {
-        return a.clone();
+    if is_zero(&a) {
+        return Step::Done(a.into_owned());
     }
     if is_zero(b) {
-        return b.clone();
+        return Step::Done(b.clone());
     }
-    if is_one(a) {
-        return b.clone();
+    if is_one(&a) {
+        return Step::Done(b.clone());
     }
     if is_one(b) {
-        return a.clone();
+        return Step::Done(a.into_owned());
     }
-    if is_minus_one(a) {
-        return neg(b, env);
+    if is_minus_one(&a) {
+        return Step::Done(neg(b, env));
     }
     if is_minus_one(b) {
-        return neg(a, env);
+        return Step::Done(neg(&a, env));
     }
-    if num_of(b).is_some() && num_of(a).is_none() {
-        return mul(b, a, env);
+    if num_of(b).is_some() && num_of(&a).is_none() {
+        return Step::Done(mul(b, &a, env));
     }
-    if infinity(a).is_some() && num_of(b).is_none() {
-        return Expr::call("*", vec![b.clone(), a.clone()]);
+    if infinity(&a).is_some() && num_of(b).is_none() {
+        return Step::Done(Expr::call("*", vec![b.clone(), a.into_owned()]));
     }
-    if num_of(a).is_none()
+    if num_of(&a).is_none()
         && let Expr::Call(f, xs) = b
         && f == "*"
         && xs.len() == 2
         && num_of(&xs[0]).is_some()
     {
-        return mul(&xs[0], &mul(a, &xs[1], env), env);
+        return Step::Done(mul(&xs[0], &mul_cow(a, &xs[1], env), env));
     }
     // Quotients: `k (x / y)` is `k x / y`.
     if let Expr::Call(f, xs) = b
         && f == "/"
         && xs.len() == 2
     {
-        return div(&mul(a, &xs[0], env), &xs[1], env);
+        return Step::Done(div(&mul_cow(a, &xs[0], env), &xs[1], env));
     }
-    if let Expr::Call(f, xs) = a
+    if let Expr::Call(f, xs) = &*a
         && f == "/"
         && xs.len() == 2
     {
-        return div(&mul(&xs[0], b, env), &xs[1], env);
+        return Step::Done(div(&mul(&xs[0], b, env), &xs[1], env));
     }
-    if let Some(k) = num_of(a) {
-        return match b {
+    if let Some(k) = num_of(&a) {
+        return Step::Done(match b {
             Expr::Call(f, xs) if f == "*" && num_of(&xs[0]).is_some() => {
                 let k2 = num_of(&xs[0]).expect("a number");
                 scaled(num::mul(k, k2, &env.prec), xs[1].clone(), env)
             }
             Expr::Call(f, xs) if f == "neg" => scaled(k.neg(), xs[0].clone(), env),
             Expr::Call(f, xs) if f == "+" && xs.len() == 2 => {
-                add(&mul(a, &xs[0], env), &mul(a, &xs[1], env), env)
+                add(&mul(&a, &xs[0], env), &mul(&a, &xs[1], env), env)
             }
             Expr::Call(f, xs) if f == "-" && xs.len() == 2 => {
-                sub(&mul(a, &xs[0], env), &mul(a, &xs[1], env), env)
+                sub(&mul(&a, &xs[0], env), &mul(&a, &xs[1], env), env)
             }
-            _ => Expr::call("*", vec![a.clone(), b.clone()]),
-        };
+            _ => Expr::call("*", vec![(*a).clone(), b.clone()]),
+        });
     }
-    match a {
+    match &*a {
         Expr::Call(f, xs) if f == "*" && xs.len() == 2 => {
-            if num_of(&xs[0]).is_some() {
-                return mul(&xs[0], &mul(&xs[1], b, env), env);
-            }
-            return Expr::call("*", vec![xs[0].clone(), mul(&xs[1], b, env)]);
+            let number = num_of(&xs[0]).is_some();
+            let (x, rest) = first_and_rest(a);
+            return Step::Inside(
+                if number {
+                    Outer::Number(x)
+                } else {
+                    Outer::Factor(x)
+                },
+                rest,
+            );
         }
-        Expr::Call(f, xs) if f == "neg" => return neg(&mul(&xs[0], b, env), env),
+        Expr::Call(f, _) if f == "neg" => return Step::Inside(Outer::Neg, operand(a)),
         _ => {}
     }
     if let Expr::Call(f, xs) = b
         && f == "neg"
     {
-        return neg(&mul(a, &xs[0], env), env);
+        return Step::Done(neg(&mul_cow(a, &xs[0], env), env));
     }
-    let (ba, ea) = power(a);
+    let (ba, ea) = power(&a);
     let (bb, eb) = power(b);
     // Formulas combine into powers; dates do not.
     if ba == bb && infinity(&ba).is_none() && !matches!(ba, Expr::Date(_)) {
-        return pow(&ba, &add(&ea, &eb, env), env);
+        return Step::Done(pow(&ba, &add(&ea, &eb, env), env));
     }
-    Expr::call("*", vec![a.clone(), b.clone()])
+    Step::Done(Expr::call("*", vec![a.into_owned(), b.clone()]))
+}
+
+/// The first operand of `a`, a binary call, and the second, borrowed when
+/// `a` is: taken, not copied, when `a` is owned.
+fn first_and_rest(a: Cow<'_, Expr>) -> (Expr, Cow<'_, Expr>) {
+    match a {
+        Cow::Borrowed(Expr::Call(_, xs)) => (xs[0].clone(), Cow::Borrowed(&xs[1])),
+        a => {
+            let (p, q) = parts(a);
+            (p, Cow::Owned(q))
+        }
+    }
+}
+
+/// The operand of `a`, a call of one, borrowed when `a` is.
+fn operand(a: Cow<'_, Expr>) -> Cow<'_, Expr> {
+    match a {
+        Cow::Borrowed(Expr::Call(_, xs)) => Cow::Borrowed(&xs[0]),
+        Cow::Owned(Expr::Call(_, xs)) => Cow::Owned(xs.into_iter().next().expect("an operand")),
+        _ => unreachable!("a call"),
+    }
 }
 
 fn mul_infinite(a: &Expr, b: &Expr) -> Option<Expr> {

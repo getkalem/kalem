@@ -517,4 +517,23 @@ mod tests {
         let (t, _) = recalculate(&t, &eqs, &env).unwrap();
         assert_eq!(t.field(t.rows.len() - 1, 2), "#ERROR");
     }
+
+    #[test]
+    fn long_symbolic_products() {
+        // `vprod` over a column of words: Calc keeps the product nested to
+        // the right, `w0 (w1 (w2 ...))`; multiplied, read again and written
+        // a factor after another, it recursed a level a factor.
+        let none = |_: &str| None;
+        let env = env(&none);
+        let mut t = String::from("| w | p |\n|---+---|\n");
+        for i in 0..1000 {
+            t.push_str(&format!("| w{i} | |\n"));
+        }
+        t.push_str("|---+---|\n| | |\n");
+        let eqs = tblfm::parse("@>$2=vprod(@I$1..@II$1)").equations;
+        let (t, _) = recalculate(&Table::parse(&t), &eqs, &env).unwrap();
+        let product = t.field(t.rows.len() - 1, 2);
+        assert!(product.starts_with("w0 w1 w2 "), "{}", &product[..40]);
+        assert!(product.ends_with(" w998 w999"));
+    }
 }

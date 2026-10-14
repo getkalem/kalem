@@ -10,7 +10,7 @@ use num_traits::{FromPrimitive, One, Signed, ToPrimitive, Zero};
 
 use super::algebra::{
     self, Cmp, add, add_owned, compare, div, inf, infinity, is_constant, is_nan, is_vec, is_zero,
-    looks_neg, mul, nan, neg, neg_inf, sub, sub_owned,
+    looks_neg, mul, mul_owned, nan, neg, neg_inf, sub, sub_owned,
 };
 use super::cplx;
 use super::expr::Expr;
@@ -75,6 +75,41 @@ pub fn normalize(e: &Expr, env: &Env) -> Expr {
         // A sum nested to the left, one level a term: its terms normalized
         // and added one after another rather than by recursion, which a
         // long sum (`vsum` over a column of words) ran out of stack in.
+        // A product: its factors normalized and multiplied one after another
+        // rather than by recursion, whether nested to the right as Calc
+        // keeps products (`vprod`'s) or to the left as they are read.
+        Expr::Call(f, args) if f == "*" && args.len() == 2 => {
+            if matches!(&args[1], Expr::Call(g, ys) if g == "*" && ys.len() == 2) {
+                let mut lefts = Vec::new();
+                let mut right = e;
+                while let Expr::Call(g, xs) = right
+                    && g == "*"
+                    && xs.len() == 2
+                {
+                    lefts.push(&xs[0]);
+                    right = &xs[1];
+                }
+                let mut acc = normalize(right, env);
+                for left in lefts.into_iter().rev() {
+                    acc = mul_owned(normalize(left, env), &acc, env);
+                }
+                return acc;
+            }
+            let mut rights = Vec::new();
+            let mut left = e;
+            while let Expr::Call(g, xs) = left
+                && g == "*"
+                && xs.len() == 2
+            {
+                rights.push(&xs[1]);
+                left = &xs[0];
+            }
+            let mut acc = normalize(left, env);
+            for right in rights.into_iter().rev() {
+                acc = mul_owned(acc, &normalize(right, env), env);
+            }
+            acc
+        }
         Expr::Call(f, args) if (f == "+" || f == "-") && args.len() == 2 => {
             let mut rights = Vec::new();
             let mut left = e;
@@ -202,7 +237,10 @@ fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
             let [a, b]: [Expr; 2] = args.try_into().expect("two arguments");
             sub_owned(a, &b, env)
         }
-        ("*", 2) => mul(&args[0], &args[1], env),
+        ("*", 2) => {
+            let [a, b]: [Expr; 2] = args.try_into().expect("two arguments");
+            mul_owned(a, &b, env)
+        }
         ("/", 2) => div(&args[0], &args[1], env),
         // `mod(a, b)` is `a % b`.
         ("%", 2) | ("mod", 2) if is_zero(&args[0]) && !is_vec(&args[1]) => args[0].clone(),
@@ -592,7 +630,7 @@ fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
             _ => keep(f, args),
         },
         ("vsum", _) => reduce(f, args, env, add_owned, Expr::int(0)),
-        ("vprod", _) => reduce(f, args, env, |a, b, e| mul(&a, b, e), Expr::int(1)),
+        ("vprod", _) => reduce(f, args, env, mul_owned, Expr::int(1)),
         ("vmax", _) => reduce(
             f,
             args,
