@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 - Typing in a long Org document draws its next frame sooner: the document's blocks were worked out from a copy of its text made again from the parse tree at each keystroke. In the Org manual (840 kB), from a key to its frame takes 13.5 ms at the median rather than 19.9 (23 ms rather than 30 at the 99th percentile), and the latency benchmark's instructions fall by a third.
+- Typing in a paragraph of an Org document whose macros are shown expanded (the Org manual's `{{{kbd(...)}}}`) no longer works out every macro's expansion again at each keystroke: an edit inside a paragraph that touches no macro moves the expansions after it. In the manual, from a key to its frame takes 5.7 ms at the median rather than 13.5 (15.6 ms rather than 22 at the 99th percentile), the latency benchmark's instructions a third of what they were.
 
 ## [0.6.26] - 2026-10-15
 

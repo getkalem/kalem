@@ -540,12 +540,25 @@ fn expansions(root: &SyntaxNode) -> Expansions {
     }) {
         return e;
     }
-    let now = jiff::Zoned::now();
-    let map: std::collections::HashMap<usize, String> =
-        org_export::macros::expansions(root, None, &now)
-            .into_iter()
-            .filter_map(|(r, v)| Some((r.start, v.filter(|v| !v.trim().is_empty())?)))
-            .collect();
+    // A tree after an edit inside a paragraph that touched no macro: the
+    // last tree's expansions moved by the edit, rather than worked out
+    // again over the whole document (half of a keystroke in the Org
+    // manual).
+    let moved = EXPANSIONS.with(|c| {
+        let c = c.borrow();
+        let (old, e) = c.first()?;
+        shifted(old, root, e)
+    });
+    let map = match moved {
+        Some(map) => map,
+        None => {
+            let now = jiff::Zoned::now();
+            org_export::macros::expansions(root, None, &now)
+                .into_iter()
+                .filter_map(|(r, v)| Some((r.start, v.filter(|v| !v.trim().is_empty())?)))
+                .collect()
+        }
+    };
     let e = std::rc::Rc::new(map);
     EXPANSIONS.with(|c| {
         let mut c = c.borrow_mut();
@@ -553,6 +566,77 @@ fn expansions(root: &SyntaxNode) -> Expansions {
         c.truncate(4);
     });
     e
+}
+
+/// The expansions `map` of the tree `old` for `new`, the same document's
+/// tree after an edit inside a paragraph that touched no macro: those
+/// after the edit moved by its change of length. `None` for another edit,
+/// and for another document.
+fn shifted(
+    old: &SyntaxNode,
+    new: &SyntaxNode,
+    map: &std::collections::HashMap<usize, String>,
+) -> Option<std::collections::HashMap<usize, String>> {
+    use org_syntax::{NodeOrToken, SyntaxElement};
+    // The same element: shared, or made again alike (a reparse makes the
+    // element after the one edited again).
+    let same = |x: &SyntaxElement, y: &SyntaxElement| match (x, y) {
+        (NodeOrToken::Node(x), NodeOrToken::Node(y)) => {
+            std::ptr::eq(x.green(), y.green()) || x.green() == y.green()
+        }
+        (NodeOrToken::Token(x), NodeOrToken::Token(y)) => x.green() == y.green(),
+        _ => false,
+    };
+    // Down the trees while one node differs, to the elements that do.
+    let (mut a, mut b) = (old.clone(), new.clone());
+    let (gone, came, end) = loop {
+        let xs: Vec<SyntaxElement> = a.children_with_tokens().collect();
+        let ys: Vec<SyntaxElement> = b.children_with_tokens().collect();
+        let p = xs.iter().zip(&ys).take_while(|(x, y)| same(x, y)).count();
+        let s = xs[p..]
+            .iter()
+            .rev()
+            .zip(ys[p..].iter().rev())
+            .take_while(|(x, y)| same(x, y))
+            .count();
+        let (dx, dy) = (&xs[p..xs.len() - s], &ys[p..ys.len() - s]);
+        match (dx, dy) {
+            ([NodeOrToken::Node(x)], [NodeOrToken::Node(y)]) if x.kind() == y.kind() => {
+                (a, b) = (x.clone(), y.clone());
+            }
+            _ => {
+                let end = match s {
+                    0 => a.text_range().end(),
+                    s => xs[xs.len() - s].text_range().start(),
+                };
+                break (dx.to_vec(), dy.to_vec(), usize::from(end));
+            }
+        }
+    };
+    let has_macro = |e: &SyntaxElement| {
+        e.as_node()
+            .is_some_and(|n| n.descendants().any(|d| d.kind() == MACRO))
+    };
+    if !a.ancestors().any(|n| n.kind() == PARAGRAPH)
+        || a.ancestors().any(|n| n.kind() == MACRO)
+        || gone.iter().chain(&came).any(has_macro)
+    {
+        return None;
+    }
+    let delta =
+        usize::from(new.text_range().len()) as isize - usize::from(old.text_range().len()) as isize;
+    Some(
+        map.iter()
+            .map(|(&k, v)| {
+                let k = if k >= end {
+                    k.checked_add_signed(delta).unwrap_or(k)
+                } else {
+                    k
+                };
+                (k, v.clone())
+            })
+            .collect(),
+    )
 }
 
 /// One step right (or left) of `pos` over the text the rich view shows,
@@ -2273,6 +2357,61 @@ mod tests {
         let wide = "é".repeat(LONG_LINE);
         let v = plain_line_view(&wide, 0..wide.len(), Some(LONG_LINE + 1));
         assert!(v.runs.iter().all(|r| wide.is_char_boundary(r.src.start)));
+    }
+
+    #[test]
+    fn macro_expansions_follow_edits() {
+        // Edits anywhere, the tree reparsed as the editor reparses it: the
+        // expansions, moved along when the edit allows it, are those worked
+        // out again.
+        let mut t = String::from(
+            "#+MACRO: v 1.$1\n#+TITLE: Doc\n\nA {{{v(2)}}} b {{{title}}} c {{{n}}}.\n\n\
+             * H\n:PROPERTIES:\n:X: x1\n:END:\nText {{{v(3)}}} {{{property(X)}}} here {{{n}}}.\n\
+             - item {{{keyword(TITLE)}}} end\n\n** COMMENT Hid\n{{{n}}} gone\n* K\nLast {{{v(4)}}} {{{n}}}.\n",
+        );
+        let full = |root: &SyntaxNode| -> std::collections::HashMap<usize, String> {
+            org_export::macros::expansions(root, None, &jiff::Zoned::now())
+                .into_iter()
+                .filter_map(|(r, v)| Some((r.start, v.filter(|v| !v.trim().is_empty())?)))
+                .collect()
+        };
+        let mut p = org_syntax::parse(&t);
+        let mut map = full(&p.syntax());
+        let (mut seed, mut moved) = (7u64, 0);
+        for step in 0..400 {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            let mut at = (seed as usize) % (t.len() + 1);
+            while !t.is_char_boundary(at) {
+                at -= 1;
+            }
+            let (range, insert) = match seed % 5 {
+                0 if at < t.len() => (at..at + t[at..].chars().next().unwrap().len_utf8(), ""),
+                1 => (at..at, "{{{v(9)}}}"),
+                2 => (at..at, "\n"),
+                _ => (at..at, "x"),
+            };
+            let edit = org_syntax::TextEdit {
+                range: org_syntax::TextRange::new(
+                    TextSize::from(range.start as u32),
+                    TextSize::from(range.end as u32),
+                ),
+                insert: insert.to_string(),
+            };
+            t.replace_range(range, insert);
+            let old = p.syntax();
+            p = p.reparse(&t, &edit);
+            let root = p.syntax();
+            let expected = full(&root);
+            if let Some(m) = shifted(&old, &root, &map) {
+                assert_eq!(m, expected, "moved, step {step}: {t:?}");
+                moved += 1;
+            }
+            assert_eq!(*expansions(&root), expected, "step {step}: {t:?}");
+            map = expected;
+        }
+        assert!(moved > 100, "{moved} moved");
     }
 
     #[test]
