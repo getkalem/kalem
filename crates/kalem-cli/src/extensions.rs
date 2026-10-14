@@ -162,7 +162,7 @@ impl Editor for Bridge {
     }
 
     fn own_setting(&mut self, _plugin: &str, key: &str) -> Option<String> {
-        kalem_core::extensions::setting(&["plugins", &self.id, key]).map(|v| v.to_string())
+        kalem_core::extensions::own_setting(&self.id, key).map(|v| v.to_string())
     }
 
     fn set_own_setting(&mut self, _plugin: &str, key: &str, value: &str) -> Result<(), String> {

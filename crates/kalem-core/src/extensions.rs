@@ -857,8 +857,18 @@ pub fn setting(parts: &[&str]) -> Option<Value> {
         .cloned()
 }
 
+/// Plugin `id`'s own setting `key`: a dotted key's parts are tables within
+/// its own (`programs.python3`), as the settings page writes them and
+/// [`find_program`] reads them.
+pub fn own_setting(id: &str, key: &str) -> Option<Value> {
+    let mut parts = vec!["plugins", id];
+    parts.extend(key.split('.'));
+    setting(&parts)
+}
+
 /// Sets plugin `id`'s own setting `key` to `value` (`null` removes it) in
-/// the user's `settings.toml`, under `[plugins."ID"]`, and has the
+/// the user's `settings.toml`, under `[plugins."ID"]` (a dotted key's
+/// parts in tables within it, as [`own_setting`] reads them), and has the
 /// editors read the settings again.
 pub fn set_own_setting(id: &str, key: &str, value: &Value) -> Result<(), String> {
     let path = crate::settings::config_dir()
@@ -869,7 +879,9 @@ pub fn set_own_setting(id: &str, key: &str, value: &Value) -> Result<(), String>
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
         Err(e) => return Err(format!("{}: {e}", path.display())),
     };
-    let new = crate::settings::set_in_toml(&text, &["plugins", id, key], value)?;
+    let mut parts = vec!["plugins", id];
+    parts.extend(key.split('.'));
+    let new = crate::settings::set_in_toml(&text, &parts, value)?;
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
