@@ -141,7 +141,7 @@ impl Vim {
             self.mode = Mode::Normal;
         }
         self.reset();
-        self.keys.clear();
+        self.clear_keys();
     }
 
     /// One address: its line (from 0) and the rest of the text.
@@ -468,6 +468,9 @@ impl Vim {
                     self.mode = Mode::Normal;
                     self.reset();
                     // A command that fails stops this line's keys only.
+                    // A macro the keys run runs within them, before the
+                    // rest of a macro this `:normal` is in.
+                    let outer = self.macro_keys.take();
                     self.macro_depth += 1;
                     self.failed = false;
                     self.feed(doc, &keys, host, out);
@@ -476,6 +479,7 @@ impl Vim {
                     self.feed(doc, &[Key::Esc], host, out);
                     self.failed = false;
                     self.macro_depth -= 1;
+                    self.macro_keys = outer;
                 }
             }
             _ if is("sor", "sort") => self.sort(doc, args, range.unwrap_or((0, last)), bang),

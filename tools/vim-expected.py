@@ -43,7 +43,8 @@ def raw(keys):
     out = []
     i = 0
     names = {"sync": ":let &ul=&ul\r", "esc": "\x1b", "cr": "\r", "enter": "\r", "bs": "\x08", "tab": "\t",
-             "lt": "<", "space": " ", "nl": "\n", "del": "\x1b[3~"}
+             "lt": "<", "space": " ", "nl": "\n", "del": "\x1b[3~",
+             "left": "\x1b[D", "right": "\x1b[C", "up": "\x1b[A", "down": "\x1b[B"}
     while i < len(keys):
         c = keys[i]
         if c == "<":
@@ -75,7 +76,7 @@ def run(case):
         script = os.path.join(d, "keys")
         settings = "".join(f":set {s}\r" for s in DEFAULTS + case.get("set", []))
         tail = ("\x1b\x1b:call writefile([json_encode({'lines': getline(1, '$'),"
-                " 'bytes': wordcount().bytes,"
+                " 'bytes': wordcount().bytes, 'ff': &ff,"
                 " 'line': line('.'), 'col': col('.')})], '" + result + "')\r:qa!\r")
         with open(script, "w", encoding="utf-8", newline="") as f:
             f.write(settings + raw(case["keys"]) + tail)
@@ -85,9 +86,11 @@ def run(case):
             stderr=subprocess.DEVNULL, timeout=20, check=False)
         with open(result, encoding="utf-8") as f:
             r = json.load(f)
-        # The text as written: lines joined, the last with its line feed.
-        # An empty buffer is no text, not one empty line.
-        text = "" if r["bytes"] == 0 else "\n".join(r["lines"]) + "\n"
+        # The text as written: lines joined, the last with its line feed,
+        # CR LF where Vim read the file so ('fileformat' dos). An empty
+        # buffer is no text, not one empty line.
+        eol = "\r\n" if r["ff"] == "dos" else "\n"
+        text = "" if r["bytes"] == 0 else eol.join(r["lines"]) + eol
         return {"text": text, "line": r["line"], "col": r["col"]}
 
 

@@ -62,6 +62,10 @@ fn parse_keys(keys: &str) -> Vec<Key> {
                 "lt" => Some(Key::Char('<')),
                 "space" => Some(Key::Char(' ')),
                 "nl" => Some(Key::Ctrl('j')),
+                "left" => Some(Key::Left),
+                "right" => Some(Key::Right),
+                "up" => Some(Key::Up),
+                "down" => Some(Key::Down),
                 // An undo step for Vim's sake (see tools/vim-expected.py).
                 "sync" => {
                     rest = &rest[end + 1..];
@@ -87,10 +91,16 @@ fn parse_keys(keys: &str) -> Vec<Key> {
 /// The text and the cursor (line and byte column, from 1) after `keys`,
 /// from the first line's first non-blank as Vim starts.
 fn run(text: &str, keys: &str) -> (String, usize, usize) {
+    // A text of CR LF lines is one, as Vim reads it ('fileformat' dos).
+    let crlf = text.contains("\r\n");
     let meta = Metadata {
         path: None,
         mode: DocumentMode::Text { language: None },
-        line_ending: LineEnding::Lf,
+        line_ending: if crlf {
+            LineEnding::CrLf
+        } else {
+            LineEnding::Lf
+        },
         bom: false,
         encoding: encoding_rs::UTF_8,
         lossy: false,
@@ -127,6 +137,22 @@ fn run(text: &str, keys: &str) -> (String, usize, usize) {
             Key::Backspace => {
                 let _ = d.delete_backward(now);
             }
+            // The arrows a frontend moves the cursor with: along the line,
+            // or to the same column of the line above or below.
+            Key::Left | Key::Right | Key::Up | Key::Down => {
+                let t = d.text();
+                let head = d.selection.head;
+                let (line, col) = t.line_col(head);
+                let r = t.line_range(line);
+                let to = match key {
+                    Key::Left if head > r.start => d.grapheme_before(head),
+                    Key::Right if head < r.end => d.grapheme_after(head),
+                    Key::Up if line > 0 => t.offset(line - 1, col),
+                    Key::Down if line + 1 < t.line_count() => t.offset(line + 1, col),
+                    _ => head,
+                };
+                d.move_cursor(to, false);
+            }
             _ => {}
         }
     }
@@ -137,6 +163,12 @@ fn run(text: &str, keys: &str) -> (String, usize, usize) {
     let head = d.selection.head.min(t.len());
     let line_start = t[..head].rfind('\n').map_or(0, |i| i + 1);
     let line = t[..head].matches('\n').count() + 1;
+    // A CR LF document as it is saved: every line feed after a CR.
+    let t = if crlf {
+        t.replace("\r\n", "\n").replace('\n', "\r\n")
+    } else {
+        t
+    };
     (t, line, head - line_start + 1)
 }
 

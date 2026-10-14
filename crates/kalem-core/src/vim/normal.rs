@@ -8,41 +8,77 @@ use super::{
     first_non_blank, last_line, line_end, line_of, line_start,
 };
 
+/// The arrows in a register, as Vim keeps them: its special-key byte
+/// (`<80>`) and the key's terminal code.
+const ARROWS: [(Key, &str); 4] = [
+    (Key::Left, "\u{80}kl"),
+    (Key::Right, "\u{80}kr"),
+    (Key::Up, "\u{80}ku"),
+    (Key::Down, "\u{80}kd"),
+];
+
+/// The most keys one macro runs, its calls of itself included: one that
+/// never fails stops there rather than run for ever.
+const MACRO_KEYS: usize = 1_000_000;
+
 /// Keys in a register as Vim keeps them: Escape, Enter, Backspace and
-/// Control as their control characters.
+/// Control as their control characters, the arrows as Vim's codes for
+/// them ([`ARROWS`]). Other keys (Home, a function key, Alt) have no
+/// form here and are left out.
 pub(super) fn keys_to_text(keys: &[Key]) -> String {
-    keys.iter()
-        .filter_map(|k| match *k {
-            Key::Char(c) => Some(c),
+    let mut out = String::new();
+    for k in keys {
+        match *k {
+            Key::Char(c) => out.push(c),
             Key::Ctrl(c) => {
                 let up = c.to_ascii_uppercase() as u32;
-                char::from_u32(if (0x40..0x60).contains(&up) {
+                if let Some(c) = char::from_u32(if (0x40..0x60).contains(&up) {
                     up - 0x40
                 } else {
                     up
-                })
+                }) {
+                    out.push(c);
+                }
             }
-            Key::Esc => Some('\u{1b}'),
-            Key::Enter => Some('\r'),
-            Key::Backspace => Some('\u{8}'),
-            Key::Tab => Some('\t'),
-            _ => None,
-        })
-        .collect()
+            Key::Esc => out.push('\u{1b}'),
+            Key::Enter => out.push('\r'),
+            Key::Backspace => out.push('\u{8}'),
+            Key::Tab => out.push('\t'),
+            k => {
+                if let Some((_, code)) = ARROWS.iter().find(|(a, _)| *a == k) {
+                    out.push_str(code);
+                }
+            }
+        }
+    }
+    out
 }
 
 /// A register's text as keys, for `@`.
 pub(super) fn text_to_keys(text: &str) -> Vec<Key> {
-    text.chars()
-        .map(|c| match c {
+    let mut out = Vec::new();
+    let mut rest = text;
+    while let Some(c) = rest.chars().next() {
+        if let Some((k, code)) = ARROWS.iter().find(|(_, code)| rest.starts_with(code)) {
+            out.push(*k);
+            rest = &rest[code.len()..];
+            continue;
+        }
+        out.push(match c {
             '\u{1b}' => Key::Esc,
             '\r' | '\n' => Key::Enter,
             '\u{8}' => Key::Backspace,
             '\t' => Key::Tab,
-            c if (c as u32) < 0x20 => Key::Ctrl(char::from_u32(c as u32 + 0x60).unwrap_or('@')),
+            // Control and a letter, or `@`, `[`, `\\`, `]`, `^`, `_`.
+            c if (c as u32) < 0x20 => {
+                let up = char::from_u32(c as u32 + 0x40).unwrap_or('@');
+                Key::Ctrl(up.to_ascii_lowercase())
+            }
             c => Key::Char(c),
-        })
-        .collect()
+        });
+        rest = &rest[c.len_utf8()..];
+    }
+    out
 }
 
 impl Vim {
@@ -224,16 +260,40 @@ impl Vim {
                 None => return,
             }
         };
-        if self.macro_depth > 20 {
+        // `count` times, no more than a macro runs.
+        let times = count.max(1).min(MACRO_KEYS / keys.len().max(1) + 1);
+        let keys: Vec<Key> = keys
+            .iter()
+            .copied()
+            .cycle()
+            .take(keys.len() * times)
+            .collect();
+        // Called from a macro running: its keys come before the rest of
+        // that macro's, as Vim puts them in its typeahead. A macro that
+        // calls itself at its end so runs as a loop until a command
+        // fails (`qa0xj@aq` on every line), not as a recursion.
+        if let Some(queue) = &mut self.macro_keys {
+            for &k in keys.iter().rev() {
+                queue.push_front(k);
+            }
             return;
         }
         self.macro_depth += 1;
-        for _ in 0..count.max(1) {
-            self.feed(doc, &keys, host, out);
+        self.macro_keys = Some(keys.into());
+        let mut ran = 0;
+        while let Some(k) = self.macro_keys.as_mut().and_then(|q| q.pop_front()) {
             if self.failed {
                 break;
             }
+            ran += 1;
+            if ran > MACRO_KEYS {
+                self.failed = true;
+                out.message = Some((format!("A macro stopped after {MACRO_KEYS} keys"), true));
+                break;
+            }
+            self.feed(doc, &[k], host, out);
         }
+        self.macro_keys = None;
         self.macro_depth -= 1;
     }
 
@@ -272,6 +332,9 @@ impl Vim {
                     self.newline(doc)
                 }
                 Key::Tab if self.mode == Mode::Insert => self.type_text(doc, "\t"),
+                Key::Left | Key::Right | Key::Up | Key::Down if self.mode == Mode::Insert => {
+                    self.insert_arrow(doc, k)
+                }
                 Key::Backspace if self.mode == Mode::Insert => {
                     let _ = doc.delete_backward(std::time::Instant::now());
                 }

@@ -4378,5 +4378,105 @@
   "name": "fixeol_all_deleted_then_typed",
   "text": "one\ntwo\n",
   "keys": "ggdGitext<Esc>"
+ },
+ {
+  "name": "block_p_charwise",
+  "text": "abcdef\nghijkl\nmnopqr\n",
+  "keys": "yiwjl<C-v>jlp"
+ },
+ {
+  "name": "block_p_word",
+  "text": "one two\nabcdef\nghijkl\nmnopqr\n",
+  "keys": "yiwjl<C-v>jlp"
+ },
+ {
+  "name": "block_P_word",
+  "text": "one two\nabcdef\nghijkl\nmnopqr\n",
+  "keys": "yiwjl<C-v>jlP"
+ },
+ {
+  "name": "block_p_linewise",
+  "text": "one two\nabcdef\nghijkl\nmnopqr\n",
+  "keys": "yyjl<C-v>jlp"
+ },
+ {
+  "name": "block_p_blockwise",
+  "text": "XY\nZW\nabcdef\nghijkl\nmnopqr\n",
+  "keys": "<C-v>jly2jl<C-v>jlp"
+ },
+ {
+  "name": "block_p_short_line",
+  "text": "one two\nabcdef\ng\nmnopqr\n",
+  "keys": "yiwjl<C-v>jjlp"
+ },
+ {
+  "name": "block_p_lines_of_chars",
+  "text": "one\ntwo\nabcdef\nghijkl\nmnopqr\n",
+  "keys": "vjy2jl<C-v>jlp"
+ },
+ {
+  "name": "block_p_count",
+  "text": "one two\nabcdef\nghijkl\n",
+  "keys": "yiwjl<C-v>jl2p"
+ },
+ {
+  "name": "block_p_keeps_the_block",
+  "text": "one two\nabcdef\nghijkl\nmnopqr\n",
+  "keys": "yiwjl<C-v>jlpG\"\"p"
+ },
+ {
+  "name": "dot_count_after_operator",
+  "text": "a b c d e f g h i j k\n",
+  "keys": "d3w2."
+ },
+ {
+  "name": "dot_count_of_x",
+  "text": "abcdefghij\n",
+  "keys": "3x2."
+ },
+ {
+  "name": "dot_counts_multiplied",
+  "text": "a b c d e f g h i j k l m n\n",
+  "keys": "2d3w."
+ },
+ {
+  "name": "dot_count_replaces_both",
+  "text": "a b c d e f g h i j k l m n\n",
+  "keys": "2d3w1."
+ },
+ {
+  "name": "dot_count_after_register",
+  "text": "a b c d e f g h i j k\n",
+  "keys": "\"ad2w3."
+ },
+ {
+  "name": "macro_with_arrows",
+  "text": "abc\ndef\n",
+  "keys": "qaA<Left><Left>x<Esc>jq@a"
+ },
+ {
+  "name": "macro_calling_itself",
+  "text": "line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\n",
+  "keys": "qaqqa0xj@aq@a"
+ },
+ {
+  "name": "crlf_inner_block",
+  "text": "a{\r\n  x\r\n  y\r\n}\r\n",
+  "keys": "jdi{"
+ },
+ {
+  "name": "crlf_visual_r",
+  "text": "ab\r\ncd\r\n",
+  "keys": "vjrx"
+ },
+ {
+  "name": "crlf_append_at_end",
+  "text": "ab\r\ncd\r\n",
+  "keys": "$ax<Esc>"
+ },
+ {
+  "name": "crlf_open_line",
+  "text": "ab\r\ncd\r\n",
+  "keys": "oxy<Esc>"
  }
 ]

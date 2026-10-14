@@ -18,6 +18,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - In a file whose lines end in CR LF, the end of a line is before its carriage return: End and Org's commands no longer put the cursor or text between the carriage return and its line feed, which split the pair. Org's commands see such a file with line feeds alone, as Emacs does, and write the carriage returns back.
 - An Org command that changes two places far apart, such as a table's rows aligned or a heading and its drawer, keeps the cursors, marks and line marks between them where they are, and its undo step holds only what changed.
 - A failure of the Org parser no longer ends Kalem: it is logged, the document keeps its last tree, and Org's commands say so until the text changes.
+- With Vim's keys, `p` and `P` over a block selected with Ctrl+V replace the block's columns, as Vim does: a word or a line of characters is put in each line of the block, a block register replaces the block, and lines go below it. They replaced the whole lines.
+- With Vim's keys, `.` with a count replaces the change's count wherever it was typed: after `d3w`, `2.` deletes two words, where it deleted six.
+- With Vim's keys, a macro recorded with the arrow keys replays them, and a macro that calls itself runs until a command fails, as in Vim (`qa0xj@aq` on every line of a file); it stopped silently after 21 calls. A macro that never fails stops after a million keys, with a message.
+- With Vim's keys, in a file of CR LF lines, `di{` on a block over several lines no longer deletes the line of the opening brace, and `r` over a selection of several lines no longer turns each line's carriage return into the typed character.
 
 ## [0.6.27] - 2026-10-15
 

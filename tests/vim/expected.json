@@ -144,6 +144,51 @@
   "line": 1,
   "text": "b cd\n"
  },
+ "block_P_word": {
+  "col": 4,
+  "line": 2,
+  "text": "one two\naonedef\ngonejkl\nmnopqr\n"
+ },
+ "block_p_blockwise": {
+  "col": 2,
+  "line": 3,
+  "text": "XY\nZW\naXYdef\ngZWjkl\nmnopqr\n"
+ },
+ "block_p_charwise": {
+  "col": 7,
+  "line": 2,
+  "text": "abcdef\ngabcdefjkl\nmabcdefpqr\n"
+ },
+ "block_p_count": {
+  "col": 7,
+  "line": 2,
+  "text": "one two\naoneonedef\ngoneonejkl\n"
+ },
+ "block_p_keeps_the_block": {
+  "col": 2,
+  "line": 4,
+  "text": "one two\naonedef\ngonejkl\nmbcnopqr\n hi\n"
+ },
+ "block_p_lines_of_chars": {
+  "col": 2,
+  "line": 3,
+  "text": "one\ntwo\naone\ntdef\ngjkl\nmnopqr\n"
+ },
+ "block_p_linewise": {
+  "col": 1,
+  "line": 4,
+  "text": "one two\nadef\ngjkl\none two\nmnopqr\n"
+ },
+ "block_p_short_line": {
+  "col": 4,
+  "line": 2,
+  "text": "one two\naonedef\ngone\nmonepqr\n"
+ },
+ "block_p_word": {
+  "col": 4,
+  "line": 2,
+  "text": "one two\naonedef\ngonejkl\nmnopqr\n"
+ },
  "cW_punct": {
   "col": 1,
   "line": 1,
@@ -253,6 +298,26 @@
   "col": 1,
   "line": 1,
   "text": "uick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "crlf_append_at_end": {
+  "col": 3,
+  "line": 1,
+  "text": "abx\r\ncd\r\n"
+ },
+ "crlf_inner_block": {
+  "col": 1,
+  "line": 2,
+  "text": "a{\r\n}\r\n"
+ },
+ "crlf_open_line": {
+  "col": 2,
+  "line": 2,
+  "text": "ab\r\nxy\r\ncd\r\n"
+ },
+ "crlf_visual_r": {
+  "col": 1,
+  "line": 1,
+  "text": "xx\r\nxd\r\n"
  },
  "ct_paren": {
   "col": 1,
@@ -558,6 +623,31 @@
   "col": 3,
   "line": 1,
   "text": "Z Z brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "dot_count_after_operator": {
+  "col": 1,
+  "line": 1,
+  "text": "f g h i j k\n"
+ },
+ "dot_count_after_register": {
+  "col": 1,
+  "line": 1,
+  "text": "f g h i j k\n"
+ },
+ "dot_count_of_x": {
+  "col": 1,
+  "line": 1,
+  "text": "fghij\n"
+ },
+ "dot_count_replaces_both": {
+  "col": 1,
+  "line": 1,
+  "text": "h i j k l m n\n"
+ },
+ "dot_counts_multiplied": {
+  "col": 1,
+  "line": 1,
+  "text": "m n\n"
  },
  "dot_cw": {
   "col": 9,
@@ -1474,6 +1564,11 @@
   "line": 4,
   "text": "first line;\nsecond line;\nthird line;\nfourth line\nfifth line\n"
  },
+ "macro_calling_itself": {
+  "col": 1,
+  "line": 30,
+  "text": "ine 1\nine 2\nine 3\nine 4\nine 5\nine 6\nine 7\nine 8\nine 9\nine 10\nine 11\nine 12\nine 13\nine 14\nine 15\nine 16\nine 17\nine 18\nine 19\nine 20\nine 21\nine 22\nine 23\nine 24\nine 25\nine 26\nine 27\nine 28\nine 29\nine 30\n"
+ },
  "macro_count": {
   "col": 2,
   "line": 5,
@@ -1498,6 +1593,11 @@
   "col": 1,
   "line": 3,
   "text": "-first line!\n-second line!\nthird line\nfourth line\nfifth line\n"
+ },
+ "macro_with_arrows": {
+  "col": 2,
+  "line": 2,
+  "text": "axbc\ndxef\n"
  },
  "macro_yanked": {
   "col": 21,

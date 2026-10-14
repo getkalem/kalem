@@ -413,6 +413,9 @@ struct Motion {
 struct Change {
     keys: Vec<Key>,
     inserted: Option<String>,
+    /// Where in `keys` the digits of its counts are (`2"a3d4w`): a count
+    /// given to `.` replaces them all.
+    counts: Vec<usize>,
 }
 
 /// Where a search puts the cursor from its match (`:help
@@ -605,6 +608,8 @@ pub struct Vim {
     cursor: usize,
     motion_count: usize,
     keys: Vec<Key>,
+    /// Where the digits of counts are among `keys`.
+    count_keys: Vec<usize>,
     last_change: Option<Change>,
     recording: Option<Change>,
     insert_at: Option<usize>,
@@ -635,6 +640,9 @@ pub struct Vim {
     macro_rec: Option<(char, Vec<Key>)>,
     last_macro: Option<char>,
     macro_depth: usize,
+    /// The keys of the macro running still to come (Vim's typeahead): a
+    /// macro it calls puts its keys first.
+    macro_keys: Option<std::collections::VecDeque<Key>>,
     /// The last command line (`@:`, the `:` register).
     last_ex: Option<String>,
     /// `U`: the last changed line and its text before the changes.
@@ -923,6 +931,44 @@ fn block_part(doc: &DocumentState, line: usize, left: usize, right: usize, ts: u
             post: 0,
         },
     }
+}
+
+/// The text of a block's `parts` as a block register holds it, a line
+/// for each: a tab or wide character at an edge as the spaces of it
+/// inside.
+fn block_text(doc: &DocumentState, parts: &[BlockPart], ts: usize) -> String {
+    parts
+        .iter()
+        .map(|p| {
+            let t = &doc.text().as_str()[p.range.clone()];
+            if p.pre == 0 && p.post == 0 {
+                return t.to_string();
+            }
+            let width = |c: char, col: usize| {
+                use unicode_width::UnicodeWidthChar;
+                if c == '\t' {
+                    (col / ts + 1) * ts - col
+                } else {
+                    c.width().unwrap_or(0)
+                }
+            };
+            let mut col = display_col(doc, p.range.start, ts);
+            let n = t.chars().count();
+            let mut out = String::new();
+            for (i, c) in t.chars().enumerate() {
+                let w = width(c, col);
+                let cut = if i == 0 { p.pre } else { 0 } + if i + 1 == n { p.post } else { 0 };
+                if (i == 0 && p.pre > 0) || (i + 1 == n && p.post > 0) {
+                    out.push_str(&" ".repeat(w.saturating_sub(cut)));
+                } else {
+                    out.push(c);
+                }
+                col += w;
+            }
+            out
+        })
+        .collect::<Vec<String>>()
+        .join("\n")
 }
 
 /// The character of `line` that shows in column `want` (a tab or wide
@@ -1360,7 +1406,7 @@ fn object(doc: &DocumentState, pos: usize, c: char, inner: bool) -> Option<Targe
             let mut end = b;
             let after_open = &text[start..line_end(doc, line_of(doc, start))];
             if after_open.trim().is_empty() && line_of(doc, b) > line_of(doc, a) {
-                start = line_end(doc, line_of(doc, start)) + 1;
+                start = doc.text().after_line(line_of(doc, start));
                 let close_line = line_of(doc, b);
                 if text[line_start(doc, close_line)..b].trim().is_empty() {
                     end = line_start(doc, close_line);
@@ -1558,7 +1604,7 @@ fn org_object(doc: &DocumentState, pos: usize, c: char, inner: bool) -> Option<T
                 }
                 ('R', false) => lines(r),
                 _ => {
-                    let body = line_end(doc, head_line) + 1;
+                    let body = doc.text().after_line(head_line);
                     if body >= r.end {
                         return None;
                     }
@@ -1631,6 +1677,7 @@ impl Vim {
             cursor: 0,
             motion_count: 1,
             keys: Vec::new(),
+            count_keys: Vec::new(),
             last_change: None,
             recording: None,
             insert_at: None,
@@ -1649,6 +1696,7 @@ impl Vim {
             macro_rec: None,
             last_macro: None,
             macro_depth: 0,
+            macro_keys: None,
             last_ex: None,
             line_undo: None,
             insert_line: None,
@@ -1889,7 +1937,7 @@ impl Vim {
                 self.keys.push(key);
                 self.command(doc, key, host, &mut out);
                 if self.idle() {
-                    self.keys.clear();
+                    self.clear_keys();
                     if !matches!(self.mode, Mode::Insert | Mode::Replace) && self.ctrl_o.is_none() {
                         doc.break_undo_group();
                     }
@@ -2018,6 +2066,9 @@ impl Vim {
             return;
         }
         let mut k = self.visual_keys(doc);
+        for c in &mut self.count_keys {
+            *c += k.len();
+        }
         k.append(&mut self.keys);
         self.keys = k;
     }
@@ -2035,6 +2086,33 @@ impl Vim {
                 .map(|l| block_part(doc, l, left, right, ts).range)
                 .collect(),
         )
+    }
+
+    /// An arrow in insert mode as a macro or `:normal` replays it, the
+    /// frontend not there to move: the cursor a character along its line
+    /// or a line up or down (as far as the line goes).
+    fn insert_arrow(&mut self, doc: &mut DocumentState, key: Key) {
+        let head = doc.selection.head.min(doc.text().len());
+        let line = line_of(doc, head);
+        let ts = self.options.tabstop.max(1);
+        let to = match key {
+            Key::Left if head > line_start(doc, line) => doc.grapheme_before(head),
+            Key::Right if head < line_end(doc, line) => doc.grapheme_after(head),
+            Key::Up if line > 0 => at_display_col(doc, line - 1, display_col(doc, head, ts), ts),
+            Key::Down if line < last_line(doc) => {
+                at_display_col(doc, line + 1, display_col(doc, head, ts), ts)
+            }
+            _ => return,
+        };
+        doc.move_cursor(to, false);
+        self.cursor = doc.selection.head;
+    }
+
+    /// Forgets the keys of the command being typed, and where its counts
+    /// are among them.
+    fn clear_keys(&mut self) {
+        self.keys.clear();
+        self.count_keys.clear();
     }
 
     /// In normal mode the cursor is on a character, not after the last.
@@ -2830,41 +2908,7 @@ impl Vim {
                     .collect();
                 let ranges: Vec<Range<usize>> = parts.iter().map(|p| p.range.clone()).collect();
                 let top = ranges[0].start + parts[0].pre;
-                // What is in the block: a tab at an edge as the spaces of it
-                // inside.
-                let text: Vec<String> = parts
-                    .iter()
-                    .map(|p| {
-                        let t = &doc.text().as_str()[p.range.clone()];
-                        if p.pre == 0 && p.post == 0 {
-                            return t.to_string();
-                        }
-                        let width = |c: char, col: usize| {
-                            use unicode_width::UnicodeWidthChar;
-                            if c == '\t' {
-                                (col / ts + 1) * ts - col
-                            } else {
-                                c.width().unwrap_or(0)
-                            }
-                        };
-                        let mut col = display_col(doc, p.range.start, ts);
-                        let n = t.chars().count();
-                        let mut out = String::new();
-                        for (i, c) in t.chars().enumerate() {
-                            let w = width(c, col);
-                            let cut = if i == 0 { p.pre } else { 0 }
-                                + if i + 1 == n { p.post } else { 0 };
-                            if (i == 0 && p.pre > 0) || (i + 1 == n && p.post > 0) {
-                                out.push_str(&" ".repeat(w.saturating_sub(cut)));
-                            } else {
-                                out.push(c);
-                            }
-                            col += w;
-                        }
-                        out
-                    })
-                    .collect();
-                let text = text.join("\n");
+                let text = block_text(doc, &parts, ts);
                 self.storing_block = true;
                 match op {
                     Op::Yank => {
@@ -3477,9 +3521,15 @@ impl Vim {
                     };
                     let top = ranges.first().map_or(self.cursor, |r| r.start);
                     for r in ranges.into_iter().rev() {
-                        let old = doc.text().as_str()[r.clone()].to_string();
-                        let new: String =
-                            old.chars().map(|x| if x == '\n' { x } else { c }).collect();
+                        let text = doc.text().as_str();
+                        // Line breaks stay, a CR LF's carriage return too.
+                        let new: String = text[r.clone()]
+                            .char_indices()
+                            .map(|(i, x)| {
+                                let crlf = x == '\r' && text[r.start + i + 1..].starts_with('\n');
+                                if x == '\n' || crlf { x } else { c }
+                            })
+                            .collect();
                         edit(doc, r, &new, top);
                     }
                     doc.selection = Selection::caret(top);
@@ -3965,7 +4015,7 @@ impl Vim {
                 let n = self.count.take().unwrap_or(1);
                 self.reset();
                 if let Key::Char(c) = key {
-                    self.keys.clear();
+                    self.clear_keys();
                     self.execute_macro(doc, c, n, host, out);
                 }
                 return;
@@ -4020,6 +4070,9 @@ impl Vim {
             && (c != '0' || self.count.is_some())
         {
             let d = c as usize - '0' as usize;
+            if self.keys.last() == Some(&key) {
+                self.count_keys.push(self.keys.len() - 1);
+            }
             let n = self.count.unwrap_or(0).saturating_mul(10).saturating_add(d);
             self.count = Some(n.min(MAX_COUNT));
             return;
@@ -4288,6 +4341,7 @@ impl Vim {
                     _ => "yy",
                 };
                 let keys = std::mem::take(&mut self.keys);
+                let counts = std::mem::take(&mut self.count_keys);
                 self.count = count;
                 for k in seq.chars() {
                     self.command(doc, Key::Char(k), host, out);
@@ -4295,8 +4349,10 @@ impl Vim {
                 if !self.replaying && c != 'Y' {
                     if let Some(ch) = &mut self.recording {
                         ch.keys = keys;
+                        ch.counts = counts;
                     } else if let Some(ch) = &mut self.last_change {
                         ch.keys = keys;
+                        ch.counts = counts;
                     }
                 }
             }
@@ -4852,16 +4908,29 @@ impl Vim {
                     linewise: false,
                     block: false,
                 }));
-                let block_target = matches!(target, Target::Block { .. });
                 let range = match target {
                     Target::Chars(r) => r,
                     Target::Lines(a, b) => line_start(doc, a)..line_end(doc, b),
-                    Target::Block { first, last, .. } => {
-                        line_start(doc, first)..line_end(doc, last)
+                    // A block: its columns replaced, not its lines.
+                    Target::Block {
+                        first,
+                        last,
+                        left,
+                        right,
+                    } => {
+                        if let Some(r) = reg {
+                            let n = self.count.take().unwrap_or(1);
+                            let block = (first, last, left, right);
+                            self.put_over_block(doc, c == 'p', &r, block, n, host);
+                        }
+                        if ends_change {
+                            self.changed();
+                        }
+                        return;
                     }
                 };
                 if let Some(r) = reg {
-                    let into_chars = !was_lines && r.linewise && !block_target;
+                    let into_chars = !was_lines && r.linewise;
                     let t = if into_chars {
                         // Lines put in characters: on lines of their own.
                         format!("\n{}", r.text)
@@ -4901,6 +4970,71 @@ impl Vim {
         }
         if ends_change {
             self.changed();
+        }
+    }
+
+    /// Visual block `p` and `P` (`:help v_p`): the block's columns taken
+    /// out of its lines and register `r` put in their place `count` times,
+    /// as Vim puts it: a line of characters in each line of the block
+    /// (a line ending before the block padded to it), a block at the
+    /// block's corner, other characters there too, lines below the
+    /// block's last line. `p` keeps what it replaced in the unnamed
+    /// register, as a block.
+    fn put_over_block(
+        &mut self,
+        doc: &mut DocumentState,
+        keep: bool,
+        r: &Register,
+        (first, last, left, right): (usize, usize, usize, usize),
+        count: usize,
+        host: &mut dyn Host,
+    ) {
+        if too_long(&r.text, count) {
+            self.failed = true;
+            return;
+        }
+        let last = last.min(last_line(doc));
+        let ts = self.options.tabstop.max(1);
+        let parts: Vec<BlockPart> = (first..=last)
+            .map(|l| block_part(doc, l, left, right, ts))
+            .collect();
+        let old = block_text(doc, &parts, ts);
+        let each = !r.block && !r.linewise && !r.text.contains('\n');
+        let text = r.text.repeat(count);
+        let mut tx = Transaction::new("Vim");
+        let mut corner = None;
+        for (i, p) in parts.iter().enumerate() {
+            let mut t = " ".repeat(p.pre);
+            if each {
+                if p.range.is_empty() && p.range.start == line_end(doc, first + i) {
+                    let width = display_col(doc, p.range.start, ts);
+                    t.push_str(&" ".repeat(left.saturating_sub(width)));
+                }
+                corner.get_or_insert(p.range.start + t.len());
+                t.push_str(&text);
+            } else {
+                corner.get_or_insert(p.range.start + t.len());
+            }
+            t.push_str(&" ".repeat(p.post));
+            tx.edit(p.range.clone(), t);
+        }
+        let corner = corner.unwrap_or(self.cursor);
+        let tx = tx.select(Selection::caret(corner));
+        doc.apply(&tx, ChangeKind::Command, Instant::now());
+        if each {
+            // On the last character put in the first line.
+            let caret = doc.grapheme_before(corner + text.len()).max(corner);
+            doc.selection = Selection::caret(caret);
+        } else if r.linewise {
+            let at = line_start(doc, last);
+            self.put_text(doc, r, false, count, at, last);
+        } else if !r.text.is_empty() {
+            self.put_text(doc, r, true, count, corner, first);
+        }
+        self.cursor = doc.selection.head;
+        if keep {
+            self.storing_block = true;
+            self.store(old, false, false, host);
         }
     }
 
@@ -5129,6 +5263,7 @@ impl Vim {
         }
         self.recording = Some(Change {
             keys: self.keys.clone(),
+            counts: self.count_keys.clone(),
             inserted: None,
         });
     }
@@ -5155,6 +5290,7 @@ impl Vim {
         self.last_change = Some(Change {
             keys: self.keys.clone(),
             inserted: None,
+            counts: self.count_keys.clone(),
         });
         self.recording = None;
     }
@@ -5184,20 +5320,17 @@ impl Vim {
         }
         let mut keys = change.keys.clone();
         if let Some(n) = count {
-            // A new count replaces the recorded one (a leading `0` is a
-            // motion, not a count).
-            let digits = if matches!(keys.first(), Some(Key::Char('0'))) {
-                0
-            } else {
-                keys.iter()
-                    .take_while(|k| matches!(k, Key::Char('0'..='9')))
-                    .count()
-            };
-            keys.drain(..digits);
+            // A new count replaces the change's counts, wherever they were
+            // typed (`d3w` then `2.` deletes two words, not six).
+            for &i in change.counts.iter().rev() {
+                if i < keys.len() {
+                    keys.remove(i);
+                }
+            }
             keys.splice(0..0, n.to_string().chars().map(Key::Char));
         }
         self.replaying = true;
-        self.keys.clear();
+        self.clear_keys();
         for k in keys {
             if matches!(self.mode, Mode::Insert | Mode::Replace) {
                 break;
@@ -5210,7 +5343,7 @@ impl Vim {
             self.keys.push(k);
             self.command(doc, k, host, out);
             if self.idle() {
-                self.keys.clear();
+                self.clear_keys();
             }
         }
         if self.mode == Mode::Insert {
@@ -5227,7 +5360,7 @@ impl Vim {
             self.replace_key(doc, Key::Esc);
         }
         self.replaying = false;
-        self.keys.clear();
+        self.clear_keys();
     }
 
     fn reset(&mut self) {
@@ -5635,7 +5768,7 @@ impl Vim {
                 self.reset();
             }
         }
-        self.keys.clear();
+        self.clear_keys();
     }
 
     /// CTRL-G's and `:file`'s line: the file's name, whether it changed,
@@ -5800,7 +5933,7 @@ impl Vim {
             self.mode = Mode::Normal;
         }
         self.reset();
-        self.keys.clear();
+        self.clear_keys();
     }
 }
 
