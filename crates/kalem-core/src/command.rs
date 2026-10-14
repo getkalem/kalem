@@ -295,8 +295,12 @@ pub enum Request {
     ResumePicker,
     /// Show or hide the panel shown or hidden last (Doom's `SPC ~`).
     ToggleLastPanel,
-    /// Quit without saving, after a confirmation (Doom's `SPC q Q`).
-    QuitWithoutSaving,
+    /// Quit without saving: after a confirmation (Doom's `SPC q Q`), or at
+    /// once with `force` (Vim's `:qa!`).
+    QuitWithoutSaving {
+        /// No question: the changes are dropped.
+        force: bool,
+    },
     /// Close this window, asking about its unsaved documents (`SPC q f`).
     CloseWindow,
     /// Start Kalem again, with the open documents when `restore`

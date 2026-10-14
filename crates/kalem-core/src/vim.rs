@@ -5629,7 +5629,11 @@ impl Vim {
                 }
                 quit(out, false);
             }
-            "qa" | "qall" | "quita" | "quitall" if bang => run(out, "app.quitWithoutSaving"),
+            // The bang is the consent: no question.
+            "qa" | "qall" | "quita" | "quitall" if bang => out.commands.push((
+                "app.quitWithoutSaving".into(),
+                serde_json::json!({ "force": true }),
+            )),
             "qa" | "qall" | "quita" | "quitall" => run(out, "app.quit"),
             "wqa" | "wqall" | "xa" | "xall" => {
                 run(out, "file.saveAll");

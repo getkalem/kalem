@@ -5695,3 +5695,20 @@ fn a_document_made_current_again_is_told_to_the_plugins() {
     let last = heard.borrow().last().map(|(d, _)| *d);
     assert!(last.is_some() && last != b, "{:?}", heard.borrow());
 }
+
+#[test]
+fn vim_quit_all_with_a_bang_asks_nothing() {
+    // `:qa!` drops the changes at once, as Vim's does: the bang is the
+    // consent. Quit Without Saving from the palette asks first.
+    let config =
+        || Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let mut t = with_config("one\n", config(), (40, 5));
+    t.typ("x");
+    t.app
+        .run_command("app.quitWithoutSaving", serde_json::json!({}));
+    assert!(!t.app.quit, "asked first");
+    let mut t = with_config("one\n", config(), (40, 5));
+    t.typ("x:qa!");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert!(t.app.quit);
+}

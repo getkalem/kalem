@@ -1215,10 +1215,16 @@ impl Workspace {
         modified
     }
 
-    /// Quits after a confirmation, losing the unsaved changes (`SPC q Q`).
-    pub fn quit_without_saving(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) {
+    /// Quits, losing the unsaved changes: after a confirmation (`SPC q Q`),
+    /// or at once with `force` (Vim's `:qa!`).
+    pub fn quit_without_saving(
+        &mut self,
+        force: bool,
+        window: &mut Window,
+        cx: &mut Context<'_, Self>,
+    ) {
         let n = self.modified(true, window, cx).len();
-        if n == 0 {
+        if n == 0 || force {
             cx.quit();
             return;
         }
@@ -1447,7 +1453,7 @@ impl Workspace {
             DocEvent::Quit => self.quit(window, cx),
             DocEvent::Pane(op) => self.pane_op(&op, window, cx),
             DocEvent::Workspace(op) => self.workspace_op(op, window, cx),
-            DocEvent::QuitWithoutSaving => self.quit_without_saving(window, cx),
+            DocEvent::QuitWithoutSaving { force } => self.quit_without_saving(force, window, cx),
             DocEvent::CloseWindow => self.close_window(window, cx),
             DocEvent::Choose(items) => self.editor.update(cx, |e, cx| e.open_choice(items, cx)),
             DocEvent::Notice(text, error) => self.editor.update(cx, |e, cx| {

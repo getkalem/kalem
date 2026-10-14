@@ -284,6 +284,10 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("project.remove", object(&[("path", "string", false)])),
         ("project.add", object(&[("path", "string", false)])),
         ("pane.closeOrQuit", object(&[("force", "boolean", false)])),
+        (
+            "app.quitWithoutSaving",
+            object(&[("force", "boolean", false)]),
+        ),
         ("project.rename", object(&[("name", "string", true)])),
         ("table.import", object(&[("file", "string", true)])),
         ("table.export", object(&[("file", "string", true)])),
@@ -9968,7 +9972,10 @@ fn plain_commands() -> Vec<Command> {
             "File",
             &[],
             None,
-            |ctx, _| request(ctx, Request::QuitWithoutSaving),
+            |ctx, args| {
+                let force = args.get("force").and_then(Value::as_bool) == Some(true);
+                request(ctx, Request::QuitWithoutSaving { force })
+            },
         ),
         cmd(
             "window.close",

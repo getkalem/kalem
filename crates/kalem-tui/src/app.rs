@@ -1883,8 +1883,8 @@ impl App {
                 }
                 None => self.message(tr!("msg-no-picker"), false),
             },
-            Request::QuitWithoutSaving => match self.modified_count() {
-                0 => self.close(),
+            Request::QuitWithoutSaving { force } => match self.modified_count() {
+                n if n == 0 || force => self.close(),
                 n => self.ask(
                     PromptKind::QuitDiscard,
                     &tr!("prompt-quit-discard", count = n.to_string()),
