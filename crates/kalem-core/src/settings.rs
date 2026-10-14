@@ -229,6 +229,12 @@ pub const SPECS: &[Spec] = &[
         description: "Lines a plugin marks as added or changed (the git plugin's) tinted under their text, beside their mark in the gutter",
     },
     Spec {
+        key: "editor.inlay_hints",
+        kind: Kind::Bool,
+        default: "true",
+        description: "A language server's inlay hints in the text, dimmed: types, parameters' names, a journal's running balances, as the server gives them (Toggle Inlay Hints hides them until the settings are read again)",
+    },
+    Spec {
         key: "editor.keymap_profile",
         kind: Kind::Enum(&["word", "vim"]),
         default: r#""word""#,
@@ -815,6 +821,7 @@ impl Config {
         crate::formatters::set_user_table(self.get("formatters"));
         crate::languages::load();
         crate::lsp::settings_changed();
+        crate::lsp::set_inlay_hints(self.bool("editor.inlay_hints"));
         crate::view::set_source_markers(self.str("editor.show_source_markers"));
         crate::images::set_assets_dir(self.str("org.assets_dir"));
         crate::latex_view::set_root_setting(self.str("latex.root"));

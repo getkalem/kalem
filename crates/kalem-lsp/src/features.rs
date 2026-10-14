@@ -557,6 +557,68 @@ pub fn symbols(answer: &Value) -> Vec<(usize, String, u8, Position)> {
     out
 }
 
+/// An inlay hint: text the server would show at a place of the text
+/// (a type, a parameter's name, a running balance).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InlayHint {
+    /// Where, in bytes.
+    pub at: usize,
+    /// The text, with the spaces the server asks for around it.
+    pub text: String,
+}
+
+/// The longest hint shown, in characters: a longer one is cut and ends
+/// with `…`.
+pub const MAX_HINT: usize = 120;
+
+/// Reads the answer to `textDocument/inlayHint` against the document's
+/// text: a label's parts joined, its line breaks and tabs as spaces, in
+/// the order of their places (the server's for one place); blank labels
+/// left out.
+pub fn inlay_hints(text: &str, list: &[Value], enc: Encoding) -> Vec<InlayHint> {
+    let lines = Lines::new(text);
+    let mut out: Vec<InlayHint> = list
+        .iter()
+        .filter_map(|h| {
+            let pos = Position::from_json(h.get("position")?)?;
+            let label: String = match &h["label"] {
+                Value::String(s) => s.clone(),
+                Value::Array(parts) => parts.iter().filter_map(|p| p["value"].as_str()).collect(),
+                _ => return None,
+            };
+            let mut label: String = label
+                .chars()
+                .map(|c| {
+                    if matches!(c, '\n' | '\r' | '\t') {
+                        ' '
+                    } else {
+                        c
+                    }
+                })
+                .collect();
+            if label.trim().is_empty() {
+                return None;
+            }
+            if label.chars().count() > MAX_HINT {
+                label = label.chars().take(MAX_HINT - 1).collect::<String>() + "…";
+            }
+            let pad = |k: &str| {
+                if h[k].as_bool().unwrap_or(false) {
+                    " "
+                } else {
+                    ""
+                }
+            };
+            Some(InlayHint {
+                at: lines.offset(pos, enc),
+                text: format!("{}{label}{}", pad("paddingLeft"), pad("paddingRight")),
+            })
+        })
+        .collect();
+    out.sort_by_key(|h| h.at);
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -640,5 +702,25 @@ mod tests {
             &json!({"uri": "file:///b.ex", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 0}}}),
         );
         assert_eq!(l.len(), 1);
+    }
+
+    #[test]
+    fn inlay_hints_read() {
+        let text = "a  1\n😀b\n";
+        let list = vec![
+            json!({"position": {"line": 1, "character": 3}, "label": "= 5 TRY", "paddingLeft": true}),
+            json!({"position": {"line": 0, "character": 4}, "label": [{"value": "x: "}, {"value": "u32"}], "paddingRight": true}),
+            json!({"position": {"line": 0, "character": 1}, "label": "two\nlines"}),
+            json!({"position": {"line": 0, "character": 2}, "label": "  "}),
+            json!({"position": {"line": 0, "character": 0}, "label": 7}),
+        ];
+        let h = inlay_hints(text, &list, Encoding::Utf16);
+        let got: Vec<(usize, &str)> = h.iter().map(|h| (h.at, h.text.as_str())).collect();
+        // UTF-16: the emoji is two units, so character 3 is after `b`.
+        assert_eq!(got, [(1, "two lines"), (4, "x: u32 "), (10, " = 5 TRY")]);
+        let long = vec![json!({"position": {"line": 0, "character": 0}, "label": "y".repeat(500)})];
+        let h = inlay_hints(text, &long, Encoding::Utf8);
+        assert_eq!(h[0].text.chars().count(), MAX_HINT);
+        assert!(h[0].text.ends_with('…'));
     }
 }

@@ -6117,6 +6117,21 @@ fn code_commands() -> Vec<Command> {
             |ctx, _| ask(ctx, Kind::Symbols),
         ),
         cmd(
+            "code.toggleInlayHints",
+            "Toggle Inlay Hints",
+            "Code",
+            &[],
+            None,
+            |ctx, _| {
+                ctx.messages.push(if crate::lsp::toggle_inlay_hints() {
+                    crate::tr!("lsp-inlay-hints-shown")
+                } else {
+                    crate::tr!("lsp-inlay-hints-hidden")
+                });
+                Ok(())
+            },
+        ),
+        cmd(
             "code.problems",
             "List Problems",
             "Code",

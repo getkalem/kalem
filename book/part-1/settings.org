@@ -60,6 +60,7 @@ of the Book's site lists every one, generated from the code
 | =editor.center_text=      | =false=    | The text column in the middle of the window                  |
 | =editor.soft_wrap=        | =true=     | Wrap long lines                                              |
 | =editor.line_numbers=     | =true=     | Line numbers in plain text and the source view               |
+| =editor.inlay_hints=      | =true=     | A language server's inlay hints in the text                  |
 | =editor.keymap_profile=   | ="word"=   | =word= or =vim=                                              |
 | =editor.vim.leader=       | ="space"=  | The leader of the Vim keys (=SPC p p=)                       |
 | =editor.restore_session=  | =false=    | On start without a file, the documents open at the last quit |

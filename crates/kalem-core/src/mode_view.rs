@@ -208,9 +208,11 @@ impl ModeView for Plain {
     ) -> LineView {
         let mut v = view::plain_line_view(doc.text().as_str(), range, cursor);
         v.mono = doc.meta.mode != DocumentMode::Org;
-        // LaTeX's checks; a language server's problems in code files.
+        // LaTeX's checks; a language server's problems and inlay hints in
+        // code files.
         crate::latex_view::flag_diagnostics(doc, &mut v);
         crate::lsp::flag_diagnostics(doc, &mut v);
+        crate::lsp::inlay_hints(doc, &mut v);
         v
     }
 

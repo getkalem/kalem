@@ -391,6 +391,7 @@ with the plugin's =install= text. Restart Language Server
 | Format the document              | =SPC c f=          |                   | =edit.formatDocument=                   |
 | Restart the server               |                    |                   | =code.restartServer=                    |
 | What serves the file             |                    |                   | =code.serverStatus=                     |
+| Inlay hints shown or hidden      |                    |                   | =code.toggleInlayHints=                 |
 
 =gd=, =gD= and =K= act only in files a server serves. A =SPC c= key
 with no server says why: no plugin for the file's type, a server
@@ -434,6 +435,18 @@ applied and its command run; the edits a server then asks to apply
 outside the editor in a server's project (a checkout, a dependency
 fetched) are told to the server, which compiles again.
 
+Inlay hints, the short texts a server would show in a line (a type, a
+parameter's name, an elided amount, a running balance), are drawn in
+place, dimmed and in italics, in both editors; the cursor passes over
+them. Kalem asks for those of the whole file once the server is ready,
+after each change once the last question is answered, and again when
+the server says they changed; until the answer, the hints shown move
+with the edits, and those inside an edit go. =editor.inlay_hints= (on)
+shows them, and Toggle Inlay Hints (=code.toggleInlayHints=) hides or
+shows them until the settings are read again. The server decides which
+it gives: hledger-lsp's running balances, for one, come only once its
+=inlayHints.showRunningBalances= is set.
+
 * On the command line
 
 #+begin_src sh
@@ -460,7 +473,7 @@ A completion item's documentation is the server's: given with the
 items (Expert, ElixirLS), or fetched with =completionItem/resolve= when
 an item is chosen, from servers that answer it.
 
-Inlay hints, semantic tokens, folding ranges, code lenses, workspace
+Semantic tokens, folding ranges, code lenses, workspace
 symbols and the server's own command list are the rest of T3.8.2.
 Completion items are inserted as plain text until the snippet engine
 (T3.8.3): a function is inserted as =name()= with the cursor between

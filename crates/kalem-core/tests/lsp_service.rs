@@ -198,6 +198,36 @@ fn main() {
     assert_eq!(lines, ["def f", "", "a b c …"]);
     println!("test hover ... ok");
 
+    // Inlay hints: the server's at their places in the line's view, moved
+    // at once with an edit before them and replaced by the server's next
+    // ones, hidden and shown again.
+    let shown = |doc: &DocumentState| {
+        let mut v =
+            kalem_core::view::plain_line_view(doc.text().as_str(), doc.text().line_range(0), None);
+        lsp::inlay_hints(doc, &mut v);
+        v.display()
+    };
+    until("inlay hints", || {
+        (shown(&doc) == "TODO one  two =2 bad").then_some(())
+    });
+    edit(&mut doc, 0..0, "X");
+    assert_eq!(shown(&doc), "XTODO one  two =2 bad");
+    edit(&mut doc, 0..1, "");
+    let at = doc.text().as_str().find("two").unwrap();
+    edit(&mut doc, at..at + 3, "six");
+    until("the hint gone", || {
+        (shown(&doc) == "TODO one  six bad").then_some(())
+    });
+    edit(&mut doc, at..at + 3, "two");
+    until("the hint back", || {
+        (shown(&doc) == "TODO one  two =2 bad").then_some(())
+    });
+    assert!(!lsp::toggle_inlay_hints());
+    assert_eq!(shown(&doc), "TODO one  two bad");
+    assert!(lsp::toggle_inlay_hints());
+    assert_eq!(shown(&doc), "TODO one  two =2 bad");
+    println!("test inlay hints ... ok");
+
     lsp::request(&doc, Kind::Definition).unwrap();
     match outcome(&file, doc.version()) {
         Outcome::Jump(p) => {

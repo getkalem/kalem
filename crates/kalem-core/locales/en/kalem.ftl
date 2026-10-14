@@ -1299,6 +1299,7 @@ cmd-code-references = Find References
 cmd-code-symbols = Go to Symbol in Document
 cmd-code-problems = List Problems
 cmd-code-allProblems = List Problems of Open Files
+cmd-code-toggleInlayHints = Toggle Inlay Hints
 cmd-code-expandMacro = Expand Macro
 cmd-code-openDocs = Open Documentation in the Browser
 cmd-code-parentModule = Go to Parent Module
@@ -1666,6 +1667,8 @@ choice-no = No
 ## Language servers (D57) and plugins installed from Kalem.
 
 lsp-off = Language servers are off for { $plugin }
+lsp-inlay-hints-shown = Inlay hints shown
+lsp-inlay-hints-hidden = Inlay hints hidden
 lsp-did-not-start = { $server } did not start: { $reason }
 lsp-did-not-start-how = { $server } did not start: { $reason } ({ $how })
 lsp-no-initialize = no answer to `initialize` in { $seconds } s

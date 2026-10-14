@@ -18,7 +18,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
-use crate::position::{Encoding, range_json};
+use crate::position::{Encoding, Position, range_json};
 use crate::rpc;
 
 /// How a server is started and configured.
@@ -210,6 +210,11 @@ pub enum Event {
         /// The document.
         uri: String,
     },
+    /// New inlay hints for a document ([`Client::inlay_hints`] has them).
+    Hints {
+        /// The document.
+        uri: String,
+    },
     /// `window/showMessage`: 1 error, 2 warning, 3 info, 4 log.
     Message {
         /// The level.
@@ -266,6 +271,26 @@ struct Pulled {
     not_before: Option<Instant>,
 }
 
+/// A document's inlay hints as the server gave them when asked
+/// (`textDocument/inlayHint`), and the asking.
+#[derive(Debug, Default)]
+struct Hinted {
+    /// The document's version they were made for.
+    version: Option<i64>,
+    /// The server's `InlayHint`s.
+    items: Vec<Value>,
+    /// An answer came.
+    answered: bool,
+    /// The range asked about: the whole text, as it was last asked.
+    range: Value,
+    /// The request under way, and the version it asks about.
+    asking: Option<(Pending, Option<i64>)>,
+    /// Asked again once the request under way is answered.
+    again: bool,
+    /// Not asked again before this (a request the server cancelled).
+    not_before: Option<Instant>,
+}
+
 /// The server cancelled the request (LSP 3.17): ask again.
 pub const SERVER_CANCELLED: i64 = -32802;
 /// The server's state changed under the request (a project loaded, a
@@ -314,6 +339,10 @@ struct Inner {
     /// Counts the diagnostics published, so readers know when theirs are
     /// out of date.
     published: AtomicU64,
+    /// Inlay hints given when asked, by document as the editor names it.
+    hinted: Mutex<HashMap<String, Hinted>>,
+    /// Counts the answers with inlay hints.
+    hint_answers: AtomicU64,
     /// Work in progress by token: its title (from its `begin`) and the
     /// text shown.
     progress: Mutex<Vec<(String, String, String)>>,
@@ -638,6 +667,126 @@ impl Inner {
         p.not_before = None;
     }
 
+    /// The server gives inlay hints (`inlayHintProvider`).
+    fn gives_hints(&self) -> bool {
+        let st = self.state.read().expect("state");
+        st.ready
+            && !matches!(
+                st.capabilities.get("inlayHintProvider"),
+                None | Some(Value::Null) | Some(Value::Bool(false))
+            )
+    }
+
+    /// Asks for the inlay hints of `uri` over its whole text (ending at
+    /// `end`; where it ended when last asked, when none), unless they are
+    /// in or asked for at the version last sent.
+    fn ask_hints(self: &Arc<Self>, uri: &str, end: Option<Position>) {
+        if !self.gives_hints() {
+            return;
+        }
+        let Some(version) = self.versions.lock().expect("versions").get(uri).copied() else {
+            return;
+        };
+        let mut all = self.hinted.lock().expect("hinted");
+        let h = all.entry(uri.to_string()).or_default();
+        if let Some(end) = end {
+            h.range = json!({ "start": { "line": 0, "character": 0 }, "end": end.to_json() });
+        }
+        if h.range.is_null() {
+            return;
+        }
+        match &h.asking {
+            Some((_, v)) if *v == Some(version) && !h.again => return,
+            Some(_) => {
+                h.again = true;
+                return;
+            }
+            None => {}
+        }
+        if h.answered && h.version == Some(version) && !h.again {
+            return;
+        }
+        if h.not_before.is_some_and(|t| t > Instant::now()) {
+            h.again = true;
+            return;
+        }
+        let params = json!({ "textDocument": { "uri": uri }, "range": h.range });
+        h.asking = Some((
+            self.request("textDocument/inlayHint", params, false),
+            Some(version),
+        ));
+        h.again = false;
+        h.not_before = None;
+    }
+
+    /// The server's inlay hints changed (`workspace/inlayHint/refresh`):
+    /// every document asked about is asked again.
+    fn refresh_hints(self: &Arc<Self>) {
+        let uris: Vec<String> = {
+            let mut all = self.hinted.lock().expect("hinted");
+            for h in all.values_mut() {
+                h.again = true;
+            }
+            all.keys().cloned().collect()
+        };
+        for uri in uris {
+            self.ask_hints(&uri, None);
+        }
+    }
+
+    /// The answers with inlay hints come; documents asked about again
+    /// where they must be.
+    fn poll_hints(self: &Arc<Self>) {
+        let now = Instant::now();
+        let mut changed = Vec::new();
+        let mut again = Vec::new();
+        {
+            let mut all = self.hinted.lock().expect("hinted");
+            for (uri, h) in all.iter_mut() {
+                if let Some((pending, version)) = &h.asking {
+                    let Some(answer) = pending.poll() else {
+                        continue;
+                    };
+                    let version = *version;
+                    h.asking = None;
+                    match answer {
+                        Ok(r) => {
+                            h.items = r.as_array().cloned().unwrap_or_default();
+                            h.version = version;
+                            h.answered = true;
+                            changed.push(uri.clone());
+                        }
+                        Err(e) if e.code == SERVER_CANCELLED || e.code == CONTENT_MODIFIED => {
+                            h.again = true;
+                            h.not_before = Some(now + Duration::from_millis(300));
+                        }
+                        Err(e) => {
+                            // None for this version: not asked again
+                            // until the text changes.
+                            self.log(format!("[client] inlay hints of {uri}: {e}"));
+                            h.items.clear();
+                            h.version = version;
+                            h.answered = true;
+                            changed.push(uri.clone());
+                        }
+                    }
+                }
+                if h.asking.is_none() && h.again && h.not_before.is_none_or(|t| t <= now) {
+                    again.push(uri.clone());
+                }
+            }
+        }
+        if !changed.is_empty() {
+            self.hint_answers.fetch_add(1, Ordering::Relaxed);
+            for uri in changed {
+                self.event(Event::Hints { uri });
+            }
+        }
+        for uri in again {
+            self.ask_hints(&uri, None);
+        }
+    }
+
     /// Asks for the diagnostics of every open document.
     fn pull_all(self: &Arc<Self>) {
         let uris: Vec<String> = self
@@ -801,11 +950,13 @@ fn own_capabilities() -> Value {
             "applyEdit": true,
             "workspaceEdit": { "documentChanges": true },
             "diagnostics": { "refreshSupport": true },
+            "inlayHint": { "refreshSupport": true },
         },
         "window": { "workDoneProgress": true, "showMessage": {} },
         "textDocument": {
             "synchronization": { "didSave": true, "willSave": false, "willSaveWaitUntil": false },
             "diagnostic": { "dynamicRegistration": false, "relatedDocumentSupport": false },
+            "inlayHint": { "dynamicRegistration": false },
             "publishDiagnostics": { "relatedInformation": false, "versionSupport": true },
             "hover": { "contentFormat": ["markdown", "plaintext"] },
             "completion": {
@@ -881,6 +1032,8 @@ impl Client {
             diagnostics: Mutex::new(HashMap::new()),
             pulled: Mutex::new(HashMap::new()),
             published: AtomicU64::new(0),
+            hinted: Mutex::new(HashMap::new()),
+            hint_answers: AtomicU64::new(0),
             progress: Mutex::new(Vec::new()),
             status: Mutex::new(None),
             events: Mutex::new(VecDeque::new()),
@@ -1156,6 +1309,35 @@ impl Client {
         self.inner.published.load(Ordering::Relaxed)
     }
 
+    /// Asks for the inlay hints of `uri`, an open document whose text ends
+    /// at `end`, unless the server's answer for the version last sent is
+    /// in or asked for: one request at a time per document, the version
+    /// sent meanwhile asked once it is answered.
+    pub fn ask_inlay_hints(&self, uri: &str, end: Position) {
+        self.inner.ask_hints(uri, Some(end));
+    }
+
+    /// The inlay hints the server gave for `uri` as it was last sent (its
+    /// `InlayHint`s); none before they come, or while they are older.
+    pub fn inlay_hints(&self, uri: &str) -> Option<Vec<Value>> {
+        let now = self
+            .inner
+            .versions
+            .lock()
+            .expect("versions")
+            .get(uri)
+            .copied();
+        let all = self.inner.hinted.lock().expect("hinted");
+        let h = all.get(uri)?;
+        (h.answered && h.version == now).then(|| h.items.clone())
+    }
+
+    /// How many answers with inlay hints came: a reader's copy is up to
+    /// date while this has not moved.
+    pub fn hints_answered(&self) -> u64 {
+        self.inner.hint_answers.load(Ordering::Relaxed)
+    }
+
     /// The diagnostics of `uri` were made for an older version of it than
     /// the one sent since: their places may have moved. Servers that do not
     /// say the version are taken at their word.
@@ -1316,6 +1498,7 @@ impl Client {
             .expect("diagnostics")
             .remove(&crate::uri::normalize(uri));
         self.inner.pulled.lock().expect("pulled").remove(uri);
+        self.inner.hinted.lock().expect("hinted").remove(uri);
         self.inner.published.fetch_add(1, Ordering::Relaxed);
     }
 
@@ -1376,6 +1559,10 @@ fn reader(inner: Arc<Inner>, stdout: std::process::ChildStdout, init: Pending) {
             (None, Some(_)) => inner.on_response(&msg),
             (None, None) => {}
         }
+        // The server's inlay hints changed: asked for again.
+        if method == Some("workspace/inlayHint/refresh") {
+            inner.refresh_hints();
+        }
         // The server's diagnostics changed: asked for again.
         if method == Some("workspace/diagnostic/refresh") {
             inner.pull_all();
@@ -1401,6 +1588,8 @@ fn reader(inner: Arc<Inner>, stdout: std::process::ChildStdout, init: Pending) {
         }
         // Answers to the diagnostics asked for, among the messages read.
         inner.poll_pulls();
+        // And to the inlay hints asked for.
+        inner.poll_hints();
     }
     // The output closes as the process ends; its exit status follows a
     // moment later (more than 400 ms on a busy Windows machine).

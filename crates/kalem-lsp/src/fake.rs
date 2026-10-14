@@ -221,6 +221,7 @@ pub fn serve(behavior: &str) {
                     "renameProvider": true,
                     "codeActionProvider": true,
                     "executeCommandProvider": {"commands": ["fake.cmd"]},
+                    "inlayHintProvider": true,
                 }}});
                 if behavior == "pull" {
                     answer["result"]["capabilities"]["diagnosticProvider"] =
@@ -592,6 +593,22 @@ pub fn serve(behavior: &str) {
                     &mut out,
                     json!({"jsonrpc": "2.0", "id": 901, "method": "workspace/applyEdit",
                         "params": {"edit": {"changes": changes}}}),
+                );
+            }
+            // A hint after each `two`: `=2`, in two parts, apart from it.
+            "textDocument/inlayHint" => {
+                let text = texts.get(&uri).cloned().unwrap_or_default();
+                let hints: Vec<Value> = text
+                    .match_indices("two")
+                    .map(|(i, w)| {
+                        let p = position(&text, i + w.len(), Encoding::Utf16);
+                        json!({"position": p.to_json(), "label": [{"value": "="}, {"value": "2"}],
+                            "paddingLeft": true})
+                    })
+                    .collect();
+                send(
+                    &mut out,
+                    json!({"jsonrpc": "2.0", "id": id, "result": hints}),
                 );
             }
             "textDocument/signatureHelp" => {

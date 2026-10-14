@@ -48,7 +48,8 @@ fn normal() {
     c.did_open(uri, "elixir", "😀a\nb");
     until("ready", || c.is_ready());
     assert!(c.provides("hoverProvider"));
-    assert!(!c.provides("inlayHintProvider"));
+    assert!(c.provides("inlayHintProvider"));
+    assert!(!c.provides("semanticTokensProvider"));
     // An incremental change after the emoji: UTF-16 positions.
     c.did_change(
         uri,

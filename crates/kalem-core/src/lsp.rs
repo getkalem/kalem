@@ -13,6 +13,7 @@
 use std::collections::HashMap;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -220,6 +221,75 @@ impl Doc {
         };
         Some(start + from..start + to.max(from))
     }
+
+    /// Reads the servers' inlay hints when they gave new ones or the text
+    /// changed, and asks for those of the text as it is where theirs are
+    /// older: the hints shown stay, moved with the edits, until every
+    /// server's are of the text as it is.
+    fn refresh_hints(&mut self) {
+        let clients = self.clients();
+        let key = (
+            clients
+                .iter()
+                .map(|c| (Arc::as_ptr(c) as usize, c.hints_answered(), c.is_ready()))
+                .collect(),
+            self.text_rev,
+        );
+        if self.hints_key == key {
+            return;
+        }
+        self.hints_key = key;
+        let mut list = Vec::new();
+        let mut current = true;
+        for c in clients
+            .iter()
+            .filter(|c| c.is_ready() && c.provides("inlayHintProvider"))
+        {
+            match c.inlay_hints(&self.uri) {
+                Some(items) => list.extend(
+                    features::inlay_hints(&self.text, &items, c.encoding())
+                        .into_iter()
+                        .map(|h| (h.at, h.text)),
+                ),
+                None => {
+                    current = false;
+                    let end = self.end_position(c.encoding());
+                    c.ask_inlay_hints(&self.uri, end);
+                }
+            }
+        }
+        if current {
+            list.sort_by_key(|h| h.0);
+            self.hints = list;
+        }
+    }
+
+    /// Where the text ends, as a server counts.
+    fn end_position(&mut self, enc: Encoding) -> Position {
+        let starts = self.line_starts();
+        let (line, start) = (
+            starts.len().saturating_sub(1),
+            starts.last().copied().unwrap_or(0),
+        );
+        let last = &self.text[start..];
+        Position {
+            line: u32::try_from(line).unwrap_or(u32::MAX),
+            character: kalem_lsp::position::position(last, last.len(), enc).character,
+        }
+    }
+
+    /// Moves the hints shown with an edit replacing bytes `range` by `len`
+    /// bytes: those after it shift, those inside it go.
+    fn shift_hints(&mut self, range: &Range<usize>, len: usize) {
+        self.hints.retain_mut(|(at, _)| {
+            if *at >= range.end {
+                *at = *at - range.end + range.start + len;
+                true
+            } else {
+                *at <= range.start
+            }
+        });
+    }
 }
 
 struct Slot {
@@ -356,6 +426,13 @@ struct Doc {
     opened_in: Option<Arc<Client>>,
     /// The servers beside its own (the language's `alongside`).
     also: Vec<Also>,
+    /// The inlay hints shown: where, in bytes, and the text, in order;
+    /// moved with the edits made since the servers gave them.
+    hints: Vec<(usize, String)>,
+    /// Each server (its address), its count of answers with hints and
+    /// whether it was ready, and the text's change count, when the hints
+    /// were last read.
+    hints_key: (Vec<(usize, u64, bool)>, u64),
 }
 
 /// A server that serves a document beside the document's own, as its
@@ -828,6 +905,8 @@ impl Service {
             diags: None,
             opened_in: None,
             also: Vec::new(),
+            hints: Vec::new(),
+            hints_key: (Vec::new(), u64::MAX),
         };
         if let Some(key) = doc.key.clone() {
             match self.client_for(&key, &doc.plugin) {
@@ -938,6 +1017,7 @@ pub fn sync(doc: &DocumentState) {
             for c in &clients {
                 c.did_change(&d.uri, &d.text, std::slice::from_ref(&edit), text);
             }
+            d.shift_hints(&edit.range, edit.text.len());
             // Typing a call's `(` or `,` asks for its signature; its `)`
             // closes it.
             if edit.range.is_empty() {
@@ -2786,6 +2866,86 @@ pub fn flag_diagnostics(doc: &DocumentState, v: &mut crate::view::LineView) {
     if !here.is_empty() {
         crate::latex_view::flag_ranges(v, &here);
     }
+}
+
+/// Inlay hints shown (`editor.inlay_hints`; Toggle Inlay Hints).
+static HINTS_ON: AtomicBool = AtomicBool::new(true);
+
+/// Shows the servers' inlay hints, or not (`editor.inlay_hints`).
+pub fn set_inlay_hints(on: bool) {
+    HINTS_ON.store(on, Ordering::Relaxed);
+}
+
+/// Shows the inlay hints when they are hidden, hides them when they show;
+/// whether they show now.
+pub fn toggle_inlay_hints() -> bool {
+    !HINTS_ON.fetch_xor(true, Ordering::Relaxed)
+}
+
+/// Puts the servers' inlay hints (a type, a parameter's name, a running
+/// balance) on line view `v` of `doc`: each as dimmed italic text at its
+/// place, which the cursor passes over. They are of the text as the
+/// servers last saw it, moved with the edits made since, until new ones
+/// come.
+pub fn inlay_hints(doc: &DocumentState, v: &mut crate::view::LineView) {
+    if !HINTS_ON.load(Ordering::Relaxed) {
+        return;
+    }
+    let Some(path) = code_file(doc) else { return };
+    let line = v.range.clone();
+    let here: Vec<(usize, String)> = with(|s| {
+        let Some(d) = s.docs.get_mut(path) else {
+            return Vec::new();
+        };
+        d.refresh_hints();
+        let from = d.hints.partition_point(|h| h.0 < line.start);
+        d.hints[from..]
+            .iter()
+            .take_while(|h| h.0 <= line.end)
+            .cloned()
+            .collect()
+    });
+    for (at, text) in here {
+        insert_hint(v, at, text);
+    }
+}
+
+/// Puts `text` in line view `v` at source byte `at` as text of no source:
+/// after the runs ending there, a run it falls in split in two.
+fn insert_hint(v: &mut crate::view::LineView, at: usize, text: String) {
+    use crate::view::{Run, Style};
+    let hint = Run {
+        src: at..at,
+        text,
+        verbatim: false,
+        style: Style {
+            dim: true,
+            italic: true,
+            ..Style::default()
+        },
+        widget: None,
+    };
+    let i = v
+        .runs
+        .iter()
+        .position(|r| r.src.end > at)
+        .unwrap_or(v.runs.len());
+    let Some(r) = v.runs.get(i).filter(|r| r.src.start < at) else {
+        v.runs.insert(i, hint);
+        return;
+    };
+    let cut = at - r.src.start;
+    if r.verbatim && r.text.len() == r.src.len() && r.text.is_char_boundary(cut) {
+        let mut after = r.clone();
+        after.src.start = at;
+        after.text = r.text[cut..].to_string();
+        let before = &mut v.runs[i];
+        before.src.end = at;
+        before.text.truncate(cut);
+        v.runs.insert(i + 1, after);
+    }
+    // Between the halves; after a run shown otherwise than its source.
+    v.runs.insert(i + 1, hint);
 }
 
 /// The most serious problem starting on line `line` (from 0) of `doc`,

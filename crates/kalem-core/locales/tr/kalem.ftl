@@ -1215,6 +1215,7 @@ cmd-code-references = Başvuruları Bul
 cmd-code-symbols = Belgedeki Simgeye Git
 cmd-code-problems = Sorunları Listele
 cmd-code-allProblems = Açık Dosyaların Sorunlarını Listele
+cmd-code-toggleInlayHints = Satır İçi İpuçlarını Aç/Kapat
 cmd-code-expandMacro = Makroyu Genişlet
 cmd-code-openDocs = Belgelendirmeyi Tarayıcıda Aç
 cmd-code-parentModule = Üst Modüle Git
@@ -1582,6 +1583,8 @@ choice-no = Hayır
 ## Dil sunucuları (D57) ve Kalem'den kurulan eklentiler.
 
 lsp-off = { $plugin } için dil sunucuları kapalı
+lsp-inlay-hints-shown = Satır içi ipuçları gösteriliyor
+lsp-inlay-hints-hidden = Satır içi ipuçları gizlendi
 lsp-did-not-start = { $server } başlamadı: { $reason }
 lsp-did-not-start-how = { $server } başlamadı: { $reason } ({ $how })
 lsp-no-initialize = `initialize` isteğine { $seconds } saniyede yanıt yok
