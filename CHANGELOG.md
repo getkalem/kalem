@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.24] - 2026-10-14
+
 ### Added
 - Narrowing in any mode: Narrow to Lines (`view.narrowToLines`) shows only the selected lines, or the lines `start` to `end` a plugin names, in Markdown, code and plain text as in Org, so that an outliner's plugin zooms into a block (the graph plugin's Zoom). In a narrowed document of any mode the cursor stays in the part shown (a motion, Go to Line or Ctrl+End past it stops at its edge), Find and Replace All work in it, and with Vim's keys `gg`, `G`, searches, an operator's motion and the command line's ranges (`%`, a line number) keep to it, as Emacs keeps a narrowed buffer; a document stays narrowed when its mode changes.
 
