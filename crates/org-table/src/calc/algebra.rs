@@ -498,11 +498,21 @@ fn add_rules<'a>(a: Cow<'a, Expr>, b: &Expr, env: &Env) -> Result<Expr, Cow<'a, 
     };
     if let Some(plus) = like {
         let (p, q) = parts(a);
-        return Ok(if plus {
-            add_owned(p, &add_owned(q, b, env), env)
+        let r = if plus {
+            // `q` and `b` added as they are (a vector and a multiple of it,
+            // which `combine` takes for like terms): put back so, they came
+            // here again for ever, out of stack; they are combined as
+            // `combine` combines them instead.
+            match add(&q, b, env) {
+                Expr::Call(f, xs) if f == "+" && xs.len() == 2 && xs[0] == q && xs[1] == *b => {
+                    combine(&q, b, 1, env).expect("like terms")
+                }
+                r => r,
+            }
         } else {
-            add_owned(p, &sub(b, &q, env), env)
-        });
+            sub(b, &q, env)
+        };
+        return Ok(add_owned(p, &r, env));
     }
     if is_sum(b) {
         return Err(a);

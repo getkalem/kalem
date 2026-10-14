@@ -89,3 +89,20 @@ fn random_stays_in_range() {
     let draws: std::collections::HashSet<String> = (0..50).map(|_| ev("random(1000000)")).collect();
     assert!(draws.len() > 40);
 }
+
+/// A vector and a multiple of it after a term: Calc takes them for like
+/// terms and the sum's last term, put back with them uncombined, came back
+/// for ever, out of stack. Emacs spreads the modulo form over the vector
+/// first (`x + [4 mod 5, 3 mod 5]`); here the two are combined as like
+/// terms.
+#[test]
+fn like_terms_that_do_not_add_up() {
+    let m = calc::Modes::default();
+    let ev = |f: &str| calc::eval(f, &m).unwrap();
+    assert_eq!(ev("x + [1, 2] + (3 mod 5) [1, 2]"), "x + (4 mod 5) [1, 2]");
+    assert_eq!(ev("a + [1, 2] - (2 mod 5) [1, 2]"), "a + (4 mod 5) [1, 2]");
+    assert_eq!(
+        ev("-a + [a, 1] + (2 mod 5) * ([a, 1]) + 2"),
+        "(3 mod 5) [a, 1] - a + 2"
+    );
+}

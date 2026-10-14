@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A document whose edits are undone back to the text it was saved (or opened) with is no longer modified: its title has no mark, closing and quitting do not ask, and Vim's `:q` quits. It stayed modified until saved again. Line endings, a byte order mark or an encoding changed since still count.
 - Prompts say what they ask for, in the interface's language and with the forms they take where it helps ("cell (B12 or @12$2)", "date (2026-10-14, +3d)"): 79 of them, the file manager's among them, showed the argument's internal English name, such as `target`, `name` or `path`.
 - A table formula's Calc product of many symbolic factors (`vprod` over a column of words) is multiplied, evaluated and written factor by factor: Calc keeps a product nested to the right, and each went a level deeper for each factor, so that a thousand words ran out of a small thread's stack. It is a fifth faster too, a thousand words in 230 ms rather than 290.
+- A table formula adding a vector and a multiple of it after another term, such as `x + [1, 2] + (3 mod 5) [1, 2]`, no longer crashes Kalem: Calc took the two for like terms, and adding them left them as they were, so that it went round for ever. They are combined, `x + (4 mod 5) [1, 2]`.
 
 ## [0.6.24] - 2026-10-14
 
