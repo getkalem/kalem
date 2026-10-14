@@ -54,7 +54,8 @@ pub struct Transaction {
     pub broken: bool,
 }
 
-/// An error building a transaction.
+/// An error building a transaction: an edit overlapping another, or a
+/// range that ends before it starts.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OverlapError {
     /// The rejected range.
@@ -63,11 +64,12 @@ pub struct OverlapError {
 
 impl std::fmt::Display for OverlapError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "edit {}..{} overlaps another edit",
-            self.range.start, self.range.end
-        )
+        let Range { start, end } = self.range;
+        if start > end {
+            write!(f, "edit {start}..{end} ends before it starts")
+        } else {
+            write!(f, "edit {start}..{end} overlaps another edit")
+        }
     }
 }
 
@@ -84,13 +86,20 @@ impl Transaction {
 
     /// Adds a replacement. Replacements may come in any order but must not
     /// overlap (two insertions at the same position are applied in the
-    /// order they were added).
+    /// order they were added), and a range must not end before it starts.
+    /// A transaction an [`edit`](Transaction::edit) broke takes no more:
+    /// it changes nothing rather than half of what it meant to.
     pub fn replace(
         &mut self,
         range: Range<usize>,
         insert: impl Into<String>,
     ) -> Result<&mut Self, OverlapError> {
-        assert!(range.start <= range.end, "reversed range");
+        if self.broken {
+            return Ok(self);
+        }
+        if range.start > range.end {
+            return Err(OverlapError { range });
+        }
         // Sorted by start; at one position, insertions come before a
         // replacement, and equal keys keep their order.
         let key = |r: &Range<usize>| (r.start, !r.is_empty());
@@ -118,10 +127,10 @@ impl Transaction {
 
     /// Adds a replacement that the caller knows overlaps no other (the
     /// only one, or ranges taken apart from one another). Should it
-    /// overlap after all, a bug: debug builds and tests stop on it, and a
-    /// release drops every edit of the transaction, so the command
-    /// changes nothing instead of ending the program or applying half of
-    /// itself.
+    /// overlap after all, or end before it starts, a bug: debug builds and
+    /// tests stop on it, and a release drops every edit of the
+    /// transaction, so the command changes nothing instead of ending the
+    /// program or applying half of itself.
     pub fn edit(&mut self, range: Range<usize>, insert: impl Into<String>) -> &mut Self {
         if self.broken {
             return self;
@@ -276,5 +285,22 @@ mod tests {
         assert_eq!(t.map(8, Assoc::After), 14);
         let c = t.covering_edit(text).unwrap();
         assert_eq!(c.apply(text), after);
+    }
+
+    #[test]
+    fn reversed_ranges_and_broken_transactions() {
+        // A range that ends before it starts is refused, not a crash.
+        let mut t = Transaction::new("t");
+        let e = t.replace(Range { start: 5, end: 3 }, "x").unwrap_err();
+        assert_eq!(e.to_string(), "edit 5..3 ends before it starts");
+        assert!(t.edits.is_empty());
+        // A transaction an edit broke takes no more, whichever way they
+        // come: it changes nothing rather than half of what it meant to.
+        t.broken = true;
+        t.replace(0..1, "a").unwrap();
+        t.insert(2, "b").unwrap();
+        t.delete(3..4).unwrap();
+        t.edit(0..1, "c");
+        assert!(t.edits.is_empty());
     }
 }
