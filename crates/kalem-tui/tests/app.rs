@@ -1242,6 +1242,37 @@ fn focus_mode_and_text_column() {
     assert_eq!(indent, (120 - 82) / 2 + 1, "{row:?}");
 }
 
+/// Focus mode in Markdown: the section of the `#` heading the cursor is
+/// under; a `*` bullet is no heading (it took Org's headlines).
+#[test]
+fn focus_mode_in_markdown() {
+    let text = "alpha\n* bravo\n# Charlie\ndelta\n* echo\n## Foxtrot\ngolf\n# Hotel\nindia\n";
+    let mut t = with_file(text, "f.md", Config::default(), (60, 10));
+    let shown = |t: &mut T| (0..8).map(|y| t.row(y)).collect::<Vec<_>>().join("\n");
+    t.at(text.find("echo").unwrap());
+    t.key(KeyCode::F(8), KeyModifiers::NONE);
+    let s = shown(&mut t);
+    assert!(
+        s.contains("delta") && s.contains("echo") && s.contains("golf"),
+        "{s}"
+    );
+    assert!(!s.contains("alpha") && !s.contains("india"), "{s}");
+    // In the subsection, it alone.
+    t.at(text.find("golf").unwrap());
+    let s = shown(&mut t);
+    assert!(
+        s.contains("golf") && !s.contains("echo") && !s.contains("india"),
+        "{s}"
+    );
+    // Before the first heading, the text there, its bullet with it.
+    t.at(text.find("alpha").unwrap());
+    let s = shown(&mut t);
+    assert!(
+        s.contains("alpha") && s.contains("bravo") && !s.contains("delta"),
+        "{s}"
+    );
+}
+
 #[test]
 fn a_markdown_note_narrowed_to_lines() {
     // A plugin's zoom into an outliner's block (`view.narrowToLines`).

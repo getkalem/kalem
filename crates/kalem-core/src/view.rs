@@ -1613,7 +1613,8 @@ pub struct Visible {
 
 /// The part of the document a view shows, if not all of it: the narrowed
 /// part, or in focus mode the section holding the cursor (its innermost
-/// headline's subtree, or the text before the first headline).
+/// headline's subtree, a Markdown heading's section, or the text before
+/// the first one).
 pub fn limit(doc: &crate::DocumentState, focus: bool) -> Option<Range<usize>> {
     if let Some(r) = &doc.narrowing {
         return Some(r.clone());
@@ -1627,6 +1628,9 @@ pub fn limit(doc: &crate::DocumentState, focus: bool) -> Option<Range<usize>> {
         .map(|(p, _)| p.context().clone())
         .unwrap_or_default();
     let head = doc.selection.head.min(text.len());
+    if doc.meta.mode == crate::DocumentMode::Markdown {
+        return Some(crate::markdown::section_range(doc, head));
+    }
     Some(
         org_edit::headline::subtree_range(text, head, &ctx).unwrap_or_else(|_| {
             // Before the first headline.

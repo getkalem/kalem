@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A table formula whose Calc sum grows long no longer crashes Kalem by running out of stack: `vsum` over a column of several thousand words, or a column formula over its own column iterated (`C-u C-u C-c *`), whose sum doubles at each pass, went a level deeper for each term. Past 5,000 symbolic terms, or a formula nested as deep, the field shows `#ERROR`, as Emacs errs (at about a thousand, Lisp's `max-lisp-eval-depth`); a vector of numbers of any length is summed as before.
 - A plugin built for a later plugin API than Kalem's is not installed, and one installed already does not start, with a message that says so: “pta 0.5.0 needs plugin API ^0.2.14, and this Kalem has 0.2.13: update Kalem to use it”. An extension plugin was installed and then refused at start as asking for “what it was not granted”, which read as a permission to give, and a viewer was to be updated from Browse Plugins.
 - In the terminal editor's palette and prompts, Ctrl+U deletes to the start of the line, as on Vim's command line and in a shell, so that a value a prompt offers is cleared before typing another: it stayed, and what was typed went after it. Ctrl+K deletes to the end, Ctrl+W the word before the cursor, and Ctrl+A and Ctrl+E go to the start and the end.
+- Focus mode (F8) in Markdown shows the section of the `#` heading the cursor is under: it took Org's headlines, so that a `*` bullet began a section and the headings did not.
 
 ## [0.6.23] - 2026-10-14
 

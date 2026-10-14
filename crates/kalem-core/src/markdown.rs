@@ -3292,6 +3292,31 @@ pub fn outline_items(doc: &crate::DocumentState) -> Vec<crate::view::OutlineItem
     outline(&md, doc.text().as_str())
 }
 
+/// The section holding byte `at`, as focus mode shows it: from the
+/// innermost heading before `at` to the next heading of its level or a
+/// higher one, or the text before the first heading.
+pub fn section_range(doc: &crate::DocumentState, at: usize) -> Range<usize> {
+    let headings: Vec<(usize, usize)> = outline_items(doc)
+        .iter()
+        .map(|h| (h.level, h.start))
+        .collect();
+    section_of(&headings, at, doc.text().len())
+}
+
+/// [`section_range`] in a text of `len` bytes whose headings are
+/// `headings`, each a level and a start, in order.
+fn section_of(headings: &[(usize, usize)], at: usize, len: usize) -> Range<usize> {
+    let Some(i) = headings.iter().rposition(|&(_, start)| start <= at) else {
+        return 0..headings.first().map_or(len, |&(_, start)| start);
+    };
+    let (level, start) = headings[i];
+    let end = headings[i + 1..]
+        .iter()
+        .find(|&&(l, _)| l <= level)
+        .map_or(len, |&(_, s)| s);
+    start..end
+}
+
 fn outline(md: &Md, text: &str) -> Vec<crate::view::OutlineItem> {
     md.headings()
         .map(|(level, n)| crate::view::OutlineItem {
@@ -3373,6 +3398,18 @@ pub fn to_tree(md: &Md) -> Tree {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sections_by_heading_level() {
+        // `# A` at 10, `## B` at 30, `# C` at 50, in 70 bytes.
+        let h = [(1, 10), (2, 30), (1, 50)];
+        assert_eq!(section_of(&h, 3, 70), 0..10);
+        assert_eq!(section_of(&h, 10, 70), 10..50);
+        assert_eq!(section_of(&h, 20, 70), 10..50);
+        assert_eq!(section_of(&h, 35, 70), 30..50);
+        assert_eq!(section_of(&h, 60, 70), 50..70);
+        assert_eq!(section_of(&[], 5, 70), 0..70);
+    }
 
     /// Tab nests an item (and what it holds) under the one before it, at
     /// that item's text; Shift+Tab takes it out; a first item stays.
