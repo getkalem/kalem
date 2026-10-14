@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - An editing command that works out a range ending before it starts no longer crashes Kalem: it changes nothing, as a command whose edits overlap already did. Such a command now changes nothing at all, where edits it added after the overlap were still made.
 - With Vim's keys, a count of ten or more digits no longer hangs Kalem or runs it out of memory: a count stops at Vim's largest, 999999999, a motion such as `l`, `w` or `e` stops where it goes no further, and an insert, a put or `]<Space>` that would make more than 10 MiB of text fails, as Vim's "Resulting text too long" does. `]b` and the like step a thousand times at most.
 - With Vim's keys, `e` at the end of a text that has no final line break and ends in a character of more than one byte (`café`) stays on that character: it put the cursor inside it, where the next command could crash Kalem.
+- With Vim's keys, an insert stays one undo step however long the document's history has grown: once it held its 10,000 steps, each change of an insert became a step of its own, so that `u` took back one change at a time.
 
 ## [0.6.26] - 2026-10-15
 

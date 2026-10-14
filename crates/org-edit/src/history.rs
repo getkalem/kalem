@@ -36,9 +36,11 @@ pub struct History {
     pub group_window: Duration,
     /// The most steps kept.
     pub limit: usize,
-    /// While set, every change joins the step made since (Vim's insert
-    /// session is one step): the number of steps when it began.
-    join: Option<usize>,
+    /// While set, every change joins one step (Vim's insert session is
+    /// one step): `false` until its first change makes the step, `true`
+    /// after. Not the number of steps when it began, which stops growing
+    /// once the oldest steps are dropped at the limit.
+    join: Option<bool>,
     /// While set, a change joins the last step, whatever its kind
     /// ([`History::join_next`]).
     join_last: bool,
@@ -102,8 +104,7 @@ impl History {
             last.time = now;
             return;
         }
-        if let Some(n) = self.join
-            && self.undo.len() > n
+        if self.join == Some(true)
             && let Some(last) = self.undo.last_mut()
         {
             last.txs.push(pair);
@@ -129,6 +130,9 @@ impl History {
             time: now,
             label: tx.label.clone(),
         });
+        if self.join == Some(false) {
+            self.join = Some(true);
+        }
         if self.undo.len() > self.limit {
             self.undo.remove(0);
         }
@@ -207,6 +211,46 @@ impl History {
     /// step.
     pub fn begin_join(&mut self) {
         self.break_group();
-        self.join = Some(self.undo.len());
+        self.join = Some(false);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Records the insertion of `word` at the end of `text`, and makes it.
+    fn type_word(h: &mut History, text: &mut String, word: &str, now: Instant) {
+        let at = text.len();
+        let mut tx = Transaction::new("t");
+        tx.insert(at, word).unwrap();
+        let (before, after) = (Selection::caret(at), Selection::caret(at + word.len()));
+        h.record(&tx, text, before, after, ChangeKind::Command, now);
+        *text = tx.apply(text);
+    }
+
+    #[test]
+    fn a_joined_session_stays_one_step_at_the_limit() {
+        // Vim's insert session is one undo step while the oldest steps
+        // are dropped at the limit: once the history was full, each change
+        // of the session became a step of its own.
+        let mut h = History {
+            limit: 2,
+            ..History::default()
+        };
+        let (mut text, now) = (String::new(), Instant::now());
+        for word in ["a", "b", "c"] {
+            type_word(&mut h, &mut text, word, now);
+        }
+        assert_eq!(h.depth(), 2);
+        h.begin_join();
+        for word in ["x", "y", "z"] {
+            type_word(&mut h, &mut text, word, now);
+        }
+        assert_eq!((text.as_str(), h.depth()), ("abcxyz", 2));
+        for t in h.undo().unwrap().transactions {
+            text = t.apply(&text);
+        }
+        assert_eq!(text, "abc");
     }
 }
