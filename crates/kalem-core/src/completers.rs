@@ -713,6 +713,14 @@ fn wiki_prefix(line: &str) -> Option<&str> {
 
 /// The words of the document starting with the word being typed, the
 /// nearest to the cursor first (dabbrev).
+/// Whether `w` lowercased begins with `lower`, its characters lowercased
+/// one after another rather than the word into a new string: the word
+/// completer asks it of every word of the document at each keystroke.
+fn starts_with_lowercase(w: &str, lower: &str) -> bool {
+    let mut w = w.chars().flat_map(char::to_lowercase);
+    lower.chars().all(|c| w.next() == Some(c))
+}
+
 struct WordsCompleter;
 
 impl Completer for WordsCompleter {
@@ -770,7 +778,7 @@ impl Completer for WordsCompleter {
                 if !here
                     && w.len() > prefix.len()
                     && w.chars().count() >= 3
-                    && w.to_lowercase().starts_with(&lower)
+                    && starts_with_lowercase(w, &lower)
                 {
                     let d = s.abs_diff(at);
                     let entry = found.entry(w).or_insert(d);
@@ -949,6 +957,16 @@ impl Menu {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn words_begin_as_their_lowercase_does() {
+        // As `w.to_lowercase().starts_with(lower)`: İ is i and a dot.
+        assert!(starts_with_lowercase("İstanbul", "i"));
+        assert!(starts_with_lowercase("Straße", "stra"));
+        assert!(starts_with_lowercase("ABC", "ab"));
+        assert!(!starts_with_lowercase("abc", "abd"));
+        assert!(!starts_with_lowercase("ab", "abc"));
+    }
     use crate::document::{LineEnding, Metadata};
 
     #[test]
