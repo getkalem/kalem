@@ -1731,6 +1731,9 @@ fn the_which_key_panel_shows_once_its_delay_has_passed() {
     let mut t = with_config("* A\n", config, (80, 24));
     let typed = std::time::Instant::now();
     t.typ(" ");
+    // The key's time is taken while it is handled: after `typed`, later
+    // still on a busy machine. Waited for from after it.
+    let after = std::time::Instant::now();
     let shown = screen(&mut t).join("\n").contains("+file");
     t.app.tick(std::time::Instant::now());
     // Hidden until the delay passes, if it has not on a slow machine
@@ -1740,7 +1743,7 @@ fn the_which_key_panel_shows_once_its_delay_has_passed() {
         assert!(!t.app.dirty);
     }
     std::thread::sleep(
-        delay.saturating_sub(typed.elapsed()) + std::time::Duration::from_millis(10),
+        delay.saturating_sub(after.elapsed()) + std::time::Duration::from_millis(10),
     );
     t.app.tick(std::time::Instant::now());
     assert!(t.app.dirty);
