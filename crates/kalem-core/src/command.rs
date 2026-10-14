@@ -948,6 +948,13 @@ pub fn argument_default(id: &str, name: &str, doc: &mut crate::document::Documen
             .as_deref()
             .and_then(crate::projects::current_name)
             .unwrap_or_default(),
+        // The symbol at the cursor, to edit, as other editors offer it.
+        ("code.rename", "name") => {
+            let text = doc.text().as_str();
+            crate::lines::word_at(text, doc.selection.head.min(text.len()))
+                .map(|r| text[r].to_string())
+                .unwrap_or_default()
+        }
         _ => String::new(),
     }
 }

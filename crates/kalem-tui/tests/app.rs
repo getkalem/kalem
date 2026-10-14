@@ -344,6 +344,20 @@ fn save_as_does_what_a_save_does_first() {
     assert_eq!(std::fs::read_to_string(&target).unwrap(), "* A\nbody\n");
 }
 
+/// Rename Symbol offers the name at the cursor, to edit.
+#[test]
+fn rename_offers_the_name_at_the_cursor() {
+    let mut t = with_file(
+        "fn encode(path: &str) {}\n",
+        "a.rs",
+        Config::default(),
+        (60, 8),
+    );
+    t.at(5);
+    t.app.run_command("code.rename", serde_json::json!({}));
+    let shown = screen(&mut t).join("\n");
+    assert!(shown.contains(": encode"), "{shown}");
+}
 /// A prompt's offered text goes with Ctrl+U, as on Vim's command line
 /// and in a shell (it stayed, what was typed added to it); Ctrl+A,
 /// Ctrl+E, Ctrl+W and Ctrl+K edit the line as a shell does.
