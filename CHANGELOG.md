@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 - A LaTeX document with a macro whose definition begins with a character of more than one byte, such as `\newcommand{\happy}[1]{😀#1}`, no longer crashes Kalem as it is shown or typed: the definition was read from its second byte, inside that character.
 - An editing command that works out a range ending before it starts no longer crashes Kalem: it changes nothing, as a command whose edits overlap already did. Such a command now changes nothing at all, where edits it added after the overlap were still made.
+- With Vim's keys, a count of ten or more digits no longer hangs Kalem or runs it out of memory: a count stops at Vim's largest, 999999999, a motion such as `l`, `w` or `e` stops where it goes no further, and an insert, a put or `]<Space>` that would make more than 10 MiB of text fails, as Vim's "Resulting text too long" does. `]b` and the like step a thousand times at most.
 
 ## [0.6.26] - 2026-10-15
 

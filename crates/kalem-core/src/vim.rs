@@ -40,6 +40,31 @@ use serde_json::Value;
 use crate::DocumentState;
 use crate::mode::DocumentMode;
 
+/// The largest count, Vim's: a count typed past it, or an operator's count
+/// times its motion's (`2d3w`), stays at it.
+const MAX_COUNT: usize = 999_999_999;
+
+/// The most text one command's count makes (`3ix`, `5p`, `]<Space>`):
+/// 10 MiB, the largest document the performance targets open in under a
+/// second. More fails, as Vim's "Resulting text too long" does, rather
+/// than filling the memory.
+const MAX_REPEAT: usize = 10 << 20;
+
+/// How often a count runs an editor command (`]b`, the next document):
+/// more than there are documents, changes or problems to step through,
+/// and no count queues a million.
+const MAX_COMMANDS: usize = 1_000;
+
+/// Counts multiplied (`2d3w` deletes six words), at most [`MAX_COUNT`].
+fn times(a: usize, b: usize) -> usize {
+    a.saturating_mul(b).min(MAX_COUNT)
+}
+
+/// Whether `n` copies of `text` pass [`MAX_REPEAT`].
+fn too_long(text: &str, n: usize) -> bool {
+    text.len().saturating_mul(n) > MAX_REPEAT
+}
+
 /// A key as the Vim layer sees it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Key {
@@ -2148,10 +2173,12 @@ impl Vim {
                 let s = line_start(doc, line);
                 let rich = host.rich_view() && self.op.is_none();
                 let mut p = pos;
+                // To the line's start at most: a count past it stops there.
                 for _ in 0..n {
-                    if p > s {
-                        p = step(doc, p, false, rich).max(s);
+                    if p <= s {
+                        break;
                     }
+                    p = step(doc, p, false, rich).max(s);
                 }
                 charwise(p)
             }
@@ -2162,9 +2189,10 @@ impl Vim {
                 let rich = host.rich_view() && self.op.is_none();
                 let mut p = pos;
                 for _ in 0..n {
-                    if p < e {
-                        p = step(doc, p, true, rich).min(e);
+                    if p >= e {
+                        break;
                     }
+                    p = step(doc, p, true, rich).min(e);
                 }
                 // The cursor stays on the last character; an operator gets
                 // to the end of the line.
@@ -2297,7 +2325,11 @@ impl Vim {
             Key::Char('w' | 'W') => {
                 let big = key == Key::Char('W');
                 let mut p = pos;
+                let len = doc.text().len();
                 for i in 0..n {
+                    if p >= len {
+                        break;
+                    }
                     p = word_forward(doc, p, big, i + 1 == n && self.op.is_some());
                 }
                 // An operator past the last word: to the end of the last
@@ -2330,8 +2362,13 @@ impl Vim {
             }
             Key::Char('e' | 'E') => {
                 let mut p = pos;
+                // The last word's end at most: a count past it stops there.
                 for _ in 0..n {
-                    p = word_end(doc, p, key == Key::Char('E'));
+                    let next = word_end(doc, p, key == Key::Char('E'));
+                    if next == p {
+                        break;
+                    }
+                    p = next;
                 }
                 inclusive(p)
             }
@@ -2558,23 +2595,29 @@ impl Vim {
         if count > 1
             && let Some(t) = typed.as_ref().filter(|t| !t.is_empty())
         {
-            let more = match self.insert_repeat {
-                insert::Repeat::Here => t.repeat(count - 1),
+            let piece = match self.insert_repeat {
+                insert::Repeat::Here => t.clone(),
                 insert::Repeat::Lines => {
                     let line = line_of(doc, head);
                     let s = line_start(doc, line);
                     let at = self.insert_at.unwrap_or(s).max(s);
                     let indent = doc.text().as_str()[s..at].to_string();
-                    format!("\n{indent}{t}").repeat(count - 1)
+                    format!("\n{indent}{t}")
                 }
             };
-            let at = if self.insert_repeat == insert::Repeat::Lines {
-                line_end(doc, line_of(doc, head))
+            if too_long(&piece, count - 1) {
+                // Typed once: the count would make too much text.
+                self.failed = true;
             } else {
-                head
-            };
-            edit(doc, at..at, &more, at + more.len());
-            head = at + more.len();
+                let more = piece.repeat(count - 1);
+                let at = if self.insert_repeat == insert::Repeat::Lines {
+                    line_end(doc, line_of(doc, head))
+                } else {
+                    head
+                };
+                edit(doc, at..at, &more, at + more.len());
+                head = at + more.len();
+            }
         }
         if let (Some((lines, col, pad)), Some(at)) = (self.block_insert.take(), self.insert_at)
             && head > at
@@ -3113,6 +3156,10 @@ impl Vim {
 
     fn put(&mut self, doc: &mut DocumentState, before: bool, count: usize, host: &mut dyn Host) {
         let Some(r) = self.fetch(host) else { return };
+        if too_long(&r.text, count) {
+            self.failed = true;
+            return;
+        }
         let pos = self.cursor;
         let line = line_of(doc, pos);
         self.put_linewise = r.linewise;
@@ -3149,6 +3196,10 @@ impl Vim {
         let Some(mut r) = self.fetch(host) else {
             return;
         };
+        if too_long(&r.text, count) {
+            self.failed = true;
+            return;
+        }
         if r.linewise {
             let ts = self.options.tabstop.max(1);
             let width = |l: &str| {
@@ -3344,7 +3395,10 @@ impl Vim {
                     return self.reset();
                 };
                 self.last_find = Some((kind, c));
-                let n = self.count.take().unwrap_or(1) * self.op.map_or(1, |o| o.1.max(1));
+                let n = times(
+                    self.count.take().unwrap_or(1),
+                    self.op.map_or(1, |o| o.1.max(1)),
+                );
                 self.motion_count = n;
                 let m = find_char(doc, self.cursor, kind, c, n, false).map(|to| Motion {
                     to,
@@ -3452,7 +3506,7 @@ impl Vim {
                     return self.reset();
                 };
                 let n = match (self.count.take(), self.op) {
-                    (Some(c), Some((_, oc))) => c * oc.max(1),
+                    (Some(c), Some((_, oc))) => times(c, oc.max(1)),
                     (None, Some((_, oc))) if oc > 0 => oc,
                     (c, _) => c.unwrap_or(1),
                 };
@@ -3523,6 +3577,10 @@ impl Vim {
                     // previous document, `]w` and `[w` workspace, `]d` and
                     // `[d` change a plugin marks (the git plugin's hunks),
                     // `]e` and `[e` problem of a LaTeX document.
+                    (_, ' ') if self.op.is_none() && !self.visual() && too_long("\n", n) => {
+                        self.failed = true;
+                        self.reset();
+                    }
                     (_, ' ') if self.op.is_none() && !self.visual() => {
                         self.begin_change();
                         let line = line_of(doc, self.cursor);
@@ -3553,7 +3611,7 @@ impl Vim {
                         if c == 'e' && doc.meta.mode != crate::DocumentMode::Latex {
                             self.failed = true;
                         } else {
-                            for _ in 0..n {
+                            for _ in 0..n.min(MAX_COMMANDS) {
                                 out.commands.push((id.into(), Value::Null));
                             }
                         }
@@ -3643,7 +3701,7 @@ impl Vim {
                     }
                     Key::Char(c @ ('e' | 'E' | '_' | 'o' | 'm' | 'M')) => {
                         let count = match (self.count.take(), self.op) {
-                            (Some(c), Some((_, oc))) => Some(c * oc.max(1)),
+                            (Some(c), Some((_, oc))) => Some(times(c, oc.max(1))),
                             (None, Some((_, oc))) if oc > 0 => Some(oc),
                             (c, _) => c,
                         };
@@ -3816,7 +3874,10 @@ impl Vim {
                 if "hRice".contains(c) {
                     doc.wait_for_parse();
                 }
-                let n = self.count.take().unwrap_or(1) * self.op.map_or(1, |o| o.1.max(1));
+                let n = times(
+                    self.count.take().unwrap_or(1),
+                    self.op.map_or(1, |o| o.1.max(1)),
+                );
                 if matches!(c, 's' | 'p') {
                     return self.sentence_or_paragraph(doc, c, inner, n, host, out);
                 }
@@ -3957,7 +4018,8 @@ impl Vim {
             && (c != '0' || self.count.is_some())
         {
             let d = c as usize - '0' as usize;
-            self.count = Some(self.count.unwrap_or(0).saturating_mul(10).saturating_add(d));
+            let n = self.count.unwrap_or(0).saturating_mul(10).saturating_add(d);
+            self.count = Some(n.min(MAX_COUNT));
             return;
         }
         if matches!(key, Key::Esc | Key::Ctrl('[')) {
@@ -3969,7 +4031,7 @@ impl Vim {
         }
         // Motions.
         let count = match (self.count, self.op) {
-            (Some(c), Some((_, oc))) => Some(c * oc.max(1)),
+            (Some(c), Some((_, oc))) => Some(times(c, oc.max(1))),
             (None, Some((_, oc))) if oc > 0 => Some(oc),
             (c, _) => c,
         };
@@ -4098,7 +4160,7 @@ impl Vim {
             match c {
                 // vim-surround's `ds`, `cs`, `ys` and `yss`.
                 's' if matches!(op, Op::Delete | Op::Change | Op::Yank | Op::Surround) => {
-                    let n = self.count.take().unwrap_or(1) * oc.max(1);
+                    let n = times(self.count.take().unwrap_or(1), oc.max(1));
                     self.op = None;
                     match op {
                         Op::Delete => {
@@ -4127,7 +4189,10 @@ impl Vim {
                 'v' | 'V' => self.force = Some(c),
                 // `d*`: to the next match of the word.
                 '*' | '#' => {
-                    let n = self.count.take().unwrap_or(1) * self.op.map_or(1, |o| o.1.max(1));
+                    let n = times(
+                        self.count.take().unwrap_or(1),
+                        self.op.map_or(1, |o| o.1.max(1)),
+                    );
                     let m = self
                         .star_search(doc, c == '#', true, n, out)
                         .map(|to| Motion {
@@ -4252,9 +4317,10 @@ impl Vim {
                 let e = line_end(doc, line);
                 let mut end = pos;
                 for _ in 0..n {
-                    if end < e {
-                        end = doc.grapheme_after(end);
+                    if end >= e {
+                        break;
                     }
+                    end = doc.grapheme_after(end);
                 }
                 if end > pos {
                     let len = self.change_case(doc, Op::Toggle, pos..end);
@@ -4847,7 +4913,7 @@ impl Vim {
             // Doubled: whole lines (`dd`, `>>`, `gUU`).
             Some((o, oc)) if o == op => {
                 self.op = None;
-                let n = self.count.take().unwrap_or(1) * oc.max(1);
+                let n = times(self.count.take().unwrap_or(1), oc.max(1));
                 let l1 = line_of(doc, self.cursor);
                 // A count on the last line has no line to go down to: the
                 // command fails (`3dd` there), as in Vim.
@@ -6257,6 +6323,28 @@ mod tests {
         assert_eq!(run(t, 20, "?t<CR>"), "one two  |three\nfour five\n\nsix\n");
         assert_eq!(run("foo bar foo\n", 0, "*"), "foo bar |foo\n");
         assert_eq!(run("ab\n", 0, "llll"), "a|b\n");
+    }
+
+    #[test]
+    fn a_count_past_the_largest_returns_at_once() {
+        // Counts stop at Vim's largest, 999999999, and a motion stops
+        // where it goes no further: twelve digits hung the editor.
+        let t = "abc def\nghi\n";
+        for (at, motion) in [(0, "l"), (6, "h"), (0, "w"), (0, "e")] {
+            let huge = run(t, at, &format!("999999999999{motion}"));
+            assert_eq!(huge, run(t, at, &format!("99{motion}")), "{motion}");
+        }
+        assert_eq!(run("abc\n", 0, "999999999999~"), run("abc\n", 0, "9~"));
+        // Counts multiplied (an operator's and its motion's) too.
+        let t = "a b c\n";
+        assert_eq!(run(t, 0, "99999999999d99999999999w"), run(t, 0, "d9w"));
+        // Text a count would make past 10 MiB fails, as Vim's "Resulting
+        // text too long" does: typed once, put not at all.
+        assert_eq!(run("\n", 0, "999999999999ix<Esc>"), run("\n", 0, "ix<Esc>"));
+        assert_eq!(run("ab\n", 0, "yl999999999999p"), "|ab\n");
+        assert_eq!(run("ab\n", 0, "999999999999] "), "|ab\n");
+        // An editor command a count repeats runs a thousand times at most.
+        assert_eq!(commands_of("999999999999]b", false).len(), 1000);
     }
 
     #[test]
