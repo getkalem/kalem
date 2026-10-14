@@ -553,6 +553,16 @@ fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
                 Num::int(0)
             })
         }
+        // `math-gcd`: with a zero, the other's absolute value, a float, a
+        // fraction or a formula too (`gcd(a, 0)` is `abs(a)`).
+        ("gcd", 2) if is_zero(&args[1]) || is_zero(&args[0]) => {
+            let other = if is_zero(&args[1]) {
+                &args[0]
+            } else {
+                &args[1]
+            };
+            apply("abs", vec![other.clone()], env)
+        }
         ("gcd", 2) | ("lcm", 2) => match (integer(&args[0]), integer(&args[1])) {
             (Some(a), Some(b)) => {
                 let r = if f == "gcd" { a.gcd(&b) } else { a.lcm(&b) };

@@ -11,7 +11,7 @@
 use org_table::calc;
 
 /// Differences known in `calc-cases.txt`.
-const KNOWN: usize = 279;
+const KNOWN: usize = 275;
 
 #[test]
 fn agrees_with_emacs() {
@@ -105,4 +105,17 @@ fn like_terms_that_do_not_add_up() {
         ev("-a + [a, 1] + (2 mod 5) * ([a, 1]) + 2"),
         "(3 mod 5) [a, 1] - a + 2"
     );
+}
+
+/// `gcd` with a zero is the other's absolute value, whatever it is, as in
+/// Emacs; integers otherwise.
+#[test]
+fn gcd_with_a_zero() {
+    let m = calc::Modes::default();
+    let ev = |f: &str| calc::eval(f, &m).unwrap();
+    assert_eq!(ev("gcd(857.17, 0)"), "857.17");
+    assert_eq!(ev("gcd(0, a)"), "abs(a)");
+    assert_eq!(ev("gcd(1:2, 0)"), "1:2");
+    assert_eq!(ev("gcd(-6, 0)"), "6");
+    assert_eq!(ev("gcd(1.5, 3)"), "gcd(1.5, 3)");
 }

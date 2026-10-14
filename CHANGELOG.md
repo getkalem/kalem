@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A table formula's Calc product of many symbolic factors (`vprod` over a column of words) is multiplied, evaluated and written factor by factor: Calc keeps a product nested to the right, and each went a level deeper for each factor, so that a thousand words ran out of a small thread's stack. It is a fifth faster too, a thousand words in 230 ms rather than 290.
 - A table formula adding a vector and a multiple of it after another term, such as `x + [1, 2] + (3 mod 5) [1, 2]`, no longer crashes Kalem: Calc took the two for like terms, and adding them left them as they were, so that it went round for ever. They are combined, `x + (4 mod 5) [1, 2]`.
 - A table formula's `vpvar` or `vpsdev` of one decimal value is `0.`, as in Emacs, where it was the integer 0, which formulas around it then computed as integers.
+- A table formula's `gcd` with a zero is the other value's absolute value, a decimal, a fraction or a formula too (`gcd(857.17, 0)` is `857.17`), as in Emacs, where it stayed `gcd(857.17, 0)`.
 
 ## [0.6.24] - 2026-10-14
 
