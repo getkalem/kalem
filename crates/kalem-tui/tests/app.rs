@@ -5654,3 +5654,34 @@ fn vim_command_line_over_a_graph() {
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert!(t.app.quit);
 }
+
+#[test]
+fn a_document_made_current_again_is_told_to_the_plugins() {
+    // `file.open` of a document open in the background makes it current:
+    // the plugins hear the cursor is in it at once, so that a command of
+    // theirs queued after it finds it current, not at its next motion.
+    use kalem_core::events::{Event, Reply};
+    let mut t = with_file("one\n", "a.txt", Config::default(), (40, 5));
+    let dir = t.dir.clone().unwrap();
+    std::fs::write(dir.join("b.txt"), "two\n").unwrap();
+    let open = |t: &mut T, name: &str| {
+        let path = dir.join(name).display().to_string();
+        t.app
+            .run_command("file.open", serde_json::json!({ "path": path }));
+    };
+    let heard = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let h = heard.clone();
+    t.app.subscribe(None, move |e| {
+        match e {
+            Event::DocumentOpen { doc, path } => h.borrow_mut().push((*doc, path.clone())),
+            Event::SelectionChanged { doc, .. } => h.borrow_mut().push((*doc, None)),
+            _ => {}
+        }
+        Reply::Continue
+    });
+    open(&mut t, "b.txt");
+    let b = heard.borrow().last().map(|(d, _)| *d);
+    open(&mut t, "a.txt");
+    let last = heard.borrow().last().map(|(d, _)| *d);
+    assert!(last.is_some() && last != b, "{:?}", heard.borrow());
+}

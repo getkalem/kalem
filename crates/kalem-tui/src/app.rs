@@ -873,6 +873,14 @@ impl App {
         self.enter_project();
         self.workspaces.showing(self.doc_id.0);
         self.dirty = true;
+        // The plugins hear that the cursor is in this document now, as at
+        // its next motion: a command of theirs queued after `file.open`
+        // finds the file current.
+        self.bus.emit(&Event::SelectionChanged {
+            doc: self.doc_id,
+            anchor: self.doc.selection.anchor,
+            head: self.doc.selection.head,
+        });
     }
 
     /// The active document's project counts as switched to, and its files
@@ -1732,6 +1740,16 @@ impl App {
             })
             .filter(|m| *m)
             .count()
+    }
+
+    /// Hears the editor's events as the plugins do (tests, and programs
+    /// that run the editor).
+    pub fn subscribe(
+        &mut self,
+        kind: Option<EventKind>,
+        handler: impl FnMut(&Event) -> Reply + 'static,
+    ) {
+        self.bus.subscribe(kind, handler);
     }
 
     /// Runs a command, asking for missing required arguments first.

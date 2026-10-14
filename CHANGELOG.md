@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - In code, a closing bracket typed alone on its line no longer goes a level further back than the line of its opening bracket: with Vim's keys, whose Enter keeps the indentation, `}` ended every block one level to the left of its `if` or `fn`. The bracket now takes the indentation of its opening bracket's line, as Vim's `smartindent` does, and is typed as it is where there is no opening bracket.
 - With Vim's keys, `:q` and the rest of the command line work while a plugin's graph is shown (Graph View): the graph took Enter, so the command never ran, and `0`, `+`, `-`, Tab and the arrows zoomed or moved it rather than going on the line or finishing a command such as `d0`. In insert mode the graph's keys stay its own.
 - A plugin's own setting with a dotted key, such as `programs.python3`, is read and written in tables within the plugin's settings, where the settings page writes it and Kalem looks for a plugin's programs. A plugin's own get and set took the whole key as one name, so it missed what the settings page set and wrote a quoted key that nothing else read.
+- In the terminal editor, plugins hear that a document open in the background is current again as soon as it is shown, not at the cursor's next motion: a plugin that opened its file with `file.open` and then worked on it found another document current.
 
 ## [0.6.21] - 2026-10-14
 
