@@ -924,8 +924,10 @@ fn variance(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
     }
     let pop = f.starts_with("vp");
     let len = flat.len() as i64;
+    // One value: none spread, zero in its kind, a float's `0.` (Calc
+    // multiplies it by 0).
     if pop && len == 1 {
-        return Expr::int(0);
+        return mul(&flat[0], &Expr::int(0), env);
     }
     if len < if pop { 1 } else { 2 } {
         return keep(f, args);

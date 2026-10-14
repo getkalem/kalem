@@ -11,7 +11,7 @@
 use org_table::calc;
 
 /// Differences known in `calc-cases.txt`.
-const KNOWN: usize = 291;
+const KNOWN: usize = 279;
 
 #[test]
 fn agrees_with_emacs() {
