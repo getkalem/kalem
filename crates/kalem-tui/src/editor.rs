@@ -1316,7 +1316,8 @@ impl<'a> Layout<'a> {
     /// The lines a layer draws under line `line` (plugin API 0.2.13), as
     /// rows after its own (`first`, its first): each indented from where
     /// the line's text starts, its pieces in their styles, wrapped. A
-    /// click on one puts the cursor at the line's end. None in the source
+    /// click on one puts the cursor at the line's end, or types into it
+    /// when it shows a file's text (API 0.2.15). None in the source
     /// view.
     fn rows_below(&self, line: usize, first: Option<&Vec<Glyph>>) -> Vec<Vec<Glyph>> {
         use unicode_segmentation::UnicodeSegmentation;
@@ -1340,17 +1341,40 @@ impl<'a> Layout<'a> {
         });
         let width = self.width.get();
         let mut rows = Vec::new();
-        for l in below {
+        // The line being typed into shows what is typed, underlined (API
+        // 0.2.15); each glyph knows its line under a line, and the byte of
+        // what is typed it shows, for a click and the cursor.
+        let editing = doc_row_edit(self.doc, range.start);
+        for (i, l) in below.iter().enumerate() {
             let indent = (lead + l.indent).min(usize::from(width) / 2);
+            let mark = |b: usize| Some((view::Widget::BelowRow { row: i }, b, range.end));
             let mut glyphs: Vec<Glyph> = (0..indent)
-                .map(|_| Glyph::decoration(" ", ratatui::style::Style::default(), range.end))
+                .map(|_| {
+                    let mut g = Glyph::decoration(" ", ratatui::style::Style::default(), range.end);
+                    g.data = mark(usize::MAX);
+                    g
+                })
                 .collect();
-            for (text, st) in &l.pieces {
-                let style = render::style_base(st, 0, self.caps);
-                glyphs.extend(
-                    text.graphemes(true)
-                        .map(|g| Glyph::decoration(g, style, range.end)),
-                );
+            match editing.filter(|r| r.row == i) {
+                Some(r) => {
+                    let style = ratatui::style::Style::default()
+                        .add_modifier(ratatui::style::Modifier::UNDERLINED);
+                    glyphs.extend(r.input.grapheme_indices(true).map(|(b, g)| {
+                        let mut g = Glyph::decoration(g, style, range.end);
+                        g.data = mark(b);
+                        g
+                    }));
+                }
+                None => {
+                    for (text, st) in &l.pieces {
+                        let style = render::style_base(st, 0, self.caps);
+                        glyphs.extend(text.graphemes(true).map(|g| {
+                            let mut g = Glyph::decoration(g, style, range.end);
+                            g.data = mark(usize::MAX);
+                            g
+                        }));
+                    }
+                }
             }
             rows.extend(tui_rich_text::wrap(glyphs, indent as u16, width));
         }
@@ -2186,7 +2210,17 @@ impl EditorView {
     ) -> Option<(usize, Option<WidgetAt>)> {
         let blocks = self.blocks(doc);
         let l = Layout::new(doc, shared!(self), &blocks, caps, self.width());
-        self.drawn.as_ref()?.hit(&l, col, row)
+        let drawn = self.drawn.as_ref()?;
+        let found = drawn.hit(&l, col, row)?;
+        // Past the end of a line a layer draws under a line: that line.
+        if found.1.is_none()
+            && let Some(h) = drawn.rows.iter().find(|r| r.y == row)
+            && let Some((w @ view::Widget::BelowRow { .. }, _, end)) =
+                h.glyphs.last().and_then(|g| g.data.clone())
+        {
+            return Some((found.0, Some((w, usize::MAX, end))));
+        }
+        Some(found)
     }
 
     /// A click at screen cell (`col`, `row`) on a CSV grid's headers: a
@@ -2718,6 +2752,11 @@ impl EditorView {
             && doc.csv_mode() == Some(kalem_core::CellMode::Ready)
             && doc.selection.anchor == doc.selection.head;
         let cursor = drawn.cursor.filter(|_| !ready);
+        // A line under a line typed into: the cursor in it.
+        let cursor = match &doc.row_edit {
+            Some(r) => row_cursor(&drawn, doc.text().line_of(r.line), r),
+            None => cursor,
+        };
         self.drawn = Some(drawn);
         cursor
     }
@@ -2742,6 +2781,38 @@ impl EditorView {
     pub fn all_blocks(&mut self, doc: &DocumentState) -> Arc<Vec<Block>> {
         self.blocks(doc)
     }
+}
+
+/// The line under a line being typed into, when it is under the line
+/// starting at byte `line`.
+fn doc_row_edit(doc: &DocumentState, line: usize) -> Option<&kalem_core::row_edit::RowEdit> {
+    doc.row_edit.as_ref().filter(|r| r.line == line)
+}
+
+/// Where the cursor of the line under a line typed into is drawn: on the
+/// glyph of its byte, else after its last.
+fn row_cursor(
+    drawn: &Drawn<WidgetAt>,
+    line: usize,
+    r: &kalem_core::row_edit::RowEdit,
+) -> Option<(u16, u16)> {
+    let at = r.cursor();
+    let mut after = None;
+    for h in drawn.rows.iter().filter(|h| h.line == line) {
+        let mut x = i32::from(h.x0) - i32::from(h.scrolled);
+        for g in &h.glyphs {
+            if let Some((view::Widget::BelowRow { row }, b, _)) = &g.data
+                && *row == r.row
+            {
+                if *b == at {
+                    return Some((x.max(0) as u16, h.y));
+                }
+                after = Some(((x + i32::from(g.width)).max(0) as u16, h.y));
+            }
+            x += i32::from(g.width);
+        }
+    }
+    after
 }
 
 #[cfg(test)]

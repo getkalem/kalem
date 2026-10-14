@@ -123,6 +123,9 @@ pub enum DocEvent {
     /// Insert a link to this file in the text document used last (a
     /// viewer's Insert Link at Point).
     InsertLink(std::path::PathBuf),
+    /// What was typed into a layer's line under a line, to write back (API
+    /// 0.2.15, `Workspace::write_back`).
+    WriteBack(kalem_core::row_edit::WriteBack),
     /// Open `path` (or show it if open), at a line (from 1) and a byte
     /// column.
     Open {
@@ -293,6 +296,8 @@ pub struct Painted {
     /// Where the lines a layer draws under it are (plugin API 0.2.13),
     /// right under its text; empty when there are none.
     pub below: Bounds<Pixels>,
+    /// Each line a layer draws under it, where it is and its layout.
+    pub below_rows: Vec<(Bounds<Pixels>, Rc<InlineLayout>)>,
     /// Its layout.
     pub layout: Rc<InlineLayout>,
     /// Its view.
@@ -2574,6 +2579,14 @@ impl Editor {
             }
             return;
         }
+        // A layer's line under a line typed into takes the keys (API
+        // 0.2.15); a character goes on to the input handler.
+        if self.doc.row_edit.is_some() {
+            if self.row_edit_key(&ev.keystroke, cx) {
+                cx.stop_propagation();
+            }
+            return;
+        }
         if self.find_key(&ev.keystroke, cx) {
             cx.stop_propagation();
             return;
@@ -3215,6 +3228,25 @@ impl Editor {
                     row_header: false,
                 });
             }
+            // On a line a layer draws under a line: that line, and the
+            // byte of its text there (what is typed into it, API 0.2.15).
+            if let Some((i, (b, l))) = p
+                .below_rows
+                .iter()
+                .enumerate()
+                .find(|(_, (b, _))| b.contains(&pos))
+            {
+                let at = l.index_for_position(pos - b.origin);
+                return Some(Hit {
+                    pos: p.view.range.end,
+                    widget: Some((at..at, Widget::BelowRow { row: i })),
+                    fold: None,
+                    copy: None,
+                    jump: None,
+                    cell: None,
+                    row_header: false,
+                });
+            }
             // On the lines a layer draws under a line: its end.
             if p.below.contains(&pos) {
                 return Some(Hit {
@@ -3341,6 +3373,54 @@ impl Editor {
             .map(Some)
     }
 
+    /// A key while a layer's line under a line is typed into (API
+    /// 0.2.15): Enter writes what was typed, Escape drops it, Up and Down
+    /// (and Tab) write it and go to the line before or after, the rest
+    /// edits it as a one-line input. Whether the key was taken: a
+    /// character is left to the input handler.
+    fn row_edit_key(&mut self, k: &gpui::Keystroke, cx: &mut Context<'_, Self>) -> bool {
+        use kalem_core::line_edit;
+        let m = k.modifiers;
+        let word = m.alt || (m.control && !cfg!(target_os = "macos"));
+        let write = match k.key.as_str() {
+            "escape" => {
+                self.doc.end_row_edit(false);
+                None
+            }
+            "enter" => self.doc.end_row_edit(true),
+            "up" => self.doc.next_row_edit(false),
+            "down" => self.doc.next_row_edit(true),
+            "tab" => self.doc.next_row_edit(!m.shift),
+            name => {
+                let key = if m.control && name.chars().count() == 1 {
+                    name.chars().next().and_then(line_edit::from_control)
+                } else {
+                    line_edit::from_key(name, word, m.platform)
+                };
+                match key {
+                    Some(key) => self.doc.row_edit_key(key),
+                    // A character, for the input handler.
+                    None => return m.control || m.platform,
+                }
+                None
+            }
+        };
+        if let Some(wb) = write {
+            cx.emit(DocEvent::WriteBack(wb));
+        }
+        self.row_edit_changed(cx);
+        true
+    }
+
+    /// The line under a line typed into changed: its line measured again.
+    fn row_edit_changed(&mut self, cx: &mut Context<'_, Self>) {
+        let line = self.doc.text().line_of(self.doc.selection.head);
+        if let Some(i) = self.item_of(line) {
+            self.list.remeasure_items(i..i + 1);
+        }
+        cx.notify();
+    }
+
     /// Mouse down: place the cursor, toggle a checkbox, fold a heading.
     pub fn mouse_down(
         &mut self,
@@ -3368,6 +3448,37 @@ impl Editor {
         else {
             return;
         };
+        // A layer's line under a line that shows a file's text: typed into
+        // where it is (API 0.2.15). In the one typed into, the cursor goes
+        // where it was clicked; a click elsewhere writes what was typed.
+        let row = match &widget {
+            Some((r, Widget::BelowRow { row })) => Some((*row, r.start)),
+            _ => None,
+        };
+        let line = self.doc.text().line_start(self.doc.text().line_of(pos));
+        if let Some(r) = &self.doc.row_edit {
+            if row.is_some_and(|(row, _)| r.line == line && r.row == row) {
+                if let (Some((_, at)), Some(r)) = (row, &mut self.doc.row_edit) {
+                    r.back = r
+                        .input
+                        .get(at.min(r.input.len())..)
+                        .map_or(0, |t| t.chars().count());
+                }
+                self.row_edit_changed(cx);
+                return;
+            }
+            if let Some(wb) = self.doc.end_row_edit(true) {
+                cx.emit(DocEvent::WriteBack(wb));
+            }
+            self.row_edit_changed(cx);
+        }
+        if let Some((row, _)) = row
+            && self.doc.start_row_edit(line, row)
+        {
+            self.after_change(cx);
+            self.row_edit_changed(cx);
+            return;
+        }
         if let Some(start) = jump {
             self.jump_to(start, window, cx);
             return;
@@ -4454,6 +4565,13 @@ impl EntityInputHandler for Editor {
             self.marked = None;
             return;
         }
+        // Typed into a layer's line under a line (API 0.2.15).
+        if self.doc.row_edit.is_some() {
+            self.marked = None;
+            self.doc.row_edit_insert(text);
+            self.row_edit_changed(cx);
+            return;
+        }
         // Outside insert mode Vim keys are commands, not text.
         if self.vim.as_ref().is_some_and(|v| !v.takes_text()) {
             self.marked = None;
@@ -4479,6 +4597,7 @@ impl EntityInputHandler for Editor {
     ) {
         // Panels show a composition once it is committed.
         if self.palette.is_some()
+            || self.doc.row_edit.is_some()
             || self.date_picker.is_some()
             || self.settings.is_some()
             || self.vim.as_ref().is_some_and(|v| !v.takes_text())
@@ -4715,7 +4834,8 @@ fn a11y_line(view: &LineView) -> (String, Vec<(usize, usize, bool)>) {
             }),
             Some(Widget::Math { source, .. }) => text.push_str(&kalem_core::math::unicode(source)),
             Some(Widget::Image { path, .. }) => text.push_str(&format!("image {path}")),
-            Some(Widget::TocRow { .. } | Widget::Picture { .. }) | None => text.push_str(&r.text),
+            Some(Widget::TocRow { .. } | Widget::Picture { .. } | Widget::BelowRow { .. })
+            | None => text.push_str(&r.text),
         }
         d += r.text.len();
     }

@@ -19,7 +19,9 @@ planned = "T3.1.9b"
 [[point]]
 name = "Decorations"
 # Gutter marks (API 0.2.5); lines a layer draws under lines (API 0.2.13,
-# `layer-2`); highlights, badges and virtual text within a line are
+# `layer-2`), typed into in place where they show a file's text (API
+# 0.2.15, `layer-3`); highlights, badges and virtual text within a line
+# are T3.1.9c's rest.
 # T3.1.9c's rest.
 interface = "decorations"
 

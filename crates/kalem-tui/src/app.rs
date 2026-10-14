@@ -1835,6 +1835,98 @@ impl App {
         }
     }
 
+    /// A key while a layer's line under a line is typed into (API
+    /// 0.2.15): Enter writes what was typed, Escape drops it, Up and Down
+    /// (and Tab) write it and go to the line before or after, the rest
+    /// edits it as a one-line input.
+    fn row_edit_key(&mut self, k: &KeyEvent) {
+        use kalem_core::line_edit;
+        let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
+        let alt = k.modifiers.contains(KeyModifiers::ALT);
+        let write = match k.code {
+            KeyCode::Esc => {
+                self.doc.end_row_edit(false);
+                None
+            }
+            KeyCode::Enter => self.doc.end_row_edit(true),
+            KeyCode::Up | KeyCode::BackTab => self.doc.next_row_edit(false),
+            KeyCode::Down | KeyCode::Tab => self.doc.next_row_edit(true),
+            KeyCode::Char(c) if ctrl => {
+                if let Some(key) = line_edit::from_control(c) {
+                    self.doc.row_edit_key(key);
+                }
+                None
+            }
+            KeyCode::Char(c) if !alt => {
+                self.doc.row_edit_insert(&c.to_string());
+                None
+            }
+            code => {
+                let name = match code {
+                    KeyCode::Left => "left",
+                    KeyCode::Right => "right",
+                    KeyCode::Home => "home",
+                    KeyCode::End => "end",
+                    KeyCode::Backspace => "backspace",
+                    KeyCode::Delete => "delete",
+                    _ => "",
+                };
+                if let Some(key) = line_edit::from_key(name, ctrl || alt, false) {
+                    self.doc.row_edit_key(key);
+                }
+                None
+            }
+        };
+        if let Some(wb) = write {
+            self.write_back(wb);
+        }
+        self.dirty = true;
+    }
+
+    /// What was typed into a layer's line under a line, written back (API
+    /// 0.2.15): in the file's open document when that has unsaved
+    /// changes, else in the file, which an open document then reads
+    /// again. Only a file in Kalem's projects, and only where it still
+    /// holds the text the layer saw.
+    fn write_back(&mut self, wb: kalem_core::row_edit::WriteBack) {
+        let path = wb.source.path.clone();
+        if !kalem_core::row_edit::writable(&path) {
+            self.message(tr!("msg-row-outside", file = wb.name()), true);
+            return;
+        }
+        let target = projects::normal(&path);
+        let same = |d: &DocumentState| {
+            d.meta
+                .path
+                .as_deref()
+                .is_some_and(|p| projects::normal(p) == target)
+        };
+        let now = Instant::now();
+        let done = if same(&self.doc) && self.doc.is_modified() {
+            let done = wb.write_into(&mut self.doc, now);
+            self.after_change(true);
+            done
+        } else if let Some(b) = self
+            .docs
+            .iter_mut()
+            .flatten()
+            .find(|b| same(&b.doc) && b.doc.is_modified())
+        {
+            wb.write_into(&mut b.doc, now)
+        } else {
+            // The plugins hear of the file, as of one another program
+            // wrote: the layer's plugin reads it again.
+            wb.write_file().inspect(|()| {
+                self.bus
+                    .emit(&Event::WorkspaceFileChanged { path: path.clone() });
+            })
+        };
+        match done {
+            Ok(()) => kalem_core::layers::refresh(),
+            Err(e) => self.message(e, true),
+        }
+    }
+
     /// Updates the view after edits or cursor motion.
     fn after_change(&mut self, moved: bool) {
         // A narrowed document keeps the cursor in its part.
@@ -3508,6 +3600,29 @@ impl App {
                 else {
                     return;
                 };
+                // A click while typing into a line under a line: in it, the
+                // cursor moves; elsewhere, what was typed is written.
+                if let Some(r) = &self.doc.row_edit {
+                    let line = self.doc.text().line_of(pos);
+                    let here = self.doc.text().line_of(r.line) == line;
+                    match widget {
+                        Some((Widget::BelowRow { row }, at, _)) if here && row == r.row => {
+                            if let Some(r) = &mut self.doc.row_edit {
+                                r.back = r
+                                    .input
+                                    .get(at.min(r.input.len())..)
+                                    .map_or(0, |t| t.chars().count());
+                            }
+                            self.dirty = true;
+                            return;
+                        }
+                        _ => {
+                            if let Some(wb) = self.doc.end_row_edit(true) {
+                                self.write_back(wb);
+                            }
+                        }
+                    }
+                }
                 // A CSV grid's cell: by the bars around the click.
                 let mut cell = None;
                 if let Some((to, past)) = self.editor.csv_hit(&self.doc, m.column, m.row, pos) {
@@ -3526,6 +3641,23 @@ impl App {
                     let id = kalem_core::mode_view::checkbox_command(&self.doc);
                     self.run_command(id, Value::Null);
                     return;
+                }
+                // A layer's line under a line that shows a file's text:
+                // typed into where it is, the cursor where it was clicked
+                // (API 0.2.15).
+                if let Some((Widget::BelowRow { row }, at, _)) = widget {
+                    let line = self.doc.text().line_start(self.doc.text().line_of(pos));
+                    let started = self.doc.start_row_edit(line, row);
+                    if started && let Some(r) = &mut self.doc.row_edit {
+                        r.back = r
+                            .input
+                            .get(at.min(r.input.len())..)
+                            .map_or(0, |t| t.chars().count());
+                    }
+                    if started {
+                        self.after_change(true);
+                        return;
+                    }
                 }
                 // A row of a table of contents leads to its heading.
                 if let Some((Widget::TocRow { start }, ..)) = widget {
@@ -4579,6 +4711,12 @@ impl App {
         }
         if self.palette.is_some() {
             self.palette_key(&k);
+            return;
+        }
+        // A layer's line under a line typed into takes the keys (API
+        // 0.2.15).
+        if self.doc.row_edit.is_some() {
+            self.row_edit_key(&k);
             return;
         }
         // After `SPC u`: digits give the count, Escape drops it.

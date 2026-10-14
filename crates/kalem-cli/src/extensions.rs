@@ -799,9 +799,11 @@ fn core_graph(g: x::graph_view::Graph) -> kalem_core::graph_view::Graph {
 }
 
 /// A layer's overlays as the core's: its lines under lines too (API
-/// 0.2.13).
-fn overlays(set: x::layer_2::OverlaySet) -> kalem_core::layers::Overlays {
-    use kalem_core::layers::{Below, LineEffect, Lines, Overlays, Span, SpanEffect, VirtualLine};
+/// 0.2.13), and the text of a file each shows (API 0.2.15).
+fn overlays(set: x::layer_3::OverlaySet) -> kalem_core::layers::Overlays {
+    use kalem_core::layers::{
+        Below, LineEffect, LineSource, Lines, Overlays, Span, SpanEffect, VirtualLine,
+    };
     use x::layer::SpanStyle as F;
     let style = |f: F| kalem_core::view::Style {
         bold: f.contains(F::BOLD),
@@ -865,6 +867,12 @@ fn overlays(set: x::layer_2::OverlaySet) -> kalem_core::layers::Overlays {
                             .into_iter()
                             .map(|p| (p.text, style(p.style)))
                             .collect(),
+                        source: l.source.map(|s| LineSource {
+                            path: s.path.into(),
+                            line: s.line as usize,
+                            column: s.column as usize,
+                            text: s.text,
+                        }),
                     })
                     .collect(),
             })

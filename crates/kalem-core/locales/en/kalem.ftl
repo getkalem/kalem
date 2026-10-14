@@ -282,6 +282,7 @@ cmd-view-narrowToSubtree = Narrow to Subtree
 cmd-view-narrowToElement = Narrow to Element
 cmd-view-narrowToBlock = Narrow to Block
 cmd-view-narrowToLines = Narrow to Lines
+cmd-view-editRow = Edit Line Under Line
 cmd-view-widen = Widen
 
 ## Command categories.
@@ -422,6 +423,9 @@ msg-plugin-stopped = { $plugin } stopped ({ $why }), and { $file } was closed{ $
 msg-file-read-only = The file is write-protected: change its permissions to save it, or Save As another file
 msg-save-lossy = Not saved over the file: some of its bytes do not read back as they are in { $encoding }, and saving would change them. Reopen with Encoding reads it right; Save with Encoding or Save As writes it as it shows
 msg-bad-line = Not a line number
+msg-no-row = No line under this line to type into
+msg-row-changed = { $file } changed since: what was typed is not written
+msg-row-outside = { $file } is not in Kalem's projects: a layer's line does not write it
 msg-no-headings = The document has no headings
 msg-bad-word-target = Not a word count: write 80000, 80,000 or 80k
 msg-no-word-target = No word target here

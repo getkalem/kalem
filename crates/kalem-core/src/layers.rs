@@ -70,6 +70,23 @@ pub struct Lines {
     pub effect: LineEffect,
 }
 
+/// The text of a file a line under a line shows (API 0.2.15): in file
+/// `path`, line `line` (from 0) from byte `column` of it to its end, its
+/// line feed left out, which held `text` when the layer was asked. The
+/// line is typed into where it is drawn and what is typed written there
+/// ([`crate::row_edit`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LineSource {
+    /// The file, a whole path.
+    pub path: std::path::PathBuf,
+    /// Its line, from 0.
+    pub line: usize,
+    /// The byte of the line the text starts at.
+    pub column: usize,
+    /// The text, to the line's end.
+    pub text: String,
+}
+
 /// A line drawn under a line of the text and not part of it (API
 /// 0.2.13): an embedded block's child, a query's result.
 #[derive(Debug, Clone, PartialEq)]
@@ -78,6 +95,9 @@ pub struct VirtualLine {
     pub indent: usize,
     /// Its text, in pieces and their styles.
     pub pieces: Vec<(String, Style)>,
+    /// The text of a file it shows, which may be typed into in place (API
+    /// 0.2.15, [`crate::row_edit`]); none for a line only shown.
+    pub source: Option<LineSource>,
 }
 
 impl VirtualLine {
@@ -169,6 +189,13 @@ impl Overlays {
             b.line = line_start(at);
             for l in &mut b.lines {
                 l.indent = l.indent.min(MAX_INDENT);
+                // A source in a file of a whole path, of one line.
+                if l.source
+                    .as_ref()
+                    .is_some_and(|s| !s.path.is_absolute() || s.text.contains(['\n', '\r']))
+                {
+                    l.source = None;
+                }
                 for (t, _) in &mut l.pieces {
                     if t.contains(char::is_control) {
                         *t = t.replace(char::is_control, " ");

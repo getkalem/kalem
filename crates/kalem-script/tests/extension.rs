@@ -1225,8 +1225,9 @@ fn a_plugins_document_is_styled() {
     );
 }
 
-/// A plugin exporting a layer (API 0.2.10), and lines under lines by
-/// `layer-2` (API 0.2.13): the overlays it gives, its refresh, and the
+/// A plugin exporting a layer (API 0.2.10), lines under lines by
+/// `layer-2` (API 0.2.13) and their sources by `layer-3` (API 0.2.15): the
+/// overlays it gives, its refresh, and the
 /// clock it reads; a plugin without the export has no layer.
 #[test]
 fn a_layer_and_the_clock() {
@@ -1281,6 +1282,13 @@ fn a_layer_and_the_clock() {
     assert_eq!(l.indent, 2);
     let shown: String = l.pieces.iter().map(|p| p.text.as_str()).collect();
     assert_eq!(shown, "embedded [[B]]");
+    // The text of the file it shows, by `layer-3` (API 0.2.15): after
+    // `{{embed ` on its line.
+    let s = l.source.as_ref().expect("a source");
+    assert_eq!(
+        (s.path.as_str(), s.line, s.column, s.text.as_str()),
+        ("/g/a.md", 1, 10, "[[B]]}}")
+    );
     assert!(
         l.pieces[1]
             .style

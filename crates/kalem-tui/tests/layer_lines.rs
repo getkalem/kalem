@@ -48,6 +48,7 @@ fn lines_under_a_line_are_drawn_and_stepped_over() {
         let line = |t: &str| VirtualLine {
             indent: 2,
             pieces: vec![(t.to_string(), Style::default())],
+            source: None,
         };
         Outcome::Done(Overlays {
             below: vec![Below {

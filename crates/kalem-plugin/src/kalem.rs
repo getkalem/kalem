@@ -63,6 +63,36 @@ pub trait Plugin {
         }
     }
 
+    /// The overlays of the plugin's layer `layer` for the document of
+    /// `path` with `text`, with lines under lines that may show a file's
+    /// text to be typed into (API 0.2.15, the feature `layer-3`), which
+    /// the editor asks in place of [`Plugin::overlays_2`]; by default
+    /// those of [`Plugin::overlays_2`], with no sources.
+    #[cfg(feature = "layer-3")]
+    fn overlays_3(layer: &str, path: Option<&str>, text: &str) -> crate::layer::OverlaySet3 {
+        let o = Self::overlays_2(layer, path, text);
+        crate::layer::OverlaySet3 {
+            spans: o.spans,
+            lines: o.lines,
+            below: o
+                .below
+                .into_iter()
+                .map(|b| crate::layer::Below3 {
+                    at: b.at,
+                    lines: b
+                        .lines
+                        .into_iter()
+                        .map(|l| crate::layer::VirtualLine3 {
+                            indent: l.indent,
+                            pieces: l.pieces,
+                            source: None,
+                        })
+                        .collect(),
+                })
+                .collect(),
+        }
+    }
+
     /// The items of the plugin's completer `completer` (its manifest's
     /// `completers`) for `request`, best first (API 0.2.11, the feature
     /// `completer`); none by default.
@@ -437,6 +467,7 @@ macro_rules! export_plugin {
         $crate::__export_layer!($plugin);
         $crate::__export_completer!($plugin);
         $crate::__export_layer_2!($plugin);
+        $crate::__export_layer_3!($plugin);
 
         $crate::extension::export_extension!(__KalemPlugin);
     };
@@ -518,5 +549,32 @@ macro_rules! __export_layer_2 {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __export_layer_2 {
+    ($plugin:ty) => {};
+}
+
+/// The `layer-3` interface of [`export_plugin!`] with the feature
+/// `layer-3`.
+#[cfg(feature = "layer-3")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_layer_3 {
+    ($plugin:ty) => {
+        impl $crate::extension::exports::kalem::plugin::layer_3::Guest for __KalemPlugin {
+            fn overlays(
+                layer: ::std::string::String,
+                path: ::std::option::Option<::std::string::String>,
+                text: ::std::string::String,
+            ) -> $crate::layer::OverlaySet3 {
+                <$plugin as $crate::kalem::Plugin>::overlays_3(&layer, path.as_deref(), &text)
+            }
+        }
+    };
+}
+
+/// Nothing without the feature `layer-3`.
+#[cfg(not(feature = "layer-3"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_layer_3 {
     ($plugin:ty) => {};
 }

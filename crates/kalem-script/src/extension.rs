@@ -18,12 +18,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use wasmtime::component::{HasSelf, Resource, ResourceTable};
 
 mod bindings {
-    // `extension-layer-2`: the `extension` world and the `layer` (API
-    // 0.2.10), `completer` (API 0.2.11) and `layer-2` (API 0.2.13)
-    // interfaces it may export, bound one by one (`Extension::new`).
+    // `extension-layer-3`: the `extension` world and the `layer` (API
+    // 0.2.10), `completer` (API 0.2.11), `layer-2` (API 0.2.13) and
+    // `layer-3` (API 0.2.15) interfaces it may export, bound one by one
+    // (`Extension::new`).
     wasmtime::component::bindgen!({
         path: "../kalem-plugin/wit",
-        world: "extension-layer-2",
+        world: "extension-layer-3",
         with: {
             "kalem:plugin/kalem.disposable": super::Registration,
         },
@@ -31,7 +32,7 @@ mod bindings {
 }
 
 pub use api::{CommandSpec, Event, EventKind, Reply, Scope};
-pub use bindings::exports::kalem::plugin::{completer, layer, layer_2};
+pub use bindings::exports::kalem::plugin::{completer, layer, layer_2, layer_3};
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
 pub use bindings::kalem::plugin::{
@@ -1500,6 +1501,9 @@ pub struct Extension {
     /// The `layer-2` interface, when the component exports it (API
     /// 0.2.13): asked in place of `layer`.
     layer_2: Option<layer_2::Guest>,
+    /// The `layer-3` interface, when the component exports it (API
+    /// 0.2.15): asked in place of `layer-2` and `layer`.
+    layer_3: Option<layer_3::Guest>,
     /// The `completer` interface, when the component exports it (API
     /// 0.2.11).
     completer: Option<completer::Guest>,
@@ -1660,6 +1664,16 @@ impl Extension {
                 .load(&mut *store, i)
                 .map(Some)
         })?;
+        let layer_3 = instance.bindings(|store, i| {
+            let pre = i.instance_pre(&*store);
+            let name = format!("kalem:plugin/layer-3@{}", crate::API_VERSION);
+            if pre.component().get_export_index(None, &name).is_none() {
+                return Ok(None);
+            }
+            layer_3::GuestIndices::new(&pre)?
+                .load(&mut *store, i)
+                .map(Some)
+        })?;
         let completer = instance.bindings(|store, i| {
             let pre = i.instance_pre(&*store);
             let name = format!("kalem:plugin/completer@{}", crate::API_VERSION);
@@ -1675,6 +1689,7 @@ impl Extension {
             api,
             layer,
             layer_2,
+            layer_3,
             completer,
         })
     }
@@ -1687,27 +1702,54 @@ impl Extension {
     }
 
     /// Whether the plugin exports layers (API 0.2.10, or `layer-2` of
-    /// API 0.2.13).
+    /// API 0.2.13, or `layer-3` of API 0.2.15).
     pub fn has_layers(&self) -> bool {
-        self.layer.is_some() || self.layer_2.is_some()
+        self.layer.is_some() || self.layer_2.is_some() || self.layer_3.is_some()
     }
 
     /// The overlays of the plugin's layer `id` for a document of `path`
-    /// with `text`: by `layer-2` when the plugin exports it, else by
-    /// `layer`, with no lines under lines; `None` when the plugin exports
-    /// no layer.
+    /// with `text`: by `layer-3` when the plugin exports it, else by
+    /// `layer-2` with no line showing a file's text, else by `layer`, with
+    /// no lines under lines; `None` when the plugin exports no layer.
     pub fn overlays(
         &mut self,
         id: &str,
         path: Option<&str>,
         text: &str,
-    ) -> crate::Result<Option<layer_2::OverlaySet>> {
+    ) -> crate::Result<Option<layer_3::OverlaySet>> {
         let path = path.map(str::to_string);
-        if let Some(l) = &self.layer_2 {
+        if let Some(l) = &self.layer_3 {
             return self
                 .instance
                 .run(|s| l.call_overlays(s, id, path.as_deref(), text))
                 .map(Some);
+        }
+        if let Some(l) = &self.layer_2 {
+            return self
+                .instance
+                .run(|s| l.call_overlays(s, id, path.as_deref(), text))
+                .map(|o| {
+                    Some(layer_3::OverlaySet {
+                        spans: o.spans,
+                        lines: o.lines,
+                        below: o
+                            .below
+                            .into_iter()
+                            .map(|b| layer_3::Below {
+                                at: b.at,
+                                lines: b
+                                    .lines
+                                    .into_iter()
+                                    .map(|l| layer_3::VirtualLine {
+                                        indent: l.indent,
+                                        pieces: l.pieces,
+                                        source: None,
+                                    })
+                                    .collect(),
+                            })
+                            .collect(),
+                    })
+                });
         }
         let Some(l) = &self.layer else {
             return Ok(None);
@@ -1715,7 +1757,7 @@ impl Extension {
         self.instance
             .run(|s| l.call_overlays(s, id, path.as_deref(), text))
             .map(|o| {
-                Some(layer_2::OverlaySet {
+                Some(layer_3::OverlaySet {
                     spans: o.spans,
                     lines: o.lines,
                     below: Vec::new(),

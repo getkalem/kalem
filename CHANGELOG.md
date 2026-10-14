@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- Lines a plugin's layer draws under a line may be typed into where they are drawn (plugin API 0.2.15, the export `layer-3`): a layer names the text of a file such a line shows (its line, the byte it starts at, the text), and a click on it, or Edit Line Under Line (`view.editRow`), makes it a one-line input in place, in both editors. Enter writes what was typed in place of that text, in the file's open document when that has unsaved changes, else in the file; Escape drops it, Up, Down and Tab go to the line before or after. Only files in Kalem's projects are written, and only where they still hold the text the layer saw. For the graph plugin's embeds, typed into in the note that embeds them, as in Logseq.
+
 ## [0.6.25] - 2026-10-15
 
 ### Changed

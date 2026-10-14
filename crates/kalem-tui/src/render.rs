@@ -556,7 +556,7 @@ pub fn glyphs(
                 style = style.add_modifier(Modifier::DIM);
                 (kalem_core::view::image_label(&run.text, path), false)
             }
-            Some(Widget::TocRow { .. }) => (run.text.clone(), false),
+            Some(Widget::TocRow { .. } | Widget::BelowRow { .. }) => (run.text.clone(), false),
             Some(Widget::Picture { .. }) => {
                 style = style.add_modifier(Modifier::DIM);
                 (run.text.clone(), false)

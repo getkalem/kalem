@@ -158,6 +158,50 @@ impl Workspace {
         }
     }
 
+    /// What was typed into a layer's line under a line, written back (API
+    /// 0.2.15): in the file's open document when that has unsaved changes,
+    /// else in the file, which an open document then reads again. Only a
+    /// file in Kalem's projects, and only where it still holds the text
+    /// the layer saw; a message in the active document says why not.
+    fn write_back(&mut self, wb: kalem_core::row_edit::WriteBack, cx: &mut Context<'_, Self>) {
+        let path = wb.source.path.clone();
+        let done = if !kalem_core::row_edit::writable(&path) {
+            Err(kalem_core::tr!("msg-row-outside", file = wb.name()))
+        } else {
+            let target = projects::normal(&path);
+            let open = self.editors.iter().find(|e| {
+                let d = &e.read(cx).doc;
+                d.is_modified()
+                    && d.meta
+                        .path
+                        .as_deref()
+                        .is_some_and(|p| projects::normal(p) == target)
+            });
+            match open.cloned() {
+                Some(e) => e.update(cx, |e, cx| {
+                    let done = wb.write_into(&mut e.doc, std::time::Instant::now());
+                    e.after_change(cx);
+                    done
+                }),
+                // The plugins hear of the file, as of one another program
+                // wrote: the layer's plugin reads it again.
+                None => wb.write_file().inspect(|()| {
+                    let shared = self.editor.read(cx).shared.clone();
+                    shared.bus.borrow_mut().emit(
+                        &kalem_core::events::Event::WorkspaceFileChanged { path: path.clone() },
+                    );
+                }),
+            }
+        };
+        match done {
+            Ok(()) => kalem_core::layers::refresh(),
+            Err(m) => self.editor.update(cx, |e, cx| {
+                e.status = Some((m, true));
+                cx.notify();
+            }),
+        }
+    }
+
     /// A link to `file` in the text document shown last, which is shown.
     fn insert_link(
         &mut self,
@@ -1395,6 +1439,7 @@ impl Workspace {
                 }
             }
             DocEvent::InsertLink(path) => self.insert_link(&path, window, cx),
+            DocEvent::WriteBack(wb) => self.write_back(wb, cx),
             DocEvent::Close => self.close(editor, window, cx),
             DocEvent::Cycle(back) => self.cycle(back, window, cx),
             DocEvent::Activate(i) => {

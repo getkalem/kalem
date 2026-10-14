@@ -37,6 +37,7 @@ fn lines_under_a_line_are_painted_and_stepped_over(cx: &mut TestAppContext) {
         let line = |t: &str| VirtualLine {
             indent: 2,
             pieces: vec![(t.to_string(), Style::default())],
+            source: None,
         };
         Outcome::Done(Overlays {
             below: vec![Below {

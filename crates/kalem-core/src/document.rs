@@ -274,6 +274,9 @@ pub struct DocumentState {
     /// the views show only it, the cursor stays in it
     /// ([`DocumentState::confine`]), and Org's commands see only it.
     pub narrowing: Option<std::ops::Range<usize>>,
+    /// The line under a line a layer draws being typed into, if any (API
+    /// 0.2.15, [`crate::row_edit`]).
+    pub row_edit: Option<crate::row_edit::RowEdit>,
     /// Positions that move with the text: Vim's marks, jump list and
     /// change list.
     pub marks: crate::marks::Marks,
@@ -549,6 +552,7 @@ impl DocumentState {
             history: History::new(),
             meta,
             narrowing: None,
+            row_edit: None,
             marks: Default::default(),
             disk: None,
             disk_text: None,

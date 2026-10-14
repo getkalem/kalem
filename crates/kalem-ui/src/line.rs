@@ -1221,7 +1221,9 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
                         (kalem_core::view::image_label(&r.text, path), theme.muted)
                     }
                     Widget::Picture { .. } => (r.text.clone(), theme.muted),
-                    Widget::Checkbox(_) | Widget::TocRow { .. } => unreachable!("handled above"),
+                    Widget::Checkbox(_) | Widget::TocRow { .. } | Widget::BelowRow { .. } => {
+                        unreachable!("handled above")
+                    }
                 };
                 let mut run = text_run(&r.style, shown.len(), view.heading, mono, &theme);
                 run.color = color;
@@ -1236,7 +1238,7 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
                 Some((Paint::Text(Rc::new(shaped)), sz, fs * 0.9))
             }
             // Only in tables of contents, prepared apart.
-            Some(Widget::TocRow { .. }) | None => None,
+            Some(Widget::TocRow { .. } | Widget::BelowRow { .. }) | None => None,
         };
         if let Some((paint, sz, ascent)) = paint {
             if !text.is_empty() {
@@ -1592,6 +1594,9 @@ type Shaped = (
 struct BelowLayout {
     lines: Vec<(Pixels, Pixels, Rc<InlineLayout>)>,
     height: Pixels,
+    /// The line being typed into (API 0.2.15): its place, and the byte of
+    /// what is typed the cursor is at.
+    editing: Option<(usize, usize)>,
 }
 
 /// The lines a layer draws under line `line`, as pieces in the body
@@ -1605,9 +1610,26 @@ fn below_pieces(editor: &Editor, line: usize) -> Vec<(usize, Piece)> {
         return Vec::new();
     };
     let start = editor.doc.text().line_start(line);
+    let editing = editor.doc.row_edit.as_ref().filter(|r| r.line == start);
     o.below(start)
         .iter()
-        .map(|l| {
+        .enumerate()
+        .map(|(i, l)| {
+            // The line being typed into shows what is typed, underlined
+            // (API 0.2.15).
+            if let Some(r) = editing.filter(|r| r.row == i) {
+                let text = if r.input.is_empty() {
+                    " ".to_string()
+                } else {
+                    r.input.clone()
+                };
+                let style = kalem_core::view::Style {
+                    underline: true,
+                    ..kalem_core::view::Style::default()
+                };
+                let runs = vec![text_run(&style, text.len(), 0, false, &editor.theme)];
+                return (l.indent, Piece::Text { text, runs });
+            }
             let mut text = String::new();
             let mut runs = Vec::new();
             for (t, st) in l.pieces.iter().filter(|(t, _)| !t.is_empty()) {
@@ -1669,7 +1691,7 @@ impl gpui::Element for LineElement {
     ) -> (LayoutId, LineState) {
         let base = px(self.editor.read(cx).doc_theme().size);
         let (line, other) = (self.line, self.other);
-        let (prepared, below, column) = self.editor.update(cx, |e, _| {
+        let (prepared, below, column, editing) = self.editor.update(cx, |e, _| {
             let (p, below) = if other && e.other.is_some() {
                 e.with_other(|e| (prepare(e, line, base, window), below_pieces(e, line)))
                     .unwrap_or_else(|| (prepare(e, line, base, window), below_pieces(e, line)))
@@ -1686,7 +1708,11 @@ impl gpui::Element for LineElement {
                     .shape_line(crate::one_line(" "), base, &[run], None)
                     .width
             };
-            (p, below, column)
+            // The line under the line being typed into, and its cursor.
+            let editing = e.doc.row_edit.as_ref().and_then(|r| {
+                (r.line == e.doc.text().line_start(line)).then(|| (r.row, r.cursor()))
+            });
+            (p, below, column, editing)
         });
         let prepared = Rc::new(prepared);
         let shaped: Rc<RefCell<Option<Shaped>>> = Rc::new(RefCell::new(None));
@@ -1759,7 +1785,10 @@ impl gpui::Element for LineElement {
                     layout.justify();
                 }
                 // The lines under the line, from where its text starts.
-                let mut under = BelowLayout::default();
+                let mut under = BelowLayout {
+                    editing,
+                    ..BelowLayout::default()
+                };
                 if !below.is_empty() {
                     let shown = prepared.view.display();
                     let first = shown.len() - shown.trim_start().len();
@@ -2345,10 +2374,21 @@ impl gpui::Element for LineElement {
                 ));
             }
         }
-        // The lines a layer draws under the line.
+        // The lines a layer draws under the line, and the cursor of the
+        // one typed into.
         let mut y = bounds.bottom();
-        for (x, h, l) in &under.lines {
-            l.paint(point(full.origin.x + *x, y), window, cx);
+        let mut below_rows = Vec::new();
+        for (i, (x, h, l)) in under.lines.iter().enumerate() {
+            let at = point(full.origin.x + *x, y);
+            l.paint(at, window, cx);
+            if let Some((_, cursor)) = under.editing.filter(|(row, _)| *row == i) {
+                let caret = l.caret(cursor);
+                window.paint_quad(fill(
+                    Bounds::new(at + caret.origin, caret.size),
+                    theme.caret,
+                ));
+            }
+            below_rows.push((Bounds::new(at, size(full.size.width - *x, *h)), l.clone()));
             y += *h;
         }
         painted.borrow_mut().insert(
@@ -2366,6 +2406,7 @@ impl gpui::Element for LineElement {
                 buttons,
                 jumps,
                 fold,
+                below_rows,
             },
         );
     }

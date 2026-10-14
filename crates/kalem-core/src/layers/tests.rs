@@ -347,6 +347,7 @@ fn lines_under_lines_at_their_lines_start() {
     let line = |t: &str, indent: usize| VirtualLine {
         indent,
         pieces: vec![(t.to_string(), Style::default())],
+        source: None,
     };
     let o = Overlays {
         below: vec![

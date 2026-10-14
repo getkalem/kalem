@@ -118,6 +118,13 @@ pub enum Widget {
         /// The heading's start.
         start: usize,
     },
+    /// A line a layer draws under a line, by its place among them (API
+    /// 0.2.13), with the byte of what is typed into it a glyph shows
+    /// ([`crate::row_edit`]).
+    BelowRow {
+        /// Its place among the lines under its line.
+        row: usize,
+    },
     /// A picture of a document its plugin lays out (a Word document's),
     /// which the plugin draws ([`crate::flow::FlowState::picture`]).
     Picture {

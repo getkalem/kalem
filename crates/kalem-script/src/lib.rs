@@ -33,8 +33,9 @@
 /// for extensions the `clock` and `layers` imports and the `layer`
 /// export, 0.2.11 the `completer` export and the `clock-2` import of
 /// extensions, 0.2.12 their `fs-2` and `graph-view` imports, 0.2.13 the
-/// `layer-2` export, 0.2.14 the `problems` import of extensions.
-pub const API_VERSION: &str = "0.2.14";
+/// `layer-2` export, 0.2.14 the `problems` import of extensions, 0.2.15
+/// their `layer-3` export.
+pub const API_VERSION: &str = "0.2.15";
 
 /// Whether a manifest's `api` requirement (`^0.2`, `0.2`, `^0.2.1`)
 /// names this host's API: the same `0.MINOR` before 1.0 (the same major

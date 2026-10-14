@@ -34,6 +34,11 @@ completer = ["layer"]
 # `layer-2` interface too, layers with lines of their own under a line
 # (API 0.2.13), which the editor asks in place of `layer`.
 layer-2 = ["completer"]
+# The `extension-layer-3` world: an extension plugin exporting the
+# `layer-3` interface too, layers whose lines under a line may show a
+# file's text, typed into in place (API 0.2.15), which the editor asks in
+# place of `layer-2`.
+layer-3 = ["layer-2"]
 
 [dev-dependencies]
 toml_edit = { version = "0.25", default-features = false, features = ["parse"] }

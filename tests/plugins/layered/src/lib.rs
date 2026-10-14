@@ -3,13 +3,15 @@
 //! `layered.now` answers the clock's time and its offset (API 0.2.11) and
 //! tells the editor its layer changed. Its completer `refs` (API 0.2.11) offers `ab` and `cd` after
 //! an open `((`, with the closing `))`. By `layer-2` (API 0.2.13) its
-//! layer draws a line `embedded …` under each line with `{{embed …}}`.
+//! layer draws a line `embedded …` under each line with `{{embed …}}`,
+//! which by `layer-3` (API 0.2.15) shows the text after `{{embed `, to
+//! be typed into.
 
 use kalem_plugin::completer::{self, Item, ItemKind, Request};
 use kalem_plugin::kalem::{self, Plugin, Scope};
 use kalem_plugin::layer::{
-    Below, LineEffect, Lines, OverlaySet, OverlaySet2, Piece, Replacement, Span, SpanEffect,
-    SpanStyle, VirtualLine,
+    Below, Below3, LineEffect, Lines, OverlaySet, OverlaySet2, OverlaySet3, Piece, Replacement,
+    Source, Span, SpanEffect, SpanStyle, VirtualLine, VirtualLine3,
 };
 
 struct Layered;
@@ -65,7 +67,9 @@ impl Plugin for Layered {
             }
             if let Some(p) = line.find(" #") {
                 let s = p + 1;
-                let e = line[s..].find(char::is_whitespace).map_or(line.len(), |x| s + x);
+                let e = line[s..]
+                    .find(char::is_whitespace)
+                    .map_or(line.len(), |x| s + x);
                 set.spans.push(Span {
                     start: (at + s) as u64,
                     end: (at + e) as u64,
@@ -107,6 +111,46 @@ impl Plugin for Layered {
             }
         }
         OverlaySet2 {
+            spans: o.spans,
+            lines: o.lines,
+            below,
+        }
+    }
+
+    fn overlays_3(layer: &str, path: Option<&str>, text: &str) -> OverlaySet3 {
+        let o = Self::overlays_2(layer, path, text);
+        // Each embed's line shows the text after `{{embed ` on its line.
+        let starts: Vec<usize> = std::iter::once(0)
+            .chain(text.match_indices('\n').map(|(i, _)| i + 1))
+            .collect();
+        let below = o
+            .below
+            .into_iter()
+            .map(|b| {
+                let at = b.at as usize;
+                let line = starts.partition_point(|s| *s <= at) - 1;
+                let end = text[at..].find('\n').map_or(text.len(), |i| at + i);
+                let from = at + "{{embed ".len();
+                Below3 {
+                    at: b.at,
+                    lines: b
+                        .lines
+                        .into_iter()
+                        .map(|l: VirtualLine| VirtualLine3 {
+                            indent: l.indent,
+                            pieces: l.pieces,
+                            source: path.map(|p| Source {
+                                path: p.to_string(),
+                                line: line as u32,
+                                column: (from - starts[line]) as u32,
+                                text: text[from..end].to_string(),
+                            }),
+                        })
+                        .collect(),
+                }
+            })
+            .collect();
+        OverlaySet3 {
             spans: o.spans,
             lines: o.lines,
             below,

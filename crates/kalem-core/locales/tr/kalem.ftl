@@ -278,6 +278,7 @@ cmd-view-narrowToSubtree = Alt Ağaca Daralt
 cmd-view-narrowToElement = Öğeye Daralt
 cmd-view-narrowToBlock = Bloğa Daralt
 cmd-view-narrowToLines = Satırlara Daralt
+cmd-view-editRow = Alttaki Satırı Düzenle
 cmd-view-widen = Genişlet
 
 ## Komut kategorileri.
@@ -408,6 +409,9 @@ msg-plugin-stopped = { $plugin } durdu ({ $why }) ve { $file } kapatıldı{ $los
 msg-file-read-only = Dosya yazmaya karşı korumalı: kaydetmek için izinlerini değiştirin ya da Farklı Kaydet ile başka bir dosyaya yazın
 msg-save-lossy = Dosyanın üstüne kaydedilmedi: bazı baytları { $encoding } ile olduğu gibi geri okunmuyor ve kaydetmek onları değiştirirdi. Kodlamayla Yeniden Aç doğru okur; Kodlamayla Kaydet ya da Farklı Kaydet göründüğü gibi yazar
 msg-bad-line = Satır numarası değil
+msg-no-row = Bu satırın altında yazılabilecek bir satır yok
+msg-row-changed = { $file } o zamandan beri değişti: yazılanlar kaydedilmedi
+msg-row-outside = { $file } Kalem'in projelerinde değil: bir katmanın satırı ona yazmaz
 msg-no-headings = Belgede başlık yok
 msg-bad-word-target = Kelime sayısı değil: 80000, 80.000 ya da 80k yazın
 msg-no-word-target = Burada kelime hedefi yok

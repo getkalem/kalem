@@ -61,9 +61,9 @@ the same files (wasmtime). It holds eight worlds, three kinds:
   =clock= and =clock-2=, =layers=, =documents=, =styled-documents=,
   =decorations=, =problems=, =graph-view=, and =fs= (with =fs-2=), =net= and
   =process= when its permissions grant them, and exports =plugin=
-  (below). =extension-layer=, =extension-completer= and
-  =extension-layer-2= are the same world with a layer, a completer, or
-  both, exported.
+  (below). =extension-layer=, =extension-completer=,
+  =extension-layer-2= and =extension-layer-3= are the same world with a
+  layer, a completer, or both, exported.
 
 =crates/kalem-plugin/coverage.toml= lists every extension point of the
 design (§11.10 to §11.13) with the WIT interface that defines it or the
@@ -400,7 +400,7 @@ account's.
 * Versions of the plugin API
 
 The plugin API is the WIT package =kalem:plugin=
-(=crates/kalem-plugin/wit=), version 0.2.14; a component's manifest
+(=crates/kalem-plugin/wit=), version 0.2.15; a component's manifest
 names the version it was built against (="api": "^0.2.1"=), and Kalem
 tries it when its own API is of the same 0.MINOR and no earlier. A
 component built against a later version is not installed, and one
@@ -521,6 +521,13 @@ updated itself. The rules, so that a plugin built once keeps working:
   plugin's tool finds wrong in files, drawn as a language server's
   diagnostics are (below). =layer-2.wit= of 0.2.13 is frozen
   (=wit-frozen/0.2.13=).
+- 0.2.15 added, for extension plugins, the export =layer-3= in the
+  world =extension-layer-3= (=kalem-plugin='s feature =layer-3=, which
+  exports =layer-2= too): lines under lines that show the text of a
+  file, typed into where they are drawn and written back to it,
+  described in [[file:completers-and-modes.org][Completers, modes and highlighters]]. The host asks
+  =layer-3= in place of =layer-2= when a component exports it.
+  =problems.wit= of 0.2.14 is frozen (=wit-frozen/0.2.14=).
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 - An addition is general, or it waits. It names what several plugins

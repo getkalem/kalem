@@ -294,6 +294,24 @@ line is folded or hidden away; the cursor steps over them, a search does
 not find them, a copy leaves them out, and a click on one puts the
 cursor at the end of their line.
 
+Such a line may show the text of a file, to be typed into where it is
+drawn (API 0.2.15): a plugin built with the feature =layer-3= answers
+=overlays_3=, whose lines under lines may each name a =source=, the
+file, its line and the byte of it the text starts at, and the text it
+held, to the line's end. The graph plugin's embedded blocks name the
+block's line in its page. A click on such a line, or Edit Line Under
+Line (=view.editRow=) on its line, makes it a one-line input showing
+that text as the file holds it, the cursor in it: Enter writes what was
+typed in place of that text, Escape drops it, Up, Down and Tab write it
+and go to the line before or after under the same line. It is written in
+the file's open document when that has unsaved changes, a step to undo
+there, else in the file, which an open document of it then reads again
+and the layer is asked about anew. Only files in Kalem's projects are
+written (the plugins' workspace, as =fs:write:workspace= reaches), and
+only where they still hold the text the layer saw; else Kalem says why
+and writes nothing. The text is that of one line: a line feed typed is a
+space.
+
 A layer may name the plugin's command that opens the link at the cursor
 in the documents it serves (="open": "graph.openLink"=, API 0.2.12): a
 Ctrl-click runs it in place of the mode's own Open Link, so that a link
@@ -308,8 +326,9 @@ plugin's, not Markdown's.
 
 The contract is =kalem_core::layers=; the plugin's side is
 =kalem_plugin::layer= with the feature =layer=, whose =Plugin= trait
-answers =overlays(layer, path, text)=, or with the feature =layer-2=
-=overlays_2(layer, path, text)=.
+answers =overlays(layer, path, text)=, with the feature =layer-2=
+=overlays_2(layer, path, text)=, or with the feature =layer-3=
+=overlays_3(layer, path, text)=.
 
 * Highlighters
 

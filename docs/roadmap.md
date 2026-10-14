@@ -332,7 +332,9 @@ Writers (Org and Markdown)
   the plugin's layer. The plugin's 0.1.0 runs on Kalem 0.6.8 without
   the layer; its 0.2.0 needs the release with API 0.2.10. Narrowing in
   any mode (`view.narrowToLines`, 2026-10-14, the plugin's K20) gives
-  its Zoom into a block in Markdown notes. M
+  its Zoom into a block in Markdown notes; lines under lines typed into
+  (plugin API 0.2.15, `layer-3`, 2026-10-14, the plugin's K21) its
+  embedded blocks edited in place. M
 - [ ] R5.6 Babel (T3.4.1–T3.4.9): header arguments, executors for shell,
   Python, R and gnuplot behind the plugin host's trust model, results
   blocks, tangling. L (after the plugin permissions, R5.11)

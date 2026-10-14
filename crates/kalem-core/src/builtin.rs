@@ -239,6 +239,7 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("org.insert.drawer", object(&[("name", "string", true)])),
         ("org.caption.set", object(&[("caption", "string", true)])),
         ("edit.gotoLine", object(&[("line", "integer", true)])),
+        ("view.editRow", object(&[("row", "integer", false)])),
         (
             "view.narrowToLines",
             object(&[("start", "integer", false), ("end", "integer", false)]),
@@ -11907,6 +11908,30 @@ fn plain_commands() -> Vec<Command> {
                 }
                 doc.narrow_to_lines(first, last);
                 Ok(())
+            },
+        ),
+        // A layer's line under the cursor's line that shows a file's text
+        // (API 0.2.15), typed into in place: the first, or line `row`.
+        cmd(
+            "view.editRow",
+            "Edit Line Under Line",
+            "View",
+            &[],
+            Some(TEXT_ONLY),
+            |ctx, args| {
+                let doc = ctx.doc()?;
+                let line = doc
+                    .text()
+                    .line_start(doc.text().line_of(doc.selection.head));
+                let rows = doc.editable_rows(line);
+                let row = match args.get("row").and_then(serde_json::Value::as_u64) {
+                    Some(r) => rows.into_iter().find(|x| *x == r as usize),
+                    None => rows.first().copied(),
+                };
+                match row {
+                    Some(r) if doc.start_row_edit(line, r) => Ok(()),
+                    _ => Err(CommandError::new(crate::l10n::tr("msg-no-row"))),
+                }
             },
         ),
         cmd("view.widen", "Widen", "View", &[], None, |ctx, _| {

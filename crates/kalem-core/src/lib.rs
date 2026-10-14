@@ -92,6 +92,7 @@ pub mod properties;
 pub mod refile;
 pub mod rich;
 pub mod rich_copy;
+pub mod row_edit;
 pub mod runs;
 pub mod sessions;
 pub mod settings;
