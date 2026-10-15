@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.43] - 2026-10-15
+
 ### Fixed
 - Typing `}` in a read-only LaTeX document after `\begin{` and a letter of more than one byte (`\begin{ä`) no longer panics the editor.
 - Exporting an Org document whose title holds its own title macro (`#+TITLE: a{{{title}}}`), or a macro whose arguments grow at each expansion, no longer runs forever: it stops with "Circular macro expansion", as Emacs does for other cycles (Emacs 30 itself loops on these).
