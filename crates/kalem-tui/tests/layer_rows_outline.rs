@@ -43,6 +43,7 @@ fn rows(page: &Path) -> Vec<VirtualLine> {
                     text,
                     outline: Some(Outline {
                         end,
+                        next: end,
                         bullet: format!("{}- ", "\t".repeat(d)),
                         step: "\t".into(),
                         indent: before.is_some_and(|l| depth(l) == d),

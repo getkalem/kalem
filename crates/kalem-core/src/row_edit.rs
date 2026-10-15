@@ -151,7 +151,8 @@ impl WriteBack {
             Change::None => {}
             Change::Split(after) => {
                 let new = format!("{}{after}", o.bullet);
-                match starts.get(end) {
+                let next = o.next.min(starts.len()).max(line + 1);
+                match starts.get(next) {
                     Some(&at) => out.push((at..at, format!("{new}{nl}"))),
                     None if text.is_empty() || text.ends_with('\n') => {
                         out.push((text.len()..text.len(), format!("{new}{nl}")));
@@ -320,7 +321,7 @@ impl DocumentState {
         let after = r.input[at..].to_string();
         self.row_resume = Some(Resume {
             path: r.source.path.clone(),
-            line: o.end.max(r.source.line + 1),
+            line: o.next.max(r.source.line + 1),
             column: o.bullet.len(),
             text: after.clone(),
             back: after.chars().count(),
@@ -480,6 +481,7 @@ mod tests {
         LineSource {
             outline: Some(crate::layers::Outline {
                 end,
+                next: end,
                 bullet: bullet.into(),
                 step: "\t".into(),
                 indent: true,
@@ -520,6 +522,23 @@ mod tests {
         assert_eq!(
             written(&split, file).as_deref(),
             Some("- on\n\t- child\n- e\n- two\n")
+        );
+        // As the block's first child: under its own line.
+        let child = WriteBack {
+            source: LineSource {
+                outline: Some(crate::layers::Outline {
+                    next: 1,
+                    bullet: "\t- ".into(),
+                    ..outlined(0, 2, "one", 2, "- ").outline.unwrap()
+                }),
+                ..source(0, 2, "one")
+            },
+            text: "on".into(),
+            change: Change::Split("e".into()),
+        };
+        assert_eq!(
+            written(&child, file).as_deref(),
+            Some("- on\n\t- e\n\t- child\n- two\n")
         );
         // At the file's end, with and without its last line feed; in
         // its line feeds.

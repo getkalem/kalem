@@ -197,6 +197,7 @@ impl Plugin for Layered {
                         source: l.source.map(|s| Source4 {
                             outline: Some(Outline {
                                 end: s.line + 1,
+                                next: s.line + 1,
                                 bullet: "- ".into(),
                                 step: "\t".into(),
                                 indent: false,

@@ -316,12 +316,14 @@ space.
 Such a line may also start a block of the file's outline (API 0.2.18):
 a plugin built with the feature =layer-4= answers =overlays_4=, whose
 sources may name an =outline=: the line after the block's last, the
-blocks under it included; what a new block's line starts with (its
+blocks under it included; the line Enter puts a new block at (after
+them, or under the block's own lines for a first child); what a new
+block's line starts with (its
 indentation and bullet, =\t- =); a step of indentation (=\t=, two
 spaces); and whether Tab may indent the block and Shift+Tab take it out
 a step. Where such a line is typed into, Enter splits the block at the
 cursor: what was before it is written in place of the line's text, what
-followed it a new block after the block and the blocks under it. Tab
+followed it a new block where the layer said. Tab
 puts a step of indentation before each of the block's lines, Shift+Tab
 takes one off them. Each is written as the line's text is, the file
 checked first, and the block is typed into on at its new place once the

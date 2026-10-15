@@ -5,8 +5,8 @@ package kalem:plugin@0.2.18;
 /// line's source the block of its file's outline that the line starts, so
 /// that Enter, Tab and Shift+Tab where the line is typed into change the
 /// file as its outline would. Enter splits the block at the cursor into a
-/// new block after it and the blocks under it, Tab indents the block with
-/// them, Shift+Tab takes a step of indentation off them; each is written
+/// new block where the layer says, Tab indents the block with the blocks
+/// under it, Shift+Tab takes a step of indentation off them; each is written
 /// as `layer-3`'s text is, and the block is typed into on at its new place
 /// once the layer shows it. An embedded block's children added and moved
 /// in the note embedding it, a query's tasks filed under one another. A
@@ -18,8 +18,12 @@ interface layer-4 {
     /// The block of a file's outline a line starts.
     record outline {
         /// The line after the block's last, the blocks under it included
-        /// (from 0): where Enter puts a new block.
+        /// (from 0): Tab and Shift+Tab move the lines from the block's to
+        /// it.
         end: u32,
+        /// The line Enter puts a new block at (from 0): `end` for a block
+        /// after it, the line after the block's own for a first child.
+        next: u32,
         /// What a new block's line starts with: the block's indentation
         /// and bullet (`\t- `).
         bullet: string,

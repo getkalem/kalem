@@ -93,13 +93,16 @@ pub struct LineSource {
 
 /// The block of a file's outline a line under a line starts (API 0.2.18,
 /// [`crate::row_edit`]): Enter splits it at the cursor into a new block
-/// after it and the blocks under it, Tab indents it with them, Shift+Tab
+/// where the layer says, Tab indents it with the blocks under it, Shift+Tab
 /// takes a step of indentation off them.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Outline {
     /// The line after the block's last, the blocks under it included,
-    /// from 0: where Enter puts a new block.
+    /// from 0: Tab and Shift+Tab move the lines from the block's to it.
     pub end: usize,
+    /// The line Enter puts a new block at, from 0: `end` for a block after
+    /// it, the line after the block's own for a first child.
+    pub next: usize,
     /// What a new block's line starts with: the block's indentation and
     /// bullet (`\t- `).
     pub bullet: String,

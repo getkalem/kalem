@@ -1046,6 +1046,7 @@ fn overlays(set: x::layer_4::OverlaySet) -> kalem_core::layers::Overlays {
                             text: s.text,
                             outline: s.outline.map(|o| Outline {
                                 end: o.end as usize,
+                                next: o.next as usize,
                                 bullet: o.bullet,
                                 step: o.step,
                                 indent: o.indent,

@@ -1354,12 +1354,13 @@ fn a_layer_and_the_clock() {
     assert_eq!(
         (
             o.end,
+            o.next,
             o.bullet.as_str(),
             o.step.as_str(),
             o.indent,
             o.outdent
         ),
-        (2, "- ", "\t", false, false)
+        (2, 2, "- ", "\t", false, false)
     );
     assert!(
         l.pieces[1]
