@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - A language server's code actions are listed title first, each one's kind (`quickfix`, `refactor.rewrite`) dimmed at the right, in both editors: the kind was written before the title, as `refactor.rewrite: Replace string with char`.
+- A language server's documentation shows strong and emphasized words without their stars, in both editors: Expand Macro's card began with `**square!**`, and rustdoc's `*emphasis*` kept its stars.
 
 ## [0.6.29] - 2026-10-15
 

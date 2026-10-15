@@ -3285,8 +3285,9 @@ fn front_matter_end(text: &str) -> Option<usize> {
 }
 
 /// A line of Markdown as text, as a hover's documentation shows it: a
-/// link its text, inline code without its backticks, a heading without
-/// its marks, a thematic break (`---`) an empty line.
+/// link its text, inline code without its backticks, strong and emphasis
+/// without their stars, a heading without its marks, a thematic break
+/// (`---`) an empty line.
 pub fn plain_line(line: &str) -> String {
     let t = line.trim();
     if t.len() >= 3
@@ -3305,9 +3306,32 @@ pub fn plain_line(line: &str) -> String {
     };
     let mut out = String::with_capacity(line.len());
     let mut rest = line;
-    while let Some(i) = rest.find(['[', '`']) {
+    while let Some(i) = rest.find(['[', '`', '*']) {
         out.push_str(&rest[..i]);
         let r = &rest[i..];
+        // `**strong**` and `*emphasis*`: their text, the marks closed as
+        // CommonMark closes them (no space just inside); a star alone (a
+        // list's, `a * b`) stays.
+        if r.starts_with('*') {
+            let marks = if r.starts_with("**") { 2 } else { 1 };
+            let (mark, inner) = r.split_at(marks);
+            let closed = inner.find(mark).filter(|&j| {
+                j > 0
+                    && !inner.starts_with(char::is_whitespace)
+                    && !inner[..j].ends_with(char::is_whitespace)
+            });
+            match closed {
+                Some(j) => {
+                    out.push_str(&plain_line(&inner[..j]));
+                    rest = &inner[j + marks..];
+                }
+                None => {
+                    out.push_str(mark);
+                    rest = inner;
+                }
+            }
+            continue;
+        }
         if let Some(code) = r.strip_prefix('`') {
             match code.find('`') {
                 Some(j) => {
@@ -3476,6 +3500,14 @@ mod tests {
             "a[i] and [b] stay, `open"
         );
         assert_eq!(plain_line("#hashtag"), "#hashtag");
+        // Strong and emphasis (Expand Macro's heading is `**square!**`).
+        assert_eq!(plain_line("**square!**"), "square!");
+        assert_eq!(plain_line("a *b* and **c `d`**"), "a b and c d");
+        assert_eq!(
+            plain_line("* item, a * b and 2 ** 3"),
+            "* item, a * b and 2 ** 3"
+        );
+        assert_eq!(plain_line("`a*b*c` and *open"), "a*b*c and *open");
     }
 
     /// Tab nests an item (and what it holds) under the one before it, at
