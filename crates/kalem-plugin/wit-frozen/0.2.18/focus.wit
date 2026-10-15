@@ -1,0 +1,18 @@
+package kalem:plugin@0.2.18;
+
+/// The document the user works in (API 0.2.18): a plugin showing
+/// something of the current document (the notes linking to the page
+/// shown, its outline, its word count in the status bar) is told each
+/// time another document gets the focus, a switch back to one open
+/// already included, which `document-open` does not tell. The editor
+/// calls it when a component exports it; one that does not runs as
+/// before.
+interface focus {
+    /// Document `document` got the focus: it is shown in the focused
+    /// pane of the window in front, opened, switched to, or with its
+    /// window come to the front. Its number is the one `document-open`
+    /// gave, `path` its file, if it has one. Told once for each change,
+    /// after `document-open` for a document just opened; a plugin that
+    /// starts later is told of the document that has the focus then.
+    focused: func(document: u64, path: option<string>);
+}

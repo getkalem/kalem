@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.18;
+package kalem:plugin@0.2.19;
 
 /// A document's outline from a plugin (API 0.2.18;
 /// `kalem_core::outlines`): its headings, which the outline sidebar of

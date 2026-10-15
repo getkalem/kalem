@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.18;
+package kalem:plugin@0.2.19;
 
 /// The plugin's own commands run later (API 0.2.17): at an editor's tick
 /// once some milliseconds have passed, after the editor has drawn and

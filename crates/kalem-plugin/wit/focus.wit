@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.18;
+package kalem:plugin@0.2.19;
 
 /// The document the user works in (API 0.2.18): a plugin showing
 /// something of the current document (the notes linking to the page

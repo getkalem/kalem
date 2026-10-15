@@ -37,7 +37,7 @@
 /// their `layer-3` export, 0.2.16 their `canvas-view` import and
 /// `formatter` export, 0.2.17 their `state` and `later` imports, 0.2.18
 /// their `outline` and `layer-4` exports.
-pub const API_VERSION: &str = "0.2.18";
+pub const API_VERSION: &str = "0.2.19";
 
 /// Whether a manifest's `api` requirement (`^0.2`, `0.2`, `^0.2.1`)
 /// names this host's API: the same `0.MINOR` before 1.0 (the same major
@@ -881,6 +881,7 @@ mod tests {
         assert!(super::api_compatible(Some("^0.2.16")));
         assert!(super::api_compatible(Some("^0.2.17")));
         assert!(super::api_compatible(Some("^0.2.18")));
+        assert!(super::api_compatible(Some("^0.2.19")));
         // Built against a later 0.2.x: it may import what this host lacks.
         assert!(!super::api_compatible(Some("^0.2.99")));
         // Later than this host's: the plugin needs a newer Kalem.

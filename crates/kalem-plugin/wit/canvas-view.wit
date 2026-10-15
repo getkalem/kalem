@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.18;
+package kalem:plugin@0.2.19;
 
 /// Documents drawn as a canvas of shapes where the plugin places them
 /// (API 0.2.16): a Logseq whiteboard, an Obsidian canvas, a diagram, a

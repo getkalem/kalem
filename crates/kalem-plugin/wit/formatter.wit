@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.18;
+package kalem:plugin@0.2.19;
 
 /// Formatting by a plugin (API 0.2.16; `kalem_core::formatters::plugins`):
 /// a document's text written as its language writes it, for Format
