@@ -2467,3 +2467,87 @@ fact(1e-3)	0.99942377
 fact(12.7)	2861595500.
 fact(15.7)	9.0478585e12
 fact(16.000001)	2.0922849e13
+mod(6, x)	6 % x
+mod(6, -4.7e-6)	-1.2e-6
+6 % -4.7e-6	-1.2e-6
+x mod 5	(1 mod 5) x
+makemod(x, 5)	(1 mod 5) x
+if(x > 1, mod(6, 7), 2)	x > 1 ? mod(6, 7) : 2
+if(x > 1, mod(6, y), 2)	x > 1 ? mod(6, y) : 2
+mod(x, 5) + 1	x % 5 + 1
+x % 5	x % 5
+2 + mod(Qty, 301.04)	2 + Qty % 301.04
+mod(6.5, 2)	0.5
+if(x > 1, x mod 5, 2)	x > 1 ? makemod(x, 5) : 2
+if(x > 1, makemod(x, 5), 2)	x > 1 ? makemod(x, 5) : 2
+if(x > 1, 7 % 2, 2)	x > 1 ? 7 % 2 : 2
+[1] - x	[1] - x
+[1, 2] - x	[1, 2] - x
+[] - x	[] - x
+[1] - 2 x	[1] - 2 x
+[1] - (x + y)	[1] - x - y
+x - [1]	x + [-1]
+[a] - x	[a] - x
+[1] - x + b	[1] - x + b
+[1] - x - y	[1] - x - y
+[1] - -x	[1] + x
+[1] + -x	[1] - x
+[1] - x / 2	[1] - x / 2
+[1] - ln(x)	[1] - ln(x)
+[x] - [y]	[x - y]
+floor(ceil(x))	ceil(x)
+round(trunc(Qty))	trunc(Qty)
+trunc(round(x, 2))	trunc(round(x, 2))
+ceil(floor(x) + 1)	ceil(floor(x) + 1)
+idiv(inf, 0.875)	inf
+idiv(-inf, 62286)	-inf
+idiv([-inf, -0.0671, 6684], -inf)	[nan, 0., 0]
+idiv(x, inf)	0
+idiv(inf, x)	inf / x
+71457 % inf	71457
+-5 % inf	inf
+x % inf	x % inf
+0 % inf	0
+2.5 % inf	2.5
+cos(nan)	nan
+sin(nan)	nan
+sqrt(-inf)	(0, 1) inf
+sqrt(inf)	inf
+ln(nan)	nan
+exp(nan)	nan
+sin(inf)	sin(inf)
+cos(-inf)	cos(-inf)
+tan(inf)	tan(inf)
+sin(uinf)	sin(uinf)
+arctan(inf)	90
+arcsin(nan)	nan
+sinh(nan)	nan
+tan(nan)	nan
+arctan(nan)	nan
+sec(nan)	nan
+gamma(nan)	gamma(nan)
+sqrt(uinf)	uinf
+sqrt(-x inf)	sqrt(-x) inf
+sign(nan)	sign(nan)
+log(nan, 2)	nan
+inf / inf	nan
+inf / -inf	nan
+uinf / inf	nan
+x inf / inf	nan
+log(2, nan)	nan
+log(nan, x)	nan
+-x inf / uinf	nan
+x inf / uinf	nan
+inf / uinf	nan
+-inf / uinf	nan
+uinf / uinf	nan
+x inf / -inf	nan
+(x inf) / (y inf)	nan
+inf / (x inf)	nan
+uinf / (x inf)	nan
+(x uinf) / inf	nan
+nan / inf	nan
+(2 inf) / inf	nan
+inf / (2 inf)	nan
+idiv(5, inf)	5 \ inf
+idiv(x, -inf)	0

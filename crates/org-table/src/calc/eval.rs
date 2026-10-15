@@ -271,6 +271,39 @@ fn lcm(a: Expr, b: Expr, env: &Env) -> Expr {
     }
 }
 
+/// The infinity `math-infinitep` finds in `a`: through negations,
+/// quotients and products, the first factor that is infinite.
+fn infinite_var(a: &Expr) -> Option<Expr> {
+    let mut a = a;
+    loop {
+        match a {
+            Expr::Call(f, xs) if (f == "neg" || f == "/") && !xs.is_empty() => a = &xs[0],
+            Expr::Call(f, xs) if f == "*" && xs.len() == 2 => {
+                a = if algebra::infinitep(&xs[0]) {
+                    &xs[0]
+                } else {
+                    &xs[1]
+                };
+            }
+            Expr::Var(v) if matches!(v.as_str(), "inf" | "uinf" | "nan") => return Some(a.clone()),
+            _ => return None,
+        }
+    }
+}
+
+/// `math-infinite-dir`: `a` with its infinities as 1, evaluated (`-1` for
+/// `-inf`, `-x` for `-x inf`).
+fn infinite_dir(a: &Expr, env: &Env) -> Expr {
+    fn one(e: &Expr) -> Expr {
+        match e {
+            Expr::Var(v) if matches!(v.as_str(), "inf" | "uinf" | "nan") => Expr::int(1),
+            Expr::Call(f, xs) => Expr::Call(f.clone(), xs.iter().map(one).collect()),
+            _ => e.clone(),
+        }
+    }
+    normalize(&one(a), env)
+}
+
 pub(crate) fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
     let n = args.len();
     // Functions of `nan` are `nan`.
@@ -278,7 +311,37 @@ pub(crate) fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
         && is_nan(&args[0])
         && matches!(
             f,
-            "sqrt" | "exp" | "ln" | "log10" | "floor" | "ceil" | "round" | "trunc" | "abs" | "fact"
+            "sqrt"
+                | "exp"
+                | "ln"
+                | "log10"
+                | "floor"
+                | "ceil"
+                | "round"
+                | "trunc"
+                | "abs"
+                | "fact"
+                // Calc's elementary functions keep `nan` too.
+                | "sin"
+                | "cos"
+                | "tan"
+                | "sec"
+                | "csc"
+                | "cot"
+                | "arcsin"
+                | "arccos"
+                | "arctan"
+                | "sinh"
+                | "cosh"
+                | "tanh"
+                | "sech"
+                | "csch"
+                | "coth"
+                | "arcsinh"
+                | "arccosh"
+                | "arctanh"
+                | "expm1"
+                | "lnp1"
         )
     {
         return nan();
@@ -299,8 +362,25 @@ pub(crate) fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
         ("/", 2) => div(&args[0], &args[1], env),
         // `mod(a, b)` is `a % b`.
         ("%", 2) | ("mod", 2) if is_zero(&args[0]) && !is_vec(&args[1]) => args[0].clone(),
+        // `math-mod-fancy`: a number modulo `inf` is itself, `inf` for a
+        // negative one.
+        ("%", 2) | ("mod", 2) if args[1] == inf() && matches!(args[0], Expr::Num(_)) => {
+            if matches!(&args[0], Expr::Num(a) if a.is_negative()) {
+                inf()
+            } else {
+                args[0].clone()
+            }
+        }
         ("%", 2) | ("mod", 2) => binary_num("%", args, env, num::modulo),
         ("idiv", 2) if is_nan(&args[0]) || is_nan(&args[1]) => nan(),
+        // `calcFunc-idiv` with an infinity: the quotient (`idiv(inf, 2)`
+        // is `inf`, `idiv(x, inf)` 0); a number by an infinity stays.
+        ("idiv", 2)
+            if !matches!(args[0], Expr::Num(_))
+                && (algebra::infinitep(&args[0]) || algebra::infinitep(&args[1])) =>
+        {
+            div(&args[0], &args[1], env)
+        }
         ("idiv", 2) => binary_num(f, args, env, num::idiv),
         // A step refused on the way leaves the power as it was: `(3 b)^d`
         // for a date `d`, where `3^d` was refused.
@@ -383,6 +463,14 @@ pub(crate) fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
         {
             args[0].clone()
         }
+        // `math-provably-integerp`: the rounding of a rounding is itself
+        // (`round(trunc(x))` is `trunc(x)`).
+        ("floor", 1) | ("ceil", 1) | ("round", 1) | ("trunc", 1)
+            if matches!(&args[0], Expr::Call(g, xs) if xs.len() == 1
+                && matches!(g.as_str(), "floor" | "ceil" | "round" | "trunc" | "rounde" | "roundu")) =>
+        {
+            args[0].clone()
+        }
         ("floor", 1) => map1(f, args, env, true, |a, _| Some(num::floor(a))),
         ("ceil", 1) => map1(f, args, env, true, |a, _| Some(num::ceil(a))),
         ("round", 1) => map1(f, args, env, true, |a, e| Some(num::round(a, &e.prec))),
@@ -405,6 +493,12 @@ pub(crate) fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
         },
         ("sqrt", 1) => match (&args[0], infinity(&args[0])) {
             (_, Some((1, "inf"))) => inf(),
+            // `math-sqrt` of an infinity: the square root of its direction
+            // times it (`sqrt(-inf)` is `(0, 1) inf`).
+            (a, _) if algebra::infinitep(a) && !is_nan(a) => match infinite_var(a) {
+                Some(v) => mul(&apply("sqrt", vec![infinite_dir(a, env)], env), &v, env),
+                None => keep(f, args),
+            },
             // `sqrt(x / k)` is `sqrt(x) / sqrt(k)`.
             (Expr::Call(g, xs), _)
                 if g == "/"
@@ -454,6 +548,7 @@ pub(crate) fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
             real_fn(a, e, f64::ln)
         }),
         ("log10", 1) | ("log", 1) => map1(f, args, env, false, log10),
+        ("log", 2) if is_nan(&args[0]) || is_nan(&args[1]) => nan(),
         ("log", 2) => binary_num(f, args, env, |a, b, p| {
             let e = Env {
                 prec: *p,
@@ -561,6 +656,16 @@ pub(crate) fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
         ("tan", 1) => map1(f, args, env, false, |a, e| trig(a, e, Trig::Tan)),
         ("arcsin", 1) => map1(f, args, env, false, |a, e| inverse_trig(a, e, Inverse::Sin)),
         ("arccos", 1) => map1(f, args, env, false, |a, e| inverse_trig(a, e, Inverse::Cos)),
+        // A quarter circle each way at the infinities.
+        ("arctan", 1) if infinity(&args[0]).is_some_and(|(_, k)| k == "inf") => {
+            let sign = infinity(&args[0]).map_or(1, |(s, _)| i64::from(s));
+            if env.degrees {
+                Expr::int(90 * sign)
+            } else {
+                from_f64(sign as f64 * std::f64::consts::FRAC_PI_2, env)
+                    .map_or_else(|| keep(f, args.clone()), Expr::Num)
+            }
+        }
         ("arctan", 1) => map1(f, args, env, false, |a, e| inverse_trig(a, e, Inverse::Tan)),
         // `calcFunc-fact`: of a number that is not an integer, by the gamma
         // function.

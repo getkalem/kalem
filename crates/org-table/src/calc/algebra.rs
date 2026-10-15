@@ -478,9 +478,7 @@ fn add_rules<'a>(a: Cow<'a, Expr>, b: &Expr, env: &Env) -> Result<Expr, Cow<'a, 
         (x, Expr::Vec(y)) if distributes(x) => {
             return Ok(Expr::Vec(y.iter().map(|q| add(x, q, env)).collect()));
         }
-        (Expr::Vec(_), _) | (_, Expr::Vec(_)) => {
-            return Ok(Expr::call("+", vec![(*a).clone(), b.clone()]));
-        }
+        (Expr::Vec(_), _) | (_, Expr::Vec(_)) => return Ok(vector_sum(&a, b, env)),
         _ => {}
     }
     if is_nan(&a) || is_nan(b) {
@@ -572,6 +570,49 @@ fn add_rules<'a>(a: Cow<'a, Expr>, b: &Expr, env: &Env) -> Result<Expr, Cow<'a, 
 /// and `a []` stay, as in Calc).
 fn distributes(e: &Expr) -> bool {
     matches!(e, Expr::Num(_)) || infinity(e).is_some() || super::cplx::parts(e).is_some()
+}
+
+/// `math-add-symb-fancy` for a vector and a formula not added into it: a
+/// sum or a difference added a term at a time (in a loop: a long one nests
+/// a level a term), then a term that looks negative subtracted, `[1] - x`
+/// rather than `[1] + -x`.
+fn vector_sum(a: &Expr, b: &Expr, env: &Env) -> Expr {
+    if matches!(b, Expr::Call(f, xs) if (f == "+" || f == "-") && xs.len() == 2) {
+        let mut terms = Vec::new();
+        let mut first = b;
+        while let Expr::Call(f, xs) = first
+            && (f == "+" || f == "-")
+            && xs.len() == 2
+        {
+            terms.push((f == "+", &xs[1]));
+            first = &xs[0];
+        }
+        let mut acc = add(a, first, env);
+        for (plus, t) in terms.into_iter().rev() {
+            acc = if plus {
+                add_owned(acc, t, env)
+            } else {
+                sub_owned(acc, t, env)
+            };
+        }
+        return acc;
+    }
+    if let Expr::Call(f, xs) = b
+        && f == "neg"
+        && xs.len() == 1
+        && let Expr::Call(g, ys) = &xs[0]
+        && g == "+"
+        && ys.len() == 2
+    {
+        return sub(&sub(a, &ys[0], env), &ys[1], env);
+    }
+    if looks_neg(b) {
+        return Expr::call("-", vec![a.clone(), neg(b, env)]);
+    }
+    if looks_neg(a) {
+        return Expr::call("-", vec![b.clone(), neg(a, env)]);
+    }
+    Expr::call("+", vec![a.clone(), b.clone()])
 }
 
 /// `math-sub`.
@@ -1015,6 +1056,10 @@ pub(crate) fn div(a: &Expr, b: &Expr, env: &Env) -> Expr {
         _ => {}
     }
     if is_nan(a) || is_nan(b) {
+        return nan();
+    }
+    // An infinity over an infinity is undetermined.
+    if infinitep(a) && infinitep(b) {
         return nan();
     }
     if infinity(a).is_some() && matches!(b, Expr::Num(_)) {

@@ -11,7 +11,7 @@
 use org_table::calc;
 
 /// Differences known in `calc-cases.txt`.
-const KNOWN: usize = 119;
+const KNOWN: usize = 93;
 
 #[test]
 fn agrees_with_emacs() {
@@ -101,9 +101,11 @@ fn like_terms_that_do_not_add_up() {
     let ev = |f: &str| calc::eval(f, &m).unwrap();
     assert_eq!(ev("x + [1, 2] + (3 mod 5) [1, 2]"), "x + (4 mod 5) [1, 2]");
     assert_eq!(ev("a + [1, 2] - (2 mod 5) [1, 2]"), "a + (4 mod 5) [1, 2]");
+    // `-a + [a, 1]` is `[a, 1] - a`, as in Emacs; the like term is no
+    // longer the sum's last.
     assert_eq!(
         ev("-a + [a, 1] + (2 mod 5) * ([a, 1]) + 2"),
-        "(3 mod 5) [a, 1] - a + 2"
+        "[a, 1] - a + (2 mod 5) [a, 1] + 2"
     );
 }
 

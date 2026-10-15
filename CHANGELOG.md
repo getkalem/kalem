@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A language server's code actions are listed title first, each one's kind (`quickfix`, `refactor.rewrite`) dimmed at the right, in both editors: the kind was written before the title, as `refactor.rewrite: Replace string with char`.
 - A language server's documentation shows strong and emphasized words without their stars, in both editors: Expand Macro's card began with `**square!**`, and rustdoc's `*emphasis*` kept its stars.
 - With Vim's keys, the terminal editor's outline moves with Vim's motions too: `j` and `k`, Ctrl+D and Ctrl+U, `g` and `G` to the first and last heading, `l` to go to one and `h` back to the text; only the arrows moved it.
+- A table formula's Calc result follows Emacs in more corners: a kept `mod(a, b)` is written so, not as the modulo form `a mod b`; a vector less a formula is `[1] - x`, not `[1] + -x`; `idiv` with an infinity gives the quotient (`idiv(inf, 2)` is `inf`), `x % inf` is `x`, an infinity over an infinity `nan`; the rounding of a rounding is itself (`round(trunc(x))` is `trunc(x)`); the trigonometric, hyperbolic and logarithmic functions of `nan` are `nan`, `arctan(inf)` is 90 and `sqrt(-inf)` is `(0, 1) inf`. Of 3,000 random formulas compared with Emacs, 26 more agree; of 100,000 with infinities, 1,710 more.
 
 ## [0.6.29] - 2026-10-15
 
