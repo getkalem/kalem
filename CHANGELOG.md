@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.31] - 2026-10-15
+
 ### Added
 - Plugin API 0.2.19, the import `canvas-view-2`: a canvas's shapes may each give the size of their text, which the window draws at that size times the zoom (a whiteboard's titles large, its notes small), where it drew every shape's text at one size; the terminal still writes a character a cell. For the graph plugin's Logseq whiteboards, whose text goes from xs to xl.
 
