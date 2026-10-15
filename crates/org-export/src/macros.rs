@@ -542,6 +542,10 @@ fn last_commit_time(file: &Path) -> Option<jiff::Timestamp> {
     s.trim().parse().ok()
 }
 
+/// Macros nested deeper than this in each other's expansions are taken
+/// for a cycle (arguments that grow at each level).
+const MAX_NESTING: usize = 1000;
+
 /// Every macro in `text` replaced by its expansion; `parsed` are the
 /// keywords whose values are expanded too (`TITLE`, `DATE`, `AUTHOR`…).
 /// An undefined macro is an error, as in Emacs.
@@ -578,9 +582,16 @@ pub fn expand_tracking(
     let templates = templates(&definitions, &keywords, file);
     let mut counters: HashMap<String, i64> = HashMap::new();
     let mut record: HashSet<(usize, String, Vec<String>)> = HashSet::new();
+    // The expansions being read, each its key, arguments and end: a macro
+    // in the text of one with the same key and arguments, or nested
+    // deeper than any document goes, never ends. (`#+TITLE: a{{{title}}}`
+    // puts the macro a character further at each expansion, which the
+    // check by place, `org-macro-replace-all`'s, misses: Emacs loops.)
+    let mut open: Vec<(String, Vec<String>, usize)> = Vec::new();
     let mut text = text.to_string();
     let mut pos = 0;
     while let Some(m) = next_macro(&text, pos, parsed, &tree) {
+        open.retain(|o| o.2 > m.start);
         let value = value_of(
             &templates,
             &keywords,
@@ -602,9 +613,17 @@ pub fn expand_tracking(
         match value {
             Some(v) => {
                 let sig = (m.start, m.key.clone(), m.args.clone());
-                if !record.insert(sig) {
+                if !record.insert(sig)
+                    || open.len() >= MAX_NESTING
+                    || open.iter().any(|o| o.0 == m.key && o.1 == m.args)
+                {
                     return Err(format!("Circular macro expansion: {}", m.key));
                 }
+                let grown = v.len() as isize - (m.end - m.start) as isize;
+                for o in &mut open {
+                    o.2 = (o.2 as isize + grown) as usize;
+                }
+                open.push((m.key.clone(), m.args.clone(), m.start + v.len()));
                 for o in marks.iter_mut() {
                     if *o >= m.end {
                         *o = *o - (m.end - m.start) + v.len();
@@ -772,6 +791,29 @@ mod tests {
         );
         let t = "* H\n:PROPERTIES:\n:P: v\n:END:\n{{{property(P)}}}\n";
         assert!(expand(t, &[], None, &now()).unwrap().ends_with("\nv\n"));
+    }
+
+    #[test]
+    fn macros_that_never_end() {
+        // A title holding its own macro: nested in its own expansion.
+        let t = "#+TITLE: g{{{title}}}\n{{{title}}}\n";
+        assert_eq!(
+            expand(t, &["TITLE"], None, &now()),
+            Err("Circular macro expansion: title".to_string())
+        );
+        // Arguments that grow at each level: too deep.
+        let t = "#+MACRO: f {{{f(x$1)}}}\n{{{f(a)}}}\n";
+        assert_eq!(
+            expand(t, &[], None, &now()),
+            Err("Circular macro expansion: f".to_string())
+        );
+        // The same macro twice, and one in another: no cycle.
+        let t = "#+MACRO: m ({{{n}}})\n#+MACRO: w [{{{m}}}]\n{{{m}}}{{{m}}} {{{w}}}\n";
+        assert!(
+            expand(t, &[], None, &now())
+                .unwrap()
+                .ends_with("\n(1)(2) [(3)]\n")
+        );
     }
 
     #[test]
