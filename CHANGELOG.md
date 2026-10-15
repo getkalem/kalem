@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.33] - 2026-10-15
+
 ### Added
 - Plugin API 0.2.20, the export `layer-5`: a layer may show text at places of a line, a line of at most 200 characters in its own style after what ends at a byte of the text, drawn as a language server's inlay hints are, wherever the cursor is, in both editors; the cursor steps over it, a search does not find it and a copy leaves it out. For the graph plugin's reference counts at the end of a block's line, as in Logseq.
 
