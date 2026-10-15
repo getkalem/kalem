@@ -621,6 +621,11 @@ pub struct Vim {
     last_change: Option<Change>,
     recording: Option<Change>,
     insert_at: Option<usize>,
+    /// The cursor moved in insert mode (an arrow, Home, End, a page key,
+    /// a click, CTRL-O's command) since the insert began: what is typed
+    /// from there is an insert of its own, which `.` repeats as `i`
+    /// would, and the command's count is forgotten (Vim's `arrow_used`).
+    moved: bool,
     /// Text typed at the start of a block (`I`, `c`) or after it (`A`) is
     /// repeated on these lines at this column when insert mode ends; `A`
     /// pads short lines with spaces.
@@ -1696,6 +1701,7 @@ impl Vim {
             last_change: None,
             recording: None,
             insert_at: None,
+            moved: false,
             block_insert: None,
             replaying: false,
             leader: Some(Key::Char(' ')),
@@ -1790,6 +1796,26 @@ impl Vim {
         self.cursor = to.min(doc.text().len());
         doc.selection = self.visual_selection(doc);
         true
+    }
+
+    /// The cursor moved in insert mode by the frontend's own motion, from
+    /// `from` to where it is now: a key the layer leaves to it (an arrow,
+    /// Home, End or a page key, with a modifier or without) or a click.
+    /// As in Vim, the insert so far is over (`".`, `.`, the `'[` and `']`
+    /// marks and `U`'s line keep what was typed), what is typed next is
+    /// an insert of its own, which `.` repeats as `i` would, undo breaks
+    /// here, and the count of `3i` is forgotten. A motion that did not
+    /// move the cursor (`<Left>` at the start of a line) changes nothing,
+    /// as in Vim; Home and End end the insert even then, from
+    /// [`Vim::key`]. Nothing outside insert mode.
+    pub fn moved_in_insert(&mut self, doc: &mut DocumentState, from: usize) {
+        if !self.takes_text() {
+            return;
+        }
+        let len = doc.text().len();
+        if doc.selection.head.min(len) != from.min(len) {
+            self.restart_insert(doc, from);
+        }
     }
 
     /// Whether typed text goes into the document (insert mode).
@@ -2120,7 +2146,7 @@ impl Vim {
             _ => return,
         };
         doc.move_cursor(to, false);
-        self.cursor = doc.selection.head;
+        self.moved_in_insert(doc, head);
     }
 
     /// Forgets the keys of the command being typed, and where its counts
@@ -2637,6 +2663,7 @@ impl Vim {
         doc.selection = Selection::caret(at);
         self.mode = Mode::Insert;
         self.insert_at = Some(at);
+        self.moved = false;
         self.cursor = at;
         let line = line_of(doc, at);
         let s = line_start(doc, line);
@@ -2652,24 +2679,12 @@ impl Vim {
             .filter(|at| *at <= head && doc.text().as_str().is_char_boundary(*at))
     }
 
-    fn leave_insert(&mut self, doc: &mut DocumentState) {
-        self.mode = Mode::Normal;
-        self.insert_pending = insert::InsertPending::None;
-        self.completion = None;
-        self.ctrl_o = None;
-        let mut head = doc.selection.head.min(doc.text().len());
-        // An indent 'autoindent' gave that nothing was typed after goes.
-        if let Some(s) = self.ai_line.take()
-            && s <= head
-            && line_start(doc, line_of(doc, s)) == s
-        {
-            let e = line_end(doc, line_of(doc, s));
-            if e > s && head >= s && head <= e && doc.text().as_str()[s..e].trim().is_empty() {
-                edit(doc, s..e, "", s);
-                head = s;
-            }
-        }
-        doc.marks.named.insert('^', head);
+    /// The insert's text so far ends at `head` (Escape, or a move of the
+    /// cursor): the `'[` and `']` marks around it, the `".` register,
+    /// the `'.` mark and the change list at its last character, and the
+    /// line as it was for `U`. The text, where the insert's start is
+    /// known.
+    fn insert_stopped(&mut self, doc: &mut DocumentState, head: usize) -> Option<String> {
         let start = self.insert_start(doc, head);
         if let Some(at) = start.filter(|at| head > *at) {
             doc.marks.named.insert('[', at);
@@ -2691,6 +2706,107 @@ impl Vim {
                 }
             }
         }
+        typed
+    }
+
+    /// The insert's text so far is over at `at` (the cursor moved, or
+    /// CTRL-O): `".`, `.`, the marks and `U`'s line take what was typed.
+    /// Nothing typed since an earlier move leaves them as that move did
+    /// (Vim's `arrow_used`).
+    fn insert_over(&mut self, doc: &mut DocumentState, at: usize) {
+        let typed = self
+            .insert_start(doc, at)
+            .map(|s| doc.text().as_str()[s..at].to_string());
+        if self.moved && typed.as_deref().is_none_or(str::is_empty) {
+            return;
+        }
+        let typed = self.insert_stopped(doc, at);
+        // `.`: the command with the text typed before the first move; from
+        // a later move, `i` with the text typed since (Vim's "1i").
+        if self.moved {
+            self.recording = Some(Change {
+                keys: vec![Key::Char('i')],
+                inserted: typed,
+                counts: Vec::new(),
+            });
+        } else if let Some(c) = &mut self.recording {
+            c.inserted = typed;
+        }
+        if !self.replaying
+            && let Some(c) = &self.recording
+        {
+            self.last_change = Some(c.clone());
+        }
+    }
+
+    /// The cursor moved in insert mode, from `from` to where it is now
+    /// (Vim's `start_arrow`, and `stop_arrow` at once, as the layer does
+    /// not see the next character typed): the insert so far is over, with
+    /// what it typed for `".`, `.` and the marks; nothing typed since an
+    /// earlier move leaves those as that move did. An indent 'autoindent'
+    /// gave, nothing typed after it, goes as the cursor leaves its line.
+    /// The insert begins again where the cursor is, undone apart from the
+    /// text before, with the command's count forgotten (`3ifoo<Left>bar`
+    /// types "bar" once).
+    fn restart_insert(&mut self, doc: &mut DocumentState, from: usize) {
+        let len = doc.text().len();
+        let from = from.min(len);
+        let mut head = doc.selection.head.min(len);
+        self.insert_over(doc, from);
+        if let Some(s) = self.ai_line.take() {
+            let line = line_of(doc, from);
+            if line_start(doc, line) == s && line_of(doc, head) != line {
+                let e = line_end(doc, line);
+                if e > s && doc.text().as_str()[s..e].trim().is_empty() {
+                    let caret = if head >= e { head - (e - s) } else { head };
+                    edit(doc, s..e, "", caret);
+                    head = caret;
+                }
+            }
+        }
+        doc.break_undo_group();
+        self.moved = true;
+        self.insert_count = 1;
+        self.insert_at = Some(head);
+        self.cursor = head;
+        // `U`: the line the insert goes on at, as it is now.
+        let line = line_of(doc, head);
+        let s = line_start(doc, line);
+        let text = doc.text().as_str()[s..line_end(doc, line)].to_string();
+        self.insert_line = Some((line, text, doc.text().line_count(), head - s));
+    }
+
+    fn leave_insert(&mut self, doc: &mut DocumentState) {
+        self.mode = Mode::Normal;
+        self.insert_pending = insert::InsertPending::None;
+        self.completion = None;
+        self.ctrl_o = None;
+        let mut head = doc.selection.head.min(doc.text().len());
+        // An indent 'autoindent' gave that nothing was typed after goes.
+        if let Some(s) = self.ai_line.take()
+            && s <= head
+            && line_start(doc, line_of(doc, s)) == s
+        {
+            let e = line_end(doc, line_of(doc, s));
+            if e > s && head >= s && head <= e && doc.text().as_str()[s..e].trim().is_empty() {
+                edit(doc, s..e, "", s);
+                head = s;
+            }
+        }
+        doc.marks.named.insert('^', head);
+        let start = self.insert_start(doc, head);
+        // Escape with nothing typed since the cursor moved: the insert
+        // ended at the move, for `".`, `.` and the marks (Vim's
+        // `arrow_used`).
+        let after_move = self.moved
+            && start
+                .map(|at| doc.text().as_str()[at..head].to_string())
+                .is_none_or(|t| t.is_empty());
+        let typed = if after_move {
+            None
+        } else {
+            self.insert_stopped(doc, head)
+        };
         // `3i`: the text typed twice more; `3o`: on two more lines.
         let count = std::mem::replace(&mut self.insert_count, 1);
         if count > 1
@@ -2750,14 +2866,27 @@ impl Vim {
             let tx = tx.select(Selection::caret(head));
             doc.apply(&tx, ChangeKind::Command, Instant::now());
         }
-        if let Some(mut c) = self.recording.take() {
-            if typed.is_some() {
-                c.inserted = typed.clone();
-            }
-            if !self.replaying {
-                self.last_change = Some(c);
+        let mut change = self.recording.take();
+        if let Some(t) = &typed {
+            if self.moved {
+                // Typed after a move: `i` repeats it (Vim's "1i"),
+                // whatever began the insert, even a CTRL-O command that
+                // took the change's place.
+                change = Some(Change {
+                    keys: vec![Key::Char('i')],
+                    inserted: Some(t.clone()),
+                    counts: Vec::new(),
+                });
+            } else if let Some(c) = &mut change {
+                c.inserted = Some(t.clone());
             }
         }
+        if let Some(c) = change
+            && !self.replaying
+        {
+            self.last_change = Some(c);
+        }
+        self.moved = false;
         self.insert_at = None;
         doc.break_undo_group();
         if let Some(corner) = self.block_corner.take() {
@@ -2787,6 +2916,13 @@ impl Vim {
         doc.selection = Selection::caret(at);
         self.cursor = at;
         self.insert_at = Some(at);
+        // As Vim's `restart_edit`: what is typed now is an insert of its
+        // own, and the count went at CTRL-O.
+        self.moved = true;
+        let line = line_of(doc, at);
+        let s = line_start(doc, line);
+        let text = doc.text().as_str()[s..line_end(doc, line)].to_string();
+        self.insert_line = Some((line, text, doc.text().line_count(), at - s));
     }
 
     // Operators.
@@ -6866,6 +7002,98 @@ mod tests {
         d.insert_text("😀", Instant::now());
         v.key(&mut d, Key::Esc, &mut host);
         assert_eq!(d.text().as_str(), "😀abx\n");
+    }
+
+    #[test]
+    fn insert_starts_again_where_the_cursor_moved() {
+        // `ifoo<Left>bar<Esc>`: the frontend moves on Left and says where
+        // to; `.` then repeats "bar" as `i` would, `".` holds it, and
+        // the move broke the insert in two for undo, as in Vim.
+        let plain = || DocumentMode::Text { language: None };
+        let mut host = TestHost::default();
+        let mut d = doc("ab\n", plain());
+        let mut v = Vim::new();
+        v.key(&mut d, Key::Char('i'), &mut host);
+        d.insert_text("foo", Instant::now());
+        assert!(!v.key(&mut d, Key::Left, &mut host).handled);
+        d.move_cursor(2, false);
+        v.moved_in_insert(&mut d, 3);
+        d.insert_text("bar", Instant::now());
+        v.key(&mut d, Key::Esc, &mut host);
+        assert_eq!((d.text().as_str(), d.selection.head), ("fobaroab\n", 4));
+        v.key(&mut d, Key::Char('.'), &mut host);
+        assert_eq!((d.text().as_str(), d.selection.head), ("fobabarroab\n", 6));
+        for k in [Key::Char('"'), Key::Char('.'), Key::Char('p')] {
+            v.key(&mut d, k, &mut host);
+        }
+        assert_eq!(d.text().as_str(), "fobabarbarroab\n");
+        for _ in 0..3 {
+            v.key(&mut d, Key::Char('u'), &mut host);
+        }
+        assert_eq!(d.text().as_str(), "fooab\n");
+        v.key(&mut d, Key::Char('u'), &mut host);
+        assert_eq!(d.text().as_str(), "ab\n");
+        // A click, which no key of the layer's comes before: the same.
+        let mut d = doc("ab\n", plain());
+        let mut v = Vim::new();
+        v.key(&mut d, Key::Char('i'), &mut host);
+        d.insert_text("foo", Instant::now());
+        d.move_cursor(1, false);
+        v.moved_in_insert(&mut d, 3);
+        d.insert_text("bar", Instant::now());
+        v.key(&mut d, Key::Esc, &mut host);
+        v.key(&mut d, Key::Char('.'), &mut host);
+        assert_eq!(d.text().as_str(), "fbabarrooab\n");
+        // The move forgets the count of `3i`; one that did not move the
+        // cursor (Left at the start of the line) keeps it, and Home there
+        // forgets it all the same, as Vim's does.
+        let mut d = doc("ab\n", plain());
+        let mut v = Vim::new();
+        for k in [Key::Char('3'), Key::Char('i')] {
+            v.key(&mut d, k, &mut host);
+        }
+        d.insert_text("foo", Instant::now());
+        v.key(&mut d, Key::Left, &mut host);
+        d.move_cursor(2, false);
+        v.moved_in_insert(&mut d, 3);
+        d.insert_text("bar", Instant::now());
+        v.key(&mut d, Key::Esc, &mut host);
+        assert_eq!(d.text().as_str(), "fobaroab\n");
+        let mut d = doc("ab\n", plain());
+        let mut v = Vim::new();
+        for k in [Key::Char('3'), Key::Char('i'), Key::Left] {
+            v.key(&mut d, k, &mut host);
+        }
+        v.moved_in_insert(&mut d, 0);
+        d.insert_text("foo", Instant::now());
+        v.key(&mut d, Key::Esc, &mut host);
+        assert_eq!(d.text().as_str(), "foofoofooab\n");
+        let mut d = doc("ab\n", plain());
+        let mut v = Vim::new();
+        for k in [Key::Char('3'), Key::Char('i'), Key::Home] {
+            v.key(&mut d, k, &mut host);
+        }
+        v.moved_in_insert(&mut d, 0);
+        d.insert_text("x", Instant::now());
+        v.key(&mut d, Key::Esc, &mut host);
+        assert_eq!(d.text().as_str(), "xab\n");
+        // Escape right after the move: the insert ended at the move, and
+        // `".` and `.` keep what came before it.
+        let mut d = doc("ab\n", plain());
+        let mut v = Vim::new();
+        v.key(&mut d, Key::Char('i'), &mut host);
+        d.insert_text("foo", Instant::now());
+        v.key(&mut d, Key::Left, &mut host);
+        d.move_cursor(2, false);
+        v.moved_in_insert(&mut d, 3);
+        v.key(&mut d, Key::Esc, &mut host);
+        assert_eq!(d.selection.head, 1);
+        for k in [Key::Char('"'), Key::Char('.'), Key::Char('p')] {
+            v.key(&mut d, k, &mut host);
+        }
+        assert_eq!(d.text().as_str(), "fofoooab\n");
+        v.key(&mut d, Key::Char('.'), &mut host);
+        assert_eq!(d.text().as_str(), "fofoofoooab\n");
     }
 
     #[test]

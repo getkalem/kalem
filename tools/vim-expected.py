@@ -8,9 +8,10 @@ non-blank, where Vim opens a file ('startofline').
 `<sync>` ends an undo step: Vim reading keys from a script makes one undo
 step of them all, where typed keys make one per command. Vim
 runs without a vimrc (`vim -Nu NONE`), so with its own defaults, typing the
-keys from a script (`-s`); the result is the text and the cursor's line and
-column (bytes, from 1) after a final Escape. DEFAULTS are Kalem's own
-settings, set first.
+keys from a script (`-s`) as an xterm would send them (TERM, so that the
+arrows, Home and End are the same keys wherever this runs); the result is
+the text and the cursor's line and column (bytes, from 1) after a final
+Escape. DEFAULTS are Kalem's own settings, set first.
 
 Record with the Vim CI checks against (Ubuntu's, 9.1), or one at least
 as new as 9.0.2188: macOS's /usr/bin/vim (9.0) is older, and its `{` on
@@ -44,7 +45,8 @@ def raw(keys):
     i = 0
     names = {"sync": ":let &ul=&ul\r", "esc": "\x1b", "cr": "\r", "enter": "\r", "bs": "\x08", "tab": "\t",
              "lt": "<", "space": " ", "nl": "\n", "del": "\x1b[3~",
-             "left": "\x1b[D", "right": "\x1b[C", "up": "\x1b[A", "down": "\x1b[B"}
+             "left": "\x1b[D", "right": "\x1b[C", "up": "\x1b[A", "down": "\x1b[B",
+             "home": "\x1b[H", "end": "\x1b[F"}
     while i < len(keys):
         c = keys[i]
         if c == "<":
@@ -83,7 +85,8 @@ def run(case):
         subprocess.run(
             ["vim", "-Nu", "NONE", "-i", "NONE", "-n", "--not-a-term", "-s", script, text],
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL, timeout=20, check=False)
+            stderr=subprocess.DEVNULL, timeout=20, check=False,
+            env={**os.environ, "TERM": "xterm"})
         with open(result, encoding="utf-8") as f:
             r = json.load(f)
         # The text as written: lines joined, the last with its line feed,

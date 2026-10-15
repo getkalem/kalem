@@ -2878,6 +2878,10 @@ impl Editor {
                     }
                     self.doc.set_cursors(moved, primary);
                 }
+                // Vim's insert mode starts again where the cursor went.
+                if let Some(v) = self.vim.as_mut() {
+                    v.moved_in_insert(&mut self.doc, head);
+                }
                 if !vertical {
                     self.goal_x = None;
                 }
@@ -3613,6 +3617,7 @@ impl Editor {
             self.after_change(cx);
             return;
         }
+        let from = self.doc.selection.head;
         self.doc.clear_extra();
         match ev.click_count {
             // A CSV grid's cell: edited where it was clicked, as in Excel.
@@ -3640,6 +3645,10 @@ impl Editor {
                     self.doc.select_csv_virtual(c);
                 }
             }
+        }
+        // Vim's insert mode starts again where the click took the cursor.
+        if let Some(v) = self.vim.as_mut() {
+            v.moved_in_insert(&mut self.doc, from);
         }
         self.dragging = true;
         self.goal_x = None;

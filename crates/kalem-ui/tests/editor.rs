@@ -1682,6 +1682,23 @@ fn vim_insert_takes_completions(cx: &mut TestAppContext) {
     assert_eq!(text(&e, cx), "* Intro\n#+title: Doc\nsee [[*Intro]]\n");
 }
 
+#[gpui::test]
+fn vim_insert_starts_again_after_an_arrow(cx: &mut TestAppContext) {
+    // Text typed after the cursor moved in insert mode is what `.`
+    // repeats and what `".` holds, as in Vim: the editor's own motion
+    // tells the layer where the cursor went.
+    let (e, cx) = open_vim("ab\n", cx);
+    at(&e, 0, cx);
+    cx.simulate_keystrokes("i");
+    cx.simulate_input("foo");
+    cx.simulate_keystrokes("left");
+    cx.simulate_input("bar");
+    cx.simulate_keystrokes("escape .");
+    assert_eq!(text(&e, cx), "fobabarroab\n");
+    cx.simulate_keystrokes("\" . p");
+    assert_eq!(text(&e, cx), "fobabarbarroab\n");
+}
+
 /// A completer like a language server's: program symbols, slow.
 struct Symbols;
 

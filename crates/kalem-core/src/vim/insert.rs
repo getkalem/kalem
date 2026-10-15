@@ -214,19 +214,17 @@ impl Vim {
                 });
             }
             Key::Ctrl('n' | 'p') => self.complete(doc, key == Key::Ctrl('n')),
-            Key::Left
-            | Key::Right
-            | Key::Up
-            | Key::Down
-            | Key::Home
-            | Key::End
-            | Key::PageUp
-            | Key::PageDown => {
-                // Moving starts the insert again where the cursor lands
-                // (for `.` and undo); the frontend moves.
-                doc.break_undo_group();
-                self.insert_at = None;
-                self.ai_line = None;
+            Key::Left | Key::Right | Key::Up | Key::Down | Key::PageUp | Key::PageDown => {
+                // The frontend moves, and says where it took the cursor
+                // (`Vim::moved_in_insert`): the insert starts again there,
+                // for `.` and undo; a move that fails (Left at the start
+                // of a line) changes nothing, as in Vim.
+                return false;
+            }
+            Key::Home | Key::End => {
+                // Vim's `ins_home` and `ins_end` end the insert even with
+                // the cursor there already; the frontend then moves.
+                self.restart_insert(doc, head);
                 return false;
             }
             Key::Char(_) => {
@@ -673,9 +671,10 @@ impl Vim {
     /// CTRL-O: normal mode for one command.
     fn leave_insert_for_command(&mut self, doc: &mut DocumentState) {
         let head = doc.selection.head.min(doc.text().len());
-        if let Some(at) = self.insert_start(doc, head) {
-            self.last_inserted = Some(doc.text().as_str()[at..head].to_string());
-        }
+        // Vim's Escape for CTRL-O: the insert so far is over, with what it
+        // typed for `".` and `.`, and the count of `3i` is forgotten.
+        self.insert_over(doc, head);
+        self.insert_count = 1;
         // The command is part of the insert's undo step, as in Vim.
         self.mode = Mode::Normal;
         self.insert_at = None;

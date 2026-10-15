@@ -4478,5 +4478,185 @@
   "name": "crlf_open_line",
   "text": "ab\r\ncd\r\n",
   "keys": "oxy<Esc>"
+ },
+ {
+  "name": "ins_arrow_dot",
+  "text": "ab\n",
+  "keys": "ifoo<Left>bar<Esc>."
+ },
+ {
+  "name": "ins_arrow_dot_register",
+  "text": "ab\n",
+  "keys": "ifoo<Left>bar<Esc>\".p"
+ },
+ {
+  "name": "ins_arrow_count",
+  "text": "ab\n",
+  "keys": "3ifoo<Left>bar<Esc>"
+ },
+ {
+  "name": "ins_arrow_count_dot",
+  "text": "ab\n",
+  "keys": "3ifoo<Left>bar<Esc>."
+ },
+ {
+  "name": "ins_arrow_count_esc",
+  "text": "ab\n",
+  "keys": "3ifoo<Left><Esc>"
+ },
+ {
+  "name": "ins_arrow_esc_dot",
+  "text": "ab\n",
+  "keys": "ifoo<Left><Esc>."
+ },
+ {
+  "name": "ins_arrow_esc_register",
+  "text": "ab\n",
+  "keys": "ifoo<Left><Esc>\".p"
+ },
+ {
+  "name": "ins_arrow_A_dot",
+  "text": "ab\ncd\n",
+  "keys": "Afoo<Left>bar<Esc>j."
+ },
+ {
+  "name": "ins_arrow_o_dot",
+  "text": "ab\ncd\n",
+  "keys": "ofoo<Left>bar<Esc>."
+ },
+ {
+  "name": "ins_arrow_o_count",
+  "text": "ab\ncd\n",
+  "keys": "3ofoo<Left>bar<Esc>"
+ },
+ {
+  "name": "ins_arrow_cw_dot",
+  "text": "ab cd ef\n",
+  "keys": "cwfoo<Left>bar<Esc>w."
+ },
+ {
+  "name": "ins_arrow_left_fails",
+  "text": "ab\n",
+  "keys": "3i<Left>foo<Esc>"
+ },
+ {
+  "name": "ins_arrow_left_fails_dot",
+  "text": "ab\n",
+  "keys": "i<Left>foo<Esc>."
+ },
+ {
+  "name": "ins_arrow_right_fails",
+  "text": "ab\n",
+  "keys": "3Afoo<Right>bar<Esc>"
+ },
+ {
+  "name": "ins_arrow_up_fails",
+  "text": "ab\n",
+  "keys": "3ifoo<Up>bar<Esc>"
+ },
+ {
+  "name": "ins_arrow_down_count",
+  "text": "ab\ncd\n",
+  "keys": "3ifoo<Down>bar<Esc>"
+ },
+ {
+  "name": "ins_arrow_twice_dot",
+  "text": "ab\n",
+  "keys": "ifoo<Left>x<Left>y<Esc>."
+ },
+ {
+  "name": "ins_arrow_twice_esc",
+  "text": "ab\n",
+  "keys": "ifoo<Left>x<Left><Esc>\".p"
+ },
+ {
+  "name": "ins_arrow_dot_count",
+  "text": "ab\n",
+  "keys": "ifoo<Left>bar<Esc>2."
+ },
+ {
+  "name": "ins_arrow_ctrl_a",
+  "text": "ab\n",
+  "keys": "ifoo<Left>bar<Esc>o<C-a><Esc>"
+ },
+ {
+  "name": "ins_arrow_autoindent_up",
+  "text": "  a\nb\n",
+  "keys": "o<Up>x<Esc>"
+ },
+ {
+  "name": "ins_arrow_autoindent_left",
+  "text": "  a\nb\n",
+  "keys": "o<Left>x<Esc>"
+ },
+ {
+  "name": "ins_arrow_autoindent_count",
+  "text": "  a\nb\n",
+  "keys": "3o<Up>x<Esc>"
+ },
+ {
+  "name": "ins_arrow_marks",
+  "text": "ab\ncd\n",
+  "keys": "ifoo<Down>bar<Esc>`[iX<Esc>"
+ },
+ {
+  "name": "ins_arrow_U",
+  "text": "ab\ncd\n",
+  "keys": "ifoo<Down>bar<Esc>U"
+ },
+ {
+  "name": "ins_arrow_U_same_line",
+  "text": "ab\n",
+  "keys": "ifoo<Left>bar<Esc>U"
+ },
+ {
+  "name": "ins_arrow_macro_dot",
+  "text": "ab\ncd\n",
+  "keys": "qaifoo<Left>bar<Esc>qj@a."
+ },
+ {
+  "name": "ins_home_count",
+  "text": "ab\n",
+  "keys": "3i<Home>x<Esc>"
+ },
+ {
+  "name": "ins_home_dot",
+  "text": "ab\n",
+  "keys": "ifoo<Home>x<Esc>."
+ },
+ {
+  "name": "ins_end_count",
+  "text": "ab\n",
+  "keys": "3Afoo<End>x<Esc>"
+ },
+ {
+  "name": "ins_end_dot",
+  "text": "ab\n",
+  "keys": "Afoo<End>x<Esc>."
+ },
+ {
+  "name": "ins_ctrl_o_dot",
+  "text": "ab\n",
+  "keys": "ifoo<C-o>lbar<Esc>."
+ },
+ {
+  "name": "ins_ctrl_o_count",
+  "text": "ab\n",
+  "keys": "3ifoo<C-o>lbar<Esc>"
+ },
+ {
+  "name": "ins_ctrl_o_register",
+  "text": "ab\n",
+  "keys": "ifoo<C-o>lbar<Esc>\".p"
+ },
+ {
+  "name": "ins_ctrl_o_esc_dot",
+  "text": "ab\n",
+  "keys": "ifoo<C-o>l<Esc>."
+ },
+ {
+  "name": "ins_ctrl_o_change_dot",
+  "text": "ab\n",
+  "keys": "ifoo<C-o>xbar<Esc>."
  }
 ]

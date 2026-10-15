@@ -66,6 +66,8 @@ fn parse_keys(keys: &str) -> Vec<Key> {
                 "right" => Some(Key::Right),
                 "up" => Some(Key::Up),
                 "down" => Some(Key::Down),
+                "home" => Some(Key::Home),
+                "end" => Some(Key::End),
                 // An undo step for Vim's sake (see tools/vim-expected.py).
                 "sync" => {
                     rest = &rest[end + 1..];
@@ -137,9 +139,11 @@ fn run(text: &str, keys: &str) -> (String, usize, usize) {
             Key::Backspace => {
                 let _ = d.delete_backward(now);
             }
-            // The arrows a frontend moves the cursor with: along the line,
-            // or to the same column of the line above or below.
-            Key::Left | Key::Right | Key::Up | Key::Down => {
+            // The arrows, Home and End a frontend moves the cursor with:
+            // along the line, to its ends, or to the same column of the
+            // line above or below; the layer hears where, as from a
+            // frontend.
+            Key::Left | Key::Right | Key::Up | Key::Down | Key::Home | Key::End => {
                 let t = d.text();
                 let head = d.selection.head;
                 let (line, col) = t.line_col(head);
@@ -149,9 +153,12 @@ fn run(text: &str, keys: &str) -> (String, usize, usize) {
                     Key::Right if head < r.end => d.grapheme_after(head),
                     Key::Up if line > 0 => t.offset(line - 1, col),
                     Key::Down if line + 1 < t.line_count() => t.offset(line + 1, col),
+                    Key::Home => r.start,
+                    Key::End => r.end,
                     _ => head,
                 };
                 d.move_cursor(to, false);
+                v.moved_in_insert(&mut d, head);
             }
             _ => {}
         }

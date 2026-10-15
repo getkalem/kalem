@@ -3754,6 +3754,7 @@ impl App {
                     self.after_change(true);
                     return;
                 }
+                let from = self.doc.selection.head;
                 self.doc.clear_extra();
                 if double
                     && self.doc.meta.mode == kalem_core::DocumentMode::Csv
@@ -3769,6 +3770,11 @@ impl App {
                     if let Some(c) = cell.filter(|_| !shift) {
                         self.doc.select_csv_virtual(c);
                     }
+                }
+                // Vim's insert mode starts again where the click took the
+                // cursor.
+                if let Some(v) = self.vim.as_mut() {
+                    v.moved_in_insert(&mut self.doc, from);
                 }
                 self.editor.viewport.goal_x = None;
                 self.after_change(true);
@@ -5434,6 +5440,10 @@ impl App {
                         moved.push(self.doc.selection);
                     }
                     self.doc.set_cursors(moved, primary);
+                }
+                // Vim's insert mode starts again where the cursor went.
+                if let Some(v) = self.vim.as_mut() {
+                    v.moved_in_insert(&mut self.doc, head);
                 }
                 if !vertical {
                     self.editor.viewport.goal_x = None;

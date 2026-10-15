@@ -541,6 +541,39 @@ fn vim_end_is_dollar() {
 }
 
 #[test]
+fn vim_insert_starts_again_after_an_arrow_or_a_click() {
+    // Text typed after the cursor moved in Insert mode, by an arrow or a
+    // click, is what `.` repeats and what `".` holds, as in Vim: the
+    // editor's own motion tells the layer where the cursor went.
+    let vim = || Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let mut t = with_config("ab\n", vim(), (40, 5));
+    t.at(0);
+    t.typ("ifoo");
+    t.key(KeyCode::Left, KeyModifiers::NONE);
+    t.typ("bar");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.typ(".");
+    assert_eq!(t.text(), "fobabarroab\n");
+    t.typ("\".p");
+    assert_eq!(t.text(), "fobabarbarroab\n");
+    let mut t = with_config("ab\n", vim(), (40, 5));
+    t.at(0);
+    t.typ("ifoo");
+    mouse(
+        &mut t,
+        MouseEventKind::Down(MouseButton::Left),
+        3,
+        0,
+        KeyModifiers::NONE,
+    );
+    assert_eq!(t.app.doc.selection.head, 2);
+    t.typ("bar");
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.typ(".");
+    assert_eq!(t.text(), "fobabarroab\n");
+}
+
+#[test]
 fn vim_profile() {
     let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
     let mut t = with_config("one two\nthree\n", config, (40, 5));

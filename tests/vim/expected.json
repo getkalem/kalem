@@ -1259,6 +1259,141 @@
   "line": 1,
   "text": "TXhe quick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
+ "ins_arrow_A_dot": {
+  "col": 4,
+  "line": 2,
+  "text": "abfobaro\ncbard\n"
+ },
+ "ins_arrow_U": {
+  "col": 2,
+  "line": 2,
+  "text": "fooab\ncd\n"
+ },
+ "ins_arrow_U_same_line": {
+  "col": 1,
+  "line": 1,
+  "text": "ab\n"
+ },
+ "ins_arrow_autoindent_count": {
+  "col": 3,
+  "line": 1,
+  "text": "  xa\n\nb\n"
+ },
+ "ins_arrow_autoindent_left": {
+  "col": 2,
+  "line": 2,
+  "text": "  a\n x \nb\n"
+ },
+ "ins_arrow_autoindent_up": {
+  "col": 3,
+  "line": 1,
+  "text": "  xa\n\nb\n"
+ },
+ "ins_arrow_count": {
+  "col": 5,
+  "line": 1,
+  "text": "fobaroab\n"
+ },
+ "ins_arrow_count_dot": {
+  "col": 7,
+  "line": 1,
+  "text": "fobabarroab\n"
+ },
+ "ins_arrow_count_esc": {
+  "col": 2,
+  "line": 1,
+  "text": "fooab\n"
+ },
+ "ins_arrow_ctrl_a": {
+  "col": 3,
+  "line": 2,
+  "text": "fobaroab\nbar\n"
+ },
+ "ins_arrow_cw_dot": {
+  "col": 10,
+  "line": 1,
+  "text": "fobaro barcd ef\n"
+ },
+ "ins_arrow_dot": {
+  "col": 7,
+  "line": 1,
+  "text": "fobabarroab\n"
+ },
+ "ins_arrow_dot_count": {
+  "col": 10,
+  "line": 1,
+  "text": "fobabarbarroab\n"
+ },
+ "ins_arrow_dot_register": {
+  "col": 8,
+  "line": 1,
+  "text": "fobarbaroab\n"
+ },
+ "ins_arrow_down_count": {
+  "col": 5,
+  "line": 2,
+  "text": "fooab\ncdbar\n"
+ },
+ "ins_arrow_esc_dot": {
+  "col": 4,
+  "line": 1,
+  "text": "ffooooab\n"
+ },
+ "ins_arrow_esc_register": {
+  "col": 5,
+  "line": 1,
+  "text": "fofoooab\n"
+ },
+ "ins_arrow_left_fails": {
+  "col": 9,
+  "line": 1,
+  "text": "foofoofooab\n"
+ },
+ "ins_arrow_left_fails_dot": {
+  "col": 5,
+  "line": 1,
+  "text": "fofoooab\n"
+ },
+ "ins_arrow_macro_dot": {
+  "col": 8,
+  "line": 2,
+  "text": "fobaroab\ncfobabarrod\n"
+ },
+ "ins_arrow_marks": {
+  "col": 3,
+  "line": 2,
+  "text": "fooab\ncdXbar\n"
+ },
+ "ins_arrow_o_count": {
+  "col": 5,
+  "line": 2,
+  "text": "ab\nfobaro\ncd\n"
+ },
+ "ins_arrow_o_dot": {
+  "col": 7,
+  "line": 2,
+  "text": "ab\nfobabarro\ncd\n"
+ },
+ "ins_arrow_right_fails": {
+  "col": 20,
+  "line": 1,
+  "text": "abfoobarfoobarfoobar\n"
+ },
+ "ins_arrow_twice_dot": {
+  "col": 3,
+  "line": 1,
+  "text": "foyyxoab\n"
+ },
+ "ins_arrow_twice_esc": {
+  "col": 3,
+  "line": 1,
+  "text": "foxxoab\n"
+ },
+ "ins_arrow_up_fails": {
+  "col": 18,
+  "line": 1,
+  "text": "foobarfoobarfoobarab\n"
+ },
  "ins_bs": {
   "col": 43,
   "line": 1,
@@ -1374,15 +1509,40 @@
   "line": 1,
   "text": "XYquick brown fox jumps over the lazy dog.\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
+ "ins_ctrl_o_change_dot": {
+  "col": 8,
+  "line": 1,
+  "text": "foobabarrb\n"
+ },
+ "ins_ctrl_o_count": {
+  "col": 7,
+  "line": 1,
+  "text": "fooabarb\n"
+ },
  "ins_ctrl_o_dollar": {
   "col": 46,
   "line": 1,
   "text": "XThe quick brown fox jumps over the lazy dog.Y\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
  },
+ "ins_ctrl_o_dot": {
+  "col": 9,
+  "line": 1,
+  "text": "fooababarrb\n"
+ },
+ "ins_ctrl_o_esc_dot": {
+  "col": 6,
+  "line": 1,
+  "text": "foofooab\n"
+ },
  "ins_ctrl_o_p": {
   "col": 49,
   "line": 1,
   "text": "The quick brown fox jumps over the lazy dog. The!\n  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "ins_ctrl_o_register": {
+  "col": 10,
+  "line": 1,
+  "text": "fooabarbarb\n"
  },
  "ins_ctrl_o_zz": {
   "col": 4,
@@ -1489,6 +1649,16 @@
   "line": 2,
   "text": "first line\nfisecond line\nthird line\nfourth line\nfifth line\n"
  },
+ "ins_end_count": {
+  "col": 6,
+  "line": 1,
+  "text": "abfoox\n"
+ },
+ "ins_end_dot": {
+  "col": 6,
+  "line": 1,
+  "text": "abfooxx\n"
+ },
  "ins_esc_bol": {
   "col": 2,
   "line": 2,
@@ -1503,6 +1673,16 @@
   "col": 1,
   "line": 2,
   "text": "The quick brown fox jumps over the lazy dog.\nX  indented line with (parens [and brackets]) here\nfoo_bar baz-qux 42 0x1f -7\n\nlast paragraph, word. Another sentence!\n  end\n"
+ },
+ "ins_home_count": {
+  "col": 1,
+  "line": 1,
+  "text": "xab\n"
+ },
+ "ins_home_dot": {
+  "col": 1,
+  "line": 1,
+  "text": "xxfooab\n"
  },
  "ins_i": {
   "col": 1,
