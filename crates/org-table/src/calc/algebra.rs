@@ -11,7 +11,7 @@ use std::cmp::Ordering;
 
 use num_bigint::BigInt;
 use num_integer::Integer;
-use num_traits::One;
+use num_traits::{One, Zero};
 
 use super::eval::Env;
 use super::expr::Expr;
@@ -195,26 +195,42 @@ pub(crate) fn compare(a: &Expr, b: &Expr, env: &Env) -> Cmp {
     }
 }
 
-/// A term as coefficient and base: `3 a` is (3, a), `-a` is (-1, a), a
-/// number `k` is (k, 1).
-fn term(e: &Expr) -> (Num, Expr) {
+/// A term as coefficient and base: `3 a` is (3, a), `a / 5` is (1:5, a),
+/// `-a` is (-1, a), a number `k` is (k, 1).
+fn term(e: &Expr, env: &Env) -> (Num, Expr) {
     match e {
         Expr::Num(n) => (n.clone(), Expr::int(1)),
         Expr::Call(f, xs) if f == "*" && xs.len() == 2 => match num_of(&xs[0]) {
             Some(c) => (c.clone(), xs[1].clone()),
             None => (Num::int(1), e.clone()),
         },
+        Expr::Call(f, xs) if f == "/" && xs.len() == 2 => {
+            match num_of(&xs[1]).and_then(|k| per(k, env)) {
+                Some(c) => (c, xs[0].clone()),
+                None => (Num::int(1), e.clone()),
+            }
+        }
         Expr::Call(f, xs) if f == "neg" => {
-            let (c, x) = term(&xs[0]);
+            let (c, x) = term(&xs[0], env);
             (c.neg(), x)
         }
         _ => (Num::int(1), e.clone()),
     }
 }
 
+/// The coefficient of `x / k`, as `math-combine-sum` takes it: `1:k` for
+/// an integer (`a - a / 5` is `4:5 a`), `1 / k` for another number.
+fn per(k: &Num, env: &Env) -> Option<Num> {
+    match k {
+        Num::Int(n) if !n.is_zero() => Some(num::make_frac(BigInt::one(), n.clone())),
+        Num::Int(_) => None,
+        _ => num::div(&Num::int(1), k, &env.prec).ok(),
+    }
+}
+
 /// [`term`] without copying the base, `None` for 1: comparing a long sum
 /// with a term copied the whole sum.
-fn term_ref(e: &Expr) -> (Num, Option<&Expr>) {
+fn term_ref<'a>(e: &'a Expr, env: &Env) -> (Num, Option<&'a Expr>) {
     fn base(x: &Expr) -> Option<&Expr> {
         (*x != Expr::int(1)).then_some(x)
     }
@@ -224,8 +240,14 @@ fn term_ref(e: &Expr) -> (Num, Option<&Expr>) {
             Some(c) => (c.clone(), base(&xs[1])),
             None => (Num::int(1), Some(e)),
         },
+        Expr::Call(f, xs) if f == "/" && xs.len() == 2 => {
+            match num_of(&xs[1]).and_then(|k| per(k, env)) {
+                Some(c) => (c, base(&xs[0])),
+                None => (Num::int(1), Some(e)),
+            }
+        }
         Expr::Call(f, xs) if f == "neg" => {
-            let (c, x) = term_ref(&xs[0]);
+            let (c, x) = term_ref(&xs[0], env);
             (c.neg(), x)
         }
         _ => (Num::int(1), base(e)),
@@ -270,11 +292,11 @@ fn combine(a: &Expr, b: &Expr, sign: i8, env: &Env) -> Option<Expr> {
     if let Some(((ka, xa), (kb, xb))) = match (modterm(a), modterm(b)) {
         (Some(p), Some(q)) => Some((p, q)),
         (Some(p), None) => {
-            let (k, x) = term(b);
+            let (k, x) = term(b, env);
             Some((p, (Expr::Num(k), x)))
         }
         (None, Some(q)) => {
-            let (k, x) = term(a);
+            let (k, x) = term(a, env);
             Some(((Expr::Num(k), x), q))
         }
         _ => None,
@@ -289,8 +311,8 @@ fn combine(a: &Expr, b: &Expr, sign: i8, env: &Env) -> Option<Expr> {
         };
         return Some(mul(&k, &xa, env));
     }
-    let (ka, xa) = term_ref(a);
-    let (kb, xb) = term_ref(b);
+    let (ka, xa) = term_ref(a, env);
+    let (kb, xb) = term_ref(b, env);
     if xa != xb {
         return None;
     }
