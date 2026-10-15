@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.19;
+package kalem:plugin@0.2.20;
 
 /// Canvases whose shapes' text has a size of its own (API 0.2.19):
 /// `canvas-view`'s canvas, each shape with the size its text is written

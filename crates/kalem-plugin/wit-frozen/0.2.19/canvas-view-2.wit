@@ -1,0 +1,55 @@
+package kalem:plugin@0.2.19;
+
+/// Canvases whose shapes' text has a size of its own (API 0.2.19):
+/// `canvas-view`'s canvas, each shape with the size its text is written
+/// in, as a whiteboard gives it (Logseq's text from xs to xl, 10 to 48
+/// pixels; a diagram's headings). The window draws a shape's text at that
+/// size times the zoom, in lines that fit the shape; the terminal draws a
+/// character a cell whatever the size. `canvas-view`'s `open` and `set`
+/// stay, their shapes' text at the window's own size.
+interface canvas-view-2 {
+    use documents.{document-spec};
+    use canvas-view.{shape-kind, connector};
+
+    /// A shape, as `canvas-view`'s, and the size its text is written in.
+    record shape {
+        /// The plugin's name for it, which connectors name.
+        id: string,
+        kind: shape-kind,
+        /// Its top left corner, its width and its height.
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        /// What is written in it, wrapped to its width.
+        text: string,
+        /// Its fill and its line, as `canvas-view`'s.
+        fill: string,
+        stroke: string,
+        /// Its line dashed.
+        dashed: bool,
+        /// Where opening it leads, handed to the canvas's command.
+        target: option<string>,
+        /// The size its text is written in, in the canvas's units (a
+        /// whiteboard's pixels); none for the window's own.
+        text-size: option<f32>,
+    }
+
+    /// What is drawn, as `canvas-view`'s canvas.
+    record canvas {
+        /// In the order they are drawn, the first under the others.
+        shapes: list<shape>,
+        /// Drawn over the shapes.
+        connectors: list<connector>,
+        /// The plugin's command run with `{"shape": target}` when the user
+        /// opens a shape.
+        command: string,
+    }
+
+    /// Shows `c` as the plugin's document `spec`, `text` its source, as
+    /// `canvas-view`'s `open`; its number.
+    open: func(spec: document-spec, c: canvas, text: string) -> result<u64, string>;
+
+    /// Writes document `doc` anew, as `canvas-view`'s `set`.
+    set: func(doc: u64, c: canvas, text: string) -> result<_, string>;
+}

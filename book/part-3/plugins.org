@@ -407,7 +407,7 @@ account's.
 * Versions of the plugin API
 
 The plugin API is the WIT package =kalem:plugin=
-(=crates/kalem-plugin/wit=), version 0.2.19; a component's manifest
+(=crates/kalem-plugin/wit=), version 0.2.20; a component's manifest
 names the version it was built against (="api": "^0.2.1"=), and Kalem
 tries it when its own API is of the same 0.MINOR and no earlier. A
 component built against a later version is not installed, and one
