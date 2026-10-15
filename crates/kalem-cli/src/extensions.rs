@@ -349,6 +349,16 @@ impl Editor for Bridge {
         kalem_core::plugin_state::keys(plugin)
     }
 
+    fn later(&mut self, plugin: &str, id: &str, args: &str, after_ms: u32) -> Result<u64, String> {
+        let args = serde_json::from_str(args).map_err(|e| format!("The arguments: {e}"))?;
+        let after = std::time::Duration::from_millis(after_ms.into());
+        kalem_core::extensions::queue_later(plugin, id, args, after)
+    }
+
+    fn cancel_later(&mut self, plugin: &str, run: u64) {
+        kalem_core::extensions::cancel_later(plugin, run);
+    }
+
     fn set_gutter(
         &mut self,
         plugin: &str,
@@ -1197,6 +1207,7 @@ impl Plugins {
         kalem_core::extensions::clear_problems(&l.id, None);
         kalem_core::extensions::remove_menus(&l.id);
         kalem_core::extensions::remove_buttons(&l.id);
+        kalem_core::extensions::remove_later(&l.id);
         kalem_core::layers::remove_plugin(&l.id);
         kalem_core::completers::plugins::remove_plugin(&l.id);
         kalem_core::formatters::plugins::remove_plugin(&l.id);

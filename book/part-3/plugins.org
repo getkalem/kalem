@@ -59,8 +59,8 @@ the same files (wasmtime). It holds eight worlds, three kinds:
 - =extension=: a plugin that adds to the editor rather than opening
   files. It imports =kalem=, =editor=, =ui=, =settings=, =diagnostics=,
   =clock= and =clock-2=, =layers=, =documents=, =styled-documents=,
-  =decorations=, =problems=, =graph-view=, =canvas-view=, =state=, and
-  =fs= (with =fs-2=), =net= and
+  =decorations=, =problems=, =graph-view=, =canvas-view=, =state=,
+  =later=, and =fs= (with =fs-2=), =net= and
   =process= when its permissions grant them, and exports =plugin=
   (below). =extension-layer=, =extension-completer=,
   =extension-layer-2=, =extension-layer-3= and =extension-formatter=
@@ -540,10 +540,11 @@ updated itself. The rules, so that a plugin built once keeps working:
   Document asks (below). The host binds =formatter= when a component
   exports it, as =completer=. =layer-3.wit= of 0.2.15 is frozen
   (=wit-frozen/0.2.15=).
-- 0.2.17 added, for extension plugins, the import =state=: what a
+- 0.2.17 added, for extension plugins, the imports =state=: what a
   plugin keeps between sessions, small values by key in Kalem's state
-  folder, its own (below). =canvas-view.wit= and =formatter.wit= of
-  0.2.16 are frozen (=wit-frozen/0.2.16=).
+  folder, its own; and =later=: its own commands run at a later tick
+  (below). =canvas-view.wit= and =formatter.wit= of 0.2.16 are frozen
+  (=wit-frozen/0.2.16=).
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 - An addition is general, or it waits. It names what several plugins
@@ -1083,6 +1084,25 @@ last and each graph's view toggles and sort.
 #+begin_src rust
 kalem_plugin::state::set("recent", Some("[\"/notes/a.md\"]"))?;
 let recent = kalem_plugin::state::get("recent");
+#+end_src
+
+A plugin's long work goes a slice at a time with =later= (API 0.2.17):
+=later::run(id, args, after_ms)= runs the plugin's own command at an
+editor's tick once =after_ms= milliseconds have passed, after the
+editor has drawn and taken the keys typed meanwhile, never inside the
+call that asked, even after 0; =later::cancel= drops it. A slice does
+some tens of milliseconds of work and asks for the next, so the editor
+answers between slices; the same call waits for the typing to stop
+before a refresh, or comes back each minute. A plugin has at most 64
+runs waiting, and another's command is refused. =kalem run= waits for
+those due within a second. The graph plugin indexes a large graph so,
+its progress on the status bar.
+
+#+begin_src rust
+// A slice of the work, then the next asked for.
+if !index.step(30) {
+    kalem_plugin::later::run("notes.index", "null", 0)?;
+}
 #+end_src
 
 The first plugins planned:

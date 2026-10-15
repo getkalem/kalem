@@ -5824,6 +5824,11 @@ impl App {
         for (id, args) in kalem_core::extensions::take_runs() {
             self.run_command(&id, args);
         }
+        // Those asked for later (`later.run`) once due: after the frame
+        // was drawn and the keys typed meanwhile were taken.
+        for (id, args) in kalem_core::extensions::take_due(now) {
+            self.run_command(&id, args);
+        }
         // Their questions, asked; their status items and panels, drawn
         // again when they change.
         for r in kalem_core::extensions::take_requests() {
@@ -6028,6 +6033,10 @@ impl App {
         }
         if let Some(d) = self.debouncer.next_due() {
             t = t.min(d.saturating_duration_since(now));
+        }
+        // A plugin's command asked for later.
+        if let Some(d) = kalem_core::extensions::later_due(now) {
+            t = t.min(d);
         }
         // Search results and files as they come.
         if let Some(p) = &self.palette

@@ -450,6 +450,8 @@ struct State {
     menus: Vec<PluginMenu>,
     /// The buttons plugins add to the toolbar.
     buttons: Vec<PluginButton>,
+    /// The plugins' commands asked for later, in the order asked.
+    later: Vec<Later>,
 }
 
 /// A menu a plugin adds to the menu bar, from its manifest's `menus`.
@@ -545,6 +547,7 @@ static STATE: Mutex<State> = Mutex::new(State {
     requests: Vec::new(),
     menus: Vec::new(),
     buttons: Vec::new(),
+    later: Vec::new(),
 });
 
 fn queue_request(r: crate::command::Request) {
@@ -780,6 +783,84 @@ pub fn queue_run(id: &str, args: Value) {
 /// The commands queued, in order.
 pub fn take_runs() -> Vec<(String, Value)> {
     std::mem::take(&mut state().runs)
+}
+
+/// A plugin's command asked for later (`later.run`, API 0.2.17).
+struct Later {
+    /// Its number.
+    run: u64,
+    /// The plugin, by its short ID.
+    plugin: String,
+    id: String,
+    args: Value,
+    /// When it may run.
+    due: std::time::Instant,
+}
+
+/// The commands a plugin may have waiting.
+pub const MAX_LATER: usize = 64;
+
+static LATER_RUNS: AtomicU64 = AtomicU64::new(0);
+
+/// Asks for plugin `plugin`'s command `id` with `args` once `after` has
+/// passed, at an editor's tick ([`take_due`]); its number. Refused past
+/// [`MAX_LATER`] waiting for the plugin.
+pub fn queue_later(
+    plugin: &str,
+    id: &str,
+    args: Value,
+    after: std::time::Duration,
+) -> Result<u64, String> {
+    let mut s = state();
+    if s.later.iter().filter(|l| l.plugin == plugin).count() >= MAX_LATER {
+        return Err(format!("{MAX_LATER} runs wait already"));
+    }
+    let run = LATER_RUNS.fetch_add(1, Ordering::Relaxed) + 1;
+    s.later.push(Later {
+        run,
+        plugin: plugin.to_string(),
+        id: id.to_string(),
+        args,
+        due: std::time::Instant::now() + after,
+    });
+    Ok(run)
+}
+
+/// Drops plugin `plugin`'s run `run` if it has not run yet.
+pub fn cancel_later(plugin: &str, run: u64) {
+    state()
+        .later
+        .retain(|l| !(l.plugin == plugin && l.run == run));
+}
+
+/// Drops plugin `plugin`'s runs (it stopped).
+pub fn remove_later(plugin: &str) {
+    state().later.retain(|l| l.plugin != plugin);
+}
+
+/// How long from `now` until a command asked for later may run (zero
+/// for one due), none when none waits: how long an editor may wait for
+/// input.
+pub fn later_due(now: std::time::Instant) -> Option<std::time::Duration> {
+    state()
+        .later
+        .iter()
+        .map(|l| l.due.saturating_duration_since(now))
+        .min()
+}
+
+/// The commands asked for later that are due at `now`, taken: by when
+/// they are due, those due together in the order asked. One asked for
+/// while they run waits for the next tick, even after 0, so the editor
+/// draws and takes the keys typed between two.
+pub fn take_due(now: std::time::Instant) -> Vec<(String, Value)> {
+    let mut s = state();
+    let (mut due, waiting): (Vec<Later>, Vec<Later>) = std::mem::take(&mut s.later)
+        .into_iter()
+        .partition(|l| l.due <= now);
+    s.later = waiting;
+    due.sort_by_key(|l| (l.due, l.run));
+    due.into_iter().map(|l| (l.id, l.args)).collect()
 }
 
 /// Runs plugin command `id`.
@@ -2184,6 +2265,71 @@ mod tests {
         p.widgets[2].kind = item("List", Some(false));
         assert_eq!(p.lines(), [(1, 0), (2, 0), (5, 0)]);
         assert_eq!(widget_text(&p.widgets[2]), "▸ List");
+    }
+
+    #[test]
+    fn commands_asked_for_later_wait_until_due_each_plugin_its_own() {
+        use std::time::{Duration, Instant};
+        let start = Instant::now();
+        let soon = queue_later("latertest", "latertest.soon", Value::Null, Duration::ZERO).unwrap();
+        let late = queue_later(
+            "latertest",
+            "latertest.late",
+            Value::from(1),
+            Duration::from_secs(60),
+        )
+        .unwrap();
+        assert_ne!(soon, late);
+        assert_eq!(later_due(Instant::now()), Some(Duration::ZERO));
+        // The first is due; the second waits its minute.
+        assert_eq!(
+            take_due(Instant::now()),
+            [("latertest.soon".to_string(), Value::Null)]
+        );
+        assert!(later_due(Instant::now()).is_some_and(|d| d > Duration::from_secs(59)));
+        assert_eq!(
+            take_due(start + Duration::from_secs(61)),
+            [("latertest.late".to_string(), Value::from(1))]
+        );
+        assert_eq!(later_due(Instant::now()), None);
+        // Those due together, in the order asked.
+        for id in ["latertest.a", "latertest.b", "latertest.c"] {
+            queue_later("latertest", id, Value::Null, Duration::ZERO).unwrap();
+        }
+        let ids: Vec<String> = take_due(Instant::now()).into_iter().map(|r| r.0).collect();
+        assert_eq!(ids, ["latertest.a", "latertest.b", "latertest.c"]);
+        // Cancelled by its own plugin alone.
+        let r = queue_later("latertest", "latertest.a", Value::Null, Duration::ZERO).unwrap();
+        cancel_later("other", r);
+        assert!(later_due(Instant::now()).is_some());
+        cancel_later("latertest", r);
+        assert_eq!(later_due(Instant::now()), None);
+        // So many waiting for a plugin, no more; another's still taken;
+        // all of a plugin's dropped when it stops.
+        for _ in 0..MAX_LATER {
+            queue_later(
+                "latertest",
+                "latertest.a",
+                Value::Null,
+                Duration::from_secs(60),
+            )
+            .unwrap();
+        }
+        assert!(queue_later("latertest", "latertest.a", Value::Null, Duration::ZERO).is_err());
+        queue_later(
+            "latertest2",
+            "latertest2.a",
+            Value::Null,
+            Duration::from_secs(60),
+        )
+        .unwrap();
+        remove_later("latertest");
+        assert!(
+            take_due(start + Duration::from_secs(61))
+                .iter()
+                .all(|r| r.0 == "latertest2.a")
+        );
+        assert_eq!(later_due(Instant::now()), None);
     }
 }
 

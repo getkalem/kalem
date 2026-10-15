@@ -12,7 +12,7 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use kalem_core::command::{Clipboard, CommandRegistry, EditorContext, Request};
 use kalem_core::extensions::{Answer, Question};
@@ -24,6 +24,11 @@ use super::Result;
 /// How many rounds of answers and queued commands one run may take: a
 /// plugin asking again after every answer stops there.
 const ROUNDS: usize = 1000;
+
+/// The longest a run waits for a command the plugin asked for later
+/// (`later.run`): its slices of long work and a refresh after a pause
+/// run, a refresh each minute does not keep the batch going.
+const LATER: Duration = Duration::from_secs(1);
 
 /// What one run of a command left.
 #[derive(Debug, Default)]
@@ -68,7 +73,10 @@ pub fn drive(
             };
             kalem_core::extensions::answer(request, answer);
         }
-        for (id, a) in kalem_core::extensions::take_runs() {
+        // Those asked for later and due run after those queued, as at an
+        // editor's tick.
+        let due = kalem_core::extensions::take_due(Instant::now());
+        for (id, a) in kalem_core::extensions::take_runs().into_iter().chain(due) {
             busy = true;
             if let Err(e) = registry.execute(&id, &mut ctx, &a) {
                 let _ = writeln!(err, "kalem run: {id}: {e}");
@@ -115,6 +123,13 @@ pub fn drive(
             while kalem_core::extensions::owed() {
                 std::thread::sleep(std::time::Duration::from_millis(5));
             }
+            busy = true;
+        }
+        if !busy
+            && let Some(wait) = kalem_core::extensions::later_due(Instant::now())
+            && wait <= LATER
+        {
+            std::thread::sleep(wait);
             busy = true;
         }
         if !busy {

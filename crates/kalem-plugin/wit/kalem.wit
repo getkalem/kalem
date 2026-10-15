@@ -287,6 +287,7 @@ world extension {
     import graph-view;
     import canvas-view;
     import state;
+    import later;
     import editor;
     import problems;
     export plugin;

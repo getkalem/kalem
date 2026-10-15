@@ -54,6 +54,10 @@ struct State {
     refreshed: Vec<String>,
     /// What plugins keep between sessions, by plugin and key.
     kept: BTreeMap<(String, String), String>,
+    /// The commands plugins asked for later: plugin, command, arguments
+    /// and milliseconds; and those dropped, by plugin and number.
+    later: Vec<(String, String, String, u32)>,
+    cancelled: Vec<(String, u64)>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -99,6 +103,17 @@ impl Editor for Fake {
             .filter(|(p, _)| p == plugin)
             .map(|(_, k)| k.clone())
             .collect()
+    }
+
+    fn later(&mut self, plugin: &str, id: &str, args: &str, after_ms: u32) -> Result<u64, String> {
+        let mut s = self.0.lock().unwrap();
+        s.later
+            .push((plugin.into(), id.into(), args.into(), after_ms));
+        Ok(s.later.len() as u64)
+    }
+
+    fn cancel_later(&mut self, plugin: &str, run: u64) {
+        self.0.lock().unwrap().cancelled.push((plugin.into(), run));
     }
 
     fn refresh_layers(&mut self, plugin: &str) {
@@ -1354,6 +1369,24 @@ fn a_layer_and_the_clock() {
             .map(String::as_str),
         Some("2")
     );
+    // Its own command run later (API 0.2.17); another's refused.
+    let later: serde_json::Value =
+        serde_json::from_str(&ext.run_command("layered.later", "null").unwrap().unwrap()).unwrap();
+    assert_eq!(later["run"], 1, "{later}");
+    assert!(
+        later["other"]
+            .as_str()
+            .unwrap()
+            .contains("not the plugin's own"),
+        "{later}"
+    );
+    let s = fake.0.lock().unwrap();
+    assert_eq!(
+        s.later,
+        [("layered".into(), "layered.now".into(), "null".into(), 5)]
+    );
+    assert_eq!(s.cancelled, [("layered".into(), 1)]);
+    drop(s);
     // A plugin built without the feature exports no layer.
     if let Some((mut counter, _)) = counter(Limits::default()) {
         assert!(!counter.has_layers());

@@ -6,7 +6,9 @@
 //! layer draws a line `embedded …` under each line with `{{embed …}}`,
 //! which by `layer-3` (API 0.2.15) shows the text after `{{embed `, to
 //! be typed into. Its formatter `lines` (API 0.2.16) takes the blanks off
-//! the ends of lines, and refuses a tab, at its place.
+//! the ends of lines, and refuses a tab, at its place. Its command
+//! `layered.later` asks for `layered.now` later (API 0.2.17), and for a
+//! command not its own, refused.
 
 use kalem_plugin::completer::{self, Item, ItemKind, Request};
 use kalem_plugin::kalem::{self, Plugin, Scope};
@@ -37,6 +39,14 @@ impl Plugin for Layered {
                 kalem_plugin::clock::offset(now),
                 visits
             ))
+        })?;
+        // Its own command run later (API 0.2.17), another's refused; then
+        // dropped.
+        kalem::command(kalem::spec("layered.later", "Later", Scope::all()), |_| {
+            let run = kalem_plugin::later::run("layered.now", "null", 5)?;
+            let other = kalem_plugin::later::run("file.save", "null", 0).unwrap_err();
+            kalem_plugin::later::cancel(run);
+            Ok(format!("{{\"run\":{run},\"other\":{other:?}}}"))
         })?;
         Ok(())
     }

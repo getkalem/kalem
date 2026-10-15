@@ -174,13 +174,14 @@ pub fn run(path: Option<PathBuf>) {
             let mut written = kalem_core::extensions::generated_writes();
             let mut marked = kalem_core::extensions::gutter_writes();
             loop {
-                cx.background_executor()
-                    .timer(std::time::Duration::from_millis(if first {
-                        300
-                    } else {
-                        150
-                    }))
-                    .await;
+                // Sooner for a plugin's command asked for later, though
+                // never at once: the window draws and takes the keys typed
+                // between two of them.
+                let mut wait = std::time::Duration::from_millis(if first { 300 } else { 150 });
+                if let Some(due) = kalem_core::extensions::later_due(std::time::Instant::now()) {
+                    wait = wait.min(due.max(std::time::Duration::from_millis(8)));
+                }
+                cx.background_executor().timer(wait).await;
                 let paths: Vec<PathBuf> = opened.borrow_mut().drain(..).collect();
                 let open_empty = first && paths.is_empty();
                 let ready = first;
@@ -228,6 +229,11 @@ pub fn run(path: Option<PathBuf>) {
                     let runs = kalem_core::extensions::take_runs();
                     if !runs.is_empty() {
                         workspace::run_queued(runs, cx);
+                    }
+                    // Those asked for later and due, after the window drew.
+                    let due = kalem_core::extensions::take_due(std::time::Instant::now());
+                    if !due.is_empty() {
+                        workspace::run_queued(due, cx);
                     }
                     // Their questions, asked in the active editor; their
                     // status items and panels, drawn again.

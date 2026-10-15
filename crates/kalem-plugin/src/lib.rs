@@ -166,6 +166,7 @@ pub mod formatter;
 pub mod fs;
 pub mod graph_view;
 pub mod kalem;
+pub mod later;
 pub mod layer;
 pub mod net;
 pub mod problems;

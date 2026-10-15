@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 - Plugin API 0.2.17, the import `state`: what a plugin keeps between sessions, small values by key in `plugin-state/ID.json` of Kalem's state folder, its own and written at once (keys of at most 256 bytes, 1 MB in all, no permission needed). For the graph plugin's pages opened last and each graph's view toggles and sort, kept from one session to the next.
+- Plugin API 0.2.17 also adds the import `later`: a plugin's own command run at an editor's tick once some milliseconds have passed, after the editor has drawn and taken the keys typed meanwhile, never inside the call that asked (`later.run`, `later.cancel`; 64 waiting at most; `kalem run` waits for those due within a second). Long work goes a slice at a time, the editor answering between slices: the graph plugin's first index of a large graph no longer holds the editor for seconds.
 
 ### Fixed
 - A language server that cancels a request for diagnostics or inlay hints and then says nothing, as rust-analyzer does while it loads a project, is asked again after 300 ms: the diagnostics or hints stayed missing until the server next spoke.

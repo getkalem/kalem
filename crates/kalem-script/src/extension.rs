@@ -37,7 +37,7 @@ pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
 pub use bindings::kalem::plugin::{
     canvas_view, clock, clock_2, decorations, diagnostics, documents, editor, fs, fs_2, graph_view,
-    http, layers, net, problems, process, settings, state, styled_documents,
+    http, later, layers, net, problems, process, settings, state, styled_documents,
 };
 
 /// An edit a plugin asked for, applied when its command returns, its
@@ -492,6 +492,22 @@ pub trait Editor: Send + 'static {
     fn state_keys(&mut self, _plugin: &str) -> Vec<String> {
         Vec::new()
     }
+
+    /// Runs plugin `plugin`'s command `id` with `args` as JSON once
+    /// `after_ms` milliseconds have passed, at an editor's tick (`later`,
+    /// API 0.2.17); its number.
+    fn later(
+        &mut self,
+        _plugin: &str,
+        _id: &str,
+        _args: &str,
+        _after_ms: u32,
+    ) -> Result<u64, String> {
+        Err("This editor runs nothing later".into())
+    }
+
+    /// Drops plugin `plugin`'s run `run` if it has not run yet.
+    fn cancel_later(&mut self, _plugin: &str, _run: u64) {}
 
     /// Plugin `plugin` marks the lines of the file at `path` (lines from
     /// 1), in place of its earlier marks there.
@@ -1018,6 +1034,23 @@ impl state::Host for Session {
     fn keys(&mut self) -> Vec<String> {
         let plugin = self.plugin.clone();
         self.editor.state_keys(&plugin)
+    }
+}
+
+impl later::Host for Session {
+    fn run(&mut self, id: String, args: String, after_ms: u32) -> Result<u64, String> {
+        // Its own commands alone: another's may be gone when the run is
+        // due, and was not written to come back on its own.
+        if !self.owns(&id) {
+            return Err(format!("`{id}` is not the plugin's own command"));
+        }
+        let plugin = self.plugin.clone();
+        self.editor.later(&plugin, &id, &args, after_ms)
+    }
+
+    fn cancel(&mut self, run: u64) {
+        let plugin = self.plugin.clone();
+        self.editor.cancel_later(&plugin, run);
     }
 }
 
@@ -1686,6 +1719,11 @@ impl Extension {
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
         // What plugins keep between sessions (API 0.2.17), each its own.
         state::add_to_linker::<_, HasSelf<Session>>(&mut linker, |d: &mut crate::Data<Session>| {
+            &mut d.user
+        })
+        .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        // Its own commands run later (API 0.2.17).
+        later::add_to_linker::<_, HasSelf<Session>>(&mut linker, |d: &mut crate::Data<Session>| {
             &mut d.user
         })
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
