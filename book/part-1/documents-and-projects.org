@@ -23,7 +23,9 @@ projects' folders: opening one of its notes outside the projects offers
 to add it, once a session (Enter adds it, Escape leaves it), or adds it
 at once with =projects.auto_add=. Nothing is written into the
 folder: the list and the recent files are kept in =projects.toml=
-beside =settings.toml=.
+beside =settings.toml=. A folder written there by hand through a link
+(macOS's =/tmp=, a link to a synced folder) is the folder the link
+leads to, under the name written.
 
 The document you are in decides the current project: Ctrl+P and
 Search in Project work on it at once, and Switch Project lists it

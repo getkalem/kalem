@@ -174,7 +174,11 @@ impl Projects {
         p
     }
 
-    /// The list in `text`; entries without a path are skipped.
+    /// The list in `text`; entries without a path are skipped. A
+    /// project's folder is taken as the list stores one ([`normal`]), its
+    /// name the folder's as written: one written by hand through a link
+    /// (macOS's `/tmp`, a synced folder's link) holds the files opened by
+    /// their real path, and its folder is watched.
     pub fn parse(text: &str) -> Projects {
         let doc: DocumentMut = match text.parse() {
             Ok(d) => d,
@@ -196,6 +200,7 @@ impl Projects {
                     continue;
                 };
                 let mut p = Project::new(PathBuf::from(path));
+                p.root = normal(&p.root);
                 if let Some(n) = t.get("name").and_then(Item::as_str) {
                     p.name = n.to_string();
                 }
@@ -443,6 +448,28 @@ mod tests {
             p.get(&dir).unwrap().relative(&dir.join("x/y.org")),
             "x/y.org"
         );
+    }
+
+    /// A project written by hand through a link (macOS's `/tmp`, a synced
+    /// folder's link) holds its files opened by their real path or through
+    /// the link, under the link's name.
+    #[cfg(unix)]
+    #[test]
+    fn a_project_written_through_a_link_holds_its_files() {
+        let dir = temp("link");
+        let real = dir.join("notes");
+        std::fs::create_dir_all(&real).unwrap();
+        let link = dir.join("notes-link");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        let p = Projects::parse(&format!("[[project]]\npath = \"{}\"\n", link.display()));
+        let file = real.join("a.md");
+        std::fs::write(&file, "x").unwrap();
+        let project = p.containing(&file).expect("the project holds the file");
+        assert_eq!(
+            (project.root.as_path(), project.name.as_str()),
+            (real.as_path(), "notes-link")
+        );
+        assert!(p.containing(&link.join("a.md")).is_some());
     }
 
     /// Two Kalems at once (the window and the terminal, or two of either):

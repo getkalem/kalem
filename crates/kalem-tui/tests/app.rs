@@ -1290,6 +1290,22 @@ fn focus_mode_and_text_column() {
     assert_eq!(indent, (120 - 82) / 2 + 1, "{row:?}");
 }
 
+/// A heading in a list item or a quote away from the cursor (`- ## Notes`,
+/// as a Logseq heading block is written): its bullet or `>` first, as the
+/// window draws it, no level glyph, the text in the heading's look; a
+/// heading of its own keeps its glyph.
+#[test]
+fn a_heading_in_a_list_item_keeps_its_bullet_first() {
+    let text = "- ## Notes\n> ## Quoted\n## Plain\nend\n";
+    let mut t = with_file(text, "h.md", Config::default(), (40, 6));
+    t.at(text.find("end").unwrap());
+    let rows: Vec<String> = (0..3).map(|y| t.row(y)).collect();
+    assert_eq!(rows, ["1  - Notes", "2  > Quoted", "3    ○ Plain"]);
+    let buf = t.draw();
+    assert!(buf[(5, 0)].modifier.contains(Modifier::BOLD));
+    assert!(!buf[(3, 0)].modifier.contains(Modifier::BOLD));
+}
+
 /// Focus mode in Markdown: the section of the `#` heading the cursor is
 /// under; a `*` bullet is no heading (it took Org's headlines).
 #[test]

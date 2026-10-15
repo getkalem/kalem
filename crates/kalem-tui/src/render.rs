@@ -508,8 +508,12 @@ pub fn glyphs(
             });
         }
     };
+    // A heading in a list item or a quote (`- ## Notes`, a Logseq heading
+    // block): its bullet or `>` first, as the window draws it, with no
+    // level glyph, and its text in the heading's look.
+    let marker = heading_marker(view);
     // Headline stars away from the cursor: a level glyph, indented.
-    if view.heading > 0 && !on_line {
+    if view.heading > 0 && !on_line && marker.is_none() {
         let level = view.heading as usize;
         let style = style_for(&ViewStyle::default(), view.heading, caps);
         let indent = "  ".repeat(level.saturating_sub(1).min(4));
@@ -521,10 +525,17 @@ pub fn glyphs(
         let glyph = glyphs[(level - 1) % glyphs.len()];
         push_deco(&mut out, &format!("{indent}{glyph} "), style, ls);
     }
-    let mut hang_at: Option<usize> = (view.heading > 0 && !on_line).then_some(out.len());
+    let mut hang_at: Option<usize> =
+        (view.heading > 0 && !on_line && marker.is_none()).then_some(out.len());
     let mut seen_text = false;
-    for run in &view.runs {
-        let mut style = style_for(&run.style, view.heading, caps);
+    for (n, run) in view.runs.iter().enumerate() {
+        // The marker and what is before it in their own look.
+        let level = if marker.is_some_and(|m| n <= m) {
+            0
+        } else {
+            view.heading
+        };
+        let mut style = style_for(&run.style, level, caps);
         let link = if run.style.link && caps.hyperlinks {
             link_target(root, ctx, run.src.start)
         } else {
@@ -626,6 +637,26 @@ pub fn glyphs(
     }
     let hang = hang_at.map_or(0, |n| out[..n].iter().map(|g| g.width).sum());
     LineGlyphs { glyphs: out, hang }
+}
+
+/// The run of a heading's line that is its list item's bullet or its
+/// quote's `>` (`- ## Notes`, `1. ## Steps`, `> ## Quoted`): the first run
+/// that is not blank, when it is such a marker and not the heading's text.
+fn heading_marker(view: &LineView) -> Option<usize> {
+    if view.heading == 0 {
+        return None;
+    }
+    let (i, run) = view
+        .runs
+        .iter()
+        .enumerate()
+        .find(|(_, r)| !r.text.trim().is_empty())?;
+    let t = run.text.trim();
+    let numbered = t
+        .strip_suffix(['.', ')'])
+        .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()));
+    let marker = matches!(t, "-" | "*" | "+" | "•" | "▸" | ">") || numbered;
+    (marker && !run.style.bold).then_some(i)
 }
 
 fn tok_is_bullet(root: &SyntaxNode, at: usize) -> bool {
