@@ -12,6 +12,9 @@ Kalem (Turkish for "pen") shows a file the way it reads and never touches what y
 
 **Status: alpha.** It is in daily use, and it has rough edges. The current release installs [below](#install). An [issue](https://github.com/getkalem/kalem/issues) with the file that went wrong, when you can share it, helps most.
 
+> [!IMPORTANT]
+> **Please update now and then.** Kalem is under heavy development, and new releases with fixes come out often. Run the [install command](#install) again to get the latest Kalem; in the editor, *Browse Plugins* offers an update for each plugin that has a newer release.
+
 ## Why Kalem
 
 - **Every file as itself, and the file stays yours.** Kalem never converts a file to open it (workbooks in `.ods`, `.xls` or `.xlsb` are the one exception, below), writes nothing into a file that its format does not define, and shows what it does not understand as the source it is. It edits the text in place and saves only what you changed, byte for byte: no database, no import, no "save as", no account, no cloud. Open the file in another editor, or in `git diff`, and you see only your edits.
@@ -107,6 +110,8 @@ On Windows, in PowerShell:
 ```powershell
 powershell -ExecutionPolicy Bypass -c "irm https://github.com/getkalem/kalem/releases/latest/download/kalem-editor-installer.ps1 | iex"
 ```
+
+Run the same command again now and then to update: Kalem is under heavy development, and new releases with fixes come out often.
 
 The installers put `kalem` in `~/.cargo/bin`; delete it there to uninstall. The release also has terminal-only archives (`kalem-terminal-*`) for servers, without the graphical editor; installed plugins and viewers run there too. The Book's [Installing](book/part-1/installing.org) has the details: glibc 2.35 or later on Linux, the unsigned `Kalem.app` on macOS, and the libraries a build from source needs.
 
