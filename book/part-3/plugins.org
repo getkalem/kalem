@@ -936,11 +936,16 @@ in the palette, and the answer reaches the plugin through the command
 =plugin.answer=. A status item stands in the status line, a click
 running its command in the window. A panel opens with View > Plugin
 Panel (=view.pluginPanel=, offered while a plugin has one), beside the
-text or under it; in the window a click on a button, an entry, a
-checkbox or an input reaches the plugin, and in both editors Panel
-Actions (=view.panelActions=) lists the widgets one acts on, so a panel
-is used from the keyboard too; an input's new text is asked for in the
-palette. Cancelling a question tells the plugin nothing yet, a list
+text or under it. A text too long for the panel goes on over the lines
+below at its widget's indent, four lines at most, then ends in an
+ellipsis, and the panel scrolls. A click on a button, an entry, a
+checkbox or an input reaches the plugin; a click on the panel away from
+them, or moving the focus toward it from the pane beside it
+(=pane.focus=, Vim's Ctrl+W and a direction, Doom's =SPC w=), gives it
+the keys: the arrows choose among the widgets one acts on, Enter acts,
+Page Up and Page Down scroll, Escape gives the keys back. Panel Actions
+(=view.panelActions=) lists those widgets in the palette too; an
+input's new text is asked for in the palette. Cancelling a question tells the plugin nothing yet, a list
 offers one choice even when the plugin allows several, and a password
 is not hidden as it is typed.
 

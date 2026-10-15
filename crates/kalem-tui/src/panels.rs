@@ -836,72 +836,539 @@ pub fn draw_which_key(buf: &mut Buffer, area: Rect, items: &[(String, String)], 
     }
 }
 
-/// Draws a plugin's panel (`kalem_core::extensions`, D11) in `area`: its
-/// title, then its widgets as lines, indented by depth, a row's widgets
-/// on one line.
-pub fn draw_plugin_panel(
-    buf: &mut ratatui::buffer::Buffer,
-    area: Rect,
-    panel: &kalem_core::extensions::Panel,
-    caps: &Caps,
-) {
-    use kalem_core::extensions::{TextStyle, WidgetKind, widget_text};
-    use ratatui::style::Color as C;
-    let base = panel_style(caps);
-    for y in area.y..area.bottom() {
-        buf.set_stringn(
-            area.x,
-            y,
-            " ".repeat(area.width as usize),
-            area.width as usize,
-            base,
-        );
-    }
-    let width = area.width.saturating_sub(2) as usize;
-    buf.set_stringn(
-        area.x + 1,
-        area.y,
-        &panel.title,
-        width,
-        base.add_modifier(Modifier::BOLD),
-    );
-    let red = match (&caps.colors, caps.no_color) {
-        (Some(t), false) => base.fg(crate::render::rgb(t.todo)),
-        (None, false) => base.fg(C::Red),
-        _ => base,
-    };
-    let style = |kind: &WidgetKind| match kind {
-        WidgetKind::Label { style, .. } => match style {
-            TextStyle::Strong | TextStyle::Heading => base.add_modifier(Modifier::BOLD),
-            TextStyle::Emphasis => base.add_modifier(Modifier::ITALIC),
-            TextStyle::Muted => base.add_modifier(Modifier::DIM),
-            TextStyle::Error => red,
-            TextStyle::Normal | TextStyle::Code => base,
-        },
-        WidgetKind::Button { .. } | WidgetKind::Input { .. } => accent_style(caps, base),
-        WidgetKind::Item { selected: true, .. } => base.add_modifier(Modifier::REVERSED),
-        WidgetKind::Separator => base.add_modifier(Modifier::DIM),
-        _ => base,
-    };
-    for (y, (i, depth)) in (area.y + 2..).zip(panel.lines()) {
-        if y >= area.bottom() {
-            break;
+/// The most lines one widget of a plugin's panel takes; a text that needs
+/// more ends in "…" on the last.
+pub const PANEL_WIDGET_LINES: usize = 4;
+
+/// The width of a plugin's panel at the side of a screen `width` wide:
+/// wider than the outline's on a wide screen, for its longer lines.
+pub fn plugin_panel_width(width: u16) -> u16 {
+    (width / 3).clamp(16, 48).min(width.saturating_sub(10))
+}
+
+/// `text` in at most `max` lines, the first `first` columns wide and the
+/// others `rest`, broken at its spaces where it can (a word wider than a
+/// line where the line ends) and at its line feeds. A text that needs
+/// more lines ends in "…" on the last.
+pub fn wrap_text(text: &str, first: usize, rest: usize, max: usize) -> Vec<String> {
+    use unicode_width::UnicodeWidthChar;
+    let room = |n: usize| if n == 0 { first } else { rest }.max(1);
+    // The bytes of `s` that fill `w` columns: one character at least.
+    let split = |s: &str, w: usize| -> usize {
+        let mut used = 0;
+        for (i, c) in s.char_indices() {
+            used += c.width().unwrap_or(0);
+            if used > w {
+                return if i == 0 { c.len_utf8() } else { i };
+            }
         }
+        s.len()
+    };
+    let mut lines: Vec<String> = Vec::new();
+    for para in text.split('\n') {
+        let mut line = String::new();
+        // Spaces that would start a line going on from the one before go.
+        let mut wrapped = false;
+        for word in para.split_inclusive(' ') {
+            let mut word = if wrapped && line.is_empty() {
+                word.trim_start_matches(' ')
+            } else {
+                word
+            };
+            if line.width() + word.trim_end_matches(' ').width() <= room(lines.len()) {
+                line.push_str(word);
+                continue;
+            }
+            if !line.is_empty() {
+                lines.push(line.trim_end().to_string());
+                line.clear();
+                wrapped = true;
+                word = word.trim_start_matches(' ');
+            }
+            while word.trim_end_matches(' ').width() > room(lines.len()) {
+                let at = split(word, room(lines.len()));
+                lines.push(word[..at].to_string());
+                wrapped = true;
+                word = &word[at..];
+            }
+            line.push_str(word);
+        }
+        lines.push(line.trim_end().to_string());
+    }
+    let max = max.max(1);
+    if lines.len() > max {
+        lines.truncate(max);
+        let room = room(max - 1);
+        let last = &mut lines[max - 1];
+        while !last.is_empty() && last.width() + 1 > room {
+            last.pop();
+        }
+        let kept = last.trim_end().len();
+        last.truncate(kept);
+        last.push('…');
+    }
+    lines
+}
+
+/// A piece of a line of a plugin's panel: widget `widget`'s text, or a
+/// line of it, from column `x` of the panel.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PanelPiece {
+    /// The widget, by index into the panel's widgets.
+    pub widget: usize,
+    /// Its first column, from the panel's left edge.
+    pub x: u16,
+    /// Its text.
+    pub text: String,
+}
+
+/// The lines of a plugin's panel under its title, for a panel `width`
+/// columns wide: each widget indented by its depth, a row's widgets side
+/// by side. A text that does not fit goes on over the lines below, at
+/// its widget's indent (an entry's and a checkbox's past their arrow or
+/// box), [`PANEL_WIDGET_LINES`] at most; a row's widget that does not fit
+/// beside those before it starts a line. The last column stays free.
+pub fn plugin_panel_lines(
+    panel: &kalem_core::extensions::Panel,
+    width: u16,
+) -> Vec<Vec<PanelPiece>> {
+    use kalem_core::extensions::{WidgetKind, widget_text};
+    let right = width.saturating_sub(1);
+    let mut out = Vec::new();
+    for (i, depth) in panel.lines() {
         let w = &panel.widgets[i];
-        let mut x = area.x + 1 + (depth as u16 * 2).min(area.width / 2);
+        let start = 1 + (depth as u16 * 2).min(width / 2);
         let parts: Vec<usize> = match w.kind {
             WidgetKind::Row => w.children.iter().map(|&c| c as usize).collect(),
             _ => vec![i],
         };
+        let mut line = Vec::new();
+        let mut x = start;
         for j in parts {
-            let room = area.right().saturating_sub(x + 1) as usize;
-            if room == 0 {
+            let kind = &panel.widgets[j].kind;
+            let text = widget_text(&panel.widgets[j]);
+            if text.is_empty() {
+                continue;
+            }
+            if x > start && x + text.width() as u16 > right {
+                out.push(std::mem::take(&mut line));
+                x = start;
+            }
+            if x + 1 > right {
                 break;
             }
-            let part = &panel.widgets[j];
-            let text = widget_text(part);
-            buf.set_stringn(x, y, &text, room, style(&part.kind));
-            x += text.width() as u16 + 2;
+            let first = (right - x) as usize;
+            // Past the arrow or the box, when that leaves room.
+            let hang = match kind {
+                WidgetKind::Item {
+                    expanded: Some(_), ..
+                }
+                | WidgetKind::Checkbox { .. } => text.find(' ').map_or(0, |p| text[..=p].width()),
+                _ => 0,
+            };
+            let hang = if hang + 8 <= first { hang } else { 0 };
+            let lines = wrap_text(&text, first, first - hang, PANEL_WIDGET_LINES);
+            let n = lines.len();
+            for (k, t) in lines.into_iter().enumerate() {
+                let at = if k == 0 {
+                    x
+                } else {
+                    out.push(std::mem::take(&mut line));
+                    x + hang as u16
+                };
+                if k + 1 == n {
+                    x = at + t.width() as u16 + 2;
+                }
+                line.push(PanelPiece {
+                    widget: j,
+                    x: at,
+                    text: t,
+                });
+            }
         }
+        out.push(line);
+    }
+    out
+}
+
+/// A plugin's panel (`kalem_core::extensions`, D11) as the terminal shows
+/// it: how far it is scrolled, the widget chosen by keys while it has
+/// them, and where each widget a click acts on was drawn.
+#[derive(Debug, Clone, Default)]
+pub struct PluginPanelView {
+    /// Keys go to the panel.
+    pub focus: bool,
+    /// The widget chosen by keys, by key.
+    pub selected: Option<String>,
+    /// The first line shown under the title.
+    pub top: usize,
+    /// The chosen widget is brought into view at the next drawing.
+    pub follow: bool,
+    /// Where the panel was drawn last; empty while it is not shown.
+    pub area: Rect,
+    /// Its lines under the title, at the last drawing.
+    lines: usize,
+    /// How many of them show.
+    height: usize,
+    /// Each widget's first and last line, by index.
+    places: Vec<(usize, usize, usize)>,
+    /// Where each widget a user acts on was drawn, by index: a rectangle
+    /// for each of its lines.
+    spots: Vec<(Rect, usize)>,
+}
+
+impl PluginPanelView {
+    /// The widget a user acts on drawn at (`x`, `y`), by index.
+    pub fn at(&self, x: u16, y: u16) -> Option<usize> {
+        let p = ratatui::layout::Position::new(x, y);
+        self.spots
+            .iter()
+            .find(|(r, _)| r.contains(p))
+            .map(|&(_, i)| i)
+    }
+
+    /// Scrolls by `by` lines, down when positive.
+    pub fn scroll(&mut self, by: isize) {
+        let last = self.lines.saturating_sub(self.height);
+        self.top = self.top.saturating_add_signed(by).min(last);
+    }
+
+    /// The lines a page scrolls by.
+    pub fn page(&self) -> usize {
+        self.height.saturating_sub(1).max(1)
+    }
+
+    /// Widget `i`'s first and last line at the last drawing.
+    pub fn place(&self, i: usize) -> Option<(usize, usize)> {
+        self.places
+            .iter()
+            .find(|p| p.0 == i)
+            .map(|&(_, first, last)| (first, last))
+    }
+
+    /// Whether line `n` shows.
+    pub fn shows(&self, n: usize) -> bool {
+        n >= self.top && n < self.top + self.height
+    }
+
+    /// Draws `panel` in `area`: its title, then its lines
+    /// ([`plugin_panel_lines`]) from `top`, a mark in the last column
+    /// where more lines are above or below.
+    pub fn draw(
+        &mut self,
+        buf: &mut Buffer,
+        area: Rect,
+        panel: &kalem_core::extensions::Panel,
+        caps: &Caps,
+    ) {
+        use kalem_core::extensions::{TextStyle, WidgetKind};
+        self.area = area;
+        self.spots.clear();
+        self.places.clear();
+        let base = panel_style(caps);
+        for y in area.y..area.bottom() {
+            buf.set_stringn(
+                area.x,
+                y,
+                " ".repeat(area.width as usize),
+                area.width as usize,
+                base,
+            );
+        }
+        let title = if self.focus {
+            accent_style(caps, base)
+        } else {
+            base
+        };
+        buf.set_stringn(
+            area.x + 1,
+            area.y,
+            &panel.title,
+            area.width.saturating_sub(2) as usize,
+            title.add_modifier(Modifier::BOLD),
+        );
+        let red = match (&caps.colors, caps.no_color) {
+            (Some(t), false) => base.fg(crate::render::rgb(t.todo)),
+            (None, false) => base.fg(Color::Red),
+            _ => base,
+        };
+        let style = |kind: &WidgetKind| match kind {
+            WidgetKind::Label { style, .. } => match style {
+                TextStyle::Strong | TextStyle::Heading => base.add_modifier(Modifier::BOLD),
+                TextStyle::Emphasis => base.add_modifier(Modifier::ITALIC),
+                TextStyle::Muted => base.add_modifier(Modifier::DIM),
+                TextStyle::Error => red,
+                TextStyle::Normal | TextStyle::Code => base,
+            },
+            WidgetKind::Button { .. } | WidgetKind::Input { .. } => accent_style(caps, base),
+            WidgetKind::Item { selected: true, .. } => base.add_modifier(Modifier::REVERSED),
+            WidgetKind::Separator => base.add_modifier(Modifier::DIM),
+            _ => base,
+        };
+        let lines = plugin_panel_lines(panel, area.width);
+        for (n, line) in lines.iter().enumerate() {
+            for piece in line {
+                match self.places.iter_mut().find(|p| p.0 == piece.widget) {
+                    Some(p) => p.2 = n,
+                    None => self.places.push((piece.widget, n, n)),
+                }
+            }
+        }
+        self.lines = lines.len();
+        self.height = area.height.saturating_sub(2) as usize;
+        let chosen = self
+            .selected
+            .as_ref()
+            .and_then(|k| panel.widgets.iter().position(|w| &w.key == k));
+        if std::mem::take(&mut self.follow)
+            && let Some((first, last)) = chosen.and_then(|i| self.place(i))
+        {
+            if first < self.top {
+                self.top = first;
+            } else if last >= self.top + self.height {
+                self.top = (last + 1).saturating_sub(self.height).min(first);
+            }
+        }
+        self.top = self.top.min(self.lines.saturating_sub(self.height));
+        let chosen = chosen.filter(|_| self.focus);
+        let acted_on = |kind: &WidgetKind| {
+            matches!(
+                kind,
+                WidgetKind::Button { .. }
+                    | WidgetKind::Input { .. }
+                    | WidgetKind::Checkbox { .. }
+                    | WidgetKind::Item { .. }
+            )
+        };
+        let end = area.right().saturating_sub(1);
+        for (n, line) in lines.iter().enumerate().skip(self.top).take(self.height) {
+            let y = area.y + 2 + (n - self.top) as u16;
+            let alone = line.len() == 1;
+            for piece in line {
+                let kind = &panel.widgets[piece.widget].kind;
+                let mut st = style(kind);
+                let x = area.x + piece.x;
+                let mut to = x + piece.text.width() as u16;
+                // Alone on its line, a widget reaches the panel's edge.
+                if alone {
+                    to = to.max(end);
+                }
+                if chosen == Some(piece.widget) {
+                    st = selected_style(caps, st);
+                    buf.set_stringn(x, y, " ".repeat((to - x) as usize), (end - x) as usize, st);
+                }
+                buf.set_stringn(x, y, &piece.text, end.saturating_sub(x) as usize, st);
+                if acted_on(kind) && to > x {
+                    self.spots.push((Rect::new(x, y, to - x, 1), piece.widget));
+                }
+            }
+        }
+        let dim = base.add_modifier(Modifier::DIM);
+        if self.top > 0 && self.height > 0 {
+            buf.set_string(end, area.y + 2, if caps.ascii { "^" } else { "▲" }, dim);
+        }
+        if self.top + self.height < self.lines && self.height > 0 {
+            let y = area.y + 1 + self.height as u16;
+            buf.set_string(end, y, if caps.ascii { "v" } else { "▼" }, dim);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kalem_core::extensions::{Panel, Widget, WidgetKind};
+
+    fn item(label: &str, detail: Option<&str>, expanded: Option<bool>) -> WidgetKind {
+        WidgetKind::Item {
+            label: label.into(),
+            detail: detail.map(str::to_string),
+            expanded,
+            selected: false,
+        }
+    }
+
+    fn button(label: &str) -> WidgetKind {
+        WidgetKind::Button {
+            label: label.into(),
+            command: None,
+        }
+    }
+
+    fn panel(widgets: Vec<(&str, WidgetKind, Vec<u32>)>) -> Panel {
+        Panel {
+            plugin: "p".into(),
+            id: "p.refs".into(),
+            title: "Backlinks".into(),
+            bottom: false,
+            widgets: widgets
+                .into_iter()
+                .map(|(key, kind, children)| Widget {
+                    key: key.into(),
+                    kind,
+                    children,
+                })
+                .collect(),
+        }
+    }
+
+    fn texts(lines: &[Vec<PanelPiece>]) -> Vec<Vec<(usize, u16, &str)>> {
+        lines
+            .iter()
+            .map(|l| l.iter().map(|p| (p.widget, p.x, p.text.as_str())).collect())
+            .collect()
+    }
+
+    #[test]
+    fn a_long_text_wraps_at_its_spaces_and_ends_in_an_ellipsis() {
+        let r = "First try of Editor on the Book's plugins chapter";
+        assert_eq!(
+            wrap_text(r, 18, 18, 4),
+            ["First try of", "Editor on the", "Book's plugins", "chapter"]
+        );
+        assert_eq!(wrap_text(r, 60, 60, 4), [r]);
+        // Past the lines allowed: the last ends in an ellipsis.
+        assert_eq!(
+            wrap_text("one two three four five six", 9, 9, 2),
+            ["one two", "three…"]
+        );
+        assert_eq!(wrap_text("one two three", 7, 7, 1), ["one tw…"]);
+        // A word wider than a line is cut; the lines after the first are
+        // as wide as asked.
+        assert_eq!(
+            wrap_text("a verylongwordindeed b", 6, 4, 9),
+            ["a", "very", "long", "word", "inde", "ed b"]
+        );
+        // Its own line feeds kept; spaces kept inside a line, dropped at
+        // the start of one going on from the line before.
+        assert_eq!(wrap_text("a\nb", 9, 9, 4), ["a", "b"]);
+        assert_eq!(
+            wrap_text("▾ Linked references  7", 30, 28, 4),
+            ["▾ Linked references  7"]
+        );
+        assert_eq!(
+            wrap_text("Linked  references", 7, 7, 4),
+            ["Linked", "referen", "ces"]
+        );
+        // Wide characters take two columns.
+        assert_eq!(wrap_text("日本語の文", 6, 6, 4), ["日本語", "の文"]);
+    }
+
+    #[test]
+    fn a_panels_lines_wrap_at_their_widgets_indent() {
+        let p = panel(vec![
+            ("", WidgetKind::Column, vec![1, 2]),
+            (
+                "1",
+                item("Linked references", Some("2"), Some(true)),
+                vec![3],
+            ),
+            ("row", WidgetKind::Row, vec![5, 6]),
+            ("1.0", item("Book", Some("1"), Some(true)), vec![4]),
+            (
+                "1.0.0",
+                item(
+                    "First try of Editor on the Book's plugins chapter",
+                    None,
+                    None,
+                ),
+                vec![],
+            ),
+            ("refresh", button("Refresh"), vec![]),
+            ("search", button("Search the graph"), vec![]),
+        ]);
+        assert_eq!(
+            texts(&plugin_panel_lines(&p, 24)),
+            [
+                vec![(1, 1, "▾ Linked references  2")],
+                vec![(3, 3, "▾ Book  1")],
+                vec![(4, 5, "First try of")],
+                vec![(4, 5, "Editor on the")],
+                vec![(4, 5, "Book's plugins")],
+                vec![(4, 5, "chapter")],
+                // A row's widget that does not fit beside the one before
+                // starts a line.
+                vec![(5, 1, "[ Refresh ]")],
+                vec![(6, 1, "[ Search the graph ]")],
+            ]
+        );
+        // Wide enough, each text on a line, the row's widgets side by side.
+        assert_eq!(
+            texts(&plugin_panel_lines(&p, 60)),
+            [
+                vec![(1, 1, "▾ Linked references  2")],
+                vec![(3, 3, "▾ Book  1")],
+                vec![(4, 5, "First try of Editor on the Book's plugins chapter")],
+                vec![(5, 1, "[ Refresh ]"), (6, 14, "[ Search the graph ]")],
+            ]
+        );
+        // An entry's text goes on past its arrow.
+        assert_eq!(
+            texts(&plugin_panel_lines(&p, 16))[..3],
+            [
+                vec![(1, 1, "▾ Linked")],
+                vec![(1, 3, "references")],
+                vec![(1, 3, "2")]
+            ]
+        );
+    }
+
+    #[test]
+    fn a_panel_scrolls_and_maps_clicks_to_every_line_of_a_widget() {
+        let mut widgets = vec![("", WidgetKind::Column, (1..=12).collect::<Vec<u32>>())];
+        let labels: Vec<String> = (1..=12)
+            .map(|n| format!("Reference {n} which is long enough to wrap"))
+            .collect();
+        for (n, l) in labels.iter().enumerate() {
+            widgets.push((
+                ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"][n],
+                item(l, None, None),
+                vec![],
+            ));
+        }
+        let p = panel(widgets);
+        let caps = Caps::full();
+        let area = Rect::new(0, 0, 24, 10);
+        let mut buf = Buffer::empty(area);
+        let mut v = PluginPanelView::default();
+        v.draw(&mut buf, area, &p, &caps);
+        let row = |buf: &Buffer, y: u16| -> String {
+            (0..area.width)
+                .map(|x| buf[(x, y)].symbol())
+                .collect::<String>()
+        };
+        // Each reference over two lines: the first on rows 2 and 3, the
+        // last column marking more lines below.
+        assert_eq!(row(&buf, 2).trim_end(), " Reference 1 which is");
+        assert_eq!(row(&buf, 3).trim_end(), " long enough to wrap");
+        assert_eq!(row(&buf, 9).trim_end(), " long enough to wrap   ▼");
+        // A click on either line, anywhere to the panel's edge, is the
+        // first reference's; on the title, none.
+        assert_eq!(v.at(3, 2), Some(1));
+        assert_eq!(v.at(20, 3), Some(1));
+        assert_eq!(v.at(1, 4), Some(2));
+        assert_eq!(v.at(1, 0), None);
+        // Scrolled by three lines: the second reference's second line on
+        // top, a mark for the lines above; clicks follow.
+        v.scroll(3);
+        v.draw(&mut buf, area, &p, &caps);
+        assert_eq!(row(&buf, 2).trim_end(), " long enough to wrap   ▲");
+        assert_eq!(v.at(1, 2), Some(2));
+        assert_eq!(v.at(1, 3), Some(3));
+        // Never past the last line.
+        v.scroll(100);
+        v.draw(&mut buf, area, &p, &caps);
+        assert_eq!(v.top, 24 - 8);
+        assert_eq!(row(&buf, 9).trim_end(), " long enough to wrap");
+        // The widget chosen by keys, brought into view.
+        v.selected = Some("a".into());
+        v.follow = true;
+        v.draw(&mut buf, area, &p, &caps);
+        assert_eq!(v.top, 0);
+        v.selected = Some("l".into());
+        v.follow = true;
+        v.draw(&mut buf, area, &p, &caps);
+        assert_eq!(v.top, 16);
+        assert_eq!(v.place(12), Some((22, 23)));
     }
 }

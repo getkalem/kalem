@@ -856,6 +856,15 @@ impl Workspace {
             return;
         }
         let (changed, new) = self.layout.apply(op);
+        // No pane that way: the plugin's panel at that edge takes the keys.
+        if let PaneOp::Focus(d) = *op
+            && !changed
+            && self
+                .editor
+                .update(cx, |e, cx| e.plugin_panel_focus(d, true, cx))
+        {
+            return;
+        }
         if let PaneOp::Close(with_doc) = op {
             if !changed {
                 self.editor.update(cx, |e, cx| {

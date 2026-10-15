@@ -397,6 +397,8 @@ pub struct Editor {
     pub outline: Option<crate::outline::Outline>,
     /// The plugin's panel shown (`kalem_core::extensions`), by ID.
     pub plugin_panel: Option<String>,
+    /// Its keys: given them, the widget chosen, scrolled.
+    pub plugin_keys: crate::plugin_panel::PanelKeys,
     /// The file manager's preview pane, when shown: `true` for the
     /// listing's thumbnails.
     pub preview: Option<bool>,
@@ -578,6 +580,7 @@ impl Editor {
             other: None,
             outline: None,
             plugin_panel: None,
+            plugin_keys: Default::default(),
             preview: None,
             preview_cache: Default::default(),
             viewer_view: Default::default(),
@@ -1473,7 +1476,15 @@ impl Editor {
             Request::QuitWithoutSaving { force } => cx.emit(DocEvent::QuitWithoutSaving { force }),
             Request::CloseWindow => cx.emit(DocEvent::CloseWindow),
             Request::Restart { restore } => cx.emit(DocEvent::Restart(restore)),
-            Request::Pane(op) => cx.emit(DocEvent::Pane(op)),
+            Request::Pane(op) => {
+                // To the plugin's panel, or from it: kept here.
+                if let kalem_core::layout::PaneOp::Focus(d) = op
+                    && self.plugin_panel_focus(d, false, cx)
+                {
+                    return;
+                }
+                cx.emit(DocEvent::Pane(op))
+            }
             Request::Workspace(op) => cx.emit(DocEvent::Workspace(op)),
             Request::SaveSession(name) => cx.emit(DocEvent::SaveSession(name)),
             Request::RestoreSession(name) => cx.emit(DocEvent::RestoreSession(name)),
@@ -1668,6 +1679,7 @@ impl Editor {
                     Some(id) if self.plugin_panel.as_deref() != Some(id.as_str()) => Some(id),
                     _ => None,
                 };
+                self.plugin_keys = Default::default();
                 cx.notify();
             }
             Request::Preview { thumbnails } => {
@@ -2595,6 +2607,10 @@ impl Editor {
             }
             return;
         }
+        if self.plugin_keys.focus && self.plugin_panel_key(&ev.keystroke, window, cx) {
+            cx.stop_propagation();
+            return;
+        }
         if self.find_key(&ev.keystroke, cx) {
             cx.stop_propagation();
             return;
@@ -3448,6 +3464,7 @@ impl Editor {
         self.date_picker = None;
         self.settings = None;
         self.context_menu = None;
+        self.plugin_keys.focus = false;
         if let Some(f) = &mut self.find {
             f.focused = false;
         }

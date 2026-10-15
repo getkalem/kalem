@@ -248,6 +248,8 @@ pub struct App {
     outline: Option<OutlinePanel>,
     /// The plugin's panel shown (`kalem_core::extensions`), by ID.
     plugin_panel: Option<String>,
+    /// How it is shown: scrolled, chosen, given the keys.
+    plugin_view: crate::panels::PluginPanelView,
     /// The plugins' status items and panels drawn
     /// (`kalem_core::extensions::shown`).
     shown_seen: u64,
@@ -618,6 +620,7 @@ impl App {
             cursor_block: None,
             outline: None,
             plugin_panel: None,
+            plugin_view: Default::default(),
             shown_seen: kalem_core::extensions::shown(),
             written_seen: kalem_core::extensions::generated_writes(),
             docs: vec![None],
@@ -2387,6 +2390,7 @@ impl App {
                     Some(id) if self.plugin_panel.as_deref() != Some(id.as_str()) => Some(id),
                     _ => None,
                 };
+                self.plugin_view = Default::default();
                 self.dirty = true;
             }
             Request::ToggleMath => {
@@ -3194,9 +3198,20 @@ impl App {
             }
             return;
         }
+        if let PaneOp::Focus(d) = *op
+            && self.plugin_panel_focus(d, false)
+        {
+            return;
+        }
         let old_focus = self.layout.focus();
         let before = self.layout.panes();
         let (changed, new) = self.layout.apply(op);
+        if let PaneOp::Focus(d) = *op
+            && !changed
+            && self.plugin_panel_focus(d, true)
+        {
+            return;
+        }
         if let PaneOp::Close(_) = op
             && !changed
         {
@@ -3535,6 +3550,9 @@ impl App {
     fn mouse(&mut self, m: crossterm::event::MouseEvent) {
         if self.settings.is_some() {
             self.settings_mouse(m);
+            return;
+        }
+        if self.plugin_panel_mouse(&m) {
             return;
         }
         if self.canvas_mouse(&m) {
@@ -4642,6 +4660,190 @@ impl App {
         true
     }
 
+    /// A move of the focus (`pane.focus`) toward direction `d`, from the
+    /// focused plugin panel or, `edge` true, from the pane at the edge the
+    /// panel stands at: it gives the panel the keys, or gives them back
+    /// to the panes; whether it did.
+    fn plugin_panel_focus(&mut self, d: kalem_core::layout::Dir, edge: bool) -> bool {
+        use kalem_core::layout::Dir;
+        let Some(p) = self
+            .plugin_panel
+            .as_deref()
+            .and_then(kalem_core::extensions::panel)
+        else {
+            return false;
+        };
+        let (toward, back) = if p.bottom {
+            (Dir::Down, Dir::Up)
+        } else {
+            (Dir::Left, Dir::Right)
+        };
+        if self.plugin_view.focus {
+            // Back to the panes; the other ways lead nowhere.
+            if d == back {
+                self.plugin_view.focus = false;
+                self.dirty = true;
+            }
+            return true;
+        }
+        if !edge || d != toward {
+            return false;
+        }
+        self.focus_plugin_panel(&p);
+        true
+    }
+
+    /// Gives the keys to plugin panel `p`, a widget chosen.
+    fn focus_plugin_panel(&mut self, p: &kalem_core::extensions::Panel) {
+        let v = &mut self.plugin_view;
+        v.focus = true;
+        let chosen = v
+            .selected
+            .as_ref()
+            .is_some_and(|k| p.widgets.iter().any(|w| &w.key == k));
+        if !chosen {
+            let actions = p.actions();
+            let first = actions
+                .iter()
+                .find(|&&i| v.place(i).is_some_and(|(n, _)| v.shows(n)))
+                .or(actions.first());
+            v.selected = first.map(|&i| p.widgets[i].key.clone());
+        }
+        v.follow = true;
+        self.dirty = true;
+    }
+
+    /// Acts on widget `i` of plugin panel `p`, as a click does.
+    fn plugin_panel_act(&mut self, p: &kalem_core::extensions::Panel, i: usize) {
+        let key = p.widgets[i].key.clone();
+        self.plugin_view.selected = Some(key.clone());
+        self.run_command(
+            kalem_core::extensions::PANEL_EVENT,
+            serde_json::json!({ "panel": p.id, "key": key }),
+        );
+        self.dirty = true;
+    }
+
+    /// The mouse over the plugin's panel: the wheel scrolls it, a click
+    /// acts on the widget under it, or gives the panel the keys when on
+    /// none. A click elsewhere takes the keys back. `false` for events
+    /// it leaves alone.
+    fn plugin_panel_mouse(&mut self, m: &crossterm::event::MouseEvent) -> bool {
+        let at = ratatui::layout::Position::new(m.column, m.row);
+        if !self.plugin_view.area.contains(at) {
+            if matches!(m.kind, MouseEventKind::Down(_)) && self.plugin_view.focus {
+                self.plugin_view.focus = false;
+                self.dirty = true;
+            }
+            return false;
+        }
+        let Some(p) = self
+            .plugin_panel
+            .as_deref()
+            .and_then(kalem_core::extensions::panel)
+        else {
+            return false;
+        };
+        match m.kind {
+            MouseEventKind::ScrollDown => self.plugin_view.scroll(3),
+            MouseEventKind::ScrollUp => self.plugin_view.scroll(-3),
+            MouseEventKind::Down(MouseButton::Left) => match self.plugin_view.at(m.column, m.row) {
+                Some(i) => self.plugin_panel_act(&p, i),
+                None => self.focus_plugin_panel(&p),
+            },
+            _ => {}
+        }
+        self.dirty = true;
+        true
+    }
+
+    /// Keys for the focused plugin panel: arrows (and Vim's `j` `k` `g`
+    /// `G`, Emacs's Ctrl+N and Ctrl+P) choose among the widgets a user
+    /// acts on, Page Up and Page Down (Ctrl+U, Ctrl+D) scroll, Enter (or
+    /// Right, `l`, Space but in Vim's normal mode) acts on the widget
+    /// chosen, Escape (or Tab, Left, `h`, `q`) gives the keys back. A key
+    /// sequence begun goes on (Vim's Ctrl+W, the leader: Doom's `SPC w l`
+    /// back to the text). `false` for keys it leaves alone.
+    fn plugin_panel_key(&mut self, k: &KeyEvent) -> bool {
+        let vim_idle = self.vim.as_ref().map(|v| v.idle_command());
+        let begun = !self.pending.is_empty()
+            || self
+                .vim
+                .as_ref()
+                .is_some_and(|v| !v.idle_command() && !v.takes_text());
+        if begun || (k.code == KeyCode::Char(' ') && vim_idle == Some(true)) {
+            return false;
+        }
+        let Some(p) = self
+            .plugin_panel
+            .as_deref()
+            .and_then(kalem_core::extensions::panel)
+        else {
+            self.plugin_view.focus = false;
+            return false;
+        };
+        let actions = p.actions();
+        let v = &mut self.plugin_view;
+        let at = v
+            .selected
+            .as_ref()
+            .and_then(|s| actions.iter().position(|&i| &p.widgets[i].key == s));
+        // The first widget a user acts on that shows.
+        let shown = |v: &crate::panels::PluginPanelView| {
+            actions
+                .iter()
+                .position(|&i| v.place(i).is_some_and(|(n, _)| v.shows(n)))
+        };
+        let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
+        let plain = !ctrl && !k.modifiers.contains(KeyModifiers::ALT);
+        let last = actions.len().saturating_sub(1);
+        let first = shown(v).unwrap_or(0);
+        let (mut choose, mut page, mut act) = (None, None, None);
+        use KeyCode as K;
+        match (k.code, plain, ctrl) {
+            (K::Down, ..) | (K::Char('j'), true, _) | (K::Char('n'), _, true) => {
+                choose = Some(at.map_or(first, |a| (a + 1).min(last)));
+            }
+            (K::Up, ..) | (K::Char('k'), true, _) | (K::Char('p'), _, true) => {
+                choose = Some(at.map_or(first, |a| a.saturating_sub(1)));
+            }
+            (K::PageDown, ..) | (K::Char('d'), _, true) => page = Some(1),
+            (K::PageUp, ..) | (K::Char('u'), _, true) => page = Some(-1),
+            (K::Home, ..) | (K::Char('g'), true, _) => {
+                v.top = 0;
+                choose = Some(0);
+            }
+            (K::End, ..) | (K::Char('G'), _, false) => {
+                v.top = usize::MAX;
+                choose = Some(last);
+            }
+            (K::Enter | K::Right, ..) | (K::Char(' ' | 'l'), true, _) => act = at,
+            (K::Esc | K::Tab | K::Left, ..) | (K::Char('h' | 'q'), true, _) => v.focus = false,
+            // Other keys run commands (to close the panel, say) but do not
+            // type.
+            _ => return input::text(k).is_some(),
+        }
+        self.dirty = true;
+        if let Some(sign) = page {
+            v.scroll(sign * v.page() as isize);
+            // The widget chosen scrolled away: the first that shows.
+            let gone = at
+                .and_then(|a| v.place(actions[a]))
+                .is_none_or(|(n, _)| !v.shows(n));
+            if gone && let Some(s) = shown(v) {
+                v.selected = Some(p.widgets[actions[s]].key.clone());
+            }
+        }
+        if let Some(&i) = choose.and_then(|n| actions.get(n)) {
+            v.selected = Some(p.widgets[i].key.clone());
+            v.follow = true;
+        }
+        if let Some(a) = act {
+            self.plugin_panel_act(&p, actions[a]);
+        }
+        true
+    }
+
     /// Opens, updates or closes the completion menu after typing.
     fn update_completion(&mut self) {
         self.completion = kalem_core::completers::Menu::update(
@@ -4893,6 +5095,9 @@ impl App {
             return;
         }
         if self.outline.as_ref().is_some_and(|o| o.focus) && self.outline_key(&k) {
+            return;
+        }
+        if self.plugin_view.focus && self.plugin_panel_key(&k) {
             return;
         }
         if self.completion.is_some() && self.completion_key(&k) {
@@ -6381,13 +6586,15 @@ impl App {
             text_area.width -= w;
         }
         // A plugin's panel: at the side, or at the bottom.
+        self.plugin_view.area = Rect::default();
         if let Some(p) = self
             .plugin_panel
             .as_deref()
             .and_then(kalem_core::extensions::panel)
         {
             if p.bottom {
-                let h = (p.lines().len() as u16 + 3)
+                let lines = crate::panels::plugin_panel_lines(&p, text_area.width).len();
+                let h = (lines as u16 + 3)
                     .min(text_area.height / 3)
                     .max(3)
                     .min(text_area.height.saturating_sub(3));
@@ -6396,15 +6603,15 @@ impl App {
                     height: h,
                     ..text_area
                 };
-                crate::panels::draw_plugin_panel(f.buffer_mut(), panel, &p, &self.caps);
+                self.plugin_view.draw(f.buffer_mut(), panel, &p, &self.caps);
                 text_area.height -= h;
             } else {
-                let w = OutlinePanel::width(text_area.width);
+                let w = crate::panels::plugin_panel_width(text_area.width);
                 let panel = Rect {
                     width: w,
                     ..text_area
                 };
-                crate::panels::draw_plugin_panel(f.buffer_mut(), panel, &p, &self.caps);
+                self.plugin_view.draw(f.buffer_mut(), panel, &p, &self.caps);
                 text_area.x += w;
                 text_area.width -= w;
             }
