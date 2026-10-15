@@ -81,7 +81,8 @@ mod shot {
     }
 
     /// A whiteboard as Logseq users draw one: a frame, boxes, an ellipse,
-    /// text, a pen's line, a picture that cannot be read, connectors.
+    /// text, a pen's line, a picture that cannot be read, connectors; a
+    /// box's text large and a note's small (API 0.2.19).
     fn board() -> Canvas {
         let shape = |id: &str, kind: ShapeKind, rect: [f32; 4], text: &str| Shape {
             id: id.into(),
@@ -92,6 +93,7 @@ mod shot {
             stroke: None,
             dashed: false,
             target: Some(id.into()),
+            text_size: None,
         };
         let line = |label: &str, dashed: bool| Connector {
             from: None,
@@ -125,12 +127,15 @@ mod shot {
                         "Plans for the launch on Reddit",
                     )
                 },
-                shape(
-                    "kalem",
-                    ShapeKind::Box(8.0),
-                    [420.0, 0.0, 300.0, 140.0],
-                    "Kalem",
-                ),
+                Shape {
+                    text_size: Some(40.0),
+                    ..shape(
+                        "kalem",
+                        ShapeKind::Box(8.0),
+                        [420.0, 0.0, 300.0, 140.0],
+                        "Kalem",
+                    )
+                },
                 Shape {
                     fill: Some(Color::Green),
                     ..shape(
@@ -140,12 +145,15 @@ mod shot {
                         "An idea",
                     )
                 },
-                shape(
-                    "note",
-                    ShapeKind::Text,
-                    [450.0, 220.0, 360.0, 60.0],
-                    "Whiteboards are drawn where Logseq places their shapes",
-                ),
+                Shape {
+                    text_size: Some(12.0),
+                    ..shape(
+                        "note",
+                        ShapeKind::Text,
+                        [450.0, 220.0, 360.0, 60.0],
+                        "Whiteboards are drawn where Logseq places their shapes",
+                    )
+                },
                 Shape {
                     stroke: Some(Color::Red),
                     ..shape(

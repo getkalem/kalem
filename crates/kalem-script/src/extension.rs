@@ -38,8 +38,9 @@ pub use bindings::exports::kalem::plugin::{
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
 pub use bindings::kalem::plugin::{
-    canvas_view, clock, clock_2, decorations, diagnostics, documents, editor, fs, fs_2, graph_view,
-    http, later, layers, net, problems, process, settings, state, styled_documents,
+    canvas_view, canvas_view_2, clock, clock_2, decorations, diagnostics, documents, editor, fs,
+    fs_2, graph_view, http, later, layers, net, problems, process, settings, state,
+    styled_documents,
 };
 
 /// An edit a plugin asked for, applied when its command returns, its
@@ -458,12 +459,13 @@ pub trait Editor: Send + 'static {
     }
 
     /// Shows plugin `plugin`'s document `spec` drawn as canvas `c`, `text`
-    /// its source (`canvas-view`, API 0.2.16); its number.
+    /// its source (`canvas-view`, API 0.2.16, its shapes' text sizes by
+    /// `canvas-view-2`, API 0.2.19); its number.
     fn open_canvas(
         &mut self,
         _plugin: &str,
         _spec: documents::DocumentSpec,
-        _c: canvas_view::Canvas,
+        _c: canvas_view_2::Canvas,
         _text: String,
     ) -> Result<u64, String> {
         Err("This editor draws no canvases".into())
@@ -474,7 +476,7 @@ pub trait Editor: Send + 'static {
         &mut self,
         _plugin: &str,
         _doc: u64,
-        _c: canvas_view::Canvas,
+        _c: canvas_view_2::Canvas,
         _text: String,
     ) -> Result<(), String> {
         Err("This editor draws no canvases".into())
@@ -1066,6 +1068,48 @@ impl canvas_view::Host for Session {
         c: canvas_view::Canvas,
         text: String,
     ) -> Result<u64, String> {
+        canvas_view_2::Host::open(self, spec, canvas_2(c), text)
+    }
+
+    fn set(&mut self, doc: u64, c: canvas_view::Canvas, text: String) -> Result<(), String> {
+        canvas_view_2::Host::set(self, doc, canvas_2(c), text)
+    }
+}
+
+/// A `canvas-view` canvas as `canvas-view-2`'s: its shapes' text at the
+/// window's own size.
+fn canvas_2(c: canvas_view::Canvas) -> canvas_view_2::Canvas {
+    canvas_view_2::Canvas {
+        shapes: c
+            .shapes
+            .into_iter()
+            .map(|s| canvas_view_2::Shape {
+                id: s.id,
+                kind: s.kind,
+                x: s.x,
+                y: s.y,
+                width: s.width,
+                height: s.height,
+                text: s.text,
+                fill: s.fill,
+                stroke: s.stroke,
+                dashed: s.dashed,
+                target: s.target,
+                text_size: None,
+            })
+            .collect(),
+        connectors: c.connectors,
+        command: c.command,
+    }
+}
+
+impl canvas_view_2::Host for Session {
+    fn open(
+        &mut self,
+        spec: documents::DocumentSpec,
+        c: canvas_view_2::Canvas,
+        text: String,
+    ) -> Result<u64, String> {
         if !self.named_own(&spec.id) {
             return Err(format!(
                 "Document `{}` is not the plugin's: its ID starts `{}.`",
@@ -1078,7 +1122,7 @@ impl canvas_view::Host for Session {
         self.editor.open_canvas(&plugin, spec, c, text)
     }
 
-    fn set(&mut self, doc: u64, c: canvas_view::Canvas, text: String) -> Result<(), String> {
+    fn set(&mut self, doc: u64, c: canvas_view_2::Canvas, text: String) -> Result<(), String> {
         check_document(&text, &[])?;
         check_canvas(&c)?;
         let plugin = self.plugin.clone();
@@ -1088,7 +1132,7 @@ impl canvas_view::Host for Session {
 
 /// A canvas within its limits: so many shapes and connectors, and points
 /// of strokes in all.
-fn check_canvas(c: &canvas_view::Canvas) -> Result<(), String> {
+fn check_canvas(c: &canvas_view_2::Canvas) -> Result<(), String> {
     let points: usize = c
         .shapes
         .iter()
@@ -1739,6 +1783,12 @@ impl Extension {
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
         // Documents drawn as canvases (API 0.2.16), as documents are.
         canvas_view::add_to_linker::<_, HasSelf<Session>>(
+            &mut linker,
+            |d: &mut crate::Data<Session>| &mut d.user,
+        )
+        .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        // Their shapes' text sizes (API 0.2.19).
+        canvas_view_2::add_to_linker::<_, HasSelf<Session>>(
             &mut linker,
             |d: &mut crate::Data<Session>| &mut d.user,
         )

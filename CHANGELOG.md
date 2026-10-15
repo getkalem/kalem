@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- Plugin API 0.2.19, the import `canvas-view-2`: a canvas's shapes may each give the size of their text, which the window draws at that size times the zoom (a whiteboard's titles large, its notes small), where it drew every shape's text at one size; the terminal still writes a character a cell. For the graph plugin's Logseq whiteboards, whose text goes from xs to xl.
+
 ### Fixed
 - While a LaTeX `\cite{` or `\ref{` is typed and not yet closed, the status bar no longer says that the words after it are keys no bibliography has (or labels the document lacks): the note waits for the closing brace.
 - A LaTeX section's formulas show in the outline as the heading draws them: `Reggeon $\neq$ Glauber` is `Reggeon ≠ Glauber` there too.

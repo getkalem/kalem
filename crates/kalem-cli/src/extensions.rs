@@ -314,7 +314,7 @@ impl Editor for Bridge {
         &mut self,
         plugin: &str,
         spec: x::documents::DocumentSpec,
-        c: x::canvas_view::Canvas,
+        c: x::canvas_view_2::Canvas,
         text: String,
     ) -> Result<u64, String> {
         kalem_core::extensions::open_canvas(
@@ -335,7 +335,7 @@ impl Editor for Bridge {
         &mut self,
         plugin: &str,
         doc: u64,
-        c: x::canvas_view::Canvas,
+        c: x::canvas_view_2::Canvas,
         text: String,
     ) -> Result<(), String> {
         kalem_core::extensions::set_canvas(plugin, doc, core_canvas(c), text)
@@ -892,8 +892,9 @@ fn completion_item(item: x::completer::Item, point: usize) -> kalem_core::comple
 }
 
 /// A plugin's canvas as the core's: an image only of a file in Kalem's
-/// projects, the theme's colors where the plugin names none it knows.
-fn core_canvas(c: x::canvas_view::Canvas) -> kalem_core::canvas_view::Canvas {
+/// projects, the theme's colors where the plugin names none it knows, a
+/// text size that is one (API 0.2.19).
+fn core_canvas(c: x::canvas_view_2::Canvas) -> kalem_core::canvas_view::Canvas {
     use kalem_core::canvas_view::{Color, Connector, Shape, ShapeKind};
     use x::canvas_view::ShapeKind as K;
     let shapes = c
@@ -924,6 +925,7 @@ fn core_canvas(c: x::canvas_view::Canvas) -> kalem_core::canvas_view::Canvas {
             stroke: Color::parse(&s.stroke),
             dashed: s.dashed,
             target: s.target,
+            text_size: s.text_size.filter(|t| t.is_finite() && *t > 0.0),
         })
         .collect();
     let connectors = c

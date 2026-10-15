@@ -24,6 +24,7 @@ fn shape(id: &str, kind: ShapeKind, rect: [f32; 4], target: Option<&str>) -> Sha
         stroke: None,
         dashed: false,
         target: target.map(str::to_string),
+        text_size: None,
     }
 }
 

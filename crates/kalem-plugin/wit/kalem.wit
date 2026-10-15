@@ -288,6 +288,7 @@ world extension {
     import styled-documents;
     import graph-view;
     import canvas-view;
+    import canvas-view-2;
     import state;
     import later;
     import editor;

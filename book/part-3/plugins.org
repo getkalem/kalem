@@ -59,8 +59,8 @@ the same files (wasmtime). It holds eight worlds, three kinds:
 - =extension=: a plugin that adds to the editor rather than opening
   files. It imports =kalem=, =editor=, =ui=, =settings=, =diagnostics=,
   =clock= and =clock-2=, =layers=, =documents=, =styled-documents=,
-  =decorations=, =problems=, =graph-view=, =canvas-view=, =state=,
-  =later=, and =fs= (with =fs-2=), =net= and
+  =decorations=, =problems=, =graph-view=, =canvas-view= (with
+  =canvas-view-2=), =state=, =later=, and =fs= (with =fs-2=), =net= and
   =process= when its permissions grant them, and exports =plugin=
   (below). =extension-layer=, =extension-completer=,
   =extension-layer-2=, =extension-layer-3=, =extension-formatter=,
@@ -569,6 +569,10 @@ updated itself. The rules, so that a plugin built once keeps working:
   highlighters]]; the host asks =layer-4= in place of =layer-3= when a
   component exports it. =state.wit= and =later.wit= of 0.2.17 are frozen
   (=wit-frozen/0.2.17=).
+- 0.2.19 added, for extension plugins, the import =canvas-view-2=: a
+  canvas's shapes each with the size of their text (below).
+  =layer-4.wit=, =focus.wit= and =outline.wit= of 0.2.18 are frozen
+  (=wit-frozen/0.2.18=).
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 - An addition is general, or it waits. It names what several plugins
@@ -1132,8 +1136,13 @@ or Tab chooses a shape (Tab goes through those that lead somewhere, in
 reading order), a double click or Enter opens it: the canvas's command
 runs with ={"shape": target}=. The document's text, written with the
 canvas, is what Show Source, search and copying show; written again,
-the view stays where it looks. The graph plugin draws Logseq's
-whiteboards and Obsidian's canvases so.
+the view stays where it looks. With =canvas-view-2= (API 0.2.19), the
+same calls of its own, a shape also gives the size of its text, in the
+canvas's units: the window writes it at that size times the zoom (no
+more than three times it), where a shape without one has the window's
+16; the terminal writes a character a cell whatever the size. The graph
+plugin draws Logseq's whiteboards, their text from xs to xl, and
+Obsidian's canvases so.
 
 #+begin_src rust
 use kalem_plugin::canvas_view::{self, Canvas, ShapeKind};

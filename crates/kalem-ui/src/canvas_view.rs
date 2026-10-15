@@ -50,6 +50,8 @@ struct Painted {
     look: Look,
     text: Vec<(SharedString, [f32; 2])>,
     text_color: Hsla,
+    /// The size its text is painted at.
+    font: f32,
     rect: [f32; 4],
     chosen: bool,
 }
@@ -232,7 +234,7 @@ impl Editor {
                             );
                         }
                         for (line, p) in &s.text {
-                            paint_text(line, at(*p), f.font, s.text_color, &font, window, cx);
+                            paint_text(line, at(*p), px(s.font), s.text_color, &font, window, cx);
                         }
                     }
                     for Wire {
@@ -476,7 +478,8 @@ fn paint_text(
 
 /// What view `v` paints in an element of `size`: the shapes on it with
 /// their text in lines that fit them, the connectors, in a font that grows
-/// with the zoom (none below a readable size); `picture` gives an image
+/// with the zoom, a shape's own size when it has one (none below a readable
+/// size); `picture` gives an image
 /// file's picture.
 fn frame(
     v: &CanvasView,
@@ -538,23 +541,28 @@ fn frame(
             ShapeKind::Image(_) | ShapeKind::Stroke(_) => String::new(),
             _ => s.text.clone(),
         };
-        if readable && !words.trim().is_empty() {
+        // In its own size (API 0.2.19), else the window's.
+        let font_s = s.text_px(v.zoom);
+        let (letter_s, line_s) = (font_s * 0.55, font_s * 1.25);
+        if font_s >= 6.0 && !words.trim().is_empty() {
             let pad = 6.0 * v.zoom.min(1.0);
-            let width = ((r[2] - 2.0 * pad) / letter).floor().max(1.0) as usize;
+            let width = ((r[2] - 2.0 * pad) / letter_s).floor().max(1.0) as usize;
             let lines = wrap(&words, width);
-            let tall = lines.len() as f32 * line;
+            let tall = lines.len() as f32 * line_s;
             let top = match s.kind {
-                ShapeKind::Group => r[1] - line - 2.0,
+                ShapeKind::Group => r[1] - line_s - 2.0,
                 ShapeKind::Text => r[1],
                 _ => r[1] + ((r[3] - tall) / 2.0).max(pad),
             };
             for (k, l) in lines.into_iter().enumerate() {
-                let y = top + k as f32 * line;
-                if s.kind != ShapeKind::Group && s.kind != ShapeKind::Text && y + line > r[1] + r[3]
+                let y = top + k as f32 * line_s;
+                if s.kind != ShapeKind::Group
+                    && s.kind != ShapeKind::Text
+                    && y + line_s > r[1] + r[3]
                 {
                     break;
                 }
-                let w = l.chars().count() as f32 * letter;
+                let w = l.chars().count() as f32 * letter_s;
                 let x = match s.kind {
                     ShapeKind::Text | ShapeKind::Group => {
                         r[0] + if s.kind == ShapeKind::Group {
@@ -571,6 +579,7 @@ fn frame(
         f.shapes.push(Painted {
             look,
             text,
+            font: font_s,
             text_color: if s.kind == ShapeKind::Group {
                 palette.muted
             } else {

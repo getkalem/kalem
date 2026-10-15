@@ -5815,6 +5815,7 @@ fn a_canvas_drawn_where_its_shapes_are() {
         stroke: None,
         dashed: false,
         target: Some(text.into()),
+        text_size: None,
     };
     let canvas = Canvas::new(
         vec![

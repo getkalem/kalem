@@ -11,7 +11,8 @@
 //! command not its own, refused. Its outline `hashes` (API 0.2.18)
 //! takes the lines that start with `#`s and a blank as headings, a level
 //! a `#`. By `layer-4` (API 0.2.18) the text an embed's line shows starts
-//! a block of the note's outline.
+//! a block of the note's outline. Its command `layered.canvas` draws a
+//! canvas whose title has a text size (API 0.2.19).
 
 use kalem_plugin::completer::{self, Item, ItemKind, Request};
 use kalem_plugin::kalem::{self, Plugin, Scope};
@@ -51,6 +52,23 @@ impl Plugin for Layered {
             let other = kalem_plugin::later::run("file.save", "null", 0).unwrap_err();
             kalem_plugin::later::cancel(run);
             Ok(format!("{{\"run\":{run},\"other\":{other:?}}}"))
+        })?;
+        // A canvas whose shapes' text has a size (API 0.2.19): a title at
+        // 32, a note at the window's own.
+        kalem::command(kalem::spec("layered.canvas", "Canvas", Scope::all()), |_| {
+            use kalem_plugin::canvas_view::ShapeKind;
+            use kalem_plugin::canvas_view_2::{self, Canvas};
+            let mut title = canvas_view_2::shape("t", ShapeKind::Text, [0.0, 0.0, 200.0, 40.0], "Title");
+            title.text_size = Some(32.0);
+            let note = canvas_view_2::shape("n", ShapeKind::Box(4.0), [0.0, 60.0, 200.0, 80.0], "Note");
+            let c = Canvas {
+                shapes: vec![title, note],
+                connectors: Vec::new(),
+                command: "layered.now".into(),
+            };
+            let spec = kalem_plugin::documents::Spec::new("layered.board", "", "Board", "layered-board");
+            let doc = canvas_view_2::open(&spec, &c, "Title\nNote\n")?;
+            Ok(doc.to_string())
         })?;
         Ok(())
     }

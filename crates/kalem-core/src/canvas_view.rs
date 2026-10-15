@@ -107,9 +107,20 @@ pub struct Shape {
     pub dashed: bool,
     /// Where opening it leads, handed to the canvas's command.
     pub target: Option<String>,
+    /// The size its text is written in, in the canvas's units (API
+    /// 0.2.19, `canvas-view-2`); none for the window's own.
+    pub text_size: Option<f32>,
 }
 
 impl Shape {
+    /// The size its text is drawn at in the window at zoom `zoom`, in
+    /// pixels: its own size, else the window's 16, times the zoom, and no
+    /// more than three times that size however far the canvas is zoomed
+    /// in. The terminal writes a character a cell whatever the size.
+    pub fn text_px(&self, zoom: f32) -> f32 {
+        self.text_size.unwrap_or(16.0) * zoom.min(3.0)
+    }
+
     /// Its middle.
     pub fn center(&self) -> [f32; 2] {
         let [x, y, w, h] = self.rect;
@@ -492,6 +503,7 @@ mod tests {
             stroke: None,
             dashed: false,
             target: target.map(str::to_string),
+            text_size: None,
         }
     }
 
@@ -605,5 +617,23 @@ mod tests {
             ["a sketch", "of the", "graph", "plugin", "next"]
         );
         assert_eq!(wrap("abcdefghij", 4), ["abcd", "efgh", "ij"]);
+    }
+
+    #[test]
+    fn a_shapes_text_at_its_own_size() {
+        let mut s = shape("a", ShapeKind::Text, [0.0, 0.0, 100.0, 40.0], None);
+        // The window's own, growing with the zoom up to three times.
+        assert_eq!(
+            (s.text_px(1.0), s.text_px(2.0), s.text_px(5.0)),
+            (16.0, 32.0, 48.0)
+        );
+        // Its own size (Logseq's xl), and a small one (its xs).
+        s.text_size = Some(48.0);
+        assert_eq!(
+            (s.text_px(0.5), s.text_px(1.0), s.text_px(4.0)),
+            (24.0, 48.0, 144.0)
+        );
+        s.text_size = Some(10.0);
+        assert_eq!(s.text_px(1.0), 10.0);
     }
 }

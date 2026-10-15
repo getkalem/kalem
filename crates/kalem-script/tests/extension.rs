@@ -15,7 +15,7 @@ use kalem_script::extension::{
     Answer, CommandSpec, Editor, Event, EventKind, Extension, Grants, Level, PanelEvent, PanelSpec,
     Question, Reply, StatusOptions, VERSION, WidgetKind, WidgetTree, api,
 };
-use kalem_script::extension::{documents, http, process};
+use kalem_script::extension::{canvas_view_2, documents, http, process};
 use kalem_script::{Error, Host, Limits};
 
 /// A problem as the fake keeps it: line, column, length, severity,
@@ -58,6 +58,8 @@ struct State {
     /// and milliseconds; and those dropped, by plugin and number.
     later: Vec<(String, String, String, u32)>,
     cancelled: Vec<(String, u64)>,
+    /// The canvases plugins drew: plugin, and each shape's text size.
+    canvases: Vec<(String, Vec<Option<f32>>)>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -114,6 +116,19 @@ impl Editor for Fake {
 
     fn cancel_later(&mut self, plugin: &str, run: u64) {
         self.0.lock().unwrap().cancelled.push((plugin.into(), run));
+    }
+
+    fn open_canvas(
+        &mut self,
+        plugin: &str,
+        _spec: documents::DocumentSpec,
+        c: canvas_view_2::Canvas,
+        _text: String,
+    ) -> Result<u64, String> {
+        let mut s = self.0.lock().unwrap();
+        let sizes = c.shapes.iter().map(|x| x.text_size).collect();
+        s.canvases.push((plugin.into(), sizes));
+        Ok(s.canvases.len() as u64)
     }
 
     fn refresh_layers(&mut self, plugin: &str) {
@@ -1400,6 +1415,14 @@ fn a_layer_and_the_clock() {
             .get(&("layered".into(), "visits".into()))
             .map(String::as_str),
         Some("2")
+    );
+    // A canvas whose title's text has a size (API 0.2.19), the other
+    // shape's the window's own.
+    let doc = ext.run_command("layered.canvas", "null").unwrap().unwrap();
+    assert_eq!(doc, "1");
+    assert_eq!(
+        fake.0.lock().unwrap().canvases,
+        [("layered".to_string(), vec![Some(32.0), None])]
     );
     // Its own command run later (API 0.2.17); another's refused.
     let later: serde_json::Value =
