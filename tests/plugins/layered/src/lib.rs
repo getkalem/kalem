@@ -342,6 +342,52 @@ impl Plugin for Layered {
         }
         out
     }
+
+    /// The language `upper`: the body in capitals, by `tr` (`:direct`: at
+    /// once); with variables, a table of their names and values.
+    fn prepare_block(
+        block: &kalem_plugin::executor::Block,
+    ) -> Result<kalem_plugin::executor::Step, String> {
+        use kalem_plugin::executor::{self, Row, Step, Value};
+        if block.language != "upper" {
+            return Err(format!("no language {}", block.language));
+        }
+        if !block.vars.is_empty() {
+            let rows = block
+                .vars
+                .iter()
+                .map(|(name, v)| {
+                    let shown = match v {
+                        Value::Text(t) => t.clone(),
+                        Value::Items(i) => i.join(","),
+                        Value::Table(rows) => format!("{} rows", rows.len()),
+                        Value::Output(_) => String::new(),
+                    };
+                    Row::Cells(vec![name.clone(), shown])
+                })
+                .collect();
+            return Ok(Step::Done(Value::Table(rows)));
+        }
+        if executor::header(block, ":direct").is_some() {
+            return Ok(Step::Done(Value::Text(block.body.to_uppercase())));
+        }
+        Ok(executor::run(
+            "tr",
+            vec!["a-z".into(), "A-Z".into()],
+            Some(&block.body),
+        ))
+    }
+
+    fn finish_block(
+        _block: &kalem_plugin::executor::Block,
+        output: &str,
+        status: Option<i32>,
+    ) -> Result<kalem_plugin::executor::Value, String> {
+        if status != Some(0) {
+            return Err(format!("exit {status:?}"));
+        }
+        Ok(kalem_plugin::executor::Value::Output(output.to_string()))
+    }
 }
 
 kalem_plugin::export_plugin!(Layered);

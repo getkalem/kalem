@@ -3,13 +3,13 @@ name = "kalem-plugin-layered"
 version = "0.0.0"
 edition = "2024"
 publish = false
-description = "An extension plugin for tests: a layer over a mode's view, the clock (API 0.2.10), a completer (API 0.2.11), lines under lines (API 0.2.13) that show a file's text (API 0.2.15) and start blocks of its outline (API 0.2.18), text at places of a line (API 0.2.20), a formatter (API 0.2.16)"
+description = "An extension plugin for tests: a layer over a mode's view, the clock (API 0.2.10), a completer (API 0.2.11), lines under lines (API 0.2.13) that show a file's text (API 0.2.15) and start blocks of its outline (API 0.2.18), text at places of a line (API 0.2.20), a formatter (API 0.2.16), a language whose source blocks it runs (API 0.2.21)"
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-kalem-plugin = { path = "../../../crates/kalem-plugin", features = ["layer-5"] }
+kalem-plugin = { path = "../../../crates/kalem-plugin", features = ["executor"] }
 
 [profile.release]
 opt-level = "s"

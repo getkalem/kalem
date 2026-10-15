@@ -177,6 +177,26 @@ pub trait Plugin {
     fn outline(_outline: &str, _request: &crate::outline::Request) -> Vec<crate::outline::Heading> {
         Vec::new()
     }
+
+    /// What running `block`, of a language of the manifest's `executors`,
+    /// takes: a program, or the block's value at once; or why it does not
+    /// run (API 0.2.21, the feature `executor`); by default, a refusal.
+    #[cfg(feature = "executor")]
+    fn prepare_block(_block: &crate::executor::Block) -> Result<crate::executor::Step, String> {
+        Err("This plugin runs no source blocks".to_string())
+    }
+
+    /// The value of `block` from what its program wrote to its standard
+    /// output and its exit status (API 0.2.21, the feature `executor`); by
+    /// default, the output read as Org reads a shell's.
+    #[cfg(feature = "executor")]
+    fn finish_block(
+        _block: &crate::executor::Block,
+        output: &str,
+        _status: Option<i32>,
+    ) -> Result<crate::executor::Value, String> {
+        Ok(crate::executor::Value::Output(output.to_string()))
+    }
 }
 
 type CommandFn = Box<dyn FnMut(&str) -> Result<String, String>>;
@@ -553,6 +573,7 @@ macro_rules! export_plugin {
         $crate::__export_outline!($plugin);
         $crate::__export_layer_4!($plugin);
         $crate::__export_layer_5!($plugin);
+        $crate::__export_executor!($plugin);
 
         $crate::extension::export_extension!(__KalemPlugin);
     };
@@ -767,5 +788,38 @@ macro_rules! __export_layer_5 {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __export_layer_5 {
+    ($plugin:ty) => {};
+}
+
+/// The `executor` interface of [`export_plugin!`] with the feature
+/// `executor`.
+#[cfg(feature = "executor")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_executor {
+    ($plugin:ty) => {
+        impl $crate::extension::exports::kalem::plugin::executor::Guest for __KalemPlugin {
+            fn prepare(
+                block: $crate::executor::Block,
+            ) -> ::std::result::Result<$crate::executor::Step, ::std::string::String> {
+                <$plugin as $crate::kalem::Plugin>::prepare_block(&block)
+            }
+
+            fn finish(
+                block: $crate::executor::Block,
+                output: ::std::string::String,
+                status: ::std::option::Option<i32>,
+            ) -> ::std::result::Result<$crate::executor::Value, ::std::string::String> {
+                <$plugin as $crate::kalem::Plugin>::finish_block(&block, &output, status)
+            }
+        }
+    };
+}
+
+/// Nothing without the feature `executor`.
+#[cfg(not(feature = "executor"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_executor {
     ($plugin:ty) => {};
 }

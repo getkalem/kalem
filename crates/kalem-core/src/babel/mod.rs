@@ -8,14 +8,15 @@
 //!   before each run, the answer typed `yes` or `no`;
 //! - `babel.load_languages` (`org-babel-load-languages`, none): a
 //!   language runs only once named there, `shell` (sh, bash, zsh and the
-//!   other shells) or `python`; else, as Emacs says, "No
-//!   org-babel-execute function for python!".
+//!   other shells), `python`, or a plugin's ([`plugins`], API 0.2.21);
+//!   else, as Emacs says, "No org-babel-execute function for python!".
 //!
 //! Nothing runs on its own: a block runs when the user asks for it. The
 //! program runs beside the editor; its results are written when it ends,
 //! one step to undo, and what it says on its error output goes to the
 //! `*Org-Babel Error Output*` document, as in Emacs.
 
+pub mod plugins;
 pub mod results;
 pub mod table;
 pub mod value;
@@ -222,7 +223,18 @@ pub fn block_at(
     let token = at.clone().right_biased().or_else(|| at.left_biased())?;
     let node = token.parent_ancestors().find(|n| n.kind() == SRC_BLOCK)?;
     let src = org_export::babel::src_block_info(&node, keywords)?;
-    let info = Params::merged(&src.headers).map(|params| Info {
+    // A plugin language's default header arguments before the document's
+    // (`org-babel-default-header-args:LANG`).
+    let mut headers: Vec<String> = src
+        .lang
+        .as_deref()
+        .and_then(plugins::for_language)
+        .map(|spec| spec.headers)
+        .filter(|h| !h.trim().is_empty())
+        .into_iter()
+        .collect();
+    headers.extend(src.headers.iter().cloned());
+    let info = Params::merged(&headers).map(|params| Info {
         lang: src.lang.clone().unwrap_or_default(),
         name: src.name.clone(),
         params,
@@ -275,6 +287,8 @@ pub enum Runner {
     /// A shell, by its program.
     Shell(String),
     Python,
+    /// A plugin's language (API 0.2.21).
+    Plugin(plugins::PluginExecutorSpec),
 }
 
 /// The runner of `lang` once `loaded` (`babel.load_languages`) names its
@@ -294,6 +308,11 @@ pub fn runner(lang: &str, loaded: &[String]) -> Result<Runner, String> {
     }
     if has("python") && lang == "python" {
         return Ok(Runner::Python);
+    }
+    if has(lang)
+        && let Some(spec) = plugins::for_language(lang)
+    {
+        return Ok(Runner::Plugin(spec));
     }
     Err(crate::tr!("babel-no-function", lang = lang))
 }
@@ -365,9 +384,7 @@ fn var_value(written: &str, root: &SyntaxNode) -> Result<Value, String> {
                 .collect();
             Ok(Value::Str(body.join("\n")))
         }
-        _ => Err(format!(
-            "Reference '{t}' is not a table, a list or an example"
-        )),
+        _ => Err(crate::tr!("babel-var-not-data", name = t)),
     }
 }
 
@@ -528,24 +545,29 @@ fn shift_right(body: &str) -> String {
 /// A run ready to start: the program and how its result is read.
 #[derive(Debug, Clone)]
 pub struct Job {
-    pub request: crate::extensions::ProcessRequest,
+    /// The program; none where a plugin gave the value at once.
+    pub request: Option<crate::extensions::ProcessRequest>,
     /// Where Python writes a block's value.
     value_file: Option<PathBuf>,
     /// The shell's value is its exit status (`:results value`).
     exit_status: bool,
     runner: Runner,
     results: Vec<String>,
+    /// A plugin's block, and the value it gave at once.
+    plugin: Option<(plugins::Block, Option<plugins::Data>)>,
 }
 
 static NEXT_FILE: AtomicU64 = AtomicU64::new(0);
 
-/// The [`Job`] of `info` run by `runner` in `cwd`, its `:var`s read from
-/// `root`; Python run as `python` (`babel.python_command`, else `python`
-/// where it is found, else `python3`).
+/// The [`Job`] of `info`, of the document of file `path`, run by `runner`
+/// in `cwd`, its `:var`s read from `root`; Python run as `python`
+/// (`babel.python_command`, else `python` where it is found, else
+/// `python3`); a plugin's language as its plugin prepares it.
 pub fn job(
     info: &Info,
     runner: &Runner,
     root: &SyntaxNode,
+    path: Option<&Path>,
     cwd: &Path,
     python: &str,
 ) -> Result<Job, String> {
@@ -570,19 +592,21 @@ pub fn job(
             if exit_status {
                 full.push_str("\necho $?");
             }
-            let program = find(shell).ok_or_else(|| format!("{shell}: command not found"))?;
+            let program = find(shell)
+                .ok_or_else(|| crate::tr!("babel-program-not-found", program = shell.as_str()))?;
             Ok(Job {
-                request: crate::extensions::ProcessRequest {
+                request: Some(crate::extensions::ProcessRequest {
                     program,
                     args: Vec::new(),
                     cwd: cwd.to_path_buf(),
                     stdin: Some(format!("{}\n", full.trim()).into_bytes()),
                     env: Vec::new(),
-                },
+                }),
                 value_file: None,
                 exit_status,
                 runner: runner.clone(),
                 results,
+                plugin: None,
             })
         }
         Runner::Python => {
@@ -598,7 +622,8 @@ pub fn job(
             };
             let mut words = command.split_whitespace();
             let name = words.next().unwrap_or("python3");
-            let program = find(name).ok_or_else(|| format!("{name}: command not found"))?;
+            let program =
+                find(name).ok_or_else(|| crate::tr!("babel-program-not-found", program = name))?;
             let mut lines: Vec<String> = vars
                 .iter()
                 .map(|(n, v)| format!("{n}={}", python_value(v)))
@@ -635,19 +660,63 @@ pub fn job(
                 )
             };
             Ok(Job {
-                request: crate::extensions::ProcessRequest {
+                request: Some(crate::extensions::ProcessRequest {
                     program,
                     args: words.map(String::from).collect(),
                     cwd: cwd.to_path_buf(),
                     stdin: Some(stdin.into_bytes()),
                     env: Vec::new(),
-                },
+                }),
                 value_file,
                 exit_status: false,
                 runner: runner.clone(),
                 results,
+                plugin: None,
             })
         }
+        Runner::Plugin(spec) => {
+            let mut headers: Vec<(String, String)> = info
+                .params
+                .pairs
+                .iter()
+                .map(|(k, v)| (k.clone(), org_export::babel::header_value(v)))
+                .collect();
+            headers.push((":exports".into(), info.params.exports.join(" ")));
+            let block = plugins::Block {
+                language: info.lang.clone(),
+                body: info.body.clone(),
+                headers,
+                results: results.clone(),
+                vars: vars
+                    .iter()
+                    .map(|(n, v)| (n.clone(), plugins::Data::of_value(v)))
+                    .collect(),
+                path: path.map(Path::to_path_buf),
+                dir: cwd.to_path_buf(),
+            };
+            let (request, done) = match plugins::ask(spec, plugins::Call::Prepare(&block)) {
+                plugins::Answer::Prepared(plugins::Prepared::Run(r)) => (Some(r), None),
+                plugins::Answer::Prepared(plugins::Prepared::Done(d)) => (None, Some(d)),
+                other => return Err(refusal(spec, other)),
+            };
+            Ok(Job {
+                request,
+                value_file: None,
+                exit_status: false,
+                runner: runner.clone(),
+                results,
+                plugin: Some((block, done)),
+            })
+        }
+    }
+}
+
+/// What a plugin's answer `a` that is not the one asked for says.
+fn refusal(spec: &plugins::PluginExecutorSpec, a: plugins::Answer) -> String {
+    match a {
+        plugins::Answer::Refused(m) | plugins::Answer::Failed(m) => m,
+        plugins::Answer::Busy => crate::tr!("babel-plugin-busy", plugin = spec.plugin.as_str()),
+        _ => crate::tr!("babel-plugin-gone", plugin = spec.plugin.as_str()),
     }
 }
 
@@ -669,8 +738,18 @@ fn scalar(params: &[String]) -> bool {
         || (["output", "raw", "org", "drawer"].iter().any(|w| has(w)) && !has("table"))
 }
 
-/// The [`Outcome`] of `job` ended as `exit`.
-pub fn outcome(job: &Job, exit: &crate::extensions::ProcessExit) -> Outcome {
+/// The [`Outcome`] of `job` ended as `exit` (none where it ran no
+/// program); a plugin's language's value as its plugin reads it, on the
+/// editor's thread, or the plugin's refusal.
+pub fn outcome(
+    job: &Job,
+    exit: Option<&crate::extensions::ProcessExit>,
+) -> Result<Outcome, String> {
+    let empty = crate::extensions::ProcessExit {
+        status: Some(0),
+        ..Default::default()
+    };
+    let exit = exit.unwrap_or(&empty);
     let stdout = String::from_utf8_lossy(&exit.stdout).into_owned();
     let stderr = String::from_utf8_lossy(&exit.stderr).into_owned();
     let error = (exit.status != Some(0) || !stderr.is_empty()).then_some((stderr, exit.status));
@@ -717,6 +796,23 @@ pub fn outcome(job: &Job, exit: &crate::extensions::ProcessExit) -> Outcome {
                 }
             }
         }
+        Runner::Plugin(spec) => {
+            let Some((block, done)) = &job.plugin else {
+                return Err(crate::tr!(
+                    "babel-plugin-gone",
+                    plugin = spec.plugin.as_str()
+                ));
+            };
+            match done {
+                Some(d) => d.clone().into_value(params),
+                None => {
+                    match plugins::ask(spec, plugins::Call::Finish(block, &stdout, exit.status)) {
+                        plugins::Answer::Value(d) => d.into_value(params),
+                        other => return Err(refusal(spec, other)),
+                    }
+                }
+            }
+        }
     };
     // A value wanted as a table or vector that is not a list: one cell.
     let has = |w: &str| params.iter().any(|p| p == w);
@@ -726,7 +822,7 @@ pub fn outcome(job: &Job, exit: &crate::extensions::ProcessExit) -> Outcome {
         } else {
             value
         };
-    Outcome { value, error }
+    Ok(Outcome { value, error })
 }
 
 /// What running a block now did ([`run_now`]).
@@ -769,10 +865,17 @@ pub fn run_now(
         return Ok(unchanged(m));
     }
     let runner = runner(&info.lang, loaded)?;
-    let job = job(&info, &runner, &root, dir, python)?;
+    let job = job(&info, &runner, &root, None, dir, python)?;
     let stop = std::sync::atomic::AtomicBool::new(false);
-    let exit = crate::extensions::run_program(&job.request, &stop, crate::extensions::RUN_TIMEOUT)?;
-    let outcome = outcome(&job, &exit);
+    let exit = match &job.request {
+        Some(r) => Some(crate::extensions::run_program(
+            r,
+            &stop,
+            crate::extensions::RUN_TIMEOUT,
+        )?),
+        None => None,
+    };
+    let outcome = outcome(&job, exit.as_ref())?;
     let params = info.params.results().to_vec();
     let has = |w: &str| params.iter().any(|r| r == w);
     if has("none") {
@@ -813,7 +916,9 @@ struct Pending {
     start: usize,
     lang: String,
     body: String,
-    outcome: Option<Outcome>,
+    job: Job,
+    /// How its program ended, once it has; `Ok(None)` where it ran none.
+    exit: Option<Result<Option<crate::extensions::ProcessExit>, String>>,
     began: std::time::Instant,
 }
 
@@ -903,7 +1008,9 @@ pub fn execute(ctx: &mut EditorContext<'_>, args: &Json) -> CommandResult {
             .map(Path::to_path_buf)
             .unwrap_or_else(|| dirs_home().unwrap_or_else(|| PathBuf::from("."))),
     };
-    let job = job(&info, &runner, &root, &cwd, &python).map_err(CommandError::new)?;
+    let job =
+        job(&info, &runner, &root, path.as_deref(), &cwd, &python).map_err(CommandError::new)?;
+    let request = job.request.clone();
     let n = NEXT.fetch_add(1, Ordering::Relaxed);
     pending().insert(
         n,
@@ -912,7 +1019,8 @@ pub fn execute(ctx: &mut EditorContext<'_>, args: &Json) -> CommandResult {
             start: info.start,
             lang: info.lang.clone(),
             body: info.body.clone(),
-            outcome: None,
+            job,
+            exit: None,
             began: std::time::Instant::now(),
         },
     );
@@ -925,19 +1033,18 @@ pub fn execute(ctx: &mut EditorContext<'_>, args: &Json) -> CommandResult {
             position = info.start + 1
         ),
     });
+    let Some(request) = request else {
+        // A plugin's value at once.
+        if let Some(p) = pending().get_mut(&n) {
+            p.exit = Some(Ok(None));
+        }
+        return insert_result(ctx, &serde_json::json!({ "run": n }));
+    };
     std::thread::spawn(move || {
         let stop = std::sync::atomic::AtomicBool::new(false);
-        let exit =
-            crate::extensions::run_program(&job.request, &stop, crate::extensions::RUN_TIMEOUT);
-        let outcome = match exit {
-            Ok(e) => outcome(&job, &e),
-            Err(why) => Outcome {
-                value: Value::nil(),
-                error: Some((why, None)),
-            },
-        };
+        let exit = crate::extensions::run_program(&request, &stop, crate::extensions::RUN_TIMEOUT);
         if let Some(p) = pending().get_mut(&n) {
-            p.outcome = Some(outcome);
+            p.exit = Some(exit.map(Some));
         }
         crate::extensions::queue_run("org.babel.insertResult", serde_json::json!({ "run": n }));
     });
@@ -957,8 +1064,13 @@ pub fn insert_result(ctx: &mut EditorContext<'_>, args: &Json) -> CommandResult 
     let Some(p) = pending().remove(&n) else {
         return Ok(());
     };
-    let Some(outcome) = p.outcome else {
-        return Ok(());
+    let outcome = match &p.exit {
+        None => return Ok(()),
+        Some(Ok(exit)) => outcome(&p.job, exit.as_ref()).map_err(CommandError::new)?,
+        Some(Err(why)) => Outcome {
+            value: Value::nil(),
+            error: Some((why.clone(), None)),
+        },
     };
     if let Some((stderr, code)) = &outcome.error {
         let mut all = ERRORS.lock().unwrap_or_else(|e| e.into_inner());

@@ -62,7 +62,8 @@ planned = "T3.1.9e"
 
 [[point]]
 name = "Babel languages"
-planned = "T3.1.8"
+# Executors (API 0.2.21): a plugin's languages' source blocks run.
+interface = "executor"
 
 [[point]]
 name = "Table functions"

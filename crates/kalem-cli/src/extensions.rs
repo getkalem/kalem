@@ -721,6 +721,9 @@ struct Loaded {
     formatters: Vec<kalem_core::formatters::plugins::PluginFormatterSpec>,
     /// The outlines its manifest declares, once it runs (API 0.2.18).
     outlines: Vec<kalem_core::outlines::PluginOutlineSpec>,
+    /// The languages whose source blocks it runs, as its manifest declares
+    /// them, once it runs (API 0.2.21).
+    executors: Vec<kalem_core::babel::plugins::PluginExecutorSpec>,
 }
 
 /// A manifest's `layers` for plugin `id` (its short ID): each an ID, the
@@ -851,6 +854,69 @@ fn manifest_outlines(
             types: f.types,
         })
         .collect()
+}
+
+/// A manifest's `executors` for plugin `id` (its short ID): each a
+/// language (lower case) and its default header arguments; one without a
+/// language is left out.
+fn manifest_executors(
+    id: &str,
+    m: &serde_json::Value,
+) -> Vec<kalem_core::babel::plugins::PluginExecutorSpec> {
+    m["executors"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|e| {
+                    let language = e["language"]
+                        .as_str()
+                        .map(|s| s.trim().to_lowercase())
+                        .filter(|s| !s.is_empty())?;
+                    Some(kalem_core::babel::plugins::PluginExecutorSpec {
+                        plugin: id.to_string(),
+                        language,
+                        headers: e["headers"].as_str().unwrap_or("").to_string(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// A Babel value as a plugin is given it.
+fn executor_value(d: &kalem_core::babel::plugins::Data) -> x::executor::Value {
+    use kalem_core::babel::plugins::Data;
+    match d {
+        Data::Text(t) => x::executor::Value::Text(t.clone()),
+        Data::Items(i) => x::executor::Value::Items(i.clone()),
+        Data::Table(rows) => x::executor::Value::Table(
+            rows.iter()
+                .map(|r| match r {
+                    Some(cells) => x::executor::Row::Cells(cells.clone()),
+                    None => x::executor::Row::Rule,
+                })
+                .collect(),
+        ),
+        Data::Output(t) => x::executor::Value::Output(t.clone()),
+    }
+}
+
+/// A plugin's value as Babel's.
+fn babel_data(v: x::executor::Value) -> kalem_core::babel::plugins::Data {
+    use kalem_core::babel::plugins::Data;
+    match v {
+        x::executor::Value::Text(t) => Data::Text(t),
+        x::executor::Value::Items(i) => Data::Items(i),
+        x::executor::Value::Table(rows) => Data::Table(
+            rows.into_iter()
+                .map(|r| match r {
+                    x::executor::Row::Cells(cells) => Some(cells),
+                    x::executor::Row::Rule => None,
+                })
+                .collect(),
+        ),
+        x::executor::Value::Output(t) => Data::Output(t),
+    }
 }
 
 /// A completer's request for the cursor of `ctx`.
@@ -1229,6 +1295,11 @@ impl Plugins {
                         kalem_core::outlines::register(o);
                     }
                 }
+                if l.extension.as_ref().is_some_and(Extension::has_executors) {
+                    for e in l.executors.clone() {
+                        kalem_core::babel::plugins::register(e);
+                    }
+                }
             }
             Err(e) => {
                 l.failed = true;
@@ -1263,6 +1334,7 @@ impl Plugins {
         kalem_core::completers::plugins::remove_plugin(&l.id);
         kalem_core::formatters::plugins::remove_plugin(&l.id);
         kalem_core::outlines::remove_plugin(&l.id);
+        kalem_core::babel::plugins::remove_plugin(&l.id);
     }
 
     /// Tells plugin `i`, started while Kalem runs, what it would have
@@ -1470,6 +1542,104 @@ impl kalem_core::extensions::Extensions for Plugins {
                     .collect(),
             ),
             Ok(None) => Answer::Failed(String::new()),
+            Err(e) => {
+                let why = e.to_string();
+                self.fail(i, &e);
+                Answer::Failed(why)
+            }
+        }
+    }
+
+    fn babel(
+        &mut self,
+        spec: &kalem_core::babel::plugins::PluginExecutorSpec,
+        call: kalem_core::babel::plugins::Call<'_>,
+    ) -> kalem_core::babel::plugins::Answer {
+        use kalem_core::babel::plugins::{Answer, Call, Prepared};
+        let gone = || {
+            Answer::Failed(kalem_core::tr!(
+                "babel-plugin-gone",
+                plugin = spec.plugin.as_str()
+            ))
+        };
+        let Some(i) = self
+            .list
+            .iter()
+            .position(|l| l.id == spec.plugin && l.extension.is_some())
+        else {
+            return gone();
+        };
+        PLUGIN.with(|p| p.set(i as u64 + 1));
+        let block = match call {
+            Call::Prepare(b) | Call::Finish(b, _, _) => b,
+        };
+        let request = x::executor::Block {
+            language: block.language.clone(),
+            body: block.body.clone(),
+            headers: block.headers.clone(),
+            results: block.results.clone(),
+            vars: block
+                .vars
+                .iter()
+                .map(|(n, v)| (n.clone(), executor_value(v)))
+                .collect(),
+            path: block
+                .path
+                .as_ref()
+                .map(|p| p.to_string_lossy().into_owned()),
+            dir: block.dir.to_string_lossy().into_owned(),
+        };
+        let l = &mut self.list[i];
+        let Some(ext) = l.extension.as_mut() else {
+            return gone();
+        };
+        let answer = match call {
+            Call::Prepare(_) => ext.prepare_block(&request).map(|r| {
+                r.map(|r| match r {
+                    Ok(x::executor::Step::Done(v)) => {
+                        Answer::Prepared(Prepared::Done(babel_data(v)))
+                    }
+                    Ok(x::executor::Step::Run(c)) => {
+                        // A program the manifest names, found as
+                        // `process.run` finds it.
+                        if !l.grants.programs.contains(&c.program) {
+                            return Answer::Refused(format!(
+                                "`{}` is not a program the plugin may run",
+                                c.program
+                            ));
+                        }
+                        let Some(program) =
+                            kalem_core::extensions::find_program(&l.id, &c.program, &block.dir)
+                        else {
+                            return Answer::Refused(format!(
+                                "{name} was not found: install it, or give its path as the \
+                                 setting programs.{name} of the plugin",
+                                name = c.program
+                            ));
+                        };
+                        Answer::Prepared(Prepared::Run(kalem_core::extensions::ProcessRequest {
+                            program,
+                            args: c.args,
+                            cwd: block.dir.clone(),
+                            stdin: c.stdin.map(String::into_bytes),
+                            env: c.env,
+                        }))
+                    }
+                    Err(why) => Answer::Refused(why),
+                })
+            }),
+            Call::Finish(_, output, status) => {
+                ext.finish_block(&request, output, status).map(|r| {
+                    r.map(|r| match r {
+                        Ok(v) => Answer::Value(babel_data(v)),
+                        Err(why) => Answer::Refused(why),
+                    })
+                })
+            }
+        };
+        match answer {
+            Ok(Some(a)) => a,
+            Ok(None) => gone(),
             Err(e) => {
                 let why = e.to_string();
                 self.fail(i, &e);
@@ -1878,6 +2048,7 @@ fn installed() -> Vec<Loaded> {
             completers: manifest_completers(&id, &m),
             formatters: manifest_formatters(&id, &m),
             outlines: manifest_outlines(&id, &m),
+            executors: manifest_executors(&id, &m),
             id,
             full: p.id.clone(),
             version: p.version.clone(),

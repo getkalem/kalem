@@ -105,7 +105,10 @@ pub mod viewer {
 /// `layer-4` interface, whose lines under lines may start blocks of a
 /// file's outline (API 0.2.18); with the feature `layer-5`, the
 /// `extension-layer-5` world: those, and the `layer-5` interface, whose
-/// layers show text at places of a line (API 0.2.20).
+/// layers show text at places of a line (API 0.2.20); with the feature
+/// `executor`, the `extension-executor` world: those, and the `executor`
+/// interface, which runs its languages' source blocks for Babel (API
+/// 0.2.21; [`executor`]).
 #[allow(
     missing_debug_implementations,
     unreachable_pub,
@@ -177,10 +180,18 @@ pub mod extension {
         export_macro_name: "export_extension",
         default_bindings_module: "kalem_plugin::extension",
     });
-    #[cfg(feature = "layer-5")]
+    #[cfg(all(feature = "layer-5", not(feature = "executor")))]
     wit_bindgen::generate!({
         path: "wit",
         world: "extension-layer-5",
+        pub_export_macro: true,
+        export_macro_name: "export_extension",
+        default_bindings_module: "kalem_plugin::extension",
+    });
+    #[cfg(feature = "executor")]
+    wit_bindgen::generate!({
+        path: "wit",
+        world: "extension-executor",
         pub_export_macro: true,
         export_macro_name: "export_extension",
         default_bindings_module: "kalem_plugin::extension",
@@ -195,6 +206,7 @@ pub mod completer;
 pub mod decorations;
 pub mod documents;
 pub mod editor;
+pub mod executor;
 pub mod focus;
 pub mod formatter;
 pub mod fs;

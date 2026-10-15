@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- Plugin API 0.2.21, the export `executor` (the world `extension-executor`, `kalem-plugin`'s feature `executor`): a plugin runs the source blocks of the languages its manifest declares (`"executors": [{"language": "ledger", "headers": ":results output :cmdline bal"}]`), as an `ob-LANG.el` library does for Emacs, under Babel's rules (the language named in `babel.load_languages`, the yes or no question, `:eval`). Its `prepare` answers with a program its manifest grants (`subprocess:NAME`), which Kalem runs beside the editor in the block's folder, or with the block's value at once; its `finish` turns the program's output into text, a list, a table, or output read as Org reads a shell's, which Kalem writes under `#+RESULTS:` as Org writes it. The language's `headers` come first among the block's header arguments, as `org-babel-default-header-args:LANG` do; a block's variables reach the plugin as text, lists and tables.
+
 ### Fixed
 - With Vim's keys, text typed in Insert mode after the cursor moved (an arrow, Home, End, a page key, with a modifier or without, or a click) is what `.` repeats and what the `".` register holds, in both editors, as in Vim: `ifoo<Left>bar<Esc>` then `.` inserts "bar", as `i` would whatever began the insert, where the editors repeated nothing. As in Vim, the move forgets the count of `3i`, Esc right after it leaves `.` and `".` with the text typed before it, a move that did not move the cursor (Left at the start of a line) changes nothing, Home and End end the insert even with the cursor there already, an indent 'autoindent' gave goes when the cursor leaves its line untouched, `U` undoes the line typed on last, and CTRL-O's command ends the insert so far and its count too.
 

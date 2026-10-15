@@ -1575,6 +1575,93 @@ fn a_formatter() {
     }
 }
 
+/// A plugin exporting an executor (API 0.2.21): a block turned into a
+/// program to run or its value at once, the program's output into the
+/// value, its variables given as values; a plugin without the export has
+/// none.
+#[test]
+fn an_executor() {
+    use kalem_script::extension::executor::{Block, Row, Step, Value};
+    let Some(bytes) = common::component("layered") else {
+        return;
+    };
+    let host = Host::new(None).unwrap();
+    let plugin = host.load(&bytes).unwrap();
+    let mut ext = Extension::new(
+        &host,
+        &plugin,
+        "layered",
+        Box::new(Fake::default()),
+        Grants::default(),
+        Limits::default(),
+    )
+    .unwrap();
+    ext.activate().unwrap().unwrap();
+    assert!(ext.has_executors());
+    let block = |headers: &[(&str, &str)], vars: Vec<(String, Value)>| Block {
+        language: "upper".into(),
+        body: "abc".into(),
+        headers: headers
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+            .collect(),
+        results: vec!["replace".into()],
+        vars,
+        path: None,
+        dir: "/tmp".into(),
+    };
+    match ext.prepare_block(&block(&[], Vec::new())).unwrap().unwrap() {
+        Ok(Step::Run(c)) => {
+            assert_eq!((c.program.as_str(), c.args.len()), ("tr", 2));
+            assert_eq!(c.stdin.as_deref(), Some("abc"));
+        }
+        other => panic!("{other:?}"),
+    }
+    assert!(matches!(
+        ext.prepare_block(&block(&[(":direct", "")], Vec::new())).unwrap().unwrap(),
+        Ok(Step::Done(Value::Text(t))) if t == "ABC"
+    ));
+    let vars = vec![
+        ("x".to_string(), Value::Text("1".into())),
+        (
+            "t".to_string(),
+            Value::Table(vec![Row::Cells(vec!["a".into()]), Row::Rule]),
+        ),
+    ];
+    match ext.prepare_block(&block(&[], vars)).unwrap().unwrap() {
+        Ok(Step::Done(Value::Table(rows))) => {
+            let cells: Vec<Vec<String>> = rows
+                .into_iter()
+                .map(|r| match r {
+                    Row::Cells(c) => c,
+                    Row::Rule => Vec::new(),
+                })
+                .collect();
+            assert_eq!(cells, [["x", "1"], ["t", "2 rows"]]);
+        }
+        other => panic!("{other:?}"),
+    }
+    let done = ext
+        .finish_block(&block(&[], Vec::new()), "ABC\n", Some(0))
+        .unwrap()
+        .unwrap();
+    assert!(matches!(done, Ok(Value::Output(t)) if t == "ABC\n"));
+    let failed = ext
+        .finish_block(&block(&[], Vec::new()), "", Some(2))
+        .unwrap()
+        .unwrap();
+    assert!(matches!(failed, Err(why) if why == "exit Some(2)"));
+    // Another language: its refusal.
+    let mut other = block(&[], Vec::new());
+    other.language = "lower".into();
+    assert!(ext.prepare_block(&other).unwrap().unwrap().is_err());
+    // A plugin built without the feature exports no executor.
+    if let Some((mut counter, _)) = counter(Limits::default()) {
+        assert!(!counter.has_executors());
+        assert!(counter.prepare_block(&other).unwrap().is_none());
+    }
+}
+
 /// A plugin exporting an outline (API 0.2.18): the headings of a text,
 /// each with its level and start; none for an outline it does not have.
 #[test]

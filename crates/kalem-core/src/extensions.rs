@@ -113,6 +113,19 @@ pub trait Extensions: Send {
         crate::outlines::Answer::Failed(String::new())
     }
 
+    /// What plugin `spec.plugin`, whose language `spec.language` is, answers
+    /// `call` (`crate::babel::plugins`, API 0.2.21).
+    fn babel(
+        &mut self,
+        spec: &crate::babel::plugins::PluginExecutorSpec,
+        _call: crate::babel::plugins::Call<'_>,
+    ) -> crate::babel::plugins::Answer {
+        crate::babel::plugins::Answer::Failed(crate::tr!(
+            "babel-plugin-gone",
+            plugin = spec.plugin.as_str()
+        ))
+    }
+
     /// A plugin was installed, updated or removed while the editors run
     /// ([`installed_changed`]): one removed is stopped, one new started as
     /// it would have been with the editors, and told of the documents
@@ -683,6 +696,24 @@ pub fn install(extensions: Box<dyn Extensions>) {
                     || Answer::Failed(String::new()),
                     |x| x.outline(spec, path, text, kind),
                 ),
+                Err(std::sync::TryLockError::WouldBlock) => Answer::Busy,
+            }
+        },
+    ));
+    // The plugins' languages are asked by Babel, on the editor's thread:
+    // while a call of theirs runs, they are busy, and the block not run.
+    crate::babel::plugins::set_provider(std::sync::Arc::new(
+        |spec: &crate::babel::plugins::PluginExecutorSpec,
+         call: crate::babel::plugins::Call<'_>| {
+            use crate::babel::plugins::Answer;
+            match INSTALLED.try_lock() {
+                Ok(mut installed) => installed
+                    .as_mut()
+                    .map_or_else(|| Answer::Failed(String::new()), |x| x.babel(spec, call)),
+                Err(std::sync::TryLockError::Poisoned(e)) => e
+                    .into_inner()
+                    .as_mut()
+                    .map_or_else(|| Answer::Failed(String::new()), |x| x.babel(spec, call)),
                 Err(std::sync::TryLockError::WouldBlock) => Answer::Busy,
             }
         },

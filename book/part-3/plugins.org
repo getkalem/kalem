@@ -64,11 +64,13 @@ the same files (wasmtime). It holds eight worlds, three kinds:
   =process= when its permissions grant them, and exports =plugin=
   (below). =extension-layer=, =extension-completer=,
   =extension-layer-2=, =extension-layer-3=, =extension-formatter=,
-  =extension-outline=, =extension-layer-4= and =extension-layer-5= are
-  the same world exporting more: a layer, then a completer, then a
-  layer's lines under lines, then lines that show a file's text, then a
-  formatter, then an outline, then lines that start blocks of a file's
-  outline, then text at places of a line, each with those before it.
+  =extension-outline=, =extension-layer-4=, =extension-layer-5= and
+  =extension-executor= are the same world exporting more: a layer,
+  then a completer, then a layer's lines under lines, then lines that
+  show a file's text, then a formatter, then an outline, then lines
+  that start blocks of a file's outline, then text at places of a
+  line, then languages whose source blocks it runs, each with those
+  before it.
 
 =crates/kalem-plugin/coverage.toml= lists every extension point of the
 design (§11.10 to §11.13) with the WIT interface that defines it or the
@@ -580,6 +582,11 @@ updated itself. The rules, so that a plugin built once keeps working:
   [[file:completers-and-modes.org][Completers, modes and highlighters]]; the host asks =layer-5= in
   place of =layer-4= when a component exports it. =canvas-view-2.wit=
   of 0.2.19 is frozen (=wit-frozen/0.2.19=).
+- 0.2.21 added, for extension plugins, the export =executor= in the
+  world =extension-executor= (the feature =executor=, which exports
+  =layer-5= and those before it too): the languages whose source
+  blocks a plugin runs for Babel (below). =layer-5.wit= of 0.2.20 is
+  frozen (=wit-frozen/0.2.20=).
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 - An addition is general, or it waits. It names what several plugins
@@ -1080,6 +1087,45 @@ fn outline(_id: &str, request: &Request) -> Vec<Heading> {
         at += line.len();
     }
     out
+}
+#+end_src
+
+A plugin also runs source blocks of its languages (=executor=, API
+0.2.21), as an =ob-LANG.el= library gives Emacs its
+=org-babel-execute:LANG=. Its manifest declares each language and its
+default header arguments (="executors": [{"language": "ledger",
+"headers": ":results output :cmdline bal"}]=, Emacs's
+=org-babel-default-header-args:LANG=). A block of the language runs as
+Kalem's own languages do (/Running source blocks/ in Part I): once the
+user names the language in =babel.load_languages=, after the user
+answers yes unless =babel.confirm_evaluate= is off, never where its
+=:eval= refuses. Kalem gives the plugin the block (its language, body,
+header arguments merged with the language's defaults first, the words
+of =:results=, its variables read as text, lists and tables, its file
+and the folder it runs in), and =prepare= answers with a program to
+run, one its manifest names (=subprocess:NAME=), found as
+=process.run= finds it, or with the block's value at once. Kalem runs
+the program beside the editor, shows its error output as Org does, and
+gives what it wrote to =finish=, which answers with the value: text, a
+list, a table, or the output read as Org reads a shell's (text where
+=:results= asks for text, else a table where its lines split into
+fields). Kalem writes the value under the block's =#+RESULTS:= as Org
+writes it. Both are asked on the editor's thread and answer from what
+they are given; a plugin busy with another call is not waited for, and
+the status bar says to run the block again.
+
+#+begin_src rust
+use kalem_plugin::executor::{self, Block, Step, Value};
+
+fn prepare_block(b: &Block) -> Result<Step, String> {
+    let cmdline = executor::header(b, ":cmdline").unwrap_or("bal");
+    let mut args = vec!["-f".to_string(), "-".to_string()];
+    args.extend(cmdline.split_whitespace().map(String::from));
+    Ok(executor::run("ledger", args, Some(&b.body)))
+}
+
+fn finish_block(_b: &Block, output: &str, _status: Option<i32>) -> Result<Value, String> {
+    Ok(Value::Text(output.to_string()))
 }
 #+end_src
 

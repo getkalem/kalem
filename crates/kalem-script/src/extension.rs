@@ -18,14 +18,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use wasmtime::component::{HasSelf, Resource, ResourceTable};
 
 mod bindings {
-    // `extension-layer-5`: the `extension` world and the `layer` (API
+    // `extension-executor`: the `extension` world and the `layer` (API
     // 0.2.10), `completer` (API 0.2.11), `layer-2` (API 0.2.13), `layer-3`
     // (API 0.2.15), `formatter` (API 0.2.16), `outline`, `focus` and `layer-4`
-    // (API 0.2.18) and `layer-5` (API 0.2.20) interfaces it may export, bound
-    // one by one (`Extension::new`).
+    // (API 0.2.18), `layer-5` (API 0.2.20) and `executor` (API 0.2.21)
+    // interfaces it may export, bound one by one (`Extension::new`).
     wasmtime::component::bindgen!({
         path: "../kalem-plugin/wit",
-        world: "extension-layer-5",
+        world: "extension-executor",
         with: {
             "kalem:plugin/kalem.disposable": super::Registration,
         },
@@ -34,7 +34,7 @@ mod bindings {
 
 pub use api::{CommandSpec, Event, EventKind, Reply, Scope};
 pub use bindings::exports::kalem::plugin::{
-    completer, focus, formatter, layer, layer_2, layer_3, layer_4, layer_5, outline,
+    completer, executor, focus, formatter, layer, layer_2, layer_3, layer_4, layer_5, outline,
 };
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
@@ -1706,6 +1706,9 @@ pub struct Extension {
     outline: Option<outline::Guest>,
     /// The `focus` interface, when the component exports it (API 0.2.18).
     focus: Option<focus::Guest>,
+    /// The `executor` interface, when the component exports it (API
+    /// 0.2.21).
+    executor: Option<executor::Guest>,
 }
 
 impl std::fmt::Debug for Extension {
@@ -1955,6 +1958,16 @@ impl Extension {
                 .load(&mut *store, i)
                 .map(Some)
         })?;
+        let executor = instance.bindings(|store, i| {
+            let pre = i.instance_pre(&*store);
+            let name = format!("kalem:plugin/executor@{}", crate::API_VERSION);
+            if pre.component().get_export_index(None, &name).is_none() {
+                return Ok(None);
+            }
+            executor::GuestIndices::new(&pre)?
+                .load(&mut *store, i)
+                .map(Some)
+        })?;
         Ok(Extension {
             instance,
             api,
@@ -1967,6 +1980,7 @@ impl Extension {
             formatter,
             outline,
             focus,
+            executor,
         })
     }
 
@@ -2179,6 +2193,40 @@ impl Extension {
         };
         self.instance.run(|s| f.call_focused(s, document, path))?;
         Ok(true)
+    }
+
+    /// Whether the plugin exports `executor` (API 0.2.21): it runs its
+    /// languages' source blocks.
+    pub fn has_executors(&self) -> bool {
+        self.executor.is_some()
+    }
+
+    /// What running `block` takes, or the plugin's refusal; `None` when it
+    /// exports no executor.
+    pub fn prepare_block(
+        &mut self,
+        block: &executor::Block,
+    ) -> crate::Result<Option<Result<executor::Step, String>>> {
+        let Some(x) = &self.executor else {
+            return Ok(None);
+        };
+        self.instance.run(|s| x.call_prepare(s, block)).map(Some)
+    }
+
+    /// The value of `block` from `output` and `status`, or the plugin's
+    /// refusal; `None` when it exports no executor.
+    pub fn finish_block(
+        &mut self,
+        block: &executor::Block,
+        output: &str,
+        status: Option<i32>,
+    ) -> crate::Result<Option<Result<executor::Value, String>>> {
+        let Some(x) = &self.executor else {
+            return Ok(None);
+        };
+        self.instance
+            .run(|s| x.call_finish(s, block, output, status))
+            .map(Some)
     }
 
     /// Calls the plugin's `deactivate`, then takes back everything it

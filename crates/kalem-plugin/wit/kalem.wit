@@ -361,3 +361,12 @@ world extension-layer-5 {
     include extension-layer-4;
     export layer-5;
 }
+
+/// An extension plugin running its languages' source blocks too (API
+/// 0.2.21): the `extension-layer-5` world, and the `executor` interface it
+/// exports, which Babel asks for the languages of the manifest's
+/// `executors`.
+world extension-executor {
+    include extension-layer-5;
+    export executor;
+}

@@ -56,6 +56,10 @@ layer-4 = ["outline"]
 # `layer-5` interface too, layers that show text at places of a line (API
 # 0.2.20), which the editor asks in place of `layer-4`.
 layer-5 = ["layer-4"]
+# The `extension-executor` world: an extension plugin exporting the
+# `executor` interface too, its languages' source blocks run by Babel (API
+# 0.2.21), and the interfaces above.
+executor = ["layer-5"]
 
 [dev-dependencies]
 toml_edit = { version = "0.25", default-features = false, features = ["parse"] }
