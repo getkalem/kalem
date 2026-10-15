@@ -740,6 +740,13 @@ fn subtree(st: &Struct, item: usize) -> Vec<usize> {
 }
 
 fn end_before_blank(text: &str, end: usize) -> usize {
+    // Past the text, its end, as `goto-char` goes: an insertion after the
+    // blank lines below the list removes them, and the ends kept in the
+    // structure run past the text by as much (`org-list-swap-items`).
+    let mut end = end.min(text.len());
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
     let q = text[..end].trim_end_matches([' ', '\r', '\t', '\n']).len();
     eol(text, q)
 }
@@ -2307,5 +2314,17 @@ mod tests {
         let p = parents(&s);
         assert_eq!(p[1], (17, Some(0)));
         assert_eq!(p[4], (108, Some(96)));
+    }
+
+    #[test]
+    fn insert_after_the_blank_line_ending_the_text() {
+        // In the blank line after a list at the end of the text: the blank
+        // lines go and the new item comes after the list, as Emacs 30's
+        // `org-insert-item` makes it.
+        let t = "- \n\n";
+        let doc = Document::new(org_syntax::parse(t));
+        let tx = insert_item(&doc, 4, false).unwrap();
+        assert_eq!(tx.apply(t), "-\n\n- ");
+        assert_eq!(tx.selection_after.map(|s| s.head), Some(5));
     }
 }
