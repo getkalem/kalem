@@ -16,6 +16,7 @@
 //! one step to undo, and what it says on its error output goes to the
 //! `*Org-Babel Error Output*` document, as in Emacs.
 
+pub mod export;
 pub mod plugins;
 pub mod results;
 pub mod table;
@@ -892,6 +893,26 @@ pub fn run_now(
             ..unchanged(outcome.value.prin1())
         });
     }
+    let (range, new, _) = results_edit(text, &root, &node, &info, &outcome.value);
+    Ok(Ran {
+        text: format!("{}{}{}", &text[..range.start], new, &text[range.end..]),
+        message: None,
+        error: outcome.error,
+        edit: Some((range.clone(), new.len())),
+    })
+}
+
+/// What `org-babel-insert-result` writes for `value` as the results of
+/// `info`'s block `node` of `text`: the range it replaces and the text in
+/// its place; and whether the results themselves are empty.
+fn results_edit(
+    text: &str,
+    root: &SyntaxNode,
+    node: &SyntaxNode,
+    info: &Info,
+    value: &Value,
+) -> (std::ops::Range<usize>, String, bool) {
+    let params = info.params.results().to_vec();
     let format = results::Format {
         params: params.clone(),
         wrap: info
@@ -901,15 +922,69 @@ pub fn run_now(
         lang: info.lang.clone(),
         switches: info.params.get(":results_switches"),
     };
-    let body = results::text(&outcome.value, &format);
-    let (range, new) = results::edit(text, &root, &node, info.name.as_deref(), &body, &params);
-    Ok(Ran {
-        text: format!("{}{}{}", &text[..range.start], new, &text[range.end..]),
-        message: None,
-        error: outcome.error,
-        edit: Some((range.clone(), new.len())),
-    })
+    let body = results::text(value, &format);
+    let (range, new) = results::edit(text, root, node, info.name.as_deref(), &body, &params);
+    (range, new, body.is_empty())
 }
+
+/// The folder `info`'s block runs in, of the document of file `path`: its
+/// `:dir` (from the document's folder when relative), else the document's
+/// folder, else the home folder.
+fn block_dir(info: &Info, path: Option<&Path>) -> PathBuf {
+    match info.params.get(":dir") {
+        Some(d) => {
+            let d = PathBuf::from(crate::settings::expand_home(&d));
+            match path {
+                Some(p) if d.is_relative() => p.parent().map(|f| f.join(&d)).unwrap_or(d),
+                _ => d,
+            }
+        }
+        None => path
+            .and_then(Path::parent)
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| dirs_home().unwrap_or_else(|| PathBuf::from("."))),
+    }
+}
+
+/// What a program wrote to its error output, and how it exited, added to
+/// `*Org-Babel Error Output*` and said (`org-babel-eval-error-notify`).
+fn report_error(ctx: &mut EditorContext<'_>, stderr: &str, code: Option<i32>) {
+    let mut all = ERRORS.lock().unwrap_or_else(|e| e.into_inner());
+    if !all.is_empty() && !all.ends_with('\n') {
+        all.push('\n');
+    }
+    all.push_str(stderr);
+    if !all.is_empty() && !all.ends_with('\n') {
+        all.push('\n');
+    }
+    let line = match code {
+        Some(c) => format!("[ Babel evaluation exited with code {c} ]"),
+        None => "[ Babel evaluation exited abnormally ]".to_string(),
+    };
+    all.push_str(&line);
+    let _ = crate::extensions::open_generated(
+        "kalem",
+        crate::extensions::GeneratedSpec {
+            id: "kalem.babel-errors".into(),
+            key: "errors".into(),
+            title: "*Org-Babel Error Output*".into(),
+            kind: "kalem-output".into(),
+            language: None,
+        },
+        all.clone(),
+        None,
+        Vec::new(),
+    );
+    ctx.messages.push(match code {
+        Some(c) => crate::tr!("babel-exited", code = c),
+        None => crate::tr!("babel-exited-abnormally"),
+    });
+}
+
+/// How a block's program ended: its exit, none where it ran none; or why
+/// it did not run.
+type Ended = Result<Option<crate::extensions::ProcessExit>, String>;
+
 /// A run under way or ended, waiting to write its results.
 struct Pending {
     path: Option<PathBuf>,
@@ -918,7 +993,7 @@ struct Pending {
     body: String,
     job: Job,
     /// How its program ended, once it has; `Ok(None)` where it ran none.
-    exit: Option<Result<Option<crate::extensions::ProcessExit>, String>>,
+    exit: Option<Ended>,
     began: std::time::Instant,
 }
 
@@ -994,20 +1069,7 @@ pub fn execute(ctx: &mut EditorContext<'_>, args: &Json) -> CommandResult {
         Gate::Run => {}
     }
     let runner = runner(&info.lang, &loaded).map_err(CommandError::new)?;
-    let cwd = match info.params.get(":dir") {
-        Some(d) => {
-            let d = PathBuf::from(crate::settings::expand_home(&d));
-            match &path {
-                Some(p) if d.is_relative() => p.parent().map(|f| f.join(&d)).unwrap_or(d),
-                _ => d,
-            }
-        }
-        None => path
-            .as_deref()
-            .and_then(Path::parent)
-            .map(Path::to_path_buf)
-            .unwrap_or_else(|| dirs_home().unwrap_or_else(|| PathBuf::from("."))),
-    };
+    let cwd = block_dir(&info, path.as_deref());
     let job =
         job(&info, &runner, &root, path.as_deref(), &cwd, &python).map_err(CommandError::new)?;
     let request = job.request.clone();
@@ -1073,36 +1135,7 @@ pub fn insert_result(ctx: &mut EditorContext<'_>, args: &Json) -> CommandResult 
         },
     };
     if let Some((stderr, code)) = &outcome.error {
-        let mut all = ERRORS.lock().unwrap_or_else(|e| e.into_inner());
-        if !all.is_empty() && !all.ends_with('\n') {
-            all.push('\n');
-        }
-        all.push_str(stderr);
-        if !all.is_empty() && !all.ends_with('\n') {
-            all.push('\n');
-        }
-        let line = match code {
-            Some(c) => format!("[ Babel evaluation exited with code {c} ]"),
-            None => "[ Babel evaluation exited abnormally ]".to_string(),
-        };
-        all.push_str(&line);
-        let _ = crate::extensions::open_generated(
-            "kalem",
-            crate::extensions::GeneratedSpec {
-                id: "kalem.babel-errors".into(),
-                key: "errors".into(),
-                title: "*Org-Babel Error Output*".into(),
-                kind: "kalem-output".into(),
-                language: None,
-            },
-            all.clone(),
-            None,
-            Vec::new(),
-        );
-        ctx.messages.push(match code {
-            Some(c) => crate::tr!("babel-exited", code = *c),
-            None => crate::tr!("babel-exited-abnormally"),
-        });
+        report_error(ctx, stderr, *code);
     }
     let (path, root, keywords, text) = {
         let doc = ctx.doc()?;
@@ -1141,17 +1174,7 @@ pub fn insert_result(ctx: &mut EditorContext<'_>, args: &Json) -> CommandResult 
         ctx.messages.push(outcome.value.prin1());
         return Ok(());
     }
-    let format = results::Format {
-        params: params.clone(),
-        wrap: info
-            .params
-            .has(":wrap")
-            .then(|| info.params.get(":wrap").unwrap_or_default()),
-        lang: info.lang.clone(),
-        switches: info.params.get(":results_switches"),
-    };
-    let body = results::text(&outcome.value, &format);
-    let (range, new) = results::edit(&text, &root, &node, info.name.as_deref(), &body, &params);
+    let (range, new, empty) = results_edit(&text, &root, &node, &info, &outcome.value);
     let now = ctx.now;
     ctx.doc()?
         .run(now, |_, _, _| {
@@ -1160,7 +1183,7 @@ pub fn insert_result(ctx: &mut EditorContext<'_>, args: &Json) -> CommandResult 
             Ok(tx)
         })
         .map_err(CommandError::from)?;
-    let key = if !(outcome.value.is_nil() || body.is_empty()) {
+    let key = if !(outcome.value.is_nil() || empty) {
         "babel-complete"
     } else if has("value") {
         "babel-no-value"

@@ -7,6 +7,11 @@
 //! blocks are those of the file as written: a block a result writes
 //! (`:results code`) is not run in turn. Skipped where `sh` or `python3`
 //! is not installed.
+//!
+//! And Babel on export: `tests/babel/export.org` exported as HTML, the
+//! body only, its blocks whose results the export writes run first, and
+//! compared with `tests/babel/export.html`, Emacs's export of the same file
+//! (`emacs -Q --batch FILE -l tools/babel-export-oracle.el`).
 
 #![allow(clippy::print_stderr)]
 
@@ -68,4 +73,66 @@ fn every_block_as_emacs_writes_its_results() {
             want.get(line)
         );
     }
+}
+
+/// `html` with Org's made-up ids (`org` and seven hex digits), which differ
+/// from one export to the next, as one.
+fn ids_as_one(html: &str) -> String {
+    let mut out = String::new();
+    let mut rest = html;
+    while let Some(i) = rest.find("org") {
+        let after = &rest[i + 3..];
+        let hex = after.bytes().take(7).filter(u8::is_ascii_hexdigit).count();
+        out.push_str(&rest[..i]);
+        if hex == 7 && !after.as_bytes().get(7).is_some_and(u8::is_ascii_hexdigit) {
+            out.push_str("ID");
+            rest = &after[7..];
+        } else {
+            out.push_str("org");
+            rest = after;
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+#[test]
+fn the_export_as_emacs_writes_it() {
+    if !installed("sh") {
+        eprintln!("sh is not installed: Babel's export is not compared");
+        return;
+    }
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/babel");
+    let path = dir.join("export.org");
+    let org = std::fs::read_to_string(&path).expect("export.org");
+    let expected = std::fs::read_to_string(dir.join("export.html")).expect("export.html");
+    let settings = kalem_core::babel::export::Settings {
+        loaded: vec!["shell".into()],
+        python: String::new(),
+        confirm: false,
+    };
+    let copy = kalem_core::babel::export::evaluate_now(
+        &org,
+        Some(&path),
+        None,
+        &settings,
+        &mut |_| None,
+        &mut |_| {},
+    );
+    let html = org_export::export(
+        &copy,
+        &org_export::Html,
+        &org_export::Settings {
+            body_only: true,
+            input_file: Some(path.clone()),
+            now: None,
+            subtree: None,
+            math: Some(kalem_core::math::export_renderer()),
+            options: None,
+        },
+    )
+    .expect("export");
+    assert_eq!(ids_as_one(&html), ids_as_one(&expected));
+    // The file itself is not changed.
+    assert_eq!(std::fs::read_to_string(&path).expect("export.org"), org);
 }

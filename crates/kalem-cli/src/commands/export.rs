@@ -87,9 +87,45 @@ fn find_headline(text: &str, name: &str) -> Option<usize> {
         .map(|h| usize::from(h.syntax().text_range().start()))
 }
 
+/// The settings an export of `file` reads: the user's, and the
+/// workspace's of its folder.
+fn config_for(file: &Path) -> kalem_core::settings::Config {
+    let user = kalem_core::settings::config_dir().map(|d| d.join("settings.toml"));
+    let workspace = std::path::absolute(file).ok().and_then(|p| {
+        p.parent()
+            .and_then(kalem_core::settings::find_workspace_settings)
+    });
+    kalem_core::settings::Config::load(user.as_deref(), workspace.as_deref())
+}
+
+/// Asks `question` on the terminal, as Emacs's `yes-or-no-p` does: yes or
+/// no, asked again until one of them; none where standard input is not a
+/// terminal or ends.
+fn ask(question: &str) -> Option<bool> {
+    use std::io::{BufRead, IsTerminal};
+    if !std::io::stdin().is_terminal() {
+        return None;
+    }
+    let mut prompt = question.to_string();
+    loop {
+        eprint!("{prompt} ");
+        let mut line = String::new();
+        if std::io::stdin().lock().read_line(&mut line).ok()? == 0 {
+            return None;
+        }
+        match line.trim().to_lowercase().as_str() {
+            "yes" => return Some(true),
+            "no" => return Some(false),
+            _ => prompt = kalem_core::tr!("babel-answer-yes-or-no", question = question),
+        }
+    }
+}
+
 /// Exports `files`; `output` (only with one file) names the result, `-`
 /// for standard output; `subtree` names the headline whose subtree only
-/// is exported.
+/// is exported. With `export.use_babel`, the source blocks whose results
+/// an export writes run first, on a copy, asked about on the terminal as
+/// Emacs asks (a no where it cannot ask).
 pub(crate) fn export(
     files: &[PathBuf],
     to: Target,
@@ -161,6 +197,34 @@ pub(crate) fn export(
                 continue;
             }
         }
+        // Babel on export (`org-export-use-babel`): the blocks whose results
+        // it writes run first, on a copy of the text.
+        let evaluated;
+        let text = if markdown || to == Target::Org {
+            text
+        } else {
+            let config = config_for(file);
+            if config.bool(kalem_core::babel::export::USE_BABEL) {
+                let settings = kalem_core::babel::export::Settings::of(&config);
+                let range = subtree
+                    .and_then(|name| find_headline(text, name))
+                    .and_then(|at| {
+                        kalem_core::stats::subtree_at(&org_syntax::parse(text).syntax(), at)
+                    });
+                let path = std::path::absolute(file).unwrap_or_else(|_| file.clone());
+                evaluated = kalem_core::babel::export::evaluate_now(
+                    text,
+                    Some(&path),
+                    range.as_ref(),
+                    &settings,
+                    &mut ask,
+                    &mut |m| eprintln!("{}: {m}", file.display()),
+                );
+                evaluated.as_str()
+            } else {
+                text
+            }
+        };
         let at = match subtree {
             Some(name) => match find_headline(text, name) {
                 Some(at) => Some(at),

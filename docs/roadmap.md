@@ -354,8 +354,9 @@ Writers (Org and Markdown)
   Done 2026-10-15: shell and Python blocks run and write their results
   as Emacs does, behind Emacs's own policy (the owner's decision:
   confirmation, `:eval`, the languages enabled by setting); a plugin's
-  languages through its `executor` (API 0.2.21). Open: export-time
-  evaluation, R and gnuplot, `:cache`, tangling, `#+CALL:`, sessions.
+  languages through its `executor` (API 0.2.21); on export too, as
+  `org-export-use-babel` runs them. Open: R and gnuplot, `:cache`,
+  tangling, `#+CALL:` and inline blocks, sessions.
 
 Scientists (LaTeX)
 - [ ] R5.7 The LaTeX exit criteria (T2.7h.39): a paper and a thesis from

@@ -3,8 +3,16 @@ Ctrl+Alt+E, the File menu, or the palette) write the document beside
 its file, or where =#+EXPORT_FILE_NAME= says, unsaved changes
 included. The result is what Emacs's Org exporter writes: =#+OPTIONS=,
 =#+INCLUDE=, macros, footnotes, tables, links and source blocks behave
-as there. Kalem does not run code: source blocks show their code and
-the results already in the file.
+as there. Source blocks whose results the export shows (=:exports
+results= or =both=) run first, as Emacs's =org-export-use-babel= runs
+them: under the rules of /Running source blocks/ (their language named
+in =babel.load_languages=, a yes to each question unless
+=babel.confirm_evaluate= is off, =:eval never-export= refusing), one
+after the other while you go on writing, their results written into a
+copy that the export reads; the file itself is not changed. Other
+blocks show their code and the results already in the file, and
+=export.use_babel = false= exports without running any. ~kalem export~
+asks on the terminal; where it cannot ask, the answer is no.
 
 /Export…/ lists the formats and three switches, saved in your settings
 when you change them: /Body only/ (=export.body_only=) writes the body

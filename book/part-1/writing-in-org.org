@@ -198,7 +198,8 @@ installed, else =python3= (=babel.python_command= names another). What
 the program writes to its error output opens in =*Org-Babel Error
 Output*=. A plugin may run more languages, as the plain text
 accounting plugin runs =hledger=, =ledger= and =beancount= blocks;
-they too run once =babel.load_languages= names them.
+they too run once =babel.load_languages= names them. An export runs
+the blocks whose results it shows first (/Exporting/).
 
 * Footnotes
 

@@ -294,6 +294,14 @@ fn schemas() -> Vec<(&'static str, Value)> {
             "org.babel.insertResult",
             object(&[("run", "integer", false)]),
         ),
+        (
+            "org.babel.exportStep",
+            object(&[
+                ("job", "integer", false),
+                ("answer", "string", false),
+                ("ran", "boolean", false),
+            ]),
+        ),
         ("org.footnote.new", object(&[("label", "string", false)])),
         ("project.remove", object(&[("path", "string", false)])),
         ("project.add", object(&[("path", "string", false)])),
@@ -1068,23 +1076,43 @@ fn auto_recalc(ctx: &mut EditorContext<'_>) {
 /// Exports the active document with `backend` beside its file
 /// (`#+EXPORT_FILE_NAME` names another), with unsaved changes too; with
 /// `subtree`, only the subtree at the cursor (its `EXPORT_FILE_NAME`
-/// property names the file).
+/// property names the file). Its source blocks whose results it exports
+/// run first ([`crate::babel::export`]): command `command` runs again with
+/// `args` once they have.
 fn export_doc(
     ctx: &mut EditorContext<'_>,
+    command: &str,
+    args: &Value,
     backend: &dyn org_export::Backend,
     extension: &str,
     subtree: bool,
 ) -> CommandResult {
-    export_doc_to(ctx, backend, extension, subtree).map(|_| ())
+    export_doc_to(ctx, command, args, backend, extension, subtree).map(|_| ())
 }
 
-/// [`export_doc`], returning the file written.
+/// [`export_doc`], returning the file written; none while its source
+/// blocks run first.
 fn export_doc_to(
     ctx: &mut EditorContext<'_>,
+    command: &str,
+    args: &Value,
     backend: &dyn org_export::Backend,
     extension: &str,
     subtree: bool,
-) -> Result<std::path::PathBuf, CommandError> {
+) -> Result<Option<std::path::PathBuf>, CommandError> {
+    if ctx
+        .document
+        .as_deref()
+        .ok_or_else(|| CommandError::new("No document"))?
+        .meta
+        .path
+        .is_none()
+    {
+        return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
+    }
+    let Some(text) = crate::babel::export::source(ctx, command, args, subtree)? else {
+        return Ok(None);
+    };
     let doc = ctx
         .document
         .as_deref()
@@ -1093,7 +1121,6 @@ fn export_doc_to(
         return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
     };
     let path = std::path::absolute(&path).unwrap_or(path);
-    let text = doc.text().as_str().to_string();
     let subtree = subtree.then_some(doc.selection.head);
     let settings = org_export::Settings {
         body_only: ctx.config.bool("export.body_only"),
@@ -1116,7 +1143,7 @@ fn export_doc_to(
                 &target,
             ))));
     }
-    Ok(target)
+    Ok(Some(target))
 }
 
 /// The LaTeX back-end, as `ox-latex` writes.
@@ -1128,14 +1155,39 @@ const LATEX: org_export::Latex = org_export::Latex {
 /// beside its file, then compiles it to PDF in the background
 /// (`crate::pdf`); the result, or LaTeX's first error at its Org line,
 /// shows when it ends.
-fn export_pdf(ctx: &mut EditorContext<'_>, subtree: bool) -> CommandResult {
-    pdf_then(ctx, subtree, false)
+fn export_pdf(
+    ctx: &mut EditorContext<'_>,
+    command: &str,
+    args: &Value,
+    subtree: bool,
+) -> CommandResult {
+    pdf_then(ctx, command, args, subtree, false)
 }
 
 /// Compiles the document (or the subtree at the cursor) to a PDF in the
 /// background; then opens it (`export.open_after`) or, with `print`,
-/// hands it to the system's print dialog.
-fn pdf_then(ctx: &mut EditorContext<'_>, subtree: bool, print: bool) -> CommandResult {
+/// hands it to the system's print dialog. Its source blocks whose results
+/// it exports run first, `command` then running again with `args`.
+fn pdf_then(
+    ctx: &mut EditorContext<'_>,
+    command: &str,
+    args: &Value,
+    subtree: bool,
+    print: bool,
+) -> CommandResult {
+    if ctx
+        .document
+        .as_deref()
+        .ok_or_else(|| CommandError::new("No document"))?
+        .meta
+        .path
+        .is_none()
+    {
+        return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
+    }
+    let Some(text) = crate::babel::export::source(ctx, command, args, subtree)? else {
+        return Ok(());
+    };
     let doc = ctx
         .document
         .as_deref()
@@ -1144,7 +1196,6 @@ fn pdf_then(ctx: &mut EditorContext<'_>, subtree: bool, print: bool) -> CommandR
         return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
     };
     let path = std::path::absolute(&path).unwrap_or(path);
-    let text = doc.text().as_str().to_string();
     let engine = crate::pdf::Engine::from_keyword(
         org_syntax::parse(&text)
             .keywords()
@@ -1239,7 +1290,25 @@ fn pdf_result(
 
 /// Writes the active document as `format` through pandoc, in the
 /// background, beside its file (or where `#+EXPORT_FILE_NAME` says).
-fn export_pandoc(ctx: &mut EditorContext<'_>, format: crate::pandoc::Format) -> CommandResult {
+fn export_pandoc(
+    ctx: &mut EditorContext<'_>,
+    command: &str,
+    args: &Value,
+    format: crate::pandoc::Format,
+) -> CommandResult {
+    if ctx
+        .document
+        .as_deref()
+        .ok_or_else(|| CommandError::new("No document"))?
+        .meta
+        .path
+        .is_none()
+    {
+        return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
+    }
+    let Some(text) = crate::babel::export::source(ctx, command, args, false)? else {
+        return Ok(());
+    };
     let doc = ctx
         .document
         .as_deref()
@@ -1248,7 +1317,6 @@ fn export_pandoc(ctx: &mut EditorContext<'_>, format: crate::pandoc::Format) -> 
         return Err(CommandError::new(crate::l10n::tr("msg-export-needs-file")));
     };
     let path = std::path::absolute(&path).unwrap_or(path);
-    let text = doc.text().as_str().to_string();
     let search = std::env::var_os("PATH").unwrap_or_default();
     let pandoc = crate::pandoc::find_with(ctx.config.str("export.pandoc_path"), &search)
         .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-no-pandoc")))?;
@@ -7577,7 +7645,7 @@ fn plain_commands() -> Vec<Command> {
             "Export",
             &[],
             Some("editorMode == org"),
-            |ctx, _| export_doc(ctx, &org_export::Html, ".html", false),
+            |ctx, a| export_doc(ctx, "export.html", a, &org_export::Html, ".html", false),
         ),
         cmd(
             "export.htmlSubtree",
@@ -7585,7 +7653,16 @@ fn plain_commands() -> Vec<Command> {
             "Export",
             &[],
             Some("editorMode == org"),
-            |ctx, _| export_doc(ctx, &org_export::Html, ".html", true),
+            |ctx, a| {
+                export_doc(
+                    ctx,
+                    "export.htmlSubtree",
+                    a,
+                    &org_export::Html,
+                    ".html",
+                    true,
+                )
+            },
         ),
         cmd(
             "export.htmlBrowser",
@@ -7593,8 +7670,18 @@ fn plain_commands() -> Vec<Command> {
             "Export",
             &[],
             Some("editorMode == org"),
-            |ctx, _| {
-                let target = export_doc_to(ctx, &org_export::Html, ".html", false)?;
+            |ctx, a| {
+                let Some(target) = export_doc_to(
+                    ctx,
+                    "export.htmlBrowser",
+                    a,
+                    &org_export::Html,
+                    ".html",
+                    false,
+                )?
+                else {
+                    return Ok(());
+                };
                 if !ctx.config.bool("export.open_after") {
                     let url = file_url(&target);
                     ctx.requests
@@ -7609,7 +7696,16 @@ fn plain_commands() -> Vec<Command> {
             "Export",
             &[],
             Some("editorMode == org"),
-            |ctx, _| export_doc(ctx, &org_export::Markdown, ".md", false),
+            |ctx, a| {
+                export_doc(
+                    ctx,
+                    "export.markdown",
+                    a,
+                    &org_export::Markdown,
+                    ".md",
+                    false,
+                )
+            },
         ),
         cmd(
             "export.dialog",
@@ -7662,7 +7758,7 @@ fn plain_commands() -> Vec<Command> {
             "Export",
             &[],
             Some("editorMode == org"),
-            |ctx, _| export_doc(ctx, &org_export::Gfm, ".md", false),
+            |ctx, a| export_doc(ctx, "export.gfm", a, &org_export::Gfm, ".md", false),
         ),
         cmd(
             "export.latex",
@@ -7670,7 +7766,7 @@ fn plain_commands() -> Vec<Command> {
             "Export",
             &[],
             Some("editorMode == org"),
-            |ctx, _| export_doc(ctx, &LATEX, ".tex", false),
+            |ctx, a| export_doc(ctx, "export.latex", a, &LATEX, ".tex", false),
         ),
         cmd(
             "export.text",
@@ -7678,10 +7774,10 @@ fn plain_commands() -> Vec<Command> {
             "Export",
             &[],
             Some("editorMode == org"),
-            |ctx, _| {
+            |ctx, a| {
                 let utf8 = ctx.config.str("export.text_charset") == "utf-8";
                 let backend: &dyn org_export::Backend = if utf8 { &TEXT_UTF8 } else { &TEXT };
-                export_doc(ctx, backend, ".txt", false)
+                export_doc(ctx, "export.text", a, backend, ".txt", false)
             },
         ),
         cmd(
@@ -7690,7 +7786,7 @@ fn plain_commands() -> Vec<Command> {
             "Export",
             &[],
             Some("editorMode == org"),
-            |ctx, _| export_pdf(ctx, false),
+            |ctx, a| export_pdf(ctx, "export.pdf", a, false),
         ),
         cmd(
             "file.print",
@@ -7698,7 +7794,7 @@ fn plain_commands() -> Vec<Command> {
             "File",
             &[],
             Some("editorMode == org"),
-            |ctx, _| pdf_then(ctx, false, true),
+            |ctx, a| pdf_then(ctx, "file.print", a, false, true),
         ),
         cmd(
             "export.pdfSubtree",
@@ -7706,7 +7802,7 @@ fn plain_commands() -> Vec<Command> {
             "Export",
             &[],
             Some("editorMode == org"),
-            |ctx, _| export_pdf(ctx, true),
+            |ctx, a| export_pdf(ctx, "export.pdfSubtree", a, true),
         ),
         cmd(
             "export.docx",
@@ -7714,7 +7810,7 @@ fn plain_commands() -> Vec<Command> {
             "Export",
             &[],
             Some("editorMode == org"),
-            |ctx, _| export_pandoc(ctx, crate::pandoc::Format::Docx),
+            |ctx, a| export_pandoc(ctx, "export.docx", a, crate::pandoc::Format::Docx),
         ),
         cmd(
             "export.odt",
@@ -7722,7 +7818,7 @@ fn plain_commands() -> Vec<Command> {
             "Export",
             &[],
             Some("editorMode == org"),
-            |ctx, _| export_pandoc(ctx, crate::pandoc::Format::Odt),
+            |ctx, a| export_pandoc(ctx, "export.odt", a, crate::pandoc::Format::Odt),
         ),
         cmd(
             "export.epub",
@@ -7730,7 +7826,7 @@ fn plain_commands() -> Vec<Command> {
             "Export",
             &[],
             Some("editorMode == org"),
-            |ctx, _| export_pandoc(ctx, crate::pandoc::Format::Epub),
+            |ctx, a| export_pandoc(ctx, "export.epub", a, crate::pandoc::Format::Epub),
         ),
         cmd(
             "export.rtf",
@@ -7738,7 +7834,7 @@ fn plain_commands() -> Vec<Command> {
             "Export",
             &[],
             Some("editorMode == org"),
-            |ctx, _| export_pandoc(ctx, crate::pandoc::Format::Rtf),
+            |ctx, a| export_pandoc(ctx, "export.rtf", a, crate::pandoc::Format::Rtf),
         ),
         cmd(
             "file.import",
@@ -7754,7 +7850,7 @@ fn plain_commands() -> Vec<Command> {
             "Export",
             &[],
             Some("editorMode == org"),
-            |ctx, _| export_doc(ctx, &LATEX, ".tex", true),
+            |ctx, a| export_doc(ctx, "export.latexSubtree", a, &LATEX, ".tex", true),
         ),
         cmd(
             "export.markdownSubtree",
@@ -7762,7 +7858,16 @@ fn plain_commands() -> Vec<Command> {
             "Export",
             &[],
             Some("editorMode == org"),
-            |ctx, _| export_doc(ctx, &org_export::Markdown, ".md", true),
+            |ctx, a| {
+                export_doc(
+                    ctx,
+                    "export.markdownSubtree",
+                    a,
+                    &org_export::Markdown,
+                    ".md",
+                    true,
+                )
+            },
         ),
         cmd(
             "app.saveAs",
@@ -11154,6 +11259,17 @@ fn plain_commands() -> Vec<Command> {
                 &[],
                 Some(ORG),
                 crate::babel::insert_result,
+            ),
+            crate::command::Scope::all(),
+        ),
+        scoped(
+            cmd(
+                "org.babel.exportStep",
+                "Run an Export's Source Blocks",
+                "Babel",
+                &[],
+                Some(ORG),
+                crate::babel::export::step,
             ),
             crate::command::Scope::all(),
         ),

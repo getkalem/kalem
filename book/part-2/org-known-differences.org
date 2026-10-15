@@ -236,6 +236,15 @@ their results checked against Emacs's
   meantime or its document is no longer the current one (a message says so).
 - The error output opens in =*Org-Babel Error Output*= as the current
   document; Emacs shows that buffer in another window.
+- An export from the editor runs its blocks one after the other beside the
+  editor, and writes its file when the last has ended; Emacs's export waits
+  for each.
+- ~kalem export~ asks its questions on the terminal; where standard input is
+  not a terminal the answer is no and the export goes on, where Emacs in
+  batch stops with an error.
+- Inline source blocks (=src_sh{echo 1}=) and =#+CALL:= lines do not run, on
+  export or by hand; Emacs runs inline blocks on export (their =:exports= is
+  =results=).
 
 * Broken links on export
 

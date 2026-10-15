@@ -890,12 +890,13 @@ Also honored: the =noexport= and =export= tags, =COMMENT= subtrees,
 =EXPORT_= properties in subtree export (~kalem export --subtree~), the
 =UNNUMBERED= and =ALT_TITLE= properties, smart quotes in the
 document's language (=':t=), the =org-export-dictionary= translations,
-and Babel as when evaluation is refused (=:eval never-export=):
-=:exports code= (the default) writes the block and removes its results,
-=both= keeps them, =results= keeps only the results, =none= neither;
-=#+CALL:= lines and inline calls go (a call to a block the document
-does not name stops the export, "Unknown Babel reference", as in
-Emacs), Noweb references expand with
+and Babel: blocks of =:exports results= and =both= run first, as Emacs
+runs them (/Exporting/ in Part I), the others as when evaluation is
+refused (=:eval never-export=): =:exports code= (the default) writes
+the block and removes its results, =both= keeps them, =results= keeps
+only the results, =none= neither; =#+CALL:= lines and inline calls go
+(a call to a block the document does not name stops the export,
+"Unknown Babel reference", as in Emacs), Noweb references expand with
 =:noweb yes=. Timestamps are written without custom formats. HTML
 formulas go to MathJax, or, with =tex:svg= (and the image types
 =dvisvgm=, =dvipng= and =imagemagick=, which need LaTeX in Emacs), to
@@ -977,8 +978,8 @@ Stated plainly, from the former work breakdown (=docs/todo.md=, phases 3 and 4; 
   write their =#+RESULTS:= as Emacs does (/Running source blocks/ in
   Part I); other languages, =#+CALL:= lines and inline calls,
   =:cache=, =:file= results, tangling and sessions are not
-  implemented. Export treats blocks as Emacs does when evaluation is
-  refused.
+  implemented. On export, the blocks whose results it shows run first,
+  as in Emacs.
 - *The agenda.* No agenda views, capture or workspace-wide =id:=
   resolution; ~kalem query~ runs match strings over files.
 - *Clocking.* =CLOCK:= lines are parsed and summed; clocking in and

@@ -1,0 +1,23 @@
+* Notes
+
+#+begin_src sh
+echo code only
+#+end_src
+
+#+begin_src sh :exports results
+echo results
+printf 'a b\nc d\n'
+#+end_src
+
+#+begin_src sh :exports both :eval never-export
+echo refused
+#+end_src
+
+#+begin_src sh :exports both
+echo both
+#+end_src
+
+#+RESULTS:
+: old
+
+Text.

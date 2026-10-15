@@ -295,6 +295,12 @@ pub const SPECS: &[Spec] = &[
         description: "Open an exported file with the system's application",
     },
     Spec {
+        key: "export.use_babel",
+        kind: Kind::Bool,
+        default: "true",
+        description: "Run the source blocks whose results an export writes (:exports results or both) before it, as Emacs's org-export-use-babel does, asking first as a run by hand asks; the file itself is not changed",
+    },
+    Spec {
         key: "latex.engine",
         kind: Kind::Str,
         default: r#""auto""#,
