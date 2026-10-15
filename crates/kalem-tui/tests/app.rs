@@ -525,6 +525,22 @@ fn vim_visual_mode_grows_with_page_down() {
 }
 
 #[test]
+fn vim_end_is_dollar() {
+    // In Normal mode End is Vim's `$`, on the line's last character;
+    // in Insert mode the editor's, after it.
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let mut t = with_config("abc\nlast", config, (40, 5));
+    t.at(0);
+    t.key(KeyCode::End, KeyModifiers::NONE);
+    t.typ("x");
+    assert_eq!(t.text(), "ab\nlast");
+    t.typ("0i");
+    t.key(KeyCode::End, KeyModifiers::NONE);
+    t.typ("!");
+    assert_eq!(t.text(), "ab!\nlast");
+}
+
+#[test]
 fn vim_profile() {
     let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
     let mut t = with_config("one two\nthree\n", config, (40, 5));

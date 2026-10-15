@@ -88,6 +88,14 @@ pub enum Key {
     Up,
     /// Down arrow.
     Down,
+    /// Home: `0`'s motion.
+    Home,
+    /// End: `$`'s.
+    End,
+    /// Page Up: CTRL-B's.
+    PageUp,
+    /// Page Down: CTRL-F's.
+    PageDown,
     /// Any other key (with Alt, function keys).
     Other,
 }
@@ -1771,9 +1779,9 @@ impl Vim {
     }
 
     /// Moves the moving end of the visual selection to `to`: for the
-    /// editor's own motion keys (Page Down, Home, End, the arrows with
-    /// Option or fn), which grow the selection in visual mode as Vim's
-    /// `<PageDown>` does, rather than ending it. `false` outside visual
+    /// editor's own motion keys (the arrows with Option or fn, Home, End
+    /// and the page keys with a modifier), which grow the selection in
+    /// visual mode as Vim's `<PageDown>` does, rather than ending it. `false` outside visual
     /// mode.
     pub fn move_visual(&mut self, doc: &mut DocumentState, to: usize) -> bool {
         if !self.visual() {
@@ -1979,7 +1987,7 @@ impl Vim {
                     && self.command_line.is_none()
                     && self.mode == Mode::Normal
                 {
-                    self.back_from_ctrl_o(doc, key == Key::Char('$'));
+                    self.back_from_ctrl_o(doc, matches!(key, Key::Char('$') | Key::End));
                     return out;
                 }
                 if self.visual() {
@@ -2327,14 +2335,14 @@ impl Vim {
                 }
                 to_line(l, Some(goal))
             }
-            Key::Ctrl('d' | 'u' | 'f' | 'b') => {
+            Key::Ctrl('d' | 'u' | 'f' | 'b') | Key::PageUp | Key::PageDown => {
                 let page = host.page_lines().max(2);
                 let step = if matches!(key, Key::Ctrl('d' | 'u')) {
                     page / 2
                 } else {
                     page - 2
                 } * n;
-                let down = matches!(key, Key::Ctrl('d' | 'f'));
+                let down = matches!(key, Key::Ctrl('d' | 'f') | Key::PageDown);
                 let l = if down {
                     line + step
                 } else {
@@ -2388,9 +2396,9 @@ impl Vim {
                 };
                 charwise(p)
             }
-            Key::Char('0') => charwise(line_start(doc, line)),
+            Key::Char('0') | Key::Home => charwise(line_start(doc, line)),
             Key::Char('^') => charwise(first_non_blank(doc, line)),
-            Key::Char('$') => {
+            Key::Char('$') | Key::End => {
                 // A count on the last line has no line to go down to.
                 if n > 1 && line >= last {
                     return Some(None);
@@ -2512,7 +2520,7 @@ impl Vim {
             _ => return None,
         };
         if !vertical {
-            self.goal = (key == Key::Char('$')).then_some(usize::MAX);
+            self.goal = matches!(key, Key::Char('$') | Key::End).then_some(usize::MAX);
         }
         self.jumping = matches!(
             key,
@@ -5226,7 +5234,8 @@ impl Vim {
                 Some(Key::Char('j' | 'k' | 'G') | Key::Down | Key::Up | Key::Ctrl('n' | 'p'))
             );
             self.block_end = self.mode == Mode::VisualBlock
-                && (last == Some(Key::Char('$')) || (self.block_end && vertical));
+                && (matches!(last, Some(Key::Char('$') | Key::End))
+                    || (self.block_end && vertical));
             return;
         }
         let jumping = std::mem::take(&mut self.jumping);
@@ -6094,8 +6103,9 @@ mod tests {
         run_in(text, at, keys, DocumentMode::Text { language: None }).0
     }
 
-    /// `keys` with `<Esc>`, `<CR>`, `<BS>`, `<Up>`, `<Down>` and `<C-r>`;
-    /// another `<` is the character.
+    /// `keys` with `<Esc>`, `<CR>`, `<BS>`, `<Up>`, `<Down>`, `<Home>`,
+    /// `<End>`, `<PageUp>`, `<PageDown>` and `<C-r>`; another `<` is the
+    /// character.
     fn test_keys(keys: &str) -> Vec<Key> {
         let named = |name: &str| {
             Some(match name {
@@ -6104,6 +6114,10 @@ mod tests {
                 "BS" => Key::Backspace,
                 "Up" => Key::Up,
                 "Down" => Key::Down,
+                "Home" => Key::Home,
+                "End" => Key::End,
+                "PageUp" => Key::PageUp,
+                "PageDown" => Key::PageDown,
                 n if n.len() == 3 && n.starts_with("C-") => Key::Ctrl(n.chars().nth(2)?),
                 _ => return None,
             })
@@ -6799,6 +6813,27 @@ mod tests {
         assert_eq!(s, "a|bcd\nefgh\nijkl\n");
         let (_, v, _) = run_in(t, 1, "<C-v><C-v>", DocumentMode::Text { language: None });
         assert_eq!(v.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn home_end_and_the_page_keys() {
+        // Vim's own motions (`0`, `$`, CTRL-B and CTRL-F), not the
+        // editor's: End is on the last character, as `$` is.
+        assert_eq!(run("abc\nlast", 0, "<End>iX<Esc>"), "ab|Xc\nlast");
+        assert_eq!(run("abc\nlast", 0, "<End>x"), "a|b\nlast");
+        assert_eq!(run("abc\nlast", 1, "d<End>"), "|a\nlast");
+        assert_eq!(run("abc\nlast", 2, "<Home>x"), "|bc\nlast");
+        assert_eq!(
+            run("ab\nlong line\n", 0, "<End>j"),
+            run("ab\nlong line\n", 0, "$j")
+        );
+        assert_eq!(
+            run("ab\nabcd\n", 0, "<C-v>j<End>d"),
+            run("ab\nabcd\n", 0, "<C-v>j$d")
+        );
+        let text: String = (0..60).map(|i| format!("  line {i}\n")).collect();
+        assert_eq!(run(&text, 0, "<PageDown>"), run(&text, 0, "<C-f>"));
+        assert_eq!(run(&text, 300, "<PageUp>"), run(&text, 300, "<C-b>"));
     }
 
     #[test]

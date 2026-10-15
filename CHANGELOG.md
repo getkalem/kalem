@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - With Vim's keys, a block selection over text shortened by a key Vim leaves to the editor (Shift+Delete in the terminal) no longer panics the terminal editor when drawn: its ends past the text, or inside a character, are the character they are in.
 - Typing `:` on an Org heading of stars only (`* `) no longer panics the editor.
 - In Org, Enter in Vim's Normal mode (Doom's RET, Act at Cursor) on the bullet of a list's first item toggles its checkbox as it does elsewhere on the line: the `inList` context is true there, as `org-at-item-p` is.
+- With Vim's keys, Home, End, Page Up and Page Down in Normal and Visual mode are Vim's `0`, `$`, CTRL-B and CTRL-F, in both editors: End and Page Down left the cursor past the last character of the line, where `x` deleted nothing and `i` typed after that character.
 
 ## [0.6.35] - 2026-10-15
 

@@ -9,6 +9,17 @@ use crate::editor::Editor;
 /// A key for the Vim layer.
 pub fn key(k: &Keystroke) -> Key {
     let m = k.modifiers;
+    // Home, End and the page keys (fn with the arrows on a Mac's
+    // keyboard): Vim's motions.
+    if !(m.platform || m.alt || m.control || m.shift) {
+        match k.key.as_str() {
+            "home" => return Key::Home,
+            "end" => return Key::End,
+            "pageup" => return Key::PageUp,
+            "pagedown" => return Key::PageDown,
+            _ => {}
+        }
+    }
     if m.platform || m.alt || m.function {
         return Key::Other;
     }
@@ -134,9 +145,14 @@ impl Editor {
             return false;
         };
         let k = key(&ev.keystroke);
-        // Insert mode's own keys go to the layer; typed characters and
-        // keys it does not know go to the editor.
-        if v.takes_text() && matches!(k, Key::Char(_) | Key::Other) {
+        // Insert mode's own keys go to the layer; typed characters, the
+        // editor's motions and keys it does not know go to the editor.
+        if v.takes_text()
+            && matches!(
+                k,
+                Key::Char(_) | Key::Home | Key::End | Key::PageUp | Key::PageDown | Key::Other
+            )
+        {
             self.vim = Some(v);
             return false;
         }
