@@ -1193,6 +1193,8 @@ fn settings_panel(cx: &mut TestAppContext) {
     let (e, cx) = open("* A\n", cx);
     cx.simulate_keystrokes(&format!("{}-,", primary()));
     assert!(cx.debug_bounds("settings").is_some());
+    // Kalem's version beside the title.
+    assert!(cx.debug_bounds("settings-version").is_some());
     // Every setting in the list, as in the terminal editor.
     assert!(cx.debug_bounds("settings-row-editor.font_family").is_some());
     // `/` filters; `h` and `l` step a choice or a number, saved at once.

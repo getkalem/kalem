@@ -112,6 +112,12 @@ impl SettingsPanel {
         if title.width() + n.width() + 4 < w as usize {
             buf.set_stringn(x0 + w - 2 - n.width() as u16, y0, &n, n.width(), dim);
         }
+        // Kalem's version after the title, where it fits beside the count.
+        let version = format!("{} ", settings_list::version());
+        if title.width() + version.width() + n.width() + 4 < w as usize {
+            let x = x0 + 2 + title.width() as u16;
+            buf.set_stringn(x, y0, &version, version.width(), dim);
+        }
         let hints = format!(" {} ", hints(items_of));
         buf.set_stringn(x0 + 2, bottom, &hints, inner, dim);
         let rule_y = bottom - 5;

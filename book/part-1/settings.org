@@ -1,6 +1,7 @@
 /Settings/ in the Kalem menu (Ctrl+, or Cmd+,; in the terminal Alt+,
 where the terminal cannot send Ctrl+,; =SPC h v= with Vim's keys)
-lists every setting, in both editors the same way. Changes apply to
+lists every setting, in both editors the same way, under a title that
+also says Kalem's version. Changes apply to
 every window and are saved in =settings.toml= in the settings
 directory: =$KALEM_CONFIG_DIR=, or =kalem= in =$XDG_CONFIG_HOME=,
 =%APPDATA%= on Windows, or =~/.config=. A project can have its own

@@ -2291,6 +2291,11 @@ fn the_settings_panel_lists_and_changes_every_setting() {
         rows.contains("Settings") && rows.contains("editor") && rows.contains("font_family"),
         "{rows}"
     );
+    // Kalem's version beside the title.
+    assert!(
+        rows.contains(&format!(" Settings Kalem {} ", env!("CARGO_PKG_VERSION"))),
+        "{rows}"
+    );
     // The chosen setting's key, default and description below.
     assert!(rows.contains("editor.font_family  Default:"), "{rows}");
     // `/` filters; a switch flips with Space, saved at once.

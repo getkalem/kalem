@@ -533,6 +533,7 @@ find-regex-label = Find (regex)
 replace-label = Replace
 copy-button = Copy
 settings-title = Settings
+settings-version = Kalem { $version }
 settings-system-font = System font
 settings-on = on
 settings-off = off

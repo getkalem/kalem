@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- The settings panel says Kalem's version beside its title, in both editors.
+
 ### Changed
 - A file of a language a plugin declares is of that language's text type: with the plain text accounting plugin, `2026.journal` is `hledger` and `x.bean` `beancount`, where the type was the extension through a fixed table (`journal`, `bean`), and the terminal's status bar names the language (`Beancount`), as do Format Document's messages. A key binding or menu item a user wrote for such files with `textType == journal` no longer applies to them: write the language's id (`textType == hledger`); `editorLanguage` still holds the extension, and a formatter set for the extension (`[formatters] journal`) still formats them. A mode line or a `#!` line naming another language wins over the plugin's.
 

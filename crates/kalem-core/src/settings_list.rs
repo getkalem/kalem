@@ -559,6 +559,11 @@ pub fn save(file: &std::path::Path, field: &Field, value: &Value) -> Result<(), 
     }
 }
 
+/// What the panel's title says beside its name: Kalem's version.
+pub fn version() -> String {
+    crate::tr!("settings-version", version = env!("CARGO_PKG_VERSION"))
+}
+
 /// What the panel shows.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum Page {

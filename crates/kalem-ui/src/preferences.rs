@@ -927,9 +927,22 @@ impl Editor {
                     .justify_between()
                     .child(
                         div()
-                            .text_color(theme.foreground)
-                            .font_weight(gpui::FontWeight::BOLD)
-                            .child(tr("settings-title")),
+                            .flex()
+                            .flex_row()
+                            .gap(px(8.))
+                            .child(
+                                div()
+                                    .text_color(theme.foreground)
+                                    .font_weight(gpui::FontWeight::BOLD)
+                                    .child(tr("settings-title")),
+                            )
+                            // Kalem's version beside the title.
+                            .child(
+                                div()
+                                    .debug_selector(|| "settings-version".into())
+                                    .text_color(theme.muted)
+                                    .child(settings_list::version()),
+                            ),
                     )
                     .child(
                         div()

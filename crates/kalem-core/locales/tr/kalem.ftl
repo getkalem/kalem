@@ -513,6 +513,7 @@ find-regex-label = Bul (düzenli ifade)
 replace-label = Değiştir
 copy-button = Kopyala
 settings-title = Ayarlar
+settings-version = Kalem { $version }
 settings-system-font = Sistem yazı tipi
 settings-on = açık
 settings-off = kapalı
