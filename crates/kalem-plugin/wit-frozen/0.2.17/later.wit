@@ -1,0 +1,19 @@
+package kalem:plugin@0.2.17;
+
+/// The plugin's own commands run later (API 0.2.17): at an editor's tick
+/// once some milliseconds have passed, after the editor has drawn and
+/// taken the keys typed meanwhile. Long work done a slice at a time (a
+/// large notes graph's first index) leaves the editor answering between
+/// its slices; a refresh may wait for the typing to stop, or come back
+/// each minute. No permission is needed: a plugin runs only its own.
+interface later {
+    /// Runs the plugin's command `id` with `args` as JSON (`null` for
+    /// none) once `after-ms` milliseconds have passed, in the active
+    /// editor, as a command an event's handler asks for: never inside the
+    /// call that asked, even after 0. Its number, for `cancel`. Refused
+    /// for a command not the plugin's own, or past 64 waiting.
+    run: func(id: string, args: string, after-ms: u32) -> result<u64, string>;
+
+    /// Drops run `run` if it has not run yet.
+    cancel: func(run: u64);
+}
