@@ -4483,6 +4483,25 @@ fn csv_paste_goes_into_cells() {
 }
 
 #[test]
+fn csv_paste_in_vims_insert_mode_is_text() {
+    // Vim's insert mode types the cells' text, and a paste there is text
+    // too: it was written over the cells from the cursor's, so that `A`
+    // and a paste of new rows emptied the row's last cell.
+    let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let text = "a\tb\n1\tAnkara\n";
+    let mut t = with_file(text, "d.tsv", config, (60, 8));
+    t.at(text.find("Ankara").unwrap());
+    t.typ("A");
+    t.app.event(Event::Paste("\n2\tBursa".into()));
+    assert_eq!(t.text(), "a\tb\n1\tAnkara\n2\tBursa\n");
+    // In normal mode a paste is a spreadsheet's, over the cells.
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.at(text.find("Ankara").unwrap());
+    t.app.event(Event::Paste("P1\tP2".into()));
+    assert_eq!(t.text(), "a\tb\n1\tP1\tP2\n2\tBursa\n");
+}
+
+#[test]
 fn csv_rows_do_not_wrap() {
     // A row wider than the terminal scrolls sideways rather than wrap:
     // wrapped, its bars and the letters no longer lined up, and Down went

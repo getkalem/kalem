@@ -1539,6 +1539,12 @@ fn open_vim<'a>(
     cx: &'a mut TestAppContext,
 ) -> (Entity<Editor>, &'a mut VisualTestContext) {
     let (e, cx) = open(text, cx);
+    vim_profile(&e, cx);
+    (e, cx)
+}
+
+/// The Vim profile for an editor.
+fn vim_profile(e: &Entity<Editor>, cx: &mut VisualTestContext) {
     e.update(cx, |e, _| {
         let mut shared = kalem_ui::shared_in(
             Config::from_layers(&[(
@@ -1555,7 +1561,19 @@ fn open_vim<'a>(
         e.shared = Rc::new(shared);
         e.refresh_vim();
     });
-    (e, cx)
+}
+
+#[gpui::test]
+fn csv_paste_in_vims_insert_mode_is_text(cx: &mut TestAppContext) {
+    // As in the terminal: Vim's insert mode types the cells' text, and a
+    // paste there is text too (it was written over the cells).
+    let doc = "a\tb\n1\tAnkara\n";
+    let (e, cx) = open_named(doc, "d.tsv", || None, cx);
+    vim_profile(&e, cx);
+    at(&e, doc.find("Ankara").unwrap(), cx);
+    cx.simulate_keystrokes("A");
+    e.update(cx, |e, cx| e.paste("\n2\tBursa", None, false, cx));
+    assert_eq!(text(&e, cx), "a\tb\n1\tAnkara\n2\tBursa\n");
 }
 
 #[gpui::test]

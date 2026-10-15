@@ -2025,8 +2025,10 @@ impl Editor {
         cx: &mut Context<'_, Self>,
     ) {
         self.completion = None;
-        // A CSV grid takes it as cells.
-        if self.source || plain || !self.doc.paste_in_grid(text, Instant::now()) {
+        // A CSV grid takes it as cells, but in Vim's insert mode it is
+        // text, as Vim's keys type the cells' text there.
+        let vim_insert = self.vim.as_ref().is_some_and(|v| v.takes_text());
+        if self.source || plain || vim_insert || !self.doc.paste_in_grid(text, Instant::now()) {
             self.doc.paste(text, html, plain, Instant::now());
         }
         self.goal_x = None;

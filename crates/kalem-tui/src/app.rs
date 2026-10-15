@@ -3477,8 +3477,14 @@ impl App {
             self.run_command("viewer.grid.pasteText", serde_json::json!({ "text": text }));
             return;
         }
-        // A CSV grid takes it as cells.
-        if self.editor.source || plain || !self.doc.paste_in_grid(text, Instant::now()) {
+        // A CSV grid takes it as cells, but in Vim's insert mode it is
+        // text, as Vim's keys type the cells' text there.
+        let vim_insert = self.vim.as_ref().is_some_and(|v| v.takes_text());
+        if self.editor.source
+            || plain
+            || vim_insert
+            || !self.doc.paste_in_grid(text, Instant::now())
+        {
             self.doc.paste(text, None, plain, Instant::now());
         }
         self.editor.viewport.goal_x = None;
