@@ -268,7 +268,9 @@ interface plugin {
 
 /// A plugin extending the editor: commands, keys and events, and what it
 /// shows. Later interfaces of the API (§11.4) are imported here as they
-/// come.
+/// come, and those the editor calls that every plugin may answer
+/// (`focus`, API 0.2.18) exported; the editor binds each export a
+/// component has.
 world extension {
     import diagnostics;
     import clock;
@@ -291,6 +293,7 @@ world extension {
     import editor;
     import problems;
     export plugin;
+    export focus;
 }
 
 /// An extension plugin with layers over a mode's view (API 0.2.10): the

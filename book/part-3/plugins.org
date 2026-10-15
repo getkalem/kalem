@@ -553,7 +553,14 @@ updated itself. The rules, so that a plugin built once keeps working:
   exports =formatter= and those before it too): a plugin's outlines,
   declared in its manifest by the text types they read, which the
   outline sidebar asks (below). The host binds =outline= when a
-  component exports it, as =formatter=. =state.wit= and =later.wit= of
+  component exports it, as =formatter=. It added the export =focus=
+  too: the document that gets the focus (below, /Commands, keys and events/). The
+  =extension= world exports it, and so every world that includes it;
+  =kalem-plugin='s =export_plugin!= exports it for every plugin, calling
+  the handlers =kalem_plugin::focus::on= added, none by default. Kalem
+  calls it on the components that have it: one built earlier runs as
+  before, and one built now still runs on an earlier Kalem, which never
+  calls it, as it imports nothing new. =state.wit= and =later.wit= of
   0.2.17 are frozen (=wit-frozen/0.2.17=).
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
@@ -676,12 +683,35 @@ installed while Kalem runs (Install Suggested Plugin, Browse Plugins,
 or =kalem plugin install= in a terminal) is compiled on a thread and
 started within a second or two as its =activation= says, as if it had
 started with Kalem: it is told of the documents open, each as a
-=document:open=, then of =app:ready=; its layer is drawn on them, and
+=document:open=, then of the one with the focus, then of =app:ready=;
+its layer is drawn on them, and
 a notes graph's folder it serves is offered as a project then. One
 removed stops, what it registered taken back; one updated stops, and
 its new version starts. A plugin that starts after the editors opened
 their first documents (the first start after an install compiles it)
 is told of them the same way.
+
+Which document the user works in is not one of the events: each time
+another gets the focus, in either editor, Kalem calls the =focus=
+interface's =focused= (API 0.2.18) with its number, as =document:open=
+gave it, and its file, if it has one. That is when a document opens,
+after its =document:open=; when one open already is switched to, which
+no =document:open= tells; when a pane given the focus shows another;
+and when another window comes to the front with its own. A plugin
+showing something of the current document (the notes linking to the
+page shown, an outline, a word count in the status bar) follows it
+with handlers, called in the order they were added, and a manifest may
+start a plugin at the first (=onEvent:document:focus=):
+
+#+begin_src rust
+kalem_plugin::focus::on(|_document, path| {
+    // Show what belongs to the file at `path`.
+});
+#+end_src
+
+An earlier Kalem never calls it, and runs such a plugin as before: the
+notes graph takes the page opened last for the one shown until a first
+call tells it that the focus is told.
 
 A manifest may add menus to the menu bar (the system's on macOS, the
 window's own elsewhere, and the list F10 shows in both editors) under

@@ -85,7 +85,8 @@ pub mod viewer {
 }
 
 /// The `extension` world (design §11.2 to §11.4): a plugin adding
-/// commands and keys and hearing events. [`kalem`] is its Rust side in the
+/// commands and keys and hearing events, and which document has the focus
+/// (API 0.2.18; [`focus`]). [`kalem`] is its Rust side in the
 /// shape of §11.4. With the feature `layer`, the `extension-layer` world
 /// instead: the same, and the `layer` interface of layers over a mode's
 /// view (API 0.2.10; [`layer`]); with the feature `completer`, the
@@ -172,6 +173,7 @@ pub mod completer;
 pub mod decorations;
 pub mod documents;
 pub mod editor;
+pub mod focus;
 pub mod formatter;
 pub mod fs;
 pub mod graph_view;

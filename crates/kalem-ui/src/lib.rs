@@ -89,6 +89,7 @@ pub fn shared_in(config: Config, settings_path: Option<PathBuf>) -> editor::Shar
             bus
         })),
         last: Rc::default(),
+        focused: Rc::default(),
         problems: std::cell::Cell::new(0),
         config,
         registry,

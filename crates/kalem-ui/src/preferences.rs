@@ -117,6 +117,7 @@ pub fn rebuild(old: &Shared, config: Config) -> Shared {
         jobs: old.jobs.clone(),
         bus: old.bus.clone(),
         last: old.last.clone(),
+        focused: old.focused.clone(),
         ..crate::shared_in(config, old.settings_path.clone())
     }
 }

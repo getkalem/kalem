@@ -48,6 +48,15 @@ pub enum Event {
         /// The document.
         doc: DocumentId,
     },
+    /// `document:focus`: another document is the one the user works in,
+    /// shown in the focused pane of the window in front; once a change,
+    /// after `document:open` for one just opened.
+    DocumentFocus {
+        /// The document.
+        doc: DocumentId,
+        /// Its file, if any.
+        path: Option<PathBuf>,
+    },
     /// `document:before-save` (vetoable).
     DocumentBeforeSave {
         /// The document.
@@ -211,6 +220,7 @@ kinds! {
     AppReady = "app:ready", false;
     DocumentOpen = "document:open", false;
     DocumentClose = "document:close", false;
+    DocumentFocus = "document:focus", false;
     DocumentBeforeSave = "document:before-save", true;
     DocumentAfterSave = "document:after-save", false;
     DocumentChanged = "document:changed", false;

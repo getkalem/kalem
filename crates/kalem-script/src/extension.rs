@@ -20,7 +20,7 @@ use wasmtime::component::{HasSelf, Resource, ResourceTable};
 mod bindings {
     // `extension-outline`: the `extension` world and the `layer` (API
     // 0.2.10), `completer` (API 0.2.11), `layer-2` (API 0.2.13), `layer-3`
-    // (API 0.2.15), `formatter` (API 0.2.16) and `outline` (API 0.2.18)
+    // (API 0.2.15), `formatter` (API 0.2.16), `outline` and `focus` (API 0.2.18)
     // interfaces it may export, bound one by one (`Extension::new`).
     wasmtime::component::bindgen!({
         path: "../kalem-plugin/wit",
@@ -33,7 +33,7 @@ mod bindings {
 
 pub use api::{CommandSpec, Event, EventKind, Reply, Scope};
 pub use bindings::exports::kalem::plugin::{
-    completer, formatter, layer, layer_2, layer_3, outline,
+    completer, focus, formatter, layer, layer_2, layer_3, outline,
 };
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
@@ -1653,6 +1653,8 @@ pub struct Extension {
     /// The `outline` interface, when the component exports it (API
     /// 0.2.18).
     outline: Option<outline::Guest>,
+    /// The `focus` interface, when the component exports it (API 0.2.18).
+    focus: Option<focus::Guest>,
 }
 
 impl std::fmt::Debug for Extension {
@@ -1866,6 +1868,16 @@ impl Extension {
                 .load(&mut *store, i)
                 .map(Some)
         })?;
+        let focus = instance.bindings(|store, i| {
+            let pre = i.instance_pre(&*store);
+            let name = format!("kalem:plugin/focus@{}", crate::API_VERSION);
+            if pre.component().get_export_index(None, &name).is_none() {
+                return Ok(None);
+            }
+            focus::GuestIndices::new(&pre)?
+                .load(&mut *store, i)
+                .map(Some)
+        })?;
         Ok(Extension {
             instance,
             api,
@@ -1875,6 +1887,7 @@ impl Extension {
             completer,
             formatter,
             outline,
+            focus,
         })
     }
 
@@ -2007,6 +2020,22 @@ impl Extension {
         self.instance
             .run(|s| o.call_outline(s, id, request))
             .map(Some)
+    }
+
+    /// Whether the plugin exports `focus` (API 0.2.18): it is told which
+    /// document has the focus.
+    pub fn has_focus(&self) -> bool {
+        self.focus.is_some()
+    }
+
+    /// Tells the plugin that document `document`, of `path`, got the
+    /// focus; `false` when it does not export `focus`.
+    pub fn focused(&mut self, document: u64, path: Option<&str>) -> crate::Result<bool> {
+        let Some(f) = &self.focus else {
+            return Ok(false);
+        };
+        self.instance.run(|s| f.call_focused(s, document, path))?;
+        Ok(true)
     }
 
     /// Calls the plugin's `deactivate`, then takes back everything it

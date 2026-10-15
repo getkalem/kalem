@@ -407,6 +407,7 @@ pub fn dispatch_process(run: u64, result: Result<crate::process::Exit, String>) 
 #[doc(hidden)]
 pub fn clear() {
     HANDLERS.with(|h| *h.borrow_mut() = Handlers::default());
+    crate::focus::clear();
 }
 
 /// Installs, once, the panic hook that tells the host a panic's message
@@ -483,6 +484,12 @@ macro_rules! export_plugin {
                 result: ::std::result::Result<$crate::process::Exit, ::std::string::String>,
             ) {
                 $crate::kalem::dispatch_process(run, result)
+            }
+        }
+
+        impl $crate::extension::exports::kalem::plugin::focus::Guest for __KalemPlugin {
+            fn focused(document: u64, path: ::std::option::Option<::std::string::String>) {
+                $crate::focus::dispatch_focused(document, path.as_deref())
             }
         }
 

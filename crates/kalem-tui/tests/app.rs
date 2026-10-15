@@ -5907,6 +5907,43 @@ fn a_document_made_current_again_is_told_to_the_plugins() {
 }
 
 #[test]
+fn the_plugins_hear_which_document_has_the_focus() {
+    // Each switch is a `document:focus` with the document's number and
+    // file, a switch back to a document open already too, which no
+    // `document:open` tells: a plugin's panel of the notes linking to the
+    // page shown follows it.
+    use kalem_core::events::{Event, Reply};
+    let mut t = with_file("one\n", "a.txt", Config::default(), (40, 5));
+    let dir = t.dir.clone().unwrap();
+    std::fs::write(dir.join("b.txt"), "two\n").unwrap();
+    let open = |t: &mut T, name: &str| {
+        let path = dir.join(name).display().to_string();
+        t.app
+            .run_command("file.open", serde_json::json!({ "path": path }));
+    };
+    let heard = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let h = heard.clone();
+    t.app.subscribe(None, move |e| {
+        if let Event::DocumentFocus { doc, path } = e {
+            let name = path.as_ref().and_then(|p| p.file_name());
+            h.borrow_mut()
+                .push((*doc, name.map(|n| n.to_string_lossy().into_owned())));
+        }
+        Reply::Continue
+    });
+    open(&mut t, "b.txt");
+    open(&mut t, "a.txt");
+    // The one shown already: no change, nothing told.
+    open(&mut t, "a.txt");
+    let heard = heard.borrow();
+    let names: Vec<_> = heard.iter().map(|(_, n)| n.as_deref()).collect();
+    assert_eq!(names, [Some("b.txt"), Some("a.txt")], "{heard:?}");
+    // Back to the document Kalem started with: its number then.
+    assert_eq!(heard[1].0, kalem_core::events::DocumentId(1));
+    assert_ne!(heard[0].0, heard[1].0);
+}
+
+#[test]
 fn vim_quit_all_with_a_bang_asks_nothing() {
     // `:qa!` drops the changes at once, as Vim's does: the bang is the
     // consent. Quit Without Saving from the palette asks first.

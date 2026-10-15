@@ -1244,28 +1244,51 @@ impl Plugins {
     }
 
     /// Tells plugin `i`, started while Kalem runs, what it would have
-    /// heard had it started with Kalem: each document open, then that the
-    /// editors are ready.
+    /// heard had it started with Kalem: each document open, the one with
+    /// the focus, then that the editors are ready.
     fn tell_late(&mut self, i: usize) {
         let mut events: Vec<Event> = kalem_core::extensions::open_documents()
             .into_iter()
             .map(|(doc, path)| Event::DocumentOpen { doc, path })
             .collect();
+        if let Some((doc, path)) = kalem_core::extensions::focused_document() {
+            events.push(Event::DocumentFocus { doc, path });
+        }
         if kalem_core::extensions::ready() {
             events.push(Event::AppReady);
         }
         for event in events {
+            if let Event::DocumentFocus { doc, path } = &event {
+                self.focused(i, doc.0, path.as_deref());
+                continue;
+            }
             PLUGIN.with(|p| p.set(i as u64 + 1));
             let Some(ext) = self.list[i].extension.as_mut() else {
                 return;
             };
-            if !ext.wants(x::kind(&to_wit(&event))) {
+            let Some(wit) = to_wit(&event) else {
+                continue;
+            };
+            if !ext.wants(x::kind(&wit)) {
                 continue;
             }
-            if let Err(e) = ext.event(&to_wit(&event)) {
+            if let Err(e) = ext.event(&wit) {
                 self.fail(i, &e);
                 return;
             }
+        }
+    }
+
+    /// Tells plugin `i` that document `doc`, of `path`, got the focus,
+    /// when it exports `focus` (API 0.2.18).
+    fn focused(&mut self, i: usize, doc: u64, path: Option<&std::path::Path>) {
+        PLUGIN.with(|p| p.set(i as u64 + 1));
+        let Some(ext) = self.list[i].extension.as_mut() else {
+            return;
+        };
+        let path = path.map(|p| p.to_string_lossy());
+        if let Err(e) = ext.focused(doc, path.as_deref()) {
+            self.fail(i, &e);
         }
     }
 }
@@ -1511,7 +1534,15 @@ impl kalem_core::extensions::Extensions for Plugins {
         if self.list.iter().all(|l| l.extension.is_none()) {
             return None;
         }
-        let wit = to_wit(event);
+        // The focus goes to the plugins exporting `focus` (API 0.2.18),
+        // not to subscriptions.
+        if let Event::DocumentFocus { doc, path } = event {
+            for i in 0..self.list.len() {
+                self.focused(i, doc.0, path.as_deref());
+            }
+            return None;
+        }
+        let wit = to_wit(event)?;
         let kind = x::kind(&wit);
         let mut veto = None;
         for i in 0..self.list.len() {
@@ -1649,17 +1680,19 @@ impl kalem_core::extensions::Extensions for Plugins {
     }
 }
 
-/// `event` in the API's terms.
-fn to_wit(event: &Event) -> x::Event {
+/// `event` in the API's terms; none for the focus, told through the
+/// `focus` interface rather than as an event.
+fn to_wit(event: &Event) -> Option<x::Event> {
     use x::api;
     let path = |p: &std::path::Path| p.to_string_lossy().into_owned();
-    match event {
+    Some(match event {
         Event::AppReady => x::Event::AppReady,
         Event::DocumentOpen { doc, path: p } => x::Event::DocumentOpen(api::DocumentOpened {
             document: doc.0,
             path: p.as_deref().map(path),
         }),
         Event::DocumentClose { doc } => x::Event::DocumentClose(doc.0),
+        Event::DocumentFocus { .. } => return None,
         Event::DocumentBeforeSave { doc, path: p } => {
             x::Event::DocumentBeforeSave(api::DocumentSaved {
                 document: doc.0,
@@ -1765,7 +1798,7 @@ fn to_wit(event: &Event) -> x::Event {
             output: output.as_deref().map(path),
         }),
         Event::WorkspaceFileChanged { path: p } => x::Event::WorkspaceFileChanged(path(p)),
-    }
+    })
 }
 
 /// The installed extension plugins: a plugin with a `main` component that

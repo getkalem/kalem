@@ -150,6 +150,36 @@ fn an_installed_plugin_adds_commands_the_registry_runs() {
     assert!(!vetoed.allowed());
     assert_eq!(EventKind::DocumentBeforeSave.name(), "document:before-save");
 
+    // The document in front: told to the plugin through its `focus`
+    // export (API 0.2.18), and noted for a plugin that starts later.
+    let plan = project.join("plan.org");
+    bus.emit(&Event::DocumentFocus {
+        doc: DocumentId(2),
+        path: Some(plan.clone()),
+    });
+    assert_eq!(
+        kalem_core::extensions::focused_document(),
+        Some((DocumentId(2), Some(plan.clone())))
+    );
+    let mut ctx = EditorContext::new(
+        Some(&mut doc),
+        &mut clipboard,
+        &config,
+        Instant::now(),
+        jiff::civil::date(2026, 10, 4).at(10, 0, 0, 0),
+    );
+    kalem_core::jobs::take_notices();
+    registry
+        .execute("counter.focused", &mut ctx, &Value::Null)
+        .unwrap();
+    drop(ctx);
+    let notices = kalem_core::jobs::take_notices();
+    let told = format!("focused {}", plan.display());
+    assert!(
+        notices.iter().any(|(t, _)| t.ends_with(&told)),
+        "{notices:?}"
+    );
+
     // The document: read as the command found it, edited when it returns,
     // as one undo step.
     let original = "* TODO Write report\nSome text.\n** Sub item\n* TODO Call Ada :home:\n* Numbers\n| a | b |\n|---+---|\n| 1 | 2 |\n#+TBLFM: $2=$1*10\n";

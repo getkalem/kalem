@@ -491,6 +491,24 @@ fn events_reach_the_subscriptions_and_a_veto_stops_a_save() {
 }
 
 #[test]
+fn a_plugin_exporting_focus_hears_which_document_has_it() {
+    let Some((mut ext, _)) = counter(Limits::default()) else {
+        return;
+    };
+    // `export_plugin!` exports it, with no subscription of the plugin's.
+    assert!(ext.has_focus());
+    assert!(ext.focused(1, Some("a.org")).unwrap());
+    assert!(ext.focused(2, Some("b.org")).unwrap());
+    // A document without a file; then back to the first.
+    assert!(ext.focused(3, None).unwrap());
+    assert!(ext.focused(1, Some("a.org")).unwrap());
+    assert_eq!(
+        run(&mut ext, "counter.focused"),
+        Ok("a.org,b.org,3,a.org".into())
+    );
+}
+
+#[test]
 fn deactivation_takes_back_everything() {
     let Some((mut ext, fake)) = counter(Limits::default()) else {
         return;

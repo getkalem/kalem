@@ -582,8 +582,9 @@ fn changed() {
 /// the editor read its settings, so they may have read Kalem's defaults:
 /// those watching a setting that differs from its default are told. And
 /// while the editors opened their first documents, which they are told
-/// of now, as the editors told of them: each `document:open`, then
-/// `app:ready` once the editors were ready.
+/// of now, as the editors told of them: each `document:open`, the
+/// `document:focus` of the one in front, then `app:ready` once the
+/// editors were ready.
 pub fn install(extensions: Box<dyn Extensions>) {
     let set = CONFIG
         .lock()
@@ -600,6 +601,9 @@ pub fn install(extensions: Box<dyn Extensions>) {
     // told twice.
     for (doc, path) in open_documents() {
         x.event(&Event::DocumentOpen { doc, path });
+    }
+    if let Some((doc, path)) = focused_document() {
+        x.event(&Event::DocumentFocus { doc, path });
     }
     if ready() {
         x.event(&Event::AppReady);
@@ -907,9 +911,10 @@ pub fn run(id: &str, args: &Value) -> Result<(), CommandError> {
     x.run(id, &args.to_string()).map_err(CommandError::new)
 }
 
-/// Hands `event` to the plugins: a bus's subscriber. The documents open
-/// and whether the editors are ready are noted, with or without plugins,
-/// for those that start later ([`install`], [`installed_changed`]).
+/// Hands `event` to the plugins: a bus's subscriber. The documents open,
+/// the one with the focus and whether the editors are ready are noted,
+/// with or without plugins, for those that start later ([`install`],
+/// [`installed_changed`]).
 pub fn event(event: &Event) -> Reply {
     let mut installed = INSTALLED.lock().unwrap_or_else(|e| e.into_inner());
     let veto = installed.as_mut().and_then(|x| x.event(event));
@@ -919,7 +924,13 @@ pub fn event(event: &Event) -> Reply {
     let mut open = opened();
     match event {
         Event::DocumentOpen { doc, path } => open.documents.push((*doc, path.clone())),
-        Event::DocumentClose { doc } => open.documents.retain(|(d, _)| d != doc),
+        Event::DocumentClose { doc } => {
+            open.documents.retain(|(d, _)| d != doc);
+            if open.focused.as_ref().is_some_and(|(d, _)| d == doc) {
+                open.focused = None;
+            }
+        }
+        Event::DocumentFocus { doc, path } => open.focused = Some((*doc, path.clone())),
         Event::AppReady => open.ready = true,
         _ => {}
     }
@@ -934,12 +945,15 @@ pub fn event(event: &Event) -> Reply {
 struct Opened {
     /// The documents open, in the order they were opened.
     documents: Vec<(crate::events::DocumentId, Option<std::path::PathBuf>)>,
+    /// The document that has the focus (`document:focus`).
+    focused: Option<(crate::events::DocumentId, Option<std::path::PathBuf>)>,
     /// Whether the editors are ready (`app:ready`).
     ready: bool,
 }
 
 static OPENED: Mutex<Opened> = Mutex::new(Opened {
     documents: Vec::new(),
+    focused: None,
     ready: false,
 });
 
@@ -951,6 +965,12 @@ fn opened() -> std::sync::MutexGuard<'static, Opened> {
 /// the plugins of them: their numbers and files.
 pub fn open_documents() -> Vec<(crate::events::DocumentId, Option<std::path::PathBuf>)> {
     opened().documents.clone()
+}
+
+/// The document that has the focus, as the editors told the plugins of it
+/// (`document:focus`): its number and file.
+pub fn focused_document() -> Option<(crate::events::DocumentId, Option<std::path::PathBuf>)> {
+    opened().focused.clone()
 }
 
 /// Whether the editors told the plugins they are ready (`app:ready`).

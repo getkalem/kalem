@@ -1,7 +1,8 @@
 //! An extension plugin for tests: `counter.count` counts its runs, the
-//! documents opened are remembered, a save to a `.lock` file is vetoed,
-//! a few commands try what the host must refuse, and others ask the user,
-//! set the status bar and fill the panel `counter.panel`.
+//! documents opened and given the focus are remembered, a save to a
+//! `.lock` file is vetoed, a few commands try what the host must refuse,
+//! and others ask the user, set the status bar and fill the panel
+//! `counter.panel`.
 
 use std::cell::{Cell, RefCell};
 
@@ -12,6 +13,7 @@ thread_local! {
     static COUNT: Cell<u32> = const { Cell::new(0) };
     static OPENED: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
     static OPENS: RefCell<Option<Disposable>> = const { RefCell::new(None) };
+    static FOCUSED: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
 }
 
 struct Counter;
@@ -161,6 +163,11 @@ impl Plugin for Counter {
             ui::notify(&format!("opened {opened}"), Level::Info);
             Ok(opened)
         })?;
+        command("counter.focused", Scope::all(), |_| {
+            let focused = FOCUSED.with(|f| f.borrow().join(","));
+            ui::notify(&format!("focused {focused}"), Level::Info);
+            Ok(focused)
+        })?;
         command("counter.deaf", Scope::all(), |_| {
             if let Some(d) = OPENS.with(|o| o.borrow_mut().take()) {
                 d.dispose();
@@ -251,6 +258,10 @@ impl Plugin for Counter {
             Reply::Proceed
         })?;
         OPENS.with(|o| *o.borrow_mut() = Some(opens));
+        kalem_plugin::focus::on(|document, path| {
+            let path = path.map_or_else(|| document.to_string(), str::to_string);
+            FOCUSED.with(|f| f.borrow_mut().push(path));
+        });
         kalem::on(EventKind::DocumentBeforeSave, |e| match e {
             Event::DocumentBeforeSave(s) if s.path.ends_with(".lock") => {
                 Reply::Veto("a lock file".into())

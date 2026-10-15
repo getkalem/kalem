@@ -98,6 +98,9 @@ pub struct Shared {
     /// typed in it (`SPC '`), and the panel shown or hidden last (`SPC ~`),
     /// whichever document it was in.
     pub last: Rc<RefCell<Last>>,
+    /// The document the plugins were told has the focus
+    /// (`document:focus`), whichever window it is in.
+    pub focused: Rc<std::cell::Cell<Option<kalem_core::events::DocumentId>>>,
 }
 
 /// What `SPC '` and `SPC ~` do again.

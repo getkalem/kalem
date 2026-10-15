@@ -126,9 +126,15 @@ impl Workspace {
             stashed: std::collections::HashMap::new(),
         };
         ws.adopt(editor.clone(), window, cx);
-        // A window coming to the front brings its document's menus.
+        // A window coming to the front brings its document's menus, and
+        // gives its document the focus.
         ws.subscriptions
-            .push(cx.observe_window_activation(window, |_, _, cx| cx.notify()));
+            .push(cx.observe_window_activation(window, |ws, window, cx| {
+                if window.is_window_active() {
+                    ws.announce_focus(cx);
+                }
+                cx.notify();
+            }));
         if let Some(p) = editor.read(cx).doc.meta.path.clone()
             && p.is_file()
         {
@@ -136,7 +142,27 @@ impl Workspace {
         }
         ws.set_title(window, cx);
         ws.enter_project(cx);
+        ws.announce_focus(cx);
         ws
+    }
+
+    /// Tells the plugins that the active editor's document has the focus
+    /// (`document:focus`), unless they were told so last: when it is
+    /// switched to, shown in the focused pane, or its window comes to the
+    /// front.
+    fn announce_focus(&self, cx: &App) {
+        let e = self.editor.read(cx);
+        if self.shared.focused.get() == Some(e.doc_id) {
+            return;
+        }
+        self.shared.focused.set(Some(e.doc_id));
+        self.shared
+            .bus
+            .borrow_mut()
+            .emit(&kalem_core::events::Event::DocumentFocus {
+                doc: e.doc_id,
+                path: e.doc.meta.path.clone(),
+            });
     }
 
     /// The active document's project counts as switched to, and its files
@@ -311,8 +337,10 @@ impl Workspace {
             }
         }
         self.editor = editor.clone();
-        // The plugins hear that the cursor is in it now, as at its next
-        // motion: a document shown again from the background sent nothing.
+        // The plugins hear that it has the focus, and that the cursor is
+        // in it now, as at its next motion: a document shown again from
+        // the background sent nothing.
+        self.announce_focus(cx);
         if switched {
             editor.update(cx, |e, _| e.announce_selection());
         }
@@ -773,6 +801,7 @@ impl Workspace {
             let f = gpui::Focusable::focus_handle(e.read(cx), cx);
             window.focus(&f, cx);
             self.set_title(window, cx);
+            self.announce_focus(cx);
         }
         cx.notify();
     }
@@ -865,6 +894,7 @@ impl Workspace {
                     let f = gpui::Focusable::focus_handle(e.read(cx), cx);
                     window.focus(&f, cx);
                     self.set_title(window, cx);
+                    self.announce_focus(cx);
                 }
             }
             cx.notify();

@@ -557,6 +557,10 @@ impl App {
             doc: doc_id,
             path: doc.meta.path.clone(),
         });
+        bus.emit(&Event::DocumentFocus {
+            doc: doc_id,
+            path: doc.meta.path.clone(),
+        });
         let mut app = App {
             config_dir: None,
             config,
@@ -873,9 +877,13 @@ impl App {
         self.enter_project();
         self.workspaces.showing(self.doc_id.0);
         self.dirty = true;
-        // The plugins hear that the cursor is in this document now, as at
-        // its next motion: a command of theirs queued after `file.open`
-        // finds the file current.
+        // The plugins hear that it has the focus, and that the cursor is
+        // in it now, as at its next motion: a command of theirs queued
+        // after `file.open` finds the file current.
+        self.bus.emit(&Event::DocumentFocus {
+            doc: self.doc_id,
+            path: self.doc.meta.path.clone(),
+        });
         self.bus.emit(&Event::SelectionChanged {
             doc: self.doc_id,
             anchor: self.doc.selection.anchor,
