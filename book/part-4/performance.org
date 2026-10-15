@@ -8,7 +8,7 @@ cargo test --release -p kalem-ui --test latency -- --ignored
 cargo bench -p org-syntax --bench parse
 #+end_src
 
-- =tools/bench-phase1.py= builds both release binaries and runs them as a user would. The editors quit after their first frame when =KALEM_EXIT_AFTER_START= is set; times are the median of three runs, memory is the peak resident size. The documents are the Org manual repeated to 1 MB and 10 MB, and to 100 MB as a =.txt= file.
+- =tools/bench-phase1.py= builds both release binaries and runs them as a user would, with settings and state folders of their own, so that no installed plugin counts. The editors quit after their first frame when =KALEM_EXIT_AFTER_START= is set; times are the median of three runs, memory is the peak resident size (on a busy machine, a second window buffer of 12 MB is part of it). The documents are the Org manual repeated to 1 MB and 10 MB, and to 100 MB as a =.txt= file.
 - The terminal latency test types 400 keys in the middle of the Org manual and draws a frame after each, into ratatui's test backend. It also saves a 10 MB document five times.
 - The graphical latency test does the same in gpui's test platform with the system's text system: from the key to the painted frame. The GPU's work and the wait for the display are not included.
 - The parser benchmark measures full parses and an incremental reparse after a keystroke in a paragraph.
@@ -25,8 +25,8 @@ Measured on 2026-09-28 on an Apple M1 Max (macOS 15.1, Rust 1.98.1), with other 
 | Keystroke to frame, graphical, p50 / p99                                                                                                 | 8.7 ms / 14.9 ms         | under 16 ms / 33 ms |
 | Keystroke to frame, terminal, p50 / p99                                                                                                  | 8.0 ms / 13.9 ms         | under 16 ms / 33 ms |
 | Incremental parse, keystroke in a paragraph                                                                                              | 0.05 ms                  | under 2 ms          |
-| Memory, empty document (graphical)                                                                                                       | 174 MB (0.6.23, 2026-10-14, three runs 174 to 185 MB): missed | under 80 MB |
-| Memory, 10 MB document (graphical)                                                                                                       | 359 MB (0.6.23, 2026-10-14, three runs 359 to 386 MB) | under 500 MB |
+| Memory, empty document (graphical)                                                                                                       | 62 MB (2026-10-15, load average 17; 90 MB with nine plugins installed) | under 80 MB         |
+| Memory, 10 MB document (graphical)                                                                                                       | 264 MB (2026-10-15, load average 17; 293 MB with nine plugins installed) | under 500 MB        |
 | Binary size (full)                                                                                                                       | 81.0 MiB (Linux x86-64, CI, 2026-10-06, the viewers built in as compressed components; 59 MB on macOS arm64): missed | under 40 MB         |
 | Saving a 10 MB document                                                                                                                  | 20 ms                    | under 100 ms        |
 | Terminal frontend startup (terminal-only build)                                                                                          | 13 ms                    | under 50 ms         |

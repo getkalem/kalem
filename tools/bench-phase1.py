@@ -103,6 +103,13 @@ def main():
     build()
     tmp = tempfile.mkdtemp(prefix="kalem-bench-")
     f = files(tmp)
+    # Settings and state folders of their own, empty: Kalem as installed,
+    # not the plugins of the machine it is measured on, each of which adds
+    # to the memory at start.
+    for name in ("config", "state"):
+        os.makedirs(os.path.join(tmp, name))
+    os.environ["KALEM_CONFIG_DIR"] = os.path.join(tmp, "config")
+    os.environ["KALEM_STATE_DIR"] = os.path.join(tmp, "state")
     ms = lambda s: f"{s * 1000:.0f} ms"
     mb = lambda b: f"{b / (1 << 20):.0f} MB"
     rows = []

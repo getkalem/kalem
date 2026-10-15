@@ -10,17 +10,22 @@
 pub fn set_app_icon() {
     use objc2::{AllocAnyThread, MainThreadMarker};
     use objc2_app_kit::{NSApplication, NSImage};
-    use objc2_foundation::NSData;
+    use objc2_foundation::{NSData, NSSize};
     let Some(mtm) = MainThreadMarker::new() else {
         return;
     };
-    let Ok(png) = kalem_core::images::svg_png(kalem_core::images::LOGO_SVG, 512) else {
+    // 256 pixels shown as 128 points, the Dock's largest tile: AppKit
+    // keeps a bitmap of the icon at its size in points times the screen's
+    // scale, 8 MB for the 512 points a 512-pixel image is on a Retina
+    // screen, 256 kB for 128.
+    let Ok(png) = kalem_core::images::svg_png(kalem_core::images::LOGO_SVG, 256) else {
         return;
     };
     let data = NSData::with_bytes(&png);
     let Some(image) = NSImage::initWithData(NSImage::alloc(), &data) else {
         return;
     };
+    image.setSize(NSSize::new(128.0, 128.0));
     let app = NSApplication::sharedApplication(mtm);
     // SAFETY: on the main thread (`mtm`), with a valid image the
     // application retains; AppKit marks the setter unsafe only because

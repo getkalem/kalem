@@ -748,8 +748,9 @@ fn installed_kept() -> Vec<(
 /// place; afterwards (an install, an update, a removal, a plugin turned
 /// off or on again) of the copy that opens the files now; once, of a copy
 /// built for another plugin API. Nothing is compiled here: a thread
-/// compiles what is new, or reads it from the cache in the state
-/// directory, so the first file it opens does not wait.
+/// compiles what is new into the cache in the state directory, so the
+/// first file it opens reads it from there rather than wait; nothing is
+/// kept in memory until then.
 #[cfg(feature = "plugins")]
 fn choose_viewers(startup: bool) {
     use kalem_core::plugin_store;
@@ -782,7 +783,7 @@ fn choose_viewers(startup: bool) {
         }
     }
     let mut chose = Vec::new();
-    let mut loaded = Vec::new();
+    let mut to_prepare = Vec::new();
     for id in ids {
         // The viewer chosen, its plugin's name and version; and what the
         // user is told when a copy that would open the files is off.
@@ -886,18 +887,18 @@ fn choose_viewers(startup: bool) {
                     false,
                 );
             }
-            loaded.push(v);
+            to_prepare.push(v);
         }
     }
     *CHOSEN
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = chose;
-    if !loaded.is_empty() {
+    if !to_prepare.is_empty() {
         let _ = std::thread::Builder::new()
             .name("kalem-plugins-load".into())
             .spawn(move || {
-                for v in loaded {
-                    let _ = v.plugin();
+                for v in to_prepare {
+                    v.prepare();
                 }
             });
     }

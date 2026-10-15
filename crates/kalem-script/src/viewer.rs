@@ -658,6 +658,20 @@ impl ComponentViewer {
         }
     }
 
+    /// Readies the component for its first document without keeping it:
+    /// one installed in a file is compiled into the host's cache unless it
+    /// is there, to be read from the cache when a document needs it, so
+    /// that a start does not hold the code of every viewer installed (the
+    /// workbook viewer's is 14 MB); one built into Kalem is loaded, its
+    /// bytes staying inflated once asked for anyway.
+    pub fn prepare(&self) {
+        if self.bytes.is_some() {
+            let _ = self.plugin();
+        } else {
+            let _ = self.host.compile_file(&self.file);
+        }
+    }
+
     /// The component, compiled or read from the cache on first use. One
     /// installed in a file is read again when the file changed (`kalem
     /// plugin dev` built it again, wasm_todo W10): the documents opened

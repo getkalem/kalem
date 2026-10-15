@@ -135,6 +135,30 @@ fn the_cache_keeps_what_is_used() {
 }
 
 #[test]
+fn a_file_compiled_ahead_is_read_from_the_cache() {
+    let dir = temp("ahead");
+    let host = Host::new(Some(dir.clone())).unwrap();
+    let file = temp("ahead-component").with_extension("wasm");
+    std::fs::write(&file, wasm(TOOLS)).unwrap();
+    host.compile_file(&file).unwrap();
+    let files: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .collect();
+    assert_eq!(files.len(), 1, "{files:?}");
+    // Compiled already: only marked used now, so pruned last.
+    used_ago(&files[0], 10);
+    host.compile_file(&file).unwrap();
+    let at = std::fs::metadata(&files[0]).unwrap().modified().unwrap();
+    assert!(at > SystemTime::now() - Duration::from_secs(60), "{at:?}");
+    // The file's hash, read through a buffer, names the same cached file
+    // as its bytes read whole.
+    assert!(host.load_file(&file).unwrap().cached());
+    let _ = std::fs::remove_dir_all(dir);
+    let _ = std::fs::remove_file(file);
+}
+
+#[test]
 fn an_endless_loop_is_stopped() {
     let host = Host::new(None).unwrap();
     let limits = Limits {

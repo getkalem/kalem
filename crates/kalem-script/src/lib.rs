@@ -380,13 +380,20 @@ impl Host {
     /// (a plugin installed while Kalem runs, compiled before the editors
     /// wait for it).
     pub fn compile_file(&self, path: &Path) -> Result<()> {
-        let bytes = std::fs::read(path)?;
-        match &self.cache {
-            Some(dir) if !dir.join(self.cache_name(&bytes)).is_file() => {
-                self.load(&bytes).map(drop)
-            }
-            _ => Ok(()),
+        let Some(dir) = &self.cache else {
+            return Ok(());
+        };
+        // Hashed through a buffer: a start checking every viewer installed
+        // holds none of them whole.
+        let mut sha = Sha256::new();
+        std::io::copy(&mut std::fs::File::open(path)?, &mut sha)?;
+        let file = dir.join(self.cache_name_of(&sha.finalize()));
+        if file.is_file() {
+            // Kept for the next document as a load would keep it.
+            touch(&file);
+            return Ok(());
         }
+        self.load(&std::fs::read(path)?).map(drop)
     }
 
     /// Loads a component: from the cache when it was compiled before by
@@ -432,11 +439,15 @@ impl Host {
     /// toolchain to the next (`DefaultHasher` is not), so that a new Rust
     /// does not orphan every file.
     fn cache_name(&self, bytes: &[u8]) -> String {
+        self.cache_name_of(&Sha256::digest(bytes))
+    }
+
+    /// [`Host::cache_name`] of bytes whose hash is `digest`.
+    fn cache_name_of(&self, digest: &[u8]) -> String {
         let mut compat = Fnv::default();
         self.engine
             .precompile_compatibility_hash()
             .hash(&mut compat);
-        let digest = Sha256::digest(bytes);
         let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
         format!("{hex}-{:016x}.cwasm", compat.finish())
     }
