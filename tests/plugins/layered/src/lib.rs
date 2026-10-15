@@ -10,13 +10,15 @@
 //! `layered.later` asks for `layered.now` later (API 0.2.17), and for a
 //! command not its own, refused. Its outline `hashes` (API 0.2.18)
 //! takes the lines that start with `#`s and a blank as headings, a level
-//! a `#`.
+//! a `#`. By `layer-4` (API 0.2.18) the text an embed's line shows starts
+//! a block of the note's outline.
 
 use kalem_plugin::completer::{self, Item, ItemKind, Request};
 use kalem_plugin::kalem::{self, Plugin, Scope};
 use kalem_plugin::layer::{
-    Below, Below3, LineEffect, Lines, OverlaySet, OverlaySet2, OverlaySet3, Piece, Replacement,
-    Source, Span, SpanEffect, SpanStyle, VirtualLine, VirtualLine3,
+    Below, Below3, Below4, LineEffect, Lines, Outline, OverlaySet, OverlaySet2, OverlaySet3,
+    OverlaySet4, Piece, Replacement, Source, Source4, Span, SpanEffect, SpanStyle, VirtualLine,
+    VirtualLine3, VirtualLine4,
 };
 
 struct Layered;
@@ -171,6 +173,45 @@ impl Plugin for Layered {
             })
             .collect();
         OverlaySet3 {
+            spans: o.spans,
+            lines: o.lines,
+            below,
+        }
+    }
+
+    fn overlays_4(layer: &str, path: Option<&str>, text: &str) -> OverlaySet4 {
+        let o = Self::overlays_3(layer, path, text);
+        // The embed's line a block of its own, under nothing, before
+        // nothing: Tab and Shift+Tab leave it.
+        let below = o
+            .below
+            .into_iter()
+            .map(|b| Below4 {
+                at: b.at,
+                lines: b
+                    .lines
+                    .into_iter()
+                    .map(|l| VirtualLine4 {
+                        indent: l.indent,
+                        pieces: l.pieces,
+                        source: l.source.map(|s| Source4 {
+                            outline: Some(Outline {
+                                end: s.line + 1,
+                                bullet: "- ".into(),
+                                step: "\t".into(),
+                                indent: false,
+                                outdent: false,
+                            }),
+                            path: s.path,
+                            line: s.line,
+                            column: s.column,
+                            text: s.text,
+                        }),
+                    })
+                    .collect(),
+            })
+            .collect();
+        OverlaySet4 {
             spans: o.spans,
             lines: o.lines,
             below,

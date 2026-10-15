@@ -7,7 +7,10 @@
 //! [`crate::kalem::Plugin::overlays_2`] instead, which adds lines drawn
 //! under a line of the text; with `layer-3` (API 0.2.15),
 //! [`crate::kalem::Plugin::overlays_3`], whose lines under lines may show
-//! a file's text, typed into where they are drawn and written back.
+//! a file's text, typed into where they are drawn and written back; with
+//! `layer-4` (API 0.2.18), [`crate::kalem::Plugin::overlays_4`], whose
+//! lines may start blocks of a file's outline, which Enter, Tab and
+//! Shift+Tab change in place.
 
 #[cfg(feature = "layer")]
 pub use crate::extension::exports::kalem::plugin::layer::{
@@ -29,6 +32,17 @@ pub use crate::extension::exports::kalem::plugin::layer_2::{
 #[cfg(feature = "layer-3")]
 pub use crate::extension::exports::kalem::plugin::layer_3::{
     Below as Below3, OverlaySet as OverlaySet3, Source, VirtualLine as VirtualLine3,
+};
+
+/// What a layer changes with the feature `layer-4` (API 0.2.18): that of
+/// `layer-3`, a line's [`Source4`] naming the block of the file's outline
+/// it starts ([`Outline`]), which Enter splits and Tab and Shift+Tab move
+/// where the line is typed into; [`crate::kalem::Plugin::overlays_4`]
+/// gives it.
+#[cfg(feature = "layer-4")]
+pub use crate::extension::exports::kalem::plugin::layer_4::{
+    Below as Below4, Outline, OverlaySet as OverlaySet4, Source as Source4,
+    VirtualLine as VirtualLine4,
 };
 
 /// What the plugin's layers show changed (a file a document refers to):

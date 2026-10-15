@@ -63,11 +63,12 @@ the same files (wasmtime). It holds eight worlds, three kinds:
   =later=, and =fs= (with =fs-2=), =net= and
   =process= when its permissions grant them, and exports =plugin=
   (below). =extension-layer=, =extension-completer=,
-  =extension-layer-2=, =extension-layer-3=, =extension-formatter= and
-  =extension-outline= are the same world exporting more: a layer, then
-  a completer, then a layer's lines under lines, then lines that show a
-  file's text, then a formatter, then an outline, each with those before
-  it.
+  =extension-layer-2=, =extension-layer-3=, =extension-formatter=,
+  =extension-outline= and =extension-layer-4= are the same world
+  exporting more: a layer, then a completer, then a layer's lines under
+  lines, then lines that show a file's text, then a formatter, then an
+  outline, then lines that start blocks of a file's outline, each with
+  those before it.
 
 =crates/kalem-plugin/coverage.toml= lists every extension point of the
 design (§11.10 to §11.13) with the WIT interface that defines it or the
@@ -554,14 +555,20 @@ updated itself. The rules, so that a plugin built once keeps working:
   declared in its manifest by the text types they read, which the
   outline sidebar asks (below). The host binds =outline= when a
   component exports it, as =formatter=. It added the export =focus=
-  too: the document that gets the focus (below, /Commands, keys and events/). The
-  =extension= world exports it, and so every world that includes it;
+  too: the document that gets the focus (below, /Commands, keys and
+  events/). The =extension= world exports it, and so every world that includes it;
   =kalem-plugin='s =export_plugin!= exports it for every plugin, calling
   the handlers =kalem_plugin::focus::on= added, none by default. Kalem
   calls it on the components that have it: one built earlier runs as
   before, and one built now still runs on an earlier Kalem, which never
-  calls it, as it imports nothing new. =state.wit= and =later.wit= of
-  0.2.17 are frozen (=wit-frozen/0.2.17=).
+  calls it, as it imports nothing new. And the export =layer-4= in the
+  world =extension-layer-4= (the feature =layer-4=, which exports
+  =outline= and those before it too): lines under lines that start
+  blocks of a file's outline, which Enter, Tab and Shift+Tab change
+  where they are typed into, described in [[file:completers-and-modes.org][Completers, modes and
+  highlighters]]; the host asks =layer-4= in place of =layer-3= when a
+  component exports it. =state.wit= and =later.wit= of 0.2.17 are frozen
+  (=wit-frozen/0.2.17=).
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 - An addition is general, or it waits. It names what several plugins

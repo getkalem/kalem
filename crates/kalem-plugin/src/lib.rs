@@ -100,7 +100,10 @@ pub mod viewer {
 /// and the `formatter` interface of its languages' documents formatted
 /// (API 0.2.16; [`formatter`]); with the feature `outline`, the
 /// `extension-outline` world: those, and the `outline` interface of its
-/// languages' documents' headings (API 0.2.18; [`outline`]).
+/// languages' documents' headings (API 0.2.18; [`outline`]); with the
+/// feature `layer-4`, the `extension-layer-4` world: those, and the
+/// `layer-4` interface, whose lines under lines may start blocks of a
+/// file's outline (API 0.2.18).
 #[allow(
     missing_debug_implementations,
     unreachable_pub,
@@ -156,10 +159,18 @@ pub mod extension {
         export_macro_name: "export_extension",
         default_bindings_module: "kalem_plugin::extension",
     });
-    #[cfg(feature = "outline")]
+    #[cfg(all(feature = "outline", not(feature = "layer-4")))]
     wit_bindgen::generate!({
         path: "wit",
         world: "extension-outline",
+        pub_export_macro: true,
+        export_macro_name: "export_extension",
+        default_bindings_module: "kalem_plugin::extension",
+    });
+    #[cfg(feature = "layer-4")]
+    wit_bindgen::generate!({
+        path: "wit",
+        world: "extension-layer-4",
         pub_export_macro: true,
         export_macro_name: "export_extension",
         default_bindings_module: "kalem_plugin::extension",

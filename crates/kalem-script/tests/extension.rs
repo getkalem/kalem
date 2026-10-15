@@ -1285,7 +1285,8 @@ fn a_plugins_document_is_styled() {
 }
 
 /// A plugin exporting a layer (API 0.2.10), lines under lines by
-/// `layer-2` (API 0.2.13) and their sources by `layer-3` (API 0.2.15): the
+/// `layer-2` (API 0.2.13) and their sources by `layer-3` (API 0.2.15),
+/// their outline by `layer-4` (API 0.2.18): the
 /// overlays it gives, its refresh, and the
 /// clock it reads; a plugin without the export has no layer.
 #[test]
@@ -1347,6 +1348,18 @@ fn a_layer_and_the_clock() {
     assert_eq!(
         (s.path.as_str(), s.line, s.column, s.text.as_str()),
         ("/g/a.md", 1, 10, "[[B]]}}")
+    );
+    // The block of the note's outline it starts, by `layer-4` (API 0.2.18).
+    let o = s.outline.as_ref().expect("an outline");
+    assert_eq!(
+        (
+            o.end,
+            o.bullet.as_str(),
+            o.step.as_str(),
+            o.indent,
+            o.outdent
+        ),
+        (2, "- ", "\t", false, false)
     );
     assert!(
         l.pieces[1]

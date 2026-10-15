@@ -343,3 +343,12 @@ world extension-outline {
     include extension-formatter;
     export outline;
 }
+
+/// An extension plugin whose layers' lines under lines are typed into as
+/// an outline (API 0.2.18): the `extension-outline` world, and the
+/// `layer-4` interface it exports, which the editor asks in place of
+/// `layer-3`.
+world extension-layer-4 {
+    include extension-outline;
+    export layer-4;
+}

@@ -93,6 +93,42 @@ pub trait Plugin {
         }
     }
 
+    /// The overlays of the plugin's layer `layer` for the document of
+    /// `path` with `text`, whose lines under lines may start blocks of a
+    /// file's outline (API 0.2.18, the feature `layer-4`), which the editor
+    /// asks in place of [`Plugin::overlays_3`]; by default those of
+    /// [`Plugin::overlays_3`], no line starting a block.
+    #[cfg(feature = "layer-4")]
+    fn overlays_4(layer: &str, path: Option<&str>, text: &str) -> crate::layer::OverlaySet4 {
+        let o = Self::overlays_3(layer, path, text);
+        crate::layer::OverlaySet4 {
+            spans: o.spans,
+            lines: o.lines,
+            below: o
+                .below
+                .into_iter()
+                .map(|b| crate::layer::Below4 {
+                    at: b.at,
+                    lines: b
+                        .lines
+                        .into_iter()
+                        .map(|l| crate::layer::VirtualLine4 {
+                            indent: l.indent,
+                            pieces: l.pieces,
+                            source: l.source.map(|s| crate::layer::Source4 {
+                                path: s.path,
+                                line: s.line,
+                                column: s.column,
+                                text: s.text,
+                                outline: None,
+                            }),
+                        })
+                        .collect(),
+                })
+                .collect(),
+        }
+    }
+
     /// The items of the plugin's completer `completer` (its manifest's
     /// `completers`) for `request`, best first (API 0.2.11, the feature
     /// `completer`); none by default.
@@ -499,6 +535,7 @@ macro_rules! export_plugin {
         $crate::__export_layer_3!($plugin);
         $crate::__export_formatter!($plugin);
         $crate::__export_outline!($plugin);
+        $crate::__export_layer_4!($plugin);
 
         $crate::extension::export_extension!(__KalemPlugin);
     };
@@ -659,5 +696,32 @@ macro_rules! __export_outline {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __export_outline {
+    ($plugin:ty) => {};
+}
+
+/// The `layer-4` interface of [`export_plugin!`] with the feature
+/// `layer-4`.
+#[cfg(feature = "layer-4")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_layer_4 {
+    ($plugin:ty) => {
+        impl $crate::extension::exports::kalem::plugin::layer_4::Guest for __KalemPlugin {
+            fn overlays(
+                layer: ::std::string::String,
+                path: ::std::option::Option<::std::string::String>,
+                text: ::std::string::String,
+            ) -> $crate::layer::OverlaySet4 {
+                <$plugin as $crate::kalem::Plugin>::overlays_4(&layer, path.as_deref(), &text)
+            }
+        }
+    };
+}
+
+/// Nothing without the feature `layer-4`.
+#[cfg(not(feature = "layer-4"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_layer_4 {
     ($plugin:ty) => {};
 }

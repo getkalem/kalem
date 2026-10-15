@@ -339,7 +339,9 @@ Writers (Org and Markdown)
   state kept between sessions (API 0.2.17, `state`, K23) its pages
   opened last; its own commands run later (API 0.2.17, `later`, K13)
   a large graph's first index in slices; a narrowed part's label
-  (`view.narrowToLines`'s `label`) its zoom's breadcrumb. M
+  (`view.narrowToLines`'s `label`) its zoom's breadcrumb; lines under
+  lines typed into as an outline (API 0.2.18, `layer-4`, K25) its embeds'
+  blocks added and moved in place. M
 - [ ] R5.6 Babel (T3.4.1–T3.4.9): header arguments, executors for shell,
   Python, R and gnuplot behind the plugin host's trust model, results
   blocks, tangling. L (after the plugin permissions, R5.11)

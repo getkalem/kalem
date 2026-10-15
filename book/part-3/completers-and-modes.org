@@ -302,8 +302,9 @@ held, to the line's end. The graph plugin's embedded blocks name the
 block's line in its page. A click on such a line, or Edit Line Under
 Line (=view.editRow=) on its line, makes it a one-line input showing
 that text as the file holds it, the cursor in it: Enter writes what was
-typed in place of that text, Escape drops it, Up, Down and Tab write it
-and go to the line before or after under the same line. It is written in
+typed in place of that text, Escape drops it, Up and Down (and Tab and
+Shift+Tab, unless the line starts a block, below) write it and go to the
+line before or after under the same line. It is written in
 the file's open document when that has unsaved changes, a step to undo
 there, else in the file, which an open document of it then reads again
 and the layer is asked about anew. Only files in Kalem's projects are
@@ -311,6 +312,22 @@ written (the plugins' workspace, as =fs:write:workspace= reaches), and
 only where they still hold the text the layer saw; else Kalem says why
 and writes nothing. The text is that of one line: a line feed typed is a
 space.
+
+Such a line may also start a block of the file's outline (API 0.2.18):
+a plugin built with the feature =layer-4= answers =overlays_4=, whose
+sources may name an =outline=: the line after the block's last, the
+blocks under it included; what a new block's line starts with (its
+indentation and bullet, =\t- =); a step of indentation (=\t=, two
+spaces); and whether Tab may indent the block and Shift+Tab take it out
+a step. Where such a line is typed into, Enter splits the block at the
+cursor: what was before it is written in place of the line's text, what
+followed it a new block after the block and the blocks under it. Tab
+puts a step of indentation before each of the block's lines, Shift+Tab
+takes one off them. Each is written as the line's text is, the file
+checked first, and the block is typed into on at its new place once the
+layer shows it there, the cursor where it was. The graph plugin's
+embedded blocks are added and moved so in the note embedding them, as
+in Logseq's embeds.
 
 A layer may name the plugin's command that opens the link at the cursor
 in the documents it serves (="open": "graph.openLink"=, API 0.2.12): a
@@ -327,8 +344,9 @@ plugin's, not Markdown's.
 The contract is =kalem_core::layers=; the plugin's side is
 =kalem_plugin::layer= with the feature =layer=, whose =Plugin= trait
 answers =overlays(layer, path, text)=, with the feature =layer-2=
-=overlays_2(layer, path, text)=, or with the feature =layer-3=
-=overlays_3(layer, path, text)=.
+=overlays_2(layer, path, text)=, with the feature =layer-3=
+=overlays_3(layer, path, text)=, or with the feature =layer-4=
+=overlays_4(layer, path, text)=.
 
 * Highlighters
 
