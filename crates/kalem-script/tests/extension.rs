@@ -1502,3 +1502,55 @@ fn a_formatter() {
         assert!(counter.format("lines", &request("a")).unwrap().is_none());
     }
 }
+
+/// A plugin exporting an outline (API 0.2.18): the headings of a text,
+/// each with its level and start; none for an outline it does not have.
+#[test]
+fn an_outline() {
+    use kalem_script::extension::outline::Request;
+    let Some(bytes) = common::component("layered") else {
+        return;
+    };
+    let host = Host::new(None).unwrap();
+    let plugin = host.load(&bytes).unwrap();
+    let mut ext = Extension::new(
+        &host,
+        &plugin,
+        "layered",
+        Box::new(Fake::default()),
+        Grants::default(),
+        Limits::default(),
+    )
+    .unwrap();
+    ext.activate().unwrap().unwrap();
+    assert!(ext.has_outlines());
+    let request = |text: &str| Request {
+        path: Some("/g/a.txt".into()),
+        text: text.into(),
+        text_type: "text".into(),
+    };
+    let heads = ext
+        .outline("hashes", &request("# One\ntext\n## Two\n#no\n"))
+        .unwrap()
+        .unwrap();
+    let got: Vec<(u32, &str, u64)> = heads
+        .iter()
+        .map(|h| (h.level, h.title.as_str(), h.start))
+        .collect();
+    assert_eq!(got, [(1, "One", 0), (2, "Two", 11)]);
+    assert!(
+        ext.outline("other", &request("# A\n"))
+            .unwrap()
+            .unwrap()
+            .is_empty()
+    );
+    // A plugin built without the feature exports no outline.
+    if let Some((mut counter, _)) = counter(Limits::default()) {
+        assert!(
+            counter
+                .outline("hashes", &request("# A\n"))
+                .unwrap()
+                .is_none()
+        );
+    }
+}

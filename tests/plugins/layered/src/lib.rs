@@ -8,7 +8,9 @@
 //! be typed into. Its formatter `lines` (API 0.2.16) takes the blanks off
 //! the ends of lines, and refuses a tab, at its place. Its command
 //! `layered.later` asks for `layered.now` later (API 0.2.17), and for a
-//! command not its own, refused.
+//! command not its own, refused. Its outline `hashes` (API 0.2.18)
+//! takes the lines that start with `#`s and a blank as headings, a level
+//! a `#`.
 
 use kalem_plugin::completer::{self, Item, ItemKind, Request};
 use kalem_plugin::kalem::{self, Plugin, Scope};
@@ -220,6 +222,26 @@ impl Plugin for Layered {
                 format!("{}{feed}", l.trim_end())
             })
             .collect())
+    }
+
+    fn outline(
+        id: &str,
+        request: &kalem_plugin::outline::Request,
+    ) -> Vec<kalem_plugin::outline::Heading> {
+        if id != "hashes" {
+            return Vec::new();
+        }
+        let mut out = Vec::new();
+        let mut at = 0;
+        for line in request.text.split_inclusive('\n') {
+            let level = line.bytes().take_while(|&b| b == b'#').count();
+            if level > 0 && line[level..].starts_with(' ') {
+                let title = line[level..].trim();
+                out.push(kalem_plugin::outline::heading(level as u32, title, at));
+            }
+            at += line.len();
+        }
+        out
     }
 }
 

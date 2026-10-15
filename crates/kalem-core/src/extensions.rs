@@ -100,6 +100,19 @@ pub trait Extensions: Send {
         ))
     }
 
+    /// The headings plugin `spec.plugin`'s outline `spec.id` gives for
+    /// `text` of the file at `path`, of type `kind` (`crate::outlines`,
+    /// API 0.2.18).
+    fn outline(
+        &mut self,
+        _spec: &crate::outlines::PluginOutlineSpec,
+        _path: Option<&std::path::Path>,
+        _text: &str,
+        _kind: &str,
+    ) -> crate::outlines::Answer {
+        crate::outlines::Answer::Failed(String::new())
+    }
+
     /// A plugin was installed, updated or removed while the editors run
     /// ([`installed_changed`]): one removed is stopped, one new started as
     /// it would have been with the editors, and told of the documents
@@ -643,6 +656,28 @@ pub fn install(extensions: Box<dyn Extensions>) {
                 Err(std::sync::TryLockError::Poisoned(e)) => e.into_inner().as_mut().map_or_else(
                     || Answer::Failed(String::new()),
                     |x| x.format(spec, path, text, kind),
+                ),
+                Err(std::sync::TryLockError::WouldBlock) => Answer::Busy,
+            }
+        },
+    ));
+    // The plugins' outlines are asked by the outline sidebars, on the
+    // editor's thread, once a version of a text: while a call of theirs
+    // runs, they are busy, and the last outline stays.
+    crate::outlines::set_provider(std::sync::Arc::new(
+        |spec: &crate::outlines::PluginOutlineSpec,
+         path: Option<&std::path::Path>,
+         text: &str,
+         kind: &str| {
+            use crate::outlines::Answer;
+            match INSTALLED.try_lock() {
+                Ok(mut installed) => installed.as_mut().map_or_else(
+                    || Answer::Failed(String::new()),
+                    |x| x.outline(spec, path, text, kind),
+                ),
+                Err(std::sync::TryLockError::Poisoned(e)) => e.into_inner().as_mut().map_or_else(
+                    || Answer::Failed(String::new()),
+                    |x| x.outline(spec, path, text, kind),
                 ),
                 Err(std::sync::TryLockError::WouldBlock) => Answer::Busy,
             }

@@ -97,7 +97,9 @@ pub mod viewer {
 /// interface, whose lines under lines may be typed into (API 0.2.15);
 /// with the feature `formatter`, the `extension-formatter` world: those,
 /// and the `formatter` interface of its languages' documents formatted
-/// (API 0.2.16; [`formatter`]).
+/// (API 0.2.16; [`formatter`]); with the feature `outline`, the
+/// `extension-outline` world: those, and the `outline` interface of its
+/// languages' documents' headings (API 0.2.18; [`outline`]).
 #[allow(
     missing_debug_implementations,
     unreachable_pub,
@@ -145,10 +147,18 @@ pub mod extension {
         export_macro_name: "export_extension",
         default_bindings_module: "kalem_plugin::extension",
     });
-    #[cfg(feature = "formatter")]
+    #[cfg(all(feature = "formatter", not(feature = "outline")))]
     wit_bindgen::generate!({
         path: "wit",
         world: "extension-formatter",
+        pub_export_macro: true,
+        export_macro_name: "export_extension",
+        default_bindings_module: "kalem_plugin::extension",
+    });
+    #[cfg(feature = "outline")]
+    wit_bindgen::generate!({
+        path: "wit",
+        world: "extension-outline",
         pub_export_macro: true,
         export_macro_name: "export_extension",
         default_bindings_module: "kalem_plugin::extension",
@@ -169,6 +179,7 @@ pub mod kalem;
 pub mod later;
 pub mod layer;
 pub mod net;
+pub mod outline;
 pub mod problems;
 pub mod process;
 pub mod settings;

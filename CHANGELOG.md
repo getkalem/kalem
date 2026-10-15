@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 - The settings panel says Kalem's version beside its title, in both editors.
+- Plugins outline files: an extension plugin declares its outlines in its manifest by the text types they read (`"outlines": [{"id": "journal", "types": ["hledger"]}]`) and exports `outline` (plugin API 0.2.18, `kalem-plugin`'s feature `outline`). The outline sidebar of both editors lists the headings it gives, each a level, a title and a place, for a file of those types where the document's mode and a language pack give none; it is asked once a version of the text, and a plugin busy with another call leaves the outline it gave last. The plain text accounting plugin outlines a journal with it.
 
 ### Changed
 - A file of a language a plugin declares is of that language's text type: with the plain text accounting plugin, `2026.journal` is `hledger` and `x.bean` `beancount`, where the type was the extension through a fixed table (`journal`, `bean`), and the terminal's status bar names the language (`Beancount`), as do Format Document's messages. A key binding or menu item a user wrote for such files with `textType == journal` no longer applies to them: write the language's id (`textType == hledger`); `editorLanguage` still holds the extension, and a formatter set for the extension (`[formatters] journal`) still formats them. A mode line or a `#!` line naming another language wins over the plugin's.

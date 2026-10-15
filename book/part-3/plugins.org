@@ -63,10 +63,11 @@ the same files (wasmtime). It holds eight worlds, three kinds:
   =later=, and =fs= (with =fs-2=), =net= and
   =process= when its permissions grant them, and exports =plugin=
   (below). =extension-layer=, =extension-completer=,
-  =extension-layer-2=, =extension-layer-3= and =extension-formatter=
-  are the same world exporting more: a layer, then a completer, then a
-  layer's lines under lines, then lines that show a file's text, then a
-  formatter, each with those before it.
+  =extension-layer-2=, =extension-layer-3=, =extension-formatter= and
+  =extension-outline= are the same world exporting more: a layer, then
+  a completer, then a layer's lines under lines, then lines that show a
+  file's text, then a formatter, then an outline, each with those before
+  it.
 
 =crates/kalem-plugin/coverage.toml= lists every extension point of the
 design (§11.10 to §11.13) with the WIT interface that defines it or the
@@ -547,6 +548,13 @@ updated itself. The rules, so that a plugin built once keeps working:
   folder, its own; and =later=: its own commands run at a later tick
   (below). =canvas-view.wit= and =formatter.wit= of 0.2.16 are frozen
   (=wit-frozen/0.2.16=).
+- 0.2.18 added, for extension plugins, the export =outline= in the
+  world =extension-outline= (=kalem-plugin='s feature =outline=, which
+  exports =formatter= and those before it too): a plugin's outlines,
+  declared in its manifest by the text types they read, which the
+  outline sidebar asks (below). The host binds =outline= when a
+  component exports it, as =formatter=. =state.wit= and =later.wit= of
+  0.2.17 are frozen (=wit-frozen/0.2.17=).
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 - An addition is general, or it waits. It names what several plugins
@@ -989,6 +997,32 @@ fn format(id: &str, request: &Request) -> Result<String, Refusal> {
         "journal" => Ok(align(&request.text)),
         _ => Err(formatter::refusal("No such formatter", None)),
     }
+}
+#+end_src
+
+A plugin also outlines files (=outline=, API 0.2.18). Its manifest
+declares each outline, an id and the text types it reads
+(="outlines": [{"id": "journal", "types": ["hledger", "beancount"]}]=),
+and the outline sidebar of both editors asks it for the headings of a
+file of those types where the document's mode and a language pack give
+none: each a level, a title and the byte it starts at, which the sidebar
+lists and goes to. It is asked once a version of the text, and the
+answer is kept; a plugin busy with another call is not waited for, the
+outline it gave last staying. It asks for no permission.
+
+#+begin_src rust
+use kalem_plugin::outline::{self, Heading, Request};
+
+fn outline(_id: &str, request: &Request) -> Vec<Heading> {
+    let mut at = 0;
+    let mut out = Vec::new();
+    for line in request.text.split_inclusive('\n') {
+        if let Some(title) = line.strip_prefix("* ") {
+            out.push(outline::heading(1, title.trim(), at));
+        }
+        at += line.len();
+    }
+    out
 }
 #+end_src
 

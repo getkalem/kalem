@@ -1,0 +1,41 @@
+package kalem:plugin@0.2.18;
+
+/// A document's outline from a plugin (API 0.2.18;
+/// `kalem_core::outlines`): its headings, which the outline sidebar of
+/// both editors lists and goes to, as a language pack's outline gives
+/// them. A plugin declares its outlines in its manifest:
+///
+/// ```json
+/// "outlines": [{"id": "journal", "types": ["hledger", "beancount"]}]
+/// ```
+///
+/// `types` are the text types it outlines (all when missing). The
+/// sidebar asks it for a document of those types where neither the
+/// document's mode nor a language pack gives an outline, once a version
+/// of the text. The editor waits for the answer: an outline is read from
+/// the text alone, quickly, without the `editor` interface or a question
+/// to the user. While another call of the plugin runs, the outline it
+/// gave last stays.
+interface outline {
+    /// What is outlined.
+    record request {
+        /// The file of the document; none for one not saved yet.
+        path: option<string>,
+        /// The document's whole text.
+        text: string,
+        /// Its text type (`hledger`, `beancount`).
+        text-type: string,
+    }
+
+    /// A heading: its level (1 the outermost), its title, and where it
+    /// starts, a byte of the text, where the sidebar goes.
+    record heading {
+        level: u32,
+        title: string,
+        start: u64,
+    }
+
+    /// The headings of `request` as the plugin's outline `outline` (an ID
+    /// of the manifest's `outlines`) reads them, in the text's order.
+    outline: func(outline: string, request: request) -> list<heading>;
+}

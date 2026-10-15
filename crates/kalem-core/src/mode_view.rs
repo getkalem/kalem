@@ -107,12 +107,14 @@ pub fn view_key(doc: &DocumentState) -> ViewKey {
     (doc.version(), crate::layers::generation())
 }
 
-/// The outline of `doc`: its mode's, or else its language pack's or its
-/// viewer's; `None` when there is none yet (a parse still running).
+/// The outline of `doc`: its mode's, or else its language pack's, a
+/// plugin's (`crate::outlines`) or its viewer's; `None` when there is
+/// none yet (a parse still running).
 pub fn outline_items(doc: &mut DocumentState) -> Option<Vec<OutlineItem>> {
     view_of(doc, false)
         .outline(doc)
         .or_else(|| crate::packs::outline_items(doc))
+        .or_else(|| crate::outlines::outline_items(doc))
         .or_else(|| crate::viewer::outline_items(doc))
 }
 

@@ -715,6 +715,8 @@ struct Loaded {
     completers: Vec<kalem_core::completers::plugins::PluginCompleterSpec>,
     /// The formatters its manifest declares, once it runs (API 0.2.16).
     formatters: Vec<kalem_core::formatters::plugins::PluginFormatterSpec>,
+    /// The outlines its manifest declares, once it runs (API 0.2.18).
+    outlines: Vec<kalem_core::outlines::PluginOutlineSpec>,
 }
 
 /// A manifest's `layers` for plugin `id` (its short ID): each an ID, the
@@ -827,6 +829,24 @@ fn manifest_formatters(
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// A manifest's `outlines` for plugin `id` (its short ID), read as its
+/// `formatters` are.
+fn manifest_outlines(
+    id: &str,
+    m: &serde_json::Value,
+) -> Vec<kalem_core::outlines::PluginOutlineSpec> {
+    let mut m = m.clone();
+    m["formatters"] = m["outlines"].take();
+    manifest_formatters(id, &m)
+        .into_iter()
+        .map(|f| kalem_core::outlines::PluginOutlineSpec {
+            plugin: f.plugin,
+            id: f.id,
+            types: f.types,
+        })
+        .collect()
 }
 
 /// A completer's request for the cursor of `ctx`.
@@ -1178,6 +1198,11 @@ impl Plugins {
                         kalem_core::formatters::plugins::register(f);
                     }
                 }
+                if l.extension.as_ref().is_some_and(Extension::has_outlines) {
+                    for o in l.outlines.clone() {
+                        kalem_core::outlines::register(o);
+                    }
+                }
             }
             Err(e) => {
                 l.failed = true;
@@ -1211,6 +1236,7 @@ impl Plugins {
         kalem_core::layers::remove_plugin(&l.id);
         kalem_core::completers::plugins::remove_plugin(&l.id);
         kalem_core::formatters::plugins::remove_plugin(&l.id);
+        kalem_core::outlines::remove_plugin(&l.id);
     }
 
     /// Tells plugin `i`, started while Kalem runs, what it would have
@@ -1346,6 +1372,52 @@ impl kalem_core::extensions::Extensions for Plugins {
                 at: r.at.map(|a| a as usize),
             },
             Ok(None) => gone(),
+            Err(e) => {
+                let why = e.to_string();
+                self.fail(i, &e);
+                Answer::Failed(why)
+            }
+        }
+    }
+
+    fn outline(
+        &mut self,
+        spec: &kalem_core::outlines::PluginOutlineSpec,
+        path: Option<&std::path::Path>,
+        text: &str,
+        kind: &str,
+    ) -> kalem_core::outlines::Answer {
+        use kalem_core::outlines::Answer;
+        let Some(i) = self
+            .list
+            .iter()
+            .position(|l| l.id == spec.plugin && l.extension.is_some())
+        else {
+            return Answer::Failed(String::new());
+        };
+        PLUGIN.with(|p| p.set(i as u64 + 1));
+        let Some(ext) = self.list[i].extension.as_mut() else {
+            return Answer::Failed(String::new());
+        };
+        let request = x::outline::Request {
+            path: path.map(|p| p.to_string_lossy().into_owned()),
+            text: text.to_string(),
+            text_type: kind.to_string(),
+        };
+        match ext.outline(&spec.id, &request) {
+            Ok(Some(headings)) => Answer::Headings(
+                headings
+                    .into_iter()
+                    .map(|h| kalem_core::view::OutlineItem {
+                        level: (h.level as usize).max(1),
+                        todo: None,
+                        title: h.title,
+                        start: usize::try_from(h.start).unwrap_or(usize::MAX),
+                        file: None,
+                    })
+                    .collect(),
+            ),
+            Ok(None) => Answer::Failed(String::new()),
             Err(e) => {
                 let why = e.to_string();
                 self.fail(i, &e);
@@ -1742,6 +1814,7 @@ fn installed() -> Vec<Loaded> {
             layers: manifest_layers(&id, &m),
             completers: manifest_completers(&id, &m),
             formatters: manifest_formatters(&id, &m),
+            outlines: manifest_outlines(&id, &m),
             id,
             full: p.id.clone(),
             version: p.version.clone(),

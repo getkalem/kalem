@@ -332,3 +332,11 @@ world extension-formatter {
     include extension-layer-3;
     export formatter;
 }
+
+/// An extension plugin outlining its languages' documents too (API
+/// 0.2.18): the `extension-formatter` world, and the `outline` interface
+/// it exports.
+world extension-outline {
+    include extension-formatter;
+    export outline;
+}

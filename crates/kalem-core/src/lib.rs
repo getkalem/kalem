@@ -76,6 +76,7 @@ pub mod mode;
 pub mod mode_view;
 pub mod modes;
 pub mod org_mode;
+pub mod outlines;
 pub mod packs;
 pub mod palette;
 pub mod pandoc;

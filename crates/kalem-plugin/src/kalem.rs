@@ -117,6 +117,14 @@ pub trait Plugin {
             None,
         ))
     }
+
+    /// The headings of `request` as the plugin's outline `outline` (its
+    /// manifest's `outlines`) reads them (API 0.2.18, the feature
+    /// `outline`); by default, none.
+    #[cfg(feature = "outline")]
+    fn outline(_outline: &str, _request: &crate::outline::Request) -> Vec<crate::outline::Heading> {
+        Vec::new()
+    }
 }
 
 type CommandFn = Box<dyn FnMut(&str) -> Result<String, String>>;
@@ -483,6 +491,7 @@ macro_rules! export_plugin {
         $crate::__export_layer_2!($plugin);
         $crate::__export_layer_3!($plugin);
         $crate::__export_formatter!($plugin);
+        $crate::__export_outline!($plugin);
 
         $crate::extension::export_extension!(__KalemPlugin);
     };
@@ -617,5 +626,31 @@ macro_rules! __export_formatter {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __export_formatter {
+    ($plugin:ty) => {};
+}
+
+/// The `outline` interface of [`export_plugin!`] with the feature
+/// `outline`.
+#[cfg(feature = "outline")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_outline {
+    ($plugin:ty) => {
+        impl $crate::extension::exports::kalem::plugin::outline::Guest for __KalemPlugin {
+            fn outline(
+                outline: ::std::string::String,
+                request: $crate::outline::Request,
+            ) -> ::std::vec::Vec<$crate::outline::Heading> {
+                <$plugin as $crate::kalem::Plugin>::outline(&outline, &request)
+            }
+        }
+    };
+}
+
+/// Nothing without the feature `outline`.
+#[cfg(not(feature = "outline"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_outline {
     ($plugin:ty) => {};
 }

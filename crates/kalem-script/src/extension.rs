@@ -18,13 +18,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use wasmtime::component::{HasSelf, Resource, ResourceTable};
 
 mod bindings {
-    // `extension-formatter`: the `extension` world and the `layer` (API
+    // `extension-outline`: the `extension` world and the `layer` (API
     // 0.2.10), `completer` (API 0.2.11), `layer-2` (API 0.2.13), `layer-3`
-    // (API 0.2.15) and `formatter` (API 0.2.16) interfaces it may export,
-    // bound one by one (`Extension::new`).
+    // (API 0.2.15), `formatter` (API 0.2.16) and `outline` (API 0.2.18)
+    // interfaces it may export, bound one by one (`Extension::new`).
     wasmtime::component::bindgen!({
         path: "../kalem-plugin/wit",
-        world: "extension-formatter",
+        world: "extension-outline",
         with: {
             "kalem:plugin/kalem.disposable": super::Registration,
         },
@@ -32,7 +32,9 @@ mod bindings {
 }
 
 pub use api::{CommandSpec, Event, EventKind, Reply, Scope};
-pub use bindings::exports::kalem::plugin::{completer, formatter, layer, layer_2, layer_3};
+pub use bindings::exports::kalem::plugin::{
+    completer, formatter, layer, layer_2, layer_3, outline,
+};
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
 pub use bindings::kalem::plugin::{
@@ -1648,6 +1650,9 @@ pub struct Extension {
     /// The `formatter` interface, when the component exports it (API
     /// 0.2.16).
     formatter: Option<formatter::Guest>,
+    /// The `outline` interface, when the component exports it (API
+    /// 0.2.18).
+    outline: Option<outline::Guest>,
 }
 
 impl std::fmt::Debug for Extension {
@@ -1851,6 +1856,16 @@ impl Extension {
                 .load(&mut *store, i)
                 .map(Some)
         })?;
+        let outline = instance.bindings(|store, i| {
+            let pre = i.instance_pre(&*store);
+            let name = format!("kalem:plugin/outline@{}", crate::API_VERSION);
+            if pre.component().get_export_index(None, &name).is_none() {
+                return Ok(None);
+            }
+            outline::GuestIndices::new(&pre)?
+                .load(&mut *store, i)
+                .map(Some)
+        })?;
         Ok(Extension {
             instance,
             api,
@@ -1859,6 +1874,7 @@ impl Extension {
             layer_3,
             completer,
             formatter,
+            outline,
         })
     }
 
@@ -1970,6 +1986,26 @@ impl Extension {
         };
         self.instance
             .run(|s| f.call_format(s, id, request))
+            .map(Some)
+    }
+
+    /// Whether the plugin exports outlines (API 0.2.18).
+    pub fn has_outlines(&self) -> bool {
+        self.outline.is_some()
+    }
+
+    /// The headings of `request` as the plugin's outline `id` reads
+    /// them; `None` when the plugin exports no outline.
+    pub fn outline(
+        &mut self,
+        id: &str,
+        request: &outline::Request,
+    ) -> crate::Result<Option<Vec<outline::Heading>>> {
+        let Some(o) = &self.outline else {
+            return Ok(None);
+        };
+        self.instance
+            .run(|s| o.call_outline(s, id, request))
             .map(Some)
     }
 

@@ -43,6 +43,10 @@ layer-3 = ["layer-2"]
 # `formatter` interface too, its languages' documents formatted (API
 # 0.2.16), and the interfaces above (none of them unless it answers).
 formatter = ["layer-3"]
+# The `extension-outline` world: an extension plugin exporting the
+# `outline` interface too, its languages' documents' headings (API
+# 0.2.18), and the interfaces above.
+outline = ["formatter"]
 
 [dev-dependencies]
 toml_edit = { version = "0.25", default-features = false, features = ["parse"] }
