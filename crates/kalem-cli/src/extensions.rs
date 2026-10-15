@@ -973,10 +973,12 @@ fn core_graph(g: x::graph_view::Graph) -> kalem_core::graph_view::Graph {
 
 /// A layer's overlays as the core's: its lines under lines too (API
 /// 0.2.13), the text of a file each shows (API 0.2.15), and the block of
-/// the file's outline it starts (API 0.2.18).
-fn overlays(set: x::layer_4::OverlaySet) -> kalem_core::layers::Overlays {
+/// the file's outline it starts (API 0.2.18), and text at places of its
+/// lines (API 0.2.20).
+fn overlays(set: x::layer_5::OverlaySet) -> kalem_core::layers::Overlays {
     use kalem_core::layers::{
-        Below, LineEffect, LineSource, Lines, Outline, Overlays, Span, SpanEffect, VirtualLine,
+        Below, Insert, LineEffect, LineSource, Lines, Outline, Overlays, Span, SpanEffect,
+        VirtualLine,
     };
     use x::layer::SpanStyle as F;
     let style = |f: F| kalem_core::view::Style {
@@ -1059,7 +1061,15 @@ fn overlays(set: x::layer_4::OverlaySet) -> kalem_core::layers::Overlays {
                     .collect(),
             })
             .collect(),
-        inserts: Vec::new(),
+        inserts: set
+            .inserts
+            .into_iter()
+            .map(|i| Insert {
+                at: usize::try_from(i.at).unwrap_or(usize::MAX),
+                text: i.text,
+                style: style(i.style),
+            })
+            .collect(),
     }
 }
 

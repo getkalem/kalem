@@ -52,6 +52,10 @@ outline = ["formatter"]
 # a file's outline, which Enter, Tab and Shift+Tab change in place (API
 # 0.2.18), which the editor asks in place of `layer-3`.
 layer-4 = ["outline"]
+# The `extension-layer-5` world: an extension plugin exporting the
+# `layer-5` interface too, layers that show text at places of a line (API
+# 0.2.20), which the editor asks in place of `layer-4`.
+layer-5 = ["layer-4"]
 
 [dev-dependencies]
 toml_edit = { version = "0.25", default-features = false, features = ["parse"] }

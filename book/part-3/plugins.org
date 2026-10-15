@@ -64,11 +64,11 @@ the same files (wasmtime). It holds eight worlds, three kinds:
   =process= when its permissions grant them, and exports =plugin=
   (below). =extension-layer=, =extension-completer=,
   =extension-layer-2=, =extension-layer-3=, =extension-formatter=,
-  =extension-outline= and =extension-layer-4= are the same world
-  exporting more: a layer, then a completer, then a layer's lines under
-  lines, then lines that show a file's text, then a formatter, then an
-  outline, then lines that start blocks of a file's outline, each with
-  those before it.
+  =extension-outline=, =extension-layer-4= and =extension-layer-5= are
+  the same world exporting more: a layer, then a completer, then a
+  layer's lines under lines, then lines that show a file's text, then a
+  formatter, then an outline, then lines that start blocks of a file's
+  outline, then text at places of a line, each with those before it.
 
 =crates/kalem-plugin/coverage.toml= lists every extension point of the
 design (§11.10 to §11.13) with the WIT interface that defines it or the
@@ -573,6 +573,13 @@ updated itself. The rules, so that a plugin built once keeps working:
   canvas's shapes each with the size of their text (below).
   =layer-4.wit=, =focus.wit= and =outline.wit= of 0.2.18 are frozen
   (=wit-frozen/0.2.18=).
+- 0.2.20 added, for extension plugins, the export =layer-5= in the
+  world =extension-layer-5= (the feature =layer-5=, which exports
+  =layer-4= and those before it too): text at places of a line, drawn
+  as a language server's inlay hints are, described in
+  [[file:completers-and-modes.org][Completers, modes and highlighters]]; the host asks =layer-5= in
+  place of =layer-4= when a component exports it. =canvas-view-2.wit=
+  of 0.2.19 is frozen (=wit-frozen/0.2.19=).
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 - An addition is general, or it waits. It names what several plugins

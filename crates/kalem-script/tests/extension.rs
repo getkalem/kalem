@@ -1301,8 +1301,8 @@ fn a_plugins_document_is_styled() {
 
 /// A plugin exporting a layer (API 0.2.10), lines under lines by
 /// `layer-2` (API 0.2.13) and their sources by `layer-3` (API 0.2.15),
-/// their outline by `layer-4` (API 0.2.18): the
-/// overlays it gives, its refresh, and the
+/// their outline by `layer-4` (API 0.2.18) and text at places of a line
+/// by `layer-5` (API 0.2.20): the overlays it gives, its refresh, and the
 /// clock it reads; a plugin without the export has no layer.
 #[test]
 fn a_layer_and_the_clock() {
@@ -1344,6 +1344,18 @@ fn a_layer_and_the_clock() {
         e => panic!("{e:?}"),
     }
     assert!(set.below.is_empty());
+    // Text at a line's end, by `layer-5` (API 0.2.20): its number of block
+    // references.
+    assert_eq!(set.inserts.len(), 1);
+    assert_eq!(
+        (set.inserts[0].at, set.inserts[0].text.as_str()),
+        (17, " 1")
+    );
+    assert!(
+        set.inserts[0]
+            .style
+            .contains(kalem_script::extension::layer::SpanStyle::DIM)
+    );
     // Lines under a line, by `layer-2` (API 0.2.13), asked in place of
     // `layer`.
     let embeds = "- a\n- {{embed [[B]]}}\n";
@@ -1387,7 +1399,12 @@ fn a_layer_and_the_clock() {
         .overlays("other", Some("/g/a.md"), text)
         .unwrap()
         .unwrap();
-    assert!(none.spans.is_empty() && none.lines.is_empty() && none.below.is_empty());
+    assert!(
+        none.spans.is_empty()
+            && none.lines.is_empty()
+            && none.below.is_empty()
+            && none.inserts.is_empty()
+    );
     // The clock and the refresh.
     let answer: serde_json::Value =
         serde_json::from_str(&ext.run_command("layered.now", "null").unwrap().unwrap()).unwrap();

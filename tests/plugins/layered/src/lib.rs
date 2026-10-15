@@ -12,14 +12,15 @@
 //! takes the lines that start with `#`s and a blank as headings, a level
 //! a `#`. By `layer-4` (API 0.2.18) the text an embed's line shows starts
 //! a block of the note's outline. Its command `layered.canvas` draws a
-//! canvas whose title has a text size (API 0.2.19).
+//! canvas whose title has a text size (API 0.2.19). By `layer-5` (API
+//! 0.2.20) a line with block references shows their number at its end.
 
 use kalem_plugin::completer::{self, Item, ItemKind, Request};
 use kalem_plugin::kalem::{self, Plugin, Scope};
 use kalem_plugin::layer::{
-    Below, Below3, Below4, LineEffect, Lines, Outline, OverlaySet, OverlaySet2, OverlaySet3,
-    OverlaySet4, Piece, Replacement, Source, Source4, Span, SpanEffect, SpanStyle, VirtualLine,
-    VirtualLine3, VirtualLine4,
+    Below, Below3, Below4, Insert, LineEffect, Lines, Outline, OverlaySet, OverlaySet2,
+    OverlaySet3, OverlaySet4, OverlaySet5, Piece, Replacement, Source, Source4, Span, SpanEffect,
+    SpanStyle, VirtualLine, VirtualLine3, VirtualLine4,
 };
 
 struct Layered;
@@ -55,21 +56,35 @@ impl Plugin for Layered {
         })?;
         // A canvas whose shapes' text has a size (API 0.2.19): a title at
         // 32, a note at the window's own.
-        kalem::command(kalem::spec("layered.canvas", "Canvas", Scope::all()), |_| {
-            use kalem_plugin::canvas_view::ShapeKind;
-            use kalem_plugin::canvas_view_2::{self, Canvas};
-            let mut title = canvas_view_2::shape("t", ShapeKind::Text, [0.0, 0.0, 200.0, 40.0], "Title");
-            title.text_size = Some(32.0);
-            let note = canvas_view_2::shape("n", ShapeKind::Box(4.0), [0.0, 60.0, 200.0, 80.0], "Note");
-            let c = Canvas {
-                shapes: vec![title, note],
-                connectors: Vec::new(),
-                command: "layered.now".into(),
-            };
-            let spec = kalem_plugin::documents::Spec::new("layered.board", "", "Board", "layered-board");
-            let doc = canvas_view_2::open(&spec, &c, "Title\nNote\n")?;
-            Ok(doc.to_string())
-        })?;
+        kalem::command(
+            kalem::spec("layered.canvas", "Canvas", Scope::all()),
+            |_| {
+                use kalem_plugin::canvas_view::ShapeKind;
+                use kalem_plugin::canvas_view_2::{self, Canvas};
+                let mut title =
+                    canvas_view_2::shape("t", ShapeKind::Text, [0.0, 0.0, 200.0, 40.0], "Title");
+                title.text_size = Some(32.0);
+                let note = canvas_view_2::shape(
+                    "n",
+                    ShapeKind::Box(4.0),
+                    [0.0, 60.0, 200.0, 80.0],
+                    "Note",
+                );
+                let c = Canvas {
+                    shapes: vec![title, note],
+                    connectors: Vec::new(),
+                    command: "layered.now".into(),
+                };
+                let spec = kalem_plugin::documents::Spec::new(
+                    "layered.board",
+                    "",
+                    "Board",
+                    "layered-board",
+                );
+                let doc = canvas_view_2::open(&spec, &c, "Title\nNote\n")?;
+                Ok(doc.to_string())
+            },
+        )?;
         Ok(())
     }
 
@@ -234,6 +249,30 @@ impl Plugin for Layered {
             spans: o.spans,
             lines: o.lines,
             below,
+        }
+    }
+
+    fn overlays_5(layer: &str, path: Option<&str>, text: &str) -> OverlaySet5 {
+        let o = Self::overlays_4(layer, path, text);
+        // A line's number of block references, after its last character.
+        let mut inserts = Vec::new();
+        let mut at = 0;
+        for line in text.split_inclusive('\n') {
+            let n = line.matches("((").count();
+            if n > 0 && layer == "ids" && path.is_some() {
+                inserts.push(Insert {
+                    at: (at + line.trim_end_matches('\n').len()) as u64,
+                    text: format!(" {n}"),
+                    style: SpanStyle::DIM,
+                });
+            }
+            at += line.len();
+        }
+        OverlaySet5 {
+            spans: o.spans,
+            lines: o.lines,
+            below: o.below,
+            inserts,
         }
     }
 

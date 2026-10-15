@@ -129,6 +129,22 @@ pub trait Plugin {
         }
     }
 
+    /// The overlays of the plugin's layer `layer` for the document of
+    /// `path` with `text`, with text at places of a line (API 0.2.20, the
+    /// feature `layer-5`), which the editor asks in place of
+    /// [`Plugin::overlays_4`]; by default those of [`Plugin::overlays_4`],
+    /// with none.
+    #[cfg(feature = "layer-5")]
+    fn overlays_5(layer: &str, path: Option<&str>, text: &str) -> crate::layer::OverlaySet5 {
+        let o = Self::overlays_4(layer, path, text);
+        crate::layer::OverlaySet5 {
+            spans: o.spans,
+            lines: o.lines,
+            below: o.below,
+            inserts: Vec::new(),
+        }
+    }
+
     /// The items of the plugin's completer `completer` (its manifest's
     /// `completers`) for `request`, best first (API 0.2.11, the feature
     /// `completer`); none by default.
@@ -536,6 +552,7 @@ macro_rules! export_plugin {
         $crate::__export_formatter!($plugin);
         $crate::__export_outline!($plugin);
         $crate::__export_layer_4!($plugin);
+        $crate::__export_layer_5!($plugin);
 
         $crate::extension::export_extension!(__KalemPlugin);
     };
@@ -723,5 +740,32 @@ macro_rules! __export_layer_4 {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __export_layer_4 {
+    ($plugin:ty) => {};
+}
+
+/// The `layer-5` interface of [`export_plugin!`] with the feature
+/// `layer-5`.
+#[cfg(feature = "layer-5")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_layer_5 {
+    ($plugin:ty) => {
+        impl $crate::extension::exports::kalem::plugin::layer_5::Guest for __KalemPlugin {
+            fn overlays(
+                layer: ::std::string::String,
+                path: ::std::option::Option<::std::string::String>,
+                text: ::std::string::String,
+            ) -> $crate::layer::OverlaySet5 {
+                <$plugin as $crate::kalem::Plugin>::overlays_5(&layer, path.as_deref(), &text)
+            }
+        }
+    };
+}
+
+/// Nothing without the feature `layer-5`.
+#[cfg(not(feature = "layer-5"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __export_layer_5 {
     ($plugin:ty) => {};
 }

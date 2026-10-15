@@ -21,8 +21,8 @@ name = "Decorations"
 # Gutter marks (API 0.2.5); lines a layer draws under lines (API 0.2.13,
 # `layer-2`), typed into in place where they show a file's text (API
 # 0.2.15, `layer-3`), as an outline where they start a file's blocks (API
-# 0.2.18, `layer-4`); highlights, badges and virtual text within a line
-# are T3.1.9c's rest.
+# 0.2.18, `layer-4`); text at places of a line (API 0.2.20, `layer-5`);
+# highlights and badges within a line are T3.1.9c's rest.
 interface = "decorations"
 
 [[point]]

@@ -10,7 +10,9 @@
 //! a file's text, typed into where they are drawn and written back; with
 //! `layer-4` (API 0.2.18), [`crate::kalem::Plugin::overlays_4`], whose
 //! lines may start blocks of a file's outline, which Enter, Tab and
-//! Shift+Tab change in place.
+//! Shift+Tab change in place; with `layer-5` (API
+//! 0.2.20), [`crate::kalem::Plugin::overlays_5`], which shows text at
+//! places of a line too.
 
 #[cfg(feature = "layer")]
 pub use crate::extension::exports::kalem::plugin::layer::{
@@ -44,6 +46,12 @@ pub use crate::extension::exports::kalem::plugin::layer_4::{
     Below as Below4, Outline, OverlaySet as OverlaySet4, Source as Source4,
     VirtualLine as VirtualLine4,
 };
+
+/// What a layer changes with the feature `layer-5` (API 0.2.20): that of
+/// `layer-4`, and text at places of a line ([`Insert`]), shown wherever
+/// the cursor is; [`crate::kalem::Plugin::overlays_5`] gives it.
+#[cfg(feature = "layer-5")]
+pub use crate::extension::exports::kalem::plugin::layer_5::{Insert, OverlaySet as OverlaySet5};
 
 /// What the plugin's layers show changed (a file a document refers to):
 /// every document they serve asks again.

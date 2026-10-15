@@ -331,6 +331,16 @@ layer shows it there, the cursor where it was. The graph plugin's
 embedded blocks are added and moved so in the note embedding them, as
 in Logseq's embeds.
 
+A layer may also show text at places of a line (API 0.2.20): a plugin
+built with the feature =layer-5= answers =overlays_5=, whose overlays
+add =inserts=, each a byte of the text, a line of at most 200
+characters and its style, drawn after what ends at that byte as a
+language server's inlay hints are. The graph plugin shows the number of
+references to a block at the end of its line, as Logseq does. They are
+drawn wherever the cursor is, and not in the source view or on a line
+hidden away; the cursor steps over them, a search does not find them
+and a copy leaves them out.
+
 A layer may name the plugin's command that opens the link at the cursor
 in the documents it serves (="open": "graph.openLink"=, API 0.2.12): a
 Ctrl-click runs it in place of the mode's own Open Link, so that a link
@@ -347,8 +357,9 @@ The contract is =kalem_core::layers=; the plugin's side is
 =kalem_plugin::layer= with the feature =layer=, whose =Plugin= trait
 answers =overlays(layer, path, text)=, with the feature =layer-2=
 =overlays_2(layer, path, text)=, with the feature =layer-3=
-=overlays_3(layer, path, text)=, or with the feature =layer-4=
-=overlays_4(layer, path, text)=.
+=overlays_3(layer, path, text)=, with the feature =layer-4=
+=overlays_4(layer, path, text)=, or with the feature =layer-5=
+=overlays_5(layer, path, text)=.
 
 * Highlighters
 

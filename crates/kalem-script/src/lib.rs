@@ -36,7 +36,8 @@
 /// `layer-2` export, 0.2.14 the `problems` import of extensions, 0.2.15
 /// their `layer-3` export, 0.2.16 their `canvas-view` import and
 /// `formatter` export, 0.2.17 their `state` and `later` imports, 0.2.18
-/// their `outline` and `layer-4` exports.
+/// their `outline` and `layer-4` exports, 0.2.19 their `canvas-view-2`
+/// import, 0.2.20 their `layer-5` export.
 pub const API_VERSION: &str = "0.2.20";
 
 /// Whether a manifest's `api` requirement (`^0.2`, `0.2`, `^0.2.1`)

@@ -18,13 +18,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use wasmtime::component::{HasSelf, Resource, ResourceTable};
 
 mod bindings {
-    // `extension-layer-4`: the `extension` world and the `layer` (API
+    // `extension-layer-5`: the `extension` world and the `layer` (API
     // 0.2.10), `completer` (API 0.2.11), `layer-2` (API 0.2.13), `layer-3`
     // (API 0.2.15), `formatter` (API 0.2.16), `outline`, `focus` and `layer-4`
-    // (API 0.2.18) interfaces it may export, bound one by one (`Extension::new`).
+    // (API 0.2.18) and `layer-5` (API 0.2.20) interfaces it may export, bound
+    // one by one (`Extension::new`).
     wasmtime::component::bindgen!({
         path: "../kalem-plugin/wit",
-        world: "extension-layer-4",
+        world: "extension-layer-5",
         with: {
             "kalem:plugin/kalem.disposable": super::Registration,
         },
@@ -33,7 +34,7 @@ mod bindings {
 
 pub use api::{CommandSpec, Event, EventKind, Reply, Scope};
 pub use bindings::exports::kalem::plugin::{
-    completer, focus, formatter, layer, layer_2, layer_3, layer_4, outline,
+    completer, focus, formatter, layer, layer_2, layer_3, layer_4, layer_5, outline,
 };
 pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
@@ -1691,6 +1692,9 @@ pub struct Extension {
     /// The `layer-4` interface, when the component exports it (API
     /// 0.2.18): asked in place of `layer-3` and those before it.
     layer_4: Option<layer_4::Guest>,
+    /// The `layer-5` interface, when the component exports it (API
+    /// 0.2.20): asked in place of `layer-4` and those before it.
+    layer_5: Option<layer_5::Guest>,
     /// The `completer` interface, when the component exports it (API
     /// 0.2.11).
     completer: Option<completer::Guest>,
@@ -1901,6 +1905,16 @@ impl Extension {
                 .load(&mut *store, i)
                 .map(Some)
         })?;
+        let layer_5 = instance.bindings(|store, i| {
+            let pre = i.instance_pre(&*store);
+            let name = format!("kalem:plugin/layer-5@{}", crate::API_VERSION);
+            if pre.component().get_export_index(None, &name).is_none() {
+                return Ok(None);
+            }
+            layer_5::GuestIndices::new(&pre)?
+                .load(&mut *store, i)
+                .map(Some)
+        })?;
         let completer = instance.bindings(|store, i| {
             let pre = i.instance_pre(&*store);
             let name = format!("kalem:plugin/completer@{}", crate::API_VERSION);
@@ -1948,6 +1962,7 @@ impl Extension {
             layer_2,
             layer_3,
             layer_4,
+            layer_5,
             completer,
             formatter,
             outline,
@@ -1963,12 +1978,39 @@ impl Extension {
     }
 
     /// Whether the plugin exports layers (API 0.2.10, or `layer-2` of
-    /// API 0.2.13, `layer-3` of API 0.2.15, `layer-4` of API 0.2.18).
+    /// API 0.2.13, `layer-3` of API 0.2.15, `layer-4` of API 0.2.18,
+    /// `layer-5` of API 0.2.20).
     pub fn has_layers(&self) -> bool {
         self.layer.is_some()
             || self.layer_2.is_some()
             || self.layer_3.is_some()
             || self.layer_4.is_some()
+            || self.layer_5.is_some()
+    }
+
+    /// The overlays of the plugin's layer `id` for a document of `path`
+    /// with `text`: by `layer-5` when the plugin exports it, else as
+    /// [`Extension::overlays_4`] gives them, with no text at places.
+    pub fn overlays(
+        &mut self,
+        id: &str,
+        path: Option<&str>,
+        text: &str,
+    ) -> crate::Result<Option<layer_5::OverlaySet>> {
+        if let Some(l) = &self.layer_5 {
+            return self
+                .instance
+                .run(|s| l.call_overlays(s, id, path, text))
+                .map(Some);
+        }
+        self.overlays_4(id, path, text).map(|o| {
+            o.map(|o| layer_5::OverlaySet {
+                spans: o.spans,
+                lines: o.lines,
+                below: o.below,
+                inserts: Vec::new(),
+            })
+        })
     }
 
     /// The overlays of the plugin's layer `id` for a document of `path`
@@ -1976,7 +2018,7 @@ impl Extension {
     /// `layer-3` with no line starting a block of an outline, else by
     /// `layer-2` with no line showing a file's text, else by `layer`, with
     /// no lines under lines; `None` when the plugin exports no layer.
-    pub fn overlays(
+    fn overlays_4(
         &mut self,
         id: &str,
         path: Option<&str>,

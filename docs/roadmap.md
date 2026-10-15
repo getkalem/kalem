@@ -346,7 +346,8 @@ Writers (Org and Markdown)
   lines typed into as an outline (API 0.2.18, `layer-4`, K25) its embeds'
   blocks added and moved in place; a canvas shape's text size (API
   0.2.19, `canvas-view-2`, K24) its whiteboards' text as Logseq sizes
-  it. M
+  it; text at places of a line (API 0.2.20, `layer-5`, K6) its blocks'
+  reference counts at their lines' ends. M
 - [ ] R5.6 Babel (T3.4.1–T3.4.9): header arguments, executors for shell,
   Python, R and gnuplot behind the plugin host's trust model, results
   blocks, tangling. L (after the plugin permissions, R5.11)

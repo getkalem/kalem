@@ -353,3 +353,11 @@ world extension-layer-4 {
     include extension-outline;
     export layer-4;
 }
+
+/// An extension plugin whose layers show text at places of a line too
+/// (API 0.2.20): the `extension-layer-4` world, and the `layer-5`
+/// interface it exports, which the editor asks in place of `layer-4`.
+world extension-layer-5 {
+    include extension-layer-4;
+    export layer-5;
+}
