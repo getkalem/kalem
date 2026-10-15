@@ -10,7 +10,8 @@
   palette shows only that part of an Org document, and /Narrow to
   Lines/ the selected lines of any document, Markdown and code too (a
   plugin names the lines it narrows to: an outliner's zoom into a
-  block). The cursor, Find and Vim's =gg=, =G=, searches and =:%s=
+  block, the page and the blocks above it named on a line over the
+  part). The cursor, Find and Vim's =gg=, =G=, searches and =:%s=
   keep to the part shown; /Widen/ shows everything again.
 - Soft wrap (Alt+Z) :: long lines wrap at the window's edge, or scroll
   sideways.

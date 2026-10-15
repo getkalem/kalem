@@ -2408,6 +2408,23 @@ impl EditorView {
         } else {
             area
         };
+        // What the narrowed part is called (a plugin's breadcrumb of the
+        // block it zoomed into), on the first row, above the text.
+        let label = doc.narrowed_label().filter(|_| area.height > 3);
+        let area = match label {
+            Some(label) => {
+                let style = ratatui::style::Style::default()
+                    .fg(ratatui::style::Color::Indexed(245))
+                    .add_modifier(Modifier::ITALIC);
+                buf.set_stringn(area.x, area.y, label, usize::from(area.width), style);
+                Rect {
+                    y: area.y + 1,
+                    height: area.height - 1,
+                    ..area
+                }
+            }
+            None => area,
+        };
         // A CSV grid's rows never wrap (their bars and the letters would
         // no longer line up): they scroll sideways.
         self.unwrapped = doc.meta.mode == kalem_core::DocumentMode::Csv && !self.source;

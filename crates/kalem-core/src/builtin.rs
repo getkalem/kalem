@@ -242,7 +242,11 @@ fn schemas() -> Vec<(&'static str, Value)> {
         ("view.editRow", object(&[("row", "integer", false)])),
         (
             "view.narrowToLines",
-            object(&[("start", "integer", false), ("end", "integer", false)]),
+            object(&[
+                ("start", "integer", false),
+                ("end", "integer", false),
+                ("label", "string", false),
+            ]),
         ),
         ("lines.sort", object(&[("reverse", "boolean", false)])),
         ("file.reopenWithEncoding", {
@@ -11901,7 +11905,8 @@ fn plain_commands() -> Vec<Command> {
             |ctx, _| narrow(ctx, org_edit::narrow::block),
         ),
         // In any mode: the lines `start` to `end` (from 1) a plugin names
-        // (an outliner's block, a function), else the selection's lines.
+        // (an outliner's block, a function), else the selection's lines;
+        // `label` what the part is called, shown above it.
         cmd(
             "view.narrowToLines",
             "Narrow to Lines",
@@ -11936,6 +11941,12 @@ fn plain_commands() -> Vec<Command> {
                     return Err(bad());
                 }
                 doc.narrow_to_lines(first, last);
+                doc.narrowing_label = args
+                    .get("label")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::trim)
+                    .filter(|l| !l.is_empty())
+                    .map(str::to_string);
                 Ok(())
             },
         ),
@@ -11964,7 +11975,9 @@ fn plain_commands() -> Vec<Command> {
             },
         ),
         cmd("view.widen", "Widen", "View", &[], None, |ctx, _| {
-            ctx.doc()?.narrowing = None;
+            let doc = ctx.doc()?;
+            doc.narrowing = None;
+            doc.narrowing_label = None;
             Ok(())
         }),
     ]
@@ -11980,6 +11993,7 @@ fn narrow(
         .ok_or_else(|| CommandError::new(crate::tr!("msg-not-org")))?;
     let r = range(&model, doc.selection.head)?;
     doc.narrowing = Some(r);
+    doc.narrowing_label = None;
     Ok(())
 }
 
@@ -13305,6 +13319,31 @@ mod tests {
             )
             .is_err()
         );
+        // A part named: its name while it is narrowed, none once widened or
+        // narrowed again unnamed.
+        reg.execute(
+            "view.narrowToLines",
+            &mut ctx,
+            &json!({"start": 2, "end": 3, "label": "Notes › A"}),
+        )
+        .unwrap();
+        let d = ctx.document.as_deref_mut().unwrap();
+        assert_eq!(d.narrowed_label(), Some("Notes › A"));
+        reg.execute("view.widen", &mut ctx, &json!({})).unwrap();
+        let d = ctx.document.as_deref_mut().unwrap();
+        assert_eq!(
+            (d.narrowed_label(), d.narrowing_label.as_deref()),
+            (None, None)
+        );
+        reg.execute(
+            "view.narrowToLines",
+            &mut ctx,
+            &json!({"start": 2, "end": 3, "label": "Notes › A"}),
+        )
+        .unwrap();
+        reg.execute("view.narrowToLines", &mut ctx, &json!({"start": 2}))
+            .unwrap();
+        assert_eq!(ctx.document.as_deref().unwrap().narrowed_label(), None);
     }
 
     #[test]

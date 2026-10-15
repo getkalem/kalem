@@ -1533,6 +1533,30 @@ fn a_markdown_note_narrowed_to_lines(cx: &mut TestAppContext) {
     assert_eq!(visible(&e, cx), all);
 }
 
+#[gpui::test]
+fn a_narrowed_part_named_above_it(cx: &mut TestAppContext) {
+    // A plugin's breadcrumb of the block it zoomed into, over the text.
+    let text = "# Notes\n- alpha\n  - beta\n- delta\n";
+    let (e, cx) = open_named(text, "n.md", || None, cx);
+    cx.dispatch_action(kalem_ui::editor::RunCommand::with(
+        "view.narrowToLines",
+        serde_json::json!({"start": 2, "end": 3, "label": "Notes › alpha"}),
+    ));
+    e.update(cx, |_, cx| cx.notify());
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("narrowed-label").is_some(),
+        "the label drawn"
+    );
+    cx.dispatch_action(kalem_ui::editor::RunCommand::new("view.widen"));
+    e.update(cx, |_, cx| cx.notify());
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("narrowed-label").is_none(),
+        "gone once widened"
+    );
+}
+
 /// An editor with the Vim profile.
 fn open_vim<'a>(
     text: &str,

@@ -332,6 +332,10 @@ pub struct DocumentState {
     /// the views show only it, the cursor stays in it
     /// ([`DocumentState::confine`]), and Org's commands see only it.
     pub narrowing: Option<std::ops::Range<usize>>,
+    /// What the narrowed part is called, shown above it, when the command
+    /// that narrowed it named it (a plugin's breadcrumb of the block it
+    /// zoomed into: the page and the blocks above).
+    pub narrowing_label: Option<String>,
     /// The line under a line a layer draws being typed into, if any (API
     /// 0.2.15, [`crate::row_edit`]).
     pub row_edit: Option<crate::row_edit::RowEdit>,
@@ -616,6 +620,7 @@ impl DocumentState {
             endings: Default::default(),
             meta,
             narrowing: None,
+            narrowing_label: None,
             row_edit: None,
             marks: Default::default(),
             disk: None,
@@ -1196,8 +1201,16 @@ impl DocumentState {
         } else {
             text.len()
         };
+        self.narrowing_label = None;
         self.narrowing = Some(text.line_start(first)..end);
         self.confine();
+    }
+
+    /// What the narrowed part is called, while the document is narrowed
+    /// and the command that narrowed it named it.
+    pub fn narrowed_label(&self) -> Option<&str> {
+        self.narrowing.as_ref()?;
+        self.narrowing_label.as_deref()
     }
 
     /// Where the cursor may be: in a narrowed document its part, up to the

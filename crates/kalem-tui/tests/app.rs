@@ -1314,6 +1314,27 @@ fn a_markdown_note_narrowed_to_lines() {
 }
 
 #[test]
+fn a_narrowed_part_named_above_it() {
+    // A plugin's breadcrumb of the block it zoomed into: on the first
+    // row, the part's text under it; gone once widened.
+    let text = "# Notes\n- alpha\n  - beta\n- delta\n";
+    let mut t = with_file(text, "n.md", Config::default(), (60, 10));
+    t.app.run_command(
+        "view.narrowToLines",
+        serde_json::json!({"start": 2, "end": 3, "label": "Notes › alpha"}),
+    );
+    let label = (0..3).position(|y| t.row(y).contains("Notes › alpha"));
+    let alpha = (0..6).position(|y| t.row(y).contains("alpha") && !t.row(y).contains("›"));
+    assert!(
+        matches!((label, alpha), (Some(l), Some(a)) if l < a),
+        "{:?}",
+        (0..6).map(|y| t.row(y)).collect::<Vec<_>>()
+    );
+    t.app.run_command("view.widen", serde_json::json!({}));
+    assert!(!(0..6).any(|y| t.row(y).contains("Notes › alpha")));
+}
+
+#[test]
 fn document_modes() {
     let dir = std::env::temp_dir().join(format!("kalem-tui-modes-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);

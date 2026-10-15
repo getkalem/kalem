@@ -5058,6 +5058,13 @@ impl gpui::Render for Editor {
                 (l.gutter, widths, current)
             });
         let bar_height = px(theme.size * 1.6);
+        // What the narrowed part is called (a plugin's breadcrumb of the
+        // block it zoomed into), on a line above the text.
+        let narrowed = self
+            .doc
+            .narrowed_label()
+            .map(|l| SharedString::from(l.to_string()));
+        let muted = theme.muted;
         let numbers = self.line_numbers();
         let digits = self.doc.text().line_count().to_string().len();
         let marks = self.doc.has_gutter();
@@ -5125,6 +5132,8 @@ impl gpui::Render for Editor {
             // at the top, its row numbers at the left edge.
             let (top, left) = if sheet.is_some() {
                 (bar_height, px(0.))
+            } else if narrowed.is_some() {
+                (bar_height + px(8.), px(48.))
             } else {
                 (px(16.), px(48.))
             };
@@ -5295,6 +5304,24 @@ impl gpui::Render for Editor {
                                 .children(edges),
                         )
                         .children(frozen_letters),
+                );
+            }
+            if let Some(label) = narrowed.clone() {
+                text = text.child(
+                    div()
+                        .debug_selector(|| "narrowed-label".into())
+                        .absolute()
+                        .top(px(8.))
+                        .left(left + gutter)
+                        .right(px(48.))
+                        .h(bar_height)
+                        .overflow_hidden()
+                        .whitespace_nowrap()
+                        .text_ellipsis()
+                        .text_size(size)
+                        .italic()
+                        .text_color(muted)
+                        .child(label),
                 );
             }
             if let Some(w) = column {
