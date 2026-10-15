@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.38] - 2026-10-15
+
 ### Fixed
 - A project written into `projects.toml` by hand through a link (macOS's `/tmp`, a link to a synced folder) holds its files: Kalem compared their real paths with the link's, so the project's last file and listing and the changes other programs make in its folder (a Logseq graph's, which the graph plugin follows) were never seen. The list takes the folder the link leads to, under the name written.
 - In the terminal, a Markdown heading in a list item or a quote (`- ## Notes`, as Logseq writes a heading block, or `> ## Quoted`) shows its bullet or `>` first and its text in the heading's look, as the window draws it, where the level's mark came before the bullet (`○ - Notes`).
