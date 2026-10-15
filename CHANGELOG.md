@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.29] - 2026-10-15
+
 ### Added
 - Narrow to Lines (`view.narrowToLines`) takes a `label` too, what the part is called, shown on a line above it in both editors while it is narrowed: the graph plugin's Zoom into Block names the page and the blocks above the block, as Logseq's breadcrumb does.
 
