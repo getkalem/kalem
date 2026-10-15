@@ -1786,11 +1786,16 @@ fn outcome(
                     let title = x["title"].as_str()?.to_string();
                     let kind = x["kind"].as_str().unwrap_or("").to_string();
                     let id = keep_offer(a.client.clone(), a.path.clone(), x);
-                    Some(choice(
+                    let mut item = choice(
                         crate::palette::invocation("code.runAction", &json!({ "id": id })),
                         title,
-                        kind,
-                    ))
+                        String::new(),
+                    );
+                    // The action's kind (`quickfix`, `refactor.rewrite`) is
+                    // said of it alone: after its title, dimmed at the right,
+                    // not before it as a category.
+                    item.detail = kind;
+                    Some(item)
                 })
                 .collect();
             if items.is_empty() {

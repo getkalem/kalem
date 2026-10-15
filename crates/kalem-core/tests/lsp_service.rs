@@ -661,6 +661,9 @@ fn main() {
     };
     let titles: Vec<&str> = items.iter().map(|i| i.title.as_str()).collect();
     assert_eq!(titles, ["Mark the start", "Run a command"]);
+    // The kind is the item's detail, not a category before its title.
+    assert_eq!(items[0].label(), "Mark the start");
+    assert_eq!(items[0].detail, "quickfix");
     lsp::run_offer(take_id(&items[0])).unwrap();
     for expect in ["@", "#"] {
         if expect == "#" {
