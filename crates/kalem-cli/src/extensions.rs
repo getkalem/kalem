@@ -6,7 +6,11 @@
 //! when it starts (`activation`): `onStartup`, `onEvent:NAME` for the
 //! first event of that name (`onEvent:document:open`), or `onFile` for
 //! the first file opened that the plugin serves, as it declares it
-//! ([`kalem_core::applies`], what the index says of it too). With none,
+//! ([`kalem_core::applies`], what the index says of it too), or
+//! `onOpen:GLOB` for the first file opened whose name GLOB matches (`*`
+//! any characters, `?` one, letters in any case: `onOpen:*.csv`), one it
+//! works with without serving it (a bank statement beside a journal).
+//! With none,
 //! a plugin that declares files it serves starts with the first of them,
 //! any other with Kalem.
 //! It is known by the last part of its ID (`org.kalem.wordcount` is
@@ -1296,6 +1300,9 @@ impl kalem_core::extensions::Extensions for Plugins {
                             p.as_deref()
                                 .is_some_and(|p| n.applies.serves_file(p).is_some())
                         }))
+                    || open
+                        .iter()
+                        .any(|(_, p)| p.as_deref().is_some_and(|p| opens(a, p)))
             });
             self.list.push(n);
             if starts {
@@ -1496,7 +1503,8 @@ impl kalem_core::extensions::Extensions for Plugins {
                 l.activation.iter().any(|a| a == "onFile")
                     && opened.is_some_and(|p| l.applies.serves_file(p).is_some())
             };
-            if l.activation.contains(&waiting) || serves() {
+            let named = || opened.is_some_and(|p| l.activation.iter().any(|a| opens(a, p)));
+            if l.activation.contains(&waiting) || serves() || named() {
                 self.activate(i);
             }
         }
@@ -1961,8 +1969,56 @@ pub(crate) fn check() -> Vec<(String, String, Result<(), String>)> {
         .collect()
 }
 
+/// Whether activation `a`, `onOpen:GLOB`, asks to start for the file at
+/// `path`: GLOB matched against its name, `*` any characters and `?` one,
+/// letters in any case (`onOpen:*.csv`, `onOpen:*.rules`).
+fn opens(a: &str, path: &std::path::Path) -> bool {
+    let Some(glob) = a.strip_prefix("onOpen:") else {
+        return false;
+    };
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+        return false;
+    };
+    let p: Vec<char> = glob.to_lowercase().chars().collect();
+    let s: Vec<char> = name.to_lowercase().chars().collect();
+    // The last `*` met and where in the name it took up to, to take one
+    // more when what follows it fails.
+    let (mut i, mut j, mut star) = (0, 0, None);
+    while j < s.len() {
+        if i < p.len() && (p[i] == '?' || p[i] == s[j]) {
+            i += 1;
+            j += 1;
+        } else if i < p.len() && p[i] == '*' {
+            star = Some((i, j));
+            i += 1;
+        } else if let Some((at, from)) = star {
+            i = at + 1;
+            j = from + 1;
+            star = Some((at, from + 1));
+        } else {
+            return false;
+        }
+    }
+    p[i..].iter().all(|&c| c == '*')
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn on_open_globs() {
+        let opens = |a: &str, p: &str| super::opens(a, std::path::Path::new(p));
+        assert!(opens("onOpen:*.csv", "/b/statement-2026-01.csv"));
+        assert!(opens("onOpen:*.csv", "/b/Statement.CSV"));
+        assert!(!opens("onOpen:*.csv", "/b/statement.csv.rules"));
+        assert!(opens("onOpen:*.rules", "/b/statement.csv.rules"));
+        assert!(opens("onOpen:statement-??.txt", "/b/statement-01.txt"));
+        assert!(!opens("onOpen:statement-??.txt", "/b/statement-1.txt"));
+        assert!(opens("onOpen:*", "/b/x"));
+        assert!(opens("onOpen:a*b*c", "/b/axxbyyc"));
+        assert!(!opens("onOpen:a*b*c", "/b/axxbyy"));
+        assert!(!opens("onFile", "/b/x.csv"));
+    }
+
     #[test]
     fn a_manifests_menus_hold_the_plugins_own_commands() {
         let m: serde_json::Value = serde_json::from_str(

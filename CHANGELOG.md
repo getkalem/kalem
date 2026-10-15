@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- A plugin may start with the first file opened whose name a pattern matches, one it works with without serving it: `"activation": ["onFile", "onOpen:*.csv"]` (`*` any characters, `?` one, letters in any case), so that a plugin need not start with every document to find the few it works with.
 - The settings panel says Kalem's version beside its title, in both editors.
 - Plugins outline files: an extension plugin declares its outlines in its manifest by the text types they read (`"outlines": [{"id": "journal", "types": ["hledger"]}]`) and exports `outline` (plugin API 0.2.18, `kalem-plugin`'s feature `outline`). The outline sidebar of both editors lists the headings it gives, each a level, a title and a place, for a file of those types where the document's mode and a language pack give none; it is asked once a version of the text, and a plugin busy with another call leaves the outline it gave last. The plain text accounting plugin outlines a journal with it.
 

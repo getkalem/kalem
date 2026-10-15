@@ -654,8 +654,12 @@ no files. =kalem plugin install DIR= installs one whose component is
 built, and at start a thread loads each (compiled once and cached, as
 a viewer is) and activates it when its manifest's =activation= says:
 =onStartup=, =onEvent:NAME= at the first event of that name
-(=onEvent:document:open=), or =onFile= at the first file opened that it
-serves (see [[*When a plugin serves a file]]). With none, a plugin that
+(=onEvent:document:open=), =onFile= at the first file opened that it
+serves (see [[*When a plugin serves a file]]), or =onOpen:GLOB= at the
+first file opened whose name =GLOB= matches (=*= any characters, =?=
+one, letters in any case): =["onFile", "onOpen:*.csv"]= starts the plain
+text accounting plugin with a journal or a bank statement, a file it
+works with without serving it. With none, a plugin that
 declares files it serves starts with the first of them, any other with
 Kalem. A plugin is known by its ID's last part,
 =org.kalem.wordcount= as =wordcount=, and its commands are
