@@ -37,7 +37,7 @@ pub use bindings::kalem::plugin::kalem as api;
 pub use bindings::kalem::plugin::ui;
 pub use bindings::kalem::plugin::{
     canvas_view, clock, clock_2, decorations, diagnostics, documents, editor, fs, fs_2, graph_view,
-    http, layers, net, problems, process, settings, styled_documents,
+    http, layers, net, problems, process, settings, state, styled_documents,
 };
 
 /// An edit a plugin asked for, applied when its command returns, its
@@ -476,6 +476,21 @@ pub trait Editor: Send + 'static {
         _text: String,
     ) -> Result<(), String> {
         Err("This editor draws no canvases".into())
+    }
+
+    /// The value plugin `plugin` keeps under `key` (`state`, API 0.2.17).
+    fn state_get(&mut self, _plugin: &str, _key: &str) -> Option<String> {
+        None
+    }
+
+    /// Keeps `value` under `key` for plugin `plugin`, or forgets it.
+    fn state_set(&mut self, _plugin: &str, _key: &str, _value: Option<&str>) -> Result<(), String> {
+        Err("This editor keeps no plugin state".into())
+    }
+
+    /// The keys plugin `plugin` keeps values under.
+    fn state_keys(&mut self, _plugin: &str) -> Vec<String> {
+        Vec::new()
     }
 
     /// Plugin `plugin` marks the lines of the file at `path` (lines from
@@ -986,6 +1001,23 @@ impl documents::Host for Session {
     fn close(&mut self, doc: u64) {
         let plugin = self.plugin.clone();
         self.editor.close_document(&plugin, doc);
+    }
+}
+
+impl state::Host for Session {
+    fn get(&mut self, key: String) -> Option<String> {
+        let plugin = self.plugin.clone();
+        self.editor.state_get(&plugin, &key)
+    }
+
+    fn set(&mut self, key: String, value: Option<String>) -> Result<(), String> {
+        let plugin = self.plugin.clone();
+        self.editor.state_set(&plugin, &key, value.as_deref())
+    }
+
+    fn keys(&mut self) -> Vec<String> {
+        let plugin = self.plugin.clone();
+        self.editor.state_keys(&plugin)
     }
 }
 
@@ -1651,6 +1683,11 @@ impl Extension {
             &mut linker,
             |d: &mut crate::Data<Session>| &mut d.user,
         )
+        .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
+        // What plugins keep between sessions (API 0.2.17), each its own.
+        state::add_to_linker::<_, HasSelf<Session>>(&mut linker, |d: &mut crate::Data<Session>| {
+            &mut d.user
+        })
         .map_err(|e| crate::Error::Invalid(format!("{e:#}")))?;
         // Documents drawn as canvases (API 0.2.16), as documents are.
         canvas_view::add_to_linker::<_, HasSelf<Session>>(

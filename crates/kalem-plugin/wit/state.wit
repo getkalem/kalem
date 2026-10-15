@@ -1,0 +1,19 @@
+package kalem:plugin@0.2.17;
+
+/// What a plugin keeps between sessions (API 0.2.17): small values by
+/// key, the plugin's alone, in Kalem's state folder: the pages opened
+/// last, a view's toggles, a review under way. Not settings, which the
+/// user sets (`settings`), nor the user's files (`fs`); no permission is
+/// needed. A value is kept on disk at once.
+interface state {
+    /// The value kept under `key`, if any.
+    get: func(key: string) -> option<string>;
+
+    /// Keeps `value` under `key`, or forgets it (none). An error for an
+    /// empty key or one longer than 256 bytes, or past 1 MB of keys and
+    /// values in all.
+    set: func(key: string, value: option<string>) -> result<_, string>;
+
+    /// The keys values are kept under, in order.
+    keys: func() -> list<string>;
+}

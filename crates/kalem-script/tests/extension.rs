@@ -52,6 +52,8 @@ struct State {
     problems: BTreeMap<std::path::PathBuf, (String, Vec<Problem>)>,
     /// The plugins that said their layers changed.
     refreshed: Vec<String>,
+    /// What plugins keep between sessions, by plugin and key.
+    kept: BTreeMap<(String, String), String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -73,6 +75,30 @@ impl Editor for Fake {
 
     fn remove_command(&mut self, id: &str) {
         self.0.lock().unwrap().commands.remove(id);
+    }
+
+    fn state_get(&mut self, plugin: &str, key: &str) -> Option<String> {
+        let s = self.0.lock().unwrap();
+        s.kept.get(&(plugin.to_string(), key.to_string())).cloned()
+    }
+
+    fn state_set(&mut self, plugin: &str, key: &str, value: Option<&str>) -> Result<(), String> {
+        let mut s = self.0.lock().unwrap();
+        let k = (plugin.to_string(), key.to_string());
+        match value {
+            Some(v) => s.kept.insert(k, v.to_string()),
+            None => s.kept.remove(&k),
+        };
+        Ok(())
+    }
+
+    fn state_keys(&mut self, plugin: &str) -> Vec<String> {
+        let s = self.0.lock().unwrap();
+        s.kept
+            .keys()
+            .filter(|(p, _)| p == plugin)
+            .map(|(_, k)| k.clone())
+            .collect()
     }
 
     fn refresh_layers(&mut self, plugin: &str) {
@@ -1314,6 +1340,20 @@ fn a_layer_and_the_clock() {
         "{answer}"
     );
     assert_eq!(fake.0.lock().unwrap().refreshed, ["layered"]);
+    // What it keeps between sessions (API 0.2.17): its own, by key.
+    assert_eq!(answer["visits"], 1, "{answer}");
+    let again: serde_json::Value =
+        serde_json::from_str(&ext.run_command("layered.now", "null").unwrap().unwrap()).unwrap();
+    assert_eq!(again["visits"], 2, "{again}");
+    assert_eq!(
+        fake.0
+            .lock()
+            .unwrap()
+            .kept
+            .get(&("layered".into(), "visits".into()))
+            .map(String::as_str),
+        Some("2")
+    );
     // A plugin built without the feature exports no layer.
     if let Some((mut counter, _)) = counter(Limits::default()) {
         assert!(!counter.has_layers());

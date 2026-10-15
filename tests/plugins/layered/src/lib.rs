@@ -23,12 +23,19 @@ impl Plugin for Layered {
             kalem_plugin::layer::refresh();
             let random = kalem_plugin::clock::random();
             let now = kalem_plugin::clock::now();
+            // What it keeps between sessions (API 0.2.17): its visits.
+            let visits = kalem_plugin::state::get("visits")
+                .and_then(|v| v.parse::<u64>().ok())
+                .unwrap_or(0)
+                + 1;
+            kalem_plugin::state::set("visits", Some(&visits.to_string()))?;
             Ok(format!(
-                "{{\"now\":{},\"zone\":\"{}\",\"random\":{},\"offset\":{}}}",
+                "{{\"now\":{},\"zone\":\"{}\",\"random\":{},\"offset\":{},\"visits\":{}}}",
                 now,
                 kalem_plugin::clock::timezone(),
                 u64::from(random != 0),
-                kalem_plugin::clock::offset(now)
+                kalem_plugin::clock::offset(now),
+                visits
             ))
         })?;
         Ok(())

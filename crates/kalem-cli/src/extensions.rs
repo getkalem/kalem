@@ -337,6 +337,18 @@ impl Editor for Bridge {
         kalem_core::extensions::set_canvas(plugin, doc, core_canvas(c), text)
     }
 
+    fn state_get(&mut self, plugin: &str, key: &str) -> Option<String> {
+        kalem_core::plugin_state::get(plugin, key)
+    }
+
+    fn state_set(&mut self, plugin: &str, key: &str, value: Option<&str>) -> Result<(), String> {
+        kalem_core::plugin_state::set(plugin, key, value)
+    }
+
+    fn state_keys(&mut self, plugin: &str) -> Vec<String> {
+        kalem_core::plugin_state::keys(plugin)
+    }
+
     fn set_gutter(
         &mut self,
         plugin: &str,

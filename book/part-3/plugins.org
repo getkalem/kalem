@@ -59,8 +59,8 @@ the same files (wasmtime). It holds eight worlds, three kinds:
 - =extension=: a plugin that adds to the editor rather than opening
   files. It imports =kalem=, =editor=, =ui=, =settings=, =diagnostics=,
   =clock= and =clock-2=, =layers=, =documents=, =styled-documents=,
-  =decorations=, =problems=, =graph-view=, =canvas-view=, and =fs= (with
-  =fs-2=), =net= and
+  =decorations=, =problems=, =graph-view=, =canvas-view=, =state=, and
+  =fs= (with =fs-2=), =net= and
   =process= when its permissions grant them, and exports =plugin=
   (below). =extension-layer=, =extension-completer=,
   =extension-layer-2=, =extension-layer-3= and =extension-formatter=
@@ -403,7 +403,7 @@ account's.
 * Versions of the plugin API
 
 The plugin API is the WIT package =kalem:plugin=
-(=crates/kalem-plugin/wit=), version 0.2.16; a component's manifest
+(=crates/kalem-plugin/wit=), version 0.2.17; a component's manifest
 names the version it was built against (="api": "^0.2.1"=), and Kalem
 tries it when its own API is of the same 0.MINOR and no earlier. A
 component built against a later version is not installed, and one
@@ -540,6 +540,10 @@ updated itself. The rules, so that a plugin built once keeps working:
   Document asks (below). The host binds =formatter= when a component
   exports it, as =completer=. =layer-3.wit= of 0.2.15 is frozen
   (=wit-frozen/0.2.15=).
+- 0.2.17 added, for extension plugins, the import =state=: what a
+  plugin keeps between sessions, small values by key in Kalem's state
+  folder, its own (below). =canvas-view.wit= and =formatter.wit= of
+  0.2.16 are frozen (=wit-frozen/0.2.16=).
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 - An addition is general, or it waits. It names what several plugins
@@ -1064,6 +1068,21 @@ let c = Canvas {
     command: "notes.openShape".into(),
 };
 canvas_view::open(&Spec::new("notes.board", "", "Board", "notes-board"), &c, "A page\n")?;
+#+end_src
+
+A plugin keeps what it needs between sessions with =state= (API
+0.2.17): values by key, its own, in =plugin-state/ID.json= of Kalem's
+state folder (=$KALEM_STATE_DIR=, else =kalem= in =$XDG_STATE_HOME= or
+=~/.local/state=), written at once. Keys are at most 256 bytes, a
+plugin's keys and values 1 MB in all; no permission is needed. It is
+for what the plugin learns as it is used (the pages opened last, a
+view's toggles, a review under way), not for settings, which the user
+sets, nor for the user's files. The graph plugin keeps its pages opened
+last and each graph's view toggles and sort.
+
+#+begin_src rust
+kalem_plugin::state::set("recent", Some("[\"/notes/a.md\"]"))?;
+let recent = kalem_plugin::state::get("recent");
 #+end_src
 
 The first plugins planned:

@@ -335,7 +335,9 @@ Writers (Org and Markdown)
   its Zoom into a block in Markdown notes; lines under lines typed into
   (plugin API 0.2.15, `layer-3`, 2026-10-14, the plugin's K21) its
   embedded blocks edited in place; canvases (plugin API 0.2.16,
-  `canvas-view`, the plugin's K22) its whiteboards drawn. M
+  `canvas-view`, the plugin's K22) its whiteboards drawn; a plugin's
+  state kept between sessions (API 0.2.17, `state`, K23) its pages
+  opened last. M
 - [ ] R5.6 Babel (T3.4.1–T3.4.9): header arguments, executors for shell,
   Python, R and gnuplot behind the plugin host's trust model, results
   blocks, tangling. L (after the plugin permissions, R5.11)

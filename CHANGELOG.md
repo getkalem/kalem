@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- Plugin API 0.2.17, the import `state`: what a plugin keeps between sessions, small values by key in `plugin-state/ID.json` of Kalem's state folder, its own and written at once (keys of at most 256 bytes, 1 MB in all, no permission needed). For the graph plugin's pages opened last and each graph's view toggles and sort, kept from one session to the next.
+
 ### Fixed
 - A language server that cancels a request for diagnostics or inlay hints and then says nothing, as rust-analyzer does while it loads a project, is asked again after 300 ms: the diagnostics or hints stayed missing until the server next spoke.
 - Closing a document no longer takes its file's problems off the project's list while the language server still holds them: what a server pushed stays until the server clears it, as for the project's files that are not open.
