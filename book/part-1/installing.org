@@ -18,10 +18,18 @@ ARM, and Windows on x86-64, are on the
 has terminal-only archives, =kalem-terminal-TARGET=: the terminal editor
 and the command-line tools without the graphical editor, its plugin host
 kept, so that installed plugins and viewers run there too. On Linux the
-full binary
-links the windowing libraries (xkbcommon, Wayland, X11, fontconfig,
-freetype, Vulkan) even for =kalem tui=, so a server should take the
-terminal archive; both need glibc 2.35 or later (Ubuntu 22.04).
+full binary needs three libraries of the window system to start, even
+for =kalem tui=: =libxcb1 libxkbcommon0 libxkbcommon-x11-0= on Debian
+and Ubuntu, =libxcb libxkbcommon libxkbcommon-x11= on Fedora. A desktop
+has them; a server or a container mostly does not, and Kalem then stops
+at once with "error while loading shared libraries: libxkbcommon.so.0".
+Install them there, or take the terminal archive, which needs none:
+
+#+begin_src sh
+sudo apt install libxcb1 libxkbcommon0 libxkbcommon-x11-0
+#+end_src
+
+Both need glibc 2.35 or later (Ubuntu 22.04).
 
 Or build it from source with Rust 1.96 or later:
 
