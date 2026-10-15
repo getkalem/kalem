@@ -159,9 +159,13 @@ where noted here.
   =n / (42 a)=), but deeper algebra (the variance of a column with text,
   expanded) may be written differently.
 - Complex numbers in polar form (=(2; 30)=), the trigonometric and
-  hyperbolic functions of complex numbers, factorials of fractions (the
-  gamma function), sines of very large arguments, and radix, HMS and error
-  forms (=16#FF=, =2@ 30' 0"=, =3 +/- 0.1=) are left as formulas.
+  hyperbolic functions of complex numbers, sines of very large arguments,
+  and radix, HMS and error forms (=16#FF=, =2@ 30' 0"=, =3 +/- 0.1=) are
+  left as formulas.
+- Factorials and binomial coefficients of numbers that are not integers
+  (the gamma function) follow Calc, but for its last digit where its 15
+  digits fall short: on very large arguments (=fact(200000.)=) or a hair
+  from a negative integer, Kalem's last digit is the exact value's.
   Complex numbers in rectangular form (=sqrt(-4)= is =(0, 2)=) follow
   Calc.
 - Formulas over text fields with modulo forms (=(x - 4) mod 3=) follow

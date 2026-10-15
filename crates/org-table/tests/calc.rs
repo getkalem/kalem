@@ -2,8 +2,8 @@
 //! `tools/calc-cases.py` with Org's Calc modes).
 //!
 //! The formulas are random and many are far from what tables compute:
-//! symbolic statistics, complex numbers, factorials of fractions, sines
-//! of twenty-digit numbers. Those differences are known
+//! symbolic statistics, complex numbers, sines of twenty-digit numbers,
+//! factorials past Calc's digits. Those differences are known
 //! (`book/part-2/org-known-differences.org`); the count may only go down.
 
 #![allow(clippy::print_stderr)]
@@ -11,7 +11,7 @@
 use org_table::calc;
 
 /// Differences known in `calc-cases.txt`.
-const KNOWN: usize = 172;
+const KNOWN: usize = 119;
 
 #[test]
 fn agrees_with_emacs() {

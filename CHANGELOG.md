@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - A table formula's Calc power of a formula is worked out as Emacs does: `(-x)^2` is `x^2`, `(-x - 1)^3` is `-(1 + x)^3`, `(a b)^2` is `a^2 b^2`, `(x / -2)^2` is `x^2 / 4` and `(x^2)^3` is `x^6`, where they stayed as they were (a variance over a column with a word in it showed `(-15 - a / 5 - 1.032)^2`). What Calc knows of a formula's sign and type decides, as in Emacs: `abs(floor(x))^2` is `floor(x)^2`, but `abs(x)^2` stays, `x` being perhaps complex. Zero to a power known positive is zero, an infinity over zero `uinf`, and a power with a step Calc refuses stays whole, `(3 b)^d` for a date `d`. Of 3,000 random formulas compared with Emacs, 20 more agree; of 100,000 with dates, modulo forms and infinities, 419 more.
+- A table formula's Calc factorial and binomial coefficient of a number that is not an integer are worked out by the gamma function, as Emacs does: `fact(0.5)` is 0.88622693, `choose(6, 2.5)` 18.625676 and `gamma(2.5)` 1.3293404, where they stayed formulas. A negative integer's binomial coefficients follow Calc's extension (`choose(-3, 2)` is 6, it was 0), and `fact(inf)` is `inf`. Of 3,000 random formulas compared with Emacs, 53 more agree; most of the factorials still apart are Calc's own last digit, short of its 15 digits on large arguments (200000! is 1.4202253e973350, where Emacs says 1.4202254e973350).
 
 ## [0.6.28] - 2026-10-15
 

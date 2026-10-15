@@ -7,6 +7,7 @@ pub mod date;
 pub mod eval;
 pub mod expr;
 mod funcs;
+mod gamma;
 pub mod num;
 pub mod parse;
 pub mod print;

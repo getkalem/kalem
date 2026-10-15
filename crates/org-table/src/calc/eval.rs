@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 
 use num_bigint::BigInt;
 use num_integer::Integer;
-use num_traits::{FromPrimitive, One, Signed, ToPrimitive, Zero};
+use num_traits::{FromPrimitive, One, ToPrimitive, Zero};
 
 use super::algebra::{
     self, Cmp, add, add_owned, compare, div, inf, infinity, is_constant, is_nan, is_vec, is_zero,
@@ -14,6 +14,7 @@ use super::algebra::{
 };
 use super::cplx;
 use super::expr::Expr;
+use super::gamma;
 use super::num::{self, Num, Prec, Reject};
 
 /// The modes of an evaluation.
@@ -561,47 +562,25 @@ pub(crate) fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
         ("arcsin", 1) => map1(f, args, env, false, |a, e| inverse_trig(a, e, Inverse::Sin)),
         ("arccos", 1) => map1(f, args, env, false, |a, e| inverse_trig(a, e, Inverse::Cos)),
         ("arctan", 1) => map1(f, args, env, false, |a, e| inverse_trig(a, e, Inverse::Tan)),
-        ("fact", 1) => match integer(&args[0]).and_then(|n| n.to_i64()) {
-            Some(k) if (0..=10_000).contains(&k) => {
-                let r = Num::Int((1..=k).fold(BigInt::one(), |acc, i| acc * i));
-                Expr::Num(if matches!(args[0], Expr::Num(Num::Float(..))) {
-                    r.to_float(&env.prec)
-                } else {
-                    r
-                })
-            }
+        // `calcFunc-fact`: of a number that is not an integer, by the gamma
+        // function.
+        ("fact", 1) => match &args[0] {
+            Expr::Var(v) if v == "inf" => args[0].clone(),
+            Expr::Num(x) => match gamma::fact(x, env) {
+                Some(r) => Expr::Num(r),
+                None => keep(f, args),
+            },
             _ => keep(f, args),
         },
-        ("choose", 2) => match (integer(&args[0]), integer(&args[1])) {
-            (Some(nn), Some(k)) => {
-                if k.is_negative() || k > nn {
-                    return Expr::int(0);
-                }
-                let r = {
-                    let (Some(nn), Some(k)) = (nn.to_i64(), k.to_i64()) else {
-                        return keep(f, args);
-                    };
-                    // `choose(n, k)` is `choose(n, n - k)`; beyond this the
-                    // product would not finish.
-                    let k = k.min(nn - k);
-                    if k > 100_000 {
-                        return keep(f, args);
-                    }
-                    let mut r = BigInt::one();
-                    for i in 0..k {
-                        r = r * (nn - i) / (i + 1);
-                    }
-                    r
-                };
-                let float = args.iter().any(|a| matches!(a, Expr::Num(Num::Float(..))));
-                Expr::Num(if float {
-                    Num::Int(r).to_float(&env.prec)
-                } else {
-                    Num::Int(r)
-                })
-            }
+        // `calcFunc-gamma`: `fact(x - 1)`.
+        ("gamma", 1) => match &args[0] {
+            Expr::Num(x) => match gamma::fact(&num::sub(x, &Num::int(1), &env.prec), env) {
+                Some(r) => Expr::Num(r),
+                None => keep(f, args),
+            },
             _ => keep(f, args),
         },
+        ("choose", 2) => gamma::choose(&args[0], &args[1], env).unwrap_or_else(|| keep(f, args)),
         ("gcd", 2) | ("lcm", 2) => {
             let [a, b]: [Expr; 2] = args.try_into().expect("two arguments");
             if f == "gcd" {
@@ -1102,7 +1081,7 @@ const LN10: &str = "2.302585092994045684017960784327646021358";
 
 /// `e^x` for any size of `x`: `10^n e^r` with `x = n ln 10 + r`, the
 /// reduction done in decimal so that large arguments keep their digits.
-fn exp(a: &Num, env: &Env) -> Option<Num> {
+pub(crate) fn exp(a: &Num, env: &Env) -> Option<Num> {
     let x = a.to_f64();
     if x.abs() < 700. {
         return real_fn(a, env, f64::exp);
