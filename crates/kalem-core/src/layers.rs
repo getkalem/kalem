@@ -85,6 +85,31 @@ pub struct LineSource {
     pub column: usize,
     /// The text, to the line's end.
     pub text: String,
+    /// The block of the file's outline the line starts, when the layer
+    /// gives it (API 0.2.18): Enter, Tab and Shift+Tab there change the
+    /// file's outline as they would in it.
+    pub outline: Option<Outline>,
+}
+
+/// The block of a file's outline a line under a line starts (API 0.2.18,
+/// [`crate::row_edit`]): Enter splits it at the cursor into a new block
+/// after it and the blocks under it, Tab indents it with them, Shift+Tab
+/// takes a step of indentation off them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Outline {
+    /// The line after the block's last, the blocks under it included,
+    /// from 0: where Enter puts a new block.
+    pub end: usize,
+    /// What a new block's line starts with: the block's indentation and
+    /// bullet (`\t- `).
+    pub bullet: String,
+    /// A step of indentation (`\t`, two spaces): put before each of the
+    /// block's lines by Tab, taken off them by Shift+Tab.
+    pub step: String,
+    /// Whether Tab may indent it (a block before it at its level).
+    pub indent: bool,
+    /// Whether Shift+Tab may take it out a step.
+    pub outdent: bool,
 }
 
 /// A line drawn under a line of the text and not part of it (API

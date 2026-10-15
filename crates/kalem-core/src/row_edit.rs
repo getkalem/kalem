@@ -7,10 +7,18 @@
 //! graph plugin's Logseq embeds), a task renamed in a query's results.
 //! Only files in Kalem's projects are written, and only where they still
 //! hold the text the layer saw.
+//!
+//! A line that starts a block of its file's outline (API 0.2.18,
+//! [`crate::layers::Outline`]) takes Enter, Tab and Shift+Tab as that
+//! outline would: Enter splits the block at the cursor into a new block
+//! after it and the blocks under it, Tab indents the block with them,
+//! Shift+Tab takes a step of indentation off them; the block is typed into
+//! on at its new place once the layer shows it ([`Resume`]). An embedded
+//! block's children added and moved in the note embedding it.
 
 use std::ops::Range;
 use std::path::Path;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use org_edit::{ChangeKind, Transaction};
 
@@ -49,6 +57,42 @@ pub struct WriteBack {
     pub source: LineSource,
     /// What.
     pub text: String,
+    /// What else changes in the file, by its outline (API 0.2.18).
+    pub change: Change,
+}
+
+/// What typing into a line under a line changes in its file besides the
+/// line's text, when the line starts a block of the file's outline (API
+/// 0.2.18, [`crate::layers::Outline`]).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum Change {
+    /// Nothing.
+    #[default]
+    None,
+    /// A new block after the block and the blocks under it, holding this
+    /// text (Enter: what followed the cursor).
+    Split(String),
+    /// The block and the lines under it a step in (Tab).
+    Indent,
+    /// The block and the lines under it a step out (Shift+Tab).
+    Outdent,
+}
+
+/// How long a block Enter made or Tab moved is waited for in its layer.
+const RESUME: Duration = Duration::from_secs(3);
+
+/// A line under a line to type into once its layer shows it (API 0.2.18):
+/// the block Enter made, or the one Tab or Shift+Tab moved, at its new
+/// place in its file, as it holds it now.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Resume {
+    path: std::path::PathBuf,
+    line: usize,
+    column: usize,
+    text: String,
+    /// The characters after the cursor.
+    back: usize,
+    until: Instant,
 }
 
 impl WriteBack {
@@ -85,15 +129,73 @@ impl WriteBack {
         crate::tr!("msg-row-changed", file = self.name())
     }
 
+    /// The replacements that write it into `text`, a file's, in order:
+    /// the line's text, then what its outline changes. None when the file
+    /// no longer holds the text there, or the block may not move so.
+    pub fn edits(&self, text: &str) -> Option<Vec<(Range<usize>, String)>> {
+        let r = self.range_in(text)?;
+        let mut out = vec![(r, self.text.clone())];
+        let Some(o) = self.source.outline.as_ref() else {
+            return Some(out);
+        };
+        let line = self.source.line;
+        // Where the file's lines start, and its line feed.
+        let starts: Vec<usize> = std::iter::once(0)
+            .chain(text.match_indices('\n').map(|(i, _)| i + 1))
+            .filter(|&i| i < text.len())
+            .collect();
+        let nl = if text.contains("\r\n") { "\r\n" } else { "\n" };
+        let end = o.end.min(starts.len()).max(line + 1);
+        let block = starts.get(line..end.min(starts.len())).unwrap_or(&[]);
+        match &self.change {
+            Change::None => {}
+            Change::Split(after) => {
+                let new = format!("{}{after}", o.bullet);
+                match starts.get(end) {
+                    Some(&at) => out.push((at..at, format!("{new}{nl}"))),
+                    None if text.is_empty() || text.ends_with('\n') => {
+                        out.push((text.len()..text.len(), format!("{new}{nl}")));
+                    }
+                    None => out.push((text.len()..text.len(), format!("{nl}{new}"))),
+                }
+            }
+            Change::Indent => {
+                for &at in block {
+                    out.push((at..at, o.step.clone()));
+                }
+            }
+            Change::Outdent => {
+                if o.step.is_empty() || !text[*block.first()?..].starts_with(&o.step) {
+                    return None;
+                }
+                for &at in block {
+                    if text[at..].starts_with(&o.step) {
+                        out.push((at..at + o.step.len(), String::new()));
+                    }
+                }
+            }
+        }
+        out.sort_by_key(|(r, _)| (r.start, !r.is_empty()));
+        // A plugin's outline that overlaps the line's text: not written.
+        if out.windows(2).any(|w| w[0].0.end > w[1].0.start) {
+            return None;
+        }
+        Some(out)
+    }
+
     /// Writes it into the file: read, checked, written.
     pub fn write_file(&self) -> Result<(), String> {
         let path = &self.source.path;
         let text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-        let r = self.range_in(&text).ok_or_else(|| self.changed())?;
-        let mut new = String::with_capacity(text.len() + self.text.len());
-        new.push_str(&text[..r.start]);
-        new.push_str(&self.text);
-        new.push_str(&text[r.end..]);
+        let edits = self.edits(&text).ok_or_else(|| self.changed())?;
+        let mut new = String::with_capacity(text.len() + self.text.len() + 16);
+        let mut at = 0;
+        for (r, t) in &edits {
+            new.push_str(&text[at..r.start]);
+            new.push_str(t);
+            at = r.end;
+        }
+        new.push_str(&text[at..]);
         crate::files::write(path, new.as_bytes(), crate::files::SaveOptions::default())
             .map(|_| ())
             .map_err(|e| e.to_string())
@@ -102,11 +204,13 @@ impl WriteBack {
     /// Writes it into `doc`, the file's open document, as a step of its
     /// own to undo.
     pub fn write_into(&self, doc: &mut DocumentState, now: Instant) -> Result<(), String> {
-        let r = self
-            .range_in(doc.text().as_str())
+        let edits = self
+            .edits(doc.text().as_str())
             .ok_or_else(|| self.changed())?;
         let mut tx = Transaction::new("Edit Line Under Line");
-        tx.edit(r, self.text.clone());
+        for (r, t) in edits {
+            tx.edit(r, t);
+        }
         doc.apply(&tx, ChangeKind::Command, now);
         Ok(())
     }
@@ -180,6 +284,7 @@ impl DocumentState {
         (keep && r.input != r.source.text).then_some(WriteBack {
             source: r.source,
             text: r.input,
+            change: Change::None,
         })
     }
 
@@ -201,6 +306,114 @@ impl DocumentState {
         }
         write
     }
+
+    /// Enter while a line under a line is typed into: what was typed
+    /// written; when the line starts a block of its file's outline, the
+    /// block split at the cursor into a new block after it and the blocks
+    /// under it, which is typed into next once the layer shows it.
+    pub fn row_edit_enter(&mut self) -> Option<WriteBack> {
+        let Some(o) = self.row_edit.as_ref()?.source.outline.clone() else {
+            return self.end_row_edit(true);
+        };
+        let r = self.row_edit.take()?;
+        let at = r.cursor();
+        let after = r.input[at..].to_string();
+        self.row_resume = Some(Resume {
+            path: r.source.path.clone(),
+            line: o.end.max(r.source.line + 1),
+            column: o.bullet.len(),
+            text: after.clone(),
+            back: after.chars().count(),
+            until: Instant::now() + RESUME,
+        });
+        Some(WriteBack {
+            text: r.input[..at].to_string(),
+            source: r.source,
+            change: Change::Split(after),
+        })
+    }
+
+    /// Tab (`out` false) or Shift+Tab while a line under a line is typed
+    /// into: when the line starts a block of its file's outline, the block
+    /// and the lines under it a step in or out with what was typed, typed
+    /// into on at its new place; nothing where it may not move so. A line
+    /// that starts no block goes on to the line after or before, as Down
+    /// and Up.
+    pub fn row_edit_tab(&mut self, out: bool) -> Option<WriteBack> {
+        let r = self.row_edit.as_ref()?;
+        let Some(o) = r.source.outline.clone() else {
+            return self.next_row_edit(!out);
+        };
+        let may = if out { o.outdent } else { o.indent };
+        let column = if out {
+            r.source.column.checked_sub(o.step.len())
+        } else {
+            Some(r.source.column + o.step.len())
+        };
+        let (true, Some(column)) = (may && !o.step.is_empty(), column) else {
+            return None;
+        };
+        let r = self.row_edit.take()?;
+        self.row_resume = Some(Resume {
+            path: r.source.path.clone(),
+            line: r.source.line,
+            column,
+            text: r.input.clone(),
+            back: r.back,
+            until: Instant::now() + RESUME,
+        });
+        Some(WriteBack {
+            source: r.source,
+            text: r.input,
+            change: if out { Change::Outdent } else { Change::Indent },
+        })
+    }
+
+    /// Whether a block Enter made or Tab moved is waited for in its layer
+    /// (the editors look again soon).
+    pub fn waiting_row_edit(&self) -> bool {
+        self.row_resume.is_some()
+    }
+
+    /// Types into the block Enter made or Tab moved once the layer shows
+    /// it where its file now holds it, the cursor where it was; given up
+    /// after some seconds. Whether it started.
+    pub fn resume_row_edit(&mut self) -> bool {
+        let Some(r) = self.row_resume.clone() else {
+            return false;
+        };
+        if self.row_edit.is_some() || Instant::now() > r.until {
+            self.row_resume = None;
+            return false;
+        }
+        let Some(o) = self.overlays() else {
+            return false;
+        };
+        let found = o.below.iter().find_map(|b| {
+            b.lines
+                .iter()
+                .position(|l| {
+                    l.source.as_ref().is_some_and(|s| {
+                        s.path == r.path
+                            && s.line == r.line
+                            && s.column == r.column
+                            && s.text == r.text
+                    })
+                })
+                .map(|row| (b.line, row))
+        });
+        let Some((line, row)) = found else {
+            return false;
+        };
+        self.row_resume = None;
+        if !self.start_row_edit(line, row) {
+            return false;
+        }
+        if let Some(e) = &mut self.row_edit {
+            e.back = r.back.min(e.input.chars().count());
+        }
+        true
+    }
 }
 
 #[cfg(test)]
@@ -213,6 +426,7 @@ mod tests {
             line,
             column,
             text: text.into(),
+            outline: None,
         }
     }
 
@@ -222,6 +436,7 @@ mod tests {
         let wb = WriteBack {
             source: source(1, 2, "TODO buy milk"),
             text: "DONE buy bread".into(),
+            change: Change::None,
         };
         assert_eq!(wb.range_in(file), Some(6..19));
         // Another text there, or no such line: not written.
@@ -259,5 +474,81 @@ mod tests {
         );
         assert!(wb.write_file().is_err());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn outlined(line: usize, column: usize, text: &str, end: usize, bullet: &str) -> LineSource {
+        LineSource {
+            outline: Some(crate::layers::Outline {
+                end,
+                bullet: bullet.into(),
+                step: "\t".into(),
+                indent: true,
+                outdent: true,
+            }),
+            ..source(line, column, text)
+        }
+    }
+
+    /// The file `text` as `wb` writes it.
+    fn written(wb: &WriteBack, text: &str) -> Option<String> {
+        let mut new = String::new();
+        let mut at = 0;
+        for (r, t) in wb.edits(text)? {
+            new.push_str(&text[at..r.start]);
+            new.push_str(&t);
+            at = r.end;
+        }
+        new.push_str(&text[at..]);
+        Some(new)
+    }
+
+    #[test]
+    fn a_block_split_indented_and_outdented_in_its_file() {
+        let file = "- one\n\t- child\n- two\n";
+        let wb = |source: LineSource, text: &str, change: Change| WriteBack {
+            source,
+            text: text.into(),
+            change,
+        };
+        // Enter in "one" after "on": "on" stays, a new block with "e"
+        // after the block and its child.
+        let split = wb(
+            outlined(0, 2, "one", 2, "- "),
+            "on",
+            Change::Split("e".into()),
+        );
+        assert_eq!(
+            written(&split, file).as_deref(),
+            Some("- on\n\t- child\n- e\n- two\n")
+        );
+        // At the file's end, with and without its last line feed; in
+        // its line feeds.
+        let last = wb(
+            outlined(2, 2, "two", 3, "- "),
+            "two",
+            Change::Split(String::new()),
+        );
+        assert_eq!(
+            written(&last, file).as_deref(),
+            Some("- one\n\t- child\n- two\n- \n")
+        );
+        assert_eq!(
+            written(&last, "- one\n\t- child\n- two").as_deref(),
+            Some("- one\n\t- child\n- two\n- ")
+        );
+        assert_eq!(
+            written(&split, "- one\r\n\t- child\r\n- two\r\n").as_deref(),
+            Some("- on\r\n\t- child\r\n- e\r\n- two\r\n")
+        );
+        // Tab: the block and its child a step in; Shift+Tab: out again.
+        let tab = wb(outlined(0, 2, "one", 2, "- "), "one", Change::Indent);
+        let indented = written(&tab, file).unwrap();
+        assert_eq!(indented, "\t- one\n\t\t- child\n- two\n");
+        let back = wb(outlined(0, 3, "one", 2, "\t- "), "one", Change::Outdent);
+        assert_eq!(written(&back, &indented).as_deref(), Some(file));
+        // A block with no step to take off, or a file changed: none.
+        let none = wb(outlined(0, 2, "one", 2, "- "), "one", Change::Outdent);
+        assert_eq!(written(&none, file), None);
+        assert_eq!(written(&tab, "- other\n"), None);
     }
 }

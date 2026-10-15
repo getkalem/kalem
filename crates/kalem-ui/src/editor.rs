@@ -3388,9 +3388,11 @@ impl Editor {
 
     /// A key while a layer's line under a line is typed into (API
     /// 0.2.15): Enter writes what was typed, Escape drops it, Up and Down
-    /// (and Tab) write it and go to the line before or after, the rest
-    /// edits it as a one-line input. Whether the key was taken: a
-    /// character is left to the input handler.
+    /// write it and go to the line before or after, the rest edits it as a
+    /// one-line input; a line that starts a block of its file's outline
+    /// (API 0.2.18) takes Enter, Tab and Shift+Tab as the outline would,
+    /// another Tab and Shift+Tab as Down and Up. Whether the key was
+    /// taken: a character is left to the input handler.
     fn row_edit_key(&mut self, k: &gpui::Keystroke, cx: &mut Context<'_, Self>) -> bool {
         use kalem_core::line_edit;
         let m = k.modifiers;
@@ -3400,10 +3402,10 @@ impl Editor {
                 self.doc.end_row_edit(false);
                 None
             }
-            "enter" => self.doc.end_row_edit(true),
+            "enter" => self.doc.row_edit_enter(),
             "up" => self.doc.next_row_edit(false),
             "down" => self.doc.next_row_edit(true),
-            "tab" => self.doc.next_row_edit(!m.shift),
+            "tab" => self.doc.row_edit_tab(m.shift),
             name => {
                 let key = if m.control && name.chars().count() == 1 {
                     name.chars().next().and_then(line_edit::from_control)
@@ -4032,6 +4034,12 @@ impl Editor {
             self.flow_version = version;
         }
         self.layer_changed(cx);
+        // The block Enter made or Tab moved, typed into on once its layer
+        // shows it.
+        if self.doc.resume_row_edit() {
+            self.after_change(cx);
+            self.row_edit_changed(cx);
+        }
         self.tick_palette(cx);
         // Language servers: the document in step, their answers shown.
         kalem_core::lsp::sync(&self.doc);

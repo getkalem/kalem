@@ -1845,8 +1845,10 @@ impl App {
 
     /// A key while a layer's line under a line is typed into (API
     /// 0.2.15): Enter writes what was typed, Escape drops it, Up and Down
-    /// (and Tab) write it and go to the line before or after, the rest
-    /// edits it as a one-line input.
+    /// write it and go to the line before or after, the rest edits it as a
+    /// one-line input. A line that starts a block of its file's outline
+    /// (API 0.2.18) takes Enter, Tab and Shift+Tab as the outline would;
+    /// another, Tab and Shift+Tab as Down and Up.
     fn row_edit_key(&mut self, k: &KeyEvent) {
         use kalem_core::line_edit;
         let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
@@ -1856,9 +1858,11 @@ impl App {
                 self.doc.end_row_edit(false);
                 None
             }
-            KeyCode::Enter => self.doc.end_row_edit(true),
-            KeyCode::Up | KeyCode::BackTab => self.doc.next_row_edit(false),
-            KeyCode::Down | KeyCode::Tab => self.doc.next_row_edit(true),
+            KeyCode::Enter => self.doc.row_edit_enter(),
+            KeyCode::Up => self.doc.next_row_edit(false),
+            KeyCode::Down => self.doc.next_row_edit(true),
+            KeyCode::Tab => self.doc.row_edit_tab(false),
+            KeyCode::BackTab => self.doc.row_edit_tab(true),
             KeyCode::Char(c) if ctrl => {
                 if let Some(key) = line_edit::from_control(c) {
                     self.doc.row_edit_key(key);
@@ -1888,6 +1892,9 @@ impl App {
         if let Some(wb) = write {
             self.write_back(wb);
         }
+        // The block Enter made or Tab moved, typed into on at once when
+        // its layer shows it already.
+        self.doc.resume_row_edit();
         self.dirty = true;
     }
 
@@ -5967,6 +5974,10 @@ impl App {
         if self.doc.poll() {
             self.dirty = true;
         }
+        // The block Enter made or Tab moved, once its layer shows it.
+        if self.doc.resume_row_edit() {
+            self.dirty = true;
+        }
         self.tick_palette();
         for b in self.docs.iter_mut().flatten() {
             b.doc.poll();
@@ -6029,6 +6040,10 @@ impl App {
             && !d.is_zero()
         {
             t = t.min(d);
+        }
+        // A block Enter made or Tab moved, waited for in its layer.
+        if self.doc.waiting_row_edit() {
+            t = t.min(Duration::from_millis(30));
         }
         if !self.jobs.is_empty() || self.doc.viewer.as_deref().is_some_and(|v| v.searching()) {
             t = t.min(Duration::from_millis(30));

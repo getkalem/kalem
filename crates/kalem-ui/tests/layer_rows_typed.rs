@@ -53,6 +53,7 @@ fn a_line_under_a_line_typed_into_writes_its_file(cx: &mut TestAppContext) {
                         line: 0,
                         column: 2,
                         text: first.to_string(),
+                        outline: None,
                     }),
                 }],
             }],

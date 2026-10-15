@@ -339,6 +339,9 @@ pub struct DocumentState {
     /// The line under a line a layer draws being typed into, if any (API
     /// 0.2.15, [`crate::row_edit`]).
     pub row_edit: Option<crate::row_edit::RowEdit>,
+    /// The line under a line to type into once its layer shows it: the
+    /// block Enter made or Tab moved (API 0.2.18).
+    pub row_resume: Option<crate::row_edit::Resume>,
     /// Positions that move with the text: Vim's marks, jump list and
     /// change list.
     pub marks: crate::marks::Marks,
@@ -622,6 +625,7 @@ impl DocumentState {
             narrowing: None,
             narrowing_label: None,
             row_edit: None,
+            row_resume: None,
             marks: Default::default(),
             disk: None,
             disk_text: None,

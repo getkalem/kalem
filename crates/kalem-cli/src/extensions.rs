@@ -1043,6 +1043,7 @@ fn overlays(set: x::layer_3::OverlaySet) -> kalem_core::layers::Overlays {
                             line: s.line as usize,
                             column: s.column as usize,
                             text: s.text,
+                            outline: None,
                         }),
                     })
                     .collect(),
