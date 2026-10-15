@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.35] - 2026-10-15
+
 ### Added
 - Babel runs source blocks as Emacs's Org does, its security as well, the owner's decision: *Execute Source Block* (Enter in Vim's Normal mode, `SPC c e`, `C-c C-c` in the Emacs keymap) runs the shell or Python block at the cursor beside the editor and writes its `#+RESULTS:` in the bytes Org 9.7 writes, compared block by block with Emacs's own output of the same file (`tests/babel_emacs.rs`): tables, `:` lines, example blocks, lists; `:results` `output` and `value`, `table`, `list`, `verbatim`, `raw`, `code`, `drawer`, `silent`, `none`, `append` and `prepend`; `:wrap`; `:var` with numbers, strings and the document's named tables, lists and examples; `:dir`; the `header-args` properties and `#+HEADER:` lines. Only the languages `babel.load_languages` names run (`shell`, `python`; none by default), each run asks yes or no first unless `babel.confirm_evaluate` is off, and a block's `:eval` refuses or asks as in Emacs; nothing runs when a file opens. A program's error output opens in `*Org-Babel Error Output*`; `babel.python_command` names the Python (`python` where installed, else `python3`).
 
