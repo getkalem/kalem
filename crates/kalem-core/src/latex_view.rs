@@ -6157,6 +6157,15 @@ pub fn note_at(doc: &crate::DocumentState, pos: usize) -> Option<String> {
             && latex_syntax::name(a)
                 .is_some_and(|n| n == "footnote" || (chip_command(&n) && n != "url" && n != "href"))
     })?;
+    // An argument not closed yet (`\cite{` as it is typed) runs on over the
+    // text after it, whose words are no keys: nothing to say of it.
+    if cmd
+        .children()
+        .find(|c| c.kind() == K::GROUP)
+        .is_some_and(|g| g.last_token().is_none_or(|t| t.kind() != K::R_BRACE))
+    {
+        return None;
+    }
     let name = latex_syntax::name(&cmd)?;
     let model = state.model();
     let (_, mands) = arguments(&cmd);
@@ -6338,14 +6347,45 @@ pub fn outline_items(doc: &crate::DocumentState) -> Option<Vec<crate::view::Outl
                 level: (s.level - top + 1).max(1) as usize,
                 todo: None,
                 title: match &s.number {
-                    Some(n) => format!("{n}\u{2003}{}", s.title),
-                    None => s.title.clone(),
+                    Some(n) => format!("{n}\u{2003}{}", outline_title(&s.title)),
+                    None => outline_title(&s.title),
                 },
                 start: s.range.start,
                 file: (s.file != 0).then(|| model.files[s.file].clone()),
             })
             .collect(),
     )
+}
+
+/// A section's title as the outline shows it: its formulas, `$...$` and
+/// `\(...\)`, as their Unicode approximation, as the view draws them in
+/// the heading (`Reggeon $\neq$ Glauber` is `Reggeon ≠ Glauber`).
+fn outline_title(title: &str) -> String {
+    let mut out = String::with_capacity(title.len());
+    let mut rest = title;
+    while let Some(i) = rest.find(['$', '\\']) {
+        out.push_str(&rest[..i]);
+        let r = &rest[i..];
+        if let Some(after) = r.strip_prefix("\\$") {
+            out.push('$');
+            rest = after;
+        } else if let Some(m) = r.strip_prefix("\\(")
+            && let Some(j) = m.find("\\)")
+        {
+            out.push_str(&crate::math::unicode(&format!("${}$", &m[..j])));
+            rest = &m[j + 2..];
+        } else if let Some(m) = r.strip_prefix('$')
+            && let Some(j) = m.find('$')
+        {
+            out.push_str(&crate::math::unicode(&r[..j + 2]));
+            rest = &m[j + 1..];
+        } else {
+            out.push_str(&r[..1]);
+            rest = &r[1..];
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 /// Whether the view renders command `name` (for the report of what a
@@ -10197,6 +10237,29 @@ mod tests {
         let items = outline_items(&d).unwrap();
         let v: Vec<(usize, &str)> = items.iter().map(|i| (i.level, i.title.as_str())).collect();
         assert_eq!(v, [(1, "1\u{2003}A"), (2, "1.1\u{2003}B"), (2, "C")]);
+        // Formulas as the heading draws them, an escaped dollar a dollar.
+        let d = doc("\\section{Reggeon $\\neq$ Glauber}\n\\section{In \\$ and \\(\\alpha\\)}\n");
+        let titles: Vec<String> = outline_items(&d)
+            .unwrap()
+            .into_iter()
+            .map(|i| i.title)
+            .collect();
+        assert_eq!(
+            titles,
+            ["1\u{2003}Reggeon ≠ Glauber", "2\u{2003}In $ and α"]
+        );
+    }
+
+    #[test]
+    fn nothing_noted_of_an_argument_not_closed() {
+        // `\cite{` as it is typed: its argument runs on over the text after
+        // it, whose words were said to be keys no bibliography has.
+        let text = "as in \\cite{\nThere are several motivations, first\n";
+        assert_eq!(note_at(&doc(text), text.find("cite").unwrap() + 2), None);
+        let text = "see \\ref{\nthe next part\n";
+        assert_eq!(note_at(&doc(text), text.find("ref").unwrap() + 1), None);
+        let text = "see \\ref{s}.\n";
+        assert!(note_at(&doc(text), text.find("ref").unwrap() + 1).is_some());
     }
 
     #[test]

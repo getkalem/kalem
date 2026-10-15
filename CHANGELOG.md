@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- While a LaTeX `\cite{` or `\ref{` is typed and not yet closed, the status bar no longer says that the words after it are keys no bibliography has (or labels the document lacks): the note waits for the closing brace.
+- A LaTeX section's formulas show in the outline as the heading draws them: `Reggeon $\neq$ Glauber` is `Reggeon ≠ Glauber` there too.
+
 ## [0.6.30] - 2026-10-15
 
 ### Added
