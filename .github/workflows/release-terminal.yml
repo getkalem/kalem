@@ -1,5 +1,7 @@
-# The terminal-only archives (docs/releasing.md): the `tui` feature alone,
-# without windowing or GPU libraries, for servers and minimal systems.
+# The terminal-only archives (docs/releasing.md): the `tui` feature and the
+# plugin host (`plugins`, the owner's decision of 2026-10-15: installed
+# plugins run there too), without windowing or GPU libraries, for servers
+# and minimal systems.
 # cargo-dist builds one configuration per package, so these are built
 # here: called by the release workflow once the release is announced
 # (`post-announce-jobs` in Cargo.toml), or by hand from the Actions tab
@@ -61,7 +63,7 @@ jobs:
         with:
           ref: ${{ env.TAG }}
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --profile dist --locked -p kalem-editor --no-default-features --features tui
+      - run: cargo build --profile dist --locked -p kalem-editor --no-default-features --features tui,plugins
       - name: Archive and checksum
         shell: bash
         run: |

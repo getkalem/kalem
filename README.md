@@ -108,7 +108,7 @@ On Windows, in PowerShell:
 powershell -ExecutionPolicy Bypass -c "irm https://github.com/getkalem/kalem/releases/latest/download/kalem-editor-installer.ps1 | iex"
 ```
 
-The installers put `kalem` in `~/.cargo/bin`; delete it there to uninstall. The release also has terminal-only archives (`kalem-terminal-*`) for servers, without the graphical editor and the plugin host, so without viewers. The Book's [Installing](book/part-1/installing.org) has the details: glibc 2.35 or later on Linux, the unsigned `Kalem.app` on macOS, and the libraries a build from source needs.
+The installers put `kalem` in `~/.cargo/bin`; delete it there to uninstall. The release also has terminal-only archives (`kalem-terminal-*`) for servers, without the graphical editor; installed plugins and viewers run there too. The Book's [Installing](book/part-1/installing.org) has the details: glibc 2.35 or later on Linux, the unsigned `Kalem.app` on macOS, and the libraries a build from source needs.
 
 From source, with Rust 1.96 or later:
 
@@ -143,7 +143,7 @@ Settings live in `~/.config/kalem` on Linux and macOS (`$XDG_CONFIG_HOME/kalem` 
 
 - Markdown: export, printing and `kalem fmt` are for Org and LaTeX; TOML front matter (`+++`) and `$$` blocks over several lines show as text.
 - LaTeX: building a PDF needs TeX Live, MiKTeX or Tectonic installed; Kalem does not download one.
-- The terminal-only build has no viewers and no plugin host, and draws an SVG picture without its text.
+- The terminal-only build draws an SVG picture without its text.
 - Line endings and a byte order mark stay as the file has them; there is no command to change them yet.
 - An `.ods`, `.xls` or `.xlsb` workbook is converted to be edited, and a workbook with a password to open is saved as `.ods` without its encryption.
 

@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- The terminal-only archives (`kalem-terminal-*`) carry the plugin host, the owner's decision: installed plugins and viewers run in them, where a plugin installed there loaded its languages only, without a word, and its commands never came. The terminal binary grows by some 10 MiB (38.9 to 49.3 MiB on macOS), its size ceiling raised from 50 to 60 MiB.
+
 ## [0.6.31] - 2026-10-15
 
 ### Added

@@ -15,5 +15,9 @@
 # language servers' state, Enter by the server and structural search and
 # replace (getkalem/kalem#28): main measured 83.0 MiB, at the ceiling,
 # and the change went past it.
-terminal   50           15
+# Terminal raised from 50 to 60 on 2026-10-15 (the owner's decision): the
+# terminal-only release carries the plugin host (`tui,plugins`), +10.4 MiB
+# on macOS arm64 (38.9 to 49.3); on Linux x86-64 some 56 MiB from 0.6.29's
+# 45.1. Lower it to CI's measurement and a margin once measured.
+terminal   60           15
 full       83.5         40

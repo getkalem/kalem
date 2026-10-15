@@ -16,8 +16,9 @@ ARM, and Windows on x86-64, are on the
 [[https://github.com/getkalem/kalem/releases][releases page]] with a
 =.sha256= beside each); delete it there to uninstall. Each release also
 has terminal-only archives, =kalem-terminal-TARGET=: the terminal editor
-and the command-line tools without the graphical editor, the viewers of
-PDF files, pictures and workbooks, and plugins. On Linux the full binary
+and the command-line tools without the graphical editor, its plugin host
+kept, so that installed plugins and viewers run there too. On Linux the
+full binary
 links the windowing libraries (xkbcommon, Wayland, X11, fontconfig,
 freetype, Vulkan) even for =kalem tui=, so a server should take the
 terminal archive; both need glibc 2.35 or later (Ubuntu 22.04).
@@ -47,10 +48,11 @@ your =PATH= when Rust came with rustup.
 
 No release has a plugin built in: the viewers of PDF files, pictures
 and workbooks are installed the first time such a file is opened, or
-with =kalem plugin install=. The terminal-only build leaves out the
-graphical editor, and with it the plugin host, which weighs some 10 MB:
-files that are not text are refused, and installed plugins do not run.
-Name it to keep it (=plugins=; =components= builds the viewers in too,
+with =kalem plugin install=. A terminal-only build of your own leaves out
+the graphical editor, and with it the plugin host, which weighs some 10
+MB: files that are not text are refused, and installed plugins do not
+run; the terminal-only archives keep it. Name it to keep it (=plugins=;
+=components= builds the viewers in too,
 downloaded from the releases of getkalem/plugins, for a build of your
 own that must open them without installing):
 

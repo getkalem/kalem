@@ -14,7 +14,7 @@ release issue.
 ## Installing
 
 - [ ] On a clean machine of each platform (no Rust, no Kalem settings): the shell or PowerShell installer puts `kalem` in `~/.cargo/bin` and it runs; `kalem --version` says the release's version.
-- [ ] The terminal archive (`kalem-terminal-TARGET`) unpacks and runs on a server without a display or the windowing libraries (Linux); it refuses a PDF, a picture or a workbook as not text.
+- [ ] The terminal archive (`kalem-terminal-TARGET`) unpacks and runs on a server without a display or the windowing libraries (Linux); an installed extension plugin starts in it (the plain text accounting plugin's Check Journal, `SPC m k`), and a PDF, a picture or a workbook names its viewer to install, as in the full build.
 - [ ] A first run with no configuration folder starts, writes nothing it does not need, and Settings creates `settings.toml`.
 - [ ] The Turkish interface (`ui.language = "tr"`): menus, the palette, messages and the settings panel are in Turkish, nothing cut off.
 
