@@ -961,7 +961,7 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   (done by wasm_todo W5 and W9: an installed copy is used only when newer
   than the one built in (`embedded_is_newer`), which `kalem plugin list`
   says; the built-in ones are the index's own releases.)
-- [ ] **Major, reported.** Memory: every edit pushes a `Snapshot` that
+- [~] **Major, reported.** Memory: every edit pushes a `Snapshot` that
   clones every loaded sheet's XML and cell model with no limit on the
   undo stack (`xlsx/src/workbook.rs:1360-1375`; roughly 150–200 MB per
   edit on a million-cell sheet); the first edit loads the whole workbook
@@ -969,6 +969,11 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   (`calc.rs:191`); the host parses every sheet on open, on the UI thread
   (`viewer.rs:640-643`). Cap the undo depth by bytes, and measure a
   1M-cell file before release.
+  (partly, checked 2026-10-15: the undo history is capped by bytes in
+  the workbook plugin, `UNDO_BYTES` = 1 GiB of earlier states, the
+  loaded sheets shared between them (plugins e847591, XL9). Open: the
+  whole-workbook load and recalculation, the parse on open, and the
+  1M-cell measurement.)
 - [~] **Major, reported.** Opening a formatted `.ods`, or Save As `.xlsx`
   from `.xls`, calls `change_style` once per styled run per row
   (`workbook_io.rs:382-402`), each taking a full snapshot: thousands of
@@ -1004,11 +1009,13 @@ documents, `kalem check`'s round trip and diagnostics, a missing
   Dynamic and CSE array results are never recalculated; the anchor of a
   dynamic array cannot be edited (E48 open).
 - [ ] **Minor, reported.** A running macro blocks the UI for up to 60 s.
-- [ ] **Doc.** Even for `.xlsx` a save sets `fullCalcOnLoad`, may drop
+- [x] **Doc.** Even for `.xlsx` a save sets `fullCalcOnLoad`, may drop
   `calcChain`, and rewrites or drops cached formula results: say so in
   the Book's (missing) workbook chapter. Unedited parts are copied byte
   for byte; VBA, pivot caches, external links, printer settings, custom
   XML survive (checked).
+  (done, checked 2026-10-15: `book/part-3/workbooks.org`, "What is
+  written".)
 
 ### 3.8 PDF
 
@@ -1212,7 +1219,7 @@ Wrong or stale text a first reader meets. Each is a text change.
   names `ask`; `query` reads `<FILE>... <MATCH>`; `kalem gui --help`
   names `editor.restore_session`; `--engine` names `tectonic`; the help
   ends with the three variables.)
-- [ ] **The Book**
+- [x] **The Book** (every item below done; checked 2026-10-15)
   - [x] `book/part-3/overview.org:3-7, 19-20`, `book/part-3/plugins.org:1-12`
     and `book/appendices/glossary.org:15` say the plugin runtime "is not
     built yet", "everything in this chapter is planned", getkalem/plugins
