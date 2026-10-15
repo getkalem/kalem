@@ -4589,6 +4589,11 @@ impl App {
 
     /// Keys for the focused outline; `false` for keys it leaves alone.
     fn outline_key(&mut self, k: &KeyEvent) -> bool {
+        // With Vim's keys, Vim's motions too: j and k, Ctrl+D and Ctrl+U
+        // ten at a time, g and G to the first and the last, l to go, h
+        // back to the text.
+        let vim = self.vim.is_some();
+        let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
         let Some(o) = &mut self.outline else {
             return false;
         };
@@ -4596,13 +4601,21 @@ impl App {
         self.dirty = true;
         match k.code {
             KeyCode::Down if n > 0 => o.selected = (o.selected + 1).min(n - 1),
+            KeyCode::Char('j') if vim && !ctrl && n > 0 => o.selected = (o.selected + 1).min(n - 1),
             KeyCode::Up => o.selected = o.selected.saturating_sub(1),
+            KeyCode::Char('k') if vim && !ctrl => o.selected = o.selected.saturating_sub(1),
             KeyCode::PageDown if n > 0 => o.selected = (o.selected + 10).min(n - 1),
+            KeyCode::Char('d') if vim && ctrl && n > 0 => o.selected = (o.selected + 10).min(n - 1),
             KeyCode::PageUp => o.selected = o.selected.saturating_sub(10),
+            KeyCode::Char('u') if vim && ctrl => o.selected = o.selected.saturating_sub(10),
             KeyCode::Home => o.selected = 0,
+            KeyCode::Char('g') if vim && !ctrl => o.selected = 0,
             KeyCode::End => o.selected = n.saturating_sub(1),
+            KeyCode::Char('G') if vim => o.selected = n.saturating_sub(1),
             KeyCode::Enter | KeyCode::Right => self.outline_jump(),
+            KeyCode::Char('l') if vim && !ctrl => self.outline_jump(),
             KeyCode::Esc | KeyCode::Tab | KeyCode::Left => o.focus = false,
+            KeyCode::Char('h') if vim && !ctrl => o.focus = false,
             // Other keys run commands (to close the outline, say) but do
             // not type.
             _ => return input::text(k).is_some(),

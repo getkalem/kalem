@@ -1127,6 +1127,24 @@ fn outline_panel() {
 }
 
 #[test]
+fn outline_panel_with_vims_keys() {
+    // With Vim's keys the outline moves with Vim's motions too (only the
+    // arrows did): G and k, g and j, l to go to a heading.
+    let vim = || Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);
+    let text = "* One\ntext\n** TODO Two\n* Three\nend\n";
+    let mut t = with_config(text, vim(), (60, 8));
+    t.at(0);
+    t.typ("gO");
+    t.typ("Gkgjl");
+    assert_eq!(t.app.doc.selection.head, text.find("** TODO Two").unwrap());
+    // h leaves it for the text, where x deletes again.
+    let mut t = with_config(text, vim(), (60, 8));
+    t.at(0);
+    t.typ("gOhx");
+    assert_eq!(t.text(), &text[1..]);
+}
+
+#[test]
 fn images_in_the_terminal() {
     let text = "Before\n[[file:dot.png]]\nafter [[file:dot.png]] inline\n";
     let mut t = open(text);
