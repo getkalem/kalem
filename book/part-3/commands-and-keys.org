@@ -68,6 +68,7 @@ A text type is the type of the text *at the cursor*, innermost first:
 | In a LaTeX fragment or environment in Org | =latex=                                       |
 | Elsewhere in an Org document              | =org=                                         |
 | In a Markdown, CSV or LaTeX file          | =markdown=, =csv=, =latex=                    |
+| In a file of a language a plugin declares | The language's id: =hledger=, =beancount=     |
 | In a plain text file with a language      | That language, in lower case                  |
 | In a plain text file without one          | =text=                                        |
 | In the file manager                       | =directory=                                   |
@@ -78,8 +79,12 @@ file's language is what Kalem detected it by, a mode line, the
 extension or a =#!= line, under that language's one name: =script.py=,
 a file starting with =#!/usr/bin/env python3= and =#+BEGIN_SRC python=
 all have =python=; =.js= is =javascript=, =.sh= and =bash= are =shell=,
-=.h= is =c=. A scope never names a mode or an editor, because the type
-decides them.
+=.h= is =c=. A language a plugin declares for the file comes before the
+extension: with the plain text accounting plugin, =2026.journal= is
+=hledger= and =x.bean= =beancount= (the language's id; =editorLanguage=
+keeps the extension), and the terminal's status bar names the language
+(=Beancount=); a mode line or a =#!= line naming another language wins.
+A scope never names a mode or an editor, because the type decides them.
 
 In Rust, a scope is =Scope::all()=, =Scope::only(&["csv"])= or
 =Scope::except(&["org"])=; when a command is registered, its scope is

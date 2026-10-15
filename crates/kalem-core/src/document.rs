@@ -3234,18 +3234,55 @@ impl DocumentState {
     }
 
     /// The type of the document as a whole, wherever the cursor is: `org`,
-    /// a plain text file's language (lower case)
-    /// or `text`, `markdown`, `latex`, `csv`, `directory`. Menus and
-    /// toolbars show the commands that serve it.
+    /// a plain text file's language (lower case), the one a plugin
+    /// declares for it first ([`Self::plugin_language`]: `hledger` for
+    /// `2026.journal`), or `text`, `markdown`, `latex`, `csv`, `directory`.
+    /// Menus and toolbars show the commands that serve it.
     pub fn document_type(&self) -> String {
         if let Some(g) = &self.generated {
             return g.kind.clone();
         }
         match &self.meta.mode {
             DocumentMode::Org => crate::kinds::file_kind(self).unwrap_or("org").to_string(),
-            DocumentMode::Text { language: Some(l) } => l.to_lowercase(),
+            DocumentMode::Text { language } => match (self.plugin_language(), language) {
+                (Some(p), _) => p.id.to_lowercase(),
+                (None, Some(l)) => l.to_lowercase(),
+                (None, None) => self.meta.mode.name().to_string(),
+            },
             m => m.name().to_string(),
         }
+    }
+
+    /// The language a plugin declares for the document's file
+    /// ([`crate::languages::for_path`]: `hledger` for `2026.journal`),
+    /// where its extension, its name or nothing chose the file's language:
+    /// a mode line or a `#!` line naming another wins, and a mode's own
+    /// files stay the mode's.
+    pub fn plugin_language(&self) -> Option<crate::languages::LanguageSpec> {
+        if self.generated.is_some() {
+            return None;
+        }
+        let DocumentMode::Text { language } = &self.meta.mode else {
+            return None;
+        };
+        let path = self.meta.path.as_deref()?;
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(str::to_lowercase);
+        if language.is_some() && language.as_deref().map(str::to_lowercase) != ext {
+            return None;
+        }
+        let first = self.text.as_str().lines().next();
+        crate::languages::for_path(path, first).map(|(_, l)| l)
+    }
+
+    /// The mode's name in the status bar and messages: the name of the
+    /// language a plugin declares for the file (`Beancount`), else the
+    /// mode's ([`DocumentMode::title`]).
+    pub fn mode_title(&self) -> String {
+        self.plugin_language()
+            .map_or_else(|| self.meta.mode.title(), |l| l.name)
     }
 
     /// The version control holding its file (`git`), or its listing's
@@ -3343,7 +3380,8 @@ impl DocumentState {
     /// The type of the text at the cursor (§11.2), innermost first: in an
     /// Org document the language of the source block the cursor is in
     /// (lower case), an export block's back-end, `latex` in a formula, else
-    /// `org`; a plain text file's language, or
+    /// `org`; a plain text file's language, the one a plugin declares for
+    /// it first ([`Self::plugin_language`]), or
     /// `text`; `markdown`, `csv`, `directory`.
     pub fn text_type(&self) -> String {
         use org_syntax::SyntaxKind as K;
@@ -3352,8 +3390,12 @@ impl DocumentState {
         }
         match &self.meta.mode {
             DocumentMode::Org => {}
-            DocumentMode::Text { language: Some(l) } => {
-                return crate::command::canonical_type(l);
+            DocumentMode::Text { language } => {
+                return match (self.plugin_language(), language) {
+                    (Some(p), _) => p.id.to_lowercase(),
+                    (None, Some(l)) => crate::command::canonical_type(l),
+                    (None, None) => self.meta.mode.name().to_string(),
+                };
             }
             m => return m.name().to_string(),
         }

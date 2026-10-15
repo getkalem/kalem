@@ -7982,7 +7982,7 @@ fn plain_commands() -> Vec<Command> {
                         .unwrap_or_default();
                     return Err(CommandError::new(crate::tr!(
                         "fmt-off",
-                        kind = doc.meta.mode.title(),
+                        kind = doc.mode_title(),
                         key = key.as_str()
                     )));
                 }
@@ -8059,7 +8059,7 @@ fn plain_commands() -> Vec<Command> {
                         if doc.meta.path.is_none() && crate::formatters::known(doc) {
                             crate::l10n::tr("msg-no-file")
                         } else {
-                            let kind = doc.meta.mode.title();
+                            let kind = doc.mode_title();
                             match crate::formatters::names(doc).first() {
                                 Some(key) => {
                                     crate::tr!("fmt-none", kind = kind, key = key.as_str())

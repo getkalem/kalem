@@ -6625,7 +6625,11 @@ impl App {
             DocumentMode::Markdown => "Markdown".into(),
             DocumentMode::Csv => "CSV".into(),
             DocumentMode::Latex => "LaTeX".into(),
-            DocumentMode::Text { language: Some(l) } => l.clone(),
+            // A plugin's language by its name (Beancount), else the file's.
+            DocumentMode::Text { language: Some(l) } => self
+                .doc
+                .plugin_language()
+                .map_or_else(|| l.clone(), |p| p.name),
             // The view: the file manager, or the projects.
             DocumentMode::Directory => match self.doc.dired.as_deref() {
                 Some(d) => d.list_title(),

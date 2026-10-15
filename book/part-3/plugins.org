@@ -908,7 +908,8 @@ Its keys there are bound with a when-clause naming the kind:
 command mode and in the Word-like profile, and such keys win over the
 profile's and Vim's in the plugin's documents only. So do a plugin's
 keys in the files of a language its manifest declares, bound with a
-when-clause naming their text type (=textType == journal=), as a major
+when-clause naming their text type, the language's id (=textType ==
+hledger=), as a major
 mode's keys in Emacs: the plain text accounting plugin's Enter aligns a
 posting's amount, as ledger-mode's does, before the new line. In Vim's
 insert mode the Vim layer takes Enter in a plain text file before any
