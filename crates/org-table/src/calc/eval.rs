@@ -216,6 +216,52 @@ fn integer(e: &Expr) -> Option<BigInt> {
     }
 }
 
+/// An integer (a float with an integer value too) or a fraction, as its
+/// numerator and denominator.
+fn rational(e: &Expr) -> Option<(BigInt, BigInt)> {
+    match e {
+        Expr::Num(Num::Frac(n, d)) => Some((n.clone(), d.clone())),
+        _ => integer(e).map(|n| (n, BigInt::one())),
+    }
+}
+
+/// `calcFunc-gcd`: floats with integer values as integers and what looks
+/// negative negated, then integers and fractions give a number, a zero
+/// the other's absolute value (a formula's too), and anything else stays.
+fn gcd(a: Expr, b: Expr, env: &Env) -> Expr {
+    let prepare = |e: Expr| {
+        let e = match e {
+            Expr::Num(n @ Num::Float(..)) if n.is_messy_integer() => Expr::Num(num::trunc(&n)),
+            e => e,
+        };
+        if looks_neg(&e) { neg(&e, env) } else { e }
+    };
+    let (a, b) = (prepare(a), prepare(b));
+    if is_zero(&a) {
+        return apply("abs", vec![b], env);
+    }
+    if is_zero(&b) {
+        return apply("abs", vec![a], env);
+    }
+    match (rational(&a), rational(&b)) {
+        (Some((an, ad)), Some((bn, bd))) => Expr::Num(num::make_frac(an.gcd(&bn), ad.lcm(&bd))),
+        _ => keep("gcd", vec![a, b]),
+    }
+}
+
+/// `calcFunc-lcm`: `abs(a b) / gcd(a, b)` once the `gcd` is a number other
+/// than zero (a float stays one).
+fn lcm(a: Expr, b: Expr, env: &Env) -> Expr {
+    match gcd(a.clone(), b.clone(), env) {
+        Expr::Num(g) if !g.is_zero() => div(
+            &apply("abs", vec![mul(&a, &b, env)], env),
+            &Expr::Num(g),
+            env,
+        ),
+        _ => keep("lcm", vec![a, b]),
+    }
+}
+
 fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
     let n = args.len();
     // Functions of `nan` are `nan`.
@@ -332,18 +378,11 @@ fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
                 }))
             }),
         },
-        ("fdiv", 2) => match (integer(&args[0]), integer(&args[1])) {
-            (Some(a), Some(b)) if !b.is_zero() => Expr::Num(num::make_frac(a, b)),
-            _ => binary_num(f, args, env, |a, b, p| {
-                num::div(
-                    a,
-                    b,
-                    &Prec {
-                        prefer_frac: true,
-                        ..*p
-                    },
-                )
-            }),
+        // `calcFunc-fdiv`: integers and fractions only, anything else (a
+        // float with digits after the point too) as it is.
+        ("fdiv", 2) => match (rational(&args[0]), rational(&args[1])) {
+            (Some((a, b)), Some((c, d))) if !c.is_zero() => Expr::Num(num::make_frac(a * d, b * c)),
+            _ => keep(f, args),
         },
         ("sqrt", 1) => match (&args[0], infinity(&args[0])) {
             (_, Some((1, "inf"))) => inf(),
@@ -545,38 +584,14 @@ fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
             }
             _ => keep(f, args),
         },
-        ("lcm", 2) if is_zero(&args[0]) || is_zero(&args[1]) => {
-            let float = args.iter().any(|a| matches!(a, Expr::Num(Num::Float(..))));
-            Expr::Num(if float {
-                Num::Float(BigInt::zero(), 0)
+        ("gcd", 2) | ("lcm", 2) => {
+            let [a, b]: [Expr; 2] = args.try_into().expect("two arguments");
+            if f == "gcd" {
+                gcd(a, b, env)
             } else {
-                Num::int(0)
-            })
-        }
-        // `math-gcd`: with a zero, the other's absolute value, a float, a
-        // fraction or a formula too (`gcd(a, 0)` is `abs(a)`).
-        ("gcd", 2) if is_zero(&args[1]) || is_zero(&args[0]) => {
-            let other = if is_zero(&args[1]) {
-                &args[0]
-            } else {
-                &args[1]
-            };
-            apply("abs", vec![other.clone()], env)
-        }
-        ("gcd", 2) | ("lcm", 2) => match (integer(&args[0]), integer(&args[1])) {
-            (Some(a), Some(b)) => {
-                let r = if f == "gcd" { a.gcd(&b) } else { a.lcm(&b) };
-                // `gcd` gives an integer; `lcm` keeps a float.
-                let float =
-                    f == "lcm" && args.iter().any(|a| matches!(a, Expr::Num(Num::Float(..))));
-                Expr::Num(if float {
-                    Num::Int(r).to_float(&env.prec)
-                } else {
-                    Num::Int(r)
-                })
+                lcm(a, b, env)
             }
-            _ => keep(f, args),
-        },
+        }
         ("max", _) | ("min", _) if n > 0 => min_max(f, args, env),
         ("lt", 2) | ("gt", 2) | ("leq", 2) | ("geq", 2) => inequality(f, args, env),
         ("eq", 2) | ("neq", 2) => equality(f, args, env),

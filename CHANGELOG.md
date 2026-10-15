@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - With Vim's keys, in a file of CR LF lines, `di{` on a block over several lines no longer deletes the line of the opening brace, and `r` over a selection of several lines no longer turns each line's carriage return into the typed character.
 - Undo and Redo of a change made at several cursors bring the other cursors back where they were; they left the one cursor.
 - Typing right after Undo or Redo is an undo step of its own: it could join the typing before the step undone, so that the next undo took both back.
+- Calc's `fdiv` in a table formula divides integers and fractions only, as in Emacs: `fdiv(7, 0.5)` stays as it is, where it was 14. `gcd` and `lcm` follow Emacs's too: they take fractions (`gcd(1:2, 1:3)` is 1:6), make a negative argument positive (`gcd(-x, 4)` is `gcd(x, 4)`), and `lcm` of a formula and zero stays as it is (`lcm(x, 0)` was 0). Of 3,000 random formulas compared with Emacs, 49 more now agree.
 
 ## [0.6.27] - 2026-10-15
 
