@@ -19,6 +19,7 @@ use super::num::{self, Num};
 
 thread_local! {
     static FAILED: Cell<bool> = const { Cell::new(false) };
+    static REFUSED: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Marks the evaluation as failed: Emacs signals an error there (a
@@ -30,6 +31,23 @@ pub(crate) fn fail() {
 /// Whether the evaluation failed since the last call.
 pub(crate) fn take_failure() -> bool {
     FAILED.with(|f| f.replace(false))
+}
+
+/// Marks a step Calc refuses (`math-reject-arg`: a number to a date's
+/// power, a division by zero): the formula being evaluated stays as it
+/// was, where Calc's normalization catches the refusal.
+pub(crate) fn refuse() {
+    REFUSED.with(|f| f.set(true));
+}
+
+/// Whether a step was refused since the refusals were last taken.
+pub(crate) fn refused() -> bool {
+    REFUSED.with(Cell::get)
+}
+
+/// [`refused`], and the refusals forgotten.
+pub(crate) fn take_refusal() -> bool {
+    REFUSED.with(|f| f.replace(false))
 }
 
 pub(crate) fn var(name: &str) -> Expr {
@@ -91,7 +109,7 @@ pub(crate) fn is_zero(e: &Expr) -> bool {
 }
 
 /// Numerically one (`1` or `1.`).
-fn is_one(e: &Expr) -> bool {
+pub(crate) fn is_one(e: &Expr) -> bool {
     match e {
         Expr::Num(Num::Int(n)) => n.is_one(),
         Expr::Num(Num::Float(m, 0)) => m.is_one(),
@@ -971,6 +989,14 @@ pub(crate) fn div(a: &Expr, b: &Expr, env: &Env) -> Expr {
     if let Some(r) = super::cplx::arith("/", a, b, env) {
         return r;
     }
+    // `math-div-by-zero`: an infinity over zero is `uinf` (`nan` stays
+    // `nan`); anything else over zero is refused.
+    if is_zero(b) {
+        if infinitep(a) {
+            return if is_nan(a) { a.clone() } else { var("uinf") };
+        }
+        refuse();
+    }
     match (a, b) {
         (Expr::Num(x), Expr::Num(y)) => {
             return match num::div(x, y, &env.prec) {
@@ -1084,6 +1110,9 @@ pub(crate) fn pow(a: &Expr, b: &Expr, env: &Env) -> Expr {
     if is_nan(a) {
         return a.clone();
     }
+    if let Some(r) = super::signs::pow_of_zero(a, b, env) {
+        return r;
+    }
     // A modulo form to a natural power, by squaring.
     if let Some((_, m)) = mod_form(a)
         && let Some(n) = num_of(b).and_then(Num::to_i64)
@@ -1103,7 +1132,13 @@ pub(crate) fn pow(a: &Expr, b: &Expr, env: &Env) -> Expr {
     if let Expr::Vec(_) = a
         && let Some(n) = num_of(b).and_then(Num::to_i64)
     {
-        if n < 1 {
+        // To the power 0 Calc looks for the identity matrix of a vector
+        // that is not square, and refuses; below that it fails.
+        if n == 0 {
+            refuse();
+            return Expr::call("^", vec![a.clone(), b.clone()]);
+        }
+        if n < 0 {
             fail();
             return Expr::call("^", vec![a.clone(), b.clone()]);
         }
@@ -1128,6 +1163,23 @@ pub(crate) fn pow(a: &Expr, b: &Expr, env: &Env) -> Expr {
     }
     if is_zero(b) && !is_vec(a) {
         return Expr::int(1);
+    }
+    if let Some(r) = super::signs::pow_fancy(a, b, env) {
+        return r;
+    }
+    // Numbers and objects Calc has no power of (a vector to a power not an
+    // integer, a date's power, a power that is a date) are refused; it has
+    // one of intervals, and of modulo forms with numbers.
+    let modular = |m: &Expr, k: &Expr| {
+        mod_form(m).is_some() && (mod_form(k).is_some() || matches!(k, Expr::Num(_)))
+    };
+    if !super::signs::formula_power(a, b)
+        && !matches!(a, Expr::Intv(..))
+        && !matches!(b, Expr::Intv(..))
+        && !modular(a, b)
+        && !modular(b, a)
+    {
+        refuse();
     }
     Expr::call("^", vec![a.clone(), b.clone()])
 }

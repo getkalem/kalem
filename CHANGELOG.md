@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- A table formula's Calc power of a formula is worked out as Emacs does: `(-x)^2` is `x^2`, `(-x - 1)^3` is `-(1 + x)^3`, `(a b)^2` is `a^2 b^2`, `(x / -2)^2` is `x^2 / 4` and `(x^2)^3` is `x^6`, where they stayed as they were (a variance over a column with a word in it showed `(-15 - a / 5 - 1.032)^2`). What Calc knows of a formula's sign and type decides, as in Emacs: `abs(floor(x))^2` is `floor(x)^2`, but `abs(x)^2` stays, `x` being perhaps complex. Zero to a power known positive is zero, an infinity over zero `uinf`, and a power with a step Calc refuses stays whole, `(3 b)^d` for a date `d`. Of 3,000 random formulas compared with Emacs, 20 more agree; of 100,000 with dates, modulo forms and infinities, 419 more.
+
 ## [0.6.28] - 2026-10-15
 
 ### Added

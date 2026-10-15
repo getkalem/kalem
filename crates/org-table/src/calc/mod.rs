@@ -10,6 +10,7 @@ mod funcs;
 pub mod num;
 pub mod parse;
 pub mod print;
+mod signs;
 
 use num::{Display, Prec};
 

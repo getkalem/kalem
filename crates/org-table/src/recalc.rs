@@ -535,5 +535,16 @@ mod tests {
         let product = t.field(t.rows.len() - 1, 2);
         assert!(product.starts_with("w0 w1 w2 "), "{}", &product[..40]);
         assert!(product.ends_with(" w998 w999"));
+        // Its powers: Calc's rules go down the product a factor at a time,
+        // as does what they ask of its sign.
+        for (power, first, last) in [
+            ("^2", "w0^2 w1^2 ", " w999^2"),
+            ("^0.5", "(w0 w1 ", " w999)^0.5"),
+        ] {
+            let eqs = tblfm::parse(&format!("@>$2=vprod(@I$1..@II$1){power}")).equations;
+            let (t, _) = recalculate(&t, &eqs, &env).unwrap();
+            let p = t.field(t.rows.len() - 1, 2);
+            assert!(p.starts_with(first) && p.ends_with(last), "{}", &p[..40]);
+        }
     }
 }

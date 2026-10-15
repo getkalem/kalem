@@ -49,6 +49,14 @@ impl Env {
 
 /// Evaluates `e`.
 pub fn normalize(e: &Expr, env: &Env) -> Expr {
+    let r = evaluate(e, env);
+    // A refusal goes no further than the formula it was met in, as Calc's
+    // normalization catches `math-reject-arg` there.
+    algebra::take_refusal();
+    r
+}
+
+fn evaluate(e: &Expr, env: &Env) -> Expr {
     match e {
         Expr::Num(n) => Expr::Num(num::renormalize(n.clone(), &env.prec)),
         Expr::Date(n) => Expr::Date(num::renormalize(n.clone(), &env.prec)),
@@ -262,7 +270,7 @@ fn lcm(a: Expr, b: Expr, env: &Env) -> Expr {
     }
 }
 
-fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
+pub(crate) fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
     let n = args.len();
     // Functions of `nan` are `nan`.
     if n == 1
@@ -293,7 +301,17 @@ fn apply(f: &str, args: Vec<Expr>, env: &Env) -> Expr {
         ("%", 2) | ("mod", 2) => binary_num("%", args, env, num::modulo),
         ("idiv", 2) if is_nan(&args[0]) || is_nan(&args[1]) => nan(),
         ("idiv", 2) => binary_num(f, args, env, num::idiv),
-        ("^", 2) | ("pow", 2) => pow(&args[0], &args[1], env),
+        // A step refused on the way leaves the power as it was: `(3 b)^d`
+        // for a date `d`, where `3^d` was refused.
+        ("^", 2) | ("pow", 2) => {
+            algebra::take_refusal();
+            let r = pow(&args[0], &args[1], env);
+            if algebra::take_refusal() {
+                keep(f, args)
+            } else {
+                r
+            }
+        }
         ("neg", 1) => neg(&args[0], env),
         ("ident", 1) => args[0].clone(),
         ("add", _) => fold(args, env, add, Expr::int(0)),
