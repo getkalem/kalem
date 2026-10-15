@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.30] - 2026-10-15
+
 ### Added
 - A plugin may start with the first file opened whose name a pattern matches, one it works with without serving it: `"activation": ["onFile", "onOpen:*.csv"]` (`*` any characters, `?` one, letters in any case), so that a plugin need not start with every document to find the few it works with.
 - The settings panel says Kalem's version beside its title, in both editors.
