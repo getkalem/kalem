@@ -132,6 +132,11 @@
   { "keys": "C-c C-l", "command": "org.insert.link" },
   { "keys": "C-c C-o", "command": "org.link.open" },
   { "keys": "C-c C-,", "command": "org.insert.block" },
+  // A source block's C-c C-c runs it (after the list's: a block can be
+  // in a list item).
+  { "keys": "C-c C-c", "command": "org.babel.execute", "when": "inSrcBlock" },
+  { "keys": "C-c C-v e", "command": "org.babel.execute" },
+  { "keys": "C-c C-v C-e", "command": "org.babel.execute" },
   { "keys": "C-c .", "command": "org.insert.date" },
   { "keys": "C-c !", "command": "org.insert.date", "args": { "inactive": true } },
   { "keys": "C-x n s", "command": "view.narrowToSubtree" },

@@ -1,0 +1,148 @@
+* Shell
+#+begin_src sh
+echo hello
+#+end_src
+
+#+begin_src sh
+printf 'a b\nc d\n'
+#+end_src
+
+#+begin_src sh :results output
+printf 'a b\nc d\n'
+#+end_src
+
+#+begin_src sh :results output
+seq 1 12
+#+end_src
+
+#+begin_src sh :results raw
+echo '*bold* text'
+#+end_src
+
+#+begin_src sh :results output drawer
+echo in a drawer
+#+end_src
+
+#+begin_src sh :results output :wrap example
+echo wrapped
+#+end_src
+
+#+begin_src sh :var x=5 :var name="Ayşe" :results output
+echo "$x $name"
+#+end_src
+
+#+name: greeting
+#+begin_src sh :results output
+echo named
+#+end_src
+
+#+begin_src sh :results output
+echo replaced
+#+end_src
+
+#+RESULTS:
+: old
+
+#+begin_src sh :results silent
+echo silent
+#+end_src
+
+#+begin_src sh :eval never
+echo never
+#+end_src
+
+- an item
+  #+begin_src sh :results output
+  echo indented
+  #+end_src
+
+#+begin_src sh :results value
+true
+#+end_src
+
+#+begin_src sh :results output verbatim
+printf 'x y\n'
+#+end_src
+
+#+begin_src sh :results output html
+echo '<b>b</b>'
+#+end_src
+
+#+begin_src sh :results output code
+echo 'x=1'
+#+end_src
+
+* Python
+#+begin_src python :results output
+print(1 + 1)
+#+end_src
+
+#+begin_src python
+return 1 + 1
+#+end_src
+
+#+begin_src python
+return [[1, 2], [3, 4]]
+#+end_src
+
+#+begin_src python
+return "hi"
+#+end_src
+
+#+begin_src python :results value list
+return [1, 2, 3]
+#+end_src
+
+#+begin_src python :results value table
+return {"a": 1, "b": 2}
+#+end_src
+
+#+begin_src python :var x=4
+return x * 2
+#+end_src
+
+#+begin_src python :results value verbatim
+return [1, "two", 3.5]
+#+end_src
+
+#+begin_src python :results output
+for i in range(3):
+    print(i, i * i)
+#+end_src
+
+* More
+#+begin_src sh :results output
+printf 'one\n\nthree\n'
+#+end_src
+
+#+begin_src sh
+printf 'a\t1\nb\t2\n'
+#+end_src
+
+#+begin_src sh
+printf 'x,1\ny,2\n'
+#+end_src
+
+#+begin_src sh :results output
+for i in 1 2 3 4 5 6 7 8 9 10; do echo "* line $i"; done
+#+end_src
+
+#+begin_src sh :results output list
+printf 'first\nsecond\n'
+#+end_src
+
+#+begin_src python
+return [["a", 1], None, ["b", 2]]
+#+end_src
+
+#+begin_src python :results value scalar
+return [1, 2]
+#+end_src
+
+#+name: data
+| x | 1 |
+| y | 2 |
+
+#+begin_src python :var t=data
+return [[r[0], r[1] * 10] for r in t]
+#+end_src

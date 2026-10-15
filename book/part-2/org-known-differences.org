@@ -222,6 +222,21 @@ Kalem follows them for compatibility:
   =#+AUTHOR:= in the document, or in a =#+SETUPFILE:= shared by a
   project.
 
+* Running source blocks
+
+Shell and Python blocks run as =ob-shell.el= and =ob-python.el= run them,
+their results checked against Emacs's
+(=crates/kalem-core/tests/babel_emacs.rs=). The differences:
+
+- No language runs until =babel.load_languages= names it; Emacs runs Emacs
+  Lisp blocks by default. Kalem never runs Emacs Lisp, nor the Lisp of a
+  =:var= value.
+- A block runs beside the editor, where Emacs waits for it: its results are
+  written when it ends, and not at all when the block changed in the
+  meantime or its document is no longer the current one (a message says so).
+- The error output opens in =*Org-Babel Error Output*= as the current
+  document; Emacs shows that buffer in another window.
+
 * Broken links on export
 
 Emacs's default for =org-export-with-broken-links= is =nil=: a link that

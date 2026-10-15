@@ -346,6 +346,7 @@
   { "keys": "leader c shift+s", "command": "view.outline", "when": "vimCommand" },
   { "keys": "leader c j", "command": "search.lines", "args": { "headings": true }, "when": "vimCommand" },
   { "keys": "leader c e", "command": "table.recalculate", "when": "vimCommand && inTable" },
+  { "keys": "leader c e", "command": "org.babel.execute", "when": "vimCommand && inSrcBlock" },
   // Language servers (D57): the keys of Doom's `+lookup` and `+code` maps.
   { "keys": "leader c d", "command": "code.definition", "when": "vimCommand" },
   { "keys": "leader c shift+d", "command": "code.references", "when": "vimCommand" },

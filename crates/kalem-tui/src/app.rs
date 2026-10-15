@@ -2088,7 +2088,7 @@ impl App {
                     &mut self.doc,
                     &self.config,
                 );
-                let label = kalem_core::command::argument_label(&command, &arg);
+                let label = kalem_core::command::argument_label_with(&command, &arg, &args);
                 self.ask(
                     PromptKind::Arg {
                         command,

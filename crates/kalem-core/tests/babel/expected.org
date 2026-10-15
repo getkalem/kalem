@@ -1,0 +1,289 @@
+* Shell
+#+begin_src sh
+echo hello
+#+end_src
+
+#+RESULTS:
+: hello
+
+#+begin_src sh
+printf 'a b\nc d\n'
+#+end_src
+
+#+RESULTS:
+| a | b |
+| c | d |
+
+#+begin_src sh :results output
+printf 'a b\nc d\n'
+#+end_src
+
+#+RESULTS:
+: a b
+: c d
+
+#+begin_src sh :results output
+seq 1 12
+#+end_src
+
+#+RESULTS:
+#+begin_example
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+#+end_example
+
+#+begin_src sh :results raw
+echo '*bold* text'
+#+end_src
+
+#+RESULTS:
+*bold* text
+
+#+begin_src sh :results output drawer
+echo in a drawer
+#+end_src
+
+#+RESULTS:
+:results:
+in a drawer
+:end:
+
+#+begin_src sh :results output :wrap example
+echo wrapped
+#+end_src
+
+#+RESULTS:
+#+begin_example
+wrapped
+#+end_example
+
+#+begin_src sh :var x=5 :var name="Ayşe" :results output
+echo "$x $name"
+#+end_src
+
+#+RESULTS:
+: 5 Ayşe
+
+#+name: greeting
+#+begin_src sh :results output
+echo named
+#+end_src
+
+#+RESULTS: greeting
+: named
+
+#+begin_src sh :results output
+echo replaced
+#+end_src
+
+#+RESULTS:
+: replaced
+
+#+begin_src sh :results silent
+echo silent
+#+end_src
+
+#+begin_src sh :eval never
+echo never
+#+end_src
+
+- an item
+  #+begin_src sh :results output
+  echo indented
+  #+end_src
+
+  #+RESULTS:
+  : indented
+
+#+begin_src sh :results value
+true
+#+end_src
+
+#+RESULTS:
+: 0
+
+#+begin_src sh :results output verbatim
+printf 'x y\n'
+#+end_src
+
+#+RESULTS:
+: x y
+
+#+begin_src sh :results output html
+echo '<b>b</b>'
+#+end_src
+
+#+RESULTS:
+#+begin_export html
+<b>b</b>
+#+end_export
+
+#+begin_src sh :results output code
+echo 'x=1'
+#+end_src
+
+#+RESULTS:
+#+begin_src sh
+x=1
+#+end_src
+
+* Python
+#+begin_src python :results output
+print(1 + 1)
+#+end_src
+
+#+RESULTS:
+: 2
+
+#+begin_src python
+return 1 + 1
+#+end_src
+
+#+RESULTS:
+: 2
+
+#+begin_src python
+return [[1, 2], [3, 4]]
+#+end_src
+
+#+RESULTS:
+| 1 | 2 |
+| 3 | 4 |
+
+#+begin_src python
+return "hi"
+#+end_src
+
+#+RESULTS:
+: hi
+
+#+begin_src python :results value list
+return [1, 2, 3]
+#+end_src
+
+#+RESULTS:
+- 1
+- 2
+- 3
+
+#+begin_src python :results value table
+return {"a": 1, "b": 2}
+#+end_src
+
+#+RESULTS:
+| a | 1 |
+| b | 2 |
+
+#+begin_src python :var x=4
+return x * 2
+#+end_src
+
+#+RESULTS:
+: 8
+
+#+begin_src python :results value verbatim
+return [1, "two", 3.5]
+#+end_src
+
+#+RESULTS:
+: [1, 'two', 3.5]
+
+#+begin_src python :results output
+for i in range(3):
+    print(i, i * i)
+#+end_src
+
+#+RESULTS:
+: 0 0
+: 1 1
+: 2 4
+
+* More
+#+begin_src sh :results output
+printf 'one\n\nthree\n'
+#+end_src
+
+#+RESULTS:
+: one
+: 
+: three
+
+#+begin_src sh
+printf 'a\t1\nb\t2\n'
+#+end_src
+
+#+RESULTS:
+| a | 1 |
+| b | 2 |
+
+#+begin_src sh
+printf 'x,1\ny,2\n'
+#+end_src
+
+#+RESULTS:
+| x | 1 |
+| y | 2 |
+
+#+begin_src sh :results output
+for i in 1 2 3 4 5 6 7 8 9 10; do echo "* line $i"; done
+#+end_src
+
+#+RESULTS:
+#+begin_example
+,* line 1
+,* line 2
+,* line 3
+,* line 4
+,* line 5
+,* line 6
+,* line 7
+,* line 8
+,* line 9
+,* line 10
+#+end_example
+
+#+begin_src sh :results output list
+printf 'first\nsecond\n'
+#+end_src
+
+#+RESULTS:
+: - first
+: - second
+
+#+begin_src python
+return [["a", 1], None, ["b", 2]]
+#+end_src
+
+#+RESULTS:
+| a | 1 |
+|---+---|
+| b | 2 |
+
+#+begin_src python :results value scalar
+return [1, 2]
+#+end_src
+
+#+RESULTS:
+: [1, 2]
+
+#+name: data
+| x | 1 |
+| y | 2 |
+
+#+begin_src python :var t=data
+return [[r[0], r[1] * 10] for r in t]
+#+end_src
+
+#+RESULTS:
+| x | 10 |
+| y | 20 |

@@ -170,6 +170,34 @@ Block/ asks for a kind (=src=, =quote=, =example=, =center=, =verse=,
 block; /Insert Drawer/ does the same with a drawer; /Insert Horizontal
 Rule/ writes =-----=.
 
+* Running source blocks
+
+/Execute Source Block/ runs the shell or Python block at the cursor
+and writes what it gives under it, as Emacs's =C-c C-c= does: Enter in
+Vim's Normal mode, =C-c C-c= with the Emacs keys, or the palette.
+Kalem asks as Emacs asks. A language runs once =babel.load_languages=
+lists it (=["shell", "python"]=; none by default, Emacs's
+=org-babel-load-languages=), and every run first asks /Evaluate this
+sh code block on your system? (yes or no)/, which
+=babel.confirm_evaluate = false= turns off
+(=org-confirm-babel-evaluate=). A block's =:eval= header has the last
+word: =no= or =never= keeps it from running, =query= asks even when
+the setting does not. Nothing runs when a file opens.
+
+The block runs in the document's folder (=:dir= names another) while
+you go on writing, and its results come back under a =#+RESULTS:= line
+in the bytes Emacs writes: a table where the output reads as one,
+lines starting with =:=, an example block from ten lines on, a list, a
+code block or a drawer, as =:results= says (=output= or =value=,
+=table=, =list=, =verbatim=, =raw=, =code=, =drawer=, =silent=,
+=append=, =prepend=), and =:wrap= around them. =:var= gives the block
+numbers, strings, and the document's named tables, lists and examples.
+A shell block runs the shell of its language (=sh=, =bash=, =zsh=;
+=shell= is your =$SHELL=), a Python block =python= where it is
+installed, else =python3= (=babel.python_command= names another). What
+the program writes to its error output opens in =*Org-Babel Error
+Output*=.
+
 * Footnotes
 
 /New Footnote/ (Ctrl+Alt+F) writes the next free number, =[fn:1]=, at

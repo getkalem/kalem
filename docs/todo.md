@@ -518,27 +518,27 @@ The owner removed Kalem's own format on 2026-10-04: its parser, its specificatio
 
 ## 15. Babel: running source blocks (todo_old.md 3.4)
 
-- [ ] T3.4.1 Header argument parsing (`:results`, `:exports`, `:var`, `:dir`, `:cache`, `:tangle`, `:file`)
+- [~] T3.4.1 Header argument parsing (`:results`, `:exports`, `:var`, `:dir`, `:cache`, `:tangle`, `:file`) (partly done in `kalem_core::babel`, 2026-10-15: the `header-args` properties, `#+HEADER:` lines and the begin line merged as `org-babel-merge-params` merges them, `:results` and `:exports` by Emacs's groups; `:var` (numbers, strings, the document's named tables, lists, examples and fixed-width), `:dir`, `:eval`, `:wrap`. Still open: `:cache`, `:tangle`, `:file`, `:cmdline`, `:stdin`, `:shebang`)
 
-- [ ] T3.4.2 Executor interface; subprocess management; cancellation; progress
+- [~] T3.4.2 Executor interface; subprocess management; cancellation; progress (partly done, 2026-10-15: a block runs in a thread beside the editor through the core's process runner, its results written when it ends if the block is unchanged and its document current; stderr and a failing exit in `*Org-Babel Error Output*`. Still open: cancellation, plugin executors (plugin API 0.2.21, K6 of the PTA plugin))
 
-- [ ] T3.4.3 Languages: shell, python, javascript (node), R, gnuplot, sqlite, org
+- [~] T3.4.3 Languages: shell, python, javascript (node), R, gnuplot, sqlite, org (partly done, 2026-10-15: shell (`sh`, `bash`, `zsh` and the others by name, `shell` as `$SHELL`) and Python (`:results output` and `value`, `babel.python_command`), as `ob-shell.el` and `ob-python.el` run them)
 
-- [ ] T3.4.4 Trust model: document consent, trust bound to path and hash, never automatic execution
+- [x] T3.4.4 Trust model: document consent, trust bound to path and hash, never automatic execution (the owner's decision, 2026-10-15: Emacs's policy as it is, in place of a trust store. `babel.confirm_evaluate` (`org-confirm-babel-evaluate`, on by default) asks yes or no before each run, a block's `:eval` (`no`, `never`, `query`; `no-export`, `never-export`, `query-export` for export) refuses or asks, and only the languages in `babel.load_languages` (`org-babel-load-languages`) run, none by default; nothing runs when a file opens. Export-time evaluation, with its own confirmation, comes with export)
 
-- [ ] T3.4.5 `#+RESULTS:` insertion rules; `#+NAME` matching; replace/append/prepend
+- [~] T3.4.5 `#+RESULTS:` insertion rules; `#+NAME` matching; replace/append/prepend (done for the results of shell and Python, 2026-10-15: `org-babel-insert-result`'s text, wraps and places, a named block's `#+RESULTS: NAME` anywhere, compared with Emacs in `tests/babel_emacs.rs`. Still open: `:results file` and `:file`)
 
 - [ ] T3.4.6 `#+CALL:` and inline src
 
 - [ ] T3.4.7 Tangling: confirmation list, file writes; `kalem tangle`
 
-- [ ] T3.4.8 UI: run button, result block rendering, gnuplot image
+- [~] T3.4.8 UI: run button, result block rendering, gnuplot image (partly done, 2026-10-15: *Execute Source Block*, Enter in Vim's Normal mode (`org.dwim`), `SPC c e`, `C-c C-c` in the Emacs keymap; the question in the prompt line. Still open: a run button, gnuplot images)
 
-- [ ] T3.4.9 Unit tests with fake executors; integration tests with real interpreters (optional in CI)
+- [~] T3.4.9 Unit tests with fake executors; integration tests with real interpreters (optional in CI) (partly done, 2026-10-15: `tests/babel_emacs.rs` runs every block of `tests/babel/cases.org` with `sh` and `python3` and compares the text with what Emacs's Org 9.7.11 wrote from the same file (`tools/babel-oracle.el`); skipped where they are not installed)
 
 ### Needs discussion
 
-- *The trust model (T3.4.4) must land before any executor runs code,* including in tests; the order here already says so.
+- *The trust model (T3.4.4) must land before any executor runs code,* including in tests; the order here already says so. (Settled by the owner, 2026-10-15: Emacs's policy, see T3.4.4.)
 - *The `python` executor and the Python language plugin (T3.8.5) share the interpreter discovery* (`.venv`, uv, conda); whichever comes first should put that discovery in the core, not in a plugin.
 - *`:session` and `:noweb` are in phase 4 (T4.2.1);* users of Babel for data work ask for `:session` first. Worth pulling into this group.
 

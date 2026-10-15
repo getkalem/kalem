@@ -10,6 +10,7 @@
 
 pub mod affiliated;
 pub mod applies;
+pub mod babel;
 pub mod bibstyle;
 pub mod bibtex;
 pub mod bookmarks;

@@ -973,10 +973,12 @@ The targets are 2 ms for a typical edit and 10 MB/s for a full parse.
 
 Stated plainly, from the former work breakdown (=docs/todo.md=, phases 3 and 4; =docs/roadmap.md= plans what comes next):
 
-- *Babel execution.* Source blocks are never run; there is no
-  =org-babel-execute-src-block=, no =#+RESULTS:= insertion, no
-  tangling, no sessions. Export treats blocks as Emacs does when
-  evaluation is refused.
+- *Babel beyond shell and Python.* Shell and Python blocks run and
+  write their =#+RESULTS:= as Emacs does (/Running source blocks/ in
+  Part I); other languages, =#+CALL:= lines and inline calls,
+  =:cache=, =:file= results, tangling and sessions are not
+  implemented. Export treats blocks as Emacs does when evaluation is
+  refused.
 - *The agenda.* No agenda views, capture or workspace-wide =id:=
   resolution; ~kalem query~ runs match strings over files.
 - *Clocking.* =CLOCK:= lines are parsed and summed; clocking in and

@@ -510,6 +510,24 @@ pub const SPECS: &[Spec] = &[
         default: "[]",
         description: "Enabled plugins, by ID",
     },
+    Spec {
+        key: "babel.confirm_evaluate",
+        kind: Kind::Bool,
+        default: "true",
+        description: "Ask before running a source block (C-c C-c, Enter with Vim's keys), the answer typed yes or no, as Emacs's org-confirm-babel-evaluate does; a block's :eval header argument still refuses or asks",
+    },
+    Spec {
+        key: "babel.load_languages",
+        kind: Kind::List(None),
+        default: "[]",
+        description: "The languages whose source blocks may run, as Emacs's org-babel-load-languages loads them: \"shell\" (sh, bash, zsh and the other shells) and \"python\"; none until you name them",
+    },
+    Spec {
+        key: "babel.python_command",
+        kind: Kind::Str,
+        default: r#""""#,
+        description: "The program Python source blocks run with (python3, or a path and its options); empty for python where it is found, else python3",
+    },
 ];
 
 /// A settings layer.

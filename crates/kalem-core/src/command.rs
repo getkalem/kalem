@@ -815,6 +815,16 @@ pub fn argument_label(id: &str, name: &str) -> String {
 }
 
 /// What the prompt for argument `name` of command `id`, given `args`
+/// already, asks: a question the command put in its arguments
+/// (`NAME_label`, Babel's "Evaluate this sh code block on your system?"),
+/// else [`argument_label`].
+pub fn argument_label_with(id: &str, name: &str, args: &serde_json::Value) -> String {
+    args.get(format!("{name}_label"))
+        .and_then(serde_json::Value::as_str)
+        .map_or_else(|| argument_label(id, name), str::to_string)
+}
+
+/// What the prompt for argument `name` of command `id`, given `args`
 /// already, starts with: a property's value when Set Property knows the
 /// key, the text of the comment Edit Comment changes, the caption or
 /// name of the element at the cursor, the color used last for Text Color and Highlight, else as

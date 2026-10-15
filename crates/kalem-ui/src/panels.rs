@@ -472,13 +472,14 @@ impl Editor {
                 items: Vec::new(),
                 moved: false,
             });
+        let label = format!(
+            "{title}: {}",
+            kalem_core::command::argument_label_with(command, &name, &args)
+        );
         p.arg = Some(ArgPrompt {
             command: command.to_string(),
             args,
-            label: format!(
-                "{title}: {}",
-                kalem_core::command::argument_label(command, &name)
-            ),
+            label,
             name,
             ty,
         });

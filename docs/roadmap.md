@@ -348,9 +348,14 @@ Writers (Org and Markdown)
   0.2.19, `canvas-view-2`, K24) its whiteboards' text as Logseq sizes
   it; text at places of a line (API 0.2.20, `layer-5`, K6) its blocks'
   reference counts at their lines' ends. M
-- [ ] R5.6 Babel (T3.4.1–T3.4.9): header arguments, executors for shell,
+- [~] R5.6 Babel (T3.4.1–T3.4.9): header arguments, executors for shell,
   Python, R and gnuplot behind the plugin host's trust model, results
   blocks, tangling. L (after the plugin permissions, R5.11)
+  Done 2026-10-15: shell and Python blocks run and write their results
+  as Emacs does, behind Emacs's own policy (the owner's decision:
+  confirmation, `:eval`, the languages enabled by setting). Open:
+  plugin executors (API 0.2.21), export-time evaluation, R and gnuplot,
+  `:cache`, tangling, `#+CALL:`, sessions.
 
 Scientists (LaTeX)
 - [ ] R5.7 The LaTeX exit criteria (T2.7h.39): a paper and a thesis from

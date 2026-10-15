@@ -289,6 +289,11 @@ fn schemas() -> Vec<(&'static str, Value)> {
         }),
         ("file.import", object(&[("file", "string", true)])),
         ("org.note.add", object(&[("note", "string", false)])),
+        ("org.babel.execute", object(&[("answer", "string", false)])),
+        (
+            "org.babel.insertResult",
+            object(&[("run", "integer", false)]),
+        ),
         ("org.footnote.new", object(&[("label", "string", false)])),
         ("project.remove", object(&[("path", "string", false)])),
         ("project.add", object(&[("path", "string", false)])),
@@ -580,6 +585,8 @@ fn org_dwim(ctx: &mut EditorContext<'_>) -> CommandResult {
                     run("org.todo.done", serde_json::json!({}))
                 }
             })
+    } else if on("inSrcBlock") {
+        Some(run("org.babel.execute", serde_json::json!({})))
     } else if on("inTable") {
         Some(run("table.recalculate", serde_json::json!({})))
     } else if on("inList") && checkbox_on_line(&text, pos) {
@@ -8516,14 +8523,18 @@ fn plain_commands() -> Vec<Command> {
             Some(ORG),
             |ctx, _| ctx.org(|d, p, _| org_edit::insert::remove_link(&text_of(d), p)),
         ),
-        // Doom Emacs's `+org/dwim-at-point`, Enter in Vim's Normal mode.
-        cmd(
-            "org.dwim",
-            "Act at Cursor",
-            "Edit",
-            &[],
-            Some(ORG),
-            |ctx, _| org_dwim(ctx),
+        // Doom Emacs's `+org/dwim-at-point`, Enter in Vim's Normal mode;
+        // in a source block too, which it runs.
+        scoped(
+            cmd(
+                "org.dwim",
+                "Act at Cursor",
+                "Edit",
+                &[],
+                Some(ORG),
+                |ctx, _| org_dwim(ctx),
+            ),
+            crate::command::Scope::all(),
         ),
         cmd(
             "org.link.open",
@@ -11121,6 +11132,31 @@ fn plain_commands() -> Vec<Command> {
             Some(ORG),
             add_note,
         ),
+        // Babel's commands serve the source blocks of Org documents (their
+        // text type is the block's language), and the results come back
+        // wherever the cursor has gone.
+        scoped(
+            cmd(
+                "org.babel.execute",
+                "Execute Source Block",
+                "Babel",
+                &[],
+                Some("editorMode == org && inSrcBlock"),
+                crate::babel::execute,
+            ),
+            crate::command::Scope::all(),
+        ),
+        scoped(
+            cmd(
+                "org.babel.insertResult",
+                "Write a Source Block's Results",
+                "Babel",
+                &[],
+                Some(ORG),
+                crate::babel::insert_result,
+            ),
+            crate::command::Scope::all(),
+        ),
         cmd(
             "org.footnote.action",
             "Go to Footnote Definition or Reference",
@@ -13453,6 +13489,9 @@ mod tests {
         };
         assert!(!when("org.emphasis.bold"));
         assert!(when("lines.moveUp"));
+        // Babel runs the block from inside it, by Enter (org.dwim) too.
+        assert!(when("org.babel.execute"));
+        assert!(when("org.dwim"));
         // A document without a file is an Org document.
         d.selection = org_edit::Selection::caret(1);
         assert_eq!(d.text_type(), "org");

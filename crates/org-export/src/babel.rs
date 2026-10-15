@@ -265,6 +265,84 @@ fn global_properties(keywords: &[(String, String)]) -> Vec<(String, String)> {
         .collect()
 }
 
+/// The header arguments of block `node` in the order
+/// `org-babel-get-src-block-info` merges them: the inherited
+/// `header-args`, then `header-args:LANG`, the `#+begin_src` line's,
+/// and each `#+HEADER` line's.
+fn header_sources(
+    node: &SyntaxNode,
+    lang: Option<&str>,
+    parameters: Option<&str>,
+    global: &[(String, String)],
+) -> Vec<String> {
+    let mut out = Vec::new();
+    if let Some(v) = inherited(node, "header-args", global) {
+        out.push(v);
+    }
+    if let Some(l) = lang
+        && let Some(v) = inherited(node, &format!("header-args:{l}"), global)
+    {
+        out.push(v);
+    }
+    if let Some(p) = parameters {
+        out.push(p.to_string());
+    }
+    for k in ast::affiliated_keywords(node).filter(|k| k.key() == "HEADER") {
+        out.push(k.value());
+    }
+    out
+}
+
+/// A source block as evaluating it needs it (`org-babel-get-src-block-info`):
+/// its language, `#+NAME`, switches, its header arguments in the order
+/// they merge ([`header_sources`]'s), and its body without its last
+/// newline, its common indentation removed unless `-i` keeps it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SrcBlockInfo {
+    pub lang: Option<String>,
+    pub name: Option<String>,
+    pub switches: Option<String>,
+    pub headers: Vec<String>,
+    pub body: String,
+}
+
+/// The [`SrcBlockInfo`] of source block `node` of a document whose
+/// keywords (`#+PROPERTY` lines among them) are `keywords`.
+pub fn src_block_info(node: &SyntaxNode, keywords: &[(String, String)]) -> Option<SrcBlockInfo> {
+    let b = Block::new(node.clone(), &global_properties(keywords))?;
+    let headers = header_sources(
+        node,
+        b.lang.as_deref(),
+        b.parameters.as_deref(),
+        &global_properties(keywords),
+    );
+    Some(SrcBlockInfo {
+        lang: b.lang,
+        name: b.name,
+        switches: b.switches,
+        headers,
+        body: b.body,
+    })
+}
+
+/// `org-babel-parse-header-arguments`: a header line's `:key value`
+/// pairs.
+pub fn header_arguments(s: &str) -> Vec<(String, String)> {
+    parse_header(s)
+}
+
+/// `org-babel-read` of a header value without evaluating Lisp: a
+/// double-quoted string read, anything else as written.
+pub fn header_value(v: &str) -> String {
+    read_value(v)
+}
+
+/// `org-babel-result-end` for the result element `n` of `text` whose
+/// `#+RESULTS` keyword ends at byte `after_keyword`.
+pub fn results_end(text: &str, n: &SyntaxNode, after_keyword: usize) -> usize {
+    result_end(text, n, after_keyword)
+}
+
 /// What Babel knows about a source block (`org-babel-get-src-block-info`).
 struct Block {
     node: SyntaxNode,
@@ -286,19 +364,8 @@ impl Block {
         let switches = b.switches();
         let parameters = b.parameters();
         let mut params = Params::defaults();
-        if let Some(v) = inherited(&node, "header-args", global) {
-            params.merge(&v);
-        }
-        if let Some(l) = &lang
-            && let Some(v) = inherited(&node, &format!("header-args:{l}"), global)
-        {
-            params.merge(&v);
-        }
-        if let Some(p) = &parameters {
-            params.merge(p);
-        }
-        for k in ast::affiliated_keywords(&node).filter(|k| k.key() == "HEADER") {
-            params.merge(&k.value());
+        for h in header_sources(&node, lang.as_deref(), parameters.as_deref(), global) {
+            params.merge(&h);
         }
         let name = ast::affiliated_keywords(&node)
             .find(|k| k.key() == "NAME")
