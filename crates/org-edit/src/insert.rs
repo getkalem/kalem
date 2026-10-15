@@ -111,7 +111,10 @@ pub fn remove_link(text: &str, point: usize) -> Result<Transaction, EditError> {
                 };
                 let mut buf = Buf::new(text, point);
                 buf.replace(s, end, &label);
-                buf.point = point.min(s + label.len());
+                // At the label's start, as Doom's `save-excursion` leaves
+                // it (the deleted link takes the cursor to its start); the
+                // old offset could fall inside a character of the label.
+                buf.point = s;
                 return Ok(buf.transaction("Remove link"));
             }
             i = end;
@@ -477,6 +480,15 @@ mod tests {
         // At either end of the link too; elsewhere no link.
         assert_eq!(rm("[[x][y]]", 8).unwrap(), "y");
         assert!(rm("a [[x][y]] b", 1).is_err());
+        // The cursor at the label's start (not inside its `😀`).
+        let at = |t: &str, p: usize| {
+            super::remove_link(t, p)
+                .unwrap()
+                .selection_after
+                .map(|s| s.head)
+        };
+        assert_eq!(at("[[a][😀]]", 1), Some(0));
+        assert_eq!(at("x [[https://a][desc]] y", 17), Some(2));
         assert_eq!(super::link_unescape("a\\]b\\\\\\[c"), "a]b\\[c");
     }
 

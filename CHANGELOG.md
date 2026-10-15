@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- In Org, Remove Link (Doom's `SPC m l d`) leaves the cursor at the start of the text that replaces the link, as Doom does, where it kept its old offset and could land inside a character of the description (`[[a][😀]]`), which then panicked the editor.
+
 ## [0.6.41] - 2026-10-15
 
 ### Fixed
