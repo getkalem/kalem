@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.20;
+package kalem:plugin@0.2.21;
 
 /// Documents drawn as graphs of nodes and edges (API 0.2.12): a notes
 /// graph's pages and their links, a project's dependencies, a mind map.

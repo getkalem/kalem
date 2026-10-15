@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.20;
+package kalem:plugin@0.2.21;
 
 /// What a plugin finds wrong in files (API 0.2.14): its tool's errors and
 /// warnings, drawn as a language server's diagnostics are (the wavy line,

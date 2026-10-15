@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.20;
+package kalem:plugin@0.2.21;
 
 /// What a plugin keeps between sessions (API 0.2.17): small values by
 /// key, the plugin's alone, in Kalem's state folder: the pages opened

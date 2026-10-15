@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.20;
+package kalem:plugin@0.2.21;
 
 /// Layers whose lines under a line are typed into as an outline (API
 /// 0.2.18; `kalem_core::row_edit`): what `layer-3` gives, and with a

@@ -1,4 +1,4 @@
-package kalem:plugin@0.2.20;
+package kalem:plugin@0.2.21;
 
 /// Layers that show text at places of a line (API 0.2.20;
 /// `kalem_core::layers`): what `layer-4` gives, and text of no source at

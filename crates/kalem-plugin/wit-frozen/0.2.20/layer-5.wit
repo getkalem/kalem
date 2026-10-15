@@ -1,0 +1,35 @@
+package kalem:plugin@0.2.20;
+
+/// Layers that show text at places of a line (API 0.2.20;
+/// `kalem_core::layers`): what `layer-4` gives, and text of no source at
+/// bytes of the text, shown wherever the cursor is in every view but the
+/// source, as a language server's inlay hints are: a block's reference
+/// count at its line's end, a line's author, a running total. The cursor
+/// steps over it, a search does not find it and a copy leaves it out. A
+/// plugin exporting `layer-5` is asked by it, not by `layer-4`.
+interface layer-5 {
+    use layer.{span, lines, span-style};
+    use layer-4.{below};
+
+    /// Text shown at byte `at` of the text, after what ends there, in
+    /// `style`: one line, at most 200 characters (a line feed a space).
+    record insert {
+        at: u64,
+        text: string,
+        style: span-style,
+    }
+
+    /// What a layer changes: `layer-4`'s overlay set, and text at places
+    /// of its lines, those at one place in the order given.
+    record overlay-set {
+        spans: list<span>,
+        lines: list<lines>,
+        below: list<below>,
+        inserts: list<insert>,
+    }
+
+    /// The overlays of layer `layer` (an ID of the manifest's `layers`)
+    /// for the document of file `path` (none for one not saved yet) with
+    /// `text`, as `layer-4`'s `overlays` gives them.
+    overlays: func(layer: string, path: option<string>, text: string) -> overlay-set;
+}
