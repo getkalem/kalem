@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- With Vim's keys, counts of nine digits and more no longer run Kalem out of memory or hold it for seconds: `R`'s count and a visual shift's (`v999999999>`) fail past 10 MiB of text as an insert's does, and a visual `<`, `)`, `*`, `#`, `cw`, the sentence objects `is` and `as` and a counted `v` stop where they go no further. Neither do `gqq`, a block change or `ap` and `ip` on a line past those Vim counts (after a text's last line was emptied, or after `gv` reselected lines a put had replaced) panic or go on for ever, and `gp` with nothing to put leaves the cursor where it is. Found by random keys run through the Vim layer.
+
 ## [0.6.33] - 2026-10-15
 
 ### Added

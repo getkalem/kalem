@@ -123,6 +123,7 @@ pub(super) fn findsent(
     let mut noskip = false;
     let mut count = count;
     while count > 0 {
+        let before = (pos, noskip);
         count -= 1;
         let mut found = false;
         if gchar(doc, pos).is_none() {
@@ -212,6 +213,12 @@ pub(super) fn findsent(
                 break;
             }
         }
+        // Gone nowhere: the sentences before the last would go nowhere
+        // again (`999999999)` before blank lines at the end took seconds);
+        // the last, which may stop otherwise, still runs.
+        if (pos, noskip) == before && count > 1 {
+            count = 1;
+        }
     }
     Some(pos)
 }
@@ -231,17 +238,28 @@ fn find_first_blank(doc: &DocumentState, p: &mut usize) {
 /// them on, from the start of one (`at_start`) or from within.
 fn findsent_forward(doc: &DocumentState, p: &mut usize, count: usize, at_start: bool) {
     let mut at_start = at_start;
-    for i in (0..count).rev() {
+    let mut left = count;
+    // The states of the two steps before: steps going round in two (at
+    // the text's end) leave only the parity of those left to matter, so a
+    // count of nine digits does not take minutes.
+    let (mut before, mut last) = (None, None);
+    while left > 0 {
+        left -= 1;
         if let Some(n) = findsent(doc, *p, true, 1) {
             *p = n;
         }
         if at_start {
             find_first_blank(doc, p);
         }
-        if i == 0 || at_start {
+        if left == 0 || at_start {
             decl(doc, p);
         }
         at_start = !at_start;
+        let state = Some((*p, at_start));
+        if state == before && left > 2 {
+            left = 2 - left % 2;
+        }
+        (before, last) = (last, state);
     }
 }
 
@@ -300,7 +318,11 @@ pub(super) fn current_sent(
                 if include {
                     count *= 2;
                 }
-                for _ in 0..count {
+                // As in `findsent_forward`: steps going round in two stop.
+                let (mut before, mut last) = (None, None);
+                let mut left = count;
+                while left > 0 {
+                    left -= 1;
                     if at_start {
                         find_first_blank(doc, &mut cur);
                     }
@@ -308,6 +330,11 @@ pub(super) fn current_sent(
                         cur = findsent(doc, cur, false, 1).unwrap_or(cur);
                     }
                     at_start = !at_start;
+                    let state = Some((cur, at_start));
+                    if state == before {
+                        left %= 2;
+                    }
+                    (before, last) = (last, state);
                 }
             } else {
                 // At its end: it grows on.
@@ -536,13 +563,18 @@ pub(super) fn current_par(
     include: bool,
 ) -> Option<(usize, usize)> {
     let last = last_line(doc);
+    // A cursor or a selection past the lines Vim counts (`gv` after the
+    // lines were put over): from the last line, else the walk below went
+    // on for ever.
+    let line = line.min(last);
+    let anchor = anchor.map(|a| a.min(last));
     let white = |l: usize| blank_line(doc, l);
     let mut start = line;
     if let Some(visual) = anchor.filter(|a| *a != line) {
         // A selection over lines grows a paragraph (and its blank lines)
         // at a time, the way the cursor is.
         let forward = start > visual;
-        let at_end = |l: usize| if forward { l == last } else { l == 0 };
+        let at_end = |l: usize| if forward { l >= last } else { l == 0 };
         let mut ok = true;
         for _ in 0..count {
             if at_end(start) {

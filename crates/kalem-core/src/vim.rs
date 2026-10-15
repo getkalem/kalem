@@ -2902,6 +2902,9 @@ impl Vim {
                 right,
             } => {
                 let last = last.min(last_line(doc));
+                // A block begun past the lines Vim counts (after a final
+                // line feed): its last line, not none (`ranges[0]` panicked).
+                let first = first.min(last);
                 let ts = self.options.tabstop.max(1);
                 let parts: Vec<BlockPart> = (first..=last)
                     .map(|l| block_part(doc, l, left, right, ts))
@@ -2987,6 +2990,10 @@ impl Vim {
         keep: bool,
         host: &mut dyn Host,
     ) {
+        // A cursor past the lines Vim counts (the last emptied in a text
+        // without a final line feed) gives a first line after the last:
+        // the slice below ended before it started.
+        let l1 = l1.min(l2);
         let width = match self.options.textwidth {
             0 => host.columns().saturating_sub(1).clamp(1, 79),
             tw => tw,
@@ -3200,11 +3207,20 @@ impl Vim {
         doc.selection = Selection::caret(first_non_blank(doc, l1.min(last_line(doc))));
     }
 
-    fn put(&mut self, doc: &mut DocumentState, before: bool, count: usize, host: &mut dyn Host) {
-        let Some(r) = self.fetch(host) else { return };
+    /// Whether anything was put.
+    fn put(
+        &mut self,
+        doc: &mut DocumentState,
+        before: bool,
+        count: usize,
+        host: &mut dyn Host,
+    ) -> bool {
+        let Some(r) = self.fetch(host) else {
+            return false;
+        };
         if too_long(&r.text, count) {
             self.failed = true;
-            return;
+            return false;
         }
         let pos = self.cursor;
         let line = line_of(doc, pos);
@@ -3227,6 +3243,7 @@ impl Vim {
                 doc.grapheme_before(end).max(start)
             },
         );
+        true
     }
 
     /// `]p` and `[p`: lines put with the indent of the cursor's line, their
@@ -3818,12 +3835,19 @@ impl Vim {
                     Key::Char(c @ ('p' | 'P')) if !self.visual() && self.op.is_none() => {
                         let n = self.count.take().unwrap_or(1);
                         self.begin_change();
-                        self.put(doc, c == 'P', n, host);
-                        // The cursor just after the new text.
-                        if let Some(&end) = doc.marks.named.get(&']') {
+                        // The cursor just after the new text, if any was
+                        // put (an empty register moved it to an old `']`);
+                        // lines put at the end leave it on the last.
+                        if self.put(doc, c == 'P', n, host)
+                            && let Some(&end) = doc.marks.named.get(&']')
+                        {
                             let end = end.min(doc.text().len());
                             let to = if self.put_linewise {
-                                end
+                                if line_of(doc, end) > last_line(doc) {
+                                    line_start(doc, last_line(doc))
+                                } else {
+                                    end
+                                }
                             } else {
                                 doc.grapheme_after(end).min(doc.text().len())
                             };
@@ -4185,13 +4209,30 @@ impl Vim {
                 self.op_start = self.visual_start(doc);
                 self.mode = Mode::Normal;
                 self.begin_change_if(op);
-                // `3>`: the shift three times.
+                // `3>`: the shift three times. One that would make too much
+                // text fails, as an insert's count does (`v999999999>` ran
+                // out of memory); `<` stops once nothing moves.
                 let times = match op {
                     Op::Indent | Op::Outdent => self.count.unwrap_or(1),
                     _ => 1,
                 };
+                let lines = match &t {
+                    Target::Chars(r) => line_of(doc, r.end) - line_of(doc, r.start) + 1,
+                    Target::Lines(first, last) | Target::Block { first, last, .. } => {
+                        last.saturating_sub(*first) + 1
+                    }
+                };
+                let indent = " ".repeat(self.shiftwidth(doc));
+                if op == Op::Indent && too_long(&indent, times.saturating_mul(lines)) {
+                    self.failed = true;
+                    return self.reset();
+                }
                 for _ in 0..times {
+                    let version = doc.version();
                     self.apply_op(doc, op, t.clone(), host, out);
+                    if op == Op::Outdent && doc.version() == version {
+                        break;
+                    }
                 }
                 // Lines yanked from where visual mode began: the cursor at
                 // the start of the first line.
@@ -4421,21 +4462,24 @@ impl Vim {
                 let k = n.max(1);
                 match mode {
                     Mode::VisualLine => {
-                        let to = (line + lines * k - 1).min(last_line(doc));
+                        let to = (line + lines.saturating_mul(k) - 1).min(last_line(doc));
                         self.cursor = at_column(doc, to, column(doc, pos));
                     }
                     // Over lines: as many lines, to the same column.
                     _ if lines > 1 => {
-                        let to = (line + lines * k - 1).min(last_line(doc));
+                        let to = (line + lines.saturating_mul(k) - 1).min(last_line(doc));
                         self.cursor = at_column(doc, to, chars.saturating_sub(1));
                     }
                     _ => {
                         let e = line_end(doc, line);
                         let mut p = pos;
-                        for _ in 1..chars * k {
-                            if p < e {
-                                p = doc.grapheme_after(p);
+                        // Up to the line's end, where it stops (a count of
+                        // nine digits went on for seconds there).
+                        for _ in 1..chars.saturating_mul(k) {
+                            if p >= e {
+                                break;
                             }
+                            p = doc.grapheme_after(p);
                         }
                         self.cursor = p.min(e);
                     }
@@ -4516,6 +4560,13 @@ impl Vim {
     ) -> Option<usize> {
         let matches = self.matches(doc, pattern).ok()?;
         let wrap = self.options.wrapscan;
+        // Around the end the matches come round again: a count is as good
+        // as its rest after whole rounds (`999999999*` took a second).
+        let count = if wrap && !matches.is_empty() && count > matches.len() {
+            1 + (count - 1) % matches.len()
+        } else {
+            count
+        };
         let mut p = from;
         for _ in 0..count {
             let next = if back {
@@ -5245,8 +5296,14 @@ impl Vim {
         if op == Op::Change && word_motion && char_at(doc, s).is_some_and(|c| !c.is_whitespace()) {
             let big = self.keys.last() == Some(&Key::Char('W'));
             let mut p = word_end_from(doc, s, big);
+            // Where it goes no further, it stops (a count of nine digits
+            // took seconds).
             for _ in 1..self.motion_count {
-                p = word_end(doc, p, big);
+                let next = word_end(doc, p, big);
+                if next == p {
+                    break;
+                }
+                p = next;
             }
             e = doc.grapheme_after(p).max(p);
         }
@@ -5384,6 +5441,17 @@ impl Vim {
                         .as_ref()
                         .and_then(|r| r.inserted.clone())
                         .unwrap_or_default();
+                    // Typed once where the count would make too much text,
+                    // as an insert's count does (it ran out of memory); with
+                    // nothing typed, nothing to repeat.
+                    let count = if too_long(&typed, count - 1) {
+                        self.failed = true;
+                        1
+                    } else if typed.is_empty() {
+                        1
+                    } else {
+                        count
+                    };
                     for _ in 1..count {
                         for ch in typed.chars() {
                             self.replace_key(
@@ -6478,8 +6546,64 @@ mod tests {
         assert_eq!(run("\n", 0, "999999999999ix<Esc>"), run("\n", 0, "ix<Esc>"));
         assert_eq!(run("ab\n", 0, "yl999999999999p"), "|ab\n");
         assert_eq!(run("ab\n", 0, "999999999999] "), "|ab\n");
+        // `R`'s count too, and a visual shift's (both ran out of memory);
+        // a visual `<` stops once nothing moves.
+        assert_eq!(
+            run("ab\n", 0, "999999999999Rx<Esc>"),
+            run("ab\n", 0, "Rx<Esc>")
+        );
+        // A sentence before blank lines, a word search, `cw`: as fast as
+        // their count's rest (they took seconds).
+        let t = "a\n\n\n";
+        assert_eq!(run(t, 0, "999999999999)"), run(t, 0, "9)"));
+        let t = "a a a\n";
+        assert_eq!(run(t, 0, "999999999999*"), run(t, 0, "3*"));
+        let t = "a b\n";
+        assert_eq!(run(t, 0, "999999999999cwx<Esc>"), run(t, 0, "9cwx<Esc>"));
+        assert_eq!(run(t, 0, "vl<Esc>999999999999vd"), run(t, 0, "vl<Esc>9vd"));
+        let t = "a. b\nc\n";
+        assert_eq!(run(t, 0, "v999999999999asd"), run(t, 0, "v9asd"));
+        let t = "a\nb\n";
+        assert_eq!(run(t, 0, "Vj999999999999>").replace('|', ""), t);
+        assert_eq!(run("    a\n", 0, "V999999999999<").replace('|', ""), "a\n");
         // An editor command a count repeats runs a thousand times at most.
         assert_eq!(commands_of("999999999999]b", false).len(), 1000);
+    }
+
+    #[test]
+    fn a_block_on_a_line_past_those_vim_counts() {
+        // `i<CR>` in an empty text leaves the cursor past the lines Vim
+        // counts; a block changed there panicked.
+        assert_eq!(run("", 0, "i<CR><Esc><C-v>cx<Esc>").replace('|', ""), "x\n");
+    }
+
+    #[test]
+    fn a_paragraph_from_a_selection_past_the_text() {
+        // `gv` after a put over the paragraph reselects lines no longer
+        // there; `ap` from them never ended.
+        let t = "αβγ δεζ\nη\n";
+        let _ = run(t, 0, "vipPgvap");
+        let _ = run(t, 0, "vipPgvip");
+    }
+
+    #[test]
+    fn gp_at_the_end_and_with_nothing_to_put() {
+        // Lines put at the end leave the cursor on the last, as Vim does;
+        // nothing to put moves nothing (it went to an old `']`, past the
+        // last line, where `g~~` panicked).
+        assert_eq!(run("a\nb\n", 0, "Gyygp"), "a\nb\n|b\n");
+        assert_eq!(run("one\ntwo\n", 0, "j<<gp"), "one\n|two\n");
+        let _ = run("one two three\nfour five\n", 0, ")<<gpg~~");
+    }
+
+    #[test]
+    fn gq_on_a_line_past_those_vim_counts() {
+        // Emptying the last line of a text without a final line feed puts
+        // the cursor past the lines Vim counts; `gqq` there panicked.
+        assert_eq!(
+            run("one\ntwo\n\nlast", 0, ":2,3d<CR>Dgqq").replace('|', ""),
+            "one\n"
+        );
     }
 
     #[test]
