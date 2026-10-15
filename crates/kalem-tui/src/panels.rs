@@ -736,6 +736,11 @@ impl OutlinePanel {
     /// Draws the panel; `current` is the heading holding the cursor.
     pub fn draw(&mut self, buf: &mut Buffer, area: Rect, current: Option<usize>, caps: &Caps) {
         self.rows.clear();
+        // A terminal too narrow for the panel ([`OutlinePanel::width`]
+        // gives it no column): nothing to draw.
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
         let h = area.height as usize;
         if self.selected < self.top {
             self.top = self.selected;

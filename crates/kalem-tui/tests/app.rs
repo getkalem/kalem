@@ -1173,6 +1173,9 @@ fn outline_panel() {
     // Typing goes to the editor again.
     t.typ("x");
     assert!(t.text().contains("x* Three"));
+    // A terminal too narrow for the panel: drawn without it.
+    t.term.backend_mut().resize(3, 8);
+    t.draw();
 }
 
 #[test]
