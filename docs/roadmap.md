@@ -96,7 +96,7 @@ each platform with the results in the release issue.
   plugin handler's panic that `catch_unwind` now contains. CI's
   `binary size` job holds both builds to ceilings
   (`tools/binary-size.txt`), lowered as sizes drop; the full build is
-  83.3 MiB on Linux. What remains of the
+  80.3 MiB on Linux (0.6.32), its ceiling 81.5. What remains of the
   terminal-only 40.8 MiB: 25 MiB of code (kalem-core 4 MiB, std 3 MiB,
   the citation styles 2 MiB, the exporters, the LaTeX pictures' PDF and
   image decoders) and 10 MiB of data (the syntax definitions). The
