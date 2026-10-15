@@ -288,6 +288,11 @@ fn vim_keys_of_evil_org_and_doom() {
     assert_eq!(t.text(), "* A\n* B\n- [ ] y\n- [ ] x\n");
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(t.text(), "* A\n* B\n- [ ] y\n- [X] x\n");
+    // On the bullet of the list's first item too.
+    let bullet = t.text().find("- [ ] y").unwrap();
+    t.app.doc.move_cursor(bullet, false);
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(t.text(), "* A\n* B\n- [X] y\n- [X] x\n");
     // Enter on a heading with a TODO keyword: done, then not done again;
     // on a plain line it does nothing (it does not move either).
     let text = "* TODO Task\nplain\n";

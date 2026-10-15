@@ -211,8 +211,15 @@ impl DocumentState {
             return;
         }
         let tx = tx.select(after[primary]);
+        let version = self.version();
         // The other cursors kept: the undo step takes them as they were.
         self.apply(&tx, ChangeKind::Typing, now);
+        // Not applied (a read-only document, a folder listing): the cursors
+        // stay where they were rather than where the edit would have left
+        // them, past the text or inside a character.
+        if self.version() == version {
+            return;
+        }
         self.set_cursors(after, primary);
         self.record_cursors();
     }
@@ -381,6 +388,19 @@ mod tests {
             },
             std::sync::Arc::new(org_model::Settings::default()),
         )
+    }
+
+    #[test]
+    fn read_only_keeps_the_cursors() {
+        let now = Instant::now();
+        let mut d = doc("ab\ncd\n");
+        d.move_cursor(2, false);
+        assert!(d.add_cursor_vertical(false));
+        d.read_only = true;
+        let before = d.cursors();
+        d.insert_text("şş", now);
+        assert_eq!(d.text().as_str(), "ab\ncd\n");
+        assert_eq!(d.cursors(), before);
     }
 
     #[test]

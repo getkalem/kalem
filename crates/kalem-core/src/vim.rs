@@ -853,8 +853,15 @@ fn upper_char(c: char) -> char {
 /// wide characters two columns.
 fn display_col(doc: &DocumentState, pos: usize, ts: usize) -> usize {
     use unicode_width::UnicodeWidthChar;
+    // A position an edit made outside Vim left past the text or inside a
+    // character (a block selection's anchor) is the character it is in.
+    let text = doc.text().as_str();
+    let mut pos = pos.min(text.len());
+    while !text.is_char_boundary(pos) {
+        pos -= 1;
+    }
     let s = line_start(doc, line_of(doc, pos));
-    doc.text().as_str()[s..pos].chars().fold(0, |col, c| {
+    text[s..pos].chars().fold(0, |col, c| {
         if c == '\t' {
             (col / ts + 1) * ts
         } else {
@@ -6807,6 +6814,34 @@ mod tests {
         assert_eq!(d.selection, Selection::caret(7));
         v.key(&mut d, Key::Esc, &mut host);
         assert_eq!(v.block_ranges(&d), None);
+    }
+
+    #[test]
+    #[allow(clippy::single_range_in_vec_init)]
+    fn block_after_an_edit_made_outside_vim() {
+        // A frontend's own key (Shift+Delete in the terminal) shortening
+        // the text under the block: its ends past the text, or inside a
+        // character, are painted as the character they are in.
+        let cut = |d: &mut DocumentState, r: Range<usize>| {
+            let mut tx = Transaction::new("Cut");
+            tx.replace(r, String::new()).unwrap();
+            d.apply(&tx, ChangeKind::Typing, Instant::now());
+        };
+        let mut d = doc("abcd😀", DocumentMode::Text { language: None });
+        d.selection = Selection::caret(4);
+        let mut v = Vim::new();
+        let mut host = TestHost::default();
+        for k in [Key::Ctrl('v'), Key::Char('h')] {
+            v.key(&mut d, k, &mut host);
+        }
+        cut(&mut d, 2..8);
+        assert_eq!(v.block_ranges(&d), Some(vec![2..2]));
+        let mut d = doc("aé\n", DocumentMode::Text { language: None });
+        d.selection = Selection::caret(1);
+        let mut v = Vim::new();
+        v.key(&mut d, Key::Ctrl('v'), &mut host);
+        cut(&mut d, 0..1);
+        assert_eq!(v.block_ranges(&d), Some(vec![0..2]));
     }
 
     #[test]

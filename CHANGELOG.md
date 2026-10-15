@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- Typing with several cursors in a read-only document or a folder listing no longer moves the cursors to where the refused text would have left them, past the text or inside a character, where the terminal editor then panicked (a CSV grid's formula bar, the Org syntax tree's "Bad offset").
+- With Vim's keys, a block selection over text shortened by a key Vim leaves to the editor (Shift+Delete in the terminal) no longer panics the terminal editor when drawn: its ends past the text, or inside a character, are the character they are in.
+- Typing `:` on an Org heading of stars only (`* `) no longer panics the editor.
+- In Org, Enter in Vim's Normal mode (Doom's RET, Act at Cursor) on the bullet of a list's first item toggles its checkbox as it does elsewhere on the line: the `inList` context is true there, as `org-at-item-p` is.
+
 ## [0.6.35] - 2026-10-15
 
 ### Added

@@ -3672,7 +3672,14 @@ impl DocumentState {
             .trim_start_matches([' ', '\t'])
             .starts_with('|');
         c.flag("inTable", on_row && kinds.contains(&K::TABLE));
-        c.flag("inList", kinds.contains(&K::ITEM));
+        // At the first item's bullet `element_at` gives the list itself
+        // (as `org-element-at-point` does), not the item.
+        let at_item = el.kind() == K::PLAIN_LIST
+            && el.children().any(|i| {
+                let r = i.text_range();
+                i.kind() == K::ITEM && usize::from(r.start()) <= pos && pos < usize::from(r.end())
+            });
+        c.flag("inList", at_item || kinds.contains(&K::ITEM));
         c.flag("inBlock", kinds.iter().any(block));
         c.flag("inSrcBlock", el.kind() == K::SRC_BLOCK);
         c.flag(
@@ -4197,6 +4204,7 @@ mod tests {
                 .collect::<Vec<_>>()
         };
         assert_eq!(at(&mut d, 1), ["onHeadline"]);
+        assert_eq!(at(&mut d, 4), ["inList"]);
         assert_eq!(at(&mut d, 6), ["inList"]);
         assert_eq!(at(&mut d, 12), ["inList", "inTable"]);
         assert_eq!(at(&mut d, 34), ["inBlock", "inSrcBlock"]);
@@ -4207,6 +4215,13 @@ mod tests {
             assert_eq!(at(&mut t, 10), Vec::<&str>::new(), "{text:?}");
             assert_eq!(at(&mut t, 9), ["inTable"], "{text:?}");
         }
+        // The first bullet of a list is in it, a keyword naming the list
+        // and the text after the list are not.
+        let mut t = org("#+name: l\n- [ ] a\n\nafter\n");
+        t.wait_for_parse();
+        assert_eq!(at(&mut t, 10), ["inList"]);
+        assert_eq!(at(&mut t, 0), Vec::<&str>::new());
+        assert_eq!(at(&mut t, 19), Vec::<&str>::new());
         assert_eq!(
             d.when_context().get("editorMode"),
             Some(&Value::Str("org".into()))

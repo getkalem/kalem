@@ -77,7 +77,7 @@ fn tags_start(line: &str) -> Option<usize> {
     }
     let body = line.trim_end_matches([' ', '\t']);
     let start = body.rfind([' ', '\t']).map_or(0, |i| i + 1).max(stars + 1);
-    let tags = &body[start..];
+    let tags = body.get(start..)?;
     let ok = tags.len() >= 3
         && tags.starts_with(':')
         && tags.ends_with(':')
@@ -240,5 +240,9 @@ mod tests {
         assert_eq!(tags_start("* A :x:y:"), Some(4));
         assert_eq!(tags_start("* A:x:"), None);
         assert_eq!(tags_start("* :x:"), Some(2));
+        // A heading of stars only: no tags (and no panic).
+        assert_eq!(tags_start("* "), None);
+        let (out, _) = run("* \n", |d| self_insert(d, 2, ":", false).unwrap());
+        assert_eq!(out, "* :\n");
     }
 }
