@@ -214,7 +214,14 @@ impl Vim {
                 });
             }
             Key::Ctrl('n' | 'p') => self.complete(doc, key == Key::Ctrl('n')),
-            Key::Left | Key::Right | Key::Up | Key::Down => {
+            Key::Left
+            | Key::Right
+            | Key::Up
+            | Key::Down
+            | Key::Home
+            | Key::End
+            | Key::PageUp
+            | Key::PageDown => {
                 // Moving starts the insert again where the cursor lands
                 // (for `.` and undo); the frontend moves.
                 doc.break_undo_group();
@@ -361,7 +368,9 @@ impl Vim {
             return;
         }
         let text = doc.text().as_str();
-        let start = self.insert_at.filter(|a| *a >= s && *a < head);
+        let start = self
+            .insert_start(doc, head)
+            .filter(|a| *a >= s && *a < head);
         let mut to = match what {
             Erase::Char => {
                 // Blanks back to the soft tab stop before; a tab the stop
@@ -664,9 +673,7 @@ impl Vim {
     /// CTRL-O: normal mode for one command.
     fn leave_insert_for_command(&mut self, doc: &mut DocumentState) {
         let head = doc.selection.head.min(doc.text().len());
-        if let Some(at) = self.insert_at
-            && head >= at
-        {
+        if let Some(at) = self.insert_start(doc, head) {
             self.last_inserted = Some(doc.text().as_str()[at..head].to_string());
         }
         // The command is part of the insert's undo step, as in Vim.

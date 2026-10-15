@@ -9,6 +9,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 - A plugin's panel reads its long lines whole, in both editors: a text too long for the panel goes on over the lines below at its widget's indent (an entry's past its arrow), four lines at most, then ends in an ellipsis; a row's widgets that do not fit side by side go below. In the terminal the panel at the side grows past 36 columns on a wide screen (a third of it, 48 at most), scrolls with the wheel and marks the lines above and below it, and a click on any line of a button, an entry, a checkbox or an input reaches the plugin, as in the window. In both editors the panel takes the keys from a click on it away from its widgets, or from moving the focus toward it from the pane beside it (Vim's Ctrl+W and Doom's `SPC w` with `h` toward the terminal's panel at the left, `l` toward the window's at the right, `j` toward one at the bottom): the arrows, `j` and `k` choose among the widgets one acts on, Enter or `l` acts, Page Up and Page Down scroll, Escape or the move back gives the keys back. For the graph plugin's backlinks, whose long references were cut at the panel's edge.
 
+### Fixed
+- With Vim's keys, Esc no longer panics after text typed in Insert mode before the place the insert began (a character of more than one byte typed after Home, or after Alt with an arrow); Home, End, Page Up and Page Down there start the insert again where the cursor lands, as the arrows do.
+- In an Org table, Enter (to the next row) in a field that starts with a character of more than one byte (`|😀 |`) no longer panics: it goes on by a character, as Emacs does, not by a byte.
+
 ## [0.6.36] - 2026-10-15
 
 ### Fixed

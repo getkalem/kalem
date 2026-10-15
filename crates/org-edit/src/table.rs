@@ -1330,7 +1330,9 @@ fn get_field_motion(buf: &mut Buf) {
     buf.point = if q == b || t[q..e].trim_matches([' ', '\t']).is_empty() {
         q
     } else {
-        (q + 1).min(e)
+        // A character on (`forward-char`), not a byte: the field may
+        // start with one of more (`|😀 |`).
+        q + t[q..e].chars().next().map_or(0, char::len_utf8)
     };
 }
 
@@ -1510,6 +1512,12 @@ mod tests {
             run("| ±0.5 | a |\n| 1 | bb |\n", 2, align_table),
             "| ±0.5 | a  |\n|    1 | bb |\n"
         );
+    }
+
+    #[test]
+    fn next_row_after_a_wide_character() {
+        // As Emacs 30's `org-table-next-row` does.
+        assert_eq!(run("|😀 |\n", 5, next_row), "| 😀 |\n|    |\n");
     }
 
     #[test]

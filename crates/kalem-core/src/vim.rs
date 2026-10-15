@@ -2644,6 +2644,14 @@ impl Vim {
         self.insert_line = Some((line, text, doc.text().line_count(), at - s));
     }
 
+    /// Where the insert began, while it can have: a key the frontend
+    /// handles alone (Alt with an arrow) moves the cursor, and text may be
+    /// typed before that place, without the layer seeing it.
+    fn insert_start(&self, doc: &DocumentState, head: usize) -> Option<usize> {
+        self.insert_at
+            .filter(|at| *at <= head && doc.text().as_str().is_char_boundary(*at))
+    }
+
     fn leave_insert(&mut self, doc: &mut DocumentState) {
         self.mode = Mode::Normal;
         self.insert_pending = insert::InsertPending::None;
@@ -2662,14 +2670,12 @@ impl Vim {
             }
         }
         doc.marks.named.insert('^', head);
-        if let Some(at) = self.insert_at.filter(|at| head > *at) {
+        let start = self.insert_start(doc, head);
+        if let Some(at) = start.filter(|at| head > *at) {
             doc.marks.named.insert('[', at);
             doc.marks.named.insert(']', head);
         }
-        let typed = self
-            .insert_at
-            .filter(|at| head >= *at)
-            .map(|at| doc.text().as_str()[at..head].to_string());
+        let typed = start.map(|at| doc.text().as_str()[at..head].to_string());
         if let Some(t) = &typed {
             self.last_inserted = Some(t.clone());
             // `'.` and the change list: where the last character went;
@@ -2695,7 +2701,7 @@ impl Vim {
                 insert::Repeat::Lines => {
                     let line = line_of(doc, head);
                     let s = line_start(doc, line);
-                    let at = self.insert_at.unwrap_or(s).max(s);
+                    let at = start.unwrap_or(s).max(s);
                     let indent = doc.text().as_str()[s..at].to_string();
                     format!("\n{indent}{t}")
                 }
@@ -2714,7 +2720,7 @@ impl Vim {
                 head = at + more.len();
             }
         }
-        if let (Some((lines, col, pad)), Some(at)) = (self.block_insert.take(), self.insert_at)
+        if let (Some((lines, col, pad)), Some(at)) = (self.block_insert.take(), start)
             && head > at
             && !doc.text().as_str()[at..head].contains('\n')
         {
@@ -6834,6 +6840,32 @@ mod tests {
         let text: String = (0..60).map(|i| format!("  line {i}\n")).collect();
         assert_eq!(run(&text, 0, "<PageDown>"), run(&text, 0, "<C-f>"));
         assert_eq!(run(&text, 300, "<PageUp>"), run(&text, 300, "<C-b>"));
+    }
+
+    #[test]
+    fn insert_after_moves_vim_did_not_see() {
+        // Home in Insert mode: the editor moves, the insert starts again
+        // there; `😀` typed before where it began, Esc is fine.
+        let mut d = doc("ab\n", DocumentMode::Text { language: None });
+        let mut v = Vim::new();
+        let mut host = TestHost::default();
+        v.key(&mut d, Key::Char('A'), &mut host);
+        d.insert_text("x", Instant::now());
+        assert!(!v.key(&mut d, Key::Home, &mut host).handled);
+        d.move_cursor(0, false);
+        d.insert_text("😀", Instant::now());
+        v.key(&mut d, Key::Esc, &mut host);
+        assert_eq!(d.text().as_str(), "😀abx\n");
+        // A move the layer never hears of (Alt with an arrow): Esc takes
+        // no text from a start inside a character, and does not panic.
+        let mut d = doc("ab\n", DocumentMode::Text { language: None });
+        let mut v = Vim::new();
+        v.key(&mut d, Key::Char('A'), &mut host);
+        d.insert_text("x", Instant::now());
+        d.move_cursor(0, false);
+        d.insert_text("😀", Instant::now());
+        v.key(&mut d, Key::Esc, &mut host);
+        assert_eq!(d.text().as_str(), "😀abx\n");
     }
 
     #[test]

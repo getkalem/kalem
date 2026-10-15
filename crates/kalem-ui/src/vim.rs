@@ -145,14 +145,9 @@ impl Editor {
             return false;
         };
         let k = key(&ev.keystroke);
-        // Insert mode's own keys go to the layer; typed characters, the
-        // editor's motions and keys it does not know go to the editor.
-        if v.takes_text()
-            && matches!(
-                k,
-                Key::Char(_) | Key::Home | Key::End | Key::PageUp | Key::PageDown | Key::Other
-            )
-        {
+        // Insert mode's own keys go to the layer; typed characters and
+        // keys it does not know go to the editor.
+        if v.takes_text() && matches!(k, Key::Char(_) | Key::Other) {
             self.vim = Some(v);
             return false;
         }
