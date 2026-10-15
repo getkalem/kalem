@@ -254,9 +254,11 @@ fn new_row(text: &str, pos: usize, root: &SyntaxNode) -> Option<Transaction> {
 /// that is left open gets its `\end{name}`, the cursor on a line between
 /// them.
 pub fn complete_begin(text: &str, pos: usize, parse: &latex_syntax::Parse) -> Option<Transaction> {
-    let before = &text[..pos];
+    // The `}` there, or nothing to do: typing it in a read-only document
+    // left the cursor after another character, maybe of more bytes.
+    let before = text[..pos].strip_suffix('}')?;
     let open = before.rfind("\\begin{")?;
-    let name = &before[open + "\\begin{".len()..pos.checked_sub(1)?];
+    let name = &before[open + "\\begin{".len()..];
     if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '*') {
         return None;
     }
@@ -1613,6 +1615,9 @@ mod tests {
         // Closed already: nothing.
         let t = "\\begin{x}\\end{x}";
         assert!(complete_begin(t, "\\begin{x}".len(), &latex_syntax::parse(t)).is_none());
+        // No `}` before the cursor: nothing (and no panic after `ä`).
+        let t = "\\begin{ä";
+        assert!(complete_begin(t, t.len(), &latex_syntax::parse(t)).is_none());
         // Renaming one end renames the other.
         let t = "\\begin{itemize}\nx\n\\end{itemize}\n";
         let at = t.find("itemize").unwrap() + 4;

@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- Typing `}` in a read-only LaTeX document after `\begin{` and a letter of more than one byte (`\begin{ä`) no longer panics the editor.
+
 ## [0.6.42] - 2026-10-15
 
 ### Fixed
