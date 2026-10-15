@@ -4,7 +4,7 @@ members = ["crates/*"]
 default-members = ["crates/*"]
 
 [workspace.package]
-version = "0.6.39"
+version = "0.6.40"
 edition = "2024"
 rust-version = "1.96"
 license = "MIT OR Apache-2.0"
@@ -21,32 +21,32 @@ gpui = { package = "gpui-unofficial", version = "=1.22.0" }
 gpui_platform = { package = "gpui-platform-gpui-unofficial", version = "=1.22.0" }
 # Canonical paths without Windows's `\\?\` prefix where it is not needed.
 dunce = "1"
-org-syntax = { path = "crates/org-syntax", version = "0.6.39" }
+org-syntax = { path = "crates/org-syntax", version = "0.6.40" }
 # Markdown (D19): Kalem's fork of comrak, with the sourcepos fixes an editor
 # needs (T2.7c.1a), pinned to a commit of its `kalem-main` branch.
 comrak = { git = "https://github.com/getkalem/comrak", rev = "9f854603485a72b5fb17dd3a27d92679e92fe551", default-features = false }
-org-model = { path = "crates/org-model", version = "0.6.39" }
-org-edit = { path = "crates/org-edit", version = "0.6.39" }
-org-table = { path = "crates/org-table", version = "0.6.39" }
-org-math = { path = "crates/org-math", version = "0.6.39" }
-org-export = { path = "crates/org-export", version = "0.6.39" }
-org-cite = { path = "crates/org-cite", version = "0.6.39" }
-kalem-cli = { path = "crates/kalem-cli", version = "0.6.39", default-features = false }
-kalem-core = { path = "crates/kalem-core", version = "0.6.39" }
-kalem-project = { path = "crates/kalem-project", version = "0.6.39" }
-kalem-fs = { path = "crates/kalem-fs", version = "0.6.39" }
-kalem-tui = { path = "crates/kalem-tui", version = "0.6.39" }
-kalem-ui = { path = "crates/kalem-ui", version = "0.6.39" }
-kalem-highlight = { path = "crates/kalem-highlight", version = "0.6.39" }
-kalem-lsp = { path = "crates/kalem-lsp", version = "0.6.39" }
-tui-rich-text = { path = "crates/tui-rich-text", version = "0.6.39" }
-gpui-rich-text = { path = "crates/gpui-rich-text", version = "0.6.39" }
-latex-syntax = { path = "crates/latex-syntax", version = "0.6.39" }
-latex-model = { path = "crates/latex-model", version = "0.6.39" }
-kalem-viewer = { path = "crates/kalem-viewer", version = "0.6.39" }
-kalem-script = { path = "crates/kalem-script", version = "0.6.39" }
-kalem-plugin = { path = "crates/kalem-plugin", version = "0.6.39" }
-kalem-components = { path = "crates/kalem-components", version = "0.6.39" }
+org-model = { path = "crates/org-model", version = "0.6.40" }
+org-edit = { path = "crates/org-edit", version = "0.6.40" }
+org-table = { path = "crates/org-table", version = "0.6.40" }
+org-math = { path = "crates/org-math", version = "0.6.40" }
+org-export = { path = "crates/org-export", version = "0.6.40" }
+org-cite = { path = "crates/org-cite", version = "0.6.40" }
+kalem-cli = { path = "crates/kalem-cli", version = "0.6.40", default-features = false }
+kalem-core = { path = "crates/kalem-core", version = "0.6.40" }
+kalem-project = { path = "crates/kalem-project", version = "0.6.40" }
+kalem-fs = { path = "crates/kalem-fs", version = "0.6.40" }
+kalem-tui = { path = "crates/kalem-tui", version = "0.6.40" }
+kalem-ui = { path = "crates/kalem-ui", version = "0.6.40" }
+kalem-highlight = { path = "crates/kalem-highlight", version = "0.6.40" }
+kalem-lsp = { path = "crates/kalem-lsp", version = "0.6.40" }
+tui-rich-text = { path = "crates/tui-rich-text", version = "0.6.40" }
+gpui-rich-text = { path = "crates/gpui-rich-text", version = "0.6.40" }
+latex-syntax = { path = "crates/latex-syntax", version = "0.6.40" }
+latex-model = { path = "crates/latex-model", version = "0.6.40" }
+kalem-viewer = { path = "crates/kalem-viewer", version = "0.6.40" }
+kalem-script = { path = "crates/kalem-script", version = "0.6.40" }
+kalem-plugin = { path = "crates/kalem-plugin", version = "0.6.40" }
+kalem-components = { path = "crates/kalem-components", version = "0.6.40" }
 
 [workspace.lints.rust]
 unsafe_code = "deny"
