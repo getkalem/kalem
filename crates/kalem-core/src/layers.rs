@@ -135,6 +135,21 @@ impl VirtualLine {
     }
 }
 
+/// Text a layer shows at a place of a line, not part of the text (API
+/// 0.2.20, `layer-5`): a block's reference count at its line's end, a
+/// line's author. Shown wherever the cursor is, in every view but the
+/// source, as a language server's inlay hints are; the cursor steps over
+/// it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Insert {
+    /// The byte of the text it is shown at, after what ends there.
+    pub at: usize,
+    /// What is shown, on one line.
+    pub text: String,
+    /// How.
+    pub style: Style,
+}
+
 /// Lines drawn under the line starting at byte `line`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Below {
@@ -148,6 +163,9 @@ pub struct Below {
 /// may be indented: a layer's answer kept to what can be drawn.
 const MAX_BELOW: usize = 5000;
 const MAX_INDENT: usize = 200;
+/// The inserts a document may have in all, and the characters of one.
+const MAX_INSERTS: usize = 20_000;
+const MAX_INSERT_CHARS: usize = 200;
 
 /// What a layer changes in a document's view.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -158,6 +176,8 @@ pub struct Overlays {
     pub lines: Vec<Lines>,
     /// Lines under lines, in order of their line, one for a line at most.
     pub below: Vec<Below>,
+    /// Text at places of the lines, in order of their place (API 0.2.20).
+    pub inserts: Vec<Insert>,
 }
 
 impl Overlays {
@@ -242,12 +262,30 @@ impl Overlays {
         }
         below.sort_by_key(|b| b.line);
         self.below = below;
+        // Text at places: in the text, on a character's boundary, of one
+        // line and so many characters, so many in all, in order (those at
+        // one place in the order given).
+        self.inserts
+            .retain(|i| i.at <= len && text.is_char_boundary(i.at) && !i.text.is_empty());
+        for i in &mut self.inserts {
+            if i.text.contains(char::is_control) {
+                i.text = i.text.replace(char::is_control, " ");
+            }
+            if let Some((cut, _)) = i.text.char_indices().nth(MAX_INSERT_CHARS) {
+                i.text.truncate(cut);
+            }
+        }
+        self.inserts.truncate(MAX_INSERTS);
+        self.inserts.sort_by_key(|i| i.at);
         self
     }
 
     /// Nothing to change.
     pub fn is_empty(&self) -> bool {
-        self.spans.is_empty() && self.lines.is_empty() && self.below.is_empty()
+        self.spans.is_empty()
+            && self.lines.is_empty()
+            && self.below.is_empty()
+            && self.inserts.is_empty()
     }
 
     /// The lines under the line starting at byte `line`.
@@ -518,8 +556,8 @@ fn split_at(v: &mut LineView, at: usize) -> bool {
     true
 }
 
-/// Applies `overlays`' spans on the line of `v` to its runs: the cursor
-/// at `cursor`.
+/// Applies `overlays`' spans on the line of `v` to its runs, the cursor at
+/// `cursor`, then puts its inserts in.
 pub fn apply_line(v: &mut LineView, overlays: &Overlays, cursor: Option<usize>) {
     let line = v.range.clone();
     let first = overlays
@@ -582,6 +620,14 @@ pub fn apply_line(v: &mut LineView, overlays: &Overlays, cursor: Option<usize>) 
                 }
             }
         }
+    }
+    // Text at places of the line (API 0.2.20), after what ends there.
+    let from = overlays.inserts.partition_point(|i| i.at < line.start);
+    for i in overlays.inserts[from..]
+        .iter()
+        .take_while(|i| i.at <= line.end)
+    {
+        crate::view::insert_text(v, i.at, i.text.clone(), i.style);
     }
 }
 

@@ -2149,6 +2149,41 @@ pub fn next_global(current: Visibility) -> (Visibility, &'static str) {
     }
 }
 
+/// Puts `text` in line view `v` at source byte `at`, in `style`, as text
+/// of no source (a language server's inlay hint, a layer's insert): after
+/// the runs ending there, a run it falls in split in two; after those put
+/// at the same byte before it.
+pub fn insert_text(v: &mut LineView, at: usize, text: String, style: Style) {
+    let run = Run {
+        src: at..at,
+        text,
+        verbatim: false,
+        style,
+        widget: None,
+    };
+    let i = v
+        .runs
+        .iter()
+        .position(|r| r.src.end > at)
+        .unwrap_or(v.runs.len());
+    let Some(r) = v.runs.get(i).filter(|r| r.src.start < at) else {
+        v.runs.insert(i, run);
+        return;
+    };
+    let cut = at - r.src.start;
+    if r.verbatim && r.text.len() == r.src.len() && r.text.is_char_boundary(cut) {
+        let mut after = r.clone();
+        after.src.start = at;
+        after.text = r.text[cut..].to_string();
+        let before = &mut v.runs[i];
+        before.src.end = at;
+        before.text.truncate(cut);
+        v.runs.insert(i + 1, after);
+    }
+    // Between the halves; after a run shown otherwise than its source.
+    v.runs.insert(i + 1, run);
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

@@ -2951,39 +2951,12 @@ pub fn inlay_hints(doc: &DocumentState, v: &mut crate::view::LineView) {
 /// Puts `text` in line view `v` at source byte `at` as text of no source:
 /// after the runs ending there, a run it falls in split in two.
 fn insert_hint(v: &mut crate::view::LineView, at: usize, text: String) {
-    use crate::view::{Run, Style};
-    let hint = Run {
-        src: at..at,
-        text,
-        verbatim: false,
-        style: Style {
-            dim: true,
-            italic: true,
-            ..Style::default()
-        },
-        widget: None,
+    let style = crate::view::Style {
+        dim: true,
+        italic: true,
+        ..crate::view::Style::default()
     };
-    let i = v
-        .runs
-        .iter()
-        .position(|r| r.src.end > at)
-        .unwrap_or(v.runs.len());
-    let Some(r) = v.runs.get(i).filter(|r| r.src.start < at) else {
-        v.runs.insert(i, hint);
-        return;
-    };
-    let cut = at - r.src.start;
-    if r.verbatim && r.text.len() == r.src.len() && r.text.is_char_boundary(cut) {
-        let mut after = r.clone();
-        after.src.start = at;
-        after.text = r.text[cut..].to_string();
-        let before = &mut v.runs[i];
-        before.src.end = at;
-        before.text.truncate(cut);
-        v.runs.insert(i + 1, after);
-    }
-    // Between the halves; after a run shown otherwise than its source.
-    v.runs.insert(i + 1, hint);
+    crate::view::insert_text(v, at, text, style);
 }
 
 /// The most serious problem starting on line `line` (from 0) of `doc`,

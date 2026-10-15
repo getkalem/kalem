@@ -45,6 +45,7 @@ fn spans_hide_replace_and_style_away_from_the_cursor() {
             },
         ],
         lines: Vec::new(),
+        inserts: Vec::new(),
     }
     .normalized(text);
     let mut v = verbatim(text, line.clone());
@@ -100,6 +101,7 @@ fn a_span_over_a_replaced_run_is_left_out() {
             effect: SpanEffect::Hide,
         }],
         lines: Vec::new(),
+        inserts: Vec::new(),
     };
     apply_line(&mut v, &cut, None);
     assert_eq!(shown(&v), "Kalem");
@@ -110,6 +112,7 @@ fn a_span_over_a_replaced_run_is_left_out() {
             effect: SpanEffect::Style(tag()),
         }],
         lines: Vec::new(),
+        inserts: Vec::new(),
     };
     apply_line(&mut v, &around, None);
     assert!(v.runs[1].style.tag);
@@ -148,6 +151,7 @@ fn overlays_are_normalized() {
                 effect: LineEffect::Folded,
             },
         ],
+        inserts: Vec::new(),
     }
     .normalized(text);
     // Outside the text, empty, or overlapping an earlier one: dropped.
@@ -172,6 +176,7 @@ fn overlays_are_normalized() {
             effect: SpanEffect::Hide,
         }],
         lines: Vec::new(),
+        inserts: Vec::new(),
     }
     .normalized("çay");
     assert!(o.spans.is_empty());
@@ -198,6 +203,7 @@ fn hidden_lines_are_a_block_of_their_own() {
             range: 6..34,
             effect: LineEffect::Hidden,
         }],
+        inserts: Vec::new(),
     }
     .normalized(text);
     let cut = apply_blocks(blocks, &o);
@@ -400,4 +406,34 @@ fn lines_under_lines_at_their_lines_start() {
         !only.normalized(text).is_empty(),
         "a layer giving only lines under lines"
     );
+}
+
+#[test]
+fn text_inserted_at_places_of_a_line() {
+    // A block's reference count at its line's end and text inside a line,
+    // shown wherever the cursor is; kept to the text and to one line.
+    let text = "- a block\n- another\n";
+    let insert = |at: usize, t: &str| Insert {
+        at,
+        text: t.into(),
+        style: Style::default(),
+    };
+    let o = Overlays {
+        inserts: vec![
+            insert(9, " 2"),
+            insert(2, "»"),
+            insert(99, "past"),
+            insert(12, "a\nb"),
+        ],
+        ..Overlays::default()
+    }
+    .normalized(text);
+    let at: Vec<(usize, &str)> = o.inserts.iter().map(|i| (i.at, i.text.as_str())).collect();
+    assert_eq!(at, [(2, "»"), (9, " 2"), (12, "a b")]);
+    let mut v = verbatim(text, 0..9);
+    apply_line(&mut v, &o, Some(3));
+    assert_eq!(shown(&v), "- »a block 2");
+    let mut w = verbatim(text, 10..19);
+    apply_line(&mut w, &o, None);
+    assert_eq!(shown(&w), "- a banother");
 }

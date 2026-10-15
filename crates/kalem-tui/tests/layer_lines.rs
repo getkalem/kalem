@@ -9,7 +9,7 @@ use std::sync::Arc;
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
-use kalem_core::layers::{self, Below, LayerSpec, Outcome, Overlays, VirtualLine};
+use kalem_core::layers::{self, Below, Insert, LayerSpec, Outcome, Overlays, VirtualLine};
 use kalem_core::settings::Config;
 use kalem_core::view::Style;
 use kalem_tui::app::App;
@@ -56,6 +56,12 @@ fn lines_under_a_line_are_drawn_and_stepped_over() {
                 line: text.find("here").unwrap(),
                 lines: vec![line("• child one"), line("• child two")],
             }],
+            // A layer's text at the end of the first line (API 0.2.20).
+            inserts: vec![Insert {
+                at: text.find("\n- embed").unwrap(),
+                text: " 2".into(),
+                style: Style::default(),
+            }],
             ..Overlays::default()
         })
     }));
@@ -72,7 +78,7 @@ fn lines_under_a_line_are_drawn_and_stepped_over() {
     assert_eq!(
         rows,
         [
-            "1  - first",
+            "1  - first 2",
             "2  - embed here",
             "     • child one",
             "     • child two",
@@ -100,7 +106,7 @@ fn lines_under_a_line_are_drawn_and_stepped_over() {
         modifiers: KeyModifiers::NONE,
     }));
     assert_eq!(at(&app), TEXT.find("\n- third").unwrap(), "click");
-    // Not in the source view.
+    // Not in the source view, nor the text at a line's end.
     app.editor.source = true;
     let rows: Vec<String> = (0..3).map(|y| row(&mut term, &mut app, y)).collect();
     assert_eq!(rows, ["1  - first", "2  - embed here", "3  - third"]);

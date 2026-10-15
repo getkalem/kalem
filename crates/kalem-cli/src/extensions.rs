@@ -1059,6 +1059,7 @@ fn overlays(set: x::layer_4::OverlaySet) -> kalem_core::layers::Overlays {
                     .collect(),
             })
             .collect(),
+        inserts: Vec::new(),
     }
 }
 
