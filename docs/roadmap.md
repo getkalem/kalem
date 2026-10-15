@@ -103,7 +103,8 @@ each platform with the results in the release issue.
   15 MiB target needs one of those left out of the terminal build, or
   a new target: the owner's call. On 2026-10-15 the owner had the
   terminal-only release keep the plugin host (`tui,plugins`), so that
-  installed plugins run there: some 10 MiB more, its ceiling 60 MiB.
+  installed plugins run there: some 10 MiB more (56.7 MiB on Linux
+  x86-64 in CI), its ceiling 58 MiB.
 - [x] R2.2 Crash debt (T1.8.11, TS.10): turn on `clippy::unwrap_used`
   and `expect_used` for `kalem-core`, `org-edit`, `kalem-ui` and
   `kalem-tui` with `#[expect]` on each justified site; replace the 313
