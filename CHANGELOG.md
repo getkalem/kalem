@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.41] - 2026-10-15
+
 ### Fixed
 - In the terminal, the outline panel (Ctrl+Shift+O) no longer panics the editor when the terminal is made too narrow for it (ten columns or fewer): the panel is left out until there is room.
 
