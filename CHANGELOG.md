@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- Finding a LaTeX document's root no longer reads the type of each entry of every folder above it one by one: on a file under a folder of 60,000 entries, Show Problems, Next Problem, the problems' update and Build PDF's start took 190 ms each for the search, now 35 to 60 ms (release build); under a home folder of ordinary size it takes about a millisecond.
+
+### Fixed
+- In Org, a date typed for a deadline or a schedule with a word ending in a character of more than one byte (`friday /😀`) no longer panics the editor.
+- In an Org tags or property match (agenda, sparse tree), a time such as `"<+1é>"`, a relative time ending in a character of more than one byte, no longer panics the editor.
+
 ## [0.6.39] - 2026-10-15
 
 ### Added

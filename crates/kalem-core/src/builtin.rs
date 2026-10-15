@@ -853,15 +853,13 @@ fn add_note(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult {
 /// (`2026-10-05 +1w`, `friday .+2d`).
 fn planning_input(input: &str) -> (&str, Option<String>) {
     let t = input.trim();
+    // In bytes: a word may end inside a character (`/😀`).
     let is_part = |w: &str| {
-        let body = w.trim_start_matches(['.', '+', '-', '/']);
+        let body = w.trim_start_matches(['.', '+', '-', '/']).as_bytes();
         w.len() > body.len()
             && body.len() > 1
-            && body[..body.len() - 1].bytes().all(|b| b.is_ascii_digit())
-            && matches!(
-                body.as_bytes()[body.len() - 1],
-                b'h' | b'd' | b'w' | b'm' | b'y'
-            )
+            && body[..body.len() - 1].iter().all(u8::is_ascii_digit)
+            && matches!(body[body.len() - 1], b'h' | b'd' | b'w' | b'm' | b'y')
     };
     let words: Vec<&str> = t.split_whitespace().collect();
     let n = words.iter().rev().take_while(|w| is_part(w)).count().min(2);
@@ -12182,6 +12180,7 @@ mod tests {
             ("friday", Some(".+2d -3d".into()))
         );
         assert_eq!(planning_input("+3d"), ("+3d", None));
+        assert_eq!(planning_input("friday /😀"), ("friday /😀", None));
     }
     use std::sync::Arc;
     use std::time::Instant;

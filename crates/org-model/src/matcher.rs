@@ -254,9 +254,10 @@ fn matcher_time(s: &str, now: DateTime) -> f64 {
             if let Some(inner) = inner
                 && inner.len() >= 3
                 && matches!(inner.as_bytes()[0], b'+' | b'-')
-                && inner[1..inner.len() - 1]
-                    .bytes()
-                    .all(|b| b.is_ascii_digit())
+                // In bytes: the last may end a character of more (`<+1é>`).
+                && inner.as_bytes()[1..inner.len() - 1]
+                    .iter()
+                    .all(u8::is_ascii_digit)
             {
                 let n: f64 = inner[..inner.len() - 1].parse().unwrap_or(0.0);
                 let unit = match inner.as_bytes()[inner.len() - 1] {
@@ -717,6 +718,15 @@ mod tests {
         );
         assert_eq!(emacs_regex("\\<wo\\>", false).as_deref(), Some("\\bwo\\b"));
         assert_eq!(emacs_regex("\\1", false), None);
+    }
+
+    #[test]
+    fn relative_time_ending_in_another_character() {
+        // `<+1é>` is no relative time (`<+1d>` is): read as a date, no
+        // panic.
+        let now = jiff::civil::date(2026, 10, 15).at(12, 0, 0, 0);
+        assert_eq!(matcher_time("<+1é>", now), to_ft("<+1é>"));
+        assert_eq!(matcher_time("<+1d>", now), matcher_time("<tomorrow>", now));
     }
 
     #[test]

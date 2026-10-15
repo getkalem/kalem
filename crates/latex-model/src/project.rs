@@ -51,11 +51,18 @@ impl Files for Disk {
     }
 
     fn list(&self, dir: &Path) -> Vec<PathBuf> {
+        // Each entry's type as the folder gives it, not a `stat` of each:
+        // a root search lists every folder up to the project's top (or
+        // `/`), and one of tens of thousands of entries took seconds. A
+        // link is followed to what it names.
         let mut v: Vec<PathBuf> = std::fs::read_dir(dir)
             .map(|r| {
                 r.filter_map(|e| e.ok())
+                    .filter(|e| {
+                        e.file_type()
+                            .is_ok_and(|t| t.is_file() || (t.is_symlink() && e.path().is_file()))
+                    })
                     .map(|e| e.path())
-                    .filter(|p| p.is_file())
                     .collect()
             })
             .unwrap_or_default();
@@ -581,6 +588,21 @@ impl ProjectCache {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(unix)]
+    #[test]
+    fn disk_lists_files_and_links_to_them() {
+        use super::{Disk, Files};
+        let dir = std::env::temp_dir().join(format!("latex-model-list-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("sub")).unwrap();
+        std::fs::write(dir.join("a.tex"), "x").unwrap();
+        std::os::unix::fs::symlink(dir.join("a.tex"), dir.join("b.tex")).unwrap();
+        std::os::unix::fs::symlink(dir.join("sub"), dir.join("c")).unwrap();
+        std::os::unix::fs::symlink(dir.join("none.tex"), dir.join("d.tex")).unwrap();
+        assert_eq!(Disk.list(&dir), [dir.join("a.tex"), dir.join("b.tex")]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn the_root_magic_comment_after_a_byte_order_mark() {
         assert_eq!(
