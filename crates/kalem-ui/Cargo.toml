@@ -34,6 +34,15 @@ objc2 = "0.6"
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSPasteboard", "NSApplication", "NSResponder", "NSImage"] }
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString", "NSData", "NSGeometry", "objc2-core-foundation"] }
 
+# The window system's libraries opened at run time rather than linked, so
+# that the Linux binary starts without them (src/libraries.rs): libxcb
+# through x11rb's `dl-libxcb` (gpui's x11rb takes the feature too),
+# libxkbcommon through the workspace's copy of xkbcommon
+# (vendor/xkbcommon), and the check for them before a window opens.
+[target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
+x11rb = { version = "0.13", default-features = false, features = ["dl-libxcb"] }
+libc = "0.2"
+
 [dev-dependencies]
 # The terminal editor, for the tests comparing the two editors.
 kalem-tui.workspace = true

@@ -4421,6 +4421,7 @@ dependencies = [
  "kalem-highlight",
  "kalem-tui",
  "kalem-viewer",
+ "libc",
  "objc2 0.6.4",
  "objc2-app-kit 0.3.2",
  "objc2-foundation 0.3.2",
@@ -4433,6 +4434,7 @@ dependencies = [
  "tracing",
  "unicode-segmentation",
  "unicode-width",
+ "x11rb",
 ]
 
 [[package]]
@@ -10505,6 +10507,8 @@ dependencies = [
  "as-raw-xcb-connection",
  "gethostname",
  "libc",
+ "libloading",
+ "once_cell",
  "rustix 1.1.5",
  "x11rb-protocol",
  "xcursor",
@@ -10555,8 +10559,6 @@ dependencies = [
 [[package]]
 name = "xkbcommon"
 version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d66ca9352cbd4eecbbc40871d8a11b4ac8107cfc528a6e14d7c19c69d0e1ac9"
 dependencies = [
  "as-raw-xcb-connection",
  "libc",

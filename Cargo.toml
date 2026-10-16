@@ -2,6 +2,8 @@
 resolver = "3"
 members = ["crates/*"]
 default-members = ["crates/*"]
+# Patched copies of crates.io crates, built only as dependencies.
+exclude = ["vendor"]
 
 [workspace.package]
 version = "0.6.45"
@@ -47,6 +49,13 @@ kalem-viewer = { path = "crates/kalem-viewer", version = "0.6.45" }
 kalem-script = { path = "crates/kalem-script", version = "0.6.45" }
 kalem-plugin = { path = "crates/kalem-plugin", version = "0.6.45" }
 kalem-components = { path = "crates/kalem-components", version = "0.6.45" }
+
+# gpui's keyboard bindings with libxkbcommon and libxkbcommon-x11 opened at
+# run time instead of linked (vendor/xkbcommon/README.md), so that the
+# Linux binary starts on a system without them: the terminal editor and the
+# command-line tools need neither.
+[patch.crates-io]
+xkbcommon = { path = "vendor/xkbcommon" }
 
 [workspace.lints.rust]
 unsafe_code = "deny"
@@ -275,7 +284,9 @@ install-path = "CARGO_HOME"
 # Beside the README and the licences in every archive
 # (tools/third-party-licenses.sh writes it).
 include = ["THIRD-PARTY-LICENSES.md"]
-# The graphical editor links against the windowing libraries.
+# The development files the graphical editor's build has needed (gpui);
+# the window system's libraries themselves are opened at run time
+# (crates/kalem-ui/src/libraries.rs), not linked.
 [workspace.metadata.dist.dependencies.apt]
 libxkbcommon-dev = "*"
 libxkbcommon-x11-dev = "*"

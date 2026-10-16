@@ -15,6 +15,7 @@ pub mod editor;
 pub mod graph_view;
 pub mod icon;
 pub mod keys;
+pub mod libraries;
 pub mod line;
 pub mod math;
 pub mod outline;

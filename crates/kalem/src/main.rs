@@ -54,8 +54,15 @@ fn main() -> ExitCode {
             ExitCode::from(2)
         }
         // A file, or nothing: the editor, graphical where there is a
-        // display.
-        _ if has_display() => gui(&args[1..]),
+        // display and the window system's libraries are installed, in the
+        // terminal otherwise.
+        _ if has_display() => match missing_libraries() {
+            None => gui(&args[1..]),
+            Some(missing) => {
+                eprintln!("kalem: {missing}; opening the terminal editor");
+                tui(&args[1..])
+            }
+        },
         _ => tui(&args[1..]),
     }
 }
@@ -76,7 +83,20 @@ fn has_display() -> bool {
     if cfg!(any(target_os = "macos", windows)) {
         return true;
     }
-    std::env::var_os("DISPLAY").is_some() || std::env::var_os("WAYLAND_DISPLAY").is_some()
+    let set = |name| std::env::var_os(name).is_some_and(|v| !v.is_empty());
+    set("DISPLAY") || set("WAYLAND_DISPLAY")
+}
+
+/// What the graphical editor lacks to start (the window system's
+/// libraries on Linux, which the binary does not link), as a sentence.
+#[cfg(feature = "gui")]
+fn missing_libraries() -> Option<String> {
+    kalem_ui::libraries::missing_libraries()
+}
+
+#[cfg(not(feature = "gui"))]
+fn missing_libraries() -> Option<String> {
+    None
 }
 
 fn one_path(args: &[OsString]) -> Result<Option<std::path::PathBuf>, ExitCode> {
@@ -102,6 +122,10 @@ fn gui(args: &[OsString]) -> ExitCode {
             "Usage: kalem gui [FILE]   the graphical editor on FILE (or the last session, when editor.restore_session is on)"
         );
         return ExitCode::SUCCESS;
+    }
+    if let Some(missing) = missing_libraries() {
+        eprintln!("kalem: {missing}; the terminal editor runs without them: kalem tui [FILE]");
+        return ExitCode::FAILURE;
     }
     match one_path(args) {
         Ok(path) => {

@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- On Linux, `kalem` starts without the window system's libraries. On a server, in a container or on a desktop without `libxkbcommon-x11`, it stopped at once with "error while loading shared libraries: libxkbcommon-x11.so.0" (or `libxcb.so.1`, `libxkbcommon.so.0`), even for `kalem tui` and the command-line tools. The libraries are now opened only when the graphical editor starts: where one is missing, `kalem FILE` opens the terminal editor and `kalem gui` names the packages to install.
+
 ## [0.6.45] - 2026-10-16
 
 ### Fixed
