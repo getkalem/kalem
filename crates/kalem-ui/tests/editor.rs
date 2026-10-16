@@ -5153,6 +5153,80 @@ fn arrows_move_the_cursor_and_not_the_window(cx: &mut TestAppContext) {
     assert!(shown(cx), "pagedown: the cursor's line is not shown");
 }
 
+/// A reset of the list (the LaTeX diagnostics installed after a pause in
+/// typing, a theme or a font changed) keeps the window where it is. It
+/// sent the window to the document's start, and the next key, revealing
+/// the cursor from there by the usual line height, showed a page well
+/// above it (seen typing a citation at the end of a paper).
+#[gpui::test]
+fn a_reset_of_the_list_keeps_the_window_where_it_is(cx: &mut TestAppContext) {
+    // Paragraphs of several rows each: far from the usual line's height.
+    let body: String = (0..60)
+        .map(|i| format!("Paragraph {i} {}\n\n", "word ".repeat(60)))
+        .collect();
+    let text =
+        format!("\\documentclass{{article}}\n\\begin{{document}}\n{body}\\end{{document}}\n");
+    let (e, cx) = open_named(&text, "t.tex", || None, cx);
+    let window = |cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| {
+            let top = e.list.logical_scroll_top();
+            (e.visible[top.item_ix], top.offset_in_item)
+        })
+    };
+    let shown = |cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| {
+            let line = e.doc.text().line_of(e.doc.selection.head);
+            let view = e.list.viewport_bounds();
+            e.painted.borrow().get(&line).is_some_and(|p| {
+                p.bounds.top() >= view.top() - gpui::px(0.5)
+                    && p.bounds.bottom() <= view.bottom() + gpui::px(0.5)
+            })
+        })
+    };
+    let settle = |cx: &mut VisualTestContext| {
+        for _ in 0..2 {
+            e.update(cx, |_, cx| cx.notify());
+            cx.run_until_parked();
+        }
+    };
+    // The last paragraph, far from the start.
+    at(&e, text.rfind("Paragraph 59").unwrap(), cx);
+    settle(cx);
+    let before = window(cx);
+    assert!(before.0 > 60, "{before:?}");
+    assert!(shown(cx), "the cursor is not shown");
+    // A theme or a font changed: every line measured again.
+    e.update(cx, |e, _| e.relayout());
+    settle(cx);
+    assert_eq!(window(cx), before, "relayout moved the window");
+    assert!(shown(cx));
+    // Typing, then the diagnostics installed after the pause.
+    cx.simulate_input("x");
+    cx.run_until_parked();
+    let typed = window(cx);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while e.read_with(cx, |e, _| e.doc.latex_diagnostics().is_none())
+        && std::time::Instant::now() < deadline
+    {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        e.update(cx, |e, cx| e.tick(cx));
+        cx.run_until_parked();
+    }
+    assert!(
+        e.read_with(cx, |e, _| e.doc.latex_diagnostics().is_some()),
+        "no diagnostics"
+    );
+    settle(cx);
+    assert_eq!(window(cx), typed, "the diagnostics moved the window");
+    assert!(shown(cx));
+    // The next key leaves it there too.
+    cx.simulate_input("y");
+    cx.run_until_parked();
+    settle(cx);
+    assert_eq!(window(cx), typed, "the next key moved the window");
+    assert!(shown(cx));
+}
+
 /// The column bars of a CSV grid's rows, by their resize handles: the
 /// right edge of each column, in window coordinates.
 fn csv_edges(columns: usize, cx: &mut VisualTestContext) -> Vec<gpui::Pixels> {

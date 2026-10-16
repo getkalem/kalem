@@ -1016,11 +1016,21 @@ impl Editor {
         cx.notify();
     }
 
-    /// Measures every line again (after a theme or font change).
+    /// Measures every line again (after a theme or font change), the
+    /// window kept where it is.
     pub fn relayout(&mut self) {
-        self.list
-            .reset_with_uniform_height(self.visible.len(), LINE_HINT);
-        self.with_other(|e| e.list.reset(e.visible.len()));
+        let place = top_place(&self.list, &self.visible);
+        self.relayout_at(place);
+    }
+
+    /// Measures every line again, the window on `place` (taken by
+    /// [`top_place`] before the visible lines changed).
+    fn relayout_at(&mut self, place: Option<(usize, Pixels)>) {
+        reset_keeping_place(&self.list, &self.visible, place, Some(LINE_HINT));
+        self.with_other(|e| {
+            let place = top_place(&e.list, &e.visible);
+            reset_keeping_place(&e.list, &e.visible, place, None);
+        });
     }
 
     /// Updates the lists of both panes after edits `changes` (or folding).
@@ -4153,10 +4163,10 @@ impl Editor {
             self.check_disk(cx);
         }
         if self.doc.poll() {
+            let place = top_place(&self.list, &self.visible);
             self.blocks = None;
             self.visible = self.compute_visible();
-            self.list
-                .reset_with_uniform_height(self.visible.len(), LINE_HINT);
+            reset_keeping_place(&self.list, &self.visible, place, Some(LINE_HINT));
             cx.notify();
         }
     }
@@ -4195,8 +4205,9 @@ impl Editor {
             self.blocks = None;
             let visible = self.compute_visible();
             if visible != self.visible {
+                let place = top_place(&self.list, &self.visible);
                 self.visible = visible;
-                self.relayout();
+                self.relayout_at(place);
                 cx.notify();
                 return;
             }
@@ -4984,6 +4995,48 @@ fn build_a11y(b: &mut gpui::A11ySubtreeBuilder<'_>, t: A11yText) {
 /// that revealing a line far away scrolls about right before the lines
 /// between are measured.
 const LINE_HINT: Pixels = px(23.);
+
+/// The line at the top of a list's window and how far into it the window
+/// is scrolled: the place [`reset_keeping_place`] keeps.
+fn top_place(list: &ListState, visible: &[usize]) -> Option<(usize, Pixels)> {
+    let top = list.logical_scroll_top();
+    visible.get(top.item_ix).map(|&l| (l, top.offset_in_item))
+}
+
+/// Resets `list` to the lines of `visible`, each measured again (by
+/// `hint` meanwhile), with the window on `place`: its line, or the first
+/// shown after it. gpui's reset alone sends the window to the document's
+/// start, and revealing the cursor from there counts the usual height for
+/// every line never measured, so it stopped far from the cursor: in a
+/// LaTeX paper, each pause in typing installed the diagnostics, which
+/// reset the list, and the next key showed a page well above the cursor.
+fn reset_keeping_place(
+    list: &ListState,
+    visible: &[usize],
+    place: Option<(usize, Pixels)>,
+    hint: Option<Pixels>,
+) {
+    match hint {
+        Some(h) => list.reset_with_uniform_height(visible.len(), h),
+        None => list.reset(visible.len()),
+    }
+    let Some((line, offset)) = place else {
+        return;
+    };
+    let (item_ix, offset_in_item) = match visible.iter().position(|&l| l == line) {
+        Some(i) => (i, offset),
+        None => (
+            visible.iter().position(|&l| l > line).unwrap_or(visible.len()),
+            px(0.),
+        ),
+    };
+    if (item_ix, offset_in_item) != (0, px(0.)) {
+        list.scroll_to(gpui::ListOffset {
+            item_ix,
+            offset_in_item,
+        });
+    }
+}
 
 impl gpui::Render for Editor {
     fn render(
