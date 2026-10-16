@@ -5227,6 +5227,50 @@ fn a_reset_of_the_list_keeps_the_window_where_it_is(cx: &mut TestAppContext) {
     assert!(shown(cx));
 }
 
+/// The source view (Ctrl+/) shows the place the document view showed,
+/// and back: it showed the document's start, the list's reset having
+/// forgotten where it was.
+#[gpui::test]
+fn the_source_view_keeps_the_place(cx: &mut TestAppContext) {
+    let body: String = (0..60)
+        .map(|i| format!("Paragraph {i} {}\n\n", "word ".repeat(60)))
+        .collect();
+    let text =
+        format!("\\documentclass{{article}}\n\\begin{{document}}\n{body}\\end{{document}}\n");
+    let (e, cx) = open_named(&text, "t.tex", || None, cx);
+    let top_line = |cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| e.visible[e.list.logical_scroll_top().item_ix])
+    };
+    let shown = |cx: &mut VisualTestContext| {
+        e.read_with(cx, |e, _| {
+            let line = e.doc.text().line_of(e.doc.selection.head);
+            let view = e.list.viewport_bounds();
+            e.painted.borrow().get(&line).is_some_and(|p| {
+                p.bounds.top() >= view.top() - gpui::px(0.5)
+                    && p.bounds.bottom() <= view.bottom() + gpui::px(0.5)
+            })
+        })
+    };
+    let settle = |cx: &mut VisualTestContext| {
+        for _ in 0..3 {
+            e.update(cx, |_, cx| cx.notify());
+            cx.run_until_parked();
+        }
+    };
+    at(&e, text.rfind("Paragraph 50").unwrap(), cx);
+    settle(cx);
+    let before = top_line(cx);
+    assert!(before > 40, "{before}");
+    for view in ["source", "document"] {
+        cx.simulate_keystrokes(&format!("{}-/", primary()));
+        settle(cx);
+        let now = top_line(cx);
+        assert!(now > 40, "the {view} view went to line {now}");
+        assert!(shown(cx), "the {view} view does not show the cursor");
+    }
+    assert!(!e.read_with(cx, |e, _| e.source));
+}
+
 /// The column bars of a CSV grid's rows, by their resize handles: the
 /// right edge of each column, in window coordinates.
 fn csv_edges(columns: usize, cx: &mut VisualTestContext) -> Vec<gpui::Pixels> {

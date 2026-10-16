@@ -1603,12 +1603,17 @@ impl Editor {
                 self.paste(&text, html.as_deref(), plain, cx);
             }
             Request::ToggleSource => {
+                // The same place in the other view, not the document's
+                // start (the list's reset forgets where it was).
+                let place = top_place(&self.list, &self.visible);
                 self.source = !self.source;
                 // Markdown's colors are made for the source view only.
                 *self.plain.borrow_mut() = None;
                 self.list.reset(0);
                 self.visible.clear();
                 self.sync_pane(&[]);
+                scroll_to_place(&self.list, &self.visible, place);
+                self.reveal_again = Some((self.doc.text().line_of(self.doc.selection.head), 2));
                 cx.notify();
             }
             Request::Split => self.toggle_split(cx),
@@ -1624,13 +1629,18 @@ impl Editor {
                     }),
                     false,
                 );
+                let place = top_place(&self.list, &self.visible);
                 self.list.reset(0);
                 self.visible.clear();
                 self.sync_pane(&[]);
+                scroll_to_place(&self.list, &self.visible, place);
+                self.reveal_again = Some((self.doc.text().line_of(self.doc.selection.head), 2));
                 self.with_other(|e| {
+                    let place = top_place(&e.list, &e.visible);
                     e.list.reset(0);
                     e.visible.clear();
                     e.sync_pane(&[]);
+                    scroll_to_place(&e.list, &e.visible, place);
                 });
                 cx.notify();
             }
@@ -5020,6 +5030,13 @@ fn reset_keeping_place(
         Some(h) => list.reset_with_uniform_height(visible.len(), h),
         None => list.reset(visible.len()),
     }
+    scroll_to_place(list, visible, place);
+}
+
+/// Scrolls `list`, whose items are the lines of `visible`, to `place`
+/// (from [`top_place`]): its line at the top, at its offset, or the first
+/// line shown after it.
+fn scroll_to_place(list: &ListState, visible: &[usize], place: Option<(usize, Pixels)>) {
     let Some((line, offset)) = place else {
         return;
     };

@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 - Show in PDF on a PDF that is not open yet shows its page at the cursor's line, where it showed an empty view: the viewer placed the page before it knew its own size.
 - In a LaTeX document far from its start, a pause in typing no longer sends the window to the document's start, nor the next key to a page well above the cursor: installing the diagnostics measured every line again and forgot where the window was. A theme or font change keeps the window's place too.
+- Switching between the source view (Ctrl+/) and the document view, and Toggle Formula Preview, keep the place shown, where they showed the document's start.
 
 ## [0.6.43] - 2026-10-15
 
