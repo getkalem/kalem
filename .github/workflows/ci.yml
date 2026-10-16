@@ -194,8 +194,12 @@ jobs:
       # build them, against their ceilings (roadmap R2.1).
       - run: cargo build --profile dist --locked -p kalem-editor --no-default-features --features tui,plugins
       - run: sh tools/check-binary-size.sh target/dist/kalem terminal
+      - run: sh tools/check-linked-libraries.sh target/dist/kalem
       - run: cargo build --profile dist --locked -p kalem-editor
       - run: sh tools/check-binary-size.sh target/dist/kalem full
+      # Starts without the window system's libraries (a server, a
+      # container): the graphical editor opens them at run time.
+      - run: sh tools/check-linked-libraries.sh target/dist/kalem
 
   fuzz:
     name: fuzz (short run)
