@@ -338,6 +338,9 @@ pub struct ViewerState {
     /// The frames play.
     pub playing: bool,
     area: (f32, f32),
+    /// A height [`ViewerState::show_height`] was asked to show before the
+    /// area was known: shown when [`ViewerState::set_area`] gives it.
+    pending_height: Option<f32>,
     /// Device pixels per pixel of the area (a Retina display's 2).
     pixel_ratio: f32,
     /// How far a scroll has pushed past the unit's top or bottom edge,
@@ -779,6 +782,7 @@ impl ViewerState {
             info: false,
             playing,
             area: (0.0, 0.0),
+            pending_height: None,
             pixel_ratio: 1.0,
             overscroll: 0.0,
             undo: Vec::new(),
@@ -1091,6 +1095,9 @@ impl ViewerState {
     /// pixels (a terminal's cells times their size).
     pub fn set_area(&mut self, width: f32, height: f32) {
         self.area = (width.max(1.0), height.max(1.0));
+        if let Some(y) = self.pending_height.take() {
+            self.show_height(y);
+        }
     }
 
     /// The area's size.
@@ -1154,6 +1161,11 @@ impl ViewerState {
     /// The bitmap's point at the area's center, as placed.
     fn shown_center(&mut self) -> (f32, f32) {
         let p = self.placement();
+        // No area yet, so no scale: the unit's middle rather than 0/0.
+        if p.scale <= 0.0 || !p.scale.is_finite() {
+            let (w, h) = self.unit_size();
+            return (w / 2.0, h / 2.0);
+        }
         let (aw, ah) = self.area;
         ((aw / 2.0 - p.x) / p.scale, (ah / 2.0 - p.y) / p.scale)
     }
@@ -1696,6 +1708,7 @@ impl ViewerState {
         }
         self.unit = unit;
         self.text_sel = None;
+        self.pending_height = None;
         if self.paged() {
             self.center = None;
         }
@@ -1705,8 +1718,14 @@ impl ViewerState {
     /// Brings height `y` of the unit (its own pixels from the top, PDF
     /// points for a PDF's page) to the middle of the area when the unit is
     /// larger than the area (zoomed in); the view as it is otherwise.
+    /// Asked before the area is known (a file opened at a place, as Show
+    /// in PDF opens the PDF, is not drawn yet), it waits for the area.
     pub fn show_height(&mut self, y: f32) {
         if !self.rotation.is_multiple_of(4) {
+            return;
+        }
+        if self.area.0 <= 0.0 || self.area.1 <= 0.0 {
+            self.pending_height = Some(y);
             return;
         }
         let (cx, _) = self.shown_center();
@@ -18450,6 +18469,34 @@ mod tests {
         assert_eq!(v.scale(), 0.8);
         v.fit_width();
         assert_eq!(v.scale(), 2.0);
+    }
+
+    #[test]
+    fn a_height_asked_for_before_the_area_is_known_is_shown_with_it() {
+        // Show in PDF opens the PDF at a page and a height before the
+        // viewer has been drawn: with no area, the scale was 0 and the
+        // center 0/0, so the page was placed at NaN and never drawn.
+        let dir = std::env::temp_dir();
+        let mut v = ViewerState::open(Arc::new(Vector(3)), &dir.join("x.vector")).unwrap();
+        v.go_to(1);
+        v.show_height(40.0);
+        // A 100 × 50 page in a 200 × 40 area, twice as large: height 40
+        // is brought to the middle, as far as the bottom edge lets it.
+        v.set_area(200.0, 40.0);
+        let p = v.placement();
+        assert_eq!((v.unit, p.x, p.y), (1, 0.0, -60.0));
+        // Turning the page before the first draw drops the height.
+        let mut v = ViewerState::open(Arc::new(Vector(3)), &dir.join("x.vector")).unwrap();
+        v.show_height(40.0);
+        v.go_to(2);
+        v.set_area(200.0, 40.0);
+        assert_eq!((v.unit, v.placement().y), (2, 0.0));
+        // Zooming before the first draw keeps the view finite.
+        let mut v = ViewerState::open(Arc::new(Vector(3)), &dir.join("x.vector")).unwrap();
+        v.zoom_by(1.5);
+        v.set_area(200.0, 40.0);
+        let p = v.placement();
+        assert!(p.x.is_finite() && p.y.is_finite(), "{p:?}");
     }
 
     #[test]

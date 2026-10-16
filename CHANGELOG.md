@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- Show in PDF on a PDF that is not open yet shows its page at the cursor's line, where it showed an empty view: the viewer placed the page before it knew its own size.
+
 ## [0.6.43] - 2026-10-15
 
 ### Fixed
