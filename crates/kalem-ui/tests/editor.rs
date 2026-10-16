@@ -5271,6 +5271,84 @@ fn the_source_view_keeps_the_place(cx: &mut TestAppContext) {
     assert!(!e.read_with(cx, |e, _| e.source));
 }
 
+/// The cursor that follows a wheel scroll goes to the first line in view
+/// outside a formula shown typeset: entering one showed its source, so
+/// the formula opened into its lines and the window jumped at each step
+/// of a scroll through a LaTeX paper.
+#[gpui::test]
+fn the_cursor_following_a_scroll_leaves_formulas_typeset(cx: &mut TestAppContext) {
+    let body: String = (0..40)
+        .map(|i| {
+            format!(
+                "Paragraph {i} {}\n\n\\begin{{equation}}\n  x_{{{i}}} = \\frac{{a}}{{b}}\n\\end{{equation}}\n\n",
+                "word ".repeat(12)
+            )
+        })
+        .collect();
+    let text =
+        format!("\\documentclass{{article}}\n\\begin{{document}}\n{body}\\end{{document}}\n");
+    let (e, cx) = open_named(&text, "t.tex", || None, cx);
+    at(&e, text.find("Paragraph 0").unwrap(), cx);
+    cx.run_until_parked();
+    let origin = e.read_with(cx, |e, _| {
+        e.painted
+            .borrow()
+            .get(&2)
+            .map(|p| p.bounds.origin)
+            .expect("painted")
+    });
+    let wheel = |dy: f32, cx: &mut VisualTestContext| {
+        cx.simulate_mouse_move(
+            origin + gpui::point(gpui::px(20.), gpui::px(20.)),
+            None,
+            gpui::Modifiers::default(),
+        );
+        cx.simulate_event(gpui::ScrollWheelEvent {
+            position: origin + gpui::point(gpui::px(20.), gpui::px(20.)),
+            delta: gpui::ScrollDelta::Pixels(gpui::point(gpui::px(0.), gpui::px(dy))),
+            modifiers: gpui::Modifiers::default(),
+            touch_phase: gpui::TouchPhase::Moved,
+        });
+        cx.run_until_parked();
+    };
+    // The lines of the equation environments.
+    let lines: Vec<&str> = text.lines().collect();
+    let in_formula = |l: usize| {
+        let mut i = l;
+        loop {
+            if lines[i].starts_with("\\end{equation}") && i != l {
+                return false;
+            }
+            if lines[i].starts_with("\\begin{equation}") {
+                return true;
+            }
+            if i == 0 {
+                return false;
+            }
+            i -= 1;
+        }
+    };
+    let mut steps = 0;
+    for _ in 0..60 {
+        wheel(-17., cx);
+        steps += 1;
+        let line = e.read_with(cx, |e, _| e.doc.text().line_of(e.doc.selection.head));
+        assert!(
+            !in_formula(line),
+            "step {steps}: the cursor went into the formula at line {line}"
+        );
+        // No formula opened into its lines: each shows as one item.
+        let opened = e.read_with(cx, |e, _| {
+            e.visible
+                .iter()
+                .any(|&l| lines.get(l).is_some_and(|t| t.trim_start().starts_with("x_")))
+        });
+        assert!(!opened, "step {steps}: a formula opened into its lines");
+    }
+    let line = e.read_with(cx, |e, _| e.doc.text().line_of(e.doc.selection.head));
+    assert!(line > 20, "the cursor did not follow the scroll: line {line}");
+}
+
 /// The column bars of a CSV grid's rows, by their resize handles: the
 /// right edge of each column, in window coordinates.
 fn csv_edges(columns: usize, cx: &mut VisualTestContext) -> Vec<gpui::Pixels> {

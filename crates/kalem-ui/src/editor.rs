@@ -724,10 +724,31 @@ impl Editor {
         if sel.anchor != sel.head {
             return;
         }
-        let Some((first, _)) = self.items_in_view() else {
+        let Some((first, last)) = self.items_in_view() else {
             return;
         };
-        let target = first;
+        // Not into a formula shown typeset (a LaTeX environment, display
+        // math): the cursor there shows its source, so the formula opened
+        // into its lines and the window jumped at each step of a scroll
+        // through a paper. The first line in view outside one, if any.
+        let target = if self.math && !self.source {
+            let blocks = self.blocks();
+            let text = self.doc.text();
+            (first..=last)
+                .find(|&i| {
+                    self.visible.get(i).is_some_and(|&l| {
+                        let r = text.line_range(l);
+                        !blocks.iter().any(|b| {
+                            b.kind == BlockKind::Math
+                                && b.range.start <= r.end
+                                && r.start <= b.content_end
+                        })
+                    })
+                })
+                .unwrap_or(first)
+        } else {
+            first
+        };
         let text = self.doc.text();
         let line = text.line_of(sel.head);
         if self.item_of(line) == Some(target) {
