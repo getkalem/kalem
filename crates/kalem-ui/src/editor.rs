@@ -5064,7 +5064,10 @@ fn scroll_to_place(list: &ListState, visible: &[usize], place: Option<(usize, Pi
     let (item_ix, offset_in_item) = match visible.iter().position(|&l| l == line) {
         Some(i) => (i, offset),
         None => (
-            visible.iter().position(|&l| l > line).unwrap_or(visible.len()),
+            visible
+                .iter()
+                .position(|&l| l > line)
+                .unwrap_or(visible.len()),
             px(0.),
         ),
     };

@@ -5339,14 +5339,19 @@ fn the_cursor_following_a_scroll_leaves_formulas_typeset(cx: &mut TestAppContext
         );
         // No formula opened into its lines: each shows as one item.
         let opened = e.read_with(cx, |e, _| {
-            e.visible
-                .iter()
-                .any(|&l| lines.get(l).is_some_and(|t| t.trim_start().starts_with("x_")))
+            e.visible.iter().any(|&l| {
+                lines
+                    .get(l)
+                    .is_some_and(|t| t.trim_start().starts_with("x_"))
+            })
         });
         assert!(!opened, "step {steps}: a formula opened into its lines");
     }
     let line = e.read_with(cx, |e, _| e.doc.text().line_of(e.doc.selection.head));
-    assert!(line > 20, "the cursor did not follow the scroll: line {line}");
+    assert!(
+        line > 20,
+        "the cursor did not follow the scroll: line {line}"
+    );
 }
 
 /// The column bars of a CSV grid's rows, by their resize handles: the
