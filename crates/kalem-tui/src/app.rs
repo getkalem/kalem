@@ -1410,7 +1410,10 @@ impl App {
             .unwrap_or("")
             .to_string();
         self.completion = None;
-        self.palette = Some(Palette::searching(ProjectSearch::new(&project, &text)));
+        let file = self.doc.meta.path.as_deref();
+        self.palette = Some(Palette::searching(ProjectSearch::new(
+            &project, file, &text,
+        )));
         self.dirty = true;
     }
 
@@ -2164,7 +2167,8 @@ impl App {
                     .unwrap_or_else(|| kalem_core::projects::Project::new(dir));
                 project.ignore.extend(ignore);
                 self.completion = None;
-                self.palette = Some(Palette::searching(ProjectSearch::new(&project, "")));
+                let file = self.doc.meta.path.as_deref();
+                self.palette = Some(Palette::searching(ProjectSearch::new(&project, file, "")));
                 self.dirty = true;
             }
             Request::OpenFiles => {

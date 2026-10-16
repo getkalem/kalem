@@ -1920,6 +1920,45 @@ fn documents_and_projects_in_the_terminal() {
 }
 
 #[test]
+fn the_search_in_project_finds_the_open_file_gitignore_leaves_out() {
+    let (mut t, dir) = project_app(Config::default());
+    std::fs::write(dir.join("proj/.gitignore"), "TODO.md\n").unwrap();
+    std::fs::write(dir.join("proj/TODO.md"), "* Todo\nfind the needle\n").unwrap();
+    // Ctrl+O starts in the document's folder, the project's.
+    t.key(KeyCode::Char('o'), KeyModifiers::CONTROL);
+    t.typ("TODO.md");
+    t.key(KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(title(&t), "TODO.md");
+    t.app.run_command("project.search", serde_json::Value::Null);
+    t.typ("needle");
+    settle(&mut t);
+    let rows: Vec<String> = screen(&mut t)
+        .iter()
+        .map(|r| r.replace('\\', "/"))
+        .collect();
+    assert!(
+        rows.iter()
+            .any(|r| r.contains("TODO.md:2") && r.contains("find the needle")),
+        "{rows:?}"
+    );
+    assert!(rows.iter().any(|r| r.contains("sub/b.org:3")), "{rows:?}");
+    // From another file of the project, .gitignore holds.
+    t.key(KeyCode::Esc, KeyModifiers::NONE);
+    t.key(KeyCode::PageUp, KeyModifiers::CONTROL);
+    assert_eq!(title(&t), "a.org");
+    t.app.run_command("project.search", serde_json::Value::Null);
+    t.typ("needle");
+    settle(&mut t);
+    let rows = screen(&mut t);
+    assert!(!rows.iter().any(|r| r.contains("TODO.md:2")), "{rows:?}");
+    assert!(
+        rows.iter()
+            .any(|r| r.replace('\\', "/").contains("sub/b.org:3")),
+        "{rows:?}"
+    );
+}
+
+#[test]
 fn the_which_key_panel_shows_once_its_delay_has_passed() {
     // The loop draws only when something changed: the delay passing is
     // such a change.

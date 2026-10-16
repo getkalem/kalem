@@ -48,21 +48,40 @@ pub(crate) fn walker(root: &Path, ignore: &[String]) -> ignore::WalkBuilder {
         .filter_entry(|e| {
             !(e.file_type().is_some_and(|t| t.is_dir()) && VCS.iter().any(|v| e.file_name() == *v))
         });
-    if !ignore.is_empty() {
-        let mut o = ignore::overrides::OverrideBuilder::new(root);
-        for pat in ignore {
-            if let Err(e) = o.add(&format!("!{pat}")) {
-                tracing::warn!("ignore pattern {pat}: {e}");
-            }
-        }
-        match o.build() {
-            Ok(o) => {
-                b.overrides(o);
-            }
-            Err(e) => tracing::warn!("ignore patterns: {e}"),
-        }
+    if let Some(o) = overrides(root, ignore) {
+        b.overrides(o);
     }
     b
+}
+
+/// `ignore` (gitignore patterns) as overrides of the walk under `root`.
+fn overrides(root: &Path, ignore: &[String]) -> Option<ignore::overrides::Override> {
+    if ignore.is_empty() {
+        return None;
+    }
+    let mut o = ignore::overrides::OverrideBuilder::new(root);
+    for pat in ignore {
+        if let Err(e) = o.add(&format!("!{pat}")) {
+            tracing::warn!("ignore pattern {pat}: {e}");
+        }
+    }
+    o.build()
+        .inspect_err(|e| tracing::warn!("ignore patterns: {e}"))
+        .ok()
+}
+
+/// Whether `ignore` (not the ignore files) leaves out `path`, a file under
+/// `root`, or a folder it is in.
+pub(crate) fn left_out(root: &Path, ignore: &[String], path: &Path) -> bool {
+    let Some(o) = overrides(root, ignore) else {
+        return false;
+    };
+    o.matched(path, false).is_ignore()
+        || path
+            .ancestors()
+            .skip(1)
+            .take_while(|d| d.starts_with(root) && *d != root)
+            .any(|d| o.matched(d, true).is_ignore())
 }
 
 /// Walks the text files of `root`, calling `sink` with each one's path

@@ -328,7 +328,11 @@ impl Editor {
             .to_string();
         self.completion = None;
         let mut p = Palette::new(text.clone());
-        p.search = Some(ProjectSearch::new(&project, &text));
+        p.search = Some(ProjectSearch::new(
+            &project,
+            self.doc.meta.path.as_deref(),
+            &text,
+        ));
         self.palette = Some(p);
         cx.notify();
     }

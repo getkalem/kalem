@@ -710,6 +710,8 @@ pub struct ProjectSearch {
     /// Its name.
     pub name: String,
     ignore: Vec<String>,
+    /// Files searched even when `.gitignore` leaves them out.
+    also: Vec<PathBuf>,
     /// The query and its switches.
     pub query: kalem_project::Query,
     running: Option<kalem_project::Search>,
@@ -726,12 +728,15 @@ pub struct ProjectSearch {
 const SEARCH_DELAY: std::time::Duration = std::time::Duration::from_millis(120);
 
 impl ProjectSearch {
-    /// A search in the project at `root`, with `text` (the selection, say).
-    pub fn new(project: &Project, text: &str) -> ProjectSearch {
+    /// A search in `project`, with `text` (the selection, say). `file`, the
+    /// document's, is searched even when `.gitignore` leaves it out (a
+    /// `TODO.md` the project's `.gitignore` names, say).
+    pub fn new(project: &Project, file: Option<&Path>, text: &str) -> ProjectSearch {
         let mut s = ProjectSearch {
             root: project.root.clone(),
             name: project.name.clone(),
             ignore: project.ignore.clone(),
+            also: file.map(Path::to_path_buf).into_iter().collect(),
             query: kalem_project::Query::default(),
             running: None,
             hits: Vec::new(),
@@ -773,7 +778,12 @@ impl ProjectSearch {
             self.hits.clear();
             self.error = None;
             self.running = (!self.query.text.is_empty()).then(|| {
-                kalem_project::Search::start(&self.root, &self.ignore, self.query.clone())
+                kalem_project::Search::start(
+                    &self.root,
+                    &self.ignore,
+                    &self.also,
+                    self.query.clone(),
+                )
             });
             self.done = self.running.is_none();
             changed = true;

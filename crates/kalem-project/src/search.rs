@@ -46,11 +46,14 @@ pub struct Hit {
 
 /// Searches the files of `root` (with the project's ignore rules) for
 /// `query`, calling `sink` with each matching line until it returns
-/// `false` or `cancel` is set. Errors if the query is not a valid regular
-/// expression.
+/// `false` or `cancel` is set. The files of `also` under `root` (the open
+/// document) are searched even when an ignore file such as `.gitignore`
+/// leaves them out, though not when `ignore` does. Errors if the query is
+/// not a valid regular expression.
 pub fn search(
     root: &Path,
     ignore: &[String],
+    also: &[PathBuf],
     query: &Query,
     cancel: &AtomicBool,
     mut sink: impl FnMut(Hit) -> bool,
@@ -69,21 +72,14 @@ pub fn search(
         .line_number(true)
         .build();
     let mut stop = false;
-    for entry in crate::files::walker(root, ignore).build() {
-        if stop || cancel.load(Ordering::Relaxed) {
-            break;
-        }
-        let Ok(e) = entry else { continue };
-        if !e.file_type().is_some_and(|t| t.is_file()) {
-            continue;
-        }
-        let path = e.path().to_path_buf();
+    // The matching lines of the file at `path`.
+    let mut search_file = |path: &Path, stop: &mut bool| {
         let result = searcher.search_path(
             &matcher,
-            &path,
+            path,
             sinks::Lossy(|line, text| {
                 if cancel.load(Ordering::Relaxed) {
-                    stop = true;
+                    *stop = true;
                     return Ok(false);
                 }
                 let text = text.trim_end_matches(['\n', '\r']);
@@ -97,20 +93,44 @@ pub fn search(
                     cut -= 1;
                 }
                 let go = sink(Hit {
-                    path: path.clone(),
+                    path: path.to_path_buf(),
                     line,
                     column,
                     len,
                     text: text[..cut].to_string(),
                 });
                 if !go {
-                    stop = true;
+                    *stop = true;
                 }
                 Ok(go)
             }),
         );
         if let Err(e) = result {
             tracing::debug!("search {}: {e}", path.display());
+        }
+    };
+    // Those of `also` the walk does not reach are searched after it.
+    let mut also: Vec<&PathBuf> = also
+        .iter()
+        .filter(|p| p.starts_with(root) && !crate::files::left_out(root, ignore, p))
+        .collect();
+    for entry in crate::files::walker(root, ignore).build() {
+        if stop || cancel.load(Ordering::Relaxed) {
+            break;
+        }
+        let Ok(e) = entry else { continue };
+        if !e.file_type().is_some_and(|t| t.is_file()) {
+            continue;
+        }
+        also.retain(|p| p.as_path() != e.path());
+        search_file(e.path(), &mut stop);
+    }
+    for path in also {
+        if stop || cancel.load(Ordering::Relaxed) {
+            break;
+        }
+        if path.is_file() {
+            search_file(path, &mut stop);
         }
     }
     Ok(())
@@ -133,13 +153,14 @@ pub struct Search {
 }
 
 impl Search {
-    /// Starts searching `root` for `query`.
-    pub fn start(root: &Path, ignore: &[String], query: Query) -> Search {
+    /// Starts searching `root` (and `also`, as [`search`] does) for `query`.
+    pub fn start(root: &Path, ignore: &[String], also: &[PathBuf], query: Query) -> Search {
         let found = Arc::new(Mutex::new(Found::default()));
         let cancel = Arc::new(AtomicBool::new(false));
-        let (root, ignore, q, f, c) = (
+        let (root, ignore, also, q, f, c) = (
             root.to_path_buf(),
             ignore.to_vec(),
+            also.to_vec(),
             query.clone(),
             found.clone(),
             cancel.clone(),
@@ -148,7 +169,7 @@ impl Search {
             .name("kalem-project-search".into())
             .spawn(move || {
                 let mut count = 0;
-                let result = search(&root, &ignore, &q, &c, |hit| {
+                let result = search(&root, &ignore, &also, &q, &c, |hit| {
                     count += 1;
                     f.lock().expect("the results").hits.push(hit);
                     count < MAX_HITS

@@ -120,7 +120,7 @@ fn searching() {
     );
     let run = |q: Query| {
         let mut hits = Vec::new();
-        kalem_project::search::search(&root, &[], &q, &AtomicBool::new(false), |h| {
+        kalem_project::search::search(&root, &[], &[], &q, &AtomicBool::new(false), |h| {
             hits.push(h);
             true
         })
@@ -178,6 +178,7 @@ fn searching() {
         kalem_project::search::search(
             &root,
             &[],
+            &[],
             &Query {
                 regex: true,
                 ..q("(")
@@ -188,11 +189,12 @@ fn searching() {
         .is_err()
     );
     // In the background.
-    let s = Search::start(&root, &[], q("apple"));
+    let s = Search::start(&root, &[], &[], q("apple"));
     let (hits, error) = s.wait();
     assert_eq!((hits.len(), error), (3, None));
     let s = Search::start(
         &root,
+        &[],
         &[],
         Query {
             regex: true,
@@ -200,6 +202,73 @@ fn searching() {
         },
     );
     assert!(s.wait().1.is_some());
+}
+
+#[test]
+fn the_open_file_is_searched_though_gitignore_leaves_it_out() {
+    let root = tree(
+        "search-also",
+        &[
+            ("a.org", b"apple\n"),
+            (".gitignore", b"TODO.md\n"),
+            ("TODO.md", b"* Todo\nan apple a day\n"),
+            ("logseq/config.edn", b"apple\n"),
+        ],
+    );
+    let outside = tree("search-also-outside", &[("b.org", b"apple\n")]);
+    let run = |ignore: &[String], also: &[std::path::PathBuf]| {
+        let mut hits = Vec::new();
+        kalem_project::search::search(
+            &root,
+            ignore,
+            also,
+            &Query {
+                text: "apple".into(),
+                ..Query::default()
+            },
+            &AtomicBool::new(false),
+            |h| {
+                hits.push(h);
+                true
+            },
+        )
+        .unwrap();
+        let mut hits: Vec<String> = hits
+            .iter()
+            .map(|h| {
+                let rel = h.path.strip_prefix(&root).unwrap_or(&h.path);
+                format!("{}:{}", rel.to_string_lossy().replace('\\', "/"), h.line)
+            })
+            .collect();
+        hits.sort();
+        hits
+    };
+    assert_eq!(run(&[], &[]), ["a.org:1", "logseq/config.edn:1"]);
+    // The open TODO.md, though .gitignore names it.
+    let todo = root.join("TODO.md");
+    assert_eq!(
+        run(&[], std::slice::from_ref(&todo)),
+        ["TODO.md:2", "a.org:1", "logseq/config.edn:1"]
+    );
+    // A file the walk reaches anyway is searched once; one outside the
+    // project, or gone, not at all.
+    assert_eq!(
+        run(
+            &[],
+            &[
+                root.join("a.org"),
+                outside.join("b.org"),
+                root.join("gone.md")
+            ]
+        ),
+        ["a.org:1", "logseq/config.edn:1"]
+    );
+    // The project's own patterns still leave a file out, or its folder.
+    let edn = root.join("logseq/config.edn");
+    assert_eq!(
+        run(&["TODO.md".into(), "/logseq/".into()], &[todo, edn]),
+        ["a.org:1"]
+    );
 }
 
 #[test]
@@ -219,6 +288,7 @@ fn large_tree() {
     assert!(t.elapsed().as_secs() < 20);
     let s = Search::start(
         &root,
+        &[],
         &[],
         Query {
             text: "file 7 42".into(),

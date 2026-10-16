@@ -46,7 +46,9 @@ or close them (those with unsaved changes stay open), and /Refresh
 Project Files/ walks the folder again for files added or removed
 outside Kalem. The file list follows ripgrep's ignore rules,
 =.gitignore= and =.ignore= files with or without a Git repository, and
-never lists =.git= itself or binary files.
+never lists =.git= itself or binary files. /Search in Project/ follows
+them too, but searches the document it starts from even when they
+leave it out (a =TODO.md= the =.gitignore= names, say).
 
 * The folder tree
 

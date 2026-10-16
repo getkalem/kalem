@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- Search in Project (Doom's `SPC /`) finds the open document's own lines when the project's `.gitignore` leaves it out (a `TODO.md` it names, say), where it listed only the other files. The project's own ignore patterns still leave a file out.
+
 ## [0.6.44] - 2026-10-16
 
 ### Fixed
