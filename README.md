@@ -113,7 +113,7 @@ powershell -ExecutionPolicy Bypass -c "irm https://github.com/getkalem/kalem/rel
 
 Run the same command again now and then to update: Kalem is under heavy development, and new releases with fixes come out often.
 
-The installers put `kalem` in `~/.cargo/bin`; delete it there to uninstall. The release also has terminal-only archives (`kalem-terminal-*`) for servers, without the graphical editor; installed plugins and viewers run there too. The Book's [Installing](book/part-1/installing.org) has the details: glibc 2.35 or later on Linux, and on a Linux server or container the three libraries the full binary needs even for `kalem tui` (`sudo apt install libxcb1 libxkbcommon0 libxkbcommon-x11-0`), the unsigned `Kalem.app` on macOS, and the libraries a build from source needs.
+The installers put `kalem` in `~/.cargo/bin`; delete it there to uninstall. The release also has terminal-only archives (`kalem-terminal-*`) for servers, without the graphical editor; installed plugins and viewers run there too. The Book's [Installing](book/part-1/installing.org) has the details: glibc 2.35 or later on Linux, the three libraries the graphical editor needs there (`sudo apt install libxcb1 libxkbcommon0 libxkbcommon-x11-0`; without them `kalem` opens in the terminal), the unsigned `Kalem.app` on macOS, and the libraries a build from source needs.
 
 From source, with Rust 1.96 or later:
 

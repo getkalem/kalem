@@ -18,12 +18,14 @@ ARM, and Windows on x86-64, are on the
 has terminal-only archives, =kalem-terminal-TARGET=: the terminal editor
 and the command-line tools without the graphical editor, its plugin host
 kept, so that installed plugins and viewers run there too. On Linux the
-full binary needs three libraries of the window system to start, even
-for =kalem tui=: =libxcb1 libxkbcommon0 libxkbcommon-x11-0= on Debian
-and Ubuntu, =libxcb libxkbcommon libxkbcommon-x11= on Fedora. A desktop
-has them; a server or a container mostly does not, and Kalem then stops
-at once with "error while loading shared libraries: libxkbcommon.so.0".
-Install them there, or take the terminal archive, which needs none:
+graphical editor needs three libraries of the window system:
+=libxcb1 libxkbcommon0 libxkbcommon-x11-0= on Debian and Ubuntu,
+=libxcb libxkbcommon libxkbcommon-x11= on Fedora (under Wayland,
+=libxkbcommon0= and =libwayland-client0=). A desktop has them; a server
+or a container mostly does not, and there =kalem FILE= opens the
+terminal editor and =kalem gui= names what to install. The terminal
+editor and the command-line tools need none of them. To have the
+graphical editor:
 
 #+begin_src sh
 sudo apt install libxcb1 libxkbcommon0 libxkbcommon-x11-0
