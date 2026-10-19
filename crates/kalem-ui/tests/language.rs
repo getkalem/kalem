@@ -8,13 +8,26 @@ use kalem_core::settings::Config;
 use kalem_ui::theme::Theme;
 use kalem_ui::workspace::Workspace;
 
+/// The Word-like keys these tests type with; Vim's are the default.
+fn word_keys() -> Config {
+    Config::from_layers(&[(
+        kalem_core::settings::Layer::User,
+        None,
+        "editor.keymap_profile = \"word\"\n",
+    )])
+}
+
 #[gpui::test]
 fn switching_to_turkish(cx: &mut TestAppContext) {
     let dir = std::env::temp_dir().join(format!("kalem-ui-language-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("t.org");
     std::fs::write(&path, "* A\none two\n").unwrap();
-    let mut shared = kalem_ui::shared_in(Config::default(), Some(dir.join("settings.toml")));
+    // The Word-like keys (Ctrl+, opens the settings), kept when the
+    // settings are read again.
+    let settings = dir.join("settings.toml");
+    std::fs::write(&settings, "[editor]\nkeymap_profile = \"word\"\n").unwrap();
+    let mut shared = kalem_ui::shared_in(word_keys(), Some(settings));
     shared.html_clipboard = || None;
     shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
         dir.join("projects.toml"),

@@ -12,12 +12,26 @@ use kalem_core::settings::Config;
 use kalem_ui::theme::Theme;
 use kalem_ui::workspace::Workspace;
 
-/// A settings file of the test's own in `dir`, in English: saving or
-/// reloading the settings neither touches the user's files nor switches
-/// the shared interface language to the system's.
+/// The Word-like keys these tests type with; Vim's are the default.
+fn word_keys() -> Config {
+    Config::from_layers(&[(
+        kalem_core::settings::Layer::User,
+        None,
+        "editor.keymap_profile = \"word\"\n",
+    )])
+}
+
+/// A settings file of the test's own in `dir`, in English and with the
+/// Word-like keys: saving or reloading the settings neither touches the
+/// user's files nor switches the shared interface language to the
+/// system's, or the keys to Vim's, the default.
 fn test_settings(dir: &std::path::Path) -> Option<std::path::PathBuf> {
     let path = dir.join("settings.toml");
-    std::fs::write(&path, "[ui]\nlanguage = \"en\"\n").unwrap();
+    std::fs::write(
+        &path,
+        "[ui]\nlanguage = \"en\"\n\n[editor]\nkeymap_profile = \"word\"\n",
+    )
+    .unwrap();
     Some(path)
 }
 
@@ -51,7 +65,7 @@ fn open(
         .save(dir.join("b.png"))
         .unwrap();
     std::fs::write(dir.join("notes.org"), "* Notes\n").unwrap();
-    let mut shared = kalem_ui::shared_in(Config::default(), test_settings(&dir));
+    let mut shared = kalem_ui::shared_in(word_keys(), test_settings(&dir));
     shared.html_clipboard = || None;
     shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
         dir.join("projects.toml"),
