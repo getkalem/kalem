@@ -15,6 +15,15 @@ use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;
 
+/// The Word-like keys these tests type with; Vim's are the default.
+fn word_keys() -> Config {
+    Config::from_layers(&[(
+        kalem_core::settings::Layer::User,
+        None,
+        "editor.keymap_profile = \"word\"\n",
+    )])
+}
+
 struct T {
     app: App,
     term: Terminal<TestBackend>,
@@ -90,7 +99,7 @@ fn folder(name: &str) -> PathBuf {
 fn open(dir: &Path, file: &str) -> T {
     let app = App::with_keymap(
         Some(&dir.join(file)),
-        Config::default(),
+        word_keys(),
         Caps::full(),
         &[],
         Vec::new(),

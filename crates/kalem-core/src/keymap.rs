@@ -29,16 +29,16 @@ use crate::when::{Context, WhenClause};
 /// A built-in keymap profile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Profile {
-    /// Word-like keys, the default.
+    /// Word-like keys.
     Word,
-    /// Vim's modal keys (`kalem_core::vim`) and Doom Emacs's leader keys;
-    /// the Word-like keys only where the Vim layer is off (the file
-    /// manager) and those Doom keeps (Meta with the arrows or Enter).
+    /// Vim's modal keys (`kalem_core::vim`) and Doom Emacs's leader keys,
+    /// the default; the Word-like keys only where the Vim layer is off (the
+    /// file manager) and those Doom keeps (Meta with the arrows or Enter).
     Vim,
 }
 
 impl Profile {
-    /// The profile named in settings (`keymap_profile = "word"`).
+    /// The profile named in settings (`keymap_profile = "vim"`).
     pub fn from_name(name: &str) -> Option<Profile> {
         match name {
             "word" => Some(Profile::Word),

@@ -76,8 +76,8 @@ tool, for scripts and CI: [[file:the-command-line.org][The command line]].
 
 * A power editor's tools
 
-Word-like keys by default and Vim keys as an option, with Doom Emacs's
-leader keys, panes, workspaces and sessions ([[file:keys.org][Keys]]). A file manager
+Vim keys by default, with Doom Emacs's leader keys, and Word-like keys
+as an option; panes, workspaces and sessions ([[file:keys.org][Keys]]). A file manager
 ([[file:the-file-manager.org][The file manager]]), projects and find in files ([[file:documents-and-projects.org][Documents and projects]]),
 a command palette and bookmarks ([[file:finding-and-commands.org][Finding and commands]]), an outline,
 focus mode and narrowing ([[file:views.org][Views]]). Everything is a command with a

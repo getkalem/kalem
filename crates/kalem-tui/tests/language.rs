@@ -8,6 +8,15 @@ use kalem_tui::caps::Caps;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 
+/// The Word-like keys these tests type with; Vim's are the default.
+fn word_keys() -> Config {
+    Config::from_layers(&[(
+        kalem_core::settings::Layer::User,
+        None,
+        "editor.keymap_profile = \"word\"\n",
+    )])
+}
+
 #[test]
 fn turkish() {
     kalem_core::l10n::set_language("tr");
@@ -15,14 +24,8 @@ fn turkish() {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("t.org");
     std::fs::write(&path, "* A\none two\n").unwrap();
-    let mut app = App::with_keymap(
-        Some(&path),
-        Config::default(),
-        Caps::full(),
-        &[],
-        Vec::new(),
-    )
-    .unwrap();
+    let mut app =
+        App::with_keymap(Some(&path), word_keys(), Caps::full(), &[], Vec::new()).unwrap();
     let mut term = Terminal::new(TestBackend::new(70, 10)).unwrap();
     let mut status = |app: &mut App| {
         term.draw(|f| app.draw(f)).unwrap();

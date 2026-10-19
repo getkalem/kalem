@@ -21,7 +21,7 @@ Kalem (Turkish for "pen") shows a file the way it reads and never touches what y
 - **Checked against the reference, on thousands of files.** Org against Emacs itself; LaTeX on 925 arXiv papers and 21 real projects, the HoTT book and the Stacks project among them; Markdown on every example of the CommonMark and GFM test suites; CSV on LibreOffice's files and, for reading, quoting and editing, against Rust's `csv` crate on thousands of random files. On the way the project wrote the specification LaTeX never had: [LaTeX as written](book/appendices/latex-as-written.org).
 - **Fast.** Kalem is written in Rust: one binary, nothing else to install, no scripting engine. A keystroke in a paragraph reparses it in a twentieth of a millisecond. The [measurements](book/part-4/performance.org) give every number with the command that reproduces it.
 - **One editor, in a window and in a terminal.** The same documents, commands and keys in the graphical editor and in `kalem tui`, over SSH too. A document's checks, formatting and exports are also commands on the command line: `kalem check`, `kalem fmt`, `kalem export`.
-- **Vim keys if you want them, menus if you do not.** Vim's modes, motions, operators, registers, macros and command line are built in, checked against Vim itself, and one setting turns them on; the default keys are the ones most editors use. Either way a menu bar, a toolbar, right-click menus, a command palette and the mouse reach every command, in the terminal too.
+- **Vim keys from the start, menus all the same.** Vim's modes, motions, operators, registers, macros and command line are built in, checked against Vim itself, and on from the first start; one setting gives the keys most editors use instead. Either way a menu bar, a toolbar, right-click menus, a command palette and the mouse reach every command, in the terminal too.
 - **Plugins in Rust, not JavaScript.** A plugin is compiled Rust, run as a WebAssembly component with its own memory, a time budget and only the permissions it declares. Plugins run fast, and a plugin cannot freeze the editor or take it down.
 
 ## Documents
@@ -93,9 +93,9 @@ Kalem's author used Emacs for many years. Emacs got a lot right: its packages ar
 </table>
 <p align="center"><i>The file manager, the projects view, and the settings panel with its lazygit-like keys.</i></p>
 
-You do not need to be an Emacs user, and nothing has to be learned first: the interface most people know is there, a menu bar, tabs, a folder tree, a command palette, right-click menus, Ctrl+S. Every setting, the plugins' included, is changed in a settings panel (Ctrl+, or Cmd+,): a switch flipped or the next choice picked in place, with lazygit's keys in the terminal, nothing typed into a file. The panel saves to `settings.toml`, and `keymap.json` changes any key. What Kalem leaves out is Elisp: there is no scripting engine. The Book's [Kalem and Emacs](book/part-4/kalem-and-emacs.org) says what is taken, what is left out, and why.
+You do not need to be an Emacs user: the interface most people know is there, a menu bar, tabs, a folder tree, a command palette, right-click menus. Kalem starts with Vim's keys; one choice in the settings gives the keys most editors use, Ctrl+S and typing straight into the text ([below](#install)). Every setting, the plugins' included, is changed in a settings panel (Cmd+, on macOS, `SPC h v` with the Vim keys, Ctrl+, with the Word-like ones): a switch flipped or the next choice picked in place, with lazygit's keys in the terminal, nothing typed into a file. The panel saves to `settings.toml`, and `keymap.json` changes any key. What Kalem leaves out is Elisp: there is no scripting engine. The Book's [Kalem and Emacs](book/part-4/kalem-and-emacs.org) says what is taken, what is left out, and why.
 
-For Emacs and Vim hands: `editor.keymap_profile = "vim"` turns the Vim keys on, and every key of Doom's leader map is listed with what it does in Kalem ([Keys](book/part-1/keys.org)); the file manager has Dired's keys ([The file manager](book/part-1/the-file-manager.org)); [`docs/keymaps/emacs.json`](docs/keymaps/emacs.json) is a complete keymap with Org mode's Emacs keys to copy from.
+For Emacs and Vim hands: the Vim keys are the default (`editor.keymap_profile = "vim"`), and every key of Doom's leader map is listed with what it does in Kalem ([Keys](book/part-1/keys.org)); the file manager has Dired's keys ([The file manager](book/part-1/the-file-manager.org)); [`docs/keymaps/emacs.json`](docs/keymaps/emacs.json) is a complete keymap with Org mode's Emacs keys to copy from.
 
 ## Install
 
@@ -125,6 +125,13 @@ cargo install --locked --path crates/kalem
 ```bash
 kalem notes.md                      # the editor; `kalem tui notes.md` for the terminal
 kalem export notes.org --to html    # the command-line tools: check, fmt, query, export…
+```
+
+Kalem starts with Vim's keys: Normal mode first, `i` to type, `:w` to save. For the keys most editors use instead (typing goes straight into the text, Ctrl+S saves, Cmd+S on macOS), choose `word` for `editor.keymap_profile` in the settings panel, or write it in `settings.toml`:
+
+```toml
+[editor]
+keymap_profile = "word"
 ```
 
 Kalem's core opens Org, Markdown, LaTeX, CSV and BibTeX files, and every other text file as code. The rest comes as plugins you add when you want them: viewers for PDF files, pictures, workbooks and Word documents, programming languages, git, note graphs. In the editor, *Browse Plugins* in the *Kalem* menu or the command palette lists the plugins of the index; choose one, and Kalem says what it is, where it comes from and what it may do, then installs it when you confirm. On the command line, `kalem plugin browse` lists them and `kalem plugin install NAME` installs one.

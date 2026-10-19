@@ -838,8 +838,8 @@ Go/no-go: if 1, 2 and 3 do not work, switch to the **Tauri + ProseMirror** fallb
 
 ### 7.3 Keyboard
 
-- **Default profile, Word-like:** Ctrl+B/I/U, Ctrl+L/E/R/J alignment, Ctrl+] and Ctrl+[ font size, Ctrl+Space clear formatting (3.7), Ctrl+1..6 heading level, Ctrl+Shift+L list, Tab and Shift+Tab for indentation or folding (by context), Ctrl+Enter TODO cycle, Ctrl+K link, Ctrl+Shift+T table, Alt+arrows move subtree.
-- **Vim profile (optional):** modal editing, off by default, with the Word-like keys in insert mode and for chords Vim does not use (Ctrl+S saves). It can be limited to some document modes, for example only plain text files (`editor.vim.modes = ["plain"]`). See 7.3.1.
+- **Word-like profile:** Ctrl+B/I/U, Ctrl+L/E/R/J alignment, Ctrl+] and Ctrl+[ font size, Ctrl+Space clear formatting (3.7), Ctrl+1..6 heading level, Ctrl+Shift+L list, Tab and Shift+Tab for indentation or folding (by context), Ctrl+Enter TODO cycle, Ctrl+K link, Ctrl+Shift+T table, Alt+arrows move subtree.
+- **Vim profile (the default since 2026-10-19, asked by the owner):** modal editing, with the Word-like keys in insert mode and for chords Vim does not use (Ctrl+S saves). It can be limited to some document modes, for example only plain text files (`editor.vim.modes = ["plain"]`). See 7.3.1.
 - **Emacs keys:** not a built-in profile (the owner chose Vim over Emacs keys, 2026-09-28). `docs/keymaps/emacs.json` gives the Emacs Org keys (`C-c C-t`, `C-x C-s`, `M-RET`, …) as a user keymap to copy into `keymap.json`.
 - **Doom Emacs leader keys (Vim profile):** in normal and visual mode the leader (Space unless `editor.vim.leader` says otherwise) starts Doom's sequences: `SPC p p` switches project, `SPC p f` and `SPC SPC` find a file in the project, `SPC ,` and `SPC b b` switch document, `SPC s p` and `SPC /` search the project, `SPC f f` opens a file, `SPC :` is the command palette. A which-key panel lists what may follow a half-typed sequence. They live in `keymaps/vim.json` like any binding, so `keymap.json` changes or removes them (and can use `leader` in its own keys). The goal is Doom's whole basic leader map, prefix by prefix, with a which-key popup showing the continuations of a prefix, and a published table of the keys Kalem does not bind and why (asked by the owner, 2026-09-30; group 2.7i).
 - **Documents and projects (Word-like keys):** Ctrl+O open, Ctrl+N new, Ctrl+W close, Ctrl+Tab and Ctrl+PageDown next document, Ctrl+Alt+O switch document, Ctrl+Alt+R recent files, Ctrl+P find file in project, Ctrl+Shift+F search in project, Ctrl+Alt+P switch project, Ctrl+Shift+E the list of open files.
@@ -1483,7 +1483,7 @@ Example `settings.toml`:
 font_family = "Georgia"
 font_size = 16
 line_width = 80
-keymap_profile = "word"        # "word" | "vim"
+keymap_profile = "vim"         # "vim" | "word"
 show_source_markers = "cursor" # "cursor" | "always" | "never"
 
 [org]

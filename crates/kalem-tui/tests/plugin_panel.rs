@@ -15,6 +15,15 @@ use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use std::sync::Mutex;
 
+/// The Word-like keys these tests type with; Vim's are the default.
+fn word_keys() -> Config {
+    Config::from_layers(&[(
+        kalem_core::settings::Layer::User,
+        None,
+        "editor.keymap_profile = \"word\"\n",
+    )])
+}
+
 /// What the plugin heard: each widget's key and event.
 static HEARD: Mutex<Vec<(String, PanelEvent)>> = Mutex::new(Vec::new());
 
@@ -99,7 +108,7 @@ impl Drop for T {
 /// A terminal editor `width` by `height` on a note, the panel shown at
 /// its side with `more` references after the long one.
 fn shown(width: u16, height: u16, more: usize) -> T {
-    shown_with(Config::default(), width, height, more)
+    shown_with(word_keys(), width, height, more)
 }
 
 fn shown_with(config: Config, width: u16, height: u16, more: usize) -> T {

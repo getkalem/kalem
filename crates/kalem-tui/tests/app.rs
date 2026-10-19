@@ -12,6 +12,15 @@ use ratatui::buffer::Buffer;
 use ratatui::style::{Color, Modifier};
 use std::path::{Path, PathBuf};
 
+/// The Word-like keys these tests type with; Vim's are the default.
+fn word_keys() -> Config {
+    Config::from_layers(&[(
+        kalem_core::settings::Layer::User,
+        None,
+        "editor.keymap_profile = \"word\"\n",
+    )])
+}
+
 fn strip_osc(s: &str) -> String {
     let mut out = String::new();
     let mut it = s.chars().peekable();
@@ -91,7 +100,7 @@ fn with_file(text: &str, name: &str, config: Config, size: (u16, u16)) -> T {
 }
 
 fn open(text: &str) -> T {
-    with_config(text, Config::default(), (60, 10))
+    with_config(text, word_keys(), (60, 10))
 }
 
 impl T {
@@ -347,12 +356,7 @@ fn save_as_does_what_a_save_does_first() {
 /// Rename Symbol offers the name at the cursor, to edit.
 #[test]
 fn rename_offers_the_name_at_the_cursor() {
-    let mut t = with_file(
-        "fn encode(path: &str) {}\n",
-        "a.rs",
-        Config::default(),
-        (60, 8),
-    );
+    let mut t = with_file("fn encode(path: &str) {}\n", "a.rs", word_keys(), (60, 8));
     t.at(5);
     t.app.run_command("code.rename", serde_json::json!({}));
     let shown = screen(&mut t).join("\n");
@@ -633,7 +637,7 @@ fn vim_block_selection() {
 #[test]
 fn table_selection_statistics() {
     let text = "| a | 2 |\n| b | 4 |\n";
-    let mut t = with_config(text, Config::default(), (100, 6));
+    let mut t = with_config(text, word_keys(), (100, 6));
     t.app.doc.selection = org_edit::Selection {
         anchor: text.find('2').unwrap(),
         head: text.find('4').unwrap(),
@@ -646,7 +650,7 @@ fn table_selection_statistics() {
 fn long_lines_wrap_and_scroll() {
     let body = "word ".repeat(40);
     let text = format!("- {body}\n{}", "line\n".repeat(30));
-    let mut t = with_config(&text, Config::default(), (30, 6));
+    let mut t = with_config(&text, word_keys(), (30, 6));
     t.at(0);
     // Wrapped rows of an item hang after the bullet.
     assert!(t.row(1).starts_with("   word"), "{:?}", t.row(1));
@@ -664,7 +668,7 @@ fn long_lines_wrap_and_scroll() {
 #[test]
 fn arrows_move_the_cursor_and_not_the_window() {
     let text: String = (0..400).map(|i| format!("line {i}\n")).collect();
-    let mut t = with_config(&text, Config::default(), (40, 12));
+    let mut t = with_config(&text, word_keys(), (40, 12));
     let line = |t: &T| t.app.doc.text().line_of(t.app.doc.selection.head);
     // The window: the line it starts with, and the row of that line.
     let window = |t: &T| {
@@ -758,7 +762,7 @@ fn wide_tables_wrap_in_their_cells() {
     // Wider than the screen: the long column narrowed, its cell wrapping
     // in it, every row's bars in line (they wrapped row by row).
     let text = "| Path | Contents |\n|---|---|\n| `a` | one two three four five six seven eight nine ten |\n| b | short |\n\nafter\n";
-    let mut t = with_file(text, "t.md", Config::default(), (40, 12));
+    let mut t = with_file(text, "t.md", word_keys(), (40, 12));
     t.at(text.len());
     let rows: Vec<String> = (0..7).map(|y| t.row(y)).collect();
     assert_eq!(
@@ -775,7 +779,7 @@ fn wide_tables_wrap_in_their_cells() {
     );
     // Org's tables the same.
     let text = "| Path | Contents |\n|------+----------|\n| a | one two three four five six seven eight nine ten |\nafter\n";
-    let mut t = with_file(text, "t.org", Config::default(), (40, 12));
+    let mut t = with_file(text, "t.org", word_keys(), (40, 12));
     t.at(text.len());
     let rows: Vec<String> = (0..5).map(|y| t.row(y)).collect();
     assert_eq!(
@@ -796,7 +800,7 @@ fn markdown_display_math_over_several_lines() {
     // pictures, its Unicode form), its other lines hidden; with the
     // cursor in it, its source.
     let text = "Text.\n\n$$\na^2 +\nb^2\n$$\n\nAfter.\n";
-    let mut t = with_file(text, "t.md", Config::default(), (40, 10));
+    let mut t = with_file(text, "t.md", word_keys(), (40, 10));
     t.at(text.len());
     let rows: Vec<String> = (0..5).map(|y| t.row(y)).collect();
     assert_eq!(rows, ["1  Text.", "2", "3    a² + b²", "7", "8  After."]);
@@ -825,7 +829,7 @@ fn grid_editing() {
 #[test]
 fn blocks_drawers_and_settings() {
     let text = "#+TITLE: Doc\n#+AUTHOR: Ada\n#+OPTIONS: toc:nil\n#+STARTUP: showall\n* H\n:PROPERTIES:\n:ID: 1\n:END:\n#+begin_src rust\nfn main() {}\n#+end_src\nend\n";
-    let mut t = with_config(text, Config::default(), (40, 12));
+    let mut t = with_config(text, word_keys(), (40, 12));
     t.at(text.len());
     let rows: Vec<String> = (0..9).map(|y| t.row(y)).collect();
     // Under the heading, lines start at its title; frames fill the 36
@@ -1152,7 +1156,7 @@ fn find_and_replace() {
 #[test]
 fn outline_panel() {
     let text = "* One\ntext\n** TODO Two\n* Three\nend\n";
-    let mut t = with_config(text, Config::default(), (60, 8));
+    let mut t = with_config(text, word_keys(), (60, 8));
     t.at(0);
     // Ctrl+Shift+O is Alt+O in a terminal.
     t.key(KeyCode::Char('o'), KeyModifiers::ALT);
@@ -1279,7 +1283,7 @@ fn theme_colors() {
         colors: Some(std::sync::Arc::new(theme.clone())),
         ..Caps::full()
     };
-    let mut app = App::with_keymap(Some(&path), Config::default(), caps, &[], Vec::new()).unwrap();
+    let mut app = App::with_keymap(Some(&path), word_keys(), caps, &[], Vec::new()).unwrap();
     app.doc.move_cursor(text.len(), false);
     let mut term = Terminal::new(TestBackend::new(40, 5)).unwrap();
     term.draw(|f| app.draw(f)).unwrap();
@@ -1333,7 +1337,7 @@ fn focus_mode_and_text_column() {
 #[test]
 fn a_heading_in_a_list_item_keeps_its_bullet_first() {
     let text = "- ## Notes\n> ## Quoted\n## Plain\nend\n";
-    let mut t = with_file(text, "h.md", Config::default(), (40, 6));
+    let mut t = with_file(text, "h.md", word_keys(), (40, 6));
     t.at(text.find("end").unwrap());
     let rows: Vec<String> = (0..3).map(|y| t.row(y)).collect();
     assert_eq!(rows, ["1  - Notes", "2  > Quoted", "3    ○ Plain"]);
@@ -1347,7 +1351,7 @@ fn a_heading_in_a_list_item_keeps_its_bullet_first() {
 #[test]
 fn focus_mode_in_markdown() {
     let text = "alpha\n* bravo\n# Charlie\ndelta\n* echo\n## Foxtrot\ngolf\n# Hotel\nindia\n";
-    let mut t = with_file(text, "f.md", Config::default(), (60, 10));
+    let mut t = with_file(text, "f.md", word_keys(), (60, 10));
     let shown = |t: &mut T| (0..8).map(|y| t.row(y)).collect::<Vec<_>>().join("\n");
     t.at(text.find("echo").unwrap());
     t.key(KeyCode::F(8), KeyModifiers::NONE);
@@ -1377,7 +1381,7 @@ fn focus_mode_in_markdown() {
 fn a_markdown_note_narrowed_to_lines() {
     // A plugin's zoom into an outliner's block (`view.narrowToLines`).
     let text = "# Notes\n- alpha\n  - beta\n  - gamma\n- delta\n";
-    let mut t = with_file(text, "n.md", Config::default(), (60, 10));
+    let mut t = with_file(text, "n.md", word_keys(), (60, 10));
     t.app.run_command(
         "view.narrowToLines",
         serde_json::json!({"start": 2, "end": 4}),
@@ -1404,7 +1408,7 @@ fn a_narrowed_part_named_above_it() {
     // A plugin's breadcrumb of the block it zoomed into: on the first
     // row, the part's text under it; gone once widened.
     let text = "# Notes\n- alpha\n  - beta\n- delta\n";
-    let mut t = with_file(text, "n.md", Config::default(), (60, 10));
+    let mut t = with_file(text, "n.md", word_keys(), (60, 10));
     t.app.run_command(
         "view.narrowToLines",
         serde_json::json!({"start": 2, "end": 3, "label": "Notes › alpha"}),
@@ -1427,14 +1431,8 @@ fn document_modes() {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("notes.txt");
     std::fs::write(&path, "* A\ntext\n").unwrap();
-    let mut app = App::with_keymap(
-        Some(&path),
-        Config::default(),
-        Caps::full(),
-        &[],
-        Vec::new(),
-    )
-    .unwrap();
+    let mut app =
+        App::with_keymap(Some(&path), word_keys(), Caps::full(), &[], Vec::new()).unwrap();
     assert_eq!(app.doc.meta.mode.name(), "text");
     app.run_command("view.setMode", serde_json::json!({ "mode": "org" }));
     assert_eq!(app.doc.meta.mode, kalem_core::DocumentMode::Org);
@@ -1467,14 +1465,8 @@ fn plain_text_view() {
     let long = "x".repeat(80);
     let text = format!("fn main() {{\n    let a = 1;\n        // deep\n}}\n{long}\n");
     std::fs::write(&path, &text).unwrap();
-    let mut app = App::with_keymap(
-        Some(&path),
-        Config::default(),
-        Caps::full(),
-        &[],
-        Vec::new(),
-    )
-    .unwrap();
+    let mut app =
+        App::with_keymap(Some(&path), word_keys(), Caps::full(), &[], Vec::new()).unwrap();
     let mut term = Terminal::new(TestBackend::new(40, 7)).unwrap();
     let row = |term: &Terminal<TestBackend>, y: u16| -> String {
         (0..40)
@@ -1524,14 +1516,8 @@ fn plain_text_indentation() {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("a.py");
     std::fs::write(&path, "def f():\n    pass\n").unwrap();
-    let mut app = App::with_keymap(
-        Some(&path),
-        Config::default(),
-        Caps::full(),
-        &[],
-        Vec::new(),
-    )
-    .unwrap();
+    let mut app =
+        App::with_keymap(Some(&path), word_keys(), Caps::full(), &[], Vec::new()).unwrap();
     app.doc.move_cursor(9, false);
     app.event(Event::Key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE)));
     assert_eq!(app.doc.text().as_str(), "def f():\n        pass\n");
@@ -1560,14 +1546,8 @@ fn org_manual_round_trip() {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("org-manual.org");
     std::fs::write(&path, &original).unwrap();
-    let mut app = App::with_keymap(
-        Some(&path),
-        Config::default(),
-        Caps::full(),
-        &[],
-        Vec::new(),
-    )
-    .unwrap();
+    let mut app =
+        App::with_keymap(Some(&path), word_keys(), Caps::full(), &[], Vec::new()).unwrap();
     let mut term = Terminal::new(TestBackend::new(100, 40)).unwrap();
     term.draw(|f| app.draw(f)).unwrap();
     // Saved as it is.
@@ -1600,7 +1580,7 @@ fn org_manual_round_trip() {
 #[test]
 fn table_formulas() {
     let text = "| a | b | c |\n|---+---+---|\n| 2 | 3 |   |\n| 4 | 5 |   |\n#+TBLFM: $3=$1*$2\n";
-    let mut t = with_config(text, Config::default(), (90, 10));
+    let mut t = with_config(text, word_keys(), (90, 10));
     // F9 recalculates.
     t.at(text.find("| 2").unwrap() + 2);
     t.key(KeyCode::F(9), KeyModifiers::NONE);
@@ -1634,7 +1614,7 @@ fn table_formulas() {
 
 #[test]
 fn tables_from_and_to_files() {
-    let mut t = with_config("Text\n", Config::default(), (90, 10));
+    let mut t = with_config("Text\n", word_keys(), (90, 10));
     let dir = t.dir.clone().unwrap();
     std::fs::write(dir.join("in.csv"), "a,b\n\"x, y\",2\n").unwrap();
     t.at(4);
@@ -1657,7 +1637,7 @@ fn tables_from_and_to_files() {
     assert_eq!(t.text(), "Text\n| x, y | 2 |\n| a    | b |\n\n");
     // Semicolons and a line break in a quoted field: read as CSV mode
     // reads them (Emacs's reader would make one column).
-    let mut t = with_config("Text\n", Config::default(), (90, 10));
+    let mut t = with_config("Text\n", word_keys(), (90, 10));
     let dir = t.dir.clone().unwrap();
     std::fs::write(dir.join("tr.csv"), "ad;not\nAyşe;\"iki\nsatır\"\n").unwrap();
     t.at(4);
@@ -1769,7 +1749,7 @@ fn screen(t: &mut T) -> Vec<String> {
 fn folder_tree_in_the_terminal() {
     // Hidden by default, the file manager listing a folder (asked by the
     // owner, 2026-10-14); Reveal in Folder Tree shows it.
-    let (mut t, dir) = project_app(Config::default());
+    let (mut t, dir) = project_app(word_keys());
     settle(&mut t);
     assert!(!screen(&mut t).join("\n").contains("Folders"));
     t.app.config_dir = Some(test_config(&dir));
@@ -1822,7 +1802,7 @@ fn folder_tree_in_the_terminal() {
 
 #[test]
 fn documents_and_projects_in_the_terminal() {
-    let (mut t, dir) = project_app(Config::default());
+    let (mut t, dir) = project_app(word_keys());
     // The palette opens with Ctrl+G where Ctrl+Shift+P cannot be typed,
     // and the status line says so.
     let status_line = status(&mut t);
@@ -1921,7 +1901,7 @@ fn documents_and_projects_in_the_terminal() {
 
 #[test]
 fn the_search_in_project_finds_the_open_file_gitignore_leaves_out() {
-    let (mut t, dir) = project_app(Config::default());
+    let (mut t, dir) = project_app(word_keys());
     std::fs::write(dir.join("proj/.gitignore"), "TODO.md\n").unwrap();
     std::fs::write(dir.join("proj/TODO.md"), "* Todo\nfind the needle\n").unwrap();
     // Ctrl+O starts in the document's folder, the project's.
@@ -2062,7 +2042,7 @@ fn old_kalem_formatting_is_plain_org() {
     // the attribute line as a line of the file (T2.13.13).
     let text =
         "one @@kalem:color=#c00000@@two@@kalem:end@@ three\n\n#+ATTR_KALEM: :align right\nend\n";
-    let mut t = with_file(text, "t.org", Config::default(), (60, 10));
+    let mut t = with_file(text, "t.org", word_keys(), (60, 10));
     t.at(text.len());
     let buf = t.draw();
     let rows: Vec<String> = (0..buf.area.height)
@@ -2085,7 +2065,7 @@ fn old_kalem_formatting_is_plain_org() {
 fn text_starts_at_the_left() {
     // In a wide terminal the text starts at the left edge; an 80-column
     // one goes to the middle with `editor.center_text`.
-    let mut t = with_config("* Heading\ntext\n", Config::default(), (160, 10));
+    let mut t = with_config("* Heading\ntext\n", word_keys(), (160, 10));
     t.at(0);
     let buf = t.draw();
     let row: String = (0..160).map(|x| buf[(x, 0)].symbol().to_string()).collect();
@@ -2109,7 +2089,7 @@ fn cursor_line(t: &T) -> String {
 
 #[test]
 fn file_manager_in_the_terminal() {
-    let (mut t, dir) = project_app(Config::default());
+    let (mut t, dir) = project_app(word_keys());
     // Ctrl+Alt+D: the document's folder, the cursor on its file.
     t.key(
         KeyCode::Char('d'),
@@ -2279,7 +2259,7 @@ fn enter_below_a_table_makes_a_line() {
 
 #[test]
 fn switching_to_the_file_manager_and_back() {
-    let (mut t, dir) = project_app(Config::default());
+    let (mut t, dir) = project_app(word_keys());
     // Ctrl+Alt+D there and back.
     t.key(
         KeyCode::Char('d'),
@@ -2359,7 +2339,7 @@ fn a_file_under_version_control_opens_its_project_when_asked() {
     let dir = kalem_core::projects::normal(&dir);
     let mut app = App::with_keymap(
         Some(&dir.join("repo/src/a.org")),
-        Config::default(),
+        word_keys(),
         Caps::full(),
         &[],
         Vec::new(),
@@ -2406,7 +2386,7 @@ fn a_file_under_version_control_opens_its_project_when_asked() {
 
 #[test]
 fn the_settings_panel_lists_and_changes_every_setting() {
-    let mut t = with_config("* A\n", Config::default(), (90, 30));
+    let mut t = with_config("* A\n", word_keys(), (90, 30));
     let saved = |t: &T| {
         std::fs::read_to_string(t.dir.as_ref().unwrap().join("config/settings.toml")).unwrap()
     };
@@ -2469,7 +2449,7 @@ fn the_settings_panel_lists_and_changes_every_setting() {
 
 #[test]
 fn lists_and_tables_change_in_the_settings_panel() {
-    let mut t = with_config("* A\n", Config::default(), (90, 30));
+    let mut t = with_config("* A\n", word_keys(), (90, 30));
     t.app.run_command("app.settings", serde_json::json!({}));
     // A list of choices: Enter shows them, Space puts one in.
     t.typ("/vim.modes");
@@ -2547,7 +2527,7 @@ fn lists_and_tables_change_in_the_settings_panel() {
 
 #[test]
 fn texts_step_through_their_usual_values_and_plugins_have_pages() {
-    let mut t = with_config("* A\n", Config::default(), (90, 34));
+    let mut t = with_config("* A\n", word_keys(), (90, 34));
     // A plugin in the editor's settings folder, describing its settings.
     let plugin = t.dir.as_ref().unwrap().join("config/plugins/count");
     std::fs::create_dir_all(&plugin).unwrap();
@@ -2656,7 +2636,7 @@ fn text_under_a_heading_is_indented_to_its_title() {
 
 #[test]
 fn the_file_manager_is_listed_once() {
-    let (mut t, _dir) = project_app(Config::default());
+    let (mut t, _dir) = project_app(word_keys());
     t.key(
         KeyCode::Char('d'),
         KeyModifiers::CONTROL | KeyModifiers::ALT,
@@ -2684,7 +2664,7 @@ fn the_file_manager_is_listed_once() {
 #[test]
 fn citations() {
     let text = "#+bibliography: refs.bib\n\nAs [cite:@knuth84] said.\n";
-    let mut t = with_config(text, Config::default(), (160, 10));
+    let mut t = with_config(text, word_keys(), (160, 10));
     std::fs::write(
         t.dir.as_ref().unwrap().join("refs.bib"),
         "@book{knuth84, author = {Donald E. Knuth}, title = {The {\\TeX}book}, year = 1984}\n\
@@ -2768,7 +2748,7 @@ fn dropped_pictures() {
 
 #[test]
 fn footnotes() {
-    let mut t = with_config("* Notes\nSome text here.\n", Config::default(), (120, 12));
+    let mut t = with_config("* Notes\nSome text here.\n", word_keys(), (120, 12));
     // A new footnote: its definition in the footnote section, the cursor
     // in it.
     t.at(17);
@@ -2797,7 +2777,7 @@ fn footnotes() {
 
 #[test]
 fn scheduling() {
-    let mut t = with_config("* TODO Task\nBody\n", Config::default(), (120, 12));
+    let mut t = with_config("* TODO Task\nBody\n", word_keys(), (120, 12));
     t.at(3);
     t.app.run_command(
         "org.schedule",
@@ -2834,7 +2814,7 @@ fn scheduling() {
 #[test]
 fn editing_properties() {
     let text = "* A\n:PROPERTIES:\n:ID: 42\n:Effort: 1:00\n:END:\nBody\n";
-    let mut t = with_config(text, Config::default(), (120, 12));
+    let mut t = with_config(text, word_keys(), (120, 12));
     t.at(2);
     t.app
         .run_command("org.property.edit", serde_json::Value::Null);
@@ -2856,7 +2836,7 @@ fn editing_properties() {
 
 #[test]
 fn word_completion() {
-    let mut t = with_file("quartz quantum\n", "w.txt", Config::default(), (60, 10));
+    let mut t = with_file("quartz quantum\n", "w.txt", word_keys(), (60, 10));
     let end = t.app.doc.text().len();
     t.at(end);
     t.typ("qua");
@@ -2880,7 +2860,7 @@ fn line_commands() {
     let config = Config::from_layers(&[(
         Layer::User,
         None,
-        "editor.trim_trailing_whitespace = true\n",
+        "editor.keymap_profile = \"word\"\neditor.trim_trailing_whitespace = true\n",
     )]);
     let mut t = with_file("pear  \napple\nfig\n", "l.txt", config, (60, 8));
     t.at(0);
@@ -2908,7 +2888,7 @@ fn line_commands() {
         let config = Config::from_layers(&[(
             Layer::User,
             None,
-            "editor.trim_trailing_whitespace = true\n",
+            "editor.keymap_profile = \"word\"\neditor.trim_trailing_whitespace = true\n",
         )]);
         let mut t = with_file(text, name, config, (60, 8));
         t.at(0);
@@ -2937,7 +2917,7 @@ fn line_commands() {
 
 #[test]
 fn editing_code() {
-    let mut t = with_file("fn a() {}\n", "a.rs", Config::default(), (60, 8));
+    let mut t = with_file("fn a() {}\n", "a.rs", word_keys(), (60, 8));
     t.at(8);
     // Enter between braces: the closing one on its own line.
     t.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -2988,7 +2968,7 @@ fn editing_code() {
 fn large_and_long() {
     // Over 4 MB: colored a window at a time.
     let big = "fn main() { let x = 1; }\n".repeat(200_000);
-    let mut t = with_file(&big, "big.rs", Config::default(), (60, 6));
+    let mut t = with_file(&big, "big.rs", word_keys(), (60, 6));
     let colored = |t: &mut T| {
         let buf = t.draw();
         (0..buf.area.width).any(|x| buf[(x, 0)].fg != Color::Reset)
@@ -2999,7 +2979,7 @@ fn large_and_long() {
     assert!(colored(&mut t));
     // A very long line shows the part around the cursor.
     let long = format!("{}\n", "abc ".repeat(100_000));
-    let mut t = with_file(&long, "long.txt", Config::default(), (60, 6));
+    let mut t = with_file(&long, "long.txt", word_keys(), (60, 6));
     t.at(200_000);
     let start = std::time::Instant::now();
     let rows = screen(&mut t).join("\n");
@@ -3009,7 +2989,7 @@ fn large_and_long() {
 
 #[test]
 fn multiple_cursors() {
-    let mut t = with_file("one\ntwo\nthree\n", "t.txt", Config::default(), (60, 10));
+    let mut t = with_file("one\ntwo\nthree\n", "t.txt", word_keys(), (60, 10));
     t.at(0);
     t.key(KeyCode::Down, KeyModifiers::CONTROL | KeyModifiers::ALT);
     t.key(KeyCode::Down, KeyModifiers::CONTROL | KeyModifiers::ALT);
@@ -3053,14 +3033,7 @@ fn legacy_encodings() {
     let turkish = "Ağaçların gölgesinde çalışan işçiler, güneşin doğuşunu şarkılarla karşıladı.\n";
     let (bytes, _, _) = kalem_core::encoding_rs::WINDOWS_1254.encode(turkish);
     std::fs::write(&path, &bytes).unwrap();
-    let app = App::with_keymap(
-        Some(&path),
-        Config::default(),
-        Caps::full(),
-        &[],
-        Vec::new(),
-    )
-    .unwrap();
+    let app = App::with_keymap(Some(&path), word_keys(), Caps::full(), &[], Vec::new()).unwrap();
     let term = Terminal::new(TestBackend::new(120, 8)).unwrap();
     let mut t = T {
         app,
@@ -3093,7 +3066,7 @@ fn legacy_encodings() {
 #[test]
 fn word_targets_and_chapters() {
     let text = "* One\nthree four five\n* Two\nsix\n";
-    let mut t = with_config(text, Config::default(), (100, 10));
+    let mut t = with_config(text, word_keys(), (100, 10));
     t.at(8);
     t.app.run_command(
         "stats.setDocumentTarget",
@@ -3124,7 +3097,7 @@ fn word_targets_and_chapters() {
 #[test]
 fn copying_as_html() {
     let text = "Some *bold* text.\n";
-    let mut t = with_config(text, Config::default(), (80, 10));
+    let mut t = with_config(text, word_keys(), (80, 10));
     t.at(0);
     t.app.doc.move_cursor(11, true);
     t.app.take_output();
@@ -3170,7 +3143,7 @@ fn base64_decode(s: &str) -> Vec<u8> {
 #[test]
 fn archiving_and_refiling() {
     let text = "* A\n** a1\n* B\nb\n* C\n";
-    let mut t = with_config(text, Config::default(), (80, 12));
+    let mut t = with_config(text, word_keys(), (80, 12));
     t.at(11);
     // The picker lists the headings outside the subtree.
     t.app.run_command("org.refile", serde_json::Value::Null);
@@ -3200,7 +3173,7 @@ fn archiving_and_refiling() {
 #[test]
 fn macros_and_snippets() {
     let text = "#+MACRO: v version $1\nThis is {{{v(2)}}} @@html:<br>@@ ok.\nend\n";
-    let mut t = with_config(text, Config::default(), (80, 10));
+    let mut t = with_config(text, word_keys(), (80, 10));
     t.at(text.len() - 1);
     assert!(
         screen(&mut t)
@@ -3221,7 +3194,7 @@ fn macros_and_snippets() {
 #[test]
 fn captions_names_and_references() {
     let text = "#+CAPTION: Old\n| 1 |\n\nSee \n";
-    let mut t = with_config(text, Config::default(), (80, 10));
+    let mut t = with_config(text, word_keys(), (80, 10));
     t.at(16);
     // The prompt starts with the caption there.
     t.app
@@ -3256,7 +3229,7 @@ fn captions_names_and_references() {
 #[test]
 fn drawers_and_export_blocks() {
     let text = "Intro.\n#+begin_export html\n<b>x</b>\n#+end_export\n";
-    let mut t = with_config(text, Config::default(), (60, 10));
+    let mut t = with_config(text, word_keys(), (60, 10));
     t.at(0);
     // Away from the cursor, an export block shows its back-end.
     assert!(
@@ -3280,7 +3253,7 @@ fn markdown_reads_as_text() {
     let mut t = with_file(
         "# Notes\n\nSome **bold** and a [link](http://x.org).\n",
         "n.md",
-        Config::default(),
+        word_keys(),
         (70, 8),
     );
     t.at(0);
@@ -3306,7 +3279,7 @@ fn markdown_reads_as_text() {
 
 #[test]
 fn markdown_enter_continues_a_list() {
-    let mut t = with_file("- [x] one\n", "n.md", Config::default(), (70, 8));
+    let mut t = with_file("- [x] one\n", "n.md", word_keys(), (70, 8));
     t.at(9);
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     for c in "two".chars() {
@@ -3320,7 +3293,7 @@ fn markdown_enter_continues_a_list() {
     t.typ("after");
     assert_eq!(t.app.doc.text().as_str(), "- [x] one\n- [ ] two\n\nafter\n");
     // Over a selection: it goes, and the item goes on, undone in one step.
-    let mut t = with_file("- one two\n", "s.md", Config::default(), (70, 8));
+    let mut t = with_file("- one two\n", "s.md", word_keys(), (70, 8));
     t.app.doc.selection = org_edit::Selection { anchor: 2, head: 6 };
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(t.text(), "- \n- two\n");
@@ -3336,7 +3309,7 @@ fn bookmarks_set_and_jumped_to() {
     let state = std::env::temp_dir().join(format!("kalem-tui-state-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&state);
     kalem_core::bookmarks::use_file(Some(state.join("bookmarks.json")));
-    let mut t = with_file("one\ntwo\nthree\n", "b.org", Config::default(), (40, 6));
+    let mut t = with_file("one\ntwo\nthree\n", "b.org", word_keys(), (40, 6));
     t.at(5);
     t.app
         .run_command("bookmark.set", serde_json::json!({"name": "two"}));
@@ -3354,12 +3327,7 @@ fn bookmarks_set_and_jumped_to() {
 
 #[test]
 fn csv_grid() {
-    let mut t = with_file(
-        "name,age\nAda,36\nBob,7\n",
-        "p.csv",
-        Config::default(),
-        (70, 8),
-    );
+    let mut t = with_file("name,age\nAda,36\nBob,7\n", "p.csv", word_keys(), (70, 8));
     let s = screen(&mut t);
     assert!(
         s.iter().any(|l| l.contains("Ada      │       36")),
@@ -3379,7 +3347,7 @@ fn csv_grid() {
 fn print_compiles_first() {
     // Without a file there is nothing to compile beside (a test must not
     // reach a real print dialog; `kalem-core/tests/book.rs` covers the rest).
-    let mut t = with_file("Hello.\n", "p.org", Config::default(), (70, 8));
+    let mut t = with_file("Hello.\n", "p.org", word_keys(), (70, 8));
     t.app.doc.meta.path = None;
     t.app.run_command("file.print", serde_json::Value::Null);
     let s = status(&mut t);
@@ -3389,7 +3357,7 @@ fn print_compiles_first() {
 #[test]
 fn latex_rendered() {
     let text = "\\section{Intro}\nSome \\emph{very} ``good'' text---yes.\n\\begin{enumerate}\n\\item First $a^2$\n\\end{enumerate}\n";
-    let mut t = with_file(text, "paper.tex", Config::default(), (60, 8));
+    let mut t = with_file(text, "paper.tex", word_keys(), (60, 8));
     assert_eq!(t.app.doc.meta.mode, kalem_core::DocumentMode::Latex);
     // Away from the heading's command.
     t.at(text.len());
@@ -3421,7 +3389,7 @@ fn latex_rendered() {
 #[test]
 fn latex_floats() {
     let text = "\\begin{figure}\n\\includegraphics[width=\\linewidth]{fig}\n\\caption{Cats.}\n\\end{figure}\n";
-    let mut t = with_file(text, "f.tex", Config::default(), (60, 8));
+    let mut t = with_file(text, "f.tex", word_keys(), (60, 8));
     let dir = t
         .app
         .doc
@@ -3442,7 +3410,7 @@ fn latex_floats() {
 #[test]
 fn latex_references() {
     let text = "\\section{One}\\label{s}\nSee \\ref{s} and \\cite{knuth}.\n\\bibliography{refs}\n";
-    let mut t = with_file(text, "r.tex", Config::default(), (70, 8));
+    let mut t = with_file(text, "r.tex", word_keys(), (70, 8));
     let dir = t
         .app
         .doc
@@ -3476,7 +3444,7 @@ fn latex_references() {
 #[test]
 fn latex_theorems_and_code() {
     let text = "\\newtheorem{thm}{Theorem}\n\\begin{thm}[Main]\nTrue.\n\\end{thm}\n\\begin{proof}\nClear.\n\\end{proof}\n\\begin{verbatim}\n\\emph{raw}\n\\end{verbatim}\n";
-    let mut t = with_file(text, "t.tex", Config::default(), (60, 14));
+    let mut t = with_file(text, "t.tex", word_keys(), (60, 14));
     t.at(text.len());
     let s = screen(&mut t);
     // Without amsthm, LaTeX puts no period after the head.
@@ -3490,12 +3458,7 @@ fn latex_theorems_and_code() {
 fn latex_build_command() {
     // Without a file there is nothing to build (a real build is
     // `kalem-core`'s and the command line's test).
-    let mut t = with_file(
-        "\\documentclass{article}\n",
-        "b.tex",
-        Config::default(),
-        (70, 8),
-    );
+    let mut t = with_file("\\documentclass{article}\n", "b.tex", word_keys(), (70, 8));
     t.app.doc.meta.path = None;
     t.key(KeyCode::F(5), KeyModifiers::NONE);
     assert!(status(&mut t).contains("Save"), "{}", status(&mut t));
@@ -3506,7 +3469,7 @@ fn latex_paragraphs_show_as_one() {
     // The lines of a paragraph wrap as one away from the cursor, as TeX
     // sets them; at the cursor, the source's lines.
     let text = "\\documentclass{article}\n\\begin{document}\n\nThe well known theorem was\nproved invalid.\nMeaning this:\n\n\\end{document}\n";
-    let mut t = with_file(text, "p.tex", Config::default(), (70, 12));
+    let mut t = with_file(text, "p.tex", word_keys(), (70, 12));
     t.at(text.find("\\end{document}").unwrap());
     let s = screen(&mut t);
     assert!(
@@ -3531,7 +3494,7 @@ fn latex_build_saves_first() {
     if !std::env::split_paths(&search).any(|d| d.join("pdflatex").is_file()) {
         return;
     }
-    let mut t = with_file("", "b.tex", Config::default(), (70, 8));
+    let mut t = with_file("", "b.tex", word_keys(), (70, 8));
     t.typ("\\documentclass{article}\\begin{document}Hi\\end{document}");
     t.key(KeyCode::F(5), KeyModifiers::NONE);
     let done = kalem_core::jobs::wait_all();
@@ -3547,7 +3510,7 @@ fn latex_build_saves_first() {
 #[test]
 fn latex_structural_editing() {
     let text = "\\begin{itemize}\n\\item One\n\\end{itemize}\nsome words\n";
-    let mut t = with_file(text, "e.tex", Config::default(), (60, 10));
+    let mut t = with_file(text, "e.tex", word_keys(), (60, 10));
     // Enter continues the list.
     t.at(text.find("One").unwrap() + 3);
     t.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -3605,7 +3568,7 @@ fn latex_structural_editing() {
 #[test]
 fn latex_completion() {
     let text = "\\section{A}\\label{sec:a}\n";
-    let mut t = with_file(text, "c.tex", Config::default(), (60, 12));
+    let mut t = with_file(text, "c.tex", word_keys(), (60, 12));
     t.at(text.len());
     t.typ("\\begin{ite");
     let s = screen(&mut t).join("\n");
@@ -3628,7 +3591,7 @@ fn latex_completion() {
 #[test]
 fn latex_math_and_inserts() {
     let text = "\\usepackage{booktabs}\nLet \n";
-    let mut t = with_file(text, "m.tex", Config::default(), (60, 20));
+    let mut t = with_file(text, "m.tex", word_keys(), (60, 20));
     t.at(text.find("Let ").unwrap() + 4);
     t.typ("$x$ ok");
     assert!(
@@ -3654,7 +3617,7 @@ fn latex_math_and_inserts() {
 
 #[test]
 fn latex_new_from_template() {
-    let mut t = with_file("notes\n", "n.org", Config::default(), (60, 10));
+    let mut t = with_file("notes\n", "n.org", word_keys(), (60, 10));
     t.app.run_command(
         "file.newFromTemplate",
         serde_json::json!({"template": "article"}),
@@ -3690,7 +3653,7 @@ fn latex_new_from_template() {
 #[test]
 fn latex_code_colored_by_its_language() {
     let text = "plain words\n\\begin{lstlisting}[language=Python]\ndef f():\n    return 1\n\\end{lstlisting}\n";
-    let mut t = with_file(text, "c.tex", Config::default(), (60, 8));
+    let mut t = with_file(text, "c.tex", word_keys(), (60, 8));
     t.at(0);
     let buf = t.draw();
     // Find `def` on its row.
@@ -3716,7 +3679,7 @@ fn latex_code_colored_by_its_language() {
 #[test]
 fn latex_inline_code_colored() {
     let text = "plain words\nSee \\lstinline[language=Rust]{fn main} here.\n";
-    let mut t = with_file(text, "c.tex", Config::default(), (60, 8));
+    let mut t = with_file(text, "c.tex", word_keys(), (60, 8));
     t.at(0);
     let buf = t.draw();
     let row = (0..buf.area.height)
@@ -3739,7 +3702,7 @@ fn latex_inline_code_colored() {
 #[test]
 fn latex_class_front_matter() {
     let text = "\\documentclass{acmart}\n\\begin{document}\n\\title{Deep}\n\\keywords{a, b}\n\\end{document}\n";
-    let mut t = with_file(text, "a.tex", Config::default(), (60, 8));
+    let mut t = with_file(text, "a.tex", word_keys(), (60, 8));
     t.at(0);
     let s = screen(&mut t);
     assert!(s.iter().any(|l| l.trim_end().ends_with(" Deep")), "{s:#?}");
@@ -3749,7 +3712,7 @@ fn latex_class_front_matter() {
 #[test]
 fn latex_formulas_as_images() {
     let text = "Before\n\\begin{equation}\n  E = mc^2\n\\end{equation}\nafter\n";
-    let mut t = with_file(text, "i.tex", Config::default(), (60, 12));
+    let mut t = with_file(text, "i.tex", word_keys(), (60, 12));
     t.at(0);
     // Without graphics: its Unicode approximation on its first line, the
     // others hidden.
@@ -3774,7 +3737,7 @@ fn latex_formulas_as_images() {
 #[test]
 fn latex_outline() {
     let text = "\\section{Intro}\ntext\n\\subsection{Details}\n\\section{End}\n";
-    let mut t = with_file(text, "o.tex", Config::default(), (60, 8));
+    let mut t = with_file(text, "o.tex", word_keys(), (60, 8));
     t.at(text.len());
     t.key(KeyCode::Char('o'), KeyModifiers::ALT);
     let s = screen(&mut t).join("\n");
@@ -3787,7 +3750,7 @@ fn latex_outline() {
 #[test]
 fn latex_tables_as_grids() {
     let text = "\\begin{tabular}{lr}\n\\toprule\nName & Qty \\\\\n\\midrule\n\\textbf{apple} & 3 \\\\\nb & 10 \\\\\n\\bottomrule\n\\end{tabular}\n\nafter\n";
-    let mut t = with_file(text, "t.tex", Config::default(), (40, 12));
+    let mut t = with_file(text, "t.tex", word_keys(), (40, 12));
     t.at(text.len());
     // The rows after the line numbers.
     let rows: Vec<String> = (0..8).map(|y| t.row(y)[4..].to_string()).collect();
@@ -3810,7 +3773,7 @@ fn latex_tables_as_grids() {
 #[test]
 fn csv_typing_quotes_the_field() {
     let text = "name,note\napple,red\n";
-    let mut t = with_file(text, "d.csv", Config::default(), (60, 8));
+    let mut t = with_file(text, "d.csv", word_keys(), (60, 8));
     // A comma typed in a field is part of its value: the field is quoted.
     t.at(text.find("red").unwrap() + 3);
     t.app
@@ -3831,7 +3794,7 @@ fn csv_typing_quotes_the_field() {
 #[test]
 fn bibtex_grid() {
     let text = "% refs\n@book{knuth84,\n  author = {Donald E. Knuth},\n  title = {The {\\TeX}book},\n  year = 1984,\n}\n\n@article{lamport,\n  author = {Lamport, Leslie},\n  title = {Paxos},\n  year = {1998}\n}\n";
-    let mut t = with_file(text, "refs.bib", Config::default(), (70, 10));
+    let mut t = with_file(text, "refs.bib", word_keys(), (70, 10));
     t.at(0);
     let s = screen(&mut t);
     // Each entry one row: key, type, authors, title, year; its field lines
@@ -3876,7 +3839,7 @@ fn bibtex_grid() {
 #[test]
 fn latex_table_spans() {
     let text = "\\begin{tabular}{lll}\n\\multicolumn{2}{c}{Head} & z \\\\ \\hline\nalpha & beta & gamma \\\\\n\\end{tabular}\n\nafter\n";
-    let mut t = with_file(text, "t.tex", Config::default(), (50, 8));
+    let mut t = with_file(text, "t.tex", word_keys(), (50, 8));
     t.at(text.len());
     let rows: Vec<String> = (0..3)
         .map(|y| {
@@ -3900,7 +3863,7 @@ fn latex_table_spans() {
 #[test]
 fn latex_multirow_across_its_rows() {
     let text = "\\begin{tabular}{ll}\n\\multirow{3}*{Group} & a \\\\\n & b \\\\\n & c \\\\\n\\end{tabular}\n\nafter\n";
-    let mut t = with_file(text, "t.tex", Config::default(), (50, 8));
+    let mut t = with_file(text, "t.tex", word_keys(), (50, 8));
     t.at(text.len());
     let rows: Vec<String> = (0..3)
         .map(|y| {
@@ -3919,7 +3882,7 @@ fn latex_multirow_across_its_rows() {
 
 #[test]
 fn file_manager_editable_names() {
-    let (mut t, dir) = project_app(Config::default());
+    let (mut t, dir) = project_app(word_keys());
     t.key(
         KeyCode::Char('d'),
         KeyModifiers::CONTROL | KeyModifiers::ALT,
@@ -3959,7 +3922,7 @@ fn file_manager_editable_names() {
 
 #[test]
 fn file_manager_find_and_search() {
-    let (mut t, dir) = project_app(Config::default());
+    let (mut t, dir) = project_app(word_keys());
     t.key(
         KeyCode::Char('d'),
         KeyModifiers::CONTROL | KeyModifiers::ALT,
@@ -3996,7 +3959,7 @@ fn file_manager_find_and_search() {
 
 #[test]
 fn file_manager_stored_links() {
-    let (mut t, _dir) = project_app(Config::default());
+    let (mut t, _dir) = project_app(word_keys());
     t.key(
         KeyCode::Char('d'),
         KeyModifiers::CONTROL | KeyModifiers::ALT,
@@ -4017,7 +3980,7 @@ fn file_manager_stored_links() {
 #[cfg(unix)]
 #[test]
 fn file_manager_shell_command() {
-    let (mut t, dir) = project_app(Config::default());
+    let (mut t, dir) = project_app(word_keys());
     t.key(
         KeyCode::Char('d'),
         KeyModifiers::CONTROL | KeyModifiers::ALT,
@@ -4040,7 +4003,7 @@ fn file_manager_shell_command() {
 #[test]
 fn latex_follow_reference() {
     let text = "\\section{Intro}\\label{intro}\ntext\nSee \\ref{intro}.\n";
-    let mut t = with_file(text, "r.tex", Config::default(), (60, 8));
+    let mut t = with_file(text, "r.tex", word_keys(), (60, 8));
     t.at(text.find("\\ref").unwrap() + 2);
     t.app
         .run_command("latex.link.open", serde_json::Value::Null);
@@ -4050,7 +4013,7 @@ fn latex_follow_reference() {
 #[test]
 fn empty_latex_document() {
     // An empty `.tex` file opens, draws and takes typing.
-    let mut t = with_file("", "empty.tex", Config::default(), (40, 6));
+    let mut t = with_file("", "empty.tex", word_keys(), (40, 6));
     screen(&mut t);
     t.typ("\\section{A}");
     t.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -4066,7 +4029,7 @@ fn empty_latex_document() {
 fn latex_diagnostics_in_the_terminal() {
     // `\bf` is deprecated: underlined once the diagnostics arrive, its
     // message in the status line at the cursor, Ctrl+. fixes it.
-    let mut t = with_file("Some {\\bf x} here.\n", "d.tex", Config::default(), (50, 6));
+    let mut t = with_file("Some {\\bf x} here.\n", "d.tex", word_keys(), (50, 6));
     t.at(7);
     let mut found = false;
     // Worked out on a thread: up to 15 s, for a machine busy with other
@@ -4122,7 +4085,7 @@ fn csv_filter_and_header_in_the_terminal() {
         let city = if i % 10 == 0 { "Izmir" } else { "Ankara" };
         rows.push_str(&format!("p{i},{city}\n"));
     }
-    let mut t = with_file(&rows, "people.csv", Config::default(), (70, 9));
+    let mut t = with_file(&rows, "people.csv", word_keys(), (70, 9));
     // Scrolled down: the header stays under the column letters.
     t.at(rows.find("p20").unwrap());
     let screen_rows = screen(&mut t);
@@ -4156,14 +4119,7 @@ fn latex_project_numbers_across_files() {
     .unwrap();
     let path = dir.join("two.tex");
     std::fs::write(&path, "\\chapter{Two}\nAfter chapter \\ref{one}.\n").unwrap();
-    let app = App::with_keymap(
-        Some(&path),
-        Config::default(),
-        Caps::full(),
-        &[],
-        Vec::new(),
-    )
-    .unwrap();
+    let app = App::with_keymap(Some(&path), word_keys(), Caps::full(), &[], Vec::new()).unwrap();
     let term = Terminal::new(TestBackend::new(50, 6)).unwrap();
     let mut t = T {
         app,
@@ -4197,14 +4153,7 @@ fn latex_outline_shows_included_files() {
     )
     .unwrap();
     std::fs::write(dir.join("two.tex"), "% a chapter\n\\chapter{Two}\nText.\n").unwrap();
-    let app = App::with_keymap(
-        Some(&main),
-        Config::default(),
-        Caps::full(),
-        &[],
-        Vec::new(),
-    )
-    .unwrap();
+    let app = App::with_keymap(Some(&main), word_keys(), Caps::full(), &[], Vec::new()).unwrap();
     let term = Terminal::new(TestBackend::new(60, 8)).unwrap();
     let mut t = T {
         app,
@@ -4231,7 +4180,7 @@ fn insert_figure_asks_for_the_picture() {
     let mut t = with_file(
         "\\begin{document}\n\n\\end{document}\n",
         "f.tex",
-        Config::default(),
+        word_keys(),
         (60, 8),
     );
     t.at(17);
@@ -4267,7 +4216,7 @@ fn latex_inserts_follow_the_document_style() {
     // Tabs for indentation, the label inside the caption, `f-` and `e-`
     // as prefixes, an equation's label on its first line (T2.7h.15).
     let doc = "\\begin{document}\n\\begin{figure}\n\t\\centering\n\t\\caption{Old.\\label{f-old}}\n\\end{figure}\n\\begin{equation}\\label{e-old}\n\tx\n\\end{equation}\n\n\\end{document}\n";
-    let mut t = with_file(doc, "s.tex", Config::default(), (60, 12));
+    let mut t = with_file(doc, "s.tex", word_keys(), (60, 12));
     let at = doc.find("\n\n\\end{document}").unwrap() + 1;
     t.at(at);
     t.app.run_command(
@@ -4298,7 +4247,7 @@ fn inserted_latex_table_is_a_grid() {
     let mut t = with_file(
         "\\begin{document}\n\n\\end{document}\n",
         "t.tex",
-        Config::default(),
+        word_keys(),
         (60, 12),
     );
     t.at(17);
@@ -4315,7 +4264,7 @@ fn inserted_latex_table_is_a_grid() {
 #[test]
 fn latex_table_of_contents_in_the_terminal() {
     let text = "\\documentclass{article}\n\\begin{document}\n\\tableofcontents\n\\section{One}\n\\subsection{Sub}\n\\section{Two}\n\\end{document}\n";
-    let mut t = with_file(text, "c.tex", Config::default(), (50, 14));
+    let mut t = with_file(text, "c.tex", word_keys(), (50, 14));
     t.at(text.len());
     let rows = screen(&mut t).join("\n");
     assert!(
@@ -4328,7 +4277,7 @@ fn latex_table_of_contents_in_the_terminal() {
 #[test]
 fn latex_preamble_folds_away_from_the_cursor() {
     let text = "\\documentclass{article}\n\\usepackage{amsmath}\n\\usepackage{graphicx}\n\\begin{document}\nHello.\n\\end{document}\n";
-    let mut t = with_file(text, "p.tex", Config::default(), (50, 10));
+    let mut t = with_file(text, "p.tex", word_keys(), (50, 10));
     t.at(text.find("Hello").unwrap());
     let rows = screen(&mut t).join("\n");
     assert!(rows.contains("documentclass"), "{rows}");
@@ -4347,7 +4296,7 @@ fn long_unknown_environment_folds() {
         text.push_str(&format!("  \\draw (0,{i}) -- (1,{i});\n"));
     }
     text.push_str("\\end{tikzpicture}\nAfter.\n");
-    let mut t = with_file(&text, "k.tex", Config::default(), (50, 10));
+    let mut t = with_file(&text, "k.tex", word_keys(), (50, 10));
     t.at(0);
     let rows = screen(&mut t).join("\n");
     assert!(
@@ -4362,7 +4311,7 @@ fn long_unknown_environment_folds() {
 #[test]
 fn latex_problems_list() {
     let text = "One {\\bf x}.\nTwo \\ref{nope}.\n";
-    let mut t = with_file(text, "p.tex", Config::default(), (60, 10));
+    let mut t = with_file(text, "p.tex", word_keys(), (60, 10));
     t.app.doc.update_latex_diagnostics();
     t.at(0);
     t.app.run_command("latex.problems", serde_json::json!({}));
@@ -4377,7 +4326,7 @@ fn latex_problems_list() {
 #[test]
 fn latex_table_with_spans_is_a_grid() {
     let text = "\\begin{tabular}{lll}\n\\multicolumn{2}{c}{Head} & c \\\\\n\\multirow{2}*{A} & b & c \\\\\n\\end{tabular}\nAfter.\n";
-    let mut t = with_file(text, "s.tex", Config::default(), (60, 10));
+    let mut t = with_file(text, "s.tex", word_keys(), (60, 10));
     t.at(text.find("After").unwrap());
     let rows = screen(&mut t).join("\n");
     assert!(
@@ -4389,7 +4338,7 @@ fn latex_table_with_spans_is_a_grid() {
 #[test]
 fn latex_footnotes_listed_at_the_end() {
     let text = "\\documentclass{article}\n\\begin{document}\nText.\\footnote{A first note.} More.\\footnote{And a\n  second.}\n\\end{document}\n";
-    let mut t = with_file(text, "n.tex", Config::default(), (60, 14));
+    let mut t = with_file(text, "n.tex", word_keys(), (60, 14));
     t.at(text.find("Text").unwrap());
     let rows = screen(&mut t).join("\n");
     assert!(rows.contains("Notes"), "{rows}");
@@ -4402,7 +4351,7 @@ fn latex_footnotes_listed_at_the_end() {
 #[test]
 fn latex_formula_preview_at_the_cursor() {
     let text = "A formula $x^2 + y$ here.\n";
-    let mut t = with_file(text, "m.tex", Config::default(), (50, 6));
+    let mut t = with_file(text, "m.tex", word_keys(), (50, 6));
     t.at(text.find("x^2").unwrap() + 1);
     let rows = screen(&mut t).join("\n");
     assert!(rows.contains("= x² + y"), "{rows}");
@@ -4411,7 +4360,7 @@ fn latex_formula_preview_at_the_cursor() {
 #[test]
 fn latex_display_math_over_lines_in_the_terminal() {
     let text = "Before.\n\\begin{equation}\n  x^2\n  + y\n\\end{equation}\nAfter.\n";
-    let mut t = with_file(text, "e.tex", Config::default(), (50, 10));
+    let mut t = with_file(text, "e.tex", word_keys(), (50, 10));
     t.at(0);
     let rows = screen(&mut t).join("\n");
     assert!(!rows.contains("\\begin{equation}"), "{rows}");
@@ -4432,14 +4381,7 @@ fn latex_root_found_again_after_a_tex_root_line() {
     .unwrap();
     let path = dir.join("part.tex");
     std::fs::write(&path, "See \\ref{one}.\n").unwrap();
-    let app = App::with_keymap(
-        Some(&path),
-        Config::default(),
-        Caps::full(),
-        &[],
-        Vec::new(),
-    )
-    .unwrap();
+    let app = App::with_keymap(Some(&path), word_keys(), Caps::full(), &[], Vec::new()).unwrap();
     let term = Terminal::new(TestBackend::new(50, 6)).unwrap();
     let mut t = T {
         app,
@@ -4464,7 +4406,7 @@ fn latex_root_found_again_after_a_tex_root_line() {
 #[test]
 fn csv_view_sorted_by_a_column() {
     let text = "name,age\nAda,36\nBob,7\nCem,20\n";
-    let mut t = with_file(text, "s.csv", Config::default(), (50, 8));
+    let mut t = with_file(text, "s.csv", word_keys(), (50, 8));
     t.at(text.find("36").unwrap());
     t.app.run_command("csv.sortView", serde_json::json!({}));
     let rows = screen(&mut t);
@@ -4499,7 +4441,7 @@ fn csv_view_sorted_by_a_column() {
 fn latex_sections_fold() {
     let text =
         "\\section{One}\nFirst text.\n\\subsection{Sub}\nSub text.\n\\section{Two}\nSecond text.\n";
-    let mut t = with_file(text, "f.tex", Config::default(), (50, 10));
+    let mut t = with_file(text, "f.tex", word_keys(), (50, 10));
     t.at(2);
     t.key(KeyCode::Tab, KeyModifiers::NONE);
     t.at(text.find("Second").unwrap());
@@ -4522,12 +4464,12 @@ fn enter_in_csv_keeps_no_indentation() {
     // value: Enter on the last record adds an empty one (the cell below,
     // as in a spreadsheet), with none of them copied.
     let text = "\ta\tb\n";
-    let mut t = with_file(text, "d.tsv", Config::default(), (60, 8));
+    let mut t = with_file(text, "d.tsv", word_keys(), (60, 8));
     t.at(text.find('b').unwrap() + 1);
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(t.text(), "\ta\tb\n\t\t\n");
     let text = "  x,y\n";
-    let mut t = with_file(text, "d.csv", Config::default(), (60, 8));
+    let mut t = with_file(text, "d.csv", word_keys(), (60, 8));
     t.at(text.find('y').unwrap() + 1);
     t.key(KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(t.text(), "  x,y\n,\n");
@@ -4539,7 +4481,7 @@ fn csv_backspace_and_delete_keep_the_delimiters() {
     // Backspace, at its end Delete, merged two cells. In Ready mode, as in
     // Excel, Backspace clears the cell and types into it.
     let text = "a,b\n1,22\n";
-    let mut t = with_file(text, "d.csv", Config::default(), (60, 8));
+    let mut t = with_file(text, "d.csv", word_keys(), (60, 8));
     let edit = |t: &mut T, at: usize| {
         t.at(at);
         t.app
@@ -4565,7 +4507,7 @@ fn csv_cells_are_clicked_anywhere_in_them() {
     // after the bar it selected the cell before, and a short record's
     // missing cells went to its last field (typing there broke the field).
     let text = "name,age,city,note\nAda,36,İzmir,first\nÇağla,7\nBob,5,\"Bursa\",x\n";
-    let mut t = with_file(text, "d.csv", Config::default(), (110, 10));
+    let mut t = with_file(text, "d.csv", word_keys(), (110, 10));
     t.draw();
     let mut bad = Vec::new();
     for (row, name) in [(0, "name"), (1, "Ada"), (2, "Çağla"), (3, "Bob")] {
@@ -4627,7 +4569,7 @@ fn csv_paste_goes_into_cells() {
     // Tab-separated lines are written over the cells from the cursor's
     // (they were inserted as text, splitting the row).
     let text = "a,b\n1,Ankara\n2,x\n";
-    let mut t = with_file(text, "d.csv", Config::default(), (60, 8));
+    let mut t = with_file(text, "d.csv", word_keys(), (60, 8));
     t.at(text.find("Ankara").unwrap());
     t.app.event(Event::Paste("P1\tP2\nP3\tP4".into()));
     assert_eq!(t.text(), "a,b\n1,P1,P2\n2,P3,P4\n");
@@ -4658,7 +4600,7 @@ fn csv_rows_do_not_wrap() {
     // wrapped, its bars and the letters no longer lined up, and Down went
     // through its pieces.
     let text = "name,note\nAda,a note much longer than this narrow terminal is wide\nBob,x\n";
-    let mut t = with_file(text, "d.csv", Config::default(), (40, 8));
+    let mut t = with_file(text, "d.csv", word_keys(), (40, 8));
     t.at(0);
     let rows: Vec<String> = (0..8).map(|y| t.row(y)).collect();
     let ada = rows
@@ -4685,7 +4627,7 @@ fn csv_row_numbers_stay_when_scrolled_sideways() {
         text.push_str(&format!(",value{j:02}"));
     }
     text.push('\n');
-    let mut t = with_file(&text, "wide.csv", Config::default(), (40, 8));
+    let mut t = with_file(&text, "wide.csv", word_keys(), (40, 8));
     t.at(text.find("value11").unwrap());
     let rows: Vec<String> = (0..8).map(|y| t.row(y)).collect();
     let row = rows
@@ -4701,7 +4643,7 @@ fn csv_letters_and_row_numbers_select() {
     // A click on a column's letter selects the column, one on a row's
     // number the row, as in a spreadsheet (and in the graphical editor).
     let text = "a,b,c\n1,2,3\n4,5,6\n";
-    let mut t = with_file(text, "heads.csv", Config::default(), (60, 8));
+    let mut t = with_file(text, "heads.csv", word_keys(), (60, 8));
     t.at(0);
     let letters = (0..8)
         .find(|&y| {
@@ -4748,7 +4690,7 @@ fn csv_letters_and_row_numbers_select() {
 #[test]
 fn csv_malformed_field_in_the_status_bar() {
     let text = "name,note\napple,6\" long\n";
-    let mut t = with_file(text, "d.csv", Config::default(), (100, 8));
+    let mut t = with_file(text, "d.csv", word_keys(), (100, 8));
     t.at(text.find("long").unwrap());
     let s = status(&mut t);
     assert!(s.contains("quote inside an unquoted value"), "{s}");
@@ -4774,7 +4716,7 @@ fn menus_from_the_keyboard() {
 /// the mouse; Control-click marks (T2.7e.17).
 #[test]
 fn file_manager_right_click() {
-    let (mut t, _dir) = project_app(Config::default());
+    let (mut t, _dir) = project_app(word_keys());
     t.key(
         KeyCode::Char('d'),
         KeyModifiers::CONTROL | KeyModifiers::ALT,
@@ -4834,7 +4776,7 @@ fn file_manager_right_click() {
 /// 2026-09-30).
 #[test]
 fn editing_a_prompt_with_the_arrows() {
-    let (mut t, dir) = project_app(Config::default());
+    let (mut t, dir) = project_app(word_keys());
     t.key(
         KeyCode::Char('d'),
         KeyModifiers::CONTROL | KeyModifiers::ALT,
@@ -5181,7 +5123,7 @@ fn format_key() {
 #[test]
 fn sessions_save_and_restore() {
     // T2.7i.14: the open documents, their cursors and the one shown.
-    let (mut t, dir) = project_app(Config::default());
+    let (mut t, dir) = project_app(word_keys());
     let b = dir.join("proj/sub/b.org");
     t.app.run_command(
         "file.open",
@@ -5202,7 +5144,7 @@ fn sessions_save_and_restore() {
     caps.kitty_keyboard = false;
     let app = App::with_keymap(
         Some(&dir.join("loose.org")),
-        Config::default(),
+        word_keys(),
         caps,
         &[],
         Vec::new(),
@@ -5256,7 +5198,7 @@ fn quitting_without_saving_and_restarting() {
 #[test]
 fn markdown_front_matter_folded() {
     let text = "---\ntitle: Notes\ntags: [a]\n---\n# Heading\n\ntext\n";
-    let mut t = with_file(text, "t.md", Config::default(), (50, 8));
+    let mut t = with_file(text, "t.md", word_keys(), (50, 8));
     t.at(text.len() - 2);
     let rows = screen(&mut t).join("\n");
     assert!(
@@ -5291,7 +5233,7 @@ fn inserting_names_and_copies() {
 #[test]
 fn panes_in_the_terminal() {
     // T2.7i.5: two documents side by side; focus moves between them.
-    let (mut t, dir) = project_app(Config::default());
+    let (mut t, dir) = project_app(word_keys());
     t.app
         .run_command("pane.splitRight", serde_json::Value::Null);
     let b = dir.join("proj/sub/b.org");
@@ -5334,7 +5276,7 @@ fn panes_in_the_terminal() {
 #[test]
 fn workspaces_in_the_terminal() {
     // T2.7i.15: each workspace its own documents; deleting one keeps them.
-    let (mut t, dir) = project_app(Config::default());
+    let (mut t, dir) = project_app(word_keys());
     t.app
         .run_command("workspace.newNamed", serde_json::json!({ "name": "notes" }));
     assert_eq!(title(&t), "Untitled");
@@ -5372,7 +5314,7 @@ fn workspaces_in_the_terminal() {
 fn markdown_code_coloured_with_the_lines_before() {
     // T2.7c.3: the second line of a string that spans lines is a string.
     let text = "```python\nx = \"\"\"first\nsecond line\n\"\"\"\n```\n\nafter\n";
-    let mut t = with_file(text, "t.md", Config::default(), (50, 8));
+    let mut t = with_file(text, "t.md", word_keys(), (50, 8));
     t.at(text.len());
     let buf = t.draw();
     let row = |y: u16| -> String { (0..50).map(|x| buf[(x, y)].symbol().to_string()).collect() };
@@ -5396,7 +5338,7 @@ fn markdown_code_coloured_with_the_lines_before() {
 fn markdown_properties_as_a_form() {
     // T2.7c.9: choose a field, its value offered to change.
     let text = "---\ntitle: Old\ntags: [a]\n---\n# Body\n";
-    let mut t = with_file(text, "t.md", Config::default(), (60, 10));
+    let mut t = with_file(text, "t.md", word_keys(), (60, 10));
     t.app
         .run_command("markdown.frontMatter.edit", serde_json::Value::Null);
     t.typ("title");
@@ -5413,7 +5355,7 @@ fn markdown_properties_as_a_form() {
 #[test]
 fn markdown_pictures_copied_into_images() {
     // A picture from elsewhere goes into `images/` beside the document.
-    let mut t = with_file("Text\n", "notes.md", Config::default(), (60, 8));
+    let mut t = with_file("Text\n", "notes.md", word_keys(), (60, 8));
     let dir = t
         .app
         .doc
@@ -5563,7 +5505,7 @@ fn vim_add_project_asks_for_the_folder() {
 #[test]
 fn csv_looks_like_a_spreadsheet() {
     let text = "name,n\nAda,36\nBob,7\n";
-    let mut t = with_file(text, "t.csv", Config::default(), (40, 8));
+    let mut t = with_file(text, "t.csv", word_keys(), (40, 8));
     t.at(text.find("36").unwrap());
     let rows = screen(&mut t);
     // The letters bar, then the rows numbered.
@@ -5588,7 +5530,7 @@ fn csv_looks_like_a_spreadsheet() {
 fn projects_view_menu_removes_and_adds() {
     // Right click (the Menu key) on a project: Remove from Projects takes
     // it off the list and leaves its folder.
-    let (mut t, dir) = project_app(Config::default());
+    let (mut t, dir) = project_app(word_keys());
     t.app.run_command("dired.projects", serde_json::Value::Null);
     let shown = screen(&mut t).join("\n");
     assert!(shown.contains("proj"), "{shown}");
@@ -5686,7 +5628,7 @@ fn code_completions_taken() {
         let profile = if vim {
             "editor.keymap_profile = \"vim\"\n"
         } else {
-            ""
+            "editor.keymap_profile = \"word\"\n"
         };
         let config = Config::from_layers(&[(Layer::User, None, profile)]);
         let mut t = with_file("x = 1\n", "t.ex", config, (60, 10));
@@ -5745,7 +5687,7 @@ fn csv_frozen_and_hidden_columns_in_the_terminal() {
         text.push_str(&format!(",value{j:02}"));
     }
     text.push('\n');
-    let mut t = with_file(&text, "w.csv", Config::default(), (50, 8));
+    let mut t = with_file(&text, "w.csv", word_keys(), (50, 8));
     t.app
         .run_command("csv.toggleFrozen", serde_json::Value::Null);
     t.at(text.find("value11").unwrap());
@@ -5786,7 +5728,7 @@ fn csv_frozen_and_hidden_columns_in_the_terminal() {
 #[test]
 fn file_manager_opens_in_a_new_pane() {
     // T2.7e.17: Open in New Pane puts the file beside the listing.
-    let (mut t, dir) = project_app(Config::default());
+    let (mut t, dir) = project_app(word_keys());
     let sub = dir.join("proj/sub");
     t.app.run_command(
         "file.open",
@@ -5815,7 +5757,7 @@ fn csv_rectangle_of_cells_in_the_terminal() {
     // T2.7d.9: a selection across rows of a grid is a rectangle of cells,
     // painted as one and copied as TSV.
     let text = "a,b,c\n11,22,33\n44,55,66\n";
-    let mut t = with_file(text, "r.csv", Config::default(), (40, 8));
+    let mut t = with_file(text, "r.csv", word_keys(), (40, 8));
     t.at(text.find("22").unwrap());
     t.app.doc.move_cursor(text.find("55").unwrap() + 1, true);
     let buf = t.draw();
@@ -5851,7 +5793,7 @@ fn csv_rectangle_of_cells_in_the_terminal() {
 fn file_menu_separators_in_the_terminal() {
     // T2.7e.17: the file menu's groups are parted by rules, as in the
     // graphical editor's menu, while nothing is typed.
-    let (mut t, dir) = project_app(Config::default());
+    let (mut t, dir) = project_app(word_keys());
     t.app.run_command(
         "file.open",
         serde_json::json!({ "path": dir.join("proj").display().to_string() }),
@@ -5912,7 +5854,7 @@ fn a_canvas_drawn_where_its_shapes_are() {
     // A plugin's whiteboard (`canvas-view`, API 0.2.16): shapes where it
     // placed them, their text in them, a connector between two.
     use kalem_core::canvas_view::{Canvas, CanvasView, Connector, Shape, ShapeKind};
-    let mut t = with_config("", Config::default(), (60, 16));
+    let mut t = with_config("", word_keys(), (60, 16));
     let shape = |id: &str, kind: ShapeKind, rect: [f32; 4], text: &str| Shape {
         id: id.into(),
         kind,
@@ -5989,7 +5931,7 @@ fn a_document_made_current_again_is_told_to_the_plugins() {
     // the plugins hear the cursor is in it at once, so that a command of
     // theirs queued after it finds it current, not at its next motion.
     use kalem_core::events::{Event, Reply};
-    let mut t = with_file("one\n", "a.txt", Config::default(), (40, 5));
+    let mut t = with_file("one\n", "a.txt", word_keys(), (40, 5));
     let dir = t.dir.clone().unwrap();
     std::fs::write(dir.join("b.txt"), "two\n").unwrap();
     let open = |t: &mut T, name: &str| {
@@ -6021,7 +5963,7 @@ fn the_plugins_hear_which_document_has_the_focus() {
     // `document:open` tells: a plugin's panel of the notes linking to the
     // page shown follows it.
     use kalem_core::events::{Event, Reply};
-    let mut t = with_file("one\n", "a.txt", Config::default(), (40, 5));
+    let mut t = with_file("one\n", "a.txt", word_keys(), (40, 5));
     let dir = t.dir.clone().unwrap();
     std::fs::write(dir.join("b.txt"), "two\n").unwrap();
     let open = |t: &mut T, name: &str| {

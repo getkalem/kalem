@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- The Vim keys are the default: a first start, with no `editor.keymap_profile` in the settings, has Vim's modes and Doom Emacs's leader keys. Settings that do not name a profile switch to them too; `editor.keymap_profile = "word"` (in the settings panel, or in `settings.toml`) keeps the Word-like keys, where typing goes straight into the text and Ctrl+S saves.
+
 ## [0.6.46] - 2026-10-16
 
 ### Fixed

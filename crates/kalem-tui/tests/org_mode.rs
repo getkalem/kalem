@@ -53,8 +53,9 @@ fn open_with(text: &str, settings: &str, at: usize) -> T {
     t
 }
 
+/// `open_with` and the Word-like keys; Vim's are the default.
 fn open(text: &str, at: usize) -> T {
-    open_with(text, "", at)
+    open_with(text, "editor.keymap_profile = \"word\"\n", at)
 }
 
 impl T {

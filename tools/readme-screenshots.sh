@@ -40,7 +40,9 @@ trap 'rm -rf "$tmp"' EXIT
 export KALEM_CONFIG_DIR="$tmp/config" KALEM_STATE_DIR="$tmp/state"
 mkdir -p assets "$KALEM_CONFIG_DIR"
 # The dark theme, and the interface in English, the README's language.
-printf '[editor]\ntheme = "dark"\n\n[ui]\nlanguage = "en"\n' >"$KALEM_CONFIG_DIR/settings.toml"
+# The Word-like keys: the keys sent below (Alt+, for the settings) are
+# theirs, and Vim's, the default, turn them off in a document.
+printf '[editor]\ntheme = "dark"\nkeymap_profile = "word"\n\n[ui]\nlanguage = "en"\n' >"$KALEM_CONFIG_DIR/settings.toml"
 # Three projects for the projects view, all inside the repository.
 cat >"$KALEM_CONFIG_DIR/projects.toml" <<EOF
 [[project]]

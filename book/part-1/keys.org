@@ -1,8 +1,12 @@
-Kalem has two keymaps, chosen in the settings: Word-like keys, the
-default, and Vim keys. On macOS, Command takes the place of Control in
-the Word-like keys (Cmd+S saves).
+Kalem has two keymaps, chosen in the settings: Vim keys, the default,
+and Word-like keys. On macOS, Command takes the place of Control in
+the Word-like keys (Cmd+S saves), and keeps them with the Vim keys too.
 
 * Word-like keys
+
+With =editor.keymap_profile = "word"= (=keymap_profile= under =editor=
+in the settings panel), typing goes straight into the text and these
+are the keys:
 
 | Keys                   | Command                               |
 |------------------------+---------------------------------------|
@@ -21,8 +25,8 @@ palette.
 
 * Vim keys
 
-With =editor.keymap_profile = "vim"=, every key is Vim's: the modes,
-motions, operators, text objects and counts, registers and macros,
+With =editor.keymap_profile = "vim"=, the default, every key is Vim's:
+the modes, motions, operators, text objects and counts, registers and macros,
 marks with the jump and change lists, search with Vim's patterns, and
 the command line with ranges, =:s=, =:g=, =:sort=, =:set=, its history
 (Up, Down, CTRL-P, CTRL-N) and CTRL-R, and the file and window commands

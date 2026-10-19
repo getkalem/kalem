@@ -17,6 +17,15 @@ use kalem_tui::caps::Caps;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 
+/// The Word-like keys these tests type with; Vim's are the default.
+fn word_keys() -> Config {
+    Config::from_layers(&[(
+        kalem_core::settings::Layer::User,
+        None,
+        "editor.keymap_profile = \"word\"\n",
+    )])
+}
+
 fn key(app: &mut App, code: KeyCode, mods: KeyModifiers) {
     app.event(Event::Key(KeyEvent::new(code, mods)));
 }
@@ -37,7 +46,7 @@ fn a_flowing_document_is_shown_and_edited() {
     std::fs::write(dir.join("notes.org"), "* Notes\n").unwrap();
     let mut app = App::with_keymap(
         Some(&dir.join("notes.org")),
-        Config::default(),
+        word_keys(),
         Caps::full(),
         &[],
         Vec::new(),
@@ -99,14 +108,8 @@ fn save_as_another_kind_says_the_plugins_answer() {
     std::fs::create_dir_all(&dir).unwrap();
     let file = dir.join("a.flow");
     std::fs::write(&file, b"# Title\nPlain and *bold* text\n\0\n").unwrap();
-    let mut app = App::with_keymap(
-        Some(&file),
-        Config::default(),
-        Caps::full(),
-        &[],
-        Vec::new(),
-    )
-    .unwrap();
+    let mut app =
+        App::with_keymap(Some(&file), word_keys(), Caps::full(), &[], Vec::new()).unwrap();
     assert_eq!(app.doc.meta.mode, DocumentMode::Flow);
     let was = app.doc.meta.path.clone().unwrap();
     // The prompt starts with the document's path: erased, then the name.
@@ -156,7 +159,7 @@ fn a_picture_is_drawn_by_its_plugin() {
     std::fs::write(dir.join("notes.org"), "* Notes\n").unwrap();
     let mut app = App::with_keymap(
         Some(&dir.join("notes.org")),
-        Config::default(),
+        word_keys(),
         Caps::full(),
         &[],
         Vec::new(),

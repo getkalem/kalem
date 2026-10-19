@@ -269,7 +269,7 @@ write =ctrl+?= rather than =ctrl+shift+/=.
 
 ** Precedence
 
-=editor.keymap_profile= chooses =word= (the default) or =vim=. The
+=editor.keymap_profile= chooses =vim= (the default) or =word=. The
 keymap is built from the default keys of every command, then the
 profile's own bindings (for =vim=, also the leader bindings, which
 apply when =vimCommand= holds), then your =keymap.json=, entry by

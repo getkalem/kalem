@@ -12,6 +12,15 @@ use ratatui::backend::TestBackend;
 use serde_json::json;
 use std::path::PathBuf;
 
+/// The Word-like keys these tests type with; Vim's are the default.
+fn word_keys() -> Config {
+    Config::from_layers(&[(
+        kalem_core::settings::Layer::User,
+        None,
+        "editor.keymap_profile = \"word\"\n",
+    )])
+}
+
 struct T {
     app: App,
     term: Terminal<TestBackend>,
@@ -151,7 +160,7 @@ fn vim_j_and_k_keep_the_column() {
 #[test]
 fn up_and_down_go_by_the_rows_shown() {
     let text = "name,age,city\nAda,36,London\nAlan,41,Wilmslow\nGrace,85,NYC\n";
-    let mut t = open("w.csv", text, Config::default(), (70, 12));
+    let mut t = open("w.csv", text, word_keys(), (70, 12));
     // On the last row Down stayed on the text's last line, the row's last
     // cell, where typing replaced NYC.
     t.go("A4");
@@ -169,7 +178,7 @@ fn up_and_down_go_by_the_rows_shown() {
     let mut t = open(
         "m.csv",
         "id,note,n\n1,\"two\nlines\",5\n2,plain,6\n",
-        Config::default(),
+        word_keys(),
         (60, 10),
     );
     t.go("B2");
@@ -183,7 +192,7 @@ fn up_and_down_go_by_the_rows_shown() {
 fn a_line_break_goes_into_the_cell() {
     // Ctrl+J (Alt+Enter in the graphical editor) split the record.
     let text = "name,age,city\nAda,36,London\nAlan,41,Wilmslow\n";
-    let mut t = open("w.csv", text, Config::default(), (70, 12));
+    let mut t = open("w.csv", text, word_keys(), (70, 12));
     t.go("C2");
     t.key(KeyCode::Char('j'), KeyModifiers::CONTROL);
     t.typ("Town");
@@ -199,7 +208,7 @@ fn a_line_break_goes_into_the_cell() {
 fn the_caret_at_a_values_end_is_after_it() {
     // F2 on `Ada` drew the caret at the cell's right edge.
     let text = "name,city\nAda,London\n";
-    let mut t = open("c.csv", text, Config::default(), (60, 8));
+    let mut t = open("c.csv", text, word_keys(), (60, 8));
     t.go("A2");
     t.k(KeyCode::F(2));
     let (x, y) = t.term.get_cursor_position().map(|p| (p.x, p.y)).unwrap();
@@ -215,7 +224,7 @@ fn the_header_pinned_after_a_sep_line() {
     for i in 0..30 {
         text.push_str(&format!("r{i};{i}\n"));
     }
-    let mut t = open("s.csv", &text, Config::default(), (40, 10));
+    let mut t = open("s.csv", &text, word_keys(), (40, 10));
     t.go("A20");
     let top: Vec<String> = (0..3).map(|y| t.row(y)).collect();
     assert!(top.iter().any(|r| r.contains("name")), "{top:?}");
@@ -226,7 +235,7 @@ fn the_header_pinned_after_a_sep_line() {
 fn a_tab_in_a_value_keeps_the_bars_in_line() {
     // Drawn to the next tab stop, it pushed the row's bars out of line.
     let text = "id,note,n\n1,\"a\tb\",5\n22,xyz,6\n";
-    let mut t = open("t.csv", text, Config::default(), (60, 8));
+    let mut t = open("t.csv", text, word_keys(), (60, 8));
     t.go("A1");
     let bars = |row: &str| -> Vec<usize> {
         row.chars()
@@ -246,7 +255,7 @@ fn a_header_of_two_lines_is_pinned_whole() {
     for i in 0..30 {
         text.push_str(&format!("{i},v{i}\n"));
     }
-    let mut t = open("h.csv", &text, Config::default(), (40, 12));
+    let mut t = open("h.csv", &text, word_keys(), (40, 12));
     t.go("A25");
     let top: Vec<String> = (0..4).map(|y| t.row(y)).collect();
     assert!(top.iter().any(|r| r.contains("first")), "{top:?}");

@@ -16,6 +16,15 @@ use kalem_core::settings::Config;
 use kalem_ui::theme::Theme;
 use kalem_ui::workspace::Workspace;
 
+/// The Word-like keys these tests type with; Vim's are the default.
+fn word_keys() -> Config {
+    Config::from_layers(&[(
+        kalem_core::settings::Layer::User,
+        None,
+        "editor.keymap_profile = \"word\"\n",
+    )])
+}
+
 #[gpui::test]
 fn a_flowing_document_is_drawn_and_typed_into(cx: &mut TestAppContext) {
     kalem_core::viewer::register(Arc::new(flowdoc::Flows));
@@ -32,7 +41,7 @@ fn a_flowing_document_is_drawn_and_typed_into(cx: &mut TestAppContext) {
     .unwrap();
     let settings = dir.join("settings.toml");
     std::fs::write(&settings, "[ui]\nlanguage = \"en\"\n").unwrap();
-    let mut shared = kalem_ui::shared_in(Config::default(), Some(settings));
+    let mut shared = kalem_ui::shared_in(word_keys(), Some(settings));
     shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
         dir.join("projects.toml"),
     )));
@@ -160,7 +169,7 @@ fn save_as_another_kind_says_the_plugins_answer(cx: &mut TestAppContext) {
     std::fs::write(&file, b"# Title\nPlain and *bold* text\n\0\n").unwrap();
     let settings = dir.join("settings.toml");
     std::fs::write(&settings, "[ui]\nlanguage = \"en\"\n").unwrap();
-    let mut shared = kalem_ui::shared_in(Config::default(), Some(settings));
+    let mut shared = kalem_ui::shared_in(word_keys(), Some(settings));
     shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
         dir.join("projects.toml"),
     )));

@@ -12,6 +12,15 @@ use kalem_tui::caps::Caps;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 
+/// The Word-like keys these tests type with; Vim's are the default.
+fn word_keys() -> Config {
+    Config::from_layers(&[(
+        kalem_core::settings::Layer::User,
+        None,
+        "editor.keymap_profile = \"word\"\n",
+    )])
+}
+
 fn status(app: &mut App) -> String {
     app.doc
         .viewer
@@ -37,7 +46,7 @@ fn a_pdf_opens_page_by_page() {
 
     let mut app = App::with_keymap(
         Some(&dir.join("pages.pdf")),
-        Config::default(),
+        word_keys(),
         Caps::full(),
         &[],
         Vec::new(),

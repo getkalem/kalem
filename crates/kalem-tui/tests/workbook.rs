@@ -14,6 +14,15 @@ use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use serde_json::json;
 
+/// The Word-like keys these tests type with; Vim's are the default.
+fn word_keys() -> Config {
+    Config::from_layers(&[(
+        kalem_core::settings::Layer::User,
+        None,
+        "editor.keymap_profile = \"word\"\n",
+    )])
+}
+
 /// The workbook saved at `path` read again, by the workbook component.
 fn reread(path: &Path) -> Box<dyn ViewerDocument> {
     kalem_components::viewer("org.kalem.xlsx")
@@ -59,7 +68,7 @@ impl T {
         std::fs::copy(data, dir.join("budget.xlsx")).unwrap();
         let app = App::with_keymap(
             Some(&dir.join("budget.xlsx")),
-            Config::default(),
+            word_keys(),
             Caps::full(),
             &[],
             Vec::new(),

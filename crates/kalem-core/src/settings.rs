@@ -237,8 +237,8 @@ pub const SPECS: &[Spec] = &[
     Spec {
         key: "editor.keymap_profile",
         kind: Kind::Enum(&["word", "vim"]),
-        default: r#""word""#,
-        description: "Word-like keys, or Vim's modal keys (with the Word-like keys in insert mode)",
+        default: r#""vim""#,
+        description: "Vim's modal keys (with the Word-like keys in insert mode), or Word-like keys",
     },
     Spec {
         key: "editor.show_source_markers",
@@ -1028,7 +1028,7 @@ impl Config {
     /// The keymap profile.
     pub fn keymap_profile(&self) -> crate::keymap::Profile {
         crate::keymap::Profile::from_name(self.str("editor.keymap_profile"))
-            .unwrap_or(crate::keymap::Profile::Word)
+            .unwrap_or(crate::keymap::Profile::Vim)
     }
 
     /// The Vim leader key (`editor.vim.leader`), Space if it is not a key.
@@ -1345,7 +1345,7 @@ mod tests {
         let user = r#"
 [editor]
 font_size = 18
-keymap_profile = "vim"
+keymap_profile = "word"
 line_width = "wide"   # wrong type
 
 [org]
@@ -1365,7 +1365,7 @@ per_page = 250
         ]);
         assert_eq!(c.int("editor.font_size"), 12);
         assert_eq!(c.int("editor.line_width"), 0);
-        assert_eq!(c.keymap_profile(), crate::keymap::Profile::Vim);
+        assert_eq!(c.keymap_profile(), crate::keymap::Profile::Word);
         assert_eq!(c.str("editor.show_source_markers"), "cursor");
         assert!(c.strings("editor.vim.modes").is_empty());
         assert_eq!(
@@ -1403,6 +1403,21 @@ per_page = 250
         let c = Config::from_layers(&[(Layer::User, None, "editor = 3\n")]);
         assert_eq!(c.issues()[0].message, "`editor` must be a table");
         assert_eq!(c.int("editor.font_size"), 16);
+    }
+
+    #[test]
+    fn vim_keys_unless_chosen() {
+        // A first start, with no settings file yet, has the Vim keys.
+        assert_eq!(
+            Config::default().keymap_profile(),
+            crate::keymap::Profile::Vim
+        );
+        let missing =
+            std::env::temp_dir().join(format!("kalem-no-settings-{}", std::process::id()));
+        let c = Config::load(Some(&missing.join("settings.toml")), None);
+        assert_eq!(c.keymap_profile(), crate::keymap::Profile::Vim);
+        let c = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"word\"\n")]);
+        assert_eq!(c.keymap_profile(), crate::keymap::Profile::Word);
     }
 
     #[test]

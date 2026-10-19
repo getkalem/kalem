@@ -47,7 +47,7 @@ fn screen(app: &mut App) -> String {
 /// why.
 #[test]
 fn format_on_save() {
-    let on = "editor.format_on_save = true\n[formatters]\n";
+    let on = "editor.keymap_profile = \"word\"\neditor.format_on_save = true\n[formatters]\n";
     let (mut app, path) = editor("hello\n", "f.foo", &format!("{on}foo = \"tr a-z A-Z\"\n"));
     app.run_command("app.save", serde_json::Value::Null);
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "HELLO\n");

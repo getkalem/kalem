@@ -3,9 +3,9 @@
 Kalem edits LaTeX files as they are, byte for byte, as AUCTeX does in
 Emacs: no conversion, no project format of its own. This page maps what
 AUCTeX, RefTeX and preview-latex do to Kalem's commands. The keys are
-those of the default profile and, after the slash, of the Vim profile
-with Doom Emacs's local leader (=SPC m=); a command without a key is in
-the palette (Ctrl+Shift+P) and the LaTeX menu.
+those of the Word-like profile and, after the slash, of the Vim profile
+(the default) with Doom Emacs's local leader (=SPC m=); a command
+without a key is in the palette (Ctrl+Shift+P) and the LaTeX menu.
 
 Kalem keeps Ctrl+C for Copy in LaTeX files, so AUCTeX's =C-c= chords are
 not bound; with the Vim profile, Doom's =SPC m= keys are.

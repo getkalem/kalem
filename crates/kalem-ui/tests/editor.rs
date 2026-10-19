@@ -11,12 +11,26 @@ use kalem_ui::editor::Editor;
 use kalem_ui::theme::Theme;
 use kalem_ui::workspace::Workspace;
 
-/// A settings file of the test's own in `dir`, in English: saving or
-/// reloading the settings neither touches the user's files nor switches
-/// the shared interface language to the system's.
+/// The Word-like keys these tests type with; Vim's are the default.
+fn word_keys() -> Config {
+    Config::from_layers(&[(
+        kalem_core::settings::Layer::User,
+        None,
+        "editor.keymap_profile = \"word\"\n",
+    )])
+}
+
+/// A settings file of the test's own in `dir`, in English and with the
+/// Word-like keys: saving or reloading the settings neither touches the
+/// user's files nor switches the shared interface language to the
+/// system's, or the keys to Vim's, the default.
 fn test_settings(dir: &std::path::Path) -> Option<std::path::PathBuf> {
     let path = dir.join("settings.toml");
-    std::fs::write(&path, "[ui]\nlanguage = \"en\"\n").unwrap();
+    std::fs::write(
+        &path,
+        "[ui]\nlanguage = \"en\"\n\n[editor]\nkeymap_profile = \"word\"\n",
+    )
+    .unwrap();
     Some(path)
 }
 
@@ -64,7 +78,7 @@ fn open_named<'a>(
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join(name);
     std::fs::write(&path, text).unwrap();
-    let mut shared = kalem_ui::shared_in(Config::default(), test_settings(&dir));
+    let mut shared = kalem_ui::shared_in(word_keys(), test_settings(&dir));
     shared.html_clipboard = html;
     shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
         dir.join("projects.toml"),
@@ -1754,7 +1768,7 @@ fn open_code<'a>(
         let profile = if vim {
             "editor.keymap_profile = \"vim\"\n"
         } else {
-            ""
+            "editor.keymap_profile = \"word\"\n"
         };
         let mut shared = kalem_ui::shared_in(
             Config::from_layers(&[(kalem_core::settings::Layer::User, None, profile)]),
@@ -1959,7 +1973,7 @@ fn legacy_encodings(cx: &mut TestAppContext) {
         "* Ağaçların gölgesinde çalışan işçiler\ngüneşin doğuşunu şarkılarla karşıladı.\n";
     let (bytes, _, _) = kalem_core::encoding_rs::WINDOWS_1254.encode(turkish);
     std::fs::write(&path, &bytes).unwrap();
-    let mut shared = kalem_ui::shared_in(Config::default(), test_settings(&dir));
+    let mut shared = kalem_ui::shared_in(word_keys(), test_settings(&dir));
     shared.html_clipboard = || None;
     shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
         dir.join("projects.toml"),
@@ -2007,7 +2021,7 @@ fn plain_text_view(cx: &mut TestAppContext) {
     let long = "x".repeat(400);
     let text = format!("fn main() {{\n    let a = 1;\n}}\n{long}\n");
     std::fs::write(&path, &text).unwrap();
-    let mut shared = kalem_ui::shared_in(Config::default(), test_settings(&dir));
+    let mut shared = kalem_ui::shared_in(word_keys(), test_settings(&dir));
     shared.html_clipboard = || None;
     shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(Some(
         dir.join("projects.toml"),
@@ -2173,7 +2187,7 @@ fn open_project(
     let config = if vim {
         "editor.keymap_profile = \"vim\"\n"
     } else {
-        ""
+        "editor.keymap_profile = \"word\"\n"
     };
     let mut shared = kalem_ui::shared_in(
         Config::from_layers(&[(kalem_core::settings::Layer::User, None, config)]),
