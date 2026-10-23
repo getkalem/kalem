@@ -1,0 +1,105 @@
+package kalem:plugin@0.2.21;
+
+/// Source blocks run by a plugin (API 0.2.21; `kalem_core::babel`): Org's
+/// Babel for the languages a plugin declares, as an `ob-LANG.el` library
+/// gives Emacs its `org-babel-execute:LANG`. A plugin declares them in its
+/// manifest:
+///
+/// ```json
+/// "executors": [{"language": "ledger", "headers": ":results output :cmdline bal"}]
+/// ```
+///
+/// `language` is a source block's language; `headers` the language's
+/// default header arguments, which Org merges before the document's
+/// (`org-babel-default-header-args:LANG`). A block of the language runs as
+/// one of Kalem's own languages does, under the same rules: once the user
+/// names the language in `babel.load_languages`, after a yes to Kalem's
+/// question unless `babel.confirm_evaluate` is off, never where its `:eval`
+/// refuses. The plugin turns the block into a program to run (`prepare`);
+/// Kalem runs it beside the editor in the block's folder, shows what it
+/// wrote to its standard error as Org shows it, and hands what it wrote to
+/// its standard output to `finish`, whose value Kalem writes under the
+/// block's `#+RESULTS:` as Org writes it. Both are asked on the editor's
+/// thread and answer from what they are given, quickly: neither uses the
+/// `editor` interface nor asks the user. While another call of the plugin
+/// runs, the block is not run, and Kalem says so.
+interface executor {
+    /// A table's row.
+    variant row {
+        /// Its cells.
+        cells(list<string>),
+        /// A rule (`|---+---|`).
+        rule,
+    }
+
+    /// A value: a variable's, or a block's result.
+    variant value {
+        /// Text; a number as Org writes it.
+        text(string),
+        /// A plain list's items.
+        items(list<string>),
+        /// A table's rows.
+        table(list<row>),
+        /// What a program wrote, read as Org reads a shell's
+        /// (`org-babel-result-cond`): the text itself where `:results`
+        /// asks for text (`output`, `verbatim`, `raw`, `drawer`, ...), else
+        /// a table where its lines split into fields (by tabs, else by
+        /// commas, else by blanks). Never a variable's.
+        output(string),
+    }
+
+    /// A block to run.
+    record block {
+        /// Its language, as the manifest's `executors` names it.
+        language: string,
+        /// Its body: the lines between `#+begin_src` and `#+end_src`, the
+        /// commas Org escapes lines with and the block's indentation taken
+        /// off.
+        body: string,
+        /// Its header arguments merged as Org merges them (the manifest's
+        /// `headers`, the `header-args` properties, the `#+begin_src` line,
+        /// the `#+HEADER:` lines), each a name with its colon (`:cmdline`)
+        /// and its value; the words of `:results` and the `:var`s are
+        /// given apart.
+        headers: list<tuple<string, string>>,
+        /// The words of `:results` (`replace`, `output`, `table`).
+        results: list<string>,
+        /// Its variables (`:var NAME=VALUE`), by name: a number or a string
+        /// as written, a table, list or example the document names, read.
+        vars: list<tuple<string, value>>,
+        /// The file of its document; none for one not saved.
+        path: option<string>,
+        /// The folder it runs in: its `:dir`, else its document's.
+        dir: string,
+    }
+
+    /// A program to run for a block.
+    record command {
+        /// Its name: one of the manifest's `subprocess:NAME`, found as
+        /// `process.run` finds it.
+        program: string,
+        /// Its arguments, as given: no shell, no quoting.
+        args: list<string>,
+        /// Written to its standard input, which is then closed.
+        stdin: option<string>,
+        /// Added to the user's environment.
+        env: list<tuple<string, string>>,
+    }
+
+    /// What a block comes to.
+    variant step {
+        /// A program to run, what it writes then handed to `finish`.
+        run(command),
+        /// The block's value at once, without a program.
+        done(value),
+    }
+
+    /// What running `block` takes, or why it does not run (an error Kalem
+    /// shows).
+    prepare: func(block: block) -> result<step, string>;
+
+    /// The value of `block` from what its program wrote to its standard
+    /// output and its exit status (none when a signal stopped it); or why
+    /// it has none (an error Kalem shows).
+    finish: func(block: block, output: string, status: option<s32>) -> result<value, string>;
+}

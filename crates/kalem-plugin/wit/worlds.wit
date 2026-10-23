@@ -1,9 +1,11 @@
 package kalem:plugin@0.2.21;
 
-// The worlds of the viewer plugins. They are kept apart from the
-// interfaces: a released interface never changes (the Book, Part III,
-// "Versions of the plugin API"), while a world gains the new interfaces
-// a later version adds, which the host binds when a component has them.
+// The worlds of the plugins, viewers and extensions. They are kept apart
+// from the interfaces: a released interface never changes (the Book,
+// Part III, "Versions of the plugin API"; `wit-frozen/`), while a world
+// gains the new interfaces a later version adds, which the host binds
+// when a component has them. No other file of the package declares a
+// world, so that every one of them can be frozen whole.
 
 /// A plugin opening files that are not text.
 world document-viewer {
@@ -59,4 +61,109 @@ world full-viewer {
     export password;
     export formats;
     export annotations;
+}
+
+/// A plugin extending the editor: commands, keys and events, and what it
+/// shows. Later interfaces of the API (§11.4) are imported here as they
+/// come, and those the editor calls that every plugin may answer
+/// (`focus`, API 0.2.18) exported; the editor binds each export a
+/// component has.
+world extension {
+    import diagnostics;
+    import clock;
+    import clock-2;
+    import layers;
+    import kalem;
+    import ui;
+    import settings;
+    import fs;
+    import fs-2;
+    import net;
+    import process;
+    import documents;
+    import decorations;
+    import styled-documents;
+    import graph-view;
+    import canvas-view;
+    import canvas-view-2;
+    import state;
+    import later;
+    import editor;
+    import problems;
+    export plugin;
+    export focus;
+}
+
+/// An extension plugin with layers over a mode's view (API 0.2.10): the
+/// `extension` world, and the `layer` interface it exports, which the
+/// editor binds when a component has it.
+world extension-layer {
+    include extension;
+    export layer;
+}
+
+/// An extension plugin with completers too (API 0.2.11): the
+/// `extension-layer` world, and the `completer` interface it exports.
+/// The editor binds each export a component has.
+world extension-completer {
+    include extension-layer;
+    export completer;
+}
+
+/// An extension plugin whose layers draw lines of their own too (API
+/// 0.2.13): the `extension-completer` world, and the `layer-2` interface
+/// it exports, which the editor asks in place of `layer`.
+world extension-layer-2 {
+    include extension-completer;
+    export layer-2;
+}
+
+/// An extension plugin whose layers' lines under lines may be typed into
+/// (API 0.2.15): the `extension-layer-2` world, and the `layer-3`
+/// interface it exports, which the editor asks in place of `layer-2`.
+world extension-layer-3 {
+    include extension-layer-2;
+    export layer-3;
+}
+
+/// An extension plugin formatting its languages' documents too (API
+/// 0.2.16): the `extension-layer-3` world, and the `formatter` interface
+/// it exports.
+world extension-formatter {
+    include extension-layer-3;
+    export formatter;
+}
+
+/// An extension plugin outlining its languages' documents too (API
+/// 0.2.18): the `extension-formatter` world, and the `outline` interface
+/// it exports.
+world extension-outline {
+    include extension-formatter;
+    export outline;
+}
+
+/// An extension plugin whose layers' lines under lines are typed into as
+/// an outline (API 0.2.18): the `extension-outline` world, and the
+/// `layer-4` interface it exports, which the editor asks in place of
+/// `layer-3`.
+world extension-layer-4 {
+    include extension-outline;
+    export layer-4;
+}
+
+/// An extension plugin whose layers show text at places of a line too
+/// (API 0.2.20): the `extension-layer-4` world, and the `layer-5`
+/// interface it exports, which the editor asks in place of `layer-4`.
+world extension-layer-5 {
+    include extension-layer-4;
+    export layer-5;
+}
+
+/// An extension plugin running its languages' source blocks too (API
+/// 0.2.21): the `extension-layer-5` world, and the `executor` interface it
+/// exports, which Babel asks for the languages of the manifest's
+/// `executors`.
+world extension-executor {
+    include extension-layer-5;
+    export executor;
 }

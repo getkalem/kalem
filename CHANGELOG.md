@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 - Plugins no longer hold up the drawing or one another. Their layers, completers, formatters and outlines are asked on threads of their own: until a layer answers, the document is drawn with the overlays it gave last, moved with the edits since, and the outline sidebar keeps what it shows; each plugin answers under a lock of its own, so a slow one leaves the others answering where they were all busy. Such a call takes 100 ms at most whatever the manifest's `limits.time_ms` gives the plugin's commands (the notes graph plugin's 10 s), an extension's memory is 1 GB at most, and a cut is written to the log. The text these calls read is one copy a version; sending the edits in place of the whole text is the next step.
+- The plugin API's core is frozen as its other interfaces are: `kalem.wit` (the `kalem` and `plugin` interfaces), `editor.wit`, `ui.wit`, `access.wit` and `executor.wit` are copied in `crates/kalem-plugin/wit-frozen/0.2.21/`, and `tests/frozen.rs` fails a change to them, a core file without a frozen copy, or a world declared outside `worlds.wit`. The extension worlds moved from `kalem.wit` to `worlds.wit` (same names, nothing for a plugin to change). Left unfrozen since 0.2.0, the `plugin` export had gained `on-process` in 0.2.4; the reason and the rule from now on are in `wit-frozen/README.md` and the Book's "Versions of the plugin API".
 
 ## [0.6.47] - 2026-10-19
 

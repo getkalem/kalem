@@ -596,6 +596,13 @@ updated itself. The rules, so that a plugin built once keeps working:
   =layer-5= and those before it too): the languages whose source
   blocks a plugin runs for Babel (below). =layer-5.wit= of 0.2.20 is
   frozen (=wit-frozen/0.2.20=).
+- The core every extension plugin binds was not frozen with 0.2.0, as
+  =kalem.wit= held the =extension= world, which grows; so 0.2.4 could
+  add =on-process= to the released =plugin= export (above). Since
+  0.2.21 the worlds are all in =worlds.wit=, and =kalem.wit= (=kalem=,
+  =plugin=), =editor.wit=, =ui.wit=, =access.wit= and =executor.wit= are
+  frozen (=wit-frozen/0.2.21=): a callback every plugin may answer comes
+  in an interface of its own, as =focus= did.
 - Something removed stays as a function that refuses, until a new minor
   version (0.3) is cut for everything at once.
 - An addition is general, or it waits. It names what several plugins
