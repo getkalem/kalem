@@ -111,6 +111,44 @@ fn child(work: &Path) {
     assert_eq!(std::fs::read_dir(&staging).map_or(0, |d| d.count()), 0);
     println!("test cancel ... ok");
 
+    // A permission Kalem does not know: refused, by name, before anything
+    // is offered, and nothing left in the staging folder.
+    let odd = work.join("odd");
+    std::fs::create_dir_all(&odd).unwrap();
+    std::fs::write(
+        odd.join("plugin.json"),
+        json!({
+            "id": "org.example.odd", "name": "Odd", "version": "1.0.0",
+            "permissions": ["subprocess", "fs:read:everything"],
+            "languages": [{"id": "odd", "name": "Odd", "extensions": ["odd"]}]
+        })
+        .to_string(),
+    )
+    .unwrap();
+    // ("Zed Test 1.0.0 is ready to install", of the install cancelled.)
+    kalem_core::jobs::take_finished();
+    run(&reg, "plugin.install", json!({ "source": odd }));
+    let t = Instant::now();
+    let refused = loop {
+        if let Some(f) = kalem_core::jobs::take_finished().into_iter().next() {
+            break f;
+        }
+        assert!(t.elapsed() < Duration::from_secs(20), "nothing finished");
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    assert!(refused.error, "{}", refused.message);
+    assert!(
+        refused
+            .message
+            .starts_with("Odd asks for a permission Kalem does not know, fs:read:everything"),
+        "{}",
+        refused.message
+    );
+    assert!(kalem_core::jobs::take_offers().is_empty());
+    assert!(kalem_core::plugin_store::installed().is_empty());
+    assert_eq!(std::fs::read_dir(&staging).map_or(0, |d| d.count()), 0);
+    println!("test unknown permission ... ok");
+
     // Confirmed: installed, recorded, loaded, highlighting at once.
     run(&reg, "plugin.install", json!({ "source": plugin }));
     let items = offered();
@@ -181,12 +219,24 @@ fn child(work: &Path) {
         titles,
         ["Update Zed Test", "Remove Zed Test", "Show Its Folder"]
     );
+    // The update asks for a permission the installed version did not: said
+    // apart, among what the user approves.
+    let mut newer = manifest.clone();
+    newer["permissions"] = json!(["subprocess", "fs:read:workspace"]);
+    std::fs::write(plugin.join("plugin.json"), newer.to_string()).unwrap();
     choose(&reg, &actions[0]);
     let update = offered();
     assert!(
         update[0].title.contains("(replaces 1.0.0)"),
         "{}",
         update[0].title
+    );
+    assert!(
+        update[0]
+            .detail
+            .contains("New permissions, which 1.0.0 did not have: fs:read:workspace"),
+        "{}",
+        update[0].detail
     );
     choose(&reg, &update[1]);
     println!("test manage ... ok");

@@ -14,7 +14,7 @@ use kalem_core::{CommandRegistry, Config, DocumentMode, DocumentState};
 use serde_json::Value;
 
 mod test_plugins;
-use test_plugins::component;
+use test_plugins::{approve, component};
 
 #[test]
 fn an_installed_plugin_adds_commands_the_registry_runs() {
@@ -34,20 +34,28 @@ fn an_installed_plugin_adds_commands_the_registry_runs() {
             "limits": {"time_ms": 5000}}"#,
     )
     .unwrap();
-    // A plugin reaching files and the network, as its permissions allow:
-    // the project's folder, and this machine's address. With no
-    // `activation`, it starts with the first file opened that it declares
-    // it serves (a text file in a folder holding `notes.txt`).
+    // A plugin reaching files and the network, as the permissions the user
+    // approved at its install allow: reading the project's folder, and
+    // this machine's address. Its manifest, changed on disk since, asks for
+    // writing there and for another domain too, which it is not granted.
+    // With no `activation`, it starts with the first file opened that it
+    // declares it serves (a text file in a folder holding `notes.txt`).
     let reach_dir = root.join("config/plugins/org.test.reach");
     std::fs::create_dir_all(&reach_dir).unwrap();
     std::fs::write(reach_dir.join("reach.wasm"), reach).unwrap();
     std::fs::write(
         reach_dir.join("plugin.json"),
-        r#"{"id": "org.test.reach", "name": "Reach", "main": "reach.wasm",
-            "permissions": ["fs:read:workspace", "net:fetch:127.0.0.1"],
+        r#"{"id": "org.test.reach", "name": "Reach", "version": "1.1.0", "main": "reach.wasm",
+            "permissions": ["fs:read:workspace", "fs:write:workspace",
+                            "net:fetch:127.0.0.1", "net:fetch:example.com"],
             "applies": {"extensions": [".txt"], "markers": ["notes.txt"]}}"#,
     )
     .unwrap();
+    approve(
+        &root.join("config"),
+        "org.test.reach",
+        &["fs:read:workspace", "net:fetch:127.0.0.1"],
+    );
     let project = root.join("project");
     std::fs::create_dir_all(&project).unwrap();
     std::fs::write(project.join("notes.txt"), "in the project").unwrap();
@@ -66,14 +74,21 @@ fn an_installed_plugin_adds_commands_the_registry_runs() {
 
     let before = kalem_core::extensions::generation();
     kalem_cli::bundled_plugins();
-    // Started on a thread: its commands arrive.
+    // Started on a thread: its commands arrive. The user is told, once,
+    // what Reach asks for that they did not approve; nothing else.
+    let unapproved = "Reach 1.1.0 asks for permissions that were not approved when it was \
+                      installed: fs:write:workspace, net:fetch:example.com. It runs without them \
+                      until you install it again from the Plugins menu (or with kalem plugin \
+                      install) and approve them";
+    let mut said = Vec::new();
     let start = Instant::now();
     while !kalem_core::extensions::known("counter.count") {
-        let notices = kalem_core::jobs::take_notices();
-        assert!(notices.is_empty(), "{notices:?}");
+        said.extend(kalem_core::jobs::take_notices());
         assert!(start.elapsed() < Duration::from_secs(120), "never started");
         std::thread::sleep(Duration::from_millis(20));
     }
+    said.extend(kalem_core::jobs::take_notices());
+    assert_eq!(said, [(unapproved.to_string(), true)]);
     assert!(kalem_core::extensions::generation() > before);
 
     // The editors' bus hands its events to the plugins.
@@ -338,6 +353,19 @@ fn an_installed_plugin_adds_commands_the_registry_runs() {
     };
     read(&mut ctx, &project.join("notes.txt")).unwrap();
     assert!(read(&mut ctx, &settings).is_err(), "outside the projects");
+    // Writing there its manifest asks for, and the user did not approve.
+    let written = project.canonicalize().unwrap().join("written.txt");
+    assert!(
+        registry
+            .execute(
+                "reach.write",
+                &mut ctx,
+                &serde_json::json!({ "path": written, "text": "written" }),
+            )
+            .is_err(),
+        "writing is not approved"
+    );
+    assert!(!written.exists());
 
     // The network: a server on this machine answers; the response comes
     // later, from the thread that fetched it.
@@ -368,7 +396,7 @@ fn an_installed_plugin_adds_commands_the_registry_runs() {
                 &serde_json::json!({ "url": "https://example.com/" }),
             )
             .is_err(),
-        "not a granted domain"
+        "a domain its manifest asks for, not approved"
     );
     drop(ctx);
     let start = Instant::now();

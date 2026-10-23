@@ -1,6 +1,7 @@
 //! The plugins of `tests/plugins`, built from their source and wrapped
 //! as components for kalem-cli's tests (`extensions`, `plugin_check`,
-//! `run`, `settings_at_start`, `viewer_choice`).
+//! `run`, `settings_at_start`, `viewer_choice`), and their permissions
+//! approved.
 
 use std::path::Path;
 use std::process::Command;
@@ -55,4 +56,24 @@ pub(crate) fn component(name: &str) -> Option<Vec<u8>> {
         .success();
     assert!(ok, "{name} wraps");
     std::fs::read(component).ok()
+}
+
+/// Records plugin `id` in the `plugins.toml` of the settings folder
+/// `config` as Kalem's installer does, with the `permissions` the user
+/// approved: the only ones the plugin is granted, whatever its manifest
+/// asks for (one put in the folder without a record is granted none).
+#[allow(dead_code)]
+pub(crate) fn approve(config: &Path, id: &str, permissions: &[&str]) {
+    use std::io::Write;
+    std::fs::create_dir_all(config).unwrap();
+    let mut record = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(config.join("plugins.toml"))
+        .unwrap();
+    writeln!(
+        record,
+        "[plugins.\"{id}\"]\npermissions = {permissions:?}\n"
+    )
+    .unwrap();
 }

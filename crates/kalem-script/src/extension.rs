@@ -157,12 +157,14 @@ pub use ui::{
 /// The most a file read through `fs`, or a response, holds.
 pub const MAX_BYTES: usize = 16 << 20;
 
-/// What a plugin's manifest permits (§11.6), from its `permissions`:
+/// What a plugin may reach (§11.6), from its permissions:
 /// `fs:read:workspace`, `fs:write:workspace`, `fs:read:all`,
 /// `net:fetch:DOMAIN` (`*` for any), `subprocess:PROGRAM` (a bare name).
 /// The `fs`, `net` and `process` interfaces are granted only with one of
 /// theirs. A bare `subprocess` is a language plugin's: the core runs its
-/// servers, and it grants no interface.
+/// servers, and it grants no interface. The editor gives those its
+/// manifest asks for that the user approved at its install
+/// (`kalem_core::plugin_store::granted`), not the manifest's own list.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Grants {
     /// Read in the projects' folders.
@@ -190,7 +192,8 @@ pub fn program_name(name: &str) -> bool {
 }
 
 impl Grants {
-    /// The grants of a manifest's permissions; unknown ones grant nothing.
+    /// The grants of `permissions`; unknown ones grant nothing (the
+    /// installer refuses them: `kalem_core::plugin_store::known_permission`).
     pub fn from_permissions<S: AsRef<str>>(permissions: &[S]) -> Grants {
         let mut g = Grants::default();
         for p in permissions {

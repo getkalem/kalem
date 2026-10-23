@@ -377,6 +377,17 @@ Programmers (LSP and plugins)
   T3.1.11): the consent prompt on first use of `fs`, `net` and `process`,
   per-plugin limits, a plugin's panic or timeout reported and the plugin
   disabled without taking the editor down; `SECURITY.md`. M
+  (2026-10-24, from the architecture review of 2026-10-23: a plugin is
+  granted the permissions recorded in `plugins.toml` at its install, not
+  those its manifest names now, and the user is told of the rest until
+  it is installed again; an unknown permission stops the install; an
+  update's new permissions are listed apart. The plugin API's core,
+  `kalem.wit`, `editor.wit`, `ui.wit`, `access.wit` and `executor.wit`,
+  is frozen in `wit-frozen/0.2.21`, the worlds moved to `worlds.wit`; the
+  release workflows build a tag only once CI passed on its commit,
+  `release-gate.yml`. Still open here: the consent prompt on first use,
+  and a language plugin's `subprocess`, which the core does not check
+  against `plugins.toml` when it starts the plugin's servers.)
   - [x] The plugins' calls off the drawing path (the 2026-10-23
     architecture review). S (done 2026-10-24: a call of a layer,
     completer, formatter or outline gets `extensions::DRAW_TIME`, 100 ms,

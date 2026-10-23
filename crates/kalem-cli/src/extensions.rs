@@ -695,7 +695,7 @@ struct Loaded {
     version: String,
     /// Its manifest's `api` requirement.
     api: Option<String>,
-    /// What its manifest permits.
+    /// What it may reach: its manifest's permissions the user approved.
     grants: x::Grants,
     file: PathBuf,
     activation: Vec<String>,
@@ -1603,7 +1603,9 @@ impl kalem_core::extensions::Extensions for Plugins {
             let kept = now
                 .iter()
                 .any(|n| n.full == l.full && n.version == l.version && n.file == l.file);
-            if !l.gone && !kept {
+            // Installed again, the user approving other permissions.
+            let regranted = now.iter().any(|n| n.full == l.full && n.grants != l.grants);
+            if !l.gone && (!kept || regranted) {
                 self.stop(i);
                 self.list[i].gone = true;
             }
@@ -2121,7 +2123,7 @@ fn installed() -> Vec<Loaded> {
             full: p.id.clone(),
             version: p.version.clone(),
             api: m["api"].as_str().map(str::to_string),
-            grants: x::Grants::from_permissions(&strings(&m["permissions"])),
+            grants: approved_grants(&p, &strings(&m["permissions"])),
             file: p.dir.join(main),
             activation,
             applies,
@@ -2337,6 +2339,34 @@ fn opens(a: &str, path: &std::path::Path) -> bool {
         }
     }
     p[i..].iter().all(|&c| c == '*')
+}
+
+/// What plugin `p`, whose manifest asks for `asked`, is granted: the
+/// permissions the user approved when Kalem installed it (`plugins.toml`),
+/// not those its manifest asks for now ([`kalem_core::plugin_store::granted`]).
+/// The user is told once a run of Kalem of those not approved (its manifest
+/// changed on disk since, or it was put in the folder by hand): it runs
+/// without them, and installing it again asks for them.
+fn approved_grants(p: &kalem_core::plugin_store::Installed, asked: &[String]) -> x::Grants {
+    static SAID: std::sync::Mutex<std::collections::BTreeSet<String>> =
+        std::sync::Mutex::new(std::collections::BTreeSet::new());
+    let (granted, unapproved) = kalem_core::plugin_store::granted(asked, p.approved.as_deref());
+    if !unapproved.is_empty() {
+        let list = unapproved.join(", ");
+        let key = format!("{} {} {list}", p.id, p.version);
+        if SAID.lock().is_ok_and(|mut said| said.insert(key)) {
+            kalem_core::jobs::notice(
+                kalem_core::tr!(
+                    "plugin-unapproved",
+                    name = p.name.as_str(),
+                    version = p.version.as_str(),
+                    list = list
+                ),
+                true,
+            );
+        }
+    }
+    x::Grants::from_permissions(&granted)
 }
 
 #[cfg(test)]

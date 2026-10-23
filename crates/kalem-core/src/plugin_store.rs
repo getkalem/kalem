@@ -9,6 +9,13 @@
 //! moves the folder into `CONFIG/plugins/ID` and records it in
 //! `CONFIG/plugins.toml`, after which the plugin loads at once.
 //!
+//! The permissions recorded there are those the user approved, and the
+//! only ones a plugin is granted ([`granted`]): a manifest changed on disk
+//! afterwards (a plugin updated by hand, or put in the folder without
+//! Kalem) asks in vain, and the user is told until the plugin is
+//! installed again and they approve. A permission Kalem does not know
+//! ([`known_permission`]) stops the install, named.
+//!
 //! Links Kalem understands:
 //!
 //! - a name or ID from the index (`elixir`, `org.kalem.elixir`);
@@ -150,6 +157,9 @@ pub struct Prepared {
     pub staging: PathBuf,
     /// The version installed now, when this replaces it.
     pub replaces: Option<String>,
+    /// The permissions the user approved for the version installed now,
+    /// when this replaces one Kalem installed ([`Installed::approved`]).
+    pub approved: Option<Vec<String>>,
 }
 
 /// An installed plugin.
@@ -165,6 +175,53 @@ pub struct Installed {
     pub dir: PathBuf,
     /// Where it was installed from, when Kalem installed it.
     pub source: Option<String>,
+    /// The permissions the user approved when Kalem installed it, as
+    /// `plugins.toml` records them: those it is granted, whatever its
+    /// manifest asks for now ([`granted`]). `None` for a plugin put in
+    /// the folder by hand, which is granted none.
+    pub approved: Option<Vec<String>>,
+}
+
+/// Whether Kalem knows `permission` (the Book, Part III, "Permissions";
+/// `kalem_script::Grants` grants them): `fs:read:workspace`,
+/// `fs:write:workspace`, `fs:read:all`, `net:fetch:DOMAIN` (a host name or
+/// address, or `*`), `subprocess` (a language plugin's servers) and
+/// `subprocess:PROGRAM` (a bare program name). Installing a plugin that
+/// asks for another is refused, so that a misspelled or newer permission
+/// is not approved for nothing.
+pub fn known_permission(permission: &str) -> bool {
+    match permission {
+        "fs:read:workspace" | "fs:write:workspace" | "fs:read:all" | "subprocess" => true,
+        p => {
+            if let Some(domain) = p.strip_prefix("net:fetch:") {
+                domain == "*"
+                    || (!domain.is_empty()
+                        && !domain.starts_with('.')
+                        && domain
+                            .chars()
+                            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '.')))
+            } else if let Some(program) = p.strip_prefix("subprocess:") {
+                // As `kalem_script::program_name`: a bare name, no path.
+                !program.is_empty()
+                    && !program.starts_with('.')
+                    && program
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+            } else {
+                false
+            }
+        }
+    }
+}
+
+/// What a plugin whose manifest asks for `asked` is granted, given what
+/// the user `approved` when Kalem installed it (`plugins.toml`, `None` for
+/// a plugin put in the folder by hand): the permissions asked for and
+/// approved, then those asked for and not approved, which it runs
+/// without until it is installed again and the user approves them.
+pub fn granted(asked: &[String], approved: Option<&[String]>) -> (Vec<String>, Vec<String>) {
+    let approved = approved.unwrap_or_default();
+    asked.iter().cloned().partition(|p| approved.contains(p))
 }
 
 /// Where Kalem installs plugins: `CONFIG/plugins`.
@@ -891,16 +948,25 @@ fn read_prepared(source: &str, staging: &Path) -> Result<Prepared, String> {
             ours = host.version
         ));
     }
-    let replaces = installed()
+    let permissions = strings(&m["permissions"]);
+    if let Some(unknown) = permissions.iter().find(|p| !known_permission(p)) {
+        return Err(crate::tr!(
+            "plugin-unknown-permission",
+            name = name.as_str(),
+            permission = unknown.as_str()
+        ));
+    }
+    let (replaces, approved) = installed()
         .into_iter()
         .find(|i| i.id == id)
-        .map(|i| i.version);
+        .map(|i| (i.version, i.approved))
+        .unzip();
     Ok(Prepared {
         component,
         name,
         version: m["version"].as_str().unwrap_or("").to_string(),
         description: m["description"].as_str().unwrap_or("").to_string(),
-        permissions: strings(&m["permissions"]),
+        permissions,
         languages: m["languages"]
             .as_array()
             .map(Vec::as_slice)
@@ -925,6 +991,7 @@ fn read_prepared(source: &str, staging: &Path) -> Result<Prepared, String> {
         source: source.trim().to_string(),
         staging: staging.to_path_buf(),
         replaces,
+        approved: approved.flatten(),
         id,
     })
 }
@@ -993,6 +1060,18 @@ pub fn summary(p: &Prepared) -> Vec<String> {
             .collect::<Vec<_>>()
             .join(", ");
         out.push(crate::tr!("plugin-permissions", list = list));
+    }
+    // An update asking for more than the user approved for the version
+    // it replaces: what they approve now, said apart.
+    if let Some(old) = &p.replaces {
+        let (_, new) = granted(&p.permissions, p.approved.as_deref());
+        if !new.is_empty() {
+            out.push(crate::tr!(
+                "plugin-new-permissions",
+                old = old.as_str(),
+                list = new.join(", ")
+            ));
+        }
     }
     out.push(crate::tr!("plugin-from", source = p.source.as_str()));
     out
@@ -1355,15 +1434,23 @@ pub fn installed_in(config: &std::path::Path) -> Vec<Installed> {
             let text = std::fs::read_to_string(dir.join("plugin.json")).ok()?;
             let m: Value = serde_json::from_str(&text).ok()?;
             let id = m["id"].as_str()?.to_string();
+            let record = rec.get("plugins").and_then(|p| p.get(&id));
             Some(Installed {
                 name: m["name"].as_str().unwrap_or(&id).to_string(),
                 version: m["version"].as_str().unwrap_or("").to_string(),
-                source: rec
-                    .get("plugins")
-                    .and_then(|p| p.get(&id))
+                source: record
                     .and_then(|t| t.get("source"))
                     .and_then(|s| s.as_str())
                     .map(str::to_string),
+                approved: record.map(|t| {
+                    t.get("permissions")
+                        .and_then(|p| p.as_array())
+                        .map_or_else(Vec::new, |a| {
+                            a.iter()
+                                .filter_map(|x| x.as_str().map(str::to_string))
+                                .collect()
+                        })
+                }),
                 dir,
                 id,
             })
@@ -1841,6 +1928,61 @@ mod tests {
             ]
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn permissions_known_and_granted_as_approved() {
+        for p in [
+            "fs:read:workspace",
+            "fs:write:workspace",
+            "fs:read:all",
+            "net:fetch:github.com",
+            "net:fetch:127.0.0.1",
+            "net:fetch:*",
+            "subprocess",
+            "subprocess:git",
+            "subprocess:bean-check",
+            "subprocess:python3",
+        ] {
+            assert!(known_permission(p), "{p}");
+        }
+        for p in [
+            "",
+            "fs:read",
+            "fs:write:all",
+            "fs:read:everything",
+            "net:fetch:",
+            "net:fetch:a.com/path",
+            "net:fetch:.com",
+            "subprocess:",
+            "subprocess:/bin/sh",
+            "subprocess:../git",
+            "subprocess:git --version",
+            "clipboard",
+            "Subprocess",
+        ] {
+            assert!(!known_permission(p), "{p}");
+        }
+
+        let v = |l: &[&str]| l.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let asked = v(&[
+            "fs:read:workspace",
+            "net:fetch:example.com",
+            "subprocess:git",
+        ]);
+        // What was approved, and no more; what was approved and is no
+        // longer asked for is not granted either.
+        let approved = v(&["fs:read:workspace", "subprocess:git", "fs:read:all"]);
+        assert_eq!(
+            granted(&asked, Some(&approved)),
+            (
+                v(&["fs:read:workspace", "subprocess:git"]),
+                v(&["net:fetch:example.com"])
+            )
+        );
+        // Put in the folder by hand: nothing approved, nothing granted.
+        assert_eq!(granted(&asked, None), (Vec::new(), asked.clone()));
+        assert_eq!(granted(&[], None), (Vec::new(), Vec::new()));
     }
 
     #[test]

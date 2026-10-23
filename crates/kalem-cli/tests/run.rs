@@ -9,7 +9,7 @@
 use std::process::ExitCode;
 
 mod test_plugins;
-use test_plugins::component;
+use test_plugins::{approve, component};
 
 fn run(
     plugin: &str,
@@ -103,6 +103,11 @@ fn a_plugins_command_runs_without_a_window() {
                 "limits": {"time_ms": 5000}}"#,
         )
         .unwrap();
+        approve(
+            &root.join("config"),
+            "org.test.run",
+            &["subprocess", "subprocess:rustc"],
+        );
         let (mut out, mut err) = (Vec::new(), Vec::new());
         let r = kalem_cli::run_batch(
             "run",

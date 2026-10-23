@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use kalem_core::events::{DocumentId, Event, EventBus};
 
 mod test_plugins;
-use test_plugins::component;
+use test_plugins::{approve, component};
 
 #[test]
 fn a_plugin_started_by_a_files_name() {
@@ -38,6 +38,11 @@ fn a_plugin_started_by_a_files_name() {
         r#"{"id": "org.test.reach", "name": "Reach", "main": "reach.wasm",
             "activation": ["onStartup"],
             "permissions": ["fs:read:workspace", "net:fetch:127.0.0.1"]}"#,
+    );
+    approve(
+        &root.join("config"),
+        "org.test.reach",
+        &["fs:read:workspace", "net:fetch:127.0.0.1"],
     );
     // SAFETY: the test's process has this one test, and sets the
     // variables before any thread reads them.
