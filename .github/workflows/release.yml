@@ -91,6 +91,7 @@ jobs:
     secrets: inherit
     permissions:
       "actions": "read"
+      "checks": "read"
       "contents": "read"
 
   # Build and packages all the platform-specific things
@@ -308,4 +309,5 @@ jobs:
     secrets: inherit
     permissions:
       "actions": "read"
+      "checks": "read"
       "contents": "write"

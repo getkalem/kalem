@@ -23,9 +23,9 @@ dist generate
 
 ## A tag only after green CI
 
-A release is built only from a commit CI (`ci.yml`) passed on: v0.6.47 was tagged while its commit's CI was red (run 39214933475), the fix landing in the next commit. Tag the commit whose run you saw pass, and read the run's conclusion (`gh run view RUN_ID --json conclusion`), not the exit status of `gh run watch`, which is 0 for a cancelled run.
+A release is built only from a commit CI (`ci.yml`) passed on: the version commit of 0.6.47 (`ed8d2fbf`) was red (run 39214933475) and its fix came in the next commit, which is the one tagged, once CI passed there. Tag the commit whose run you saw pass, and read the run's conclusion (`gh run view RUN_ID --json conclusion`), not the exit status of `gh run watch`, which is 0 for a cancelled run.
 
-The workflows check it too. `.github/workflows/release-gate.yml` resolves the tag to its commit, lists the runs of `ci.yml` on that commit through the GitHub API, and passes when one of them succeeded; a run still queued or going is waited for (up to two and a half hours), and a run not started yet for ten minutes, so a tag pushed with its commit waits rather than fails. Otherwise it stops with an error naming the commit, each run's conclusion and link, and what to do; the release workflow's builds (`needs: custom-release-gate`) and so the GitHub release, the installers and the terminal archives are never made. `release-terminal.yml` runs the same gate first, which matters when it is run by hand for a tag.
+The workflows check it too. `.github/workflows/release-gate.yml` resolves the tag to its commit, lists the runs of `ci.yml` on that commit through the GitHub API, and passes when one of them succeeded, or when the only jobs of one that did not pass are macOS test jobs cancelled because no runner took them (GitHub's annotation on each: "The job was not acquired by Runner"; the owner's exception of 2026-10-14, the macOS tests then passing on a local run before the tag), which it passes with a warning naming the run; a run still queued or going is waited for (up to two and a half hours), and a run not started yet for ten minutes, so a tag pushed with its commit waits rather than fails. Otherwise it stops with an error naming the commit, each run's conclusion and link, and what to do; the release workflow's builds (`needs: custom-release-gate`) and so the GitHub release, the installers and the terminal archives are never made. `release-terminal.yml` runs the same gate first, which matters when it is run by hand for a tag.
 
 When the gate stops a release, nothing was published:
 
@@ -33,7 +33,7 @@ When the gate stops a release, nothing was published:
 - CI's run was cancelled (a newer push to `main` replaced it while it waited) or failed by chance: `gh run rerun RUN_ID`, and once it passed, re-run the release's failed jobs from the Actions tab (`gh run rerun RELEASE_RUN_ID --failed`).
 - CI never ran on the commit (one not pushed to `main`): `gh workflow run ci.yml --ref v0.1.0` runs it on the tag; then re-run the release's failed jobs.
 
-The gate is a dist plan job, so `dist generate` keeps it: it lives in `Cargo.toml` (`plan-jobs = ["./release-gate"]`, and `actions: read` for it and for `release-terminal` in `[workspace.metadata.dist.github-custom-job-permissions]`), not as a hand edit of `release.yml`.
+The gate is a dist plan job, so `dist generate` keeps it: it lives in `Cargo.toml` (`plan-jobs = ["./release-gate"]`, and `actions: read` and `checks: read` for it and for `release-terminal` in `[workspace.metadata.dist.github-custom-job-permissions]`), not as a hand edit of `release.yml`.
 
 ## What cargo-dist does not build
 

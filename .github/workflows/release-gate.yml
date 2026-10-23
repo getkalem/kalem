@@ -1,8 +1,10 @@
 # A release is built only from a commit CI passed on (docs/releasing.md):
 # this job finds the runs of ci.yml on the tagged commit and stops the
-# release, saying why, unless one of them succeeded. A run still queued or
-# going is waited for, so a tag pushed early waits for CI rather than
-# failing. Called by the release workflow before its builds (dist's
+# release, saying why, unless one of them succeeded, or failed only for
+# macOS test jobs cancelled because no runner took them (the owner's
+# exception of 2026-10-14: the macOS tests then pass on a local run before
+# the tag). A run still queued or going is waited for, so a tag pushed
+# early waits for CI rather than failing. Called by the release workflow before its builds (dist's
 # `plan-jobs` in Cargo.toml) and by the terminal-only release before its
 # own; for an event that is not a tag (dist's pull request runs) it
 # checks nothing.
@@ -17,8 +19,10 @@ on:
         type: string
         default: ""
 
+# checks: read for the annotations of a job no runner took.
 permissions:
   actions: read
+  checks: read
   contents: read
 
 jobs:
@@ -81,6 +85,30 @@ jobs:
             fi
             sleep 60
           done
+
+          # Run $1 failed only for macOS test jobs cancelled because no
+          # runner took them: GitHub's annotation on each says so.
+          runner_only() {
+            jobs=$(gh api "repos/$REPO/actions/runs/$1/jobs?per_page=100" \
+              --jq '[.jobs[] | select(.conclusion != "success" and .conclusion != "skipped")]')
+            [ "$(jq length <<<"$jobs")" -gt 0 ] || return 1
+            jq -r '.[] | [.name, .conclusion, .check_run_url] | @tsv' <<<"$jobs" |
+              while IFS=$'\t' read -r name conclusion check; do
+                case "$name" in "test (macos"*) ;; *) exit 1 ;; esac
+                [ "$conclusion" = cancelled ] || exit 1
+                gh api "${check#https://api.github.com/}/annotations" --jq '.[].message' |
+                  grep -qF "The job was not acquired by Runner" || exit 1
+              done
+          }
+          if [ "$count" != 0 ] && [ -z "$going" ]; then
+            for run in $(jq -r '.[].id' <<<"$runs"); do
+              if runner_only "$run"; then
+                url=$(jq -r --argjson id "$run" '.[] | select(.id == $id) | .html_url' <<<"$runs")
+                echo "::warning title=macOS tests not run on CI::CI passed on $sha but for its macOS test jobs, which no runner took ($url): the macOS tests are to pass on a local run before the tag."
+                exit 0
+              fi
+            done
+          fi
 
           if [ "$count" = 0 ]; then
             echo "::error title=No CI run on the tagged commit::CI (ci.yml) never ran on $sha, the commit of $tag, so nothing is built. Push the commit to main and let CI pass there (or run it on the tag: gh workflow run ci.yml --ref $tag), then re-run this workflow's failed jobs."

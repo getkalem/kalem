@@ -21,10 +21,11 @@ on:
         description: "The release to attach the archives to (v0.1.0)"
         required: true
 
-# actions: read for the gate, which reads CI's runs.
+# actions: read and checks: read for the gate, which reads CI's runs.
 permissions:
   contents: write
   actions: read
+  checks: read
 
 jobs:
   # Nothing is built unless CI passed on the tag's commit

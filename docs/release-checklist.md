@@ -13,7 +13,7 @@ release issue.
 
 ## Before the tag
 
-- [ ] CI (`ci.yml`) passed on the very commit to tag: `gh run list --workflow ci.yml --commit SHA`, and the run's conclusion is `success` (`gh run view RUN_ID --json conclusion`; `gh run watch` exits 0 on a cancelled run). The release workflow's gate (`release-gate.yml`) waits for that run and builds nothing unless it passed; when it stops, see `docs/releasing.md`, *A tag only after green CI*.
+- [ ] CI (`ci.yml`) passed on the very commit to tag: `gh run list --workflow ci.yml --commit SHA`, and the run's conclusion is `success` (`gh run view RUN_ID --json conclusion`; `gh run watch` exits 0 on a cancelled run), or its only jobs that did not pass are macOS test jobs no runner took, and the macOS tests passed on a local run. The release workflow's gate (`release-gate.yml`) waits for that run and builds nothing unless it passed; when it stops, see `docs/releasing.md`, *A tag only after green CI*.
 
 ## Installing
 
