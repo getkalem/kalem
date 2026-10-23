@@ -1,12 +1,15 @@
 //! Plugins' completers (plugin API 0.2.11, the `completer` export): each
 //! declared in its plugin's manifest (`"completers": [{"id": "pages",
 //! "triggers": ["[["], "layers": ["logseq"], "replaces": ["wiki"]}]`) and
-//! asked through the plugins' bridge, on the editor's thread, as the
-//! user types. They join the core's completers in [`super::Registry`]
-//! while their plugin runs.
+//! asked through the plugins' bridge as the user types: on a thread of
+//! its own, as a language server's completer is, within
+//! [`PLUGIN_BUDGET`]. They join the core's completers in
+//! [`super::Registry`] while their plugin runs.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+use std::time::Duration;
 
 use super::{Cancel, Completer, Context, Item, Trigger};
 use crate::DocumentState;
@@ -36,17 +39,28 @@ pub struct PluginCompleterSpec {
 }
 
 /// Asks plugin `spec.plugin` for its completer's items: the plugins'
-/// bridge (`crate::extensions`). Nothing while the plugins are busy.
-pub type Provider = dyn Fn(&PluginCompleterSpec, &Context) -> Vec<Item> + Send + Sync;
+/// bridge (`crate::extensions`). Nothing while the plugins are busy, or
+/// once the keystroke is cancelled.
+pub type Provider = dyn Fn(&PluginCompleterSpec, &Context, &Cancel) -> Vec<Item> + Send + Sync;
+
+/// How long a plugin's completer may take for one keystroke when it is
+/// asked on a thread: its call's time, and as long again for the plugin
+/// to end a call of the drawing's it is in.
+pub const PLUGIN_BUDGET: Duration =
+    Duration::from_millis(2 * crate::extensions::DRAW_TIME.as_millis() as u64);
 
 struct Registry {
     completers: Vec<Arc<PluginCompleter>>,
     provider: Option<Arc<Provider>>,
+    /// Whether the provider is asked on a thread of its own (the plugins'
+    /// bridge, [`set_background_provider`]).
+    background: bool,
 }
 
 static REGISTRY: Mutex<Registry> = Mutex::new(Registry {
     completers: Vec::new(),
     provider: None,
+    background: false,
 });
 
 fn registry() -> std::sync::MutexGuard<'static, Registry> {
@@ -76,9 +90,21 @@ pub fn specs() -> Vec<PluginCompleterSpec> {
         .collect()
 }
 
-/// Sets the bridge to the plugins (once, as they are installed).
+/// Sets what asks the plugins' completers, asked on the editor's thread
+/// (a test's).
 pub fn set_provider(provider: Arc<Provider>) {
-    registry().provider = Some(provider);
+    let mut r = registry();
+    r.provider = Some(provider);
+    r.background = false;
+}
+
+/// Sets the bridge to the plugins (once, as they are installed), asked
+/// on a thread of its own for each keystroke: the plugins' completers are
+/// slow completers ([`Completer::slow`]).
+pub fn set_background_provider(provider: Arc<Provider>) {
+    let mut r = registry();
+    r.provider = Some(provider);
+    r.background = true;
 }
 
 /// The plugins' completers, for the registry to run with its own.
@@ -175,15 +201,26 @@ impl Completer for PluginCompleter {
         self.trigger
     }
 
+    fn slow(&self) -> bool {
+        registry().background
+    }
+
+    fn budget(&self) -> Duration {
+        PLUGIN_BUDGET
+    }
+
     fn replaces(&self) -> &'static [&'static str] {
         self.replaces
     }
 
-    fn complete(&self, ctx: &Context, _doc: Option<&DocumentState>, _cancel: &Cancel) -> Vec<Item> {
+    fn complete(&self, ctx: &Context, _doc: Option<&DocumentState>, cancel: &Cancel) -> Vec<Item> {
         let Some(provider) = registry().provider.clone() else {
             return Vec::new();
         };
-        provider(&self.spec, ctx)
+        if cancel.cancelled() {
+            return Vec::new();
+        }
+        provider(&self.spec, ctx, cancel)
             .into_iter()
             .filter(|i| sound(i, ctx))
             .collect()

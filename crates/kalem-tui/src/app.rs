@@ -6264,8 +6264,10 @@ impl App {
         {
             t = t.min(d);
         }
-        // A block Enter made or Tab moved, waited for in its layer.
-        if self.doc.waiting_row_edit() {
+        // A block Enter made or Tab moved, waited for in its layer; the
+        // plugins' calls behind the editor (a layer's overlays, an
+        // outline's headings), drawn when they come.
+        if self.doc.waiting_row_edit() || kalem_core::extensions::behind_running() {
             t = t.min(Duration::from_millis(30));
         }
         if !self.jobs.is_empty() || self.doc.viewer.as_deref().is_some_and(|v| v.searching()) {
@@ -6567,17 +6569,18 @@ impl App {
                 text_area.width -= w;
             }
         }
+        // None yet (a parse, a plugin's outline asked behind the editor):
+        // the outline stays as it is, and is asked again.
         if self
             .outline
             .as_ref()
             .is_some_and(|o| o.version != self.doc.version())
+            && let Some(items) = kalem_core::mode_view::outline_items(&mut self.doc)
+            && let Some(o) = &mut self.outline
         {
-            let items = self.outline_items();
-            if let Some(o) = &mut self.outline {
-                o.selected = o.selected.min(items.len().saturating_sub(1));
-                o.items = items;
-                o.version = self.doc.version();
-            }
+            o.selected = o.selected.min(items.len().saturating_sub(1));
+            o.items = items;
+            o.version = self.doc.version();
         }
         if let Some(o) = &mut self.outline {
             let w = OutlinePanel::width(text_area.width);

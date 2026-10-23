@@ -240,8 +240,9 @@ pub trait Completer: Send + Sync {
     }
     /// The completers it stands in for where it gives items (a plugin's
     /// pages for the core's `wiki` and the document's `words` after `[[`
-    /// in the notes it knows): it is asked first, and when it gives
-    /// items they are not asked. Only a fast completer replaces others.
+    /// in the notes it knows): a fast one is asked first, and when it
+    /// gives items they are not asked; a slow one's are held back until
+    /// its items come, and dropped when it gives some.
     fn replaces(&self) -> &'static [&'static str] {
         &[]
     }
@@ -374,6 +375,9 @@ impl Registry {
                 std::thread::sleep(Duration::from_millis(2));
             }
         }
+        // Past the wait: the items held back for a completer that did not
+        // answer in time.
+        s.poll();
         std::mem::take(&mut s.items)
     }
 
@@ -391,6 +395,9 @@ impl Registry {
             pending: 0,
             cancel: cancel.clone(),
             deadline: None,
+            held: Vec::new(),
+            holding: Vec::new(),
+            dropped: Vec::new(),
         };
         let active = self.active(&ctx);
         if active.is_empty() {
@@ -412,8 +419,19 @@ impl Registry {
             }
             fast.extend(tag(items, c.id(), c.priority()));
         }
+        let active: Vec<_> = active
+            .into_iter()
+            .filter(|c| !replaced.contains(&c.id()))
+            .collect();
+        // The slow ones standing in for others (a plugin's, asked on a
+        // thread): the items of those they replace wait for theirs.
+        session.holding = active
+            .iter()
+            .filter(|c| c.slow() && !c.replaces().is_empty())
+            .map(|c| (c.id(), c.replaces()))
+            .collect();
         let (send, recv) = mpsc::channel();
-        for c in active.into_iter().filter(|c| !replaced.contains(&c.id())) {
+        for c in active {
             if c.slow() {
                 session.pending += 1;
                 let due = Instant::now() + c.budget();
@@ -422,12 +440,18 @@ impl Registry {
                 std::thread::spawn(move || {
                     let items = c.complete(&ctx, None, &cancel);
                     if !cancel.cancelled() {
-                        let _ = send.send(tag(items, c.id(), c.priority()));
+                        let _ = send.send((c.id(), tag(items, c.id(), c.priority())));
                     }
                 });
             } else {
                 let items = c.complete(&ctx, Some(doc), &cancel);
-                fast.extend(tag(items, c.id(), c.priority()));
+                for it in tag(items, c.id(), c.priority()) {
+                    if session.held_back(it.0.source) {
+                        session.held.push(it);
+                    } else {
+                        fast.push(it);
+                    }
+                }
             }
         }
         session.results = (session.pending > 0).then_some(recv);
@@ -477,17 +501,28 @@ pub fn context(doc: &DocumentState, requested: bool) -> Context {
     }
 }
 
+/// A slow completer's answer: its ID, and its items with its priority.
+type Answered = (&'static str, Vec<(Item, i32)>);
+
 /// A completion in progress: the items so far, merged and ranked.
 #[derive(Debug)]
 pub struct Session {
     /// The items, best first.
     pub items: Vec<Item>,
     prefix: String,
-    results: Option<mpsc::Receiver<Vec<(Item, i32)>>>,
+    results: Option<mpsc::Receiver<Answered>>,
     pending: usize,
     cancel: Cancel,
     /// When the slow completers' budget runs out.
     deadline: Option<Instant>,
+    /// Items held back for a slow completer standing in for theirs.
+    held: Vec<(Item, i32)>,
+    /// The slow completers standing in for others that have not answered,
+    /// and those they replace.
+    holding: Vec<(&'static str, &'static [&'static str])>,
+    /// The completers whose items are dropped: one standing in for them
+    /// gave some.
+    dropped: Vec<&'static str>,
 }
 
 impl Drop for Session {
@@ -504,9 +539,21 @@ impl Session {
             return false;
         };
         let mut got = Vec::new();
-        while let Ok(items) = r.try_recv() {
+        let mut answered = Vec::new();
+        while let Ok((id, items)) = r.try_recv() {
             self.pending = self.pending.saturating_sub(1);
+            answered.push((id, !items.is_empty()));
             got.extend(items);
+        }
+        // A completer standing in for others answered: theirs are dropped
+        // when it gave items, shown when it gave none.
+        for (id, gave) in answered {
+            if let Some(k) = self.holding.iter().position(|h| h.0 == id) {
+                let (_, replaces) = self.holding.remove(k);
+                if gave {
+                    self.dropped.extend(replaces);
+                }
+            }
         }
         // Past the budget, the rest is dropped (§11.12: never blocking).
         if self.pending > 0 && self.deadline.is_some_and(|d| Instant::now() >= d) {
@@ -515,10 +562,24 @@ impl Session {
         }
         if self.pending == 0 {
             self.results = None;
+            self.holding.clear();
         }
+        got.append(&mut self.held);
+        let dropped = std::mem::take(&mut self.dropped);
+        got.retain(|(i, _)| !dropped.contains(&i.source));
+        let (held, got): (Vec<_>, Vec<_>) =
+            got.into_iter().partition(|(i, _)| self.held_back(i.source));
+        self.held = held;
+        self.dropped = dropped;
         let changed = !got.is_empty();
         self.add(got);
         changed
+    }
+
+    /// Whether the items of completer `source` are held back for a slow
+    /// one standing in for it.
+    fn held_back(&self, source: &str) -> bool {
+        self.holding.iter().any(|(_, r)| r.contains(&source))
     }
 
     /// Whether slow completers are still working.
@@ -1040,19 +1101,21 @@ mod tests {
         use plugins::PluginCompleterSpec;
         // A plugin's completer opened by `@@` (no other test types it),
         // standing in for the document's words there.
-        plugins::set_provider(Arc::new(|spec: &PluginCompleterSpec, ctx: &Context| {
-            assert_eq!(spec.id, "at");
-            let typed = ctx.line_before().rsplit("@@").next().unwrap_or("");
-            if typed.contains(' ') {
-                return Vec::new();
-            }
-            let start = ctx.point - typed.len();
-            vec![
-                Item::new("quality@", "quality@", start..ctx.point, Kind::Link),
-                // Past the cursor: left out.
-                Item::new("bad", "bad", ctx.point + 1..ctx.point, Kind::Link),
-            ]
-        }));
+        plugins::set_provider(Arc::new(
+            |spec: &PluginCompleterSpec, ctx: &Context, _: &Cancel| {
+                assert_eq!(spec.id, "at");
+                let typed = ctx.line_before().rsplit("@@").next().unwrap_or("");
+                if typed.contains(' ') {
+                    return Vec::new();
+                }
+                let start = ctx.point - typed.len();
+                vec![
+                    Item::new("quality@", "quality@", start..ctx.point, Kind::Link),
+                    // Past the cursor: left out.
+                    Item::new("bad", "bad", ctx.point + 1..ctx.point, Kind::Link),
+                ]
+            },
+        ));
         plugins::register(PluginCompleterSpec {
             plugin: "test".into(),
             id: "at".into(),
@@ -1151,6 +1214,69 @@ mod tests {
         assert!(s.items.iter().any(|i| i.source == "slow"));
         // Exact prefix first.
         assert_eq!(s.items[0].label, "alpha");
+    }
+
+    /// A slow completer standing in for the document's words (a plugin's,
+    /// asked on a thread), giving a page or nothing.
+    struct Pages(bool);
+
+    impl Completer for Pages {
+        fn id(&self) -> &'static str {
+            "pages"
+        }
+        fn applies(&self, _: &Context) -> bool {
+            true
+        }
+        fn trigger(&self) -> Trigger {
+            Trigger::Request
+        }
+        fn slow(&self) -> bool {
+            true
+        }
+        fn budget(&self) -> Duration {
+            Duration::from_secs(5)
+        }
+        fn replaces(&self) -> &'static [&'static str] {
+            &["words"]
+        }
+        fn complete(&self, ctx: &Context, _: Option<&DocumentState>, _: &Cancel) -> Vec<Item> {
+            std::thread::sleep(Duration::from_millis(30));
+            if !self.0 {
+                return Vec::new();
+            }
+            vec![Item::new(
+                "alpine",
+                "alpine",
+                ctx.point - 2..ctx.point,
+                Kind::Link,
+            )]
+        }
+    }
+
+    #[test]
+    fn a_slow_completer_holds_back_those_it_replaces() {
+        let t = "alpha\nal";
+        let sources = |gives: bool| {
+            let mut d = doc(t, DocumentMode::Text { language: None }, t.len());
+            let mut r = Registry::with_builtins();
+            r.register(Arc::new(Pages(gives)));
+            let mut s = r.start(&mut d, true);
+            // The words wait for its items.
+            assert!(s.items.iter().all(|i| i.source != "words"), "{:?}", s.items);
+            let end = Instant::now() + Duration::from_secs(5);
+            while s.waiting() && Instant::now() < end {
+                s.poll();
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            s.items
+                .iter()
+                .map(|i| (i.label.clone(), i.source))
+                .collect::<Vec<_>>()
+        };
+        // It gave items: the words are dropped.
+        assert_eq!(sources(true), [("alpine".to_string(), "pages")]);
+        // It gave none: the words are shown.
+        assert_eq!(sources(false), [("alpha".to_string(), "words")]);
     }
 
     /// A server that answers too late, and only for Python.

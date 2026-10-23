@@ -394,9 +394,9 @@ pub struct DocumentState {
     /// The layer serving its folder, found for that path and the layers'
     /// generation.
     folder_layer: std::cell::RefCell<Option<(PathBuf, u64, Option<String>)>>,
-    /// The overlays of the layer serving it (`crate::layers`), as last
-    /// asked.
-    layer: std::cell::RefCell<Option<crate::layers::Cached>>,
+    /// The overlays of the layer serving it (`crate::layers`): as last
+    /// given, moved with the edits since, and the answer waited for.
+    layer: std::cell::RefCell<crate::layers::DocLayer>,
     /// A CSV document's filter (view state): only the rows with a field
     /// holding this text show (`crate::csv::filtered`).
     pub csv_filter: Option<String>,
@@ -643,7 +643,7 @@ impl DocumentState {
             gutter_seen: (0, 0),
             vcs: std::cell::RefCell::new(None),
             folder_layer: std::cell::RefCell::new(None),
-            layer: std::cell::RefCell::new(None),
+            layer: std::cell::RefCell::default(),
             csv_filter: None,
             csv_filter_column: None,
             csv_frozen: std::cell::RefCell::new(None),
@@ -1860,40 +1860,37 @@ impl DocumentState {
 
     /// The overlays of the layer serving this document (`crate::layers`),
     /// asked once per version of its text and generation of the layers;
-    /// `None` when no layer serves it.
+    /// `None` when no layer serves it. A plugin's layer is asked on a
+    /// thread ([`crate::layers::DocLayer`]): until it answers, the
+    /// overlays it gave last, moved with the edits since.
     pub fn overlays(&self) -> Option<std::sync::Arc<crate::layers::Overlays>> {
         if !crate::layers::any() {
             return None;
         }
-        let generation = crate::layers::generation();
-        if let Some(c) = &*self.layer.borrow()
-            && c.version == self.version
-            && c.generation == generation
-            && c.path == self.meta.path
-        {
-            return c.overlays.clone();
-        }
-        let spec = crate::layers::layer_for(self.meta.path.as_deref(), self.meta.mode.name());
-        let overlays = match spec {
-            None => None,
-            Some(spec) => {
-                match crate::layers::compute(&spec, self.meta.path.as_deref(), self.text().as_str())
-                {
-                    crate::layers::Outcome::Done(o) if o.is_empty() => None,
-                    crate::layers::Outcome::Done(o) => Some(std::sync::Arc::new(o)),
-                    crate::layers::Outcome::Failed => None,
-                    // Asked again at the next drawing.
-                    crate::layers::Outcome::Busy => return None,
-                }
-            }
-        };
-        *self.layer.borrow_mut() = Some(crate::layers::Cached {
-            version: self.version,
-            generation,
-            path: self.meta.path.clone(),
-            overlays: overlays.clone(),
-        });
-        overlays
+        self.layer.borrow_mut().overlays(
+            self.version,
+            self.meta.path.as_deref(),
+            self.meta.mode.name(),
+            &self.text,
+            || std::sync::Arc::from(self.text.as_str()),
+        )
+    }
+
+    /// Whether the layer serving this document is being asked for its
+    /// overlays on a thread.
+    pub fn waiting_layer(&self) -> bool {
+        self.layer.borrow().waiting()
+    }
+
+    /// Counts the changes of the overlays this document is drawn with
+    /// (an answer of its layer come, the overlays moved with an edit): the
+    /// views made with others are made again
+    /// ([`crate::mode_view::view_key`]).
+    pub fn layer_revision(&self) -> u64 {
+        // Asked, or moved with the edits, first: the views made now are of
+        // what it gives.
+        let _ = self.overlays();
+        self.layer.borrow().revision()
     }
 
     /// The version of the text, incremented by every change.
@@ -1926,6 +1923,7 @@ impl DocumentState {
         self.meta.line_ending = ending;
         if tx.edits.is_empty() {
             self.version += 1;
+            self.layer.get_mut().edited(self.version, None);
         } else {
             self.apply(&tx, ChangeKind::Command, now);
             self.endings.0.push(before);
@@ -1938,6 +1936,7 @@ impl DocumentState {
         if self.meta.bom != bom && self.meta.encoding == encoding_rs::UTF_8 {
             self.meta.bom = bom;
             self.version += 1;
+            self.layer.get_mut().edited(self.version, None);
         }
     }
 
@@ -3050,6 +3049,7 @@ impl DocumentState {
         self.text.apply(&tx.edits);
         self.version += 1;
         let version = self.version;
+        self.layer.get_mut().edited(version, Some(tx));
         let text = self.text.as_str();
         if let Some(l) = &mut self.latex {
             l.edit(text, edit.as_ref());
@@ -3101,7 +3101,9 @@ impl DocumentState {
         // A large Markdown document's first parse, done in the background.
         let markdown =
             self.meta.mode == DocumentMode::Markdown && crate::markdown::background_done();
-        self.poll_parse() || latex || markdown
+        // Its layer's answer, asked on a thread.
+        let layer = self.layer.get_mut().take();
+        self.poll_parse() || latex || markdown || layer
     }
 
     /// The LaTeX diagnostics of the text as it is, when they are known

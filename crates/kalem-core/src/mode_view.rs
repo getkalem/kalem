@@ -99,12 +99,17 @@ pub fn blocks(doc: &DocumentState) -> Vec<Block> {
 }
 
 /// What the blocks and the views of a document depend on: its text's
-/// version and the layers' generation.
-pub type ViewKey = (u64, u64);
+/// version, the layers' generation and the overlays its layer gave
+/// ([`DocumentState::layer_revision`]).
+pub type ViewKey = (u64, u64, u64);
 
 /// The [`ViewKey`] of `doc`. The editors keep its blocks by it.
 pub fn view_key(doc: &DocumentState) -> ViewKey {
-    (doc.version(), crate::layers::generation())
+    (
+        doc.version(),
+        crate::layers::generation(),
+        doc.layer_revision(),
+    )
 }
 
 /// The outline of `doc`: its mode's, or else its language pack's, a

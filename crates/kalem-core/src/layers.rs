@@ -18,6 +18,11 @@
 //! plugins' bridge) once per version of its text and per
 //! [`generation`] of the layers, which a layer moves when what it shows
 //! depends on other files (a block reference's text) and those changed.
+//! The plugins' bridge is asked on a thread of its own
+//! ([`set_background_provider`]), never as the editors draw: they draw
+//! the overlays last given meanwhile, moved with the edits made since
+//! ([`DocLayer`]), and again when the answer comes
+//! ([`crate::extensions::shown`]).
 
 use std::collections::BTreeMap;
 use std::ops::Range;
@@ -181,6 +186,71 @@ pub struct Overlays {
 }
 
 impl Overlays {
+    /// Moves the overlays with edit `tx` of the text they are of: a span
+    /// keeps out what is typed at its edges, lines under a line and text
+    /// at a place go with the text after them; [`Overlays::fit`] makes
+    /// them whole again.
+    fn map(&mut self, tx: &org_edit::Transaction) {
+        use org_edit::Assoc::{After, Before};
+        let m = tx.mapper();
+        for s in &mut self.spans {
+            s.range = m.map(s.range.start, After)..m.map(s.range.end, Before);
+        }
+        for l in &mut self.lines {
+            l.range = m.map(l.range.start, After)..m.map(l.range.end, Before);
+        }
+        for b in &mut self.below {
+            b.line = m.map(b.line, After);
+        }
+        for i in &mut self.inserts {
+            i.at = m.map(i.at, After);
+        }
+    }
+
+    /// The overlays moved with edits ([`Overlays::map`]) made whole for
+    /// `text`: spans and places inside it on characters' boundaries,
+    /// lines of whole lines, lines under a line at its start; those come
+    /// to nothing, or to overlap one before them, left out.
+    fn fit(mut self, text: &crate::text::Text) -> Overlays {
+        let s = text.as_str();
+        let len = s.len();
+        let ok = |p: usize| p <= len && s.is_char_boundary(p);
+        self.spans
+            .retain(|x| x.range.start < x.range.end && ok(x.range.start) && ok(x.range.end));
+        let start_of = |p: usize| text.line_start(text.line_of(p.min(len)));
+        for l in &mut self.lines {
+            let start = start_of(l.range.start);
+            let end = l.range.end.min(len);
+            let end = if end == len || end == start_of(end) {
+                end
+            } else {
+                text.after_line(text.line_of(end)).min(len)
+            };
+            l.range = start..end.max(start);
+        }
+        let mut end = 0;
+        self.lines.retain(|l| {
+            let keep = l.range.start < l.range.end && l.range.start >= end;
+            if keep {
+                end = l.range.end;
+            }
+            keep
+        });
+        let mut below: Vec<Below> = Vec::with_capacity(self.below.len());
+        for mut b in std::mem::take(&mut self.below) {
+            b.line = start_of(b.line);
+            match below.last_mut() {
+                Some(last) if last.line == b.line => last.lines.append(&mut b.lines),
+                _ => below.push(b),
+            }
+        }
+        self.below = below;
+        self.inserts.retain(|i| ok(i.at));
+        self
+    }
+}
+
+impl Overlays {
     /// The overlays made safe for a text of `len` bytes: inside it, on
     /// character boundaries, in order, overlapping ones dropped (the
     /// first kept), lines widened to whole lines.
@@ -333,6 +403,9 @@ pub type Provider = dyn Fn(&LayerSpec, Option<&Path>, &str) -> Outcome + Send + 
 struct Registry {
     layers: Vec<LayerSpec>,
     provider: Option<Arc<Provider>>,
+    /// Whether the provider is asked on a thread of its own (the plugins'
+    /// bridge, [`set_background_provider`]), not as the editors draw.
+    background: bool,
     /// Whether a folder holds a marker: `(folder, marker)`.
     found: BTreeMap<(PathBuf, String), bool>,
 }
@@ -340,6 +413,7 @@ struct Registry {
 static REGISTRY: Mutex<Registry> = Mutex::new(Registry {
     layers: Vec::new(),
     provider: None,
+    background: false,
     found: BTreeMap::new(),
 });
 
@@ -381,9 +455,24 @@ pub fn layers() -> Vec<LayerSpec> {
     registry().layers.clone()
 }
 
-/// Sets what asks the layers for overlays.
+/// Sets what asks the layers for overlays, asked as the editors draw: a
+/// layer of the editors' own (a test's).
 pub fn set_provider(provider: Arc<Provider>) {
-    registry().provider = Some(provider);
+    let mut r = registry();
+    r.provider = Some(provider);
+    r.background = false;
+    drop(r);
+    refresh();
+}
+
+/// Sets what asks the layers for overlays, asked on a thread of its own
+/// while the editors draw what was shown before ([`DocLayer`]): the
+/// plugins' bridge, whose layers may take their whole budget.
+pub fn set_background_provider(provider: Arc<Provider>) {
+    let mut r = registry();
+    r.provider = Some(provider);
+    r.background = true;
+    drop(r);
     refresh();
 }
 
@@ -461,15 +550,21 @@ pub fn layer_for(path: Option<&Path>, mode: &str) -> Option<LayerSpec> {
     None
 }
 
-/// The overlays of a document, asked of its layer's provider.
+/// The overlays of a document, asked of its layer's provider here and
+/// now, wherever it is asked as the editors draw.
 pub fn compute(spec: &LayerSpec, path: Option<&Path>, text: &str) -> Outcome {
     let provider = registry().provider.clone();
     match provider {
-        Some(p) => match p(spec, path, text) {
-            Outcome::Done(o) => Outcome::Done(o.normalized(text)),
-            other => other,
-        },
+        Some(p) => ask(&*p, spec, path, text),
         None => Outcome::Failed,
+    }
+}
+
+/// Asks `provider` for the overlays, made safe for `text`.
+fn ask(provider: &Provider, spec: &LayerSpec, path: Option<&Path>, text: &str) -> Outcome {
+    match provider(spec, path, text) {
+        Outcome::Done(o) => Outcome::Done(o.normalized(text)),
+        other => other,
     }
 }
 
@@ -491,6 +586,254 @@ pub struct Cached {
     pub path: Option<PathBuf>,
     /// The overlays, `None` when no layer serves it or the layer failed.
     pub overlays: Option<Arc<Overlays>>,
+}
+
+/// None for overlays that change nothing.
+fn kept(o: Overlays) -> Option<Arc<Overlays>> {
+    (!o.is_empty()).then(|| Arc::new(o))
+}
+
+/// A document's overlays as the editors draw them
+/// ([`crate::DocumentState::overlays`]): its layer's last answer, moved
+/// with the edits made since, and the answer waited for. The plugins'
+/// layers are asked on a thread ([`set_background_provider`]), for one
+/// version at a time: an answer for a version the text has left is
+/// moved with the edits since and asked again for the text as it is.
+#[derive(Debug, Default)]
+pub struct DocLayer {
+    /// The overlays shown.
+    shown: Option<Cached>,
+    /// Whether `shown` is the layer's answer for its version, generation
+    /// and path, not one moved with edits.
+    exact: bool,
+    /// The edits since the overlays shown, or the answer waited for, were
+    /// asked: the version each made and the edit, `None` for a version
+    /// that changed no text.
+    edits: Vec<(u64, Option<org_edit::Transaction>)>,
+    /// The version the answer waited for is of, and the answer, which the
+    /// thread asking writes.
+    waiting: Option<(u64, Arc<Mutex<Waiting>>)>,
+    /// Counts the changes of the overlays shown: the views made with
+    /// others are made again ([`crate::mode_view::view_key`]).
+    revision: u64,
+}
+
+/// An answer waited for: what was asked, and the answer once it came.
+#[derive(Debug)]
+struct Waiting {
+    version: u64,
+    generation: u64,
+    path: Option<PathBuf>,
+    answer: Option<Outcome>,
+}
+
+/// Writes a thread's answer, or `Failed` for one that never came (a
+/// panic, a thread that did not start).
+struct Reply {
+    to: Arc<Mutex<Waiting>>,
+    sent: bool,
+}
+
+impl Reply {
+    fn send(mut self, answer: Outcome) {
+        self.to.lock().unwrap_or_else(|e| e.into_inner()).answer = Some(answer);
+        self.sent = true;
+    }
+}
+
+impl Drop for Reply {
+    fn drop(&mut self) {
+        if !self.sent {
+            self.to.lock().unwrap_or_else(|e| e.into_inner()).answer = Some(Outcome::Failed);
+        }
+    }
+}
+
+impl DocLayer {
+    /// The overlays to draw version `version` of `text` with, of a
+    /// document at `path` in mode `mode`. Asked of the layer when those
+    /// shown are not its answer for them and no answer is waited for: at
+    /// once of a provider asked as the editors draw, on a thread of the
+    /// plugins' (with the text `shared` gives); meanwhile those shown,
+    /// moved with the edits since.
+    pub fn overlays(
+        &mut self,
+        version: u64,
+        path: Option<&Path>,
+        mode: &str,
+        text: &crate::text::Text,
+        shared: impl FnOnce() -> Arc<str>,
+    ) -> Option<Arc<Overlays>> {
+        let generation = generation();
+        self.take();
+        if self.exact
+            && let Some(c) = &self.shown
+            && c.version == version
+            && c.generation == generation
+            && c.path.as_deref() == path
+        {
+            return c.overlays.clone();
+        }
+        if self.waiting.is_none() {
+            let Some(spec) = layer_for(path, mode) else {
+                self.show(version, generation, path, None);
+                return None;
+            };
+            let (provider, background) = {
+                let r = registry();
+                (r.provider.clone(), r.background)
+            };
+            let Some(provider) = provider else {
+                self.show(version, generation, path, None);
+                return None;
+            };
+            if background {
+                let w = Arc::new(Mutex::new(Waiting {
+                    version,
+                    generation,
+                    path: path.map(Path::to_path_buf),
+                    answer: None,
+                }));
+                self.waiting = Some((version, w.clone()));
+                let text = shared();
+                let path = path.map(Path::to_path_buf);
+                let reply = Reply { to: w, sent: false };
+                crate::extensions::behind(move || {
+                    reply.send(ask(&*provider, &spec, path.as_deref(), &text));
+                });
+            } else {
+                match ask(&*provider, &spec, path, text.as_str()) {
+                    Outcome::Done(o) => {
+                        self.show(version, generation, path, kept(o));
+                        return self.shown.as_ref().and_then(|c| c.overlays.clone());
+                    }
+                    Outcome::Failed => {
+                        self.show(version, generation, path, None);
+                        return None;
+                    }
+                    // Asked again at the next drawing.
+                    Outcome::Busy => {}
+                }
+            }
+        }
+        self.moved(version, path, text)
+    }
+
+    /// Takes in the answer waited for when it came; whether the overlays
+    /// shown changed.
+    pub fn take(&mut self) -> bool {
+        let Some((_, w)) = &self.waiting else {
+            return false;
+        };
+        let mut g = w.lock().unwrap_or_else(|e| e.into_inner());
+        let Some(answer) = g.answer.take() else {
+            return false;
+        };
+        let (version, generation, path) = (g.version, g.generation, g.path.take());
+        drop(g);
+        self.waiting = None;
+        let overlays = match answer {
+            Outcome::Done(o) => kept(o),
+            Outcome::Failed => None,
+            // Asked again at the next drawing.
+            Outcome::Busy => return false,
+        };
+        self.show(version, generation, path.as_deref(), overlays);
+        true
+    }
+
+    /// Whether an answer is waited for.
+    pub fn waiting(&self) -> bool {
+        self.waiting.is_some()
+    }
+
+    /// Counts the changes of the overlays shown.
+    pub fn revision(&self) -> u64 {
+        self.revision
+    }
+
+    /// Edit `tx` made version `version` of the text (`None`: a version
+    /// that changed no text): kept, to move the overlays shown or the
+    /// answer waited for with it.
+    pub fn edited(&mut self, version: u64, tx: Option<&org_edit::Transaction>) {
+        let shows = self.shown.as_ref().is_some_and(|c| c.overlays.is_some());
+        if shows || self.waiting.is_some() {
+            self.edits.push((version, tx.cloned()));
+        }
+    }
+
+    /// Shows the layer's answer for a version, generation and path.
+    fn show(
+        &mut self,
+        version: u64,
+        generation: u64,
+        path: Option<&Path>,
+        overlays: Option<Arc<Overlays>>,
+    ) {
+        let before = self.shown.as_ref().and_then(|c| c.overlays.as_ref());
+        if before.is_some() || overlays.is_some() {
+            self.revision += 1;
+        }
+        self.shown = Some(Cached {
+            version,
+            generation,
+            path: path.map(Path::to_path_buf),
+            overlays,
+        });
+        self.exact = true;
+        self.prune();
+    }
+
+    /// Those shown, moved with the edits since their version to version
+    /// `version` of `text`; none when they are of another path, or an
+    /// edit since is not known.
+    fn moved(
+        &mut self,
+        version: u64,
+        path: Option<&Path>,
+        text: &crate::text::Text,
+    ) -> Option<Arc<Overlays>> {
+        let c = self.shown.as_ref()?;
+        if c.path.as_deref() != path || c.version > version {
+            return None;
+        }
+        if c.version == version || c.overlays.is_none() {
+            return c.overlays.clone();
+        }
+        let from = self.edits.partition_point(|(v, _)| *v <= c.version);
+        let n = usize::try_from(version - c.version).unwrap_or(usize::MAX);
+        let edits = &self.edits[from..];
+        let known = edits.len() >= n
+            && edits[..n]
+                .iter()
+                .zip(c.version + 1..)
+                .all(|((v, _), want)| *v == want);
+        let overlays = if known {
+            c.overlays.as_deref().map(|o| {
+                let mut o = o.clone();
+                for tx in edits[..n].iter().filter_map(|(_, tx)| tx.as_ref()) {
+                    o.map(tx);
+                }
+                o.fit(text)
+            })
+        } else {
+            None
+        };
+        let overlays = overlays.and_then(kept);
+        let generation = c.generation;
+        self.show(version, generation, path, overlays);
+        self.exact = false;
+        self.shown.as_ref().and_then(|c| c.overlays.clone())
+    }
+
+    /// Lets go of the edits neither the overlays shown nor the answer
+    /// waited for need.
+    fn prune(&mut self) {
+        let shown = self.shown.as_ref().map_or(u64::MAX, |c| c.version);
+        let waiting = self.waiting.as_ref().map_or(u64::MAX, |w| w.0);
+        let keep = shown.min(waiting);
+        self.edits.retain(|(v, _)| *v > keep);
+    }
 }
 
 /// Whether the span `r` is shown as source: the cursor in it, as markers

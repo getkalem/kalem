@@ -629,82 +629,55 @@ pub fn install(extensions: Box<dyn Extensions>) {
         x.event(&Event::AppReady);
     }
     drop(installed);
-    // The layers' overlays are asked of the plugins while the editors
-    // draw: while a call of theirs runs, the drawing asks again later
-    // rather than wait.
-    crate::layers::set_provider(std::sync::Arc::new(
-        |spec: &crate::layers::LayerSpec, path: Option<&std::path::Path>, text: &str| {
-            match INSTALLED.try_lock() {
-                Ok(mut installed) => match installed.as_mut() {
-                    Some(x) => x.overlays(&spec.plugin, &spec.id, path, text),
-                    None => crate::layers::Outcome::Failed,
-                },
-                Err(std::sync::TryLockError::Poisoned(e)) => match e.into_inner().as_mut() {
-                    Some(x) => x.overlays(&spec.plugin, &spec.id, path, text),
-                    None => crate::layers::Outcome::Failed,
-                },
-                Err(std::sync::TryLockError::WouldBlock) => crate::layers::Outcome::Busy,
+    // The layers' overlays, the completers' items, the formatters' text
+    // and the outlines' headings are asked of the plugins on threads of
+    // their own, the editors drawing and taking keys meanwhile: each
+    // call waits for the plugins' lock.
+    let plugins = || INSTALLED.lock().unwrap_or_else(|e| e.into_inner());
+    crate::layers::set_background_provider(std::sync::Arc::new(
+        move |spec: &crate::layers::LayerSpec, path: Option<&std::path::Path>, text: &str| {
+            match plugins().as_mut() {
+                Some(x) => x.overlays(&spec.plugin, &spec.id, path, text),
+                None => crate::layers::Outcome::Failed,
             }
         },
     ));
-    // The plugins' completers are asked as the user types, on the
-    // editor's thread: while a call of theirs runs, they offer nothing.
-    crate::completers::plugins::set_provider(std::sync::Arc::new(
-        |spec: &crate::completers::plugins::PluginCompleterSpec,
-         ctx: &crate::completers::Context| {
-            match INSTALLED.try_lock() {
-                Ok(mut installed) => installed
-                    .as_mut()
-                    .map_or_else(Vec::new, |x| x.complete(spec, ctx)),
-                Err(std::sync::TryLockError::Poisoned(e)) => e
-                    .into_inner()
-                    .as_mut()
-                    .map_or_else(Vec::new, |x| x.complete(spec, ctx)),
-                Err(std::sync::TryLockError::WouldBlock) => Vec::new(),
+    crate::completers::plugins::set_background_provider(std::sync::Arc::new(
+        move |spec: &crate::completers::plugins::PluginCompleterSpec,
+              ctx: &crate::completers::Context,
+              cancel: &crate::completers::Cancel| {
+            let mut installed = plugins();
+            // A keystroke typed since asks anew.
+            if cancel.cancelled() {
+                return Vec::new();
             }
+            installed
+                .as_mut()
+                .map_or_else(Vec::new, |x| x.complete(spec, ctx))
         },
     ));
-    // The plugins' formatters are asked by Format Document and on save,
-    // on the editor's thread: while a call of theirs runs, they are busy.
-    crate::formatters::plugins::set_provider(std::sync::Arc::new(
-        |spec: &crate::formatters::plugins::PluginFormatterSpec,
-         path: Option<&std::path::Path>,
-         text: &str,
-         kind: &str| {
+    crate::formatters::plugins::set_background_provider(std::sync::Arc::new(
+        move |spec: &crate::formatters::plugins::PluginFormatterSpec,
+              path: Option<&std::path::Path>,
+              text: &str,
+              kind: &str| {
             use crate::formatters::plugins::Answer;
-            match INSTALLED.try_lock() {
-                Ok(mut installed) => installed.as_mut().map_or_else(
-                    || Answer::Failed(String::new()),
-                    |x| x.format(spec, path, text, kind),
-                ),
-                Err(std::sync::TryLockError::Poisoned(e)) => e.into_inner().as_mut().map_or_else(
-                    || Answer::Failed(String::new()),
-                    |x| x.format(spec, path, text, kind),
-                ),
-                Err(std::sync::TryLockError::WouldBlock) => Answer::Busy,
-            }
+            plugins().as_mut().map_or_else(
+                || Answer::Failed(String::new()),
+                |x| x.format(spec, path, text, kind),
+            )
         },
     ));
-    // The plugins' outlines are asked by the outline sidebars, on the
-    // editor's thread, once a version of a text: while a call of theirs
-    // runs, they are busy, and the last outline stays.
-    crate::outlines::set_provider(std::sync::Arc::new(
-        |spec: &crate::outlines::PluginOutlineSpec,
-         path: Option<&std::path::Path>,
-         text: &str,
-         kind: &str| {
+    crate::outlines::set_background_provider(std::sync::Arc::new(
+        move |spec: &crate::outlines::PluginOutlineSpec,
+              path: Option<&std::path::Path>,
+              text: &str,
+              kind: &str| {
             use crate::outlines::Answer;
-            match INSTALLED.try_lock() {
-                Ok(mut installed) => installed.as_mut().map_or_else(
-                    || Answer::Failed(String::new()),
-                    |x| x.outline(spec, path, text, kind),
-                ),
-                Err(std::sync::TryLockError::Poisoned(e)) => e.into_inner().as_mut().map_or_else(
-                    || Answer::Failed(String::new()),
-                    |x| x.outline(spec, path, text, kind),
-                ),
-                Err(std::sync::TryLockError::WouldBlock) => Answer::Busy,
-            }
+            plugins().as_mut().map_or_else(
+                || Answer::Failed(String::new()),
+                |x| x.outline(spec, path, text, kind),
+            )
         },
     ));
     // The plugins' languages are asked by Babel, on the editor's thread:
@@ -1821,14 +1794,47 @@ pub fn respond(id: u64, response: Result<HttpResponse, String>) {
     }
 }
 
-fn shown_changed() {
+pub(crate) fn shown_changed() {
     SHOWN.fetch_add(1, Ordering::Relaxed);
 }
 
-/// Changes each time the plugins' status bar items or panels change: the
-/// editors draw them again.
+/// Changes each time the plugins' status bar items or panels change, or a
+/// call of theirs made behind the editors ends ([`behind`]): the editors
+/// draw again.
 pub fn shown() -> u64 {
     SHOWN.load(Ordering::Relaxed)
+}
+
+/// The plugins' calls running behind the editors ([`behind`]).
+static BEHIND: AtomicUsize = AtomicUsize::new(0);
+
+/// Runs `work`, a call of a plugin's that the editors draw without
+/// waiting for (a layer's overlays, an outline's headings), on a thread
+/// of its own; when it ends, the editors draw again ([`shown`]).
+pub(crate) fn behind(work: impl FnOnce() + Send + 'static) {
+    struct Done;
+    impl Drop for Done {
+        fn drop(&mut self) {
+            BEHIND.fetch_sub(1, Ordering::SeqCst);
+            shown_changed();
+        }
+    }
+    BEHIND.fetch_add(1, Ordering::SeqCst);
+    let started = std::thread::Builder::new()
+        .name("kalem-plugin-call".into())
+        .spawn(move || {
+            let _done = Done;
+            work();
+        });
+    if started.is_err() {
+        BEHIND.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+/// Whether calls of the plugins are running behind the editors: the
+/// terminal editor looks for their answers sooner than at its idle pace.
+pub fn behind_running() -> bool {
+    BEHIND.load(Ordering::SeqCst) > 0
 }
 
 /// Queues `question`, asked as `request`, for the editors to show.
