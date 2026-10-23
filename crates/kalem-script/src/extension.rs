@@ -1709,6 +1709,10 @@ pub struct Extension {
     /// The `executor` interface, when the component exports it (API
     /// 0.2.21).
     executor: Option<executor::Guest>,
+    /// The time a call of its layers, completers, formatters and outlines
+    /// may take ([`Extension::with_draw_time`]); its other calls have the
+    /// limits'.
+    draw_time: std::time::Duration,
 }
 
 impl std::fmt::Debug for Extension {
@@ -1981,7 +1985,24 @@ impl Extension {
             outline,
             focus,
             executor,
+            draw_time: limits.time,
         })
+    }
+
+    /// The extension with `time` for each call of its layers, completers,
+    /// formatters and outlines, which the editors make as they draw and
+    /// as the user types, in place of the limits' time; the time the
+    /// limits give, at most. Its commands, events and executors keep the
+    /// limits'.
+    pub fn with_draw_time(mut self, time: std::time::Duration) -> Extension {
+        self.draw_time = time.min(self.draw_time);
+        self
+    }
+
+    /// The time a call of its layers, completers, formatters and outlines
+    /// may take.
+    pub fn draw_time(&self) -> std::time::Duration {
+        self.draw_time
     }
 
     /// Calls the plugin's `activate`: it registers its commands, keys and
@@ -2014,7 +2035,7 @@ impl Extension {
         if let Some(l) = &self.layer_5 {
             return self
                 .instance
-                .run(|s| l.call_overlays(s, id, path, text))
+                .run_within(self.draw_time, |s| l.call_overlays(s, id, path, text))
                 .map(Some);
         }
         self.overlays_4(id, path, text).map(|o| {
@@ -2042,13 +2063,17 @@ impl Extension {
         if let Some(l) = &self.layer_4 {
             return self
                 .instance
-                .run(|s| l.call_overlays(s, id, path.as_deref(), text))
+                .run_within(self.draw_time, |s| {
+                    l.call_overlays(s, id, path.as_deref(), text)
+                })
                 .map(Some);
         }
         if let Some(l) = &self.layer_3 {
             return self
                 .instance
-                .run(|s| l.call_overlays(s, id, path.as_deref(), text))
+                .run_within(self.draw_time, |s| {
+                    l.call_overlays(s, id, path.as_deref(), text)
+                })
                 .map(|o| {
                     let below = o
                         .below
@@ -2081,7 +2106,9 @@ impl Extension {
         if let Some(l) = &self.layer_2 {
             return self
                 .instance
-                .run(|s| l.call_overlays(s, id, path.as_deref(), text))
+                .run_within(self.draw_time, |s| {
+                    l.call_overlays(s, id, path.as_deref(), text)
+                })
                 .map(|o| {
                     Some(layer_4::OverlaySet {
                         spans: o.spans,
@@ -2109,7 +2136,9 @@ impl Extension {
             return Ok(None);
         };
         self.instance
-            .run(|s| l.call_overlays(s, id, path.as_deref(), text))
+            .run_within(self.draw_time, |s| {
+                l.call_overlays(s, id, path.as_deref(), text)
+            })
             .map(|o| {
                 Some(layer_4::OverlaySet {
                     spans: o.spans,
@@ -2135,7 +2164,7 @@ impl Extension {
             return Ok(None);
         };
         self.instance
-            .run(|s| c.call_complete(s, id, request))
+            .run_within(self.draw_time, |s| c.call_complete(s, id, request))
             .map(Some)
     }
 
@@ -2155,7 +2184,7 @@ impl Extension {
             return Ok(None);
         };
         self.instance
-            .run(|s| f.call_format(s, id, request))
+            .run_within(self.draw_time, |s| f.call_format(s, id, request))
             .map(Some)
     }
 
@@ -2175,7 +2204,7 @@ impl Extension {
             return Ok(None);
         };
         self.instance
-            .run(|s| o.call_outline(s, id, request))
+            .run_within(self.draw_time, |s| o.call_outline(s, id, request))
             .map(Some)
     }
 

@@ -1466,6 +1466,57 @@ fn a_layer_and_the_clock() {
     }
 }
 
+/// The time a call of a plugin's layers, completers, formatters and
+/// outlines may take, which the editors make as they draw and as the user
+/// types: shorter than its commands', never longer than its limits'. A
+/// layer that never answers is stopped at it, though the limits give a
+/// call ten seconds.
+#[test]
+fn a_layer_has_the_drawing_time() {
+    let Some(bytes) = common::component("layered") else {
+        return;
+    };
+    let host = Host::new(None).unwrap();
+    let plugin = host.load(&bytes).unwrap();
+    let new = |limits: Limits| {
+        Extension::new(
+            &host,
+            &plugin,
+            "layered",
+            Box::new(Fake::default()),
+            Grants::default(),
+            limits,
+        )
+        .unwrap()
+    };
+    let short = Duration::from_millis(50);
+    assert_eq!(
+        new(Limits::default())
+            .with_draw_time(Duration::from_secs(1))
+            .draw_time(),
+        Limits::default().time,
+        "never longer than the limits'"
+    );
+    let mut ext = new(Limits {
+        time: Duration::from_secs(10),
+        ..Limits::default()
+    })
+    .with_draw_time(short);
+    assert_eq!(ext.draw_time(), short);
+    ext.activate().unwrap().unwrap();
+    let start = std::time::Instant::now();
+    let out = ext.overlays("spin", Some("/g/a.md"), "- a\n");
+    assert!(
+        matches!(out, Err(Error::Timeout(t)) if t == short),
+        "{out:?}"
+    );
+    assert!(
+        start.elapsed() < Duration::from_secs(5),
+        "stopped at its own time, not the limits': {:?}",
+        start.elapsed()
+    );
+}
+
 /// A plugin exporting a completer (API 0.2.11): its items for a request,
 /// by the bytes of the document; a plugin without the export has none.
 #[test]

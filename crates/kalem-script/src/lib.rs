@@ -829,10 +829,25 @@ impl<T: Send + 'static> Instance<T> {
         &mut self,
         f: impl FnOnce(&mut Store<Data<T>>) -> wasmtime::Result<R>,
     ) -> Result<R> {
+        self.run_within(self.limits.time, f)
+    }
+
+    /// Runs `f` as [`Instance::run`] does, within `time` in place of the
+    /// budget: a call of a shorter class (a layer's overlays, asked as the
+    /// editors draw).
+    pub fn run_within<R>(
+        &mut self,
+        time: Duration,
+        f: impl FnOnce(&mut Store<Data<T>>) -> wasmtime::Result<R>,
+    ) -> Result<R> {
         let _call = CLOCK.call();
-        self.store.set_epoch_deadline(ticks(self.limits.time));
+        self.store.set_epoch_deadline(ticks(time));
         self.store.data_mut().diagnostics.panicked = None;
-        f(&mut self.store).map_err(|e| classify(e, &self.store, self.limits))
+        let limits = Limits {
+            time,
+            ..self.limits
+        };
+        f(&mut self.store).map_err(|e| classify(e, &self.store, limits))
     }
 
     /// The host's data.

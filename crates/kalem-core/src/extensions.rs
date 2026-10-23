@@ -455,6 +455,13 @@ impl Panel {
     }
 }
 
+/// The longest one call of a plugin's layers, completers, formatters and
+/// outlines may take, whatever its manifest asks (§11.6's synchronous
+/// budget): the editors make these calls as they draw and as the user
+/// types. The plugin's commands, events and executors keep the time its
+/// manifest asks.
+pub const DRAW_TIME: std::time::Duration = std::time::Duration::from_millis(100);
+
 static INSTALLED: Mutex<Option<Box<dyn Extensions>>> = Mutex::new(None);
 
 /// What the plugins registered.

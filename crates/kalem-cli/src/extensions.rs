@@ -702,6 +702,11 @@ struct Loaded {
     /// When it serves a file, for `onFile`.
     applies: kalem_core::applies::Applies,
     limits: Limits,
+    /// The time a call of its layers, completers, formatters and outlines
+    /// may take ([`manifest_limits`]).
+    draw_time: std::time::Duration,
+    /// What of its manifest's limits was cut, for the log when it starts.
+    cut: Option<String>,
     /// Running, once activated.
     extension: Option<Extension>,
     /// Stopped after a failure; not started again until Kalem restarts.
@@ -1223,6 +1228,7 @@ impl Loaded {
                     self.grants.clone(),
                     self.limits,
                 )
+                .map(|e| e.with_draw_time(self.draw_time))
             })
             .map_err(|e| e.to_string())
     }
@@ -1240,6 +1246,9 @@ impl Plugins {
     fn activate(&mut self, i: usize) {
         PLUGIN.with(|p| p.set(i as u64 + 1));
         let l = &mut self.list[i];
+        if let Some(cut) = &l.cut {
+            tracing::warn!(plugin = %l.full, "{cut}");
+        }
         // Built for a later plugin API: not started, as it would be refused
         // for an import this host lacks, which reads as a permission.
         let newer = kalem_script::api_newer(l.api.as_deref()).then(|| {
@@ -2031,15 +2040,7 @@ fn installed() -> Vec<Loaded> {
                 .into(),
             );
         }
-        let defaults = Limits::default();
-        let limits = Limits {
-            memory: m["limits"]["memory_mb"]
-                .as_u64()
-                .map_or(defaults.memory, |mb| (mb as usize) << 20),
-            time: m["limits"]["time_ms"]
-                .as_u64()
-                .map_or(defaults.time, std::time::Duration::from_millis),
-        };
+        let (limits, draw_time, cut) = manifest_limits(&m);
         let id = p.id.rsplit('.').next().unwrap_or(&p.id).to_string();
         list.push(Loaded {
             menus: manifest_menus(&id, &m),
@@ -2058,12 +2059,55 @@ fn installed() -> Vec<Loaded> {
             activation,
             applies,
             limits,
+            draw_time,
+            cut,
             extension: None,
             failed: false,
             gone: false,
         });
     }
     list
+}
+
+/// The most memory an extension plugin may have, whatever its manifest
+/// asks: one store holds it for every call of the plugin, those the
+/// editors make as they draw among them. A notes graph's index of a
+/// million blocks holds some 300 MB.
+const MEMORY_CEILING_MB: u64 = 1024;
+
+/// A manifest's `limits` (`memory_mb`, `time_ms`), Kalem's defaults where
+/// it gives none: the limits of the plugin's calls, the time of a call of
+/// its layers, completers, formatters and outlines, at most
+/// [`kalem_core::extensions::DRAW_TIME`] (they are made as the editors
+/// draw and as the user types), and what was cut of what it asked, for
+/// the log. Its memory is at most [`MEMORY_CEILING_MB`].
+fn manifest_limits(m: &serde_json::Value) -> (Limits, std::time::Duration, Option<String>) {
+    let defaults = Limits::default();
+    let mut cut = Vec::new();
+    let memory = match m["limits"]["memory_mb"].as_u64() {
+        Some(mb) if mb > MEMORY_CEILING_MB => {
+            cut.push(format!(
+                "its memory_mb of {mb} is cut to {MEMORY_CEILING_MB}"
+            ));
+            (MEMORY_CEILING_MB as usize) << 20
+        }
+        Some(mb) => (mb as usize) << 20,
+        None => defaults.memory,
+    };
+    let time = m["limits"]["time_ms"]
+        .as_u64()
+        .map_or(defaults.time, std::time::Duration::from_millis);
+    let draw = time.min(kalem_core::extensions::DRAW_TIME);
+    if draw < time {
+        cut.push(format!(
+            "its time_ms of {} is {} ms for a call of its layers, completers, formatters and \
+             outlines",
+            time.as_millis(),
+            draw.as_millis()
+        ));
+    }
+    let cut = (!cut.is_empty()).then(|| format!("The plugin's limits: {}", cut.join("; ")));
+    (Limits { memory, time }, draw, cut)
 }
 
 /// Loads the installed extension plugins on a thread, starts those that
@@ -2322,5 +2366,43 @@ mod tests {
             (Some(3), 5, true)
         );
         assert!(super::manifest_completers("graph", &serde_json::json!({})).is_empty());
+    }
+
+    #[test]
+    fn a_manifests_limits_are_cut_for_the_drawing() {
+        use std::time::Duration;
+        // A notes graph's: ten seconds for its commands, the drawing's
+        // time for its layers and completers; its memory as asked.
+        let m = serde_json::json!({"limits": {"memory_mb": 1024, "time_ms": 10000}});
+        let (limits, draw, cut) = super::manifest_limits(&m);
+        assert_eq!(limits.time, Duration::from_secs(10));
+        assert_eq!(limits.memory, 1024 << 20);
+        assert_eq!(draw, kalem_core::extensions::DRAW_TIME);
+        let cut = cut.expect("told in the log");
+        assert!(cut.contains("10000") && !cut.contains("memory"), "{cut}");
+        // More memory than any plugin may have.
+        let m = serde_json::json!({"limits": {"memory_mb": 4096}});
+        let (limits, draw, cut) = super::manifest_limits(&m);
+        assert_eq!(limits.memory, (super::MEMORY_CEILING_MB as usize) << 20);
+        assert_eq!(draw, kalem_script::Limits::default().time);
+        assert!(cut.is_some_and(|c| c.contains("4096")));
+        // Less than the drawing's: as asked, nothing cut.
+        let m = serde_json::json!({"limits": {"time_ms": 20}});
+        let (limits, draw, cut) = super::manifest_limits(&m);
+        assert_eq!(
+            (limits.time, draw),
+            (Duration::from_millis(20), Duration::from_millis(20))
+        );
+        assert!(cut.is_none());
+        // None: Kalem's defaults.
+        let (limits, draw, cut) = super::manifest_limits(&serde_json::json!({}));
+        assert_eq!(limits, kalem_script::Limits::default());
+        assert_eq!(
+            draw,
+            kalem_script::Limits::default()
+                .time
+                .min(kalem_core::extensions::DRAW_TIME)
+        );
+        assert!(cut.is_none());
     }
 }
