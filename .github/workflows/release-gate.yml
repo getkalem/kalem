@@ -1,0 +1,94 @@
+# A release is built only from a commit CI passed on (docs/releasing.md):
+# this job finds the runs of ci.yml on the tagged commit and stops the
+# release, saying why, unless one of them succeeded. A run still queued or
+# going is waited for, so a tag pushed early waits for CI rather than
+# failing. Called by the release workflow before its builds (dist's
+# `plan-jobs` in Cargo.toml) and by the terminal-only release before its
+# own; for an event that is not a tag (dist's pull request runs) it
+# checks nothing.
+name: Release gate
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "The release's tag (v0.1.0); the tag the workflow runs for when empty"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  ci-passed:
+    name: CI passed on the tagged commit
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      TAG_INPUT: ${{ inputs.tag }}
+      REF_TYPE: ${{ github.ref_type }}
+      REF_NAME: ${{ github.ref_name }}
+      # How long a CI run still going is waited for, and how long a run
+      # is looked for when there is none yet (a tag pushed with its
+      # commit), in seconds.
+      WAIT_RUNNING: "9000"
+      WAIT_MISSING: "600"
+    steps:
+      - name: Wait for CI on the tagged commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="$TAG_INPUT"
+          if [ -z "$tag" ]; then
+            if [ "$REF_TYPE" != tag ]; then
+              echo "Not a tag ($REF_NAME): no release is built, nothing to check."
+              exit 0
+            fi
+            tag="$REF_NAME"
+          fi
+
+          # The tag's commit (an annotated tag points to a tag object first).
+          object='.object.type + " " + .object.sha'
+          if ! found=$(gh api "repos/$REPO/git/ref/tags/$tag" --jq "$object"); then
+            echo "::error title=No such tag::$REPO has no tag $tag."
+            exit 1
+          fi
+          read -r type sha <<<"$found"
+          while [ "$type" = tag ]; do
+            read -r type sha <<<"$(gh api "repos/$REPO/git/tags/$sha" --jq "$object")"
+          done
+          echo "$tag is commit $sha"
+
+          while :; do
+            runs=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$sha&per_page=100" --jq '.workflow_runs')
+            passed=$(jq -r 'map(select(.conclusion == "success"))[0].html_url // empty' <<<"$runs")
+            if [ -n "$passed" ]; then
+              echo "CI passed on $sha: $passed"
+              exit 0
+            fi
+            going=$(jq -r 'map(select(.status != "completed") | .html_url) | join(" ")' <<<"$runs")
+            count=$(jq length <<<"$runs")
+            if [ -n "$going" ] && [ "$SECONDS" -lt "$WAIT_RUNNING" ]; then
+              echo "CI is still running on $sha ($going); waiting."
+            elif [ "$count" = 0 ] && [ "$SECONDS" -lt "$WAIT_MISSING" ]; then
+              echo "No CI run on $sha yet; waiting for one to start."
+            else
+              break
+            fi
+            sleep 60
+          done
+
+          if [ "$count" = 0 ]; then
+            echo "::error title=No CI run on the tagged commit::CI (ci.yml) never ran on $sha, the commit of $tag, so nothing is built. Push the commit to main and let CI pass there (or run it on the tag: gh workflow run ci.yml --ref $tag), then re-run this workflow's failed jobs."
+          elif [ -n "$going" ]; then
+            echo "::error title=CI still running::CI (ci.yml) on $sha, the commit of $tag, did not finish within $((WAIT_RUNNING / 60)) minutes ($going), so nothing is built. Re-run this workflow's failed jobs once it passed."
+          else
+            echo "CI's runs on $sha:"
+            jq -r '.[] | "  \(.conclusion) \(.event) \(.html_url)"' <<<"$runs"
+            echo "::error title=CI did not pass on the tagged commit::CI (ci.yml) did not pass on $sha, the commit of $tag, so nothing is built. Fix main and tag a commit CI passed on; a cancelled or flaky run is run again with gh run rerun RUN_ID, then this workflow's failed jobs are re-run."
+          fi
+          exit 1

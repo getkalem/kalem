@@ -21,11 +21,22 @@ on:
         description: "The release to attach the archives to (v0.1.0)"
         required: true
 
+# actions: read for the gate, which reads CI's runs.
 permissions:
   contents: write
+  actions: read
 
 jobs:
+  # Nothing is built unless CI passed on the tag's commit
+  # (release-gate.yml): called by the release workflow, that workflow's
+  # own gate passed already; run by hand, this one is the check.
+  gate:
+    uses: ./.github/workflows/release-gate.yml
+    with:
+      tag: ${{ inputs.tag }}
+
   build:
+    needs: gate
     strategy:
       fail-fast: false
       matrix:

@@ -11,6 +11,10 @@ Run it on macOS, on Linux (one X11 and one Wayland session) and on
 Windows. Note the platform, the version and anything that fails in the
 release issue.
 
+## Before the tag
+
+- [ ] CI (`ci.yml`) passed on the very commit to tag: `gh run list --workflow ci.yml --commit SHA`, and the run's conclusion is `success` (`gh run view RUN_ID --json conclusion`; `gh run watch` exits 0 on a cancelled run). The release workflow's gate (`release-gate.yml`) waits for that run and builds nothing unless it passed; when it stops, see `docs/releasing.md`, *A tag only after green CI*.
+
 ## Installing
 
 - [ ] On a clean machine of each platform (no Rust, no Kalem settings): the shell or PowerShell installer puts `kalem` in `~/.cargo/bin` and it runs; `kalem --version` says the release's version.
