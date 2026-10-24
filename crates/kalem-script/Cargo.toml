@@ -23,7 +23,7 @@ tracing = "0.1"
 rustc-demangle = "0.1"
 # A viewer's `clock.random` from the system's secure source: the xlsx
 # plugin draws an encrypted workbook's key from it.
-getrandom = "0.3"
+getrandom = "0.4"
 
 [dev-dependencies]
 # Test components are written in the component text format.
