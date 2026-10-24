@@ -45,7 +45,8 @@ paths, the linking note's folder first and then the shortest path),
 and every reference is resolved: links, tags, block references,
 embeds, the pages a property names. A graph of a million blocks is
 indexed in about two seconds, for which the plugin asks Kalem for a
-viewer's limits, 1 GB and 10 s a call.
+viewer's limits, 1 GB and 10 s a call; its layer and completers keep
+the drawing's 100 ms.
 
 * What it shows
 

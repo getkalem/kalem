@@ -377,6 +377,20 @@ Programmers (LSP and plugins)
   T3.1.11): the consent prompt on first use of `fs`, `net` and `process`,
   per-plugin limits, a plugin's panic or timeout reported and the plugin
   disabled without taking the editor down; `SECURITY.md`. M
+  - [x] The plugins' calls off the drawing path (the 2026-10-23
+    architecture review). S (done 2026-10-24: a call of a layer,
+    completer, formatter or outline gets `extensions::DRAW_TIME`, 100 ms,
+    at most whatever `limits.time_ms` gives the commands, an extension's
+    memory 1 GB, a cut written to the log; those calls run on threads
+    of their own, a document drawn with its layer's last overlays moved
+    with the edits until the answer comes, an outline kept until its
+    answer, a completer's items held back for one that replaces them,
+    Format Document waiting 200 ms; each plugin behind its own lock
+    (`extensions::Calls`), so a slow one leaves the others answering;
+    one copy of the text a version (`DocumentState::shared_text`);
+    tested in `plugin_layer_behind`, `plugin_calls` and
+    `manifest_limits`. Next: edits in place of the whole text in the
+    requests)
 - [~] R5.12 Language plugins (T3.8.5–T3.8.6e): Python, Rust, Go, C/C++,
   web and PHP as data-only plugins (manifest, syntax, server); the LSP
   client gains rename, code actions, signature help and a snippet engine

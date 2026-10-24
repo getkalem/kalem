@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- Plugins no longer hold up the drawing or one another. Their layers, completers, formatters and outlines are asked on threads of their own: until a layer answers, the document is drawn with the overlays it gave last, moved with the edits since, and the outline sidebar keeps what it shows; each plugin answers under a lock of its own, so a slow one leaves the others answering where they were all busy. Such a call takes 100 ms at most whatever the manifest's `limits.time_ms` gives the plugin's commands (the notes graph plugin's 10 s), an extension's memory is 1 GB at most, and a cut is written to the log. The text these calls read is one copy a version; sending the edits in place of the whole text is the next step.
+
 ## [0.6.47] - 2026-10-19
 
 ### Changed

@@ -94,6 +94,15 @@ the engine chosen by measurement ([[file:../part-4/decisions/D28-plugin-abi.org]
   a memory limit, 64 MB by default; a plugin asking for more gets an
   allocation failure, and Kalem tells the two apart from the plugin's
   own failures.
+- The calls the editors make as they draw and as the user types (a
+  layer's overlays, a completer's items, a formatter's text, an
+  outline's headings) get 100 ms at most, whatever the manifest's
+  =limits.time_ms= gives its commands; an extension's memory is 1 GB at
+  most, and a cut is written to the log. These calls run on threads of
+  their own, each plugin behind its own lock: the editor draws the
+  overlays a layer gave last, moved with the edits since, and draws
+  again when the answer comes, so a slow plugin never holds up the
+  drawing or another plugin.
 - A loaded plugin is shared by threads, each with an instance of its
   own, so parsers, renderers and completers run in parallel.
 - Plugins are built for =wasm32-unknown-unknown= and wrapped as
