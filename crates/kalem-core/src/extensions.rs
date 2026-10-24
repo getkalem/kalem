@@ -4,7 +4,10 @@
 //!
 //! The plugins run in `kalem-script`'s WebAssembly host, which the core
 //! does not depend on: the binary installs an [`Extensions`] over the host
-//! at start ([`install`]), as it registers viewers. A plugin's
+//! at start ([`install`]), as it registers viewers, and each plugin's
+//! [`Calls`] as it starts ([`set_calls`]): its layers, completers,
+//! formatters and outlines are asked from threads of their own under that
+//! plugin's lock alone. A plugin's
 //! registrations land here; the editors build their command registry and
 //! keymap with them (`CommandRegistry::with_builtins`, `Keymap::build`)
 //! and build them again when [`generation`] changes. A command a plugin
@@ -62,57 +65,6 @@ pub trait Extensions: Send {
     /// Hands how run `run` ended to the plugin that started it.
     fn process_done(&mut self, run: u64, result: Result<ProcessExit, String>);
 
-    /// The overlays plugin `plugin`'s layer `layer` gives a document of
-    /// `path` with `text` (`crate::layers`, API 0.2.10).
-    fn overlays(
-        &mut self,
-        _plugin: &str,
-        _layer: &str,
-        _path: Option<&std::path::Path>,
-        _text: &str,
-    ) -> crate::layers::Outcome {
-        crate::layers::Outcome::Failed
-    }
-
-    /// The items plugin `spec.plugin`'s completer `spec.id` gives at the
-    /// cursor of `ctx` (`crate::completers::plugins`, API 0.2.11).
-    fn complete(
-        &mut self,
-        _spec: &crate::completers::plugins::PluginCompleterSpec,
-        _ctx: &crate::completers::Context,
-    ) -> Vec<crate::completers::Item> {
-        Vec::new()
-    }
-
-    /// The text plugin `spec.plugin`'s formatter `spec.id` gives for
-    /// `text` of the file at `path`, of type `kind`
-    /// (`crate::formatters::plugins`, API 0.2.16).
-    fn format(
-        &mut self,
-        spec: &crate::formatters::plugins::PluginFormatterSpec,
-        _path: Option<&std::path::Path>,
-        _text: &str,
-        _kind: &str,
-    ) -> crate::formatters::plugins::Answer {
-        crate::formatters::plugins::Answer::Failed(crate::tr!(
-            "fmt-plugin-gone",
-            plugin = spec.plugin.as_str()
-        ))
-    }
-
-    /// The headings plugin `spec.plugin`'s outline `spec.id` gives for
-    /// `text` of the file at `path`, of type `kind` (`crate::outlines`,
-    /// API 0.2.18).
-    fn outline(
-        &mut self,
-        _spec: &crate::outlines::PluginOutlineSpec,
-        _path: Option<&std::path::Path>,
-        _text: &str,
-        _kind: &str,
-    ) -> crate::outlines::Answer {
-        crate::outlines::Answer::Failed(String::new())
-    }
-
     /// What plugin `spec.plugin`, whose language `spec.language` is, answers
     /// `call` (`crate::babel::plugins`, API 0.2.21).
     fn babel(
@@ -131,6 +83,78 @@ pub trait Extensions: Send {
     /// it would have been with the editors, and told of the documents
     /// open ([`open_documents`]).
     fn installed_changed(&mut self) {}
+}
+
+/// What the editors ask a running plugin from threads of their own: its
+/// layers' overlays, its completers' items, its formatters' text and its
+/// outlines' headings. Each plugin answers under a lock of its own, not
+/// the plugins' one ([`Extensions`]), so that a plugin whose call runs
+/// long keeps no other waiting: the host sets a plugin's calls when it
+/// starts and takes them back when it stops ([`set_calls`]).
+pub trait Calls: Send + Sync {
+    /// The overlays its layer `layer` gives a document of `path` with
+    /// `text` (`crate::layers`, API 0.2.10).
+    fn overlays(
+        &self,
+        layer: &str,
+        path: Option<&std::path::Path>,
+        text: &str,
+    ) -> crate::layers::Outcome;
+
+    /// The items its completer `spec.id` gives at the cursor of `ctx`
+    /// (`crate::completers::plugins`, API 0.2.11); none once `cancel` is.
+    fn complete(
+        &self,
+        spec: &crate::completers::plugins::PluginCompleterSpec,
+        ctx: &crate::completers::Context,
+        cancel: &crate::completers::Cancel,
+    ) -> Vec<crate::completers::Item>;
+
+    /// The text its formatter `spec.id` gives for `text` of the file at
+    /// `path`, of type `kind` (`crate::formatters::plugins`, API 0.2.16).
+    fn format(
+        &self,
+        spec: &crate::formatters::plugins::PluginFormatterSpec,
+        path: Option<&std::path::Path>,
+        text: &str,
+        kind: &str,
+    ) -> crate::formatters::plugins::Answer;
+
+    /// The headings its outline `spec.id` gives for `text` of the file at
+    /// `path`, of type `kind` (`crate::outlines`, API 0.2.18).
+    fn outline(
+        &self,
+        spec: &crate::outlines::PluginOutlineSpec,
+        path: Option<&std::path::Path>,
+        text: &str,
+        kind: &str,
+    ) -> crate::outlines::Answer;
+}
+
+/// The running plugins' calls, by their short IDs.
+static CALLS: Mutex<BTreeMap<String, std::sync::Arc<dyn Calls>>> = Mutex::new(BTreeMap::new());
+
+/// Sets what plugin `plugin` (its short ID) answers the editors' calls
+/// from their threads with ([`Calls`]), as it starts; `None` as it stops.
+pub fn set_calls(plugin: &str, calls: Option<std::sync::Arc<dyn Calls>>) {
+    let mut all = CALLS.lock().unwrap_or_else(|e| e.into_inner());
+    match calls {
+        Some(c) => {
+            all.insert(plugin.to_string(), c);
+        }
+        None => {
+            all.remove(plugin);
+        }
+    }
+}
+
+/// Plugin `plugin`'s calls, while it runs.
+fn calls(plugin: &str) -> Option<std::sync::Arc<dyn Calls>> {
+    CALLS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(plugin)
+        .cloned()
 }
 
 /// A document a plugin writes (`documents`, plugin API 0.2.5), as the
@@ -631,52 +655,44 @@ pub fn install(extensions: Box<dyn Extensions>) {
     drop(installed);
     // The layers' overlays, the completers' items, the formatters' text
     // and the outlines' headings are asked of the plugins on threads of
-    // their own, the editors drawing and taking keys meanwhile: each
-    // call waits for the plugins' lock.
-    let plugins = || INSTALLED.lock().unwrap_or_else(|e| e.into_inner());
+    // their own, the editors drawing and taking keys meanwhile: each call
+    // waits for its plugin's own lock, not the plugins' one ([`Calls`]).
     crate::layers::set_background_provider(std::sync::Arc::new(
-        move |spec: &crate::layers::LayerSpec, path: Option<&std::path::Path>, text: &str| {
-            match plugins().as_mut() {
-                Some(x) => x.overlays(&spec.plugin, &spec.id, path, text),
-                None => crate::layers::Outcome::Failed,
-            }
+        |spec: &crate::layers::LayerSpec, path: Option<&std::path::Path>, text: &str| match calls(
+            &spec.plugin,
+        ) {
+            Some(c) => c.overlays(&spec.id, path, text),
+            None => crate::layers::Outcome::Failed,
         },
     ));
     crate::completers::plugins::set_background_provider(std::sync::Arc::new(
-        move |spec: &crate::completers::plugins::PluginCompleterSpec,
-              ctx: &crate::completers::Context,
-              cancel: &crate::completers::Cancel| {
-            let mut installed = plugins();
-            // A keystroke typed since asks anew.
-            if cancel.cancelled() {
-                return Vec::new();
-            }
-            installed
-                .as_mut()
-                .map_or_else(Vec::new, |x| x.complete(spec, ctx))
+        |spec: &crate::completers::plugins::PluginCompleterSpec,
+         ctx: &crate::completers::Context,
+         cancel: &crate::completers::Cancel| {
+            calls(&spec.plugin).map_or_else(Vec::new, |c| c.complete(spec, ctx, cancel))
         },
     ));
     crate::formatters::plugins::set_background_provider(std::sync::Arc::new(
-        move |spec: &crate::formatters::plugins::PluginFormatterSpec,
-              path: Option<&std::path::Path>,
-              text: &str,
-              kind: &str| {
+        |spec: &crate::formatters::plugins::PluginFormatterSpec,
+         path: Option<&std::path::Path>,
+         text: &str,
+         kind: &str| {
             use crate::formatters::plugins::Answer;
-            plugins().as_mut().map_or_else(
-                || Answer::Failed(String::new()),
-                |x| x.format(spec, path, text, kind),
+            calls(&spec.plugin).map_or_else(
+                || Answer::Failed(crate::tr!("fmt-plugin-gone", plugin = spec.plugin.as_str())),
+                |c| c.format(spec, path, text, kind),
             )
         },
     ));
     crate::outlines::set_background_provider(std::sync::Arc::new(
-        move |spec: &crate::outlines::PluginOutlineSpec,
-              path: Option<&std::path::Path>,
-              text: &str,
-              kind: &str| {
+        |spec: &crate::outlines::PluginOutlineSpec,
+         path: Option<&std::path::Path>,
+         text: &str,
+         kind: &str| {
             use crate::outlines::Answer;
-            plugins().as_mut().map_or_else(
+            calls(&spec.plugin).map_or_else(
                 || Answer::Failed(String::new()),
-                |x| x.outline(spec, path, text, kind),
+                |c| c.outline(spec, path, text, kind),
             )
         },
     ));

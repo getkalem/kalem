@@ -707,8 +707,9 @@ struct Loaded {
     draw_time: std::time::Duration,
     /// What of its manifest's limits was cut, for the log when it starts.
     cut: Option<String>,
-    /// Running, once activated.
-    extension: Option<Extension>,
+    /// Running, once activated; kept once stopped by a failure on one of
+    /// the editors' threads ([`Running::fail`]), not started again.
+    extension: Option<Arc<Running>>,
     /// Stopped after a failure; not started again until Kalem restarts.
     failed: bool,
     /// Removed, or replaced by another version, while Kalem ran: stopped,
@@ -1234,6 +1235,210 @@ impl Loaded {
     }
 }
 
+/// A plugin started: its instance behind a lock of its own. Its commands
+/// and events reach it under the plugins' lock as well (`Plugins`); the
+/// editors' threads asking its layers, completers, formatters and
+/// outlines take this lock alone ([`kalem_core::extensions::Calls`]), so
+/// a slow plugin keeps no other waiting.
+struct Running {
+    /// Its short ID.
+    id: String,
+    /// Its place in the list, for [`binding_id`].
+    place: u64,
+    /// The instance; none once stopped.
+    extension: std::sync::Mutex<Option<Extension>>,
+    /// The kinds of events it subscribes to, as its last call left them:
+    /// an event it does not want waits not for its lock.
+    wants: std::sync::Mutex<Vec<x::EventKind>>,
+}
+
+impl Running {
+    fn new(id: &str, place: u64, extension: Extension) -> Running {
+        Running {
+            id: id.to_string(),
+            place,
+            wants: std::sync::Mutex::new(extension.subscribed()),
+            extension: std::sync::Mutex::new(Some(extension)),
+        }
+    }
+
+    /// Runs `f` on the instance under its lock; none once stopped.
+    fn with<R>(&self, f: impl FnOnce(&mut Extension) -> R) -> Option<R> {
+        PLUGIN.with(|p| p.set(self.place));
+        let mut held = self.extension.lock().unwrap_or_else(|e| e.into_inner());
+        let ext = held.as_mut()?;
+        let out = f(ext);
+        *self.wants.lock().unwrap_or_else(|e| e.into_inner()) = ext.subscribed();
+        Some(out)
+    }
+
+    /// Whether it subscribes to events of `kind`.
+    fn wants(&self, kind: x::EventKind) -> bool {
+        self.wants
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .contains(&kind)
+    }
+
+    /// Whether it still runs.
+    fn runs(&self) -> bool {
+        self.extension
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some()
+    }
+
+    /// Stops it, if it runs: what it registered is taken back.
+    fn stop(&self) {
+        let ext = self
+            .extension
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take();
+        let Some(mut ext) = ext else {
+            return;
+        };
+        PLUGIN.with(|p| p.set(self.place));
+        let _ = ext.deactivate();
+        self.wants.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        kalem_core::extensions::set_calls(&self.id, None);
+        kalem_core::extensions::close_plugin_documents(&self.id);
+        kalem_core::extensions::clear_gutter(&self.id, None);
+        kalem_core::extensions::clear_problems(&self.id, None);
+        kalem_core::extensions::remove_menus(&self.id);
+        kalem_core::extensions::remove_buttons(&self.id);
+        kalem_core::extensions::remove_later(&self.id);
+        kalem_core::layers::remove_plugin(&self.id);
+        kalem_core::completers::plugins::remove_plugin(&self.id);
+        kalem_core::formatters::plugins::remove_plugin(&self.id);
+        kalem_core::outlines::remove_plugin(&self.id);
+        kalem_core::babel::plugins::remove_plugin(&self.id);
+    }
+
+    /// Stops it after `error` in a call of the editors' threads, and tells
+    /// the user.
+    fn fail(&self, error: &kalem_script::Error) {
+        self.stop();
+        kalem_core::jobs::notice(format!("The plugin {} was stopped: {error}", self.id), true);
+    }
+}
+
+impl kalem_core::extensions::Calls for Running {
+    fn overlays(
+        &self,
+        layer: &str,
+        path: Option<&std::path::Path>,
+        text: &str,
+    ) -> kalem_core::layers::Outcome {
+        use kalem_core::layers::Outcome;
+        let path = path.map(|p| p.to_string_lossy().into_owned());
+        match self.with(|ext| ext.overlays(layer, path.as_deref(), text)) {
+            Some(Ok(Some(set))) => Outcome::Done(overlays(set)),
+            Some(Ok(None)) | None => Outcome::Failed,
+            Some(Err(e)) => {
+                self.fail(&e);
+                Outcome::Failed
+            }
+        }
+    }
+
+    fn complete(
+        &self,
+        spec: &kalem_core::completers::plugins::PluginCompleterSpec,
+        ctx: &kalem_core::completers::Context,
+        cancel: &kalem_core::completers::Cancel,
+    ) -> Vec<kalem_core::completers::Item> {
+        let request = completion_request(ctx);
+        // A keystroke typed while it waited for the lock asks anew.
+        let out = self.with(|ext| {
+            if cancel.cancelled() {
+                return Ok(None);
+            }
+            ext.complete(&spec.id, &request)
+        });
+        match out {
+            Some(Ok(Some(items))) => items
+                .into_iter()
+                .map(|it| completion_item(it, ctx.point))
+                .collect(),
+            Some(Ok(None)) | None => Vec::new(),
+            Some(Err(e)) => {
+                self.fail(&e);
+                Vec::new()
+            }
+        }
+    }
+
+    fn format(
+        &self,
+        spec: &kalem_core::formatters::plugins::PluginFormatterSpec,
+        path: Option<&std::path::Path>,
+        text: &str,
+        kind: &str,
+    ) -> kalem_core::formatters::plugins::Answer {
+        use kalem_core::formatters::plugins::Answer;
+        let gone = || {
+            Answer::Failed(kalem_core::tr!(
+                "fmt-plugin-gone",
+                plugin = spec.plugin.as_str()
+            ))
+        };
+        let request = x::formatter::Request {
+            path: path.map(|p| p.to_string_lossy().into_owned()),
+            text: text.to_string(),
+            text_type: kind.to_string(),
+        };
+        match self.with(|ext| ext.format(&spec.id, &request)) {
+            Some(Ok(Some(Ok(t)))) => Answer::Text(t),
+            Some(Ok(Some(Err(r)))) => Answer::Refused {
+                message: r.message,
+                at: r.at.map(|a| a as usize),
+            },
+            Some(Ok(None)) | None => gone(),
+            Some(Err(e)) => {
+                let why = e.to_string();
+                self.fail(&e);
+                Answer::Failed(why)
+            }
+        }
+    }
+
+    fn outline(
+        &self,
+        spec: &kalem_core::outlines::PluginOutlineSpec,
+        path: Option<&std::path::Path>,
+        text: &str,
+        kind: &str,
+    ) -> kalem_core::outlines::Answer {
+        use kalem_core::outlines::Answer;
+        let request = x::outline::Request {
+            path: path.map(|p| p.to_string_lossy().into_owned()),
+            text: text.to_string(),
+            text_type: kind.to_string(),
+        };
+        match self.with(|ext| ext.outline(&spec.id, &request)) {
+            Some(Ok(Some(headings))) => Answer::Headings(
+                headings
+                    .into_iter()
+                    .map(|h| kalem_core::view::OutlineItem {
+                        level: (h.level as usize).max(1),
+                        todo: None,
+                        title: h.title,
+                        start: usize::try_from(h.start).unwrap_or(usize::MAX),
+                        file: None,
+                    })
+                    .collect(),
+            ),
+            Some(Ok(None)) | None => Answer::Failed(String::new()),
+            Some(Err(e)) => {
+                let why = e.to_string();
+                self.fail(&e);
+                Answer::Failed(why)
+            }
+        }
+    }
+}
+
 /// The installed extension plugins.
 struct Plugins {
     host: Arc<Host>,
@@ -1277,34 +1482,43 @@ impl Plugins {
         });
         match started {
             Ok(ext) => {
-                l.extension = Some(ext);
+                let has = (
+                    ext.has_layers(),
+                    ext.has_completers(),
+                    ext.has_formatters(),
+                    ext.has_outlines(),
+                    ext.has_executors(),
+                );
+                let running = Arc::new(Running::new(&l.id, i as u64 + 1, ext));
+                kalem_core::extensions::set_calls(&l.id, Some(running.clone()));
+                l.extension = Some(running);
                 for m in l.menus.clone() {
                     kalem_core::extensions::add_menu(m);
                 }
                 for b in l.buttons.clone() {
                     kalem_core::extensions::add_button(b);
                 }
-                if l.extension.as_ref().is_some_and(Extension::has_layers) {
+                if has.0 {
                     for layer in l.layers.clone() {
                         kalem_core::layers::register(layer);
                     }
                 }
-                if l.extension.as_ref().is_some_and(Extension::has_completers) {
+                if has.1 {
                     for c in l.completers.clone() {
                         kalem_core::completers::plugins::register(c);
                     }
                 }
-                if l.extension.as_ref().is_some_and(Extension::has_formatters) {
+                if has.2 {
                     for f in l.formatters.clone() {
                         kalem_core::formatters::plugins::register(f);
                     }
                 }
-                if l.extension.as_ref().is_some_and(Extension::has_outlines) {
+                if has.3 {
                     for o in l.outlines.clone() {
                         kalem_core::outlines::register(o);
                     }
                 }
-                if l.extension.as_ref().is_some_and(Extension::has_executors) {
+                if has.4 {
                     for e in l.executors.clone() {
                         kalem_core::babel::plugins::register(e);
                     }
@@ -1327,23 +1541,9 @@ impl Plugins {
 
     /// Stops plugin `i`, if it runs: what it registered is taken back.
     fn stop(&mut self, i: usize) {
-        PLUGIN.with(|p| p.set(i as u64 + 1));
-        let l = &mut self.list[i];
-        let Some(mut ext) = l.extension.take() else {
-            return;
-        };
-        let _ = ext.deactivate();
-        kalem_core::extensions::close_plugin_documents(&l.id);
-        kalem_core::extensions::clear_gutter(&l.id, None);
-        kalem_core::extensions::clear_problems(&l.id, None);
-        kalem_core::extensions::remove_menus(&l.id);
-        kalem_core::extensions::remove_buttons(&l.id);
-        kalem_core::extensions::remove_later(&l.id);
-        kalem_core::layers::remove_plugin(&l.id);
-        kalem_core::completers::plugins::remove_plugin(&l.id);
-        kalem_core::formatters::plugins::remove_plugin(&l.id);
-        kalem_core::outlines::remove_plugin(&l.id);
-        kalem_core::babel::plugins::remove_plugin(&l.id);
+        if let Some(running) = self.list[i].extension.take() {
+            running.stop();
+        }
     }
 
     /// Tells plugin `i`, started while Kalem runs, what it would have
@@ -1365,17 +1565,16 @@ impl Plugins {
                 self.focused(i, doc.0, path.as_deref());
                 continue;
             }
-            PLUGIN.with(|p| p.set(i as u64 + 1));
-            let Some(ext) = self.list[i].extension.as_mut() else {
+            let Some(running) = self.list[i].extension.clone() else {
                 return;
             };
             let Some(wit) = to_wit(&event) else {
                 continue;
             };
-            if !ext.wants(x::kind(&wit)) {
+            if !running.wants(x::kind(&wit)) {
                 continue;
             }
-            if let Err(e) = ext.event(&wit) {
+            if let Some(Err(e)) = running.with(|ext| ext.event(&wit)) {
                 self.fail(i, &e);
                 return;
             }
@@ -1385,12 +1584,11 @@ impl Plugins {
     /// Tells plugin `i` that document `doc`, of `path`, got the focus,
     /// when it exports `focus` (API 0.2.18).
     fn focused(&mut self, i: usize, doc: u64, path: Option<&std::path::Path>) {
-        PLUGIN.with(|p| p.set(i as u64 + 1));
-        let Some(ext) = self.list[i].extension.as_mut() else {
+        let Some(running) = self.list[i].extension.clone() else {
             return;
         };
         let path = path.map(|p| p.to_string_lossy());
-        if let Err(e) = ext.focused(doc, path.as_deref()) {
+        if let Some(Err(e)) = running.with(|ext| ext.focused(doc, path.as_deref())) {
             self.fail(i, &e);
         }
     }
@@ -1439,126 +1637,6 @@ impl kalem_core::extensions::Extensions for Plugins {
         }
     }
 
-    fn complete(
-        &mut self,
-        spec: &kalem_core::completers::plugins::PluginCompleterSpec,
-        ctx: &kalem_core::completers::Context,
-    ) -> Vec<kalem_core::completers::Item> {
-        let Some(i) = self
-            .list
-            .iter()
-            .position(|l| l.id == spec.plugin && l.extension.is_some())
-        else {
-            return Vec::new();
-        };
-        PLUGIN.with(|p| p.set(i as u64 + 1));
-        let Some(ext) = self.list[i].extension.as_mut() else {
-            return Vec::new();
-        };
-        match ext.complete(&spec.id, &completion_request(ctx)) {
-            Ok(Some(items)) => items
-                .into_iter()
-                .map(|it| completion_item(it, ctx.point))
-                .collect(),
-            Ok(None) => Vec::new(),
-            Err(e) => {
-                self.fail(i, &e);
-                Vec::new()
-            }
-        }
-    }
-
-    fn format(
-        &mut self,
-        spec: &kalem_core::formatters::plugins::PluginFormatterSpec,
-        path: Option<&std::path::Path>,
-        text: &str,
-        kind: &str,
-    ) -> kalem_core::formatters::plugins::Answer {
-        use kalem_core::formatters::plugins::Answer;
-        let gone = || {
-            Answer::Failed(kalem_core::tr!(
-                "fmt-plugin-gone",
-                plugin = spec.plugin.as_str()
-            ))
-        };
-        let Some(i) = self
-            .list
-            .iter()
-            .position(|l| l.id == spec.plugin && l.extension.is_some())
-        else {
-            return gone();
-        };
-        PLUGIN.with(|p| p.set(i as u64 + 1));
-        let Some(ext) = self.list[i].extension.as_mut() else {
-            return gone();
-        };
-        let request = x::formatter::Request {
-            path: path.map(|p| p.to_string_lossy().into_owned()),
-            text: text.to_string(),
-            text_type: kind.to_string(),
-        };
-        match ext.format(&spec.id, &request) {
-            Ok(Some(Ok(t))) => Answer::Text(t),
-            Ok(Some(Err(r))) => Answer::Refused {
-                message: r.message,
-                at: r.at.map(|a| a as usize),
-            },
-            Ok(None) => gone(),
-            Err(e) => {
-                let why = e.to_string();
-                self.fail(i, &e);
-                Answer::Failed(why)
-            }
-        }
-    }
-
-    fn outline(
-        &mut self,
-        spec: &kalem_core::outlines::PluginOutlineSpec,
-        path: Option<&std::path::Path>,
-        text: &str,
-        kind: &str,
-    ) -> kalem_core::outlines::Answer {
-        use kalem_core::outlines::Answer;
-        let Some(i) = self
-            .list
-            .iter()
-            .position(|l| l.id == spec.plugin && l.extension.is_some())
-        else {
-            return Answer::Failed(String::new());
-        };
-        PLUGIN.with(|p| p.set(i as u64 + 1));
-        let Some(ext) = self.list[i].extension.as_mut() else {
-            return Answer::Failed(String::new());
-        };
-        let request = x::outline::Request {
-            path: path.map(|p| p.to_string_lossy().into_owned()),
-            text: text.to_string(),
-            text_type: kind.to_string(),
-        };
-        match ext.outline(&spec.id, &request) {
-            Ok(Some(headings)) => Answer::Headings(
-                headings
-                    .into_iter()
-                    .map(|h| kalem_core::view::OutlineItem {
-                        level: (h.level as usize).max(1),
-                        todo: None,
-                        title: h.title,
-                        start: usize::try_from(h.start).unwrap_or(usize::MAX),
-                        file: None,
-                    })
-                    .collect(),
-            ),
-            Ok(None) => Answer::Failed(String::new()),
-            Err(e) => {
-                let why = e.to_string();
-                self.fail(i, &e);
-                Answer::Failed(why)
-            }
-        }
-    }
-
     fn babel(
         &mut self,
         spec: &kalem_core::babel::plugins::PluginExecutorSpec,
@@ -1578,7 +1656,6 @@ impl kalem_core::extensions::Extensions for Plugins {
         else {
             return gone();
         };
-        PLUGIN.with(|p| p.set(i as u64 + 1));
         let block = match call {
             Call::Prepare(b) | Call::Finish(b, _, _) => b,
         };
@@ -1598,11 +1675,11 @@ impl kalem_core::extensions::Extensions for Plugins {
                 .map(|p| p.to_string_lossy().into_owned()),
             dir: block.dir.to_string_lossy().into_owned(),
         };
-        let l = &mut self.list[i];
-        let Some(ext) = l.extension.as_mut() else {
+        let l = &self.list[i];
+        let Some(running) = l.extension.clone() else {
             return gone();
         };
-        let answer = match call {
+        let Some(answer) = running.with(|ext| match call {
             Call::Prepare(_) => ext.prepare_block(&request).map(|r| {
                 r.map(|r| match r {
                     Ok(x::executor::Step::Done(v)) => {
@@ -1645,6 +1722,8 @@ impl kalem_core::extensions::Extensions for Plugins {
                     })
                 })
             }
+        }) else {
+            return gone();
         };
         match answer {
             Ok(Some(a)) => a,
@@ -1657,49 +1736,22 @@ impl kalem_core::extensions::Extensions for Plugins {
         }
     }
 
-    fn overlays(
-        &mut self,
-        plugin: &str,
-        layer: &str,
-        path: Option<&std::path::Path>,
-        text: &str,
-    ) -> kalem_core::layers::Outcome {
-        use kalem_core::layers::Outcome;
-        let Some(i) = self
-            .list
-            .iter()
-            .position(|l| l.id == plugin && l.extension.is_some())
-        else {
-            return Outcome::Failed;
-        };
-        PLUGIN.with(|p| p.set(i as u64 + 1));
-        let path = path.map(|p| p.to_string_lossy().into_owned());
-        let Some(ext) = self.list[i].extension.as_mut() else {
-            return Outcome::Failed;
-        };
-        match ext.overlays(layer, path.as_deref(), text) {
-            Ok(Some(set)) => Outcome::Done(overlays(set)),
-            Ok(None) => Outcome::Failed,
-            Err(e) => {
-                self.fail(i, &e);
-                Outcome::Failed
-            }
-        }
-    }
-
     fn run(&mut self, id: &str, args: &str) -> Result<(), String> {
         let Some(i) = self.list.iter().position(|l| {
             l.extension
                 .as_ref()
-                .is_some_and(|e| e.commands().contains(id))
+                .and_then(|r| r.with(|e| e.commands().contains(id)))
+                .unwrap_or(false)
         }) else {
             return Err(format!("No plugin runs `{id}`"));
         };
-        PLUGIN.with(|p| p.set(i as u64 + 1));
-        let Some(ext) = self.list[i].extension.as_mut() else {
+        let Some(running) = self.list[i].extension.clone() else {
             return Err(format!("No plugin runs `{id}`"));
         };
-        match ext.run_command(id, args) {
+        let Some(out) = running.with(|ext| ext.run_command(id, args)) else {
+            return Err(format!("No plugin runs `{id}`"));
+        };
+        match out {
             Ok(Ok(_)) => Ok(()),
             Ok(Err(e)) => Err(e),
             Err(e) => {
@@ -1747,14 +1799,16 @@ impl kalem_core::extensions::Extensions for Plugins {
         let kind = x::kind(&wit);
         let mut veto = None;
         for i in 0..self.list.len() {
-            let Some(ext) = self.list[i].extension.as_mut() else {
+            let Some(running) = self.list[i].extension.clone() else {
                 continue;
             };
-            if !ext.wants(kind) {
+            if !running.wants(kind) {
                 continue;
             }
-            PLUGIN.with(|p| p.set(i as u64 + 1));
-            match ext.event(&wit) {
+            let Some(out) = running.with(|ext| ext.event(&wit)) else {
+                continue;
+            };
+            match out {
                 Ok(x::Reply::Veto(why)) if veto.is_none() && event.kind().vetoable() => {
                     veto = Some(why);
                 }
@@ -1774,11 +1828,13 @@ impl kalem_core::extensions::Extensions for Plugins {
         };
         // The plugin that asked it is the one that takes it.
         for i in 0..self.list.len() {
-            PLUGIN.with(|p| p.set(i as u64 + 1));
-            let Some(ext) = self.list[i].extension.as_mut() else {
+            let Some(running) = self.list[i].extension.clone() else {
                 continue;
             };
-            match ext.answer(request, answer.clone()) {
+            let Some(out) = running.with(|ext| ext.answer(request, answer.clone())) else {
+                continue;
+            };
+            match out {
                 Ok(true) => return,
                 Ok(false) => {}
                 Err(e) => return self.fail(i, &e),
@@ -1788,25 +1844,30 @@ impl kalem_core::extensions::Extensions for Plugins {
 
     fn settings_changed(&mut self, keys: &[String]) {
         for i in 0..self.list.len() {
-            PLUGIN.with(|p| p.set(i as u64 + 1));
             let table = format!("plugins.{}", self.list[i].full);
-            let Some(ext) = self.list[i].extension.as_mut() else {
+            let Some(running) = self.list[i].extension.clone() else {
                 continue;
             };
-            for (key, own) in ext.watches() {
-                let full = if own {
-                    format!("{table}.{key}")
-                } else {
-                    key.clone()
-                };
-                // The key, or a table holding it that came or went whole.
-                let changed = keys
-                    .iter()
-                    .any(|k| full == *k || full.starts_with(&format!("{k}.")));
-                if changed && let Err(e) = ext.setting_changed(&key, own) {
-                    self.fail(i, &e);
-                    break;
+            let failed = running.with(|ext| {
+                for (key, own) in ext.watches() {
+                    let full = if own {
+                        format!("{table}.{key}")
+                    } else {
+                        key.clone()
+                    };
+                    // The key, or a table holding it that came or went
+                    // whole.
+                    let changed = keys
+                        .iter()
+                        .any(|k| full == *k || full.starts_with(&format!("{k}.")));
+                    if changed && let Err(e) = ext.setting_changed(&key, own) {
+                        return Some(e);
+                    }
                 }
+                None
+            });
+            if let Some(Some(e)) = failed {
+                self.fail(i, &e);
             }
         }
     }
@@ -1822,11 +1883,13 @@ impl kalem_core::extensions::Extensions for Plugins {
             body: r.body,
         });
         for i in 0..self.list.len() {
-            PLUGIN.with(|p| p.set(i as u64 + 1));
-            let Some(ext) = self.list[i].extension.as_mut() else {
+            let Some(running) = self.list[i].extension.clone() else {
                 continue;
             };
-            match ext.respond(id, response.clone()) {
+            let Some(out) = running.with(|ext| ext.respond(id, response.clone())) else {
+                continue;
+            };
+            match out {
                 Ok(true) => return,
                 Ok(false) => {}
                 Err(e) => return self.fail(i, &e),
@@ -1846,11 +1909,13 @@ impl kalem_core::extensions::Extensions for Plugins {
             truncated: r.truncated,
         });
         for i in 0..self.list.len() {
-            PLUGIN.with(|p| p.set(i as u64 + 1));
-            let Some(ext) = self.list[i].extension.as_mut() else {
+            let Some(running) = self.list[i].extension.clone() else {
                 continue;
             };
-            match ext.process_done(run, result.clone()) {
+            let Some(out) = running.with(|ext| ext.process_done(run, result.clone())) else {
+                continue;
+            };
+            match out {
                 Ok(true) => return,
                 Ok(false) => {}
                 Err(e) => return self.fail(i, &e),
@@ -1868,11 +1933,13 @@ impl kalem_core::extensions::Extensions for Plugins {
             E::Expanded(b) => x::PanelEvent::Expanded(*b),
         };
         for i in 0..self.list.len() {
-            PLUGIN.with(|p| p.set(i as u64 + 1));
-            let Some(ext) = self.list[i].extension.as_mut() else {
+            let Some(running) = self.list[i].extension.clone() else {
                 continue;
             };
-            match ext.panel_event(panel, key, &event) {
+            let Some(out) = running.with(|ext| ext.panel_event(panel, key, &event)) else {
+                continue;
+            };
+            match out {
                 Ok(true) => return,
                 Ok(false) => {}
                 Err(e) => return self.fail(i, &e),
@@ -2206,7 +2273,7 @@ pub(crate) fn load_one(name: &str) -> Result<String, String> {
     let host = Arc::new(Host::new(cache()).map_err(|e| format!("Plugins cannot run: {e}"))?);
     let mut plugins = Plugins { host, list };
     plugins.activate(0);
-    if plugins.list[0].extension.is_none() {
+    if !plugins.list[0].extension.as_ref().is_some_and(|r| r.runs()) {
         let why = kalem_core::jobs::take_notices()
             .into_iter()
             .map(|(t, _)| t)

@@ -2293,6 +2293,19 @@ impl Extension {
             .any(|w| *w == What::Subscription(kind))
     }
 
+    /// The kinds of events the plugin subscribed to, each once.
+    pub fn subscribed(&self) -> Vec<EventKind> {
+        let mut kinds: Vec<EventKind> = Vec::new();
+        for w in self.instance.data().registered.values() {
+            if let What::Subscription(k) = w
+                && !kinds.contains(k)
+            {
+                kinds.push(*k);
+            }
+        }
+        kinds
+    }
+
     /// Hands `event` to each of the plugin's subscriptions to its kind, in
     /// the order they were made; the first veto is the answer.
     pub fn event(&mut self, event: &Event) -> crate::Result<Reply> {
