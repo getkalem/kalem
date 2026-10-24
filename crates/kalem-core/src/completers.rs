@@ -491,7 +491,12 @@ pub fn context(doc: &DocumentState, requested: bool) -> Context {
         b += 1;
     }
     Context {
-        text: Arc::from(&text[a..b]),
+        // The whole text shares the copy of its version.
+        text: if (a, b) == (0, text.len()) {
+            doc.shared_text()
+        } else {
+            Arc::from(&text[a..b])
+        },
         base: a,
         point,
         mode: doc.meta.mode.clone(),

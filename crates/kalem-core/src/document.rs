@@ -397,6 +397,9 @@ pub struct DocumentState {
     /// The overlays of the layer serving it (`crate::layers`): as last
     /// given, moved with the edits since, and the answer waited for.
     layer: std::cell::RefCell<crate::layers::DocLayer>,
+    /// The text of a version as the plugins' calls on other threads share
+    /// it ([`DocumentState::shared_text`]): copied once a version.
+    shared: std::cell::RefCell<Option<(u64, std::sync::Arc<str>)>>,
     /// A CSV document's filter (view state): only the rows with a field
     /// holding this text show (`crate::csv::filtered`).
     pub csv_filter: Option<String>,
@@ -644,6 +647,7 @@ impl DocumentState {
             vcs: std::cell::RefCell::new(None),
             folder_layer: std::cell::RefCell::new(None),
             layer: std::cell::RefCell::default(),
+            shared: std::cell::RefCell::new(None),
             csv_filter: None,
             csv_filter_column: None,
             csv_frozen: std::cell::RefCell::new(None),
@@ -1872,8 +1876,23 @@ impl DocumentState {
             self.meta.path.as_deref(),
             self.meta.mode.name(),
             &self.text,
-            || std::sync::Arc::from(self.text.as_str()),
+            || self.shared_text(),
         )
+    }
+
+    /// The text as it is, for work on other threads (a layer's overlays,
+    /// an outline's headings, a completer's or formatter's call): one copy
+    /// a version, which every call of that version shares.
+    pub fn shared_text(&self) -> std::sync::Arc<str> {
+        let mut shared = self.shared.borrow_mut();
+        match &*shared {
+            Some((v, t)) if *v == self.version => t.clone(),
+            _ => {
+                let t: std::sync::Arc<str> = std::sync::Arc::from(self.text.as_str());
+                *shared = Some((self.version, t.clone()));
+                t
+            }
+        }
     }
 
     /// Whether the layer serving this document is being asked for its
@@ -3050,6 +3069,7 @@ impl DocumentState {
         self.version += 1;
         let version = self.version;
         self.layer.get_mut().edited(version, Some(tx));
+        *self.shared.get_mut() = None;
         let text = self.text.as_str();
         if let Some(l) = &mut self.latex {
             l.edit(text, edit.as_ref());
@@ -3695,6 +3715,26 @@ impl DocumentState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_text_is_shared_once_a_version() {
+        let mut d = org("* one\n");
+        let a = d.shared_text();
+        // The plugins' calls of a version share one copy: a layer's, an
+        // outline's, a completer's.
+        assert!(std::sync::Arc::ptr_eq(&a, &d.shared_text()));
+        assert!(std::sync::Arc::ptr_eq(
+            &a,
+            &crate::completers::context(&d, true).text
+        ));
+        let mut tx = Transaction::new("type");
+        tx.replace(5..5, "s").unwrap();
+        d.apply(&tx, ChangeKind::Typing, Instant::now());
+        let b = d.shared_text();
+        assert_eq!(&*b, "* ones\n");
+        assert_eq!(&*a, "* one\n", "a copy taken stays as it was");
+        assert!(!std::sync::Arc::ptr_eq(&a, &b));
+    }
 
     #[test]
     fn paste_preserves_external_line_breaks_and_undo() {

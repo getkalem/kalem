@@ -132,7 +132,7 @@ pub fn format(spec: &PluginFormatterSpec, doc: &DocumentState) -> Answer {
     let (send, answer) = std::sync::mpsc::channel();
     let spec_name = spec.plugin.clone();
     let (spec, path) = (spec.clone(), doc.meta.path.clone());
-    let text: Arc<str> = Arc::from(doc.text().as_str());
+    let text = doc.shared_text();
     let asked = std::thread::Builder::new()
         .name("kalem-plugin-format".into())
         .spawn(move || {

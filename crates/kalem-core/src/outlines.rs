@@ -143,7 +143,7 @@ pub fn outline_items(doc: &DocumentState) -> Option<Vec<OutlineItem>> {
         let path = path?;
         if !r.asking.contains_key(&path) {
             r.asking.insert(path.clone(), now);
-            let text: Arc<str> = Arc::from(text);
+            let text = doc.shared_text();
             crate::extensions::behind(move || {
                 let answer = provider(&spec, Some(&path), &text, &kind);
                 let mut r = registry();
