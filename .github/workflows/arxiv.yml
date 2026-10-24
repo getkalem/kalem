@@ -136,7 +136,7 @@ jobs:
           python3 tools/arxiv-licences.py .cache/arxiv > licences.tsv
           grep -E 'creativecommons.org/(licenses/by/|licenses/by-sa/|publicdomain/zero/)' licences.tsv | tee free.tsv
           { echo; echo '## Papers that may be committed'; echo; echo '```'; cat free.tsv; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: arxiv-coverage
           path: |
