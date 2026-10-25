@@ -15,12 +15,24 @@ Kalem (Turkish for "pen") shows a file the way it reads and never touches what y
 > [!IMPORTANT]
 > **Please update now and then.** Kalem is under heavy development, and new releases with fixes come out often. Run the [install command](#install) again to get the latest Kalem; in the editor, *Browse Plugins* offers an update for each plugin that has a newer release.
 
+## Quick start
+
+Once Kalem is [installed](#install), one command opens it in a window or in the terminal:
+
+```bash
+kalem notes.md        # the editor, in a window
+kalem tui notes.md    # the same editor in the terminal (kalem -t notes.md)
+kalem tui .           # the folder you are in, in the terminal's file manager
+```
+
+Where there is no display (a Linux server over SSH, say) or with the terminal-only build, plain `kalem notes.md` opens in the terminal by itself.
+
 ## Why Kalem
 
 - **Every file as itself, and the file stays yours.** Kalem never converts a file to open it (workbooks in `.ods`, `.xls` or `.xlsb` are the one exception, below), writes nothing into a file that its format does not define, and shows what it does not understand as the source it is. It edits the text in place and saves only what you changed, byte for byte: no database, no import, no "save as", no account, no cloud. Open the file in another editor, or in `git diff`, and you see only your edits.
 - **Checked against the reference, on thousands of files.** Org against Emacs itself; LaTeX on 925 arXiv papers and 21 real projects, the HoTT book and the Stacks project among them; Markdown on every example of the CommonMark and GFM test suites; CSV on LibreOffice's files and, for reading, quoting and editing, against Rust's `csv` crate on thousands of random files. On the way the project wrote the specification LaTeX never had: [LaTeX as written](book/appendices/latex-as-written.org).
 - **Fast.** Kalem is written in Rust: one binary, nothing else to install, no scripting engine. A keystroke in a paragraph reparses it in a twentieth of a millisecond. The [measurements](book/part-4/performance.org) give every number with the command that reproduces it.
-- **One editor, in a window and in a terminal.** The same documents, commands and keys in the graphical editor and in `kalem tui`, over SSH too. A document's checks, formatting and exports are also commands on the command line: `kalem check`, `kalem fmt`, `kalem export`.
+- **One editor, in a window and in a terminal.** The same documents, commands and keys in the graphical editor and in [`kalem tui`](#quick-start), over SSH too. A document's checks, formatting and exports are also commands on the command line: `kalem check`, `kalem fmt`, `kalem export`.
 - **Vim keys from the start, menus all the same.** Vim's modes, motions, operators, registers, macros and command line are built in, checked against Vim itself, and on from the first start; one setting gives the keys most editors use instead. Either way a menu bar, a toolbar, right-click menus, a command palette and the mouse reach every command, in the terminal too.
 - **Plugins in Rust, not JavaScript.** A plugin is compiled Rust, run as a WebAssembly component with its own memory, a time budget and only the permissions it declares. Plugins run fast, and a plugin cannot freeze the editor or take it down.
 
@@ -123,7 +135,8 @@ cargo install --locked --path crates/kalem
 ```
 
 ```bash
-kalem notes.md                      # the editor; `kalem tui notes.md` for the terminal
+kalem notes.md                      # the editor, in a window
+kalem tui notes.md                  # the same editor in the terminal
 kalem export notes.org --to html    # the command-line tools: check, fmt, query, export…
 ```
 
