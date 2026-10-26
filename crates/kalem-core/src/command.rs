@@ -1185,6 +1185,79 @@ impl EditorContext<'_> {
     }
 }
 
+/// The handler of a built-in command.
+pub(crate) type Handler = fn(&mut EditorContext<'_>, &Value) -> CommandResult;
+
+/// A built-in command (its scope is set at registration: the default one
+/// of [`crate::builtin::default_scope`], or its own with [`scoped`]).
+pub(crate) fn cmd(
+    id: &str,
+    title: &str,
+    category: &str,
+    keys: &[&str],
+    when: Option<&str>,
+    handler: Handler,
+) -> Command {
+    Command {
+        id: id.into(),
+        title: title.into(),
+        category: category.into(),
+        default_keys: literal_keys(keys),
+        when: when.map(literal_when),
+        handler: CommandHandler::Native(handler),
+        args_schema: None,
+        source: CommandSource::Builtin,
+        scope: None,
+    }
+}
+
+/// The default keys of a built-in command, written in the source. One
+/// that does not parse is a bug the test `every_builtin_parses` catches;
+/// a release leaves it out rather than failing at start.
+pub(crate) fn literal_keys(keys: &[&str]) -> Vec<KeySequence> {
+    keys.iter()
+        .filter_map(|k| {
+            let parsed = KeySequence::parse(k);
+            debug_assert!(parsed.is_some(), "invalid default key `{k}`");
+            parsed
+        })
+        .collect()
+}
+
+/// The when-clause of a built-in command, written in the source. One that
+/// does not parse is a bug the test `every_builtin_parses` catches; a
+/// release disables the command (`false`) rather than failing at start.
+pub(crate) fn literal_when(w: &str) -> WhenClause {
+    WhenClause::parse(w).unwrap_or_else(|e| {
+        debug_assert!(false, "invalid when-clause `{w}`: {e:?}");
+        WhenClause::Const(false)
+    })
+}
+
+/// `c` with an explicit scope.
+pub(crate) fn scoped(mut c: Command, scope: Scope) -> Command {
+    c.scope = Some(scope);
+    c
+}
+
+/// The text argument `key` of a command, required.
+pub(crate) fn arg_str<'a>(args: &'a Value, key: &str) -> Result<&'a str, CommandError> {
+    args.get(key)
+        .and_then(Value::as_str)
+        .ok_or_else(|| CommandError::new(crate::tr!("msg-missing-argument", name = key)))
+}
+
+/// The boolean argument `key` of a command, `false` when it is not given.
+pub(crate) fn arg_bool(args: &Value, key: &str) -> bool {
+    args.get(key).and_then(Value::as_bool).unwrap_or(false)
+}
+
+/// Asks the frontend for `r` (a command's effect beyond the document).
+pub(crate) fn request(ctx: &mut EditorContext<'_>, r: Request) -> CommandResult {
+    ctx.requests.push(r);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

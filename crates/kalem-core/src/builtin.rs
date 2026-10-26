@@ -5,70 +5,16 @@
 use serde_json::Value;
 
 use crate::command::{
-    Command, CommandError, CommandHandler, CommandResult, CommandSource, DocumentsRequest,
-    EditorContext, PickKind, ProjectRequest, Request,
+    Command, CommandError, CommandResult, DocumentsRequest, EditorContext, Handler, PickKind,
+    ProjectRequest, Request, arg_bool, arg_str, cmd, request, scoped,
 };
-use crate::keys::KeySequence;
 use crate::layout::{Axis, PaneOp};
-use crate::when::WhenClause;
 use crate::workspaces::WorkspaceOp;
 
-type Handler = fn(&mut EditorContext<'_>, &Value) -> CommandResult;
-
-fn cmd(
-    id: &str,
-    title: &str,
-    category: &str,
-    keys: &[&str],
-    when: Option<&str>,
-    handler: Handler,
-) -> Command {
-    Command {
-        id: id.into(),
-        title: title.into(),
-        category: category.into(),
-        default_keys: literal_keys(keys),
-        when: when.map(literal_when),
-        handler: CommandHandler::Native(handler),
-        args_schema: None,
-        source: CommandSource::Builtin,
-        scope: None,
-    }
-}
-
-/// The default keys of a built-in command, written in the source. One
-/// that does not parse is a bug the test `every_builtin_parses` catches;
-/// a release leaves it out rather than failing at start.
-pub(crate) fn literal_keys(keys: &[&str]) -> Vec<KeySequence> {
-    keys.iter()
-        .filter_map(|k| {
-            let parsed = KeySequence::parse(k);
-            debug_assert!(parsed.is_some(), "invalid default key `{k}`");
-            parsed
-        })
-        .collect()
-}
-
-/// The when-clause of a built-in command, written in the source. One that
-/// does not parse is a bug the test `every_builtin_parses` catches; a
-/// release disables the command (`false`) rather than failing at start.
-pub(crate) fn literal_when(w: &str) -> WhenClause {
-    WhenClause::parse(w).unwrap_or_else(|e| {
-        debug_assert!(false, "invalid when-clause `{w}`: {e:?}");
-        WhenClause::Const(false)
-    })
-}
-
-/// `c` with an explicit scope.
 /// The when-clause of a command on the text itself (its lines, its
 /// brackets, its encoding, its source): never a viewer's document, which
 /// has none.
 const TEXT_ONLY: &str = "editorMode != viewer";
-
-fn scoped(mut c: Command, scope: crate::command::Scope) -> Command {
-    c.scope = Some(scope);
-    c
-}
 
 /// The scope of a built-in command (§11.2): Org's editing commands serve
 /// Org text (not the source blocks in it), the line commands of plain
@@ -508,16 +454,6 @@ fn footnote_settings(config: &crate::settings::Config) -> org_edit::footnote::Fo
         section: (!section.is_empty()).then_some(section),
         ..Default::default()
     }
-}
-
-fn arg_str<'a>(args: &'a Value, key: &str) -> Result<&'a str, CommandError> {
-    args.get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| CommandError::new(crate::tr!("msg-missing-argument", name = key)))
-}
-
-fn arg_bool(args: &Value, key: &str) -> bool {
-    args.get(key).and_then(Value::as_bool).unwrap_or(false)
 }
 
 /// The folder of setting `notes.directory`, when it is there.
@@ -7595,11 +7531,6 @@ fn goto_change(ctx: &mut EditorContext<'_>, forward: bool) -> CommandResult {
     Ok(())
 }
 
-fn request(ctx: &mut EditorContext<'_>, r: Request) -> CommandResult {
-    ctx.requests.push(r);
-    Ok(())
-}
-
 /// Runs the active document's language plugin's command `name` (`run`,
 /// `test`, `testAtPoint`) in its project's root, its output in a document
 /// ([`crate::runs`]). Without one, the command given as `command` is run by
@@ -12167,6 +12098,8 @@ fn narrow(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::command::CommandSource;
+    use crate::when::WhenClause;
 
     /// The default keys and when-clauses of every built-in command parse
     /// (debug builds stop on one that does not; R2.2).
