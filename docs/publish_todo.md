@@ -1499,8 +1499,9 @@ Wrong or stale text a first reader meets. Each is a text change.
   release supported) and contact links to the Book and to it; private
   vulnerability reporting turned on in getkalem/kalem and
   getkalem/plugins (the owner, 2026-10-06), which has a SECURITY.md of
-  its own (139ed07). Open, the owner's: the repository's description,
-  Discussions.)
+  its own (139ed07). Discussions are on, with no thread yet, and
+  README's *More* points to them and to the issues (2026-10-26). Open,
+  the owner's: the repository's description.)
 
 ## 6. Licensing
 

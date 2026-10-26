@@ -175,5 +175,6 @@ Settings live in `~/.config/kalem` on Linux and macOS (`$XDG_CONFIG_HOME/kalem` 
 ## More
 
 - [The Kalem Book](https://getkalem.github.io/kalem): the manual, and what Kalem does with each format.
+- A question or an idea goes to [Discussions](https://github.com/getkalem/kalem/discussions); a file that went wrong, to an [issue](https://github.com/getkalem/kalem/issues).
 - [Contributing](CONTRIBUTING.md), the [design documents and task list](docs/README.md), the [changelog](CHANGELOG.md).
 - License: MIT or Apache-2.0, at your option.
