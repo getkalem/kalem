@@ -450,7 +450,8 @@ Programmers (LSP and plugins)
     a component cut short cannot be entered again, to the longer of
     `limits.time_ms` and `extensions::DRAW_MOST` (1 s), its answer
     dropped, the last one shown and the drop logged; `LATE_IN_A_ROW` (5)
-    late answers, or a trap, stop the plugin and offer `plugin.restart`;
+    late answers, or a trap, stop the plugin and offer `plugin.restart`
+    once the keys rest (`jobs::OFFER_PAUSE`, any offered list);
     events no one waits on queue while such a call runs; tested in
     `a_layer_has_the_drawing_time` and `late_answers`)
 - [~] R5.12 Language plugins (T3.8.5–T3.8.6e): Python, Rust, Go, C/C++,

@@ -117,7 +117,8 @@ the engine chosen by measurement ([[file:../part-4/decisions/D28-plugin-abi.org]
   leaves its plugin unable to answer again, but goes on for the longer
   of =limits.time_ms= and a second, and is stopped only past that. Five
   late answers in a row, or a trap, stop the plugin, and Kalem offers
-  to start it again (Restart a Plugin, =plugin.restart=); a command
+  to start it again (Restart a Plugin, =plugin.restart=) once the keys
+  have rested for a second, not under the fingers; a command
   past its =limits.time_ms= stops it as before.
 - A loaded plugin is shared by threads, each with an instance of its
   own, so parsers, renderers and completers run in parallel.

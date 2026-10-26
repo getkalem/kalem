@@ -4,6 +4,7 @@
 
 use std::sync::Mutex;
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
+use std::time::{Duration, Instant};
 
 /// What a finished job tells the user.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -85,6 +86,14 @@ pub fn wait_all() -> Vec<Finished> {
 /// be confirmed): both frontends open them as `Request::Choose` does.
 static OFFERS: Mutex<Vec<Vec<crate::palette::PaletteItem>>> = Mutex::new(Vec::new());
 
+/// How long the keys rest before an offered list opens: one opened while
+/// the user types (a plugin stopped, offering its restart) took the keys
+/// typed next.
+pub const OFFER_PAUSE: Duration = Duration::from_secs(1);
+
+/// When a key was last typed in an editor ([`typed`]).
+static TYPED: Mutex<Option<Instant>> = Mutex::new(None);
+
 /// Offers `items` to choose from, from a job's thread.
 pub fn offer(items: Vec<crate::palette::PaletteItem>) {
     if let Ok(mut o) = OFFERS.lock() {
@@ -92,12 +101,30 @@ pub fn offer(items: Vec<crate::palette::PaletteItem>) {
     }
 }
 
-/// The lists offered since the last call.
+/// An editor took a key: the lists offered wait for the keys to rest
+/// ([`OFFER_PAUSE`]).
+pub fn typed() {
+    if let Ok(mut t) = TYPED.lock() {
+        *t = Some(Instant::now());
+    }
+}
+
+/// The lists offered since the last call, once the keys have rested
+/// [`OFFER_PAUSE`]; none before, those offered kept.
 pub fn take_offers() -> Vec<Vec<crate::palette::PaletteItem>> {
+    let last = TYPED.lock().ok().and_then(|t| *t);
+    if !rested(last, Instant::now()) {
+        return Vec::new();
+    }
     OFFERS
         .lock()
         .map(|mut o| std::mem::take(&mut *o))
         .unwrap_or_default()
+}
+
+/// Whether the keys, last typed at `last`, have rested at `now`.
+fn rested(last: Option<Instant>, now: Instant) -> bool {
+    last.is_none_or(|t| now.saturating_duration_since(t) >= OFFER_PAUSE)
 }
 
 /// Lines for the status bar from background work that is not a job of
@@ -117,4 +144,18 @@ pub fn take_notices() -> Vec<(String, bool)> {
         .lock()
         .map(|mut n| std::mem::take(&mut *n))
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn offers_wait_for_the_keys_to_rest() {
+        let now = Instant::now();
+        assert!(rested(None, now), "nothing typed yet");
+        assert!(!rested(Some(now), now));
+        assert!(!rested(Some(now), now + OFFER_PAUSE / 2));
+        assert!(rested(Some(now), now + OFFER_PAUSE));
+    }
 }

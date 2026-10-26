@@ -2604,6 +2604,8 @@ impl Editor {
     /// Handles a key press through the keymap; unbound keys type (through
     /// the input handler) or move the cursor.
     pub fn key_down(&mut self, ev: &KeyDownEvent, window: &mut Window, cx: &mut Context<'_, Self>) {
+        // The lists offered meanwhile wait for the keys to rest.
+        kalem_core::jobs::typed();
         let Some(chord) = crate::keys::chord_typed(&ev.keystroke, self.shared.swap_primary) else {
             return;
         };
@@ -4643,6 +4645,7 @@ impl EntityInputHandler for Editor {
         _: &mut Window,
         cx: &mut Context<'_, Self>,
     ) {
+        kalem_core::jobs::typed();
         if self.panel_input(text, cx) {
             self.marked = None;
             return;
@@ -4677,6 +4680,7 @@ impl EntityInputHandler for Editor {
         _: &mut Window,
         cx: &mut Context<'_, Self>,
     ) {
+        kalem_core::jobs::typed();
         // Panels show a composition once it is committed.
         if self.palette.is_some()
             || self.doc.plugins.row_edit.is_some()

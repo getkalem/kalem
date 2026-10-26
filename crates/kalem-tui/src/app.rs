@@ -3530,7 +3530,11 @@ impl App {
     /// Handles a terminal event.
     pub fn event(&mut self, e: TermEvent) {
         match e {
-            TermEvent::Key(k) => self.key(k),
+            TermEvent::Key(k) => {
+                // The lists offered meanwhile wait for the keys to rest.
+                kalem_core::jobs::typed();
+                self.key(k);
+            }
             TermEvent::Paste(text) => {
                 if let Some(p) = &mut self.prompt {
                     let line = text.lines().next().unwrap_or("");
