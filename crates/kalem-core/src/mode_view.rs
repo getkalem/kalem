@@ -33,6 +33,65 @@ pub trait ModeView: Send + Sync {
     fn outline(&self, _doc: &mut DocumentState) -> Option<Vec<OutlineItem>> {
         None
     }
+
+    /// How the editors show and edit its documents beyond the lines
+    /// ([`ViewTraits`]); `source` when this view is the source view.
+    fn traits(&self, _doc: &DocumentState, _source: bool) -> ViewTraits {
+        ViewTraits::DOCUMENT
+    }
+}
+
+/// What the editors do with a mode's documents beyond drawing their lines
+/// ([`ModeView::traits`], [`traits`]): the things they decided by asking
+/// which mode a document is in, which a mode registered beside the
+/// built-in ones answers too.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ViewTraits {
+    /// The text column is measured in the monospace font's characters
+    /// (code, a source view) rather than the proportional font's.
+    pub mono: bool,
+    /// The language highlighter colors the lines that show their source,
+    /// with indentation guides and the current line's band; a mode that
+    /// styles its text itself (Org) has none.
+    pub highlight: bool,
+    /// Line numbers in the gutter, when `editor.line_numbers` is on (a
+    /// CSV grid numbers its rows itself, Org as it reads has none).
+    pub line_numbers: bool,
+    /// Long lines wrap; otherwise the rows scroll sideways (a CSV grid).
+    pub wraps: bool,
+    /// Tab and Shift+Tab indent; otherwise they are the mode's own keys
+    /// (Org's cycling and table fields).
+    pub tab_indents: bool,
+    /// Lines fold and hide by the mode's blocks ([`ModeView::blocks`]);
+    /// otherwise every line shows (in the terminal's editor).
+    pub folds: bool,
+    /// Headings fold by an arrow in the margin.
+    pub heading_folds: bool,
+    /// The text is indented by its heading's depth (`org-indent-mode`,
+    /// with `editor.outline_indent`).
+    pub outline_indent: bool,
+}
+
+impl ViewTraits {
+    /// A document as a new mode's are by default: prose in the
+    /// proportional font, wrapped, folding by its blocks, its source
+    /// lines colored by its language when it has one.
+    pub const DOCUMENT: ViewTraits = ViewTraits {
+        mono: false,
+        highlight: true,
+        line_numbers: true,
+        wraps: true,
+        tab_indents: true,
+        folds: true,
+        heading_folds: false,
+        outline_indent: false,
+    };
+}
+
+/// How the editors show and edit `doc` beyond its lines in the view
+/// `source` picks ([`view_of`]).
+pub fn traits(doc: &DocumentState, source: bool) -> ViewTraits {
+    view_of(doc, source).traits(doc, source)
 }
 
 /// The built-in modes (`crate::modes::ModeEntry`), found by
@@ -103,7 +162,7 @@ pub fn view_of(doc: &DocumentState, source: bool) -> &'static dyn ModeView {
     if doc.meta.mode == DocumentMode::Flow && doc.flow().is_none() {
         return &Plain;
     }
-    match crate::modes::entry(crate::modes::key(&doc.meta.mode)) {
+    match crate::modes::entry_of(&doc.meta.mode) {
         Some(e) if !source => e.view,
         Some(crate::modes::ModeEntry {
             source_view: Some(v),
@@ -245,6 +304,15 @@ impl ModeView for Flow {
         doc.flow().map(crate::flow::FlowState::outline)
     }
 
+    /// Its one view serves as its source view too, monospace there.
+    fn traits(&self, _: &DocumentState, source: bool) -> ViewTraits {
+        ViewTraits {
+            mono: source,
+            folds: false,
+            ..ViewTraits::DOCUMENT
+        }
+    }
+
     /// The horizontal rules, drawn across the line away from the cursor
     /// as Org's are.
     fn blocks(&self, doc: &DocumentState) -> Vec<Block> {
@@ -269,6 +337,16 @@ impl ModeView for Flow {
 struct Plain;
 
 impl ModeView for Plain {
+    /// Code and plain text, and the source view of every mode but Org:
+    /// monospace, every line shown.
+    fn traits(&self, doc: &DocumentState, source: bool) -> ViewTraits {
+        ViewTraits {
+            mono: source || matches!(doc.meta.mode, DocumentMode::Text { .. }),
+            folds: false,
+            ..ViewTraits::DOCUMENT
+        }
+    }
+
     fn line_view(
         &self,
         doc: &DocumentState,
@@ -300,6 +378,21 @@ impl ModeView for Plain {
 struct Org;
 
 impl ModeView for Org {
+    /// Org styles its text itself: no highlighter, no line numbers; Tab
+    /// is its own key; headings fold and indent the text under them,
+    /// once the parse is current.
+    fn traits(&self, doc: &DocumentState, _: bool) -> ViewTraits {
+        ViewTraits {
+            highlight: false,
+            line_numbers: false,
+            tab_indents: false,
+            folds: doc.parse().is_some_and(|(_, current)| current),
+            heading_folds: true,
+            outline_indent: true,
+            ..ViewTraits::DOCUMENT
+        }
+    }
+
     fn line_view(
         &self,
         doc: &DocumentState,
@@ -334,6 +427,17 @@ impl ModeView for Org {
 struct OrgSource;
 
 impl ModeView for OrgSource {
+    /// Org's source: its own colors, line numbers, every line shown; Tab
+    /// is still Org's.
+    fn traits(&self, _: &DocumentState, _: bool) -> ViewTraits {
+        ViewTraits {
+            highlight: false,
+            tab_indents: false,
+            folds: false,
+            ..ViewTraits::DOCUMENT
+        }
+    }
+
     fn line_view(
         &self,
         doc: &DocumentState,
@@ -388,6 +492,14 @@ impl ModeView for Latex {
 struct Markdown;
 
 impl ModeView for Markdown {
+    /// Its headings fold by the margin's arrows.
+    fn traits(&self, _: &DocumentState, _: bool) -> ViewTraits {
+        ViewTraits {
+            heading_folds: true,
+            ..ViewTraits::DOCUMENT
+        }
+    }
+
     fn line_view(
         &self,
         doc: &DocumentState,
@@ -411,6 +523,16 @@ impl ModeView for Markdown {
 struct Csv;
 
 impl ModeView for Csv {
+    /// The grid numbers its rows itself, and they scroll sideways.
+    fn traits(&self, _: &DocumentState, _: bool) -> ViewTraits {
+        ViewTraits {
+            line_numbers: false,
+            wraps: false,
+            folds: false,
+            ..ViewTraits::DOCUMENT
+        }
+    }
+
     fn line_view(
         &self,
         doc: &DocumentState,
@@ -427,6 +549,15 @@ impl ModeView for Csv {
 struct Bib;
 
 impl ModeView for Bib {
+    /// A text file's grid: monospace, every line shown.
+    fn traits(&self, _: &DocumentState, _: bool) -> ViewTraits {
+        ViewTraits {
+            mono: true,
+            folds: false,
+            ..ViewTraits::DOCUMENT
+        }
+    }
+
     fn line_view(
         &self,
         doc: &DocumentState,

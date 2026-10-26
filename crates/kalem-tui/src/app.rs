@@ -5353,7 +5353,9 @@ impl App {
             KeyCode::Enter => {
                 self.insert("\n");
             }
-            KeyCode::Tab | KeyCode::BackTab if !matches!(self.doc.meta.mode, DocumentMode::Org) => {
+            KeyCode::Tab | KeyCode::BackTab
+                if kalem_core::mode_view::traits(&self.doc, self.editor.source).tab_indents =>
+            {
                 let outdent = k.code == KeyCode::BackTab || shift;
                 self.doc.indent(outdent, now);
                 self.editor.viewport.goal_x = None;

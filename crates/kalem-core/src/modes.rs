@@ -333,6 +333,22 @@ pub fn entry(id: &str) -> Option<ModeEntry> {
         })
 }
 
+/// The entry serving documents in `mode`. Only a registered mode's takes
+/// the registry's lock: the built-in modes' are found without it, as each
+/// line drawn asks.
+pub fn entry_of(mode: &crate::DocumentMode) -> Option<ModeEntry> {
+    match mode {
+        crate::DocumentMode::Registered(id) => entry(id),
+        m => {
+            let id = key(m);
+            crate::mode_view::BUILTIN
+                .iter()
+                .find(|e| e.id == id)
+                .copied()
+        }
+    }
+}
+
 /// The id of the entry serving documents in `mode`: its name, but a
 /// BibTeX file's own (a text type with a grid of its own).
 pub fn key(mode: &crate::DocumentMode) -> &str {

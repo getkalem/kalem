@@ -46,9 +46,7 @@ pub trait ModeState: Any + Send + std::fmt::Debug {
 /// The state a document in `mode` starts with, `None` for a mode that
 /// keeps none here.
 pub(crate) fn new(mode: &DocumentMode, cx: ModeContext<'_>) -> Option<Box<dyn ModeState>> {
-    crate::modes::entry(crate::modes::key(mode))?
-        .state
-        .map(|f| f(cx))
+    crate::modes::entry_of(mode)?.state.map(|f| f(cx))
 }
 
 /// What happened to a document that its mode may answer with the whole
@@ -72,7 +70,7 @@ pub enum Event {
 
 /// `doc`'s mode answers `event`.
 pub(crate) fn settle(doc: &mut DocumentState, event: Event) {
-    if let Some(f) = crate::modes::entry(crate::modes::key(&doc.meta.mode)).and_then(|e| e.settle) {
+    if let Some(f) = crate::modes::entry_of(&doc.meta.mode).and_then(|e| e.settle) {
         f(doc, event);
     }
 }

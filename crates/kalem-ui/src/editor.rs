@@ -801,8 +801,7 @@ impl Editor {
     /// first, at most four.
     pub fn outline_indent_of(&mut self, line: usize) -> Pixels {
         if !self.outline_indent
-            || self.source
-            || self.doc.meta.mode != kalem_core::DocumentMode::Org
+            || !kalem_core::mode_view::traits(&self.doc, self.source).outline_indent
         {
             return px(0.);
         }
@@ -2837,7 +2836,7 @@ impl Editor {
                 self.after_change(cx);
                 true
             }
-            "tab" if !matches!(self.doc.meta.mode, DocumentMode::Org) => {
+            "tab" if kalem_core::mode_view::traits(&self.doc, self.source).tab_indents => {
                 self.doc.indent(k.modifiers.shift, now);
                 self.after_change(cx);
                 true
@@ -3032,9 +3031,10 @@ impl Editor {
     }
 
     /// Brings the plain text highlighting and indentation step up to date,
-    /// for documents that are not Org.
+    /// for documents their mode does not style itself (as Org does;
+    /// `ViewTraits::highlight`).
     pub fn update_plain(&self) {
-        if self.doc.meta.mode == DocumentMode::Org {
+        if !kalem_core::mode_view::traits(&self.doc, self.source).highlight {
             return;
         }
         // A file manager listing has its own colors (`line::color_listing`).
@@ -3102,18 +3102,16 @@ impl Editor {
         // A CSV grid numbers its rows itself; a listing and a plugin's
         // document have none.
         self.shared.config.bool("editor.line_numbers")
-            && (self.doc.meta.mode != DocumentMode::Csv || self.source)
-            && (self.doc.meta.mode != DocumentMode::Org || self.source)
+            && kalem_core::mode_view::traits(&self.doc, self.source).line_numbers
             && self.doc.dired().is_none()
             && self.doc.plugins.generated.is_none()
-            && (self.doc.meta.mode != DocumentMode::Org || self.source)
     }
 
     /// Keeps the caret in view sideways when lines do not wrap, from the
     /// last frame's layout; `true` if the view moved.
     fn follow_sideways(&mut self) -> bool {
-        // A CSV grid's rows never wrap.
-        let grid = self.doc.meta.mode == DocumentMode::Csv && !self.source;
+        // Rows that never wrap (a CSV grid's).
+        let grid = !kalem_core::mode_view::traits(&self.doc, self.source).wraps;
         if self.wrap && !grid {
             let moved = self.hscroll != px(0.);
             self.hscroll = px(0.);
@@ -5203,11 +5201,7 @@ impl gpui::Render for Editor {
         let digits = self.doc.text().line_count().to_string().len();
         let marks = self.doc.has_gutter();
         // A document with headings folds them by an arrow in the margin.
-        let headings = !self.source
-            && matches!(
-                self.doc.meta.mode,
-                DocumentMode::Org | DocumentMode::Markdown
-            );
+        let headings = kalem_core::mode_view::traits(&self.doc, self.source).heading_folds;
         // A character's width in the grid's font, to line the letters up
         // with the columns.
         let char_w = {
@@ -5229,8 +5223,7 @@ impl gpui::Render for Editor {
         // the font size in the proportional font of prose; code takes the
         // whole window.
         let chars = self.shared.config.int("editor.line_width");
-        let mono = matches!(self.doc.meta.mode, DocumentMode::Text { .. })
-            || (self.source && self.doc.meta.mode != DocumentMode::Org);
+        let mono = kalem_core::mode_view::traits(&self.doc, self.source).mono;
         let per_char = if mono { char_w } else { px(theme.size * 0.5) };
         let column = (chars > 0 && self.doc.meta.mode.text_column())
             .then(|| per_char * chars as f32 + px(96.));

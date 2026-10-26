@@ -549,7 +549,8 @@ impl<'a> Layout<'a> {
             outline_indent,
             shown: shown_rows,
         } = shared;
-        let is_plain = doc.meta.mode != kalem_core::DocumentMode::Org;
+        let traits = kalem_core::mode_view::traits(doc, source);
+        let is_plain = traits.highlight;
         if is_plain && doc.dired().is_none() {
             let mut p = plain.borrow_mut();
             // The text's version, and the highlighter's set: a plugin
@@ -640,12 +641,7 @@ impl<'a> Layout<'a> {
             .map(|(lines, (at, _))| (lines.clone(), at.clone()));
         let (mut visible, folded) = if let Some((_, ranges)) = &rows {
             (ranges.to_vec(), HashSet::new())
-        } else if source
-            || (parse.is_none()
-                && doc.latex().is_none()
-                && doc.meta.mode != kalem_core::DocumentMode::Markdown)
-            || blocks.is_empty()
-        {
+        } else if !traits.folds || blocks.is_empty() {
             (std::iter::once(0..len + 1).collect(), HashSet::new())
         } else {
             let v = view::visible(doc.text().as_str(), blocks, folds, doc.selection.head);
@@ -2368,8 +2364,7 @@ impl EditorView {
         let numbers = self.line_numbers
             && doc.dired().is_none()
             && doc.plugins.generated.is_none()
-            && (doc.meta.mode != kalem_core::DocumentMode::Org || self.source)
-            && (doc.meta.mode != kalem_core::DocumentMode::Csv || self.source);
+            && kalem_core::mode_view::traits(doc, self.source).line_numbers;
         let digits = doc.text().line_count().to_string().len() as u16;
         let numbers_width = if numbers && area.width > digits + 10 {
             digits + 1
@@ -2431,7 +2426,7 @@ impl EditorView {
         };
         // A CSV grid's rows never wrap (their bars and the letters would
         // no longer line up): they scroll sideways.
-        self.unwrapped = doc.meta.mode == kalem_core::DocumentMode::Csv && !self.source;
+        self.unwrapped = !kalem_core::mode_view::traits(doc, self.source).wraps;
         let blocks = self.blocks(doc);
         if self.follow {
             self.reveal(doc, &blocks);

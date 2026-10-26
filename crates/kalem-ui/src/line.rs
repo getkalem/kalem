@@ -1365,7 +1365,7 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
     // the spans are in source offsets (LaTeX's view shows `↵` for `\\`,
     // CSV's grid pads its fields).
     let as_source = editor.doc.text().as_str().get(view.range.clone()) == Some(text.as_str());
-    if editor.doc.meta.mode != kalem_core::DocumentMode::Org
+    if kalem_core::mode_view::traits(&editor.doc, editor.source).highlight
         && editor.doc.dired().is_none()
         && as_source
     {
@@ -1514,8 +1514,7 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
         bar: quote,
         rule: false,
         // A spreadsheet's rows do not wrap: they scroll sideways.
-        nowrap: !editor.wrap
-            || (editor.doc.meta.mode == kalem_core::DocumentMode::Csv && !editor.source),
+        nowrap: !editor.wrap || !kalem_core::mode_view::traits(&editor.doc, editor.source).wraps,
         spacing: 1.,
         fit,
     }
@@ -1880,7 +1879,7 @@ impl gpui::Element for LineElement {
         let origin = bounds.origin - point(shift, px(0.));
         let numbers = editor.line_numbers();
         let current = editor.doc.text().line_of(sel.head) == self.line;
-        let plain = editor.doc.meta.mode != kalem_core::DocumentMode::Org;
+        let plain = kalem_core::mode_view::traits(&editor.doc, editor.source).highlight;
         let step = editor.plain.borrow().as_ref().map_or(0, |p| p.2);
         // With Vim keys outside insert mode, a block on the character: where,
         // and where the next character starts.
