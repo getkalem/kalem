@@ -29,6 +29,8 @@ use org_edit::Transaction;
 use crate::view::{LineRole, LineView, OutlineItem, Run, Style, Widget};
 use crate::viewer::ViewerState;
 
+pub(crate) mod commands;
+
 /// A list item's kind as its label shows it: `Some(true)` numbered,
 /// `Some(false)` a bullet; `None` for a paragraph that is no list item.
 pub fn list_kind(p: &FlowParagraph) -> Option<bool> {
