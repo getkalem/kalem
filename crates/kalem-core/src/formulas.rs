@@ -110,7 +110,7 @@ pub(crate) fn number(x: f64) -> String {
 pub fn selection_stats(doc: &DocumentState) -> Option<String> {
     // A document of flowing text: the comment or tracked change at the
     // cursor.
-    if let Some(f) = doc.flow.as_deref()
+    if let Some(f) = doc.flow()
         && let Some(s) = crate::flow::status(f, doc.selection.head)
     {
         return Some(s);

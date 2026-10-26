@@ -2158,7 +2158,7 @@ impl Workspace {
             let d = &self.editor.read(cx).doc;
             let s = d.selection;
             let at = s.anchor.min(s.head);
-            d.flow.as_deref().and_then(|f| {
+            d.flow().and_then(|f| {
                 let p = f.paragraph_at(at)?;
                 let para = (p.align, kalem_core::flow::list_kind(p));
                 f.look_at(at).map(|l| (l, para))

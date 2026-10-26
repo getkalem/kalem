@@ -405,6 +405,22 @@ fn err(e: kalem_viewer::ViewerError) -> String {
     e.0
 }
 
+impl crate::mode_state::ModeState for FlowState {}
+
+impl crate::DocumentState {
+    /// A document of flowing text a viewer plugin gives as paragraphs
+    /// ([`crate::DocumentMode::Flow`]): the plugin's document, and the
+    /// lines of the text shown; `None` in other modes.
+    pub fn flow(&self) -> Option<&FlowState> {
+        self.mode_state()
+    }
+
+    /// The flow of a document of flowing text ([`Self::flow`]).
+    pub fn flow_mut(&mut self) -> Option<&mut FlowState> {
+        self.mode_state_mut()
+    }
+}
+
 impl FlowState {
     /// The flow of the unit `viewer` shows, when it is one; the viewer
     /// back when it is not.

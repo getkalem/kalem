@@ -361,10 +361,6 @@ pub struct DocumentState {
     /// A file that is not text, opened by a viewer plugin
     /// ([`DocumentMode::Viewer`]).
     pub viewer: Option<Box<crate::viewer::ViewerState>>,
-    /// A document of flowing text a viewer plugin gives as paragraphs
-    /// ([`DocumentMode::Flow`]): the plugin's document, and the lines of
-    /// the text shown.
-    pub flow: Option<Box<crate::flow::FlowState>>,
     /// What the user is told once, at the next tick: an edit of a
     /// document of flowing text its plugin refused, and why.
     notice: Option<String>,
@@ -581,7 +577,6 @@ impl DocumentState {
             changes: Vec::new(),
             dired: None,
             viewer: None,
-            flow: None,
             notice: None,
             generated: None,
             graph_view: None,
@@ -1063,7 +1058,7 @@ impl DocumentState {
         if let Some(name) = crate::flow::author_name() {
             flow.viewer.doc().set_author(&name);
         }
-        d.flow = Some(Box::new(flow));
+        d.mode_state = Some(Box::new(flow));
         d.disk = files::stat(path).ok();
         d.mark_saved();
         d
@@ -1074,7 +1069,7 @@ impl DocumentState {
     pub fn viewer_state(&self) -> Option<&crate::viewer::ViewerState> {
         self.viewer
             .as_deref()
-            .or_else(|| self.flow.as_deref().map(|f| &*f.viewer))
+            .or_else(|| self.flow().map(|f| &*f.viewer))
     }
 
     /// What the user is to be told once (an edit refused), taken.
@@ -1115,7 +1110,7 @@ impl DocumentState {
     /// Applies an edit of a document of flowing text as its plugin's edits,
     /// then shows the text the plugin has; a refusal is told.
     fn apply_flow(&mut self, tx: &Transaction, after: Selection) {
-        let Some(flow) = self.flow.as_deref_mut() else {
+        let Some(flow) = self.flow_mut() else {
             return;
         };
         if tx.is_empty() {
@@ -1221,7 +1216,7 @@ impl DocumentState {
     /// Undoes or redoes the plugin's last step of a document of flowing
     /// text; the cursor at the end of what changed.
     fn flow_history(&mut self, redo: bool) -> Option<String> {
-        let flow = self.flow.as_deref_mut()?;
+        let flow = self.flow_mut()?;
         let done = if redo { flow.redo() } else { flow.undo() };
         match done {
             Ok(true) => {
@@ -1247,8 +1242,7 @@ impl DocumentState {
         f: impl FnOnce(&mut crate::flow::FlowState) -> Result<R, String>,
     ) -> Result<R, String> {
         let flow = self
-            .flow
-            .as_deref_mut()
+            .flow_mut()
             .ok_or_else(|| "Not a document of flowing text".to_string())?;
         let r = f(flow);
         let text = flow.text().to_string();
@@ -1266,13 +1260,14 @@ impl DocumentState {
         options: SaveOptions,
         force: bool,
     ) -> Result<Vec<String>, SaveError> {
-        let Some(f) = self.flow.as_deref_mut() else {
+        let disk = self.disk;
+        let Some(f) = self.flow_mut() else {
             return Ok(Vec::new());
         };
-        if !f.viewer.modified() && self.disk.is_some() {
+        if !f.viewer.modified() && disk.is_some() {
             return Ok(Vec::new());
         }
-        if !force && let Some(known) = self.disk {
+        if !force && let Some(known) = disk {
             match files::check(path, &known).map_err(SaveError::Io)? {
                 DiskChange::Modified => return Err(SaveError::ChangedOnDisk),
                 DiskChange::Unchanged | DiskChange::Touched(_) | DiskChange::Deleted => {}
@@ -1388,7 +1383,7 @@ impl DocumentState {
         if self.viewer.is_some() {
             return self.save_viewed(&path, options, force);
         }
-        if self.flow.is_some() {
+        if self.flow().is_some() {
             return self.save_flowed(&path, options, force);
         }
         // Read with replacement characters: written over the file it came
@@ -1499,7 +1494,7 @@ impl DocumentState {
                 // Changed here and there: merged where the two changed
                 // different lines, else the user decides.
                 if self.viewer.is_none()
-                    && self.flow.is_none()
+                    && self.flow().is_none()
                     && let Some(base) = self.disk_text.clone()
                     && let Ok((theirs, meta, disk)) =
                         files::read_with(&path, Some(self.meta.encoding))
@@ -1601,15 +1596,14 @@ impl DocumentState {
             self.refresh_listing();
             return Ok(());
         }
-        if let (Some(old), Some(path)) = (self.flow.as_deref(), self.meta.path.clone()) {
+        if let (Some(old), Some(path)) = (self.flow(), self.meta.path.clone()) {
             let state = crate::viewer::ViewerState::open(old.viewer.viewer.clone(), &path)
                 .map_err(OpenError::Viewer)?;
             if let Ok(flow) = crate::flow::FlowState::open(state) {
                 let line = self.text.line_of(self.selection.head);
-                self.flow = Some(Box::new(flow));
+                self.mode_state = Some(Box::new(flow));
                 let text = self
-                    .flow
-                    .as_deref()
+                    .flow()
                     .map(|f| f.text().to_string())
                     .unwrap_or_default();
                 self.replace_differing(&text);
@@ -1766,7 +1760,7 @@ impl DocumentState {
 
     /// Whether there are changes since the last save.
     pub fn is_modified(&self) -> bool {
-        if let Some(f) = &self.flow {
+        if let Some(f) = self.flow() {
             return f.viewer.modified();
         }
         (self.version != self.saved_version && !(self.saved_version != u64::MAX && self.as_saved()))
@@ -1798,7 +1792,7 @@ impl DocumentState {
     /// Whether the text was edited since it was saved: [`Self::is_modified`]
     /// without counting a deletion of the file on disk.
     pub fn has_unsaved_edits(&self) -> bool {
-        if let Some(f) = &self.flow {
+        if let Some(f) = self.flow() {
             return f.viewer.modified();
         }
         (self.version != self.deleted_saved.unwrap_or(self.saved_version) && !self.as_saved())
@@ -1847,7 +1841,7 @@ impl DocumentState {
             head: tx.map(before.head, org_edit::Assoc::After),
         });
         // A document of flowing text: the plugin's edit, and its history.
-        if self.flow.is_some() {
+        if self.flow().is_some() {
             self.apply_flow(tx, after);
             return;
         }
@@ -2471,7 +2465,7 @@ impl DocumentState {
         if let Some(v) = self.viewer.as_deref_mut() {
             return v.undo().ok().filter(|done| *done).map(|_| String::new());
         }
-        if self.flow.is_some() {
+        if self.flow().is_some() {
             return self.flow_history(false);
         }
         if self.read_only {
@@ -2518,7 +2512,7 @@ impl DocumentState {
     /// Redoes the last undone step with the cursor where the step began,
     /// as Vim's redo leaves it; returns its label.
     pub fn redo_from_start(&mut self) -> Option<String> {
-        if self.viewer.is_some() || self.flow.is_some() {
+        if self.viewer.is_some() || self.flow().is_some() {
             return self.redo();
         }
         if self.read_only {
@@ -2539,7 +2533,7 @@ impl DocumentState {
         if let Some(v) = self.viewer.as_deref_mut() {
             return v.redo().ok().filter(|done| *done).map(|_| String::new());
         }
-        if self.flow.is_some() {
+        if self.flow().is_some() {
             return self.flow_history(true);
         }
         if self.read_only {

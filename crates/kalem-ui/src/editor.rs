@@ -3927,7 +3927,7 @@ impl Editor {
         base: Pixels,
         scale: f32,
     ) -> Option<(Arc<gpui::RenderImage>, gpui::Size<Pixels>)> {
-        let flow = self.doc.flow.as_deref()?;
+        let flow = self.doc.flow()?;
         let body = flow.body_size();
         let per_point = f32::from(base) / if body > 0.0 { body } else { 11.0 };
         let (w, h) = (
@@ -4086,9 +4086,9 @@ impl Editor {
         // The flow's look changed (formatting, a style): the lines the
         // plugin changed measured again, a line's height may have changed
         // with its size; every line when the size of body text did.
-        let version = self.doc.flow.as_deref().map(|f| f.version);
+        let version = self.doc.flow().map(|f| f.version);
         if version != self.flow_version {
-            let changed = self.doc.flow.as_deref_mut().and_then(|f| f.take_changed());
+            let changed = self.doc.flow_mut().and_then(|f| f.take_changed());
             if self.flow_version.is_some() {
                 match changed {
                     Some(lines) => {

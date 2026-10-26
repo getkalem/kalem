@@ -38,7 +38,7 @@ pub trait ModeView: Send + Sync {
 /// The view of `doc`; with `source`, the text as it is (the source view).
 pub fn view_of(doc: &DocumentState, source: bool) -> &'static dyn ModeView {
     match &doc.meta.mode {
-        DocumentMode::Flow if doc.flow.is_some() => &Flow,
+        DocumentMode::Flow if doc.flow().is_some() => &Flow,
         DocumentMode::Org if source => &OrgSource,
         DocumentMode::Org => &Org,
         _ if source => &Plain,
@@ -172,20 +172,20 @@ impl ModeView for Flow {
         cursor: Option<usize>,
         _: Option<Range<usize>>,
     ) -> LineView {
-        match doc.flow.as_deref() {
+        match doc.flow() {
             Some(f) => crate::flow::line_view(f, range),
             None => view::plain_line_view(doc.text().as_str(), range, cursor),
         }
     }
 
     fn outline(&self, doc: &mut DocumentState) -> Option<Vec<OutlineItem>> {
-        doc.flow.as_deref().map(crate::flow::FlowState::outline)
+        doc.flow().map(crate::flow::FlowState::outline)
     }
 
     /// The horizontal rules, drawn across the line away from the cursor
     /// as Org's are.
     fn blocks(&self, doc: &DocumentState) -> Vec<Block> {
-        let Some(f) = doc.flow.as_deref() else {
+        let Some(f) = doc.flow() else {
             return Vec::new();
         };
         f.rule_lines()

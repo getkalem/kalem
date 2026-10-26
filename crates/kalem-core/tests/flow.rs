@@ -46,13 +46,13 @@ fn edit(d: &mut DocumentState, range: std::ops::Range<usize>, insert: &str) {
 fn a_flow_opens_as_text() {
     let (d, _) = open(DOC);
     assert_eq!(d.meta.mode, DocumentMode::Flow);
-    assert!(d.viewer.is_none() && d.flow.is_some());
+    assert!(d.viewer.is_none() && d.flow().is_some());
     assert_eq!(
         d.text().as_str(),
         "Title\nPlain and bold text\u{FFFC}\nan item\na\tb\n\nThe note."
     );
     assert!(!d.is_modified() && !d.read_only);
-    let f = d.flow.as_deref().unwrap();
+    let f = d.flow().unwrap();
     let items = f.outline();
     assert_eq!((items[0].title.as_str(), items[0].level), ("Title", 1));
 }
@@ -60,7 +60,7 @@ fn a_flow_opens_as_text() {
 #[test]
 fn lines_show_the_plugins_look() {
     let (d, _) = open(DOC);
-    let f = d.flow.as_deref().unwrap();
+    let f = d.flow().unwrap();
     let text = d.text().as_str().to_string();
     let line = |n: usize| {
         let start = text.split('\n').take(n).map(|l| l.len() + 1).sum::<usize>();
@@ -197,9 +197,9 @@ fn what_changed_is_read_as_the_whole_would_be() {
         });
     }
     let (mut d, _) = open(&text);
-    assert!(d.flow.as_deref_mut().unwrap().take_changed().is_none());
+    assert!(d.flow_mut().unwrap().take_changed().is_none());
     let check = |d: &mut DocumentState, what: &str| {
-        let f = d.flow.as_deref_mut().unwrap();
+        let f = d.flow_mut().unwrap();
         assert!(
             f.take_changed().is_some(),
             "{what}: read whole rather than as changed"
@@ -265,7 +265,7 @@ fn comments_on_the_text() {
     let (mut d, _) = open(DOC);
     let at = d.text().as_str().find("Plain").unwrap();
     let id = d.on_flow(|f| f.comment(at..at + 5, "Check this")).unwrap();
-    let f = d.flow.as_deref().unwrap();
+    let f = d.flow().unwrap();
     let here = f.annotations_at(at + 1);
     assert_eq!(here.len(), 1);
     assert_eq!(here[0].text, "Check this");
@@ -278,12 +278,12 @@ fn comments_on_the_text() {
     assert!(v.runs.iter().any(|r| r.style.rich.highlight.is_some()));
     d.on_flow(|f| f.reply(&id, "Done")).unwrap();
     d.on_flow(|f| f.resolve(&id, true)).unwrap();
-    assert_eq!(d.flow.as_deref().unwrap().comments().len(), 2);
+    assert_eq!(d.flow().unwrap().comments().len(), 2);
     assert!(d.on_flow(|f| f.decide(&id, true)).is_err());
     d.on_flow(|f| f.set_tracking(true)).unwrap();
-    assert_eq!(d.flow.as_deref().unwrap().tracking, Some(true));
+    assert_eq!(d.flow().unwrap().tracking, Some(true));
     d.on_flow(|f| f.remove_comment(&id)).unwrap();
-    assert!(d.flow.as_deref().unwrap().comments().is_empty());
+    assert!(d.flow().unwrap().comments().is_empty());
 }
 
 #[test]
@@ -324,7 +324,7 @@ fn a_comment_edited_from_the_palette() {
         serde_json::json!({ "text": "Checked\ntwice" }),
     )
     .unwrap();
-    let f = d.flow.as_deref().unwrap();
+    let f = d.flow().unwrap();
     assert_eq!(f.annotations[&id].text, "Checked\ntwice");
     assert_eq!(
         f.comment_at(at + 1).map(|a| a.id.as_str()),
@@ -383,7 +383,7 @@ fn formatting_from_the_menus_and_the_toolbar() {
     let at = d.text().as_str().find("Plain").unwrap();
     d.selection = Selection::caret(at + 2);
     let bold = |d: &DocumentState| {
-        let f = d.flow.as_deref().unwrap();
+        let f = d.flow().unwrap();
         f.run_at(at + 2).unwrap().marks.bold
     };
     // Bold on the word at the cursor, then off again: a toggle.
@@ -421,7 +421,7 @@ fn formatting_from_the_menus_and_the_toolbar() {
     )
     .0
     .unwrap();
-    let (style, marks) = d.flow.as_deref().unwrap().look_at(at + 2).unwrap();
+    let (style, marks) = d.flow().unwrap().look_at(at + 2).unwrap();
     assert_eq!(style, "Normal");
     assert_eq!(marks.face.as_deref(), Some("Georgia"));
     assert_eq!(marks.size, Some(14.0));
@@ -432,7 +432,7 @@ fn formatting_from_the_menus_and_the_toolbar() {
     run_command(&mut d, "flow.format.clear", json!({}))
         .0
         .unwrap();
-    let (_, marks) = d.flow.as_deref().unwrap().look_at(at + 2).unwrap();
+    let (_, marks) = d.flow().unwrap().look_at(at + 2).unwrap();
     assert_eq!(marks.size, None);
     // The paragraph styles shown, the default first, the headings next.
     let (r, asked) = run_command(&mut d, "flow.format.style", json!({}));
@@ -441,11 +441,11 @@ fn formatting_from_the_menus_and_the_toolbar() {
     run_command(&mut d, "flow.format.style", json!({ "style": "Heading 1" }))
         .0
         .unwrap();
-    let (style, _) = d.flow.as_deref().unwrap().look_at(at + 2).unwrap();
+    let (style, _) = d.flow().unwrap().look_at(at + 2).unwrap();
     assert_eq!(style, "Heading 1");
     // Undone through the plugin's history.
     assert!(d.undo().is_some());
-    let (style, _) = d.flow.as_deref().unwrap().look_at(at + 2).unwrap();
+    let (style, _) = d.flow().unwrap().look_at(at + 2).unwrap();
     assert_eq!(style, "Normal");
     // Nowhere near a word: said so.
     d.selection = Selection::caret(0);
@@ -506,14 +506,7 @@ fn paragraphs_and_lists_from_the_menus_and_the_toolbar() {
     let (mut d, _) = open(DOC);
     let at = d.text().as_str().find("Plain").unwrap();
     d.selection = Selection::caret(at + 2);
-    let para = |d: &DocumentState| {
-        d.flow
-            .as_deref()
-            .unwrap()
-            .paragraph_at(at + 2)
-            .unwrap()
-            .clone()
-    };
+    let para = |d: &DocumentState| d.flow().unwrap().paragraph_at(at + 2).unwrap().clone();
     run_command(&mut d, "flow.paragraph.alignCenter", json!({}))
         .0
         .unwrap();
@@ -594,15 +587,7 @@ fn paragraphs_and_lists_from_the_menus_and_the_toolbar() {
         .0
         .unwrap();
     assert_eq!(para(&d).indent.0, 72.0);
-    let title = |d: &DocumentState| {
-        d.flow
-            .as_deref()
-            .unwrap()
-            .paragraph_at(first)
-            .unwrap()
-            .indent
-            .0
-    };
+    let title = |d: &DocumentState| d.flow().unwrap().paragraph_at(first).unwrap().indent.0;
     assert_eq!(title(&d), 72.0);
     assert!(d.undo().is_some());
     assert_eq!((title(&d), para(&d).indent.0), (36.0, 36.0));
@@ -611,7 +596,7 @@ fn paragraphs_and_lists_from_the_menus_and_the_toolbar() {
 #[test]
 fn rules_drawn_across_and_colors_marked_as_the_documents() {
     let (d, _) = open(DOC);
-    let f = d.flow.as_deref().unwrap();
+    let f = d.flow().unwrap();
     // `---`: a rule with no name, a line drawn across away from the
     // cursor, as Org's.
     let rules = f.rule_lines();
@@ -638,7 +623,7 @@ fn rules_drawn_across_and_colors_marked_as_the_documents() {
 #[test]
 fn pictures_drawn_by_the_plugin() {
     let (d, _) = open("A picture: @\n@\nThe note.\n");
-    let f = d.flow.as_deref().unwrap();
+    let f = d.flow().unwrap();
     let text = d.text().as_str().to_string();
     let start = text.find('\n').unwrap() + 1;
     let end = start + text[start..].find('\n').unwrap();

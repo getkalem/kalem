@@ -143,8 +143,7 @@ fn a_flowing_document_is_drawn_and_typed_into(cx: &mut TestAppContext) {
     let (align, kind) = ws.read_with(cx, |ws, cx| {
         let d = &ws.editor.read(cx).doc;
         let p = d
-            .flow
-            .as_deref()
+            .flow()
             .unwrap()
             .paragraph_at(d.selection.head)
             .unwrap()

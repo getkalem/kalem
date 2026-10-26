@@ -3114,8 +3114,7 @@ fn flow_annotation_at(ctx: &mut EditorContext<'_>, comment: bool) -> Result<Stri
     let d = ctx.doc()?;
     let at = d.selection.head;
     let f = d
-        .flow
-        .as_deref()
+        .flow()
         .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-not-flow")))?;
     f.annotations_at(at)
         .into_iter()
@@ -3135,8 +3134,7 @@ fn flow_step(ctx: &mut EditorContext<'_>, comment: bool, back: bool) -> CommandR
     let d = ctx.doc()?;
     let at = d.selection.head;
     let f = d
-        .flow
-        .as_deref()
+        .flow()
         .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-not-flow")))?;
     let list = if comment { f.comments() } else { f.changes() };
     let mut starts: Vec<usize> = list.iter().filter_map(|a| f.start_of(&a.id)).collect();
@@ -3230,8 +3228,7 @@ fn flow_commands() -> Vec<Command> {
                     let id = flow_annotation_at(ctx, true)?;
                     let done = ctx
                         .doc()?
-                        .flow
-                        .as_deref()
+                        .flow()
                         .and_then(|f| f.annotations.get(&id))
                         .is_some_and(|a| a.resolved);
                     on_flow(ctx, |f| f.resolve(&id, !done))
@@ -3355,7 +3352,7 @@ fn flow_commands() -> Vec<Command> {
                 &[],
                 None,
                 |ctx, _| {
-                    let on = ctx.doc()?.flow.as_deref().and_then(|f| f.tracking);
+                    let on = ctx.doc()?.flow().and_then(|f| f.tracking);
                     let Some(on) = on else {
                         return Err(CommandError::new(crate::l10n::tr("msg-no-tracking")));
                     };
@@ -3564,7 +3561,7 @@ fn flow_paragraph_range(
     ctx: &mut EditorContext<'_>,
 ) -> Result<std::ops::Range<usize>, CommandError> {
     let d = ctx.doc()?;
-    if d.flow.is_none() {
+    if d.flow().is_none() {
         return Err(CommandError::new(crate::l10n::tr("msg-not-flow")));
     }
     let s = d.selection;
@@ -3598,8 +3595,7 @@ fn flow_list(
     let all = {
         let f = ctx
             .doc()?
-            .flow
-            .as_deref()
+            .flow()
             .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-not-flow")))?;
         let spans = f.spans(range.clone());
         !spans.is_empty()
@@ -3792,7 +3788,7 @@ fn flow_toggle_cmd(id: &str, title: &str, keys: &[&str], handler: Handler) -> Co
 /// at the cursor.
 fn flow_format_range(ctx: &mut EditorContext<'_>) -> Result<std::ops::Range<usize>, CommandError> {
     let d = ctx.doc()?;
-    if d.flow.is_none() {
+    if d.flow().is_none() {
         return Err(CommandError::new(crate::l10n::tr("msg-not-flow")));
     }
     comment_range(d).ok_or_else(|| CommandError::new(crate::l10n::tr("msg-select-to-format")))
@@ -3813,8 +3809,7 @@ fn flow_toggle(ctx: &mut EditorContext<'_>, t: FlowToggle) -> CommandResult {
     let all = {
         let f = ctx
             .doc()?
-            .flow
-            .as_deref()
+            .flow()
             .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-not-flow")))?;
         let runs = f.runs_in(range.clone());
         !runs.is_empty()
@@ -3936,7 +3931,7 @@ fn flow_font(ctx: &mut EditorContext<'_>, args: &serde_json::Value, size: bool) 
                 }
             } else {
                 let mut faces: Vec<String> = Vec::new();
-                if let Some(f) = ctx.doc()?.flow.as_deref() {
+                if let Some(f) = ctx.doc()?.flow() {
                     for line in &f.lines {
                         for seg in &line.segs {
                             for r in &seg.para.runs {
@@ -4116,8 +4111,7 @@ fn flow_style(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandR
         return on_flow(ctx, |f| f.set_style(range, &style));
     }
     let f = d
-        .flow
-        .as_deref_mut()
+        .flow_mut()
         .ok_or_else(|| CommandError::new(crate::l10n::tr("msg-not-flow")))?;
     let category = crate::l10n::tr("cmd-flow-format-style");
     let items: Vec<_> = f

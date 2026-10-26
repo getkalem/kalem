@@ -764,7 +764,7 @@ impl<'a> Layout<'a> {
         if self.doc.latex().is_some() && !self.source {
             return self.latex_image(line);
         }
-        if let Some(f) = self.doc.flow.as_deref() {
+        if let Some(f) = self.doc.flow() {
             return self.flow_image(line, f);
         }
         // A Markdown formula over several lines, on its first line.

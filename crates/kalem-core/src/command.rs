@@ -859,8 +859,7 @@ pub fn argument_default_with(
     if (id, name) == ("flow.comment.edit", "text") {
         let pos = doc.selection.head;
         return doc
-            .flow
-            .as_deref()
+            .flow()
             .and_then(|f| f.comment_at(pos))
             .map(|a| a.text.clone())
             .unwrap_or_default();
