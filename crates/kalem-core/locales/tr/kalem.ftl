@@ -1739,6 +1739,7 @@ plugin-api-mismatch-built-in = { $name } { $version } eklenti API'si { $api } i�
 plugin-api-newer = { $name } { $version } eklenti API'si { $api } istiyor, bu Kalem'inki { $ours }: kullanmak için Kalem'i güncelleyin
 plugin-unknown-permission = { $name } Kalem'in tanımadığı bir izin istiyor, { $permission }: kurulmadı (daha yeni bir Kalem tanıyor olabilir ya da plugin.json'da yazım hatası vardır)
 plugin-unapproved = { $name } { $version } kurulurken onaylanmamış izinler istiyor: { $list }. Eklentiler menüsünden (ya da kalem plugin install ile) yeniden kurup bu izinleri onaylayana dek onlarsız çalışır
+plugin-changed-since-shown = { $name } gösterildikten sonra hazırlık klasöründe değişti, bu yüzden kurulmadı: şimdiki hâlini görmek için yeniden kurun
 lsp-not-approved = { $plugin } program çalıştıramaz: kurulurken subprocess izni onaylanmadı (onaylamak için Eklentiler menüsünden ya da kalem plugin install ile yeniden kurun)
 plugin-update = { $name } eklentisini güncelle
 plugin-from-short = kaynak: { $source }

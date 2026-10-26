@@ -60,7 +60,9 @@ pub(crate) fn plugin_commands() -> Vec<Command> {
                     } else {
                         "plugin-verb-install"
                     };
-                    let mut confirm = json!({ "staging": staging, "source": p.source });
+                    let mut confirm = json!({
+                        "staging": staging, "source": p.source, "manifest": p.manifest
+                    });
                     if let Some(open) = &open {
                         confirm["open"] = json!(open);
                     }
@@ -409,9 +411,17 @@ pub(crate) fn plugin_commands() -> Vec<Command> {
                     std::path::PathBuf::from(args["staging"].as_str().unwrap_or_default());
                 let source = args["source"].as_str().unwrap_or_default();
                 // Read again from the staging folder: what is installed is
-                // what the user was shown.
+                // what the user was shown, its manifest (what it asks for,
+                // which plugins.toml records as approved) unchanged since.
                 let p = crate::plugin_store::prepared_at(&staging, source)
                     .map_err(CommandError::new)?;
+                if args["manifest"].as_str() != Some(p.manifest.as_str()) {
+                    crate::plugin_store::discard(&staging);
+                    return Err(CommandError::new(crate::tr!(
+                        "plugin-changed-since-shown",
+                        name = p.name.as_str()
+                    )));
+                }
                 let dir = crate::plugin_store::install(&p).map_err(CommandError::new)?;
                 ctx.messages.push(crate::tr!(
                     "plugin-installed",

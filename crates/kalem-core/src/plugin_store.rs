@@ -165,6 +165,10 @@ pub struct Prepared {
     /// The permissions the user approved for the version installed now,
     /// when this replaces one Kalem installed ([`Installed::approved`]).
     pub approved: Option<Vec<String>>,
+    /// The SHA-256 of its `plugin.json` as read, in hex: confirming the
+    /// install checks that the manifest is still the one the user was
+    /// shown.
+    pub manifest: String,
 }
 
 /// An installed plugin.
@@ -1018,6 +1022,7 @@ fn read_prepared(source: &str, staging: &Path) -> Result<Prepared, String> {
         staging: staging.to_path_buf(),
         replaces,
         approved: approved.flatten(),
+        manifest: format!("{:x}", Sha256::digest(text.as_bytes())),
         id,
     })
 }
@@ -2073,6 +2078,9 @@ mod tests {
         let syntax = r#"{"id":"org.x.syntax","name":"Y","languages":[{"id":"y"}]}"#;
         let p = read(syntax);
         assert!(p.permissions.is_empty() && runs(&p).is_none());
+        // The manifest's fingerprint, which confirming the install checks.
+        assert_eq!(read(syntax).manifest, p.manifest);
+        assert_ne!(read(&syntax.replace("\"Y\"", "\"Z\"")).manifest, p.manifest);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

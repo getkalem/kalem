@@ -33,6 +33,24 @@ fn run(reg: &CommandRegistry, id: &str, args: Value) -> (Vec<String>, Vec<Reques
     (ctx.messages, ctx.requests)
 }
 
+/// Runs command `id`, which may fail: its error's message.
+fn try_run(reg: &CommandRegistry, id: &str, args: Value) -> Result<(), String> {
+    let mut clip = Clipboard::default();
+    let config = kalem_core::Config::default();
+    let mut ctx = EditorContext {
+        document: None,
+        clipboard: &mut clip,
+        config: &config,
+        now: Instant::now(),
+        clock: jiff::civil::date(2026, 10, 3).at(12, 0, 0, 0),
+        messages: Vec::new(),
+        requests: Vec::new(),
+    };
+    reg.execute(id, &mut ctx, &args)
+        .map(drop)
+        .map_err(|e| e.to_string())
+}
+
 /// Runs the command of a chosen item.
 fn choose(reg: &CommandRegistry, item: &palette::PaletteItem) -> (Vec<String>, Vec<Request>) {
     let (id, args) = palette::split_invocation(&item.id);
@@ -148,6 +166,26 @@ fn child(work: &Path) {
     assert!(kalem_core::plugin_store::installed().is_empty());
     assert_eq!(std::fs::read_dir(&staging).map_or(0, |d| d.count()), 0);
     println!("test unknown permission ... ok");
+
+    // Its manifest changed in the staging folder after it was shown (a
+    // permission added): not installed, as what plugins.toml would record
+    // as approved is not what the user saw; the staging folder dropped.
+    run(&reg, "plugin.install", json!({ "source": plugin }));
+    let items = offered();
+    let (id, args) = palette::split_invocation(&items[0].id);
+    let staged = Path::new(args["staging"].as_str().unwrap()).join("plugin.json");
+    let shown = std::fs::read_to_string(&staged).unwrap();
+    let changed = shown.replace("\"subprocess\"", "\"subprocess\",\"fs:read:all\"");
+    assert_ne!(changed, shown);
+    std::fs::write(&staged, changed).unwrap();
+    let refused = try_run(&reg, id, args).unwrap_err();
+    assert!(
+        refused.starts_with("Zed Test changed in its staging folder after it was shown"),
+        "{refused}"
+    );
+    assert!(kalem_core::plugin_store::installed().is_empty());
+    assert_eq!(std::fs::read_dir(&staging).map_or(0, |d| d.count()), 0);
+    println!("test changed after shown ... ok");
 
     // Confirmed: installed, recorded, loaded, highlighting at once.
     run(&reg, "plugin.install", json!({ "source": plugin }));

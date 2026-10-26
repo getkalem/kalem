@@ -420,7 +420,8 @@ Programmers (LSP and plugins)
   is frozen in `wit-frozen/0.2.21`, the worlds moved to `worlds.wit`; the
   release workflows build a tag only once CI passed on its commit,
   `release-gate.yml`. 2026-10-26: a language plugin's servers and
-  commands run only with `subprocess` approved in `plugins.toml`.
+  commands run only with `subprocess` approved in `plugins.toml`, and
+  confirming an install checks the staged manifest is the one shown.
   Still open here: the consent prompt on first use.)
   - [x] The plugins' calls off the drawing path (the 2026-10-23
     architecture review). S (done 2026-10-24: a call of a layer,

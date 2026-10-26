@@ -1830,6 +1830,7 @@ plugin-api-mismatch-built-in = { $name } { $version } was built for plugin API {
 plugin-api-newer = { $name } { $version } needs plugin API { $api }, and this Kalem has { $ours }: update Kalem to use it
 plugin-unknown-permission = { $name } asks for a permission Kalem does not know, { $permission }: it is not installed (a newer Kalem may know it, or plugin.json misspells it)
 plugin-unapproved = { $name } { $version } asks for permissions that were not approved when it was installed: { $list }. It runs without them until you install it again from the Plugins menu (or with kalem plugin install) and approve them
+plugin-changed-since-shown = { $name } changed in its staging folder after it was shown, so it is not installed: install it again to see what it is now
 lsp-not-approved = { $plugin } may not run programs: subprocess was not approved when it was installed (install it again from the Plugins menu, or with kalem plugin install, to approve it)
 plugin-from-short = from { $source }
 plugin-remove = Remove { $name }
