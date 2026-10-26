@@ -5831,8 +5831,15 @@ fn vim_command_line_over_a_graph() {
         None,
         "graph.open".into(),
     );
-    t.app.doc.graph_view = Some(Box::new(GraphView::new(std::sync::Arc::new(graph))));
-    let zoom = |t: &T| t.app.doc.graph_view.as_ref().map_or(0.0, |v| v.zoom);
+    t.app.doc.plugins.graph_view = Some(Box::new(GraphView::new(std::sync::Arc::new(graph))));
+    let zoom = |t: &T| {
+        t.app
+            .doc
+            .plugins
+            .graph_view
+            .as_ref()
+            .map_or(0.0, |v| v.zoom)
+    };
     // No Vim command typed: the graph's keys, `+` zooms.
     let before = zoom(&t);
     t.typ("+");
@@ -5889,7 +5896,7 @@ fn a_canvas_drawn_where_its_shapes_are() {
         )],
         "test.open".into(),
     );
-    t.app.doc.canvas_view = Some(Box::new(CanvasView::new(std::sync::Arc::new(canvas))));
+    t.app.doc.plugins.canvas_view = Some(Box::new(CanvasView::new(std::sync::Arc::new(canvas))));
     // Fitted to the window at the first tick, its text in its shapes.
     t.draw();
     t.app.tick(std::time::Instant::now());
@@ -5909,6 +5916,7 @@ fn a_canvas_drawn_where_its_shapes_are() {
     let chosen = |t: &T| {
         t.app
             .doc
+            .plugins
             .canvas_view
             .as_ref()
             .and_then(|v| v.target().map(str::to_string))
@@ -5916,7 +5924,14 @@ fn a_canvas_drawn_where_its_shapes_are() {
     assert_eq!(chosen(&t).as_deref(), Some("Plans"));
     t.key(KeyCode::Tab, KeyModifiers::NONE);
     assert_eq!(chosen(&t).as_deref(), Some("Notes"));
-    let zoom = |t: &T| t.app.doc.canvas_view.as_ref().map_or(0.0, |v| v.zoom);
+    let zoom = |t: &T| {
+        t.app
+            .doc
+            .plugins
+            .canvas_view
+            .as_ref()
+            .map_or(0.0, |v| v.zoom)
+    };
     let before = zoom(&t);
     t.typ("+");
     assert!(zoom(&t) > before);

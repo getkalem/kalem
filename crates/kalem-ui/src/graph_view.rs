@@ -66,7 +66,7 @@ impl Editor {
         if self.source {
             return None;
         }
-        let view = self.doc.graph_view.as_deref_mut()?;
+        let view = self.doc.plugins.graph_view.as_deref_mut()?;
         // A frame's share of the layout; the next frame while it moves.
         if view.moving() {
             view.step(Duration::from_millis(8));
@@ -94,7 +94,7 @@ impl Editor {
             move |bounds, _window, cx| {
                 entity.update(cx, |e, _| {
                     e.graph_ui.bounds = Some(bounds);
-                    let v = e.doc.graph_view.as_deref_mut()?;
+                    let v = e.doc.plugins.graph_view.as_deref_mut()?;
                     let size = [f32::from(bounds.size.width), f32::from(bounds.size.height)];
                     v.follow(size);
                     Some(frame(v, size, &palette, neutral))
@@ -182,6 +182,7 @@ impl Editor {
         .size_full();
         let hovering = self
             .doc
+            .plugins
             .graph_view
             .as_deref()
             .is_some_and(|v| v.hovered.is_some());
@@ -199,7 +200,7 @@ impl Editor {
                     let handle = gpui::Focusable::focus_handle(this, cx);
                     window.focus(&handle, cx);
                     let (at, size) = this.graph_point(ev.position);
-                    let Some(v) = this.doc.graph_view.as_deref_mut() else {
+                    let Some(v) = this.doc.plugins.graph_view.as_deref_mut() else {
                         return;
                     };
                     let hit = v.node_at(at, size);
@@ -224,7 +225,7 @@ impl Editor {
                     let drag = this.graph_ui.drag.take();
                     let press = this.graph_ui.press.take();
                     let (at, size) = this.graph_point(ev.position);
-                    let Some(v) = this.doc.graph_view.as_deref_mut() else {
+                    let Some(v) = this.doc.plugins.graph_view.as_deref_mut() else {
                         return;
                     };
                     v.release();
@@ -246,7 +247,7 @@ impl Editor {
             .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, _, cx| {
                 let (at, size) = this.graph_point(ev.position);
                 let drag = this.graph_ui.drag;
-                let Some(v) = this.doc.graph_view.as_deref_mut() else {
+                let Some(v) = this.doc.plugins.graph_view.as_deref_mut() else {
                     return;
                 };
                 match drag {
@@ -279,7 +280,7 @@ impl Editor {
             .on_scroll_wheel(cx.listener(|this, ev: &ScrollWheelEvent, _, cx| {
                 let d = ev.delta.pixel_delta(px(20.));
                 let (at, size) = this.graph_point(ev.position);
-                let Some(v) = this.doc.graph_view.as_deref_mut() else {
+                let Some(v) = this.doc.plugins.graph_view.as_deref_mut() else {
                     return;
                 };
                 // The wheel zooms about the mouse; with Shift it pans.
@@ -306,7 +307,7 @@ impl Editor {
 
     /// Opens the node chosen: runs the graph's command with its id.
     fn open_graph_node(&mut self, window: &mut Window, cx: &mut Context<'_, Editor>) {
-        let Some(v) = self.doc.graph_view.as_deref() else {
+        let Some(v) = self.doc.plugins.graph_view.as_deref() else {
             return;
         };
         let Some(i) = v.selected else {
@@ -342,7 +343,7 @@ impl Editor {
         let size = self.graph_ui.bounds.map_or([800.0, 600.0], |b| {
             [f32::from(b.size.width), f32::from(b.size.height)]
         });
-        let Some(v) = self.doc.graph_view.as_deref_mut() else {
+        let Some(v) = self.doc.plugins.graph_view.as_deref_mut() else {
             return false;
         };
         let k = &ev.keystroke;

@@ -78,6 +78,7 @@ mod shot {
                     ws.editor
                         .read(cx)
                         .doc
+                        .plugins
                         .graph_view
                         .as_deref()
                         .is_some_and(|v| v.moving())

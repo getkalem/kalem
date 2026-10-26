@@ -337,12 +337,6 @@ pub struct DocumentState {
     /// that narrowed it named it (a plugin's breadcrumb of the block it
     /// zoomed into: the page and the blocks above).
     pub narrowing_label: Option<String>,
-    /// The line under a line a layer draws being typed into, if any (API
-    /// 0.2.15, [`crate::row_edit`]).
-    pub row_edit: Option<crate::row_edit::RowEdit>,
-    /// The line under a line to type into once its layer shows it: the
-    /// block Enter made or Tab moved (API 0.2.18).
-    pub row_resume: Option<crate::row_edit::Resume>,
     /// Positions that move with the text: Vim's marks, jump list and
     /// change list.
     pub marks: crate::marks::Marks,
@@ -358,36 +352,12 @@ pub struct DocumentState {
     /// What the user is told once, at the next tick: an edit of a
     /// document of flowing text its plugin refused, and why.
     notice: Option<String>,
-    /// A document a plugin writes ([`GeneratedDoc`]).
-    pub generated: Option<GeneratedDoc>,
-    /// The graph a plugin's document is drawn as (`crate::graph_view`,
-    /// plugin API 0.2.12): laid out and seen through the window, its
-    /// text the source.
-    pub graph_view: Option<Box<crate::graph_view::GraphView>>,
-    /// The canvas a plugin's document is drawn as (`crate::canvas_view`,
-    /// plugin API 0.2.16): its shapes where the plugin placed them, seen
-    /// through the window, its text the source.
-    pub canvas_view: Option<Box<crate::canvas_view::CanvasView>>,
     /// Whether saving ends the text with a line feed (Vim's
     /// 'fixendofline', which the Vim layer sets while it edits the
     /// document); otherwise the file is written as the text is.
     pub final_newline: bool,
-    /// The styles its plugin gave the text of such a document, in order.
-    generated_styles: Vec<StyleSpan>,
-    /// The marks plugins set beside its lines ([`GutterMark`]), by the
-    /// start of their line when set, in order; they move with edits.
-    gutter: Vec<(usize, GutterMark)>,
-    /// The plugins' writes of marks read last, and the version of this
-    /// file's marks taken.
-    gutter_seen: (u64, u64),
     /// The version control holding its file, found for that path.
     vcs: std::cell::RefCell<Option<(PathBuf, Option<&'static str>)>>,
-    /// The layer serving its folder, found for that path and the layers'
-    /// generation.
-    folder_layer: std::cell::RefCell<Option<(PathBuf, u64, Option<String>)>>,
-    /// The overlays of the layer serving it (`crate::layers`): as last
-    /// given, moved with the edits since, and the answer waited for.
-    layer: std::cell::RefCell<crate::layers::DocLayer>,
     /// The text of a version as the plugins' calls on other threads share
     /// it ([`DocumentState::shared_text`]): copied once a version.
     shared: std::cell::RefCell<Option<(u64, std::sync::Arc<str>)>>,
@@ -396,6 +366,8 @@ pub struct DocumentState {
     /// Vim's insert mode does (a delimiter or a quote still going into
     /// the value) and the cursor shows in the cell.
     pub vim_keys: bool,
+    /// What plugins keep on it ([`crate::plugin_parts::PluginParts`]).
+    pub plugins: crate::plugin_parts::PluginParts,
 }
 
 /// Why saving failed.
@@ -563,25 +535,16 @@ impl DocumentState {
             meta,
             narrowing: None,
             narrowing_label: None,
-            row_edit: None,
-            row_resume: None,
             marks: Default::default(),
             disk: None,
             disk_text: None,
             changes: Vec::new(),
             notice: None,
-            generated: None,
-            graph_view: None,
-            canvas_view: None,
             final_newline: false,
-            generated_styles: Vec::new(),
-            gutter: Vec::new(),
-            gutter_seen: (0, 0),
             vcs: std::cell::RefCell::new(None),
-            folder_layer: std::cell::RefCell::new(None),
-            layer: std::cell::RefCell::default(),
             shared: std::cell::RefCell::new(None),
             vim_keys: false,
+            plugins: Default::default(),
         }
     }
 
@@ -695,9 +658,9 @@ impl DocumentState {
         let mut d = DocumentState::new("", meta, settings);
         d.read_only = true;
         d.sync_graph(g.number);
-        d.generated = Some(g);
+        d.plugins.generated = Some(g);
         d.replace_shown(text);
-        d.generated_styles = fit_spans(text, styles);
+        d.plugins.generated_styles = fit_spans(text, styles);
         d.place_shown_cursor(Some(cursor.unwrap_or(0)), 0);
         d
     }
@@ -707,23 +670,23 @@ impl DocumentState {
     fn sync_graph(&mut self, number: u64) {
         match (
             crate::extensions::generated_graph(number),
-            &mut self.graph_view,
+            &mut self.plugins.graph_view,
         ) {
             (Some(g), Some(v)) => v.update(g),
             (Some(g), None) => {
-                self.graph_view = Some(Box::new(crate::graph_view::GraphView::new(g)));
+                self.plugins.graph_view = Some(Box::new(crate::graph_view::GraphView::new(g)));
             }
-            (None, _) => self.graph_view = None,
+            (None, _) => self.plugins.graph_view = None,
         }
         match (
             crate::extensions::generated_canvas(number),
-            &mut self.canvas_view,
+            &mut self.plugins.canvas_view,
         ) {
             (Some(c), Some(v)) => v.update(c),
             (Some(c), None) => {
-                self.canvas_view = Some(Box::new(crate::canvas_view::CanvasView::new(c)));
+                self.plugins.canvas_view = Some(Box::new(crate::canvas_view::CanvasView::new(c)));
             }
-            (None, _) => self.canvas_view = None,
+            (None, _) => self.plugins.canvas_view = None,
         }
     }
 
@@ -739,10 +702,10 @@ impl DocumentState {
     ) {
         let line = self.text.line_of(self.selection.head);
         self.replace_shown(text);
-        self.generated_styles = fit_spans(text, styles);
+        self.plugins.generated_styles = fit_spans(text, styles);
         self.place_shown_cursor(cursor, line);
         self.sync_graph(g.number);
-        self.generated = Some(g);
+        self.plugins.generated = Some(g);
     }
 
     fn place_shown_cursor(&mut self, cursor: Option<usize>, line: usize) {
@@ -767,18 +730,18 @@ impl DocumentState {
     /// ([`crate::extensions::set_gutter`]); whether they did.
     pub fn sync_gutter(&mut self) -> bool {
         let writes = crate::extensions::gutter_writes();
-        if writes == self.gutter_seen.0 {
+        if writes == self.plugins.gutter_seen.0 {
             return false;
         }
-        self.gutter_seen.0 = writes;
+        self.plugins.gutter_seen.0 = writes;
         let (version, marks) = match self.meta.path.as_deref() {
             Some(p) if self.dired().is_none() => crate::extensions::gutter(p),
             _ => (0, Vec::new()),
         };
-        if version == self.gutter_seen.1 {
+        if version == self.plugins.gutter_seen.1 {
             return false;
         }
-        self.gutter_seen.1 = version;
+        self.plugins.gutter_seen.1 = version;
         self.set_gutter(&marks);
         true
     }
@@ -800,18 +763,18 @@ impl DocumentState {
             .collect();
         v.sort();
         v.dedup();
-        self.gutter = v;
+        self.plugins.gutter = v;
     }
 
     /// The mark beside line `line` (from 0), the one that wins when it
     /// has several.
     pub fn gutter_mark(&self, line: usize) -> Option<GutterMark> {
-        if self.gutter.is_empty() || line >= self.text.line_count() {
+        if self.plugins.gutter.is_empty() || line >= self.text.line_count() {
             return None;
         }
         let start = self.text.line_start(line);
-        let i = self.gutter.partition_point(|m| m.0 < start);
-        self.gutter[i..]
+        let i = self.plugins.gutter.partition_point(|m| m.0 < start);
+        self.plugins.gutter[i..]
             .iter()
             .take_while(|m| self.text.line_of(m.0) == line)
             .map(|m| m.1)
@@ -820,12 +783,17 @@ impl DocumentState {
 
     /// Whether plugins marked lines of it.
     pub fn has_gutter(&self) -> bool {
-        !self.gutter.is_empty()
+        !self.plugins.gutter.is_empty()
     }
 
     /// The first line of each run of marked lines (a change), in order.
     pub fn changes_starts(&self) -> Vec<usize> {
-        let mut lines: Vec<usize> = self.gutter.iter().map(|m| self.text.line_of(m.0)).collect();
+        let mut lines: Vec<usize> = self
+            .plugins
+            .gutter
+            .iter()
+            .map(|m| self.text.line_of(m.0))
+            .collect();
         lines.dedup();
         let mut starts = Vec::new();
         for (i, l) in lines.iter().enumerate() {
@@ -839,15 +807,16 @@ impl DocumentState {
     /// The styles of a plugin's document over `range` of its text, each
     /// cut to it, in order.
     pub fn styles_in(&self, range: std::ops::Range<usize>) -> Vec<StyleSpan> {
-        if self.generated_styles.is_empty() {
+        if self.plugins.generated_styles.is_empty() {
             return Vec::new();
         }
         // Every span starting before the range's end and ending after its
         // start.
         let end = self
+            .plugins
             .generated_styles
             .partition_point(|s| s.range.start < range.end);
-        self.generated_styles[..end]
+        self.plugins.generated_styles[..end]
             .iter()
             .filter(|s| s.range.end > range.start)
             .map(|s| StyleSpan {
@@ -859,7 +828,7 @@ impl DocumentState {
 
     /// The title a plugin gave its document, when this is one.
     pub fn generated_title(&self) -> Option<&str> {
-        self.generated.as_ref().map(|g| g.title.as_str())
+        self.plugins.generated.as_ref().map(|g| g.title.as_str())
     }
 
     /// Reads the file manager's folder again, keeping marks and the cursor.
@@ -1661,7 +1630,7 @@ impl DocumentState {
         if !crate::layers::any() {
             return None;
         }
-        self.layer.borrow_mut().overlays(
+        self.plugins.layer.borrow_mut().overlays(
             self.version,
             self.meta.path.as_deref(),
             self.meta.mode.name(),
@@ -1688,7 +1657,7 @@ impl DocumentState {
     /// Whether the layer serving this document is being asked for its
     /// overlays on a thread.
     pub fn waiting_layer(&self) -> bool {
-        self.layer.borrow().waiting()
+        self.plugins.layer.borrow().waiting()
     }
 
     /// Counts the changes of the overlays this document is drawn with
@@ -1699,7 +1668,7 @@ impl DocumentState {
         // Asked, or moved with the edits, first: the views made now are of
         // what it gives.
         let _ = self.overlays();
-        self.layer.borrow().revision()
+        self.plugins.layer.borrow().revision()
     }
 
     /// The version of the text, incremented by every change.
@@ -1732,7 +1701,7 @@ impl DocumentState {
         self.meta.line_ending = ending;
         if tx.edits.is_empty() {
             self.version += 1;
-            self.layer.get_mut().edited(self.version, None);
+            self.plugins.layer.get_mut().edited(self.version, None);
         } else {
             self.apply(&tx, ChangeKind::Command, now);
             self.endings.0.push(before);
@@ -1745,7 +1714,7 @@ impl DocumentState {
         if self.meta.bom != bom && self.meta.encoding == encoding_rs::UTF_8 {
             self.meta.bom = bom;
             self.version += 1;
-            self.layer.get_mut().edited(self.version, None);
+            self.plugins.layer.get_mut().edited(self.version, None);
         }
     }
 
@@ -2556,7 +2525,7 @@ impl DocumentState {
         // A mark goes with its line: text put at the line's start goes
         // before it.
         let m = tx.mapper();
-        for g in &mut self.gutter {
+        for g in &mut self.plugins.gutter {
             g.0 = m.map(g.0, org_edit::Assoc::After);
         }
         let edit = tx.covering_edit(self.text.as_str());
@@ -2573,7 +2542,7 @@ impl DocumentState {
         self.text.apply(&tx.edits);
         self.version += 1;
         let version = self.version;
-        self.layer.get_mut().edited(version, Some(tx));
+        self.plugins.layer.get_mut().edited(version, Some(tx));
         *self.shared.get_mut() = None;
         let text = self.text.as_str();
         if let Some(s) = &mut self.mode_state {
@@ -2623,7 +2592,7 @@ impl DocumentState {
         let markdown =
             self.meta.mode == DocumentMode::Markdown && crate::markdown::background_done();
         // Its layer's answer, asked on a thread.
-        let layer = self.layer.get_mut().take();
+        let layer = self.plugins.layer.get_mut().take();
         self.poll_parse() || mode || markdown || layer
     }
 
@@ -2727,7 +2696,7 @@ impl DocumentState {
     /// `2026.journal`), or `text`, `markdown`, `latex`, `csv`, `directory`.
     /// Menus and toolbars show the commands that serve it.
     pub fn document_type(&self) -> String {
-        if let Some(g) = &self.generated {
+        if let Some(g) = &self.plugins.generated {
             return g.kind.clone();
         }
         match &self.meta.mode {
@@ -2747,7 +2716,7 @@ impl DocumentState {
     /// a mode line or a `#!` line naming another wins, and a mode's own
     /// files stay the mode's.
     pub fn plugin_language(&self) -> Option<crate::languages::LanguageSpec> {
-        if self.generated.is_some() {
+        if self.plugins.generated.is_some() {
             return None;
         }
         let DocumentMode::Text { language } = &self.meta.mode else {
@@ -2842,7 +2811,7 @@ impl DocumentState {
         }
         let path = self.meta.path.as_deref()?;
         let generation = crate::layers::generation();
-        let mut cache = self.folder_layer.borrow_mut();
+        let mut cache = self.plugins.folder_layer.borrow_mut();
         if let Some((p, g, l)) = cache.as_ref()
             && p == path
             && *g == generation
@@ -2873,7 +2842,7 @@ impl DocumentState {
     /// `text`; `markdown`, `csv`, `directory`.
     pub fn text_type(&self) -> String {
         use org_syntax::SyntaxKind as K;
-        if let Some(g) = &self.generated {
+        if let Some(g) = &self.plugins.generated {
             return g.kind.clone();
         }
         match &self.meta.mode {
@@ -3509,7 +3478,7 @@ mod tests {
         assert_eq!(d.text().as_str(), more);
         assert_eq!(d.text().line_of(d.selection.head), 3);
         assert!(!d.is_modified() && !d.history.can_undo());
-        assert_eq!(d.generated.as_ref().map(|g| g.version), Some(2));
+        assert_eq!(d.plugins.generated.as_ref().map(|g| g.version), Some(2));
         assert_eq!(d.generated_title(), Some("Git: org (dev)"));
         // A cursor given past the end, or inside a character, is put back.
         d.show_generated(g(3, "Git: org"), "é", Some(1), &[]);

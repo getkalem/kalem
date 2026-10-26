@@ -53,7 +53,7 @@ fn a_plugins_document_is_shown_rewritten_and_closed(cx: &mut TestAppContext) {
         ws.read_with(cx, |ws, cx| {
             let e = ws.editor.read(cx);
             (
-                e.doc.generated.as_ref().map(|g| g.number),
+                e.doc.plugins.generated.as_ref().map(|g| g.number),
                 e.doc.text().as_str().to_string(),
                 e.title(),
                 ws.editors.len(),
@@ -180,7 +180,7 @@ fn a_plugins_keys_apply_in_its_documents(cx: &mut TestAppContext) {
         ws.read_with(cx, |ws, cx| {
             let d = &ws.editor.read(cx).doc;
             (
-                d.generated.is_some(),
+                d.plugins.generated.is_some(),
                 d.selection.anchor.min(d.selection.head),
                 d.selection.anchor.max(d.selection.head),
             )

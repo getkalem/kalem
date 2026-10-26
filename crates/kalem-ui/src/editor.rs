@@ -2397,7 +2397,7 @@ impl Editor {
         g: &kalem_core::extensions::Generated,
         cx: &mut Context<'_, Self>,
     ) {
-        let shown = self.doc.generated.as_ref().map_or(0, |d| d.version);
+        let shown = self.doc.plugins.generated.as_ref().map_or(0, |d| d.version);
         if g.version <= shown {
             return;
         }
@@ -2643,7 +2643,7 @@ impl Editor {
         }
         // A layer's line under a line typed into takes the keys (API
         // 0.2.15); a character goes on to the input handler.
-        if self.doc.row_edit.is_some() {
+        if self.doc.plugins.row_edit.is_some() {
             if self.row_edit_key(&ev.keystroke, cx) {
                 cx.stop_propagation();
             }
@@ -2658,12 +2658,12 @@ impl Editor {
             return;
         }
         // A graph's own keys (Enter opens the node chosen, Tab chooses).
-        if self.doc.graph_view.is_some() && self.graph_key(ev, window, cx) {
+        if self.doc.plugins.graph_view.is_some() && self.graph_key(ev, window, cx) {
             cx.stop_propagation();
             return;
         }
         // A canvas's own keys (Enter opens the shape chosen, Tab chooses).
-        if self.doc.canvas_view.is_some() && self.canvas_key(ev, window, cx) {
+        if self.doc.plugins.canvas_view.is_some() && self.canvas_key(ev, window, cx) {
             cx.stop_propagation();
             return;
         }
@@ -3077,7 +3077,7 @@ impl Editor {
         });
         // A plugin's document is laid out by the plugin: no guides.
         let step = match kalem_core::text::detect_indent(text) {
-            Some(kalem_core::text::Indent::Spaces(n)) if self.doc.generated.is_none() => n,
+            Some(kalem_core::text::Indent::Spaces(n)) if self.doc.plugins.generated.is_none() => n,
             _ => 0,
         };
         *p = Some((stamp, h, step));
@@ -3105,7 +3105,7 @@ impl Editor {
             && (self.doc.meta.mode != DocumentMode::Csv || self.source)
             && (self.doc.meta.mode != DocumentMode::Org || self.source)
             && self.doc.dired().is_none()
-            && self.doc.generated.is_none()
+            && self.doc.plugins.generated.is_none()
             && (self.doc.meta.mode != DocumentMode::Org || self.source)
     }
 
@@ -3534,9 +3534,9 @@ impl Editor {
             _ => None,
         };
         let line = self.doc.text().line_start(self.doc.text().line_of(pos));
-        if let Some(r) = &self.doc.row_edit {
+        if let Some(r) = &self.doc.plugins.row_edit {
             if row.is_some_and(|(row, _)| r.line == line && r.row == row) {
-                if let (Some((_, at)), Some(r)) = (row, &mut self.doc.row_edit) {
+                if let (Some((_, at)), Some(r)) = (row, &mut self.doc.plugins.row_edit) {
                     r.back = r
                         .input
                         .get(at.min(r.input.len())..)
@@ -4659,7 +4659,7 @@ impl EntityInputHandler for Editor {
             return;
         }
         // Typed into a layer's line under a line (API 0.2.15).
-        if self.doc.row_edit.is_some() {
+        if self.doc.plugins.row_edit.is_some() {
             self.marked = None;
             self.doc.row_edit_insert(text);
             self.row_edit_changed(cx);
@@ -4690,7 +4690,7 @@ impl EntityInputHandler for Editor {
     ) {
         // Panels show a composition once it is committed.
         if self.palette.is_some()
-            || self.doc.row_edit.is_some()
+            || self.doc.plugins.row_edit.is_some()
             || self.date_picker.is_some()
             || self.settings.is_some()
             || self.vim.as_ref().is_some_and(|v| !v.takes_text())

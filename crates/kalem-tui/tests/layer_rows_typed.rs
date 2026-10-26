@@ -103,7 +103,7 @@ fn a_line_under_a_line_typed_into_writes_its_file() {
     // its end, in it.
     app.doc.move_cursor(NOTE.find("embed").unwrap(), false);
     app.run_command("view.editRow", serde_json::json!({}));
-    assert!(app.doc.row_edit.is_some());
+    assert!(app.doc.plugins.row_edit.is_some());
     assert_eq!(row(&mut term, &mut app, 2), "     TODO buy milk");
     assert_eq!(term.get_cursor_position().unwrap(), (18, 2).into());
     // Typed into, as a one-line input; Enter writes it into the page.
@@ -116,7 +116,7 @@ fn a_line_under_a_line_typed_into_writes_its_file() {
     typ(&mut app, "D");
     assert_eq!(row(&mut term, &mut app, 2), "     DODO buy bread");
     key(&mut app, KeyCode::Enter);
-    assert!(app.doc.row_edit.is_none());
+    assert!(app.doc.plugins.row_edit.is_none());
     assert_eq!(
         std::fs::read_to_string(&page).unwrap(),
         "- DODO buy bread\n- other\n"
@@ -135,15 +135,20 @@ fn a_line_under_a_line_typed_into_writes_its_file() {
         }));
     };
     click(&mut app, 9, 2);
-    let r = app.doc.row_edit.clone().expect("typing into it");
+    let r = app.doc.plugins.row_edit.clone().expect("typing into it");
     assert_eq!(r.cursor(), r.input.len());
     term.draw(|f| app.draw(f)).unwrap();
     click(&mut app, 7, 2);
-    let r = app.doc.row_edit.clone().expect("still typing into it");
+    let r = app
+        .doc
+        .plugins
+        .row_edit
+        .clone()
+        .expect("still typing into it");
     assert_eq!(&r.input[..r.cursor()], "DO");
     typ(&mut app, "X");
     key(&mut app, KeyCode::Esc);
-    assert!(app.doc.row_edit.is_none());
+    assert!(app.doc.plugins.row_edit.is_none());
     assert_eq!(
         std::fs::read_to_string(&page).unwrap(),
         "- DODO buy bread\n- other\n"
@@ -156,7 +161,7 @@ fn a_line_under_a_line_typed_into_writes_its_file() {
         row: 3,
         modifiers: KeyModifiers::NONE,
     }));
-    assert!(app.doc.row_edit.is_none());
+    assert!(app.doc.plugins.row_edit.is_none());
     app.doc.move_cursor(NOTE.find("embed").unwrap(), false);
     app.run_command("view.editRow", serde_json::json!({}));
     typ(&mut app, "!");

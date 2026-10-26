@@ -170,7 +170,7 @@ impl DocView {
             modified: doc.is_modified(),
             text: doc.text().as_str().to_string(),
             selection: (doc.selection.anchor, doc.selection.head),
-            generated: doc.generated.as_ref().map(|g| g.number),
+            generated: doc.plugins.generated.as_ref().map(|g| g.number),
             model,
         }
     }

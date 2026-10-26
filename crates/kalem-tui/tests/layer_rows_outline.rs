@@ -67,7 +67,7 @@ fn typ(app: &mut App, s: &str) {
 
 /// What is typed into, and the text before the cursor.
 fn editing(app: &App) -> Option<(String, String)> {
-    let r = app.doc.row_edit.as_ref()?;
+    let r = app.doc.plugins.row_edit.as_ref()?;
     Some((r.input.clone(), r.input[..r.cursor()].to_string()))
 }
 
@@ -133,7 +133,7 @@ fn blocks_split_and_moved_where_an_embed_shows_them() {
     // at the top, too, for Shift+Tab.
     key(&mut app, KeyCode::BackTab);
     assert_eq!(page_text(), "- one\n\t- child\n- new\n- two\n");
-    assert!(app.doc.row_edit.is_some());
+    assert!(app.doc.plugins.row_edit.is_some());
     // Enter in the middle: what follows the cursor a new block, the
     // cursor at its start.
     key(&mut app, KeyCode::Home);

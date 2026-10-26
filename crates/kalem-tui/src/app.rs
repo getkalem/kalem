@@ -767,7 +767,7 @@ impl App {
             path: doc.meta.path.clone().filter(|_| doc.dired().is_none()),
             title: match doc.dired() {
                 Some(d) => d.list_title(),
-                None if doc.generated.is_some() => {
+                None if doc.plugins.generated.is_some() => {
                     doc.generated_title().unwrap_or_default().to_string()
                 }
                 None => doc
@@ -1230,7 +1230,7 @@ impl App {
         }
         // A plugin's document is forgotten: the plugin's next write is
         // refused.
-        if let Some(g) = &self.doc.generated {
+        if let Some(g) = &self.doc.plugins.generated {
             kalem_core::extensions::generated_closed(g.number);
         }
         let closing_id = self.doc_id;
@@ -1250,7 +1250,12 @@ impl App {
 
     /// The open document that is plugin document `number`.
     fn generated_index(&self, number: u64) -> Option<usize> {
-        let is = |d: &DocumentState| d.generated.as_ref().is_some_and(|g| g.number == number);
+        let is = |d: &DocumentState| {
+            d.plugins
+                .generated
+                .as_ref()
+                .is_some_and(|g| g.number == number)
+        };
         self.docs.iter().enumerate().find_map(|(i, b)| match b {
             Some(b) if is(&b.doc) => Some(i),
             None if is(&self.doc) => Some(i),
@@ -1288,7 +1293,7 @@ impl App {
                 // An untouched empty document gives way.
                 let replace = self.doc.meta.path.is_none()
                     && self.doc.dired().is_none()
-                    && self.doc.generated.is_none()
+                    && self.doc.plugins.generated.is_none()
                     && !self.doc.is_modified()
                     && self.doc.text().is_empty();
                 let old = self.active;
@@ -1315,7 +1320,7 @@ impl App {
     /// newer than theirs.
     fn generated_written(&mut self) {
         let newer = |d: &DocumentState| {
-            let shown = d.generated.as_ref()?;
+            let shown = d.plugins.generated.as_ref()?;
             kalem_core::extensions::generated(shown.number).filter(|g| g.version > shown.version)
         };
         if let Some(g) = newer(&self.doc) {
@@ -2047,7 +2052,7 @@ impl App {
             Request::Save => {
                 self.save(false);
             }
-            Request::SaveAs if self.doc.generated.is_some() => {
+            Request::SaveAs if self.doc.plugins.generated.is_some() => {
                 self.save(false);
             }
             Request::SaveAs => {
@@ -3645,12 +3650,12 @@ impl App {
                 };
                 // A click while typing into a line under a line: in it, the
                 // cursor moves; elsewhere, what was typed is written.
-                if let Some(r) = &self.doc.row_edit {
+                if let Some(r) = &self.doc.plugins.row_edit {
                     let line = self.doc.text().line_of(pos);
                     let here = self.doc.text().line_of(r.line) == line;
                     match widget {
                         Some((Widget::BelowRow { row }, at, _)) if here && row == r.row => {
-                            if let Some(r) = &mut self.doc.row_edit {
+                            if let Some(r) = &mut self.doc.plugins.row_edit {
                                 r.back = r
                                     .input
                                     .get(at.min(r.input.len())..)
@@ -3691,7 +3696,7 @@ impl App {
                 if let Some((Widget::BelowRow { row }, at, _)) = widget {
                     let line = self.doc.text().line_start(self.doc.text().line_of(pos));
                     let started = self.doc.start_row_edit(line, row);
-                    if started && let Some(r) = &mut self.doc.row_edit {
+                    if started && let Some(r) = &mut self.doc.plugins.row_edit {
                         r.back = r
                             .input
                             .get(at.min(r.input.len())..)
@@ -4185,7 +4190,7 @@ impl App {
             .editor
             .graph_area
             .map_or([160.0, 160.0], crate::graph_view::size);
-        let Some(v) = self.doc.graph_view.as_deref_mut() else {
+        let Some(v) = self.doc.plugins.graph_view.as_deref_mut() else {
             return false;
         };
         let middle = [size[0] / 2.0, size[1] / 2.0];
@@ -4221,7 +4226,7 @@ impl App {
         let Some(area) = self.editor.graph_area.filter(|_| !self.editor.source) else {
             return false;
         };
-        if self.doc.graph_view.is_none()
+        if self.doc.plugins.graph_view.is_none()
             || !area.contains(ratatui::layout::Position::new(m.column, m.row))
         {
             return false;
@@ -4235,7 +4240,7 @@ impl App {
         let double = self.last_click.is_some_and(|(t, x, y)| {
             now.duration_since(t) < Duration::from_millis(400) && x == m.column && y == m.row
         });
-        let Some(v) = self.doc.graph_view.as_deref_mut() else {
+        let Some(v) = self.doc.plugins.graph_view.as_deref_mut() else {
             return false;
         };
         match m.kind {
@@ -4289,7 +4294,7 @@ impl App {
             .editor
             .canvas_area
             .map_or([160.0, 160.0], crate::canvas_view::size);
-        let Some(v) = self.doc.canvas_view.as_deref_mut() else {
+        let Some(v) = self.doc.plugins.canvas_view.as_deref_mut() else {
             return false;
         };
         let middle = [size[0] / 2.0, size[1] / 2.0];
@@ -4325,7 +4330,7 @@ impl App {
         let Some(area) = self.editor.canvas_area.filter(|_| !self.editor.source) else {
             return false;
         };
-        if self.doc.canvas_view.is_none()
+        if self.doc.plugins.canvas_view.is_none()
             || !area.contains(ratatui::layout::Position::new(m.column, m.row))
         {
             return false;
@@ -4339,7 +4344,7 @@ impl App {
         let double = self.last_click.is_some_and(|(t, x, y)| {
             now.duration_since(t) < Duration::from_millis(400) && x == m.column && y == m.row
         });
-        let Some(v) = self.doc.canvas_view.as_deref_mut() else {
+        let Some(v) = self.doc.plugins.canvas_view.as_deref_mut() else {
             return false;
         };
         match m.kind {
@@ -4361,7 +4366,7 @@ impl App {
     /// Opens the shape of the canvas chosen, when it leads somewhere: the
     /// plugin's command with its target.
     fn open_canvas_shape(&mut self) {
-        let Some(v) = self.doc.canvas_view.as_deref() else {
+        let Some(v) = self.doc.plugins.canvas_view.as_deref() else {
             return;
         };
         let Some(target) = v.target().map(str::to_string) else {
@@ -4374,7 +4379,7 @@ impl App {
     /// Opens the node of the graph chosen: the plugin's command with its
     /// id.
     fn open_graph_node(&mut self) {
-        let Some(v) = self.doc.graph_view.as_deref() else {
+        let Some(v) = self.doc.plugins.graph_view.as_deref() else {
             return;
         };
         let Some(i) = v.selected else {
@@ -5064,7 +5069,7 @@ impl App {
         }
         // A layer's line under a line typed into takes the keys (API
         // 0.2.15).
-        if self.doc.row_edit.is_some() {
+        if self.doc.plugins.row_edit.is_some() {
             self.row_edit_key(&k);
             return;
         }
@@ -5091,10 +5096,10 @@ impl App {
         if self.find.is_some() && self.find_key(&k) {
             return;
         }
-        if self.doc.canvas_view.is_some() && self.canvas_key(&k) {
+        if self.doc.plugins.canvas_view.is_some() && self.canvas_key(&k) {
             return;
         }
-        if self.doc.graph_view.is_some() && self.graph_key(&k) {
+        if self.doc.plugins.graph_view.is_some() && self.graph_key(&k) {
             return;
         }
         if self.outline.as_ref().is_some_and(|o| o.focus) && self.outline_key(&k) {
@@ -6021,7 +6026,7 @@ impl App {
         self.close_stopped_viewer();
         // A plugin's canvas: fitted to the window until the user moves it.
         if !self.editor.source
-            && let Some(v) = self.doc.canvas_view.as_deref_mut()
+            && let Some(v) = self.doc.plugins.canvas_view.as_deref_mut()
             && let Some(area) = self.editor.canvas_area
         {
             let before = (v.center, v.zoom);
@@ -6033,7 +6038,7 @@ impl App {
         // A plugin's graph: its layout a few steps a frame, fitted to the
         // window while it spreads.
         if !self.editor.source
-            && let Some(v) = self.doc.graph_view.as_deref_mut()
+            && let Some(v) = self.doc.plugins.graph_view.as_deref_mut()
         {
             if v.moving() {
                 v.step(Duration::from_millis(8));

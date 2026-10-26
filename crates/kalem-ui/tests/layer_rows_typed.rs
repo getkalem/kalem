@@ -77,7 +77,7 @@ fn a_line_under_a_line_typed_into_writes_its_file(cx: &mut TestAppContext) {
         })
         .expect("the line painted");
     let editing = |cx: &mut gpui::VisualTestContext| {
-        ws.read_with(cx, |ws, cx| ws.editor.read(cx).doc.row_edit.clone())
+        ws.read_with(cx, |ws, cx| ws.editor.read(cx).doc.plugins.row_edit.clone())
     };
     // A click on it: typed into, what the file holds there shown.
     let on = embed.below.origin + point(px(60.), embed.below.size.height / 2.);

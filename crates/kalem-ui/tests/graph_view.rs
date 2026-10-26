@@ -72,6 +72,7 @@ fn a_graph_is_drawn_chosen_panned_and_shown_as_text(cx: &mut TestAppContext) {
             ws.editor
                 .read(cx)
                 .doc
+                .plugins
                 .graph_view
                 .as_deref()
                 .is_some_and(|v| v.moving())
@@ -88,6 +89,7 @@ fn a_graph_is_drawn_chosen_panned_and_shown_as_text(cx: &mut TestAppContext) {
                 .editor
                 .read(cx)
                 .doc
+                .plugins
                 .graph_view
                 .as_deref()
                 .unwrap()
@@ -102,6 +104,7 @@ fn a_graph_is_drawn_chosen_panned_and_shown_as_text(cx: &mut TestAppContext) {
             ws.editor
                 .read(cx)
                 .doc
+                .plugins
                 .graph_view
                 .as_deref()
                 .unwrap()
@@ -145,7 +148,14 @@ fn a_graph_is_drawn_chosen_panned_and_shown_as_text(cx: &mut TestAppContext) {
     // `+` zooms in.
     let zoom = |cx: &mut gpui::VisualTestContext| {
         ws.read_with(cx, |ws, cx| {
-            ws.editor.read(cx).doc.graph_view.as_deref().unwrap().zoom
+            ws.editor
+                .read(cx)
+                .doc
+                .plugins
+                .graph_view
+                .as_deref()
+                .unwrap()
+                .zoom
         })
     };
     let z = zoom(cx);
@@ -175,7 +185,14 @@ fn a_graph_is_drawn_chosen_panned_and_shown_as_text(cx: &mut TestAppContext) {
     cx.cx.update(workspace::generated_written);
     cx.run_until_parked();
     let ids = ws.read_with(cx, |ws, cx| {
-        let v = ws.editor.read(cx).doc.graph_view.as_deref().unwrap();
+        let v = ws
+            .editor
+            .read(cx)
+            .doc
+            .plugins
+            .graph_view
+            .as_deref()
+            .unwrap();
         v.graph()
             .nodes
             .iter()

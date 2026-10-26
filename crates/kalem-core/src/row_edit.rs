@@ -254,7 +254,7 @@ impl DocumentState {
         };
         let end = self.text().line_range(self.text().line_of(line)).end;
         self.move_cursor(end, false);
-        self.row_edit = Some(RowEdit {
+        self.plugins.row_edit = Some(RowEdit {
             line,
             row,
             input: source.text.clone(),
@@ -266,14 +266,14 @@ impl DocumentState {
 
     /// A key of the line being typed into.
     pub fn row_edit_key(&mut self, key: LineKey) {
-        if let Some(r) = &mut self.row_edit {
+        if let Some(r) = &mut self.plugins.row_edit {
             line_edit::apply(&mut r.input, &mut r.back, key);
         }
     }
 
     /// Text typed into the line being typed into, a line feed a space.
     pub fn row_edit_insert(&mut self, text: &str) {
-        if let Some(r) = &mut self.row_edit {
+        if let Some(r) = &mut self.plugins.row_edit {
             line_edit::insert(&mut r.input, r.back, &text.replace(['\n', '\r'], " "));
         }
     }
@@ -281,7 +281,7 @@ impl DocumentState {
     /// Ends typing into a line under a line: what to write, when `keep`
     /// and something was changed.
     pub fn end_row_edit(&mut self, keep: bool) -> Option<WriteBack> {
-        let r = self.row_edit.take()?;
+        let r = self.plugins.row_edit.take()?;
         (keep && r.input != r.source.text).then_some(WriteBack {
             source: r.source,
             text: r.input,
@@ -294,7 +294,7 @@ impl DocumentState {
     /// line that may be typed into, or back to the text past the first or
     /// last: what to write.
     pub fn next_row_edit(&mut self, down: bool) -> Option<WriteBack> {
-        let (line, row) = self.row_edit.as_ref().map(|r| (r.line, r.row))?;
+        let (line, row) = self.plugins.row_edit.as_ref().map(|r| (r.line, r.row))?;
         let write = self.end_row_edit(true);
         let rows = self.editable_rows(line);
         let next = if down {
@@ -313,13 +313,13 @@ impl DocumentState {
     /// block split at the cursor into a new block after it and the blocks
     /// under it, which is typed into next once the layer shows it.
     pub fn row_edit_enter(&mut self) -> Option<WriteBack> {
-        let Some(o) = self.row_edit.as_ref()?.source.outline.clone() else {
+        let Some(o) = self.plugins.row_edit.as_ref()?.source.outline.clone() else {
             return self.end_row_edit(true);
         };
-        let r = self.row_edit.take()?;
+        let r = self.plugins.row_edit.take()?;
         let at = r.cursor();
         let after = r.input[at..].to_string();
-        self.row_resume = Some(Resume {
+        self.plugins.row_resume = Some(Resume {
             path: r.source.path.clone(),
             line: o.next.max(r.source.line + 1),
             column: o.bullet.len(),
@@ -341,7 +341,7 @@ impl DocumentState {
     /// that starts no block goes on to the line after or before, as Down
     /// and Up.
     pub fn row_edit_tab(&mut self, out: bool) -> Option<WriteBack> {
-        let r = self.row_edit.as_ref()?;
+        let r = self.plugins.row_edit.as_ref()?;
         let Some(o) = r.source.outline.clone() else {
             return self.next_row_edit(!out);
         };
@@ -354,8 +354,8 @@ impl DocumentState {
         let (true, Some(column)) = (may && !o.step.is_empty(), column) else {
             return None;
         };
-        let r = self.row_edit.take()?;
-        self.row_resume = Some(Resume {
+        let r = self.plugins.row_edit.take()?;
+        self.plugins.row_resume = Some(Resume {
             path: r.source.path.clone(),
             line: r.source.line,
             column,
@@ -373,18 +373,18 @@ impl DocumentState {
     /// Whether a block Enter made or Tab moved is waited for in its layer
     /// (the editors look again soon).
     pub fn waiting_row_edit(&self) -> bool {
-        self.row_resume.is_some()
+        self.plugins.row_resume.is_some()
     }
 
     /// Types into the block Enter made or Tab moved once the layer shows
     /// it where its file now holds it, the cursor where it was; given up
     /// after some seconds. Whether it started.
     pub fn resume_row_edit(&mut self) -> bool {
-        let Some(r) = self.row_resume.clone() else {
+        let Some(r) = self.plugins.row_resume.clone() else {
             return false;
         };
-        if self.row_edit.is_some() || Instant::now() > r.until {
-            self.row_resume = None;
+        if self.plugins.row_edit.is_some() || Instant::now() > r.until {
+            self.plugins.row_resume = None;
             return false;
         }
         let Some(o) = self.overlays() else {
@@ -406,11 +406,11 @@ impl DocumentState {
         let Some((line, row)) = found else {
             return false;
         };
-        self.row_resume = None;
+        self.plugins.row_resume = None;
         if !self.start_row_edit(line, row) {
             return false;
         }
-        if let Some(e) = &mut self.row_edit {
+        if let Some(e) = &mut self.plugins.row_edit {
             e.back = r.back.min(e.input.chars().count());
         }
         true

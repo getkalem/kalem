@@ -102,7 +102,7 @@ impl Editor {
         if self.source {
             return None;
         }
-        self.doc.canvas_view.as_deref()?;
+        self.doc.plugins.canvas_view.as_deref()?;
         let theme = self.theme.clone();
         let entity = cx.entity();
         let palette = Palette {
@@ -119,7 +119,7 @@ impl Editor {
                     e.canvas_ui.bounds = Some(bounds);
                     let size = [f32::from(bounds.size.width), f32::from(bounds.size.height)];
                     let pictures = &e.shared.pictures;
-                    let v = e.doc.canvas_view.as_deref_mut()?;
+                    let v = e.doc.plugins.canvas_view.as_deref_mut()?;
                     v.follow(size);
                     Some(frame(v, size, palette, |p| {
                         pictures.get(p).map(|(image, _, _)| image)
@@ -274,7 +274,7 @@ impl Editor {
             },
         )
         .size_full();
-        let pointing = self.doc.canvas_view.as_deref().is_some_and(|v| {
+        let pointing = self.doc.plugins.canvas_view.as_deref().is_some_and(|v| {
             v.hovered
                 .is_some_and(|i| v.canvas().shapes[i].target.is_some())
         });
@@ -292,7 +292,7 @@ impl Editor {
                     let handle = gpui::Focusable::focus_handle(this, cx);
                     window.focus(&handle, cx);
                     let (at, size) = this.canvas_point(ev.position);
-                    let Some(v) = this.doc.canvas_view.as_deref_mut() else {
+                    let Some(v) = this.doc.plugins.canvas_view.as_deref_mut() else {
                         return;
                     };
                     let hit = v.shape_at(at, size);
@@ -314,7 +314,7 @@ impl Editor {
                     this.canvas_ui.pan = None;
                     let press = this.canvas_ui.press.take();
                     let (at, size) = this.canvas_point(ev.position);
-                    let Some(v) = this.doc.canvas_view.as_deref_mut() else {
+                    let Some(v) = this.doc.plugins.canvas_view.as_deref_mut() else {
                         return;
                     };
                     // A click, not a drag: chooses the shape under it, or
@@ -332,7 +332,7 @@ impl Editor {
             .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, _, cx| {
                 let (at, size) = this.canvas_point(ev.position);
                 let pan = this.canvas_ui.pan;
-                let Some(v) = this.doc.canvas_view.as_deref_mut() else {
+                let Some(v) = this.doc.plugins.canvas_view.as_deref_mut() else {
                     return;
                 };
                 match pan {
@@ -357,7 +357,7 @@ impl Editor {
             .on_scroll_wheel(cx.listener(|this, ev: &ScrollWheelEvent, _, cx| {
                 let d = ev.delta.pixel_delta(px(20.));
                 let (at, size) = this.canvas_point(ev.position);
-                let Some(v) = this.doc.canvas_view.as_deref_mut() else {
+                let Some(v) = this.doc.plugins.canvas_view.as_deref_mut() else {
                     return;
                 };
                 // The wheel zooms about the mouse; with Shift it pans.
@@ -385,7 +385,7 @@ impl Editor {
     /// Opens the shape chosen, when it leads somewhere: runs the canvas's
     /// command with its target.
     fn open_canvas_shape(&mut self, window: &mut Window, cx: &mut Context<'_, Editor>) {
-        let Some(v) = self.doc.canvas_view.as_deref() else {
+        let Some(v) = self.doc.plugins.canvas_view.as_deref() else {
             return;
         };
         let Some(target) = v.target().map(str::to_string) else {
@@ -420,7 +420,7 @@ impl Editor {
         let size = self.canvas_ui.bounds.map_or([800.0, 600.0], |b| {
             [f32::from(b.size.width), f32::from(b.size.height)]
         });
-        let Some(v) = self.doc.canvas_view.as_deref_mut() else {
+        let Some(v) = self.doc.plugins.canvas_view.as_deref_mut() else {
             return false;
         };
         let k = &ev.keystroke;

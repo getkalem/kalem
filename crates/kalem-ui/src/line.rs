@@ -1392,7 +1392,7 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
             runs = color_code(runs, &text, &view, &spans, &theme);
         }
         // A plugin's document: the styles its plugin gave the text.
-        if editor.doc.generated.is_some() {
+        if editor.doc.plugins.generated.is_some() {
             let spans = editor.doc.styles_in(view.range.clone());
             if !spans.is_empty() {
                 runs = style_runs(runs, view.range.start, &spans, &theme);
@@ -1610,7 +1610,12 @@ fn below_pieces(editor: &Editor, line: usize) -> Vec<(usize, Piece)> {
         return Vec::new();
     };
     let start = editor.doc.text().line_start(line);
-    let editing = editor.doc.row_edit.as_ref().filter(|r| r.line == start);
+    let editing = editor
+        .doc
+        .plugins
+        .row_edit
+        .as_ref()
+        .filter(|r| r.line == start);
     o.below(start)
         .iter()
         .enumerate()
@@ -1709,7 +1714,7 @@ impl gpui::Element for LineElement {
                     .width
             };
             // The line under the line being typed into, and its cursor.
-            let editing = e.doc.row_edit.as_ref().and_then(|r| {
+            let editing = e.doc.plugins.row_edit.as_ref().and_then(|r| {
                 (r.line == e.doc.text().line_start(line)).then(|| (r.row, r.cursor()))
             });
             (p, below, column, editing)

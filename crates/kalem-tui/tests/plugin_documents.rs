@@ -44,7 +44,7 @@ fn a_plugins_document_is_shown_rewritten_and_closed() {
     let text = "Head: main\nUnstaged changes (1)\nmodified notes.org\n";
     let n = x::open_generated("gentest", spec(), text.into(), Some(11), Vec::new()).unwrap();
     app.tick(Instant::now());
-    let shown = |app: &App| app.doc.generated.as_ref().map(|g| g.number);
+    let shown = |app: &App| app.doc.plugins.generated.as_ref().map(|g| g.number);
     assert_eq!(shown(&app), Some(n));
     assert_eq!(app.doc.text().as_str(), text);
     assert_eq!(app.doc.selection.head, 11);
@@ -199,7 +199,10 @@ fn a_plugins_document_is_drawn_in_its_styles() {
     ];
     let n = x::open_generated("gentest", spec, " M a.txt\n".into(), None, styles).unwrap();
     app.tick(Instant::now());
-    assert_eq!(app.doc.generated.as_ref().map(|g| g.number), Some(n));
+    assert_eq!(
+        app.doc.plugins.generated.as_ref().map(|g| g.number),
+        Some(n)
+    );
     let mut term = Terminal::new(TestBackend::new(60, 6)).unwrap();
     term.draw(|f| app.draw(f)).unwrap();
     let buf = term.backend().buffer().clone();

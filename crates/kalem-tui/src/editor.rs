@@ -579,7 +579,11 @@ impl<'a> Layout<'a> {
                 });
                 // A plugin's document is laid out by the plugin: no guides.
                 let step = match kalem_core::text::detect_indent(text) {
-                    Some(kalem_core::text::Indent::Spaces(n)) if doc.generated.is_none() => n,
+                    Some(kalem_core::text::Indent::Spaces(n))
+                        if doc.plugins.generated.is_none() =>
+                    {
+                        n
+                    }
                     _ => 0,
                 };
                 *p = Some((stamp, h, step));
@@ -1640,7 +1644,7 @@ impl<'a> Layout<'a> {
                     // Syntax colors where the line shows its source (not a
                     // BibTeX grid row).
                     self.plain_colors(line, &range, &mut lg.glyphs);
-                    if self.doc.generated.is_some() {
+                    if self.doc.plugins.generated.is_some() {
                         self.plugin_styles(&range, &mut lg.glyphs);
                     }
                     if self.doc.meta.mode == kalem_core::DocumentMode::Markdown && !self.source {
@@ -2317,7 +2321,7 @@ impl EditorView {
         // A plugin's document drawn as a canvas, unless its source is
         // shown.
         if !self.source
-            && let Some(v) = doc.canvas_view.as_deref()
+            && let Some(v) = doc.plugins.canvas_view.as_deref()
         {
             self.canvas_area = Some(area);
             crate::canvas_view::draw(
@@ -2332,7 +2336,7 @@ impl EditorView {
         }
         // A plugin's document drawn as a graph, unless its source is shown.
         if !self.source
-            && let Some(v) = doc.graph_view.as_deref()
+            && let Some(v) = doc.plugins.graph_view.as_deref()
         {
             self.graph_area = Some(area);
             crate::graph_view::draw(
@@ -2363,7 +2367,7 @@ impl EditorView {
         // (A listing and a plugin's document have none.)
         let numbers = self.line_numbers
             && doc.dired().is_none()
-            && doc.generated.is_none()
+            && doc.plugins.generated.is_none()
             && (doc.meta.mode != kalem_core::DocumentMode::Org || self.source)
             && (doc.meta.mode != kalem_core::DocumentMode::Csv || self.source);
         let digits = doc.text().line_count().to_string().len() as u16;
@@ -2788,7 +2792,7 @@ impl EditorView {
             && doc.selection.anchor == doc.selection.head;
         let cursor = drawn.cursor.filter(|_| !ready);
         // A line under a line typed into: the cursor in it.
-        let cursor = match &doc.row_edit {
+        let cursor = match &doc.plugins.row_edit {
             Some(r) => row_cursor(&drawn, doc.text().line_of(r.line), r),
             None => cursor,
         };
@@ -2821,7 +2825,7 @@ impl EditorView {
 /// The line under a line being typed into, when it is under the line
 /// starting at byte `line`.
 fn doc_row_edit(doc: &DocumentState, line: usize) -> Option<&kalem_core::row_edit::RowEdit> {
-    doc.row_edit.as_ref().filter(|r| r.line == line)
+    doc.plugins.row_edit.as_ref().filter(|r| r.line == line)
 }
 
 /// Where the cursor of the line under a line typed into is drawn: on the

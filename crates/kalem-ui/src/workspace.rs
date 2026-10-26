@@ -484,6 +484,7 @@ impl Workspace {
             .find(|e| {
                 e.read(cx)
                     .doc
+                    .plugins
                     .generated
                     .as_ref()
                     .is_some_and(|g| g.number == number)
@@ -520,7 +521,7 @@ impl Workspace {
                     let o = old.read(cx);
                     o.doc.meta.path.is_none()
                         && o.doc.dired().is_none()
-                        && o.doc.generated.is_none()
+                        && o.doc.plugins.generated.is_none()
                         && !o.doc.is_modified()
                         && o.doc.text().is_empty()
                 };
@@ -549,7 +550,7 @@ impl Workspace {
         };
         // A plugin's document is forgotten: the plugin's next write is
         // refused.
-        if let Some(g) = &editor.read(cx).doc.generated {
+        if let Some(g) = &editor.read(cx).doc.plugins.generated {
             kalem_core::extensions::generated_closed(g.number);
         }
         let at = order.iter().position(|&x| x == i).unwrap_or(0);
@@ -2091,6 +2092,7 @@ impl Workspace {
             .editor
             .read(cx)
             .doc
+            .plugins
             .generated
             .as_ref()
             .map(|g| g.plugin.clone());
@@ -2956,7 +2958,7 @@ pub fn generated_written(cx: &mut App) {
         };
         let _ = w.update(cx, |ws, _, cx| {
             for e in ws.editors.clone() {
-                let number = e.read(cx).doc.generated.as_ref().map(|g| g.number);
+                let number = e.read(cx).doc.plugins.generated.as_ref().map(|g| g.number);
                 if let Some(g) = number.and_then(kalem_core::extensions::generated) {
                     e.update(cx, |e, cx| e.show_generated(&g, cx));
                 }

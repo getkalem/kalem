@@ -102,7 +102,9 @@ fn blocks_split_and_moved_where_an_embed_shows_them(cx: &mut TestAppContext) {
     });
     cx.dispatch_action(kalem_ui::editor::RunCommand::new("view.editRow"));
     let editing = |cx: &mut gpui::VisualTestContext| {
-        editor.read_with(cx, |e, _| e.doc.row_edit.as_ref().map(|r| r.input.clone()))
+        editor.read_with(cx, |e, _| {
+            e.doc.plugins.row_edit.as_ref().map(|r| r.input.clone())
+        })
     };
     let page_text = || std::fs::read_to_string(&page).unwrap();
     // A few of the editor's ticks (every 50 ms) to find the block where

@@ -118,6 +118,7 @@ fn a_canvas_is_drawn_chosen_zoomed_and_shown_as_text(cx: &mut TestAppContext) {
                 .editor
                 .read(cx)
                 .doc
+                .plugins
                 .canvas_view
                 .clone()
                 .expect("a canvas");
