@@ -60,6 +60,19 @@ pub trait ModeView: Send + Sync {
     fn joined_paragraphs(&self, _doc: &DocumentState) -> std::sync::Arc<Vec<Range<usize>>> {
         std::sync::Arc::default()
     }
+
+    /// The table starting at `start`, as the editors draw it as a grid
+    /// away from the cursor: its rows, cells and columns' alignment.
+    fn table_view(&self, _doc: &DocumentState, _start: usize) -> Option<view::TableView> {
+        None
+    }
+
+    /// The table holding `pos`, from its start to its content's end, for a
+    /// mode whose tables are not among its blocks (Markdown's); the others'
+    /// are their [`view::BlockKind::Table`] blocks.
+    fn table_range(&self, _doc: &DocumentState, _pos: usize) -> Option<Range<usize>> {
+        None
+    }
 }
 
 /// What the editors do with a mode's documents beyond drawing their lines
@@ -124,6 +137,17 @@ pub fn shown_lines(doc: &DocumentState, source: bool) -> Option<std::rc::Rc<Vec<
 /// The column `doc`'s view is sorted by ([`ModeView::sort`]).
 pub fn sort(doc: &DocumentState, source: bool) -> Option<(usize, bool)> {
     view_of(doc, source).sort(doc)
+}
+
+/// The table of `doc` starting at `start` ([`ModeView::table_view`]).
+pub fn table_view(doc: &DocumentState, source: bool, start: usize) -> Option<view::TableView> {
+    view_of(doc, source).table_view(doc, start)
+}
+
+/// The table of `doc` holding `pos` when its mode's tables are not blocks
+/// ([`ModeView::table_range`]).
+pub fn table_range(doc: &DocumentState, source: bool, pos: usize) -> Option<Range<usize>> {
+    view_of(doc, source).table_range(doc, pos)
 }
 
 /// The paragraphs of `doc` shown as one away from the cursor
@@ -416,6 +440,15 @@ impl ModeView for Plain {
 struct Org;
 
 impl ModeView for Org {
+    /// Once the parse is current.
+    fn table_view(&self, doc: &DocumentState, start: usize) -> Option<view::TableView> {
+        let (p, current) = doc.parse()?;
+        if !current {
+            return None;
+        }
+        view::table_view(&p.syntax(), p.context(), start, None)
+    }
+
     /// Org styles its text itself: no highlighter, no line numbers; Tab
     /// is its own key; headings fold and indent the text under them,
     /// once the parse is current.
@@ -504,6 +537,10 @@ impl ModeView for OrgSource {
 struct Latex;
 
 impl ModeView for Latex {
+    fn table_view(&self, doc: &DocumentState, start: usize) -> Option<view::TableView> {
+        crate::latex_table::table_view(doc, start)
+    }
+
     fn joined_paragraphs(&self, doc: &DocumentState) -> std::sync::Arc<Vec<Range<usize>>> {
         crate::latex_view::joined_paragraphs(doc)
     }
@@ -534,6 +571,18 @@ impl ModeView for Latex {
 struct Markdown;
 
 impl ModeView for Markdown {
+    /// None while every marker shows (its tables are then their source).
+    fn table_view(&self, doc: &DocumentState, start: usize) -> Option<view::TableView> {
+        if view::source_markers() == view::Markers::Always {
+            return None;
+        }
+        crate::markdown::table_view(doc, start)
+    }
+
+    fn table_range(&self, doc: &DocumentState, pos: usize) -> Option<Range<usize>> {
+        crate::markdown::table_range(doc, pos)
+    }
+
     /// Its headings fold by the margin's arrows.
     fn traits(&self, _: &DocumentState, _: bool) -> ViewTraits {
         ViewTraits {

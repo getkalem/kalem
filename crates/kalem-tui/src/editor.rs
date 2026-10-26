@@ -1028,22 +1028,15 @@ impl<'a> Layout<'a> {
         if let Some(g) = self.grids.borrow().1.get(&start) {
             return Some(g.clone());
         }
-        // A LaTeX table's cells are drawn with an empty Org tree.
+        let view = kalem_core::mode_view::table_view(self.doc, self.source, start)?;
+        // The cells are drawn with the Org tree (an Org table's), or an
+        // empty one (another mode's).
         let empty;
-        let (view, p) = match self.parse {
-            _ if self.doc.meta.mode == kalem_core::DocumentMode::Markdown => {
+        let p = match self.parse {
+            Some(p) => p,
+            None => {
                 empty = org_syntax::parse("");
-                (kalem_core::markdown::table_view(self.doc, start)?, &empty)
-            }
-            Some(p) if self.doc.latex().is_none() => {
-                (view::table_view(&p.syntax(), p.context(), start, None)?, p)
-            }
-            _ => {
-                empty = org_syntax::parse("");
-                (
-                    kalem_core::latex_table::table_view(self.doc, start)?,
-                    &empty,
-                )
+                &empty
             }
         };
         let root = p.syntax();
@@ -1405,9 +1398,8 @@ impl<'a> Layout<'a> {
             return vec![vec![blank]; rows as usize];
         }
         let on_line = range.start <= self.cursor && self.cursor <= range.end;
-        // A LaTeX table away from the cursor: a row of the grid.
-        if self.doc.latex().is_some()
-            && !self.source
+        // A table block away from the cursor: a row of the grid.
+        if !self.source
             && let Some(block) = self.table_block(range.start)
             && !(block.range.start <= self.cursor && self.cursor <= block.content_end)
             && let Some(rows) = self
@@ -1416,11 +1408,8 @@ impl<'a> Layout<'a> {
         {
             return rows;
         }
-        // A Markdown table away from the cursor, the same.
-        if self.doc.meta.mode == kalem_core::DocumentMode::Markdown
-            && !self.source
-            && view::source_markers() != view::Markers::Always
-            && let Some(table) = kalem_core::markdown::table_range(self.doc, range.start)
+        // A table the mode finds itself (Markdown's), the same.
+        if let Some(table) = kalem_core::mode_view::table_range(self.doc, self.source, range.start)
             && !(table.start <= self.cursor && self.cursor <= table.end)
             && let Some(rows) = self
                 .grid(table.start)

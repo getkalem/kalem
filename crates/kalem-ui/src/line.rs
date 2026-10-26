@@ -110,17 +110,7 @@ fn grid(editor: &Editor, start: usize, fs: Pixels, window: &mut Window) -> Optio
             return Some(grid.clone());
         }
     }
-    let view = if editor.doc.latex().is_some() {
-        kalem_core::latex_table::table_view(&editor.doc, start)?
-    } else if editor.doc.meta.mode == kalem_core::DocumentMode::Markdown {
-        kalem_core::markdown::table_view(&editor.doc, start)?
-    } else {
-        let (p, current) = editor.doc.parse()?;
-        if !current {
-            return None;
-        }
-        kalem_core::view::table_view(&p.syntax(), p.context(), start, None)?
-    };
+    let view = kalem_core::mode_view::table_view(&editor.doc, editor.source, start)?;
     // The header: the rows before the first rule under a row.
     let rule = view.rows.iter().enumerate().position(|(i, r)| {
         matches!(r, kalem_core::view::TableRow::Rule { .. })
@@ -188,12 +178,10 @@ fn prepare_grid(
     let range = text.line_range(line);
     let ls = range.start;
     let c = editor.doc.selection.head;
-    // The table's start; with the cursor in it, its source shows.
-    let start = if editor.doc.meta.mode == kalem_core::DocumentMode::Markdown {
-        if kalem_core::view::source_markers() == kalem_core::view::Markers::Always {
-            return None;
-        }
-        let t = kalem_core::markdown::table_range(&editor.doc, ls)?;
+    // The table's start (a table block's, or one the mode finds itself:
+    // Markdown's); with the cursor in it, its source shows.
+    let start = if let Some(t) = kalem_core::mode_view::table_range(&editor.doc, editor.source, ls)
+    {
         if t.start <= c && c <= t.end {
             return None;
         }

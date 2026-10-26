@@ -1094,9 +1094,7 @@ impl Editor {
             // A LaTeX paragraph opens into its lines at the cursor.
             .or_else(|| self.cursor_paragraph().map(|p| (p.start, p.start)))
             .or_else(|| {
-                (self.doc.meta.mode == DocumentMode::Markdown && !self.source)
-                    .then(|| kalem_core::markdown::table_range(&self.doc, head))
-                    .flatten()
+                kalem_core::mode_view::table_range(&self.doc, self.source, head)
                     .filter(|t| t.start <= head && head <= t.end)
                     .map(|t| (t.start, t.end))
             });
