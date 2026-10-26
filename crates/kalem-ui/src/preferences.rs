@@ -214,7 +214,7 @@ impl Editor {
                 "up" => s.list.move_by(-1, config),
                 "down" => s.list.move_by(1, config),
                 // A viewer's file takes no typed text: the keys give it.
-                _ if plain && !special && self.doc.viewer.is_some() => {
+                _ if plain && !special && self.doc.viewer().is_some() => {
                     let Some(text) = k.key_char.clone() else {
                         return false;
                     };
@@ -330,7 +330,7 @@ impl Editor {
                     t.chosen = None;
                 }
                 // A viewer's file takes no typed text: the keys give it.
-                None if plain && !special && self.doc.viewer.is_some() => {
+                None if plain && !special && self.doc.viewer().is_some() => {
                     let Some(text) = k.key_char.clone() else {
                         return false;
                     };

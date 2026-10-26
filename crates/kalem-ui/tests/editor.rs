@@ -2264,7 +2264,7 @@ fn folder_tree(cx: &mut TestAppContext) {
     // (asked by the owner, 2026-10-05); back at a file, the tree again.
     cx.dispatch_action(kalem_ui::editor::RunCommand::new("dired.jump"));
     cx.run_until_parked();
-    assert!(ws.read_with(cx, |ws, cx| ws.editor.read(cx).doc.dired.is_some()));
+    assert!(ws.read_with(cx, |ws, cx| ws.editor.read(cx).doc.dired().is_some()));
     assert!(
         cx.debug_bounds("tree-0").is_none(),
         "no tree beside the listing"
@@ -2529,9 +2529,8 @@ fn file_manager_context_menu(cx: &mut TestAppContext) {
     } else {
         gpui::Modifiers::control()
     };
-    let marks = |cx: &mut VisualTestContext| {
-        e.read_with(cx, |e, _| e.doc.dired.as_deref().unwrap().marks.len())
-    };
+    let marks =
+        |cx: &mut VisualTestContext| e.read_with(cx, |e, _| e.doc.dired().unwrap().marks.len());
     let sub = center(line_of("sub", cx), cx);
     cx.simulate_click(sub, mods);
     cx.run_until_parked();
@@ -2602,9 +2601,8 @@ fn doom_keys_in_the_file_manager(cx: &mut TestAppContext) {
     cx.simulate_keystrokes("-");
     cx.run_until_parked();
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
-    let title = |cx: &mut VisualTestContext| {
-        e.read_with(cx, |e, _| e.doc.dired.as_deref().map(|d| d.title()))
-    };
+    let title =
+        |cx: &mut VisualTestContext| e.read_with(cx, |e, _| e.doc.dired().map(|d| d.title()));
     assert_eq!(title(cx).as_deref(), Some("proj/"));
     cx.simulate_keystrokes("space .");
     cx.simulate_input("new.org");
@@ -2619,7 +2617,7 @@ fn doom_keys_in_the_file_manager(cx: &mut TestAppContext) {
     cx.run_until_parked();
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
     assert_eq!(
-        e.read_with(cx, |e, _| e.doc.dired.as_deref().map(|d| d.title())),
+        e.read_with(cx, |e, _| e.doc.dired().map(|d| d.title())),
         Some("proj/".to_string())
     );
     // Mark a.org, `R`, its name replaced by `sub`: moved there.
@@ -2652,13 +2650,13 @@ fn doom_keys_in_the_file_manager(cx: &mut TestAppContext) {
     cx.run_until_parked();
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
     assert_eq!(
-        e.read_with(cx, |e, _| e.doc.dired.as_deref().map(|d| d.title())),
+        e.read_with(cx, |e, _| e.doc.dired().map(|d| d.title())),
         Some("sub/".to_string())
     );
     cx.simulate_keystrokes("h");
     cx.run_until_parked();
     assert_eq!(
-        e.read_with(cx, |e, _| e.doc.dired.as_deref().map(|d| d.title())),
+        e.read_with(cx, |e, _| e.doc.dired().map(|d| d.title())),
         Some("proj/".to_string())
     );
     let _ = title;
@@ -2860,9 +2858,7 @@ fn line_search_in_the_file_manager(cx: &mut TestAppContext) {
     cx.run_until_parked();
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
     let a = dir.join("proj/a.org");
-    let line_of_a = e.read_with(cx, |e, _| {
-        e.doc.dired.as_deref().unwrap().line_of(&a).unwrap()
-    });
+    let line_of_a = e.read_with(cx, |e, _| e.doc.dired().unwrap().line_of(&a).unwrap());
     let line = |cx: &mut VisualTestContext| {
         e.read_with(cx, |e, _| e.doc.text().line_of(e.doc.selection.head))
     };
@@ -2874,7 +2870,7 @@ fn line_search_in_the_file_manager(cx: &mut TestAppContext) {
     assert_eq!(line(cx), line_of_a);
     cx.simulate_keystrokes("enter");
     cx.run_until_parked();
-    assert!(e.read_with(cx, |e, _| e.doc.dired.is_some()));
+    assert!(e.read_with(cx, |e, _| e.doc.dired().is_some()));
     assert_eq!(line(cx), line_of_a);
     cx.simulate_keystrokes("l");
     cx.run_until_parked();
@@ -2932,7 +2928,7 @@ fn project_keys(cx: &mut TestAppContext) {
     cx.simulate_keystrokes("enter");
     cx.run_until_parked();
     let title = ws.read_with(cx, |ws, cx| {
-        ws.editor.read(cx).doc.dired.as_deref().map(|d| d.title())
+        ws.editor.read(cx).doc.dired().map(|d| d.title())
     });
     assert_eq!(title.as_deref(), Some("proj/"));
     cx.simulate_keystrokes("q");
@@ -3005,8 +3001,7 @@ fn file_manager_and_projects_buttons(cx: &mut TestAppContext) {
             ws.editor
                 .read(cx)
                 .doc
-                .dired
-                .as_deref()
+                .dired()
                 .map(|d| d.place == kalem_core::dired::Place::Projects)
         })
     };

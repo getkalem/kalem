@@ -136,7 +136,7 @@ thread_local! {
 /// [`matching`] for the cursor of `doc`, kept while the text and the
 /// cursor stay as they are (the frontends ask for every line they draw).
 pub fn pair_at_cursor(doc: &crate::DocumentState) -> Option<(usize, usize)> {
-    if doc.dired.is_some() {
+    if doc.dired().is_some() {
         return None;
     }
     let key = (

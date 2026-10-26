@@ -421,8 +421,7 @@ pub fn osc52(text: &str) -> String {
 fn watches(doc: &DocumentState, changed: &[PathBuf]) -> bool {
     doc.meta.path.as_ref().is_some_and(|p| changed.contains(p))
         || doc
-            .dired
-            .as_deref()
+            .dired()
             .is_some_and(|s| s.subdirs.iter().any(|d| changed.contains(d)))
 }
 
@@ -468,7 +467,7 @@ fn new_document(path: Option<&Path>, config: &Config) -> Result<DocumentState, O
         }
     };
     // A folder: the file manager, set up as the settings say.
-    if let Some(s) = doc.dired.as_deref_mut() {
+    if let Some(s) = doc.dired_mut() {
         let (options, details) = kalem_core::dired::options_from(config);
         s.options = options;
         s.details = details;
@@ -754,7 +753,7 @@ impl App {
     /// The folder of the project holding the active document.
     fn project(&self) -> Option<PathBuf> {
         // A listing is in the project holding its folder.
-        let listed = self.doc.dired.as_deref().and_then(|s| s.dir());
+        let listed = self.doc.dired().and_then(|s| s.dir());
         self.projects
             .containing(self.doc.meta.path.as_deref().or(listed))
             .map(|p| p.root.clone())
@@ -765,8 +764,8 @@ impl App {
         let file = |doc: &DocumentState| OpenFile {
             // The file manager is not listed under a project: its name would
             // show twice (the project, then its folder).
-            path: doc.meta.path.clone().filter(|_| doc.dired.is_none()),
-            title: match doc.dired.as_deref() {
+            path: doc.meta.path.clone().filter(|_| doc.dired().is_none()),
+            title: match doc.dired() {
                 Some(d) => d.list_title(),
                 None if doc.generated.is_some() => {
                     doc.generated_title().unwrap_or_default().to_string()
@@ -849,10 +848,10 @@ impl App {
             return;
         }
         let Some(b) = self.docs[i].take() else { return };
-        if self.doc.dired.is_none() {
+        if self.doc.dired().is_none() {
             self.last_text = Some(self.doc_id);
         }
-        if self.doc.dired.is_none() && self.doc.viewer.is_none() {
+        if self.doc.dired().is_none() && self.doc.viewer().is_none() {
             self.last_document = Some(self.doc_id);
         }
         self.previous = Some(self.doc_id);
@@ -918,7 +917,7 @@ impl App {
             .or_else(|| {
                 self.docs
                     .iter()
-                    .position(|b| b.as_ref().is_some_and(|b| b.doc.dired.is_none()))
+                    .position(|b| b.as_ref().is_some_and(|b| b.doc.dired().is_none()))
             });
         match target {
             Some(i) => self.activate(i),
@@ -1018,7 +1017,7 @@ impl App {
             self.projects.opened(&target);
         }
         // A PDF or another paged file: the line is the page.
-        if let (Some((line, column)), Some(v)) = (at, self.doc.viewer.as_deref_mut()) {
+        if let (Some((line, column)), Some(v)) = (at, self.doc.viewer_mut()) {
             v.go_to(line.max(1) as usize - 1);
             if column > 0 {
                 v.show_height(column as f32);
@@ -1043,11 +1042,11 @@ impl App {
     /// Shows `place` in the window's file manager (a new one if there is
     /// none), the cursor on `select`.
     fn file_manager(&mut self, place: Place, select: Option<PathBuf>) {
-        if self.doc.dired.is_none() {
+        if self.doc.dired().is_none() {
             let found = self
                 .docs
                 .iter()
-                .position(|b| b.as_ref().is_some_and(|b| b.doc.dired.is_some()));
+                .position(|b| b.as_ref().is_some_and(|b| b.doc.dired().is_some()));
             match found {
                 Some(i) => self.activate(i),
                 None => {
@@ -1066,7 +1065,7 @@ impl App {
                     });
                     let editor = self.new_view(&doc);
                     let replace = self.doc.meta.path.is_none()
-                        && self.doc.dired.is_none()
+                        && self.doc.dired().is_none()
                         && !self.doc.is_modified()
                         && self.doc.text().is_empty();
                     let old = self.active;
@@ -1102,7 +1101,7 @@ impl App {
     fn sync_watches(&mut self) {
         let mut want: Vec<PathBuf> = std::iter::once(&self.doc)
             .chain(self.docs.iter().flatten().map(|b| &b.doc))
-            .filter_map(|d| Some((d.meta.path.clone()?, d.dired.as_deref()?)))
+            .filter_map(|d| Some((d.meta.path.clone()?, d.dired()?)))
             .flat_map(|(p, s)| std::iter::once(p).chain(s.subdirs.iter().cloned()))
             .collect();
         want.sort();
@@ -1151,11 +1150,11 @@ impl App {
     /// Reads every file manager listing again.
     fn refresh_listings(&mut self) {
         for b in self.docs.iter_mut().flatten() {
-            if b.doc.dired.is_some() {
+            if b.doc.dired().is_some() {
                 b.doc.refresh_listing();
             }
         }
-        if self.doc.dired.is_some() {
+        if self.doc.dired().is_some() {
             self.doc.refresh_listing();
             self.after_change(false);
         }
@@ -1288,7 +1287,7 @@ impl App {
                 let editor = self.new_view(&doc);
                 // An untouched empty document gives way.
                 let replace = self.doc.meta.path.is_none()
-                    && self.doc.dired.is_none()
+                    && self.doc.dired().is_none()
                     && self.doc.generated.is_none()
                     && !self.doc.is_modified()
                     && self.doc.text().is_empty();
@@ -1535,13 +1534,7 @@ impl App {
             Err(m) => self.message(m, true),
         }
         // The projects view lists the projects as they are now.
-        if changed
-            && self
-                .doc
-                .dired
-                .as_deref()
-                .is_some_and(|d| d.place == Place::Projects)
-        {
+        if changed && self.doc.dired().is_some_and(|d| d.place == Place::Projects) {
             self.run_command("dired.refresh", Value::Null);
         }
     }
@@ -2188,7 +2181,7 @@ impl App {
                     let (dir, select) = match (dir, self.doc.meta.path.clone()) {
                         (Some(d), _) => (d, None),
                         // From a listing: its parent, the cursor on it.
-                        (None, Some(p)) if self.doc.dired.is_some() => {
+                        (None, Some(p)) if self.doc.dired().is_some() => {
                             (p.parent().map_or(p.clone(), Path::to_path_buf), Some(p))
                         }
                         (None, Some(p)) => {
@@ -2213,7 +2206,7 @@ impl App {
             },
             Request::FilesMoved(kind, out) => {
                 self.follow_files(kind, &out);
-                if self.doc.dired.is_some() {
+                if self.doc.dired().is_some() {
                     self.doc.refresh_listing();
                 }
                 self.dirty = true;
@@ -3026,7 +3019,7 @@ impl App {
         };
         // A file opened in a folder that is not there (`kalem tui new/a.txt`,
         // or the folder deleted since).
-        if self.doc.dired.is_none()
+        if self.doc.dired().is_none()
             && let Some(dir) = missing_folder(&path)
         {
             self.ask_create_folder(path, &dir, false);
@@ -3457,7 +3450,7 @@ impl App {
         };
         for (i, b) in self.docs.iter().enumerate() {
             let doc = b.as_ref().map_or(&self.doc, |b| &b.doc);
-            let Some(path) = doc.meta.path.clone().filter(|_| doc.dired.is_none()) else {
+            let Some(path) = doc.meta.path.clone().filter(|_| doc.dired().is_none()) else {
                 continue;
             };
             if i == self.active {
@@ -3511,7 +3504,7 @@ impl App {
             return;
         }
         // A spreadsheet takes the text as rows of cells.
-        if self.doc.viewer.as_deref().is_some_and(|v| v.is_grid()) {
+        if self.doc.viewer().is_some_and(|v| v.is_grid()) {
             self.run_command("viewer.grid.pasteText", serde_json::json!({ "text": text }));
             return;
         }
@@ -3717,7 +3710,7 @@ impl App {
                 }
                 // The file manager: a click on a name (or a double click on
                 // its line) opens it.
-                if let Some(d) = self.doc.dired.as_deref() {
+                if let Some(d) = self.doc.dired() {
                     let text = self.doc.text();
                     let line = text.line_of(pos);
                     let col = pos - text.line_start(line);
@@ -3786,13 +3779,13 @@ impl App {
             // A right click in the file manager: its menu, for the entry
             // under the mouse (the marked ones when it is one of them) or
             // for the listing (T2.7e.17).
-            MouseEventKind::Down(MouseButton::Right) if self.doc.dired.is_some() => {
+            MouseEventKind::Down(MouseButton::Right) if self.doc.dired().is_some() => {
                 let hit = self
                     .editor
                     .hit(&self.doc, &self.caps, m.column, m.row)
                     .map(|(pos, _)| pos);
                 #[expect(clippy::expect_used, reason = "the arm's guard checked it")]
-                let d = self.doc.dired.as_deref().expect("a listing");
+                let d = self.doc.dired().expect("a listing");
                 let path = hit.and_then(|pos| d.path_at(self.doc.text().line_of(pos)));
                 if let (Some(p), Some(pos)) = (&path, hit)
                     && !d.marks.contains_key(p)
@@ -3827,7 +3820,7 @@ impl App {
     /// was the grid's.
     fn grid_mouse(&mut self, m: &crossterm::event::MouseEvent) -> bool {
         use kalem_core::viewer::GridSpot;
-        let Some(v) = self.doc.viewer.as_deref_mut().filter(|v| v.is_grid()) else {
+        let Some(v) = self.doc.viewer_mut().filter(|v| v.is_grid()) else {
             return false;
         };
         let Some(spot) = v.hits.as_ref().and_then(|h| h.at(m.column, m.row)) else {
@@ -4449,7 +4442,7 @@ impl App {
     /// the search started, for typing in the query.
     fn search(&mut self, backward: bool, from_origin: bool) {
         // A file a viewer shows: its units' text, searched on a thread.
-        if let Some(v) = self.doc.viewer.as_deref_mut() {
+        if let Some(v) = self.doc.viewer_mut() {
             let Some(f) = &self.find else { return };
             if from_origin {
                 v.search_start(&f.query);
@@ -4504,7 +4497,7 @@ impl App {
                 self.last_query = f.query.clone();
                 self.last_regex = f.regex;
                 self.find = None;
-                if let Some(v) = self.doc.viewer.as_deref_mut() {
+                if let Some(v) = self.doc.viewer_mut() {
                     v.search_end();
                 }
                 self.editor.highlights.clear();
@@ -4618,7 +4611,7 @@ impl App {
         };
         o.focus = false;
         // A viewer's outline goes to a unit.
-        if let Some(v) = self.doc.viewer.as_deref_mut() {
+        if let Some(v) = self.doc.viewer_mut() {
             v.go_to(start);
             self.dirty = true;
             return;
@@ -5176,7 +5169,7 @@ impl App {
                 crossterm::event::KeyModifiers::CONTROL | crossterm::event::KeyModifiers::ALT,
             )
             && !c.is_control()
-            && self.doc.viewer.as_deref().is_some_and(|v| v.is_grid())
+            && self.doc.viewer().is_some_and(|v| v.is_grid())
         {
             self.run_command(
                 "viewer.grid.typeInto",
@@ -5192,7 +5185,7 @@ impl App {
     fn listing_key(&self, k: &KeyEvent) -> bool {
         // A viewer's document has no text for Vim to edit: only its
         // command line, `:` opening it (`:q` closes the file as elsewhere).
-        if self.doc.viewer.is_some() {
+        if self.doc.viewer().is_some() {
             let line = self.vim.as_ref().is_some_and(|v| v.command_line.is_some());
             let colon = self.vim.is_some() && k.code == crossterm::event::KeyCode::Char(':');
             return !(line || colon);
@@ -5217,7 +5210,8 @@ impl App {
         let ctx = self.context();
         // Keys bound for the Vim layer (`-`), and the file manager's.
         self.keymap.vim_bound(&seq, &ctx)
-            || (self.doc.dired.is_some() && !matches!(self.keymap.lookup(&seq, &ctx), Lookup::None))
+            || (self.doc.dired().is_some()
+                && !matches!(self.keymap.lookup(&seq, &ctx), Lookup::None))
     }
 
     /// A key for the Vim layer; `true` if it used it.
@@ -5882,7 +5876,7 @@ impl App {
         }
         let len = p.input.chars().count();
         let at = len - p.back.min(len);
-        let h = self.doc.viewer.as_deref_mut()?.formula_hint(&p.input, at);
+        let h = self.doc.viewer_mut()?.formula_hint(&p.input, at);
         if !h.completions.is_empty() {
             return Some(format!("Tab: {}", h.completions.join("  ")));
         }
@@ -5902,7 +5896,7 @@ impl App {
             args.get("row").and_then(Value::as_u64).unwrap_or(0) as u32,
             args.get("col").and_then(Value::as_u64).unwrap_or(0) as u32,
         );
-        let Some(v) = self.doc.viewer.as_deref_mut() else {
+        let Some(v) = self.doc.viewer_mut() else {
             return false;
         };
         let len = p.input.chars().count();
@@ -5960,7 +5954,7 @@ impl App {
         if p.declined || p.back != 0 || !kalem_core::viewer::cell_entry_prompt(command, name) {
             return None;
         }
-        self.doc.viewer.as_deref_mut()?.column_completion(&p.input)
+        self.doc.viewer_mut()?.column_completion(&p.input)
     }
 
     /// An answer to a file operation's question: `y`/`n`, or `o`, `s`, `k`
@@ -6189,7 +6183,7 @@ impl App {
         }
         self.sync_watches();
         // A viewer's search: its matches as they are found.
-        if let Some(v) = self.doc.viewer.as_deref_mut()
+        if let Some(v) = self.doc.viewer_mut()
             && v.search_poll()
         {
             self.dirty = true;
@@ -6270,7 +6264,7 @@ impl App {
         if self.doc.waiting_row_edit() || kalem_core::extensions::behind_running() {
             t = t.min(Duration::from_millis(30));
         }
-        if !self.jobs.is_empty() || self.doc.viewer.as_deref().is_some_and(|v| v.searching()) {
+        if !self.jobs.is_empty() || self.doc.viewer().is_some_and(|v| v.searching()) {
             t = t.min(Duration::from_millis(30));
         }
         // A language server's answers and completions as they come.
@@ -6319,7 +6313,7 @@ impl App {
         buf: &mut ratatui::buffer::Buffer,
         area: Rect,
     ) -> Option<(u16, u16)> {
-        if self.doc.viewer.is_none() {
+        if self.doc.viewer().is_none() {
             return self.editor.draw(&self.doc, &self.caps, buf, area);
         }
         let picker = self.editor.images.borrow().picker.clone();
@@ -6357,7 +6351,7 @@ impl App {
         ) else {
             return;
         };
-        let Some(hits) = self.doc.viewer.as_deref().and_then(|v| v.hits.as_ref()) else {
+        let Some(hits) = self.doc.viewer().and_then(|v| v.hits.as_ref()) else {
             return;
         };
         let (Some(&(_, x, w)), Some(&(_, y))) = (
@@ -6391,7 +6385,7 @@ impl App {
     /// Inserts a link to `file` in the text document shown last, which is
     /// shown.
     fn insert_link(&mut self, file: &std::path::Path) {
-        let text = |d: &DocumentState| d.dired.is_none() && d.viewer.is_none();
+        let text = |d: &DocumentState| d.dired().is_none() && d.viewer().is_none();
         let target = self
             .last_document
             .and_then(|id| self.doc_index(id))
@@ -6510,7 +6504,7 @@ impl App {
                     // Not beside the file manager, which lists the files.
                     if self.config.bool("ui.folder_tree")
                         && self.files_at == FilesAt::Left
-                        && self.doc.dired.is_none() =>
+                        && self.doc.dired().is_none() =>
                 {
                     self.projects.tree_rows(&root)
                 }
@@ -6690,7 +6684,7 @@ impl App {
         if let Some(fd) = &self.find {
             let s = self.doc.selection;
             let sel = s.anchor.min(s.head)..s.anchor.max(s.head);
-            let text = match self.doc.viewer.as_deref() {
+            let text = match self.doc.viewer() {
                 Some(v) => fd.line_counted(v.search_status()),
                 None => fd.line(Some(&sel)),
             };
@@ -6895,15 +6889,14 @@ impl App {
                 .plugin_language()
                 .map_or_else(|| l.clone(), |p| p.name),
             // The view: the file manager, or the projects.
-            DocumentMode::Directory => match self.doc.dired.as_deref() {
+            DocumentMode::Directory => match self.doc.dired() {
                 Some(d) => d.list_title(),
                 None => tr!("mode-directory"),
             },
             // A viewer's file: the plugin's name (Image).
             DocumentMode::Viewer => self
                 .doc
-                .viewer
-                .as_deref()
+                .viewer()
                 .map_or_else(|| tr!("mode-viewer"), |v| v.viewer.name().to_string()),
             _ => tr!("mode-text"),
         };
@@ -6912,7 +6905,7 @@ impl App {
             Some(n) => format!("{view} {n}"),
             None => view.to_string(),
         };
-        let words = match self.doc.dired.as_deref() {
+        let words = match self.doc.dired() {
             // The file manager: how many entries, and how many marked.
             Some(d) => {
                 let n = d.entries.len().max(d.projects.len());

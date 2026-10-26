@@ -152,7 +152,7 @@ impl Editor {
         window: &mut Window,
         cx: &mut App,
     ) -> Result<Arc<RenderImage>, String> {
-        let Some(v) = self.doc.viewer.as_deref_mut() else {
+        let Some(v) = self.doc.viewer_mut() else {
             return Err(String::new());
         };
         v.set_pixel_ratio(window.scale_factor());
@@ -198,13 +198,12 @@ impl Editor {
     /// Draws again soon while a page renders or a search runs on a thread.
     fn viewer_poll(&mut self, cx: &mut Context<'_, Editor>) {
         // The find bar's search: matches taken, the first one shown.
-        if let Some(v) = self.doc.viewer.as_deref_mut() {
+        if let Some(v) = self.doc.viewer_mut() {
             v.search_poll();
         }
         let busy = self
             .doc
-            .viewer
-            .as_deref()
+            .viewer()
             .is_some_and(|v| v.rendering() || v.searching());
         if !busy || self.viewer_view.render_poll.is_some() {
             return;
@@ -222,7 +221,7 @@ impl Editor {
 
     /// Plays the next frame after the frame shown has had its time.
     fn viewer_schedule(&mut self, cx: &mut Context<'_, Editor>) {
-        let Some(ms) = self.doc.viewer.as_deref().and_then(|v| v.frame_delay()) else {
+        let Some(ms) = self.doc.viewer().and_then(|v| v.frame_delay()) else {
             self.viewer_view.timer = None;
             return;
         };
@@ -235,7 +234,7 @@ impl Editor {
                 .await;
             let _ = this.update(cx, |e, cx| {
                 e.viewer_view.timer = None;
-                if let Some(v) = e.doc.viewer.as_deref_mut()
+                if let Some(v) = e.doc.viewer_mut()
                     && v.frame_delay().is_some()
                 {
                     v.advance_frame();
@@ -252,11 +251,11 @@ impl Editor {
         window: &mut Window,
         cx: &mut Context<'_, Editor>,
     ) -> Option<Div> {
-        self.doc.viewer.as_ref()?;
+        self.doc.viewer()?;
         self.viewer_schedule(cx);
         let theme = self.theme.clone();
         let entity = cx.entity();
-        if self.doc.viewer.as_deref().is_some_and(|v| v.is_grid()) {
+        if self.doc.viewer().is_some_and(|v| v.is_grid()) {
             return Some(self.grid_element(window, cx));
         }
         let image = self.viewer_image(window, cx);
@@ -276,7 +275,7 @@ impl Editor {
                             move |bounds, _window, cx| {
                                 prepaint.update(cx, |e, _| {
                                     e.viewer_view.bounds = Some(bounds);
-                                    let v = e.doc.viewer.as_deref_mut()?;
+                                    let v = e.doc.viewer_mut()?;
                                     v.set_area(
                                         f32::from(bounds.size.width),
                                         f32::from(bounds.size.height),
@@ -357,7 +356,7 @@ impl Editor {
                     // A double click selects the word, a triple one the
                     // line; the release is no click then.
                     if ev.click_count >= 2
-                        && let Some(v) = this.doc.viewer.as_deref_mut()
+                        && let Some(v) = this.doc.viewer_mut()
                         && v.select_word(f32::from(at.x), f32::from(at.y), ev.click_count >= 3)
                     {
                         this.viewer_view.selecting_text = false;
@@ -370,8 +369,7 @@ impl Editor {
                     }
                     let selecting = this
                         .doc
-                        .viewer
-                        .as_deref_mut()
+                        .viewer_mut()
                         .is_some_and(|v| v.select_from(f32::from(at.x), f32::from(at.y)));
                     this.viewer_view.selecting_text = selecting;
                     this.viewer_view.drag = (!selecting).then_some(ev.position);
@@ -394,7 +392,7 @@ impl Editor {
                         return;
                     }
                     // A click selects nothing.
-                    if let Some(v) = this.doc.viewer.as_deref_mut() {
+                    if let Some(v) = this.doc.viewer_mut() {
                         v.clear_text_selection();
                     }
                     // A click: a link goes to its page, or opens outside.
@@ -405,7 +403,7 @@ impl Editor {
                             .map(|b| b.origin)
                             .unwrap_or_default();
                     let pdf = this.doc.meta.path.clone();
-                    let Some(v) = this.doc.viewer.as_deref_mut() else {
+                    let Some(v) = this.doc.viewer_mut() else {
                         return;
                     };
                     // Ctrl-click (Cmd on macOS) on a PDF LaTeX built: the
@@ -447,7 +445,7 @@ impl Editor {
                 if this.viewer_view.selecting_text {
                     if ev.pressed_button != Some(MouseButton::Left) {
                         this.viewer_view.selecting_text = false;
-                    } else if let Some(v) = this.doc.viewer.as_deref_mut() {
+                    } else if let Some(v) = this.doc.viewer_mut() {
                         v.select_to(x, y);
                         cx.notify();
                     }
@@ -456,7 +454,7 @@ impl Editor {
                 let Some(from) = this.viewer_view.drag else {
                     // Over a link, the pointer is a hand; over text, a
                     // text cursor.
-                    let Some(v) = this.doc.viewer.as_deref_mut() else {
+                    let Some(v) = this.doc.viewer_mut() else {
                         return;
                     };
                     let over_link = v.link_under(x, y).is_some();
@@ -476,7 +474,7 @@ impl Editor {
                 }
                 let d = ev.position - from;
                 this.viewer_view.drag = Some(ev.position);
-                if let Some(v) = this.doc.viewer.as_deref_mut() {
+                if let Some(v) = this.doc.viewer_mut() {
                     // The picture follows the mouse.
                     v.pan(-f32::from(d.x), -f32::from(d.y));
                     cx.notify();
@@ -489,7 +487,7 @@ impl Editor {
                     .bounds
                     .map(|b| b.origin)
                     .unwrap_or_default();
-                let Some(v) = this.doc.viewer.as_deref_mut() else {
+                let Some(v) = this.doc.viewer_mut() else {
                     return;
                 };
                 if ev.modifiers.platform || ev.modifiers.control {
@@ -502,7 +500,7 @@ impl Editor {
                 cx.stop_propagation();
                 cx.notify();
             }));
-        let info = self.doc.viewer.as_deref().filter(|v| v.info).map(|v| {
+        let info = self.doc.viewer().filter(|v| v.info).map(|v| {
             div()
                 .debug_selector(|| "viewer-info".into())
                 .w(px(300.))
@@ -586,11 +584,7 @@ impl Editor {
         // The grid's text is a little smaller than the body's, its rows
         // roomier, so that a sheet reads as a sheet.
         // The sheet's zoom scales its text, so its rows and columns too.
-        let zoom = self
-            .doc
-            .viewer
-            .as_deref_mut()
-            .map_or(1.0, |v| v.grid_zoom());
+        let zoom = self.doc.viewer_mut().map_or(1.0, |v| v.grid_zoom());
         let text_size = (theme.size * 0.93 * zoom).round().max(4.0);
         let measure = |t: &str| -> f32 {
             f32::from(
@@ -607,7 +601,7 @@ impl Editor {
         let bounds = self.viewer_view.bounds.map_or((900.0, 600.0), |b| {
             (f32::from(b.size.width), f32::from(b.size.height))
         });
-        let Some(v) = self.doc.viewer.as_deref_mut() else {
+        let Some(v) = self.doc.viewer_mut() else {
             return div();
         };
         let Some(layout) = v.grid_layout() else {
@@ -731,7 +725,7 @@ impl Editor {
             // The cursor scrolled the view: lay out once more.
             return self.grid_element(window, cx);
         }
-        let Some(v) = self.doc.viewer.as_deref_mut() else {
+        let Some(v) = self.doc.viewer_mut() else {
             return div();
         };
         let mut cells = std::collections::HashMap::new();
@@ -891,7 +885,7 @@ impl Editor {
                         cx.listener(move |this, ev: &MouseDownEvent, window, cx| {
                             if ev.click_count >= 2 {
                                 this.grid_autofit(c, window, cx);
-                            } else if let Some(v) = this.doc.viewer.as_deref_mut() {
+                            } else if let Some(v) = this.doc.viewer_mut() {
                                 let row = v.grid_pos().row;
                                 v.grid_move_to(row, c);
                             }
@@ -1196,7 +1190,7 @@ impl Editor {
                                 if ev.click_count >= 2 {
                                     this.viewer_view.fill_drag = None;
                                     let lists = kalem_core::viewer::fill_lists(&this.shared.config);
-                                    if let Some(v) = this.doc.viewer.as_deref_mut()
+                                    if let Some(v) = this.doc.viewer_mut()
                                         && let Err(e) = {
                                             v.set_fill_lists(lists);
                                             v.fill_to_end()
@@ -1588,7 +1582,7 @@ impl Editor {
                             MouseButton::Left,
                             cx.listener(move |this, _: &MouseDownEvent, _, cx| {
                                 cx.stop_propagation();
-                                if let Some(v) = this.doc.viewer.as_deref_mut()
+                                if let Some(v) = this.doc.viewer_mut()
                                     && let Err(e) = v.toggle_detail_at(r)
                                 {
                                     this.message(e, true);
@@ -1940,7 +1934,7 @@ impl Editor {
                     MouseButton::Left,
                     cx.listener(move |this, ev: &MouseDownEvent, window, cx| {
                         let add = ev.modifiers.control || ev.modifiers.platform;
-                        if let Some(v) = this.doc.viewer.as_deref_mut() {
+                        if let Some(v) = this.doc.viewer_mut() {
                             // Shift and a click select to here; Control (or
                             // Command) adds a range; a drag selects as it goes.
                             if ev.modifiers.shift {
@@ -1966,7 +1960,7 @@ impl Editor {
                     if !this.viewer_view.selecting || ev.pressed_button != Some(MouseButton::Left) {
                         return;
                     }
-                    if let Some(v) = this.doc.viewer.as_deref_mut() {
+                    if let Some(v) = this.doc.viewer_mut() {
                         if this.viewer_view.adding {
                             v.extend_area(r, c);
                             cx.notify();
@@ -1984,7 +1978,7 @@ impl Editor {
                 .on_mouse_down(
                     MouseButton::Right,
                     cx.listener(move |this, _: &MouseDownEvent, window, cx| {
-                        if let Some(v) = this.doc.viewer.as_deref_mut() {
+                        if let Some(v) = this.doc.viewer_mut() {
                             let s = v.selection();
                             if !((s[0]..=s[2]).contains(&r) && (s[1]..=s[3]).contains(&c)) {
                                 v.grid_move_to(r, c);
@@ -2214,7 +2208,7 @@ impl Editor {
                         .on_mouse_down(
                             MouseButton::Left,
                             cx.listener(move |this, _: &MouseDownEvent, _, cx| {
-                                if let Some(v) = this.doc.viewer.as_deref_mut() {
+                                if let Some(v) = this.doc.viewer_mut() {
                                     v.go_to(u);
                                 }
                                 cx.stop_propagation();
@@ -2305,7 +2299,7 @@ impl Editor {
                 cx.listener(|this, _: &MouseUpEvent, _, cx| {
                     if let Some((src, target)) = this.viewer_view.fill_drag.take() {
                         if target != src
-                            && let Some(v) = this.doc.viewer.as_deref_mut()
+                            && let Some(v) = this.doc.viewer_mut()
                             && let Err(e) = {
                                 v.set_fill_lists(kalem_core::viewer::fill_lists(
                                     &this.shared.config,
@@ -2422,7 +2416,7 @@ impl Editor {
                         let copy =
                             ev.modifiers.control || ev.modifiers.platform || ev.modifiers.alt;
                         if (r, c) != (src[0], src[1])
-                            && let Some(v) = this.doc.viewer.as_deref_mut()
+                            && let Some(v) = this.doc.viewer_mut()
                             && let Err(e) = v.drop_selection(r, c, copy)
                         {
                             this.message(e, true);
@@ -2432,7 +2426,7 @@ impl Editor {
                     }
                     if let Some((src, target)) = this.viewer_view.fill_drag.take() {
                         if target != src
-                            && let Some(v) = this.doc.viewer.as_deref_mut()
+                            && let Some(v) = this.doc.viewer_mut()
                             && let Err(e) = {
                                 v.set_fill_lists(kalem_core::viewer::fill_lists(
                                     &this.shared.config,
@@ -2475,7 +2469,7 @@ impl Editor {
                         };
                         if moved
                             && let (Some(r0), Some(c0), Some(r1), Some(c1)) = target
-                            && let Some(v) = this.doc.viewer.as_deref_mut()
+                            && let Some(v) = this.doc.viewer_mut()
                         {
                             let anchor = [r0, c0, r1.max(r0), c1.max(c0)];
                             if let Some(old) = v.charts().get(d.index).map(|c| c.anchor)
@@ -2490,7 +2484,7 @@ impl Editor {
                     }
                     if let Some(d) = this.viewer_view.row_drag.take() {
                         if (d.px - d.start_px).abs() >= 1.0
-                            && let Some(v) = this.doc.viewer.as_deref_mut()
+                            && let Some(v) = this.doc.viewer_mut()
                         {
                             // Back to points, as the file counts them.
                             let pt = (d.px / row_h * default_pt * 4.0).round() / 4.0;
@@ -2505,7 +2499,7 @@ impl Editor {
                         return;
                     };
                     if (d.px - d.start_px).abs() >= 1.0
-                        && let Some(v) = this.doc.viewer.as_deref_mut()
+                        && let Some(v) = this.doc.viewer_mut()
                     {
                         // Back to the spreadsheet's unit: digits of the grid's font.
                         let width = ((d.px - 2.0 * PAD) / digit * 100.0).round() / 100.0;
@@ -2522,7 +2516,7 @@ impl Editor {
                     // Command (Control) and the wheel: the sheet's zoom.
                     let step = -f32::from(d.y) / row_h;
                     if step.abs() >= 0.5
-                        && let Some(v) = this.doc.viewer.as_deref_mut()
+                        && let Some(v) = this.doc.viewer_mut()
                     {
                         let by = if step > 0.0 { 10 } else { -10 };
                         let r = v.update_view(|s| {
@@ -2536,7 +2530,7 @@ impl Editor {
                     cx.stop_propagation();
                     return;
                 }
-                if let Some(v) = this.doc.viewer.as_deref_mut() {
+                if let Some(v) = this.doc.viewer_mut() {
                     let rows = (-f32::from(d.y) / row_h).round() as i64;
                     let cols = (-f32::from(d.x) / (digit * 9.0)).round() as i64;
                     if rows != 0 || cols != 0 {
@@ -2575,7 +2569,7 @@ impl Editor {
             )
         };
         let digit = width("0").max(1.0);
-        let Some(v) = self.doc.viewer.as_deref_mut() else {
+        let Some(v) = self.doc.viewer_mut() else {
             return;
         };
         if let Err(e) = v.autofit_col(col, &|t| width(t) / digit) {
@@ -2611,7 +2605,7 @@ impl Editor {
             )
         };
         let digit = width("0").max(1.0);
-        let Some(v) = self.doc.viewer.as_deref_mut() else {
+        let Some(v) = self.doc.viewer_mut() else {
             return;
         };
         if let Err(e) = v.fit_row_height(row, &|t| width(t) / digit) {

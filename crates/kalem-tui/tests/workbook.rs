@@ -106,8 +106,7 @@ impl T {
     fn status(&mut self) -> String {
         self.app
             .doc
-            .viewer
-            .as_deref_mut()
+            .viewer_mut()
             .map(|v| v.status())
             .unwrap_or_default()
     }
@@ -149,20 +148,18 @@ fn a_workbook_opens_as_a_grid() {
     let w = t
         .app
         .doc
-        .viewer
-        .as_deref_mut()
+        .viewer_mut()
         .unwrap()
         .grid_layout()
         .unwrap()
         .widths[0];
     assert_eq!(w, 7.0);
-    assert!(t.app.doc.viewer.as_deref().unwrap().modified());
+    assert!(t.app.doc.viewer().unwrap().modified());
     t.app.run_command("edit.undo", serde_json::json!({}));
     let w = t
         .app
         .doc
-        .viewer
-        .as_deref_mut()
+        .viewer_mut()
         .unwrap()
         .grid_layout()
         .unwrap()
@@ -171,23 +168,20 @@ fn a_workbook_opens_as_a_grid() {
     // `c +` and `c -`: a digit wider, narrower.
     t.key(KeyCode::Char('c'));
     t.key(KeyCode::Char('+'));
-    assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().col_width(0), 19.0);
+    assert_eq!(t.app.doc.viewer_mut().unwrap().col_width(0), 19.0);
     t.key(KeyCode::Char('c'));
     t.key(KeyCode::Char('-'));
     t.key(KeyCode::Char('c'));
     t.key(KeyCode::Char('-'));
-    assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().col_width(0), 17.0);
+    assert_eq!(t.app.doc.viewer_mut().unwrap().col_width(0), 17.0);
     // `r +` and `r -`: three points taller, shorter.
-    let h = t.app.doc.viewer.as_deref_mut().unwrap().row_height(1);
+    let h = t.app.doc.viewer_mut().unwrap().row_height(1);
     t.key(KeyCode::Char('r'));
     t.key(KeyCode::Char('+'));
-    assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().row_height(1),
-        h + 3.0
-    );
+    assert_eq!(t.app.doc.viewer_mut().unwrap().row_height(1), h + 3.0);
     t.key(KeyCode::Char('r'));
     t.key(KeyCode::Char('-'));
-    assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().row_height(1), h);
+    assert_eq!(t.app.doc.viewer_mut().unwrap().row_height(1), h);
 }
 
 #[test]
@@ -207,9 +201,9 @@ fn cells_rows_undo_and_save() {
     t.app.run_command("viewer.grid.insertRow", json!({}));
     let s = t.screen();
     assert!(s.contains("Food"), "{s}");
-    assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().cell_input(), "");
+    assert_eq!(t.app.doc.viewer_mut().unwrap().cell_input(), "");
     let input = |t: &mut T, row: u32, col: u32| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(row, col);
         v.cell_input()
     };
@@ -218,7 +212,7 @@ fn cells_rows_undo_and_save() {
     assert_eq!(input(&mut t, 2, 0), "Food");
     t.app.run_command("edit.undo", json!({}));
     assert_eq!(input(&mut t, 1, 1), "1200");
-    assert!(!t.app.doc.viewer.as_deref().unwrap().modified());
+    assert!(!t.app.doc.viewer().unwrap().modified());
     t.app.run_command("edit.redo", json!({}));
     assert_eq!(input(&mut t, 1, 1), "1300");
     t.app.run_command("app.save", json!({}));
@@ -227,7 +221,7 @@ fn cells_rows_undo_and_save() {
     // B2:C3 selected with Shift and the arrows, merged and centered after
     // the question (its other cells hold values), stepped over, unmerged.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 1);
     }
     t.app.event(Event::Key(KeyEvent::new(
@@ -244,8 +238,7 @@ fn cells_rows_undo_and_save() {
     assert!(
         t.app
             .doc
-            .viewer
-            .as_deref_mut()
+            .viewer_mut()
             .unwrap()
             .grid_layout()
             .unwrap()
@@ -256,7 +249,7 @@ fn cells_rows_undo_and_save() {
     t.key(KeyCode::Esc);
     t.app
         .run_command("viewer.grid.mergeCenter", json!({ "confirmed": true }));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert!(v.grid_layout().unwrap().merged.contains(&[1, 1, 2, 2]));
     assert_eq!((v.grid_pos().row, v.grid_pos().col), (1, 1));
     v.grid_move_by(0, 1);
@@ -271,8 +264,7 @@ fn cells_rows_undo_and_save() {
     assert!(
         !t.app
             .doc
-            .viewer
-            .as_deref_mut()
+            .viewer_mut()
             .unwrap()
             .grid_layout()
             .unwrap()
@@ -281,13 +273,10 @@ fn cells_rows_undo_and_save() {
     );
     t.app.run_command("edit.undo", json!({}));
     t.app.run_command("edit.undo", json!({}));
-    assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().cell_input(),
-        "1300"
-    );
+    assert_eq!(t.app.doc.viewer_mut().unwrap().cell_input(), "1300");
 
     // B3:C4 selected and deleted: one step, undone as one.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(2, 1);
     t.app.event(Event::Key(KeyEvent::new(
         KeyCode::Right,
         KeyModifiers::SHIFT,
@@ -297,7 +286,7 @@ fn cells_rows_undo_and_save() {
         KeyModifiers::SHIFT,
     )));
     assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().selection_tsv(),
+        t.app.doc.viewer_mut().unwrap().selection_tsv(),
         "431.50\t512.25\n0.00\t950.00"
     );
     t.key(KeyCode::Delete);
@@ -309,29 +298,26 @@ fn cells_rows_undo_and_save() {
 
     // B3:C4 cut and pasted at H10: moved, the formulas that read them follow.
     let text = {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(2, 1);
         v.grid_extend_to(3, 2);
         v.selection_tsv()
     };
     t.app.run_command("edit.cut", json!({}));
-    assert_eq!(
-        t.app.doc.viewer.as_deref().unwrap().cut_range(),
-        Some([2, 1, 3, 2])
-    );
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(9, 7);
+    assert_eq!(t.app.doc.viewer().unwrap().cut_range(), Some([2, 1, 3, 2]));
+    t.app.doc.viewer_mut().unwrap().grid_move_to(9, 7);
     t.app.paste(&text, false);
     assert_eq!(input(&mut t, 2, 1), "");
     assert_eq!(input(&mut t, 9, 7), "431.5");
     assert_eq!(input(&mut t, 2, 3), "=H10+I10");
-    assert_eq!(t.app.doc.viewer.as_deref().unwrap().cut_range(), None);
+    assert_eq!(t.app.doc.viewer().unwrap().cut_range(), None);
     t.app.run_command("edit.undo", json!({}));
     assert_eq!(input(&mut t, 2, 1), "431.5");
     assert_eq!(input(&mut t, 2, 3), "=B3+C3");
 
     // Budget!B3:D3 cut and pasted on Dates at C10: moved across sheets.
     let text = {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(2, 1);
         v.grid_extend_to(2, 3);
         v.selection_tsv()
@@ -339,7 +325,7 @@ fn cells_rows_undo_and_save() {
     t.app.run_command("edit.cut", json!({}));
     t.app.run_command("viewer.grid.nextSheet", json!({}));
     assert!(t.status().starts_with("Dates"), "{}", t.status());
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(9, 2);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(9, 2);
     t.app.paste(&text, false);
     assert_eq!(input(&mut t, 9, 2), "431.5");
     assert_eq!(input(&mut t, 9, 4), "=Dates!C10+Dates!D10");
@@ -349,7 +335,7 @@ fn cells_rows_undo_and_save() {
     assert_eq!(input(&mut t, 2, 3), "=B3+C3");
 
     // Pasted text: rows into cells in one step; one value fills a selection.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(9, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(9, 0);
     t.app.paste("Books\t1,000.50\nTea\t=B10*2\n", false);
     assert_eq!(input(&mut t, 9, 0), "Books");
     assert_eq!(input(&mut t, 9, 1), "1000.5");
@@ -358,7 +344,7 @@ fn cells_rows_undo_and_save() {
     assert_eq!(input(&mut t, 9, 0), "");
     assert_eq!(input(&mut t, 10, 1), "");
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(11, 2);
         v.grid_extend_to(12, 3);
     }
@@ -372,21 +358,16 @@ fn cells_rows_undo_and_save() {
         "viewer.grid.setCell",
         json!({ "row": 8, "col": 0, "value": long }),
     );
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(8, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(8, 0);
     t.app.run_command("viewer.grid.wrapText", json!({}));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert!(v.grid_cells(8..9, 0..1)[0].2.wrap);
     // 50 characters in a column 18 wide, 17 of them for text: three lines.
     assert_eq!(v.row_height(8), 45.0);
     // The key, `w`, turns it off again.
     t.key(KeyCode::Char('w'));
     assert!(
-        !t.app
-            .doc
-            .viewer
-            .as_deref_mut()
-            .unwrap()
-            .grid_cells(8..9, 0..1)[0]
+        !t.app.doc.viewer_mut().unwrap().grid_cells(8..9, 0..1)[0]
             .2
             .wrap
     );
@@ -394,27 +375,24 @@ fn cells_rows_undo_and_save() {
     // The next sheet.
     t.app.run_command("viewer.grid.nextSheet", json!({}));
     assert!(t.status().starts_with("Dates"), "{}", t.status());
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     t.screen();
     // A date wider than its column shows as #, as in a spreadsheet.
     assert!(t.screen().contains("########"));
-    assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().cell_input(),
-        "2026-10-03"
-    );
+    assert_eq!(t.app.doc.viewer_mut().unwrap().cell_input(), "2026-10-03");
 }
 
 #[test]
 fn sorting_and_filtering() {
     let mut t = T::open("sort");
     let name = |t: &mut T, row: u32| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(row, 0);
         v.cell_input()
     };
     // A1:D4 selected from A1: sorted Z to A by Item, the header kept.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(0, 0);
         v.grid_extend_to(3, 3);
     }
@@ -423,22 +401,18 @@ fn sorting_and_filtering() {
     let names: Vec<String> = (0..4).map(|r| name(&mut t, r)).collect();
     assert_eq!(names, ["Item", "Travel", "Rent", "Food"]);
     // Rent's total moved with it, reading its own row.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 3);
-    assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().cell_input(),
-        "=B3+C3"
-    );
+    t.app.doc.viewer_mut().unwrap().grid_move_to(2, 3);
+    assert_eq!(t.app.doc.viewer_mut().unwrap().cell_input(), "=B3+C3");
     t.app.run_command("edit.undo", json!({}));
     assert_eq!(name(&mut t, 1), "Rent");
 
     // The filter on the table at the cursor, a column filtered to Food.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 0);
     t.key(KeyCode::Char('f'));
     let f = t
         .app
         .doc
-        .viewer
-        .as_deref_mut()
+        .viewer_mut()
         .unwrap()
         .grid_layout()
         .unwrap()
@@ -446,21 +420,14 @@ fn sorting_and_filtering() {
     assert_eq!(f, Some([0, 0, 4, 3]));
     assert!(t.screen().contains('▾'), "{}", t.screen());
     assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().filter_values(0),
+        t.app.doc.viewer_mut().unwrap().filter_values(0),
         ["Food", "Rent", "Sum", "Travel"]
     );
     t.app.run_command(
         "viewer.grid.setColumnFilter",
         json!({ "col": 0, "value": "Food" }),
     );
-    let l = t
-        .app
-        .doc
-        .viewer
-        .as_deref_mut()
-        .unwrap()
-        .grid_layout()
-        .unwrap();
+    let l = t.app.doc.viewer_mut().unwrap().grid_layout().unwrap();
     assert_eq!(l.hidden_rows, vec![1, 3, 4]);
     let s = t.screen();
     assert!(
@@ -472,14 +439,7 @@ fn sorting_and_filtering() {
         "viewer.grid.setColumnFilter",
         json!({ "col": 0, "values": ["Food", "Travel"] }),
     );
-    let l = t
-        .app
-        .doc
-        .viewer
-        .as_deref_mut()
-        .unwrap()
-        .grid_layout()
-        .unwrap();
+    let l = t.app.doc.viewer_mut().unwrap().grid_layout().unwrap();
     assert_eq!(l.hidden_rows, vec![1, 4]);
     // The checklist in the palette: the values shown checked.
     t.app
@@ -500,21 +460,13 @@ fn sorting_and_filtering() {
         t.key(KeyCode::Char(ch));
     }
     t.key(KeyCode::Enter);
-    let l = t
-        .app
-        .doc
-        .viewer
-        .as_deref_mut()
-        .unwrap()
-        .grid_layout()
-        .unwrap();
+    let l = t.app.doc.viewer_mut().unwrap().grid_layout().unwrap();
     assert_eq!(l.hidden_rows, vec![4], "only Sum is hidden");
     t.app.run_command("viewer.grid.clearFilters", json!({}));
     assert!(
         t.app
             .doc
-            .viewer
-            .as_deref_mut()
+            .viewer_mut()
             .unwrap()
             .grid_layout()
             .unwrap()
@@ -525,8 +477,7 @@ fn sorting_and_filtering() {
     assert!(
         t.app
             .doc
-            .viewer
-            .as_deref_mut()
+            .viewer_mut()
             .unwrap()
             .grid_layout()
             .unwrap()
@@ -539,7 +490,7 @@ fn sorting_and_filtering() {
 fn conditional_formatting() {
     let mut t = T::open("cf");
     let number = |t: &mut T, row: u32| -> f64 {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(row, 1);
         v.cell_input().parse().unwrap()
     };
@@ -547,7 +498,7 @@ fn conditional_formatting() {
     let least = values.iter().copied().fold(f64::MAX, f64::min);
     // B2:B4 selected; the menu, then Greater Than asking for its value.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 1);
         v.grid_extend_to(3, 1);
     }
@@ -565,33 +516,27 @@ fn conditional_formatting() {
         t.key(KeyCode::Char(ch));
     }
     t.key(KeyCode::Enter);
-    let cells = t
-        .app
-        .doc
-        .viewer
-        .as_deref_mut()
-        .unwrap()
-        .grid_cells(1..4, 1..2);
+    let cells = t.app.doc.viewer_mut().unwrap().grid_cells(1..4, 1..2);
     for (r, _, cell) in &cells {
         let v = values[(*r - 1) as usize];
         assert_eq!(cell.fill.is_some(), v > least, "row {r}: {cell:?}");
     }
     // Icons on C2:C4 and bars on D2:D4, drawn.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 2);
         v.grid_extend_to(3, 2);
     }
     t.app
         .run_command("viewer.grid.iconSet", json!({ "name": "3Arrows" }));
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 3);
         v.grid_extend_to(3, 3);
     }
     t.app
         .run_command("viewer.grid.dataBars", json!({ "color": "#638EC6" }));
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(6, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(6, 0);
     let s = t.screen();
     assert!(s.contains('▲') && s.contains('▼'), "{s}");
     let buf = t.term.backend().buffer().clone();
@@ -614,13 +559,13 @@ fn conditional_formatting() {
 fn data_validation() {
     let mut t = T::open("dv");
     let input = |t: &mut T, row: u32, col: u32| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(row, col);
         v.cell_input()
     };
     // A list on A2:A5 that leaves Sum out, with an input message.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 0);
         v.grid_extend_to(4, 0);
     }
@@ -632,7 +577,7 @@ fn data_validation() {
         "viewer.grid.validationMessage",
         json!({ "value": "Pick an item" }),
     );
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 0);
     t.screen();
     assert!(t.status().contains("Pick an item"), "{}", t.status());
     assert!(t.screen().contains('▾'), "{}", t.screen());
@@ -659,7 +604,7 @@ fn data_validation() {
     t.key(KeyCode::Esc);
     assert_eq!(input(&mut t, 2, 0), "Food");
     // A warning instead: kept when the user says so.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(2, 0);
     t.app.run_command(
         "viewer.grid.validationAlert",
         json!({ "style": "warning", "value": "Unusual item" }),
@@ -677,7 +622,7 @@ fn data_validation() {
     assert_eq!(input(&mut t, 2, 0), "Cinema");
     // Whole numbers over zero in B2:B5.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 1);
         v.grid_extend_to(4, 1);
     }
@@ -685,13 +630,7 @@ fn data_validation() {
         "viewer.grid.validateNumber",
         json!({ "kind": "whole", "op": "greaterThan", "value": "0" }),
     );
-    let check = t
-        .app
-        .doc
-        .viewer
-        .as_deref_mut()
-        .unwrap()
-        .check_input(3, 1, "-5");
+    let check = t.app.doc.viewer_mut().unwrap().check_input(3, 1, "-5");
     assert!(check.is_some());
     // Saved: the list (without A3), A3's warning list and the numbers.
     t.app.run_command("app.save", json!({}));
@@ -709,8 +648,7 @@ fn data_validation() {
     assert!(
         t.app
             .doc
-            .viewer
-            .as_deref_mut()
+            .viewer_mut()
             .unwrap()
             .cursor_validation()
             .is_none()
@@ -720,19 +658,10 @@ fn data_validation() {
 #[test]
 fn pivot_tables() {
     let mut t = T::open("pivot");
-    let units = |t: &mut T| {
-        t.app
-            .doc
-            .viewer
-            .as_deref_mut()
-            .unwrap()
-            .structure()
-            .units
-            .len()
-    };
+    let units = |t: &mut T| t.app.doc.viewer_mut().unwrap().structure().units.len();
     let before = units(&mut t);
     // From inside the table: Item for rows, no columns, Q1 summed.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 0);
     t.app.event(Event::Key(KeyEvent::new(
         KeyCode::Char('T'),
         KeyModifiers::SHIFT,
@@ -769,7 +698,7 @@ fn pivot_tables() {
 fn charts() {
     let mut t = T::open("chart");
     // Q1 and Q2 by item, from the table at the cursor: the kinds offered.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 1);
     t.app
         .event(Event::Key(KeyEvent::new(KeyCode::F(1), KeyModifiers::ALT)));
     let s = t.screen();
@@ -779,38 +708,33 @@ fn charts() {
         "viewer.grid.insertChart",
         json!({ "kind": "column", "title": "Spending" }),
     );
-    let charts = t.app.doc.viewer.as_deref_mut().unwrap().charts();
+    let charts = t.app.doc.viewer_mut().unwrap().charts();
     let c = charts.last().unwrap().clone();
     assert_eq!(c.series.len(), 3, "Q1, Q2 and Total");
     // Drawn over the cells it covers, with its title.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     let s = t.screen();
     assert!(s.contains("Spending"), "{s}");
     // Deleted from a cell it covers; undo brings it back.
     t.app
         .doc
-        .viewer
-        .as_deref_mut()
+        .viewer_mut()
         .unwrap()
         .grid_move_to(c.anchor[0] + 1, c.anchor[1] + 1);
     t.app.run_command("viewer.grid.deleteChart", json!({}));
     assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().charts().len(),
+        t.app.doc.viewer_mut().unwrap().charts().len(),
         charts.len() - 1
     );
     t.app.run_command("edit.undo", json!({}));
-    assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().charts().len(),
-        charts.len()
-    );
+    assert_eq!(t.app.doc.viewer_mut().unwrap().charts().len(), charts.len());
     // Moved down two rows and made a column wider with the keys, the
     // cursor going along.
     let i = charts.len() - 1;
-    let anchor = |t: &mut T| t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].anchor;
+    let anchor = |t: &mut T| t.app.doc.viewer_mut().unwrap().charts()[i].anchor;
     t.app
         .doc
-        .viewer
-        .as_deref_mut()
+        .viewer_mut()
         .unwrap()
         .grid_move_to(c.anchor[0], c.anchor[1]);
     for _ in 0..2 {
@@ -822,10 +746,7 @@ fn charts() {
         a,
         [c.anchor[0] + 2, c.anchor[1], c.anchor[2] + 2, c.anchor[3]]
     );
-    assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().grid_pos().row,
-        a[0]
-    );
+    assert_eq!(t.app.doc.viewer_mut().unwrap().grid_pos().row, a[0]);
     t.app.run_command("viewer.grid.chartWider", json!({}));
     assert_eq!(anchor(&mut t)[3], a[3] + 1);
     t.app.run_command("viewer.grid.chartShorter", json!({}));
@@ -839,17 +760,12 @@ fn charts() {
     t.app
         .run_command("viewer.grid.chartTitle", json!({ "value": "Costs" }));
     assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i]
-            .title
-            .as_deref(),
+        t.app.doc.viewer_mut().unwrap().charts()[i].title.as_deref(),
         Some("Costs")
     );
     t.app
         .run_command("viewer.grid.chartTitle", json!({ "value": "" }));
-    assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].title,
-        None
-    );
+    assert_eq!(t.app.doc.viewer_mut().unwrap().charts()[i].title, None);
     // The axes titled: on the chart's bottom edge.
     t.app.run_command(
         "viewer.grid.horizontalAxisTitle",
@@ -857,7 +773,7 @@ fn charts() {
     );
     t.app
         .run_command("viewer.grid.verticalAxisTitle", json!({ "value": "TRY" }));
-    let c = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].clone();
+    let c = t.app.doc.viewer_mut().unwrap().charts()[i].clone();
     assert_eq!(
         (c.horizontal_title.as_deref(), c.vertical_title.as_deref()),
         (Some("Item"), Some("TRY"))
@@ -879,7 +795,7 @@ fn charts() {
     t.app
         .run_command("viewer.grid.chartLegend", json!({ "position": "right" }));
     assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].legend,
+        t.app.doc.viewer_mut().unwrap().charts()[i].legend,
         Some(kalem_viewer::LegendPosition::Right)
     );
     let s = t.screen();
@@ -908,22 +824,14 @@ fn charts() {
         t.key(KeyCode::Char(ch));
     }
     t.key(KeyCode::Enter);
-    assert!(
-        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i]
-            .labels
-            .value
-    );
+    assert!(t.app.doc.viewer_mut().unwrap().charts()[i].labels.value);
     let s = t.screen();
     assert!(s.contains("1200"), "{s}");
     t.app.run_command(
         "viewer.grid.dataLabels",
         json!({ "value": false, "category": false, "series": false, "percent": false, "apply": true }),
     );
-    assert!(
-        !t.app.doc.viewer.as_deref_mut().unwrap().charts()[i]
-            .labels
-            .any()
-    );
+    assert!(!t.app.doc.viewer_mut().unwrap().charts()[i].labels.any());
     // The value axis scaled: the menu, then a maximum typed with a decimal
     // comma, a major unit, and back to automatic.
     t.key(KeyCode::Char('p'));
@@ -942,7 +850,7 @@ fn charts() {
         "viewer.grid.axisScale",
         json!({ "field": "major", "value": "1000" }),
     );
-    let sc = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].scale;
+    let sc = t.app.doc.viewer_mut().unwrap().charts()[i].scale;
     assert_eq!(
         (sc.max, sc.major, sc.min),
         (Some(5000.5), Some(1000.0), None)
@@ -952,16 +860,14 @@ fn charts() {
         json!({ "field": "min", "value": "9999" }),
     );
     assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i]
-            .scale
-            .min,
+        t.app.doc.viewer_mut().unwrap().charts()[i].scale.min,
         None,
         "a minimum over the maximum is refused"
     );
     t.app
         .run_command("viewer.grid.axisScale", json!({ "field": "auto" }));
     assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].scale,
+        t.app.doc.viewer_mut().unwrap().charts()[i].scale,
         kalem_viewer::AxisScale::default()
     );
     // Its kind: the menu marks the one it is; made a line chart, drawn in
@@ -973,7 +879,7 @@ fn charts() {
     t.key(KeyCode::Esc);
     t.app
         .run_command("viewer.grid.chartKind", json!({ "kind": "line" }));
-    let c2 = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].clone();
+    let c2 = t.app.doc.viewer_mut().unwrap().charts()[i].clone();
     assert_eq!(c2.kind, kalem_viewer::ChartKind::Line);
     assert_eq!(c2.series.len(), 3);
     let s = t.screen();
@@ -1006,7 +912,7 @@ fn charts() {
         "viewer.grid.seriesColor",
         json!({ "series": 2, "value": "#00aa00" }),
     );
-    let c3 = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].clone();
+    let c3 = t.app.doc.viewer_mut().unwrap().charts()[i].clone();
     assert_eq!(
         (c3.series[0].color, c3.series[1].color, c3.series[2].color),
         (None, Some([0xFF, 0, 0]), Some([0, 0xAA, 0]))
@@ -1026,7 +932,7 @@ fn charts() {
         json!({ "series": 1, "color": "auto" }),
     );
     assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].series[1].color,
+        t.app.doc.viewer_mut().unwrap().charts()[i].series[1].color,
         None
     );
     // A point of its own color: Q1's Food bar green, drawn so, then Q1's
@@ -1044,7 +950,7 @@ fn charts() {
         json!({ "series": 0, "point": 1, "color": "#00FF00" }),
     );
     assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].series[0].point_colors,
+        t.app.doc.viewer_mut().unwrap().charts()[i].series[0].point_colors,
         vec![(1, [0, 0xFF, 0])]
     );
     t.screen();
@@ -1062,7 +968,7 @@ fn charts() {
         json!({ "series": 0, "point": 1, "color": "auto" }),
     );
     assert!(
-        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].series[0]
+        t.app.doc.viewer_mut().unwrap().charts()[i].series[0]
             .point_colors
             .is_empty()
     );
@@ -1102,7 +1008,7 @@ fn charts() {
         "viewer.grid.chartArea",
         json!({ "part": "background", "value": "#FFF2CC" }),
     );
-    let c4 = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].clone();
+    let c4 = t.app.doc.viewer_mut().unwrap().charts()[i].clone();
     assert_eq!(
         (c4.background, c4.border),
         (
@@ -1131,7 +1037,7 @@ fn charts() {
         "viewer.grid.chartArea",
         json!({ "part": "plotBackground", "color": "#F2F2F2" }),
     );
-    let c5 = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].clone();
+    let c5 = t.app.doc.viewer_mut().unwrap().charts()[i].clone();
     assert_eq!(c5.plot_background, kalem_viewer::Paint::Color([0xF2; 3]));
     assert_eq!(
         c5.background,
@@ -1167,7 +1073,7 @@ fn charts() {
     t.key(KeyCode::Enter);
     assert!(t.screen().contains("☑ Major Vertical"), "{}", t.screen());
     t.key(KeyCode::Esc);
-    let g = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].gridlines;
+    let g = t.app.doc.viewer_mut().unwrap().charts()[i].gridlines;
     assert!(g.horizontal_major && g.vertical_major && !g.horizontal_minor);
     t.app.run_command(
         "viewer.grid.gridlines",
@@ -1175,7 +1081,7 @@ fn charts() {
     );
     t.key(KeyCode::Esc);
     assert!(
-        !t.app.doc.viewer.as_deref_mut().unwrap().charts()[i]
+        !t.app.doc.viewer_mut().unwrap().charts()[i]
             .gridlines
             .horizontal_major
     );
@@ -1194,7 +1100,7 @@ fn charts() {
         json!({ "format": "#,##0 \"TL\"" }),
     );
     assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i]
+        t.app.doc.viewer_mut().unwrap().charts()[i]
             .axis_format
             .as_deref(),
         Some("#,##0 \"TL\"")
@@ -1202,7 +1108,7 @@ fn charts() {
     t.app
         .run_command("viewer.grid.axisFormat", json!({ "format": "auto" }));
     assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].axis_format,
+        t.app.doc.viewer_mut().unwrap().charts()[i].axis_format,
         None
     );
     // The axes' font: the axes offered; the categories (horizontal) bold
@@ -1227,11 +1133,11 @@ fn charts() {
         json!({ "axis": "vertical", "op": "size", "value": "12" }),
     );
     t.key(KeyCode::Esc);
-    let c6 = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].clone();
+    let c6 = t.app.doc.viewer_mut().unwrap().charts()[i].clone();
     assert!(c6.horizontal_font.bold);
     assert_eq!(c6.horizontal_font.color, Some([0xFF, 0, 0]));
     assert_eq!(c6.vertical_font.size, Some(12.0));
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     t.screen();
     let red = ratatui::style::Color::Rgb(0xFF, 0, 0);
     let buf = t.term.backend().buffer().clone();
@@ -1243,8 +1149,7 @@ fn charts() {
     );
     t.app
         .doc
-        .viewer
-        .as_deref_mut()
+        .viewer_mut()
         .unwrap()
         .grid_move_to(c.anchor[0] + 2, c.anchor[1]);
     t.app.run_command(
@@ -1252,7 +1157,7 @@ fn charts() {
         json!({ "axis": "both", "op": "reset" }),
     );
     t.key(KeyCode::Esc);
-    let c7 = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].clone();
+    let c7 = t.app.doc.viewer_mut().unwrap().charts()[i].clone();
     assert!(c7.horizontal_font.is_default() && c7.vertical_font.is_default());
     // The title's font: refused without a title; with one, red and bold,
     // drawn so, and kept when the title's words change.
@@ -1273,12 +1178,12 @@ fn charts() {
     t.key(KeyCode::Esc);
     t.app
         .run_command("viewer.grid.chartTitle", json!({ "value": "Costs" }));
-    let c8 = t.app.doc.viewer.as_deref_mut().unwrap().charts()[i].clone();
+    let c8 = t.app.doc.viewer_mut().unwrap().charts()[i].clone();
     assert_eq!(
         (c8.title.as_deref(), c8.title_font.color),
         (Some("Costs"), Some([0xFF, 0, 0]))
     );
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     t.screen();
     let red = ratatui::style::Color::Rgb(0xFF, 0, 0);
     assert!(
@@ -1291,8 +1196,7 @@ fn charts() {
     );
     t.app
         .doc
-        .viewer
-        .as_deref_mut()
+        .viewer_mut()
         .unwrap()
         .grid_move_to(c.anchor[0] + 2, c.anchor[1]);
     // The legend's font: refused without a legend; with one at the
@@ -1307,12 +1211,12 @@ fn charts() {
     );
     t.key(KeyCode::Esc);
     assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().charts()[i]
+        t.app.doc.viewer_mut().unwrap().charts()[i]
             .legend_font
             .color,
         Some([0, 0xB0, 0x50])
     );
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     t.screen();
     let green = ratatui::style::Color::Rgb(0, 0xB0, 0x50);
     assert!(
@@ -1325,73 +1229,60 @@ fn charts() {
     );
     t.app
         .doc
-        .viewer
-        .as_deref_mut()
+        .viewer_mut()
         .unwrap()
         .grid_move_to(c.anchor[0] + 2, c.anchor[1]);
     // A column chart's slices do not stand out.
     t.app.run_command("viewer.grid.explodeSlice", json!({}));
     assert!(t.screen().contains("Only a pie's"), "{}", t.screen());
     // A line chart in braille.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 1);
     t.app
         .run_command("viewer.grid.insertChart", json!({ "kind": "line" }));
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     let s = t.screen();
     assert!(
         s.chars().any(|c| ('\u{2801}'..='\u{28FF}').contains(&c)),
         "{s}"
     );
     // A pie on top, its first slice pulled out: marked in the terminal.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 1);
     t.app
         .run_command("viewer.grid.insertChart", json!({ "kind": "pie" }));
     let a = t
         .app
         .doc
-        .viewer
-        .as_deref_mut()
+        .viewer_mut()
         .unwrap()
         .charts()
         .last()
         .unwrap()
         .anchor;
-    t.app
-        .doc
-        .viewer
-        .as_deref_mut()
-        .unwrap()
-        .grid_move_to(a[0], a[1]);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(a[0], a[1]);
     t.app.run_command(
         "viewer.grid.explodeSlice",
         json!({ "point": 0, "percent": 25 }),
     );
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     let s = t.screen();
     assert!(s.contains("» Rent"), "{s}");
     // The line chart's axis in percent, written on its labels.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 1);
     t.app
         .run_command("viewer.grid.insertChart", json!({ "kind": "line" }));
     let a = t
         .app
         .doc
-        .viewer
-        .as_deref_mut()
+        .viewer_mut()
         .unwrap()
         .charts()
         .last()
         .unwrap()
         .anchor;
-    t.app
-        .doc
-        .viewer
-        .as_deref_mut()
-        .unwrap()
-        .grid_move_to(a[0], a[1]);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(a[0], a[1]);
     t.app
         .run_command("viewer.grid.axisFormat", json!({ "format": "#,##0,\"K\"" }));
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     let s = t.screen();
     assert!(s.contains("0K"), "{s}");
 }
@@ -1400,13 +1291,13 @@ fn charts() {
 fn fill_handle() {
     let mut t = T::open("fill");
     let input = |t: &mut T, row: u32, col: u32| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(row, col);
         v.cell_input()
     };
     // Fill Down (Ctrl+D): D2's formula copied to D3:D5, each reading its row.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 3);
         v.grid_extend_to(4, 3);
     }
@@ -1421,7 +1312,7 @@ fn fill_handle() {
         json!({ "row": 1, "col": 5, "value": "Week 1" }),
     );
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 5);
         v.grid_extend_to(4, 5);
     }
@@ -1444,7 +1335,7 @@ fn fill_handle() {
         "viewer.grid.setCell",
         json!({ "row": 1, "col": 4, "value": "=D2*2" }),
     );
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 4);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 4);
     t.app.run_command("viewer.grid.fillToEnd", json!({}));
     assert_eq!(input(&mut t, 4, 4), "=D5*2");
     assert_eq!(input(&mut t, 5, 4), "", "it stops where the data does");
@@ -1454,20 +1345,14 @@ fn fill_handle() {
 fn flash_fill() {
     let mut t = T::open("flash");
     let input = |t: &mut T, row: u32, col: u32| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(row, col);
         v.cell_input()
     };
     // Beside the budget's table, E2 "RENT:1200": the item in capitals, a
     // colon and Q1's figure; Ctrl+E fills E3:E5 so.
     let q1 = input(&mut t, 1, 1);
-    let shown = t
-        .app
-        .doc
-        .viewer
-        .as_deref_mut()
-        .unwrap()
-        .grid_cells(1..2, 1..2)[0]
+    let shown = t.app.doc.viewer_mut().unwrap().grid_cells(1..2, 1..2)[0]
         .2
         .text
         .clone();
@@ -1476,18 +1361,12 @@ fn flash_fill() {
         json!({ "row": 1, "col": 4, "value": format!("RENT:{shown}") }),
     );
     let _ = q1;
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 4);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 4);
     t.app.event(Event::Key(KeyEvent::new(
         KeyCode::Char('e'),
         KeyModifiers::CONTROL,
     )));
-    let food_shown = t
-        .app
-        .doc
-        .viewer
-        .as_deref_mut()
-        .unwrap()
-        .grid_cells(2..3, 1..2)[0]
+    let food_shown = t.app.doc.viewer_mut().unwrap().grid_cells(2..3, 1..2)[0]
         .2
         .text
         .clone();
@@ -1504,13 +1383,13 @@ fn flash_fill() {
 fn font_formatting() {
     let mut t = T::open("font");
     let cell = |t: &mut T, row: u32, col: u32| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(row, col);
         v.cursor_cell()
     };
     // A2:B3 bold with Ctrl+B, then not, with it again.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 0);
         v.grid_extend_to(2, 1);
     }
@@ -1528,7 +1407,7 @@ fn font_formatting() {
         "{s}"
     );
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 0);
         v.grid_extend_to(2, 1);
     }
@@ -1583,11 +1462,11 @@ fn alignment() {
     };
     // A2 to the right with t r: "Rent" ends at the column's edge (its
     // last letter under the note's mark).
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 0);
     let left = row2(&mut t).find("Ren").unwrap();
     t.key(KeyCode::Char('t'));
     t.key(KeyCode::Char('r'));
-    let c = t.app.doc.viewer.as_deref_mut().unwrap().cursor_cell();
+    let c = t.app.doc.viewer_mut().unwrap().cursor_cell();
     assert_eq!(c.align, kalem_viewer::Align::Right);
     let right = row2(&mut t).find("Ren").unwrap();
     assert!(right > left + 5, "{}", t.screen());
@@ -1598,7 +1477,7 @@ fn alignment() {
     assert!(left < center && center < right, "{}", t.screen());
     t.key(KeyCode::Char('t'));
     t.key(KeyCode::Char('e'));
-    let c = t.app.doc.viewer.as_deref_mut().unwrap().cursor_cell();
+    let c = t.app.doc.viewer_mut().unwrap().cursor_cell();
     assert_eq!(c.align, kalem_viewer::Align::General);
     // Top and middle, kept in the cell.
     t.key(KeyCode::Char('t'));
@@ -1606,10 +1485,10 @@ fn alignment() {
         KeyCode::Char('T'),
         KeyModifiers::SHIFT,
     )));
-    let c = t.app.doc.viewer.as_deref_mut().unwrap().cursor_cell();
+    let c = t.app.doc.viewer_mut().unwrap().cursor_cell();
     assert_eq!(c.valign, kalem_viewer::VAlign::Top);
     t.app.run_command("viewer.grid.alignMiddle", json!({}));
-    let c = t.app.doc.viewer.as_deref_mut().unwrap().cursor_cell();
+    let c = t.app.doc.viewer_mut().unwrap().cursor_cell();
     assert_eq!(c.valign, kalem_viewer::VAlign::Middle);
     // Saved as Excel reads it; undone a step at a time.
     t.app.run_command("app.save", json!({}));
@@ -1618,7 +1497,7 @@ fn alignment() {
     for _ in 0..5 {
         t.app.run_command("edit.undo", json!({}));
     }
-    let c = t.app.doc.viewer.as_deref_mut().unwrap().cursor_cell();
+    let c = t.app.doc.viewer_mut().unwrap().cursor_cell();
     assert_eq!(
         (c.align, c.valign),
         (kalem_viewer::Align::General, kalem_viewer::VAlign::Bottom)
@@ -1640,7 +1519,7 @@ fn borders() {
     t.app
         .run_command("viewer.grid.borderColor", json!({ "color": "#FF0000" }));
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 1);
         v.grid_extend_to(2, 2);
     }
@@ -1654,7 +1533,7 @@ fn borders() {
     t.key(KeyCode::Esc);
     t.app
         .run_command("viewer.grid.borders", json!({ "set": "outside" }));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(2, 2);
     let c3 = v.cursor_cell();
     let red = Some([0xFF, 0, 0]);
@@ -1683,17 +1562,17 @@ fn borders() {
     assert!(under >= 16, "{under} {s}");
     // Taken away, one undo step.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 1);
         v.grid_extend_to(2, 2);
     }
     t.app
         .run_command("viewer.grid.borders", json!({ "set": "none" }));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(2, 2);
     assert_eq!(v.cursor_cell().borders, [None; 4]);
     t.app.run_command("edit.undo", json!({}));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert_eq!(v.cursor_cell().borders, [None, red, red, None]);
 }
 
@@ -1702,7 +1581,7 @@ fn number_formats() {
     let mut t = T::open("numfmt");
     // B2:C2 from the menu (t 1), as a percent.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 1);
         v.grid_extend_to(1, 2);
     }
@@ -1725,14 +1604,14 @@ fn number_formats() {
     assert!(s.contains("120000%") && !s.contains("120000.0%"), "{s}");
     // General goes by what the cell shows: 431.5 gets 431.50.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(2, 1);
     }
     t.app
         .run_command("viewer.grid.numberFormat", json!({ "code": "General" }));
     assert!(t.screen().contains("431.5 "), "{}", t.screen());
     t.app.run_command("viewer.grid.increaseDecimal", json!({}));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert_eq!(v.cursor_format().as_deref(), Some("0.00"));
     // A typed code, kept through saving.
     t.app
@@ -1760,23 +1639,16 @@ fn moving_and_selecting() {
         t.app.event(Event::Key(KeyEvent::new(k, m)));
     };
     let pos = |t: &mut T| {
-        let p = t.app.doc.viewer.as_deref_mut().unwrap().grid_pos();
+        let p = t.app.doc.viewer_mut().unwrap().grid_pos();
         (p.row, p.col)
     };
-    let sel = |t: &mut T| t.app.doc.viewer.as_deref_mut().unwrap().selection();
+    let sel = |t: &mut T| t.app.doc.viewer_mut().unwrap().selection();
     // Ctrl+Down along the data to its end, then on to the sheet's edge,
     // and back up.
     ctrl(&mut t, KeyCode::Down, false);
     assert_eq!(pos(&mut t), (4, 0));
     ctrl(&mut t, KeyCode::Down, false);
-    let max = t
-        .app
-        .doc
-        .viewer
-        .as_deref_mut()
-        .unwrap()
-        .grid_layout()
-        .unwrap();
+    let max = t.app.doc.viewer_mut().unwrap().grid_layout().unwrap();
     assert_eq!(pos(&mut t), (max.max_rows - 1, 0));
     ctrl(&mut t, KeyCode::Up, false);
     assert_eq!(pos(&mut t), (4, 0));
@@ -1787,19 +1659,19 @@ fn moving_and_selecting() {
     ctrl(&mut t, KeyCode::Right, false);
     assert_eq!(pos(&mut t), (0, 5));
     // Ctrl+Shift+Down from B1 selects B1:B5.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 1);
     ctrl(&mut t, KeyCode::Down, true);
     assert_eq!(sel(&mut t), [0, 1, 4, 1]);
     // The row (g r; Shift+Space in the graphical editor), the column.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(2, 1);
     t.key(KeyCode::Char('g'));
     t.key(KeyCode::Char('r'));
     assert_eq!(sel(&mut t), [2, 0, 2, max.max_cols - 1]);
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(2, 1);
     ctrl(&mut t, KeyCode::Char(' '), false);
     assert_eq!(sel(&mut t), [0, 1, max.max_rows - 1, 1]);
     // Ctrl+A: the table around the cursor, then the sheet.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(2, 1);
     ctrl(&mut t, KeyCode::Char('a'), false);
     assert_eq!(sel(&mut t), [0, 0, 4, 3]);
     ctrl(&mut t, KeyCode::Char('a'), false);
@@ -1826,7 +1698,7 @@ fn selection_sums() {
     assert!(!t.screen().contains("Sum:"), "{}", t.screen());
     // B2:D5's twelve numbers, in the cells' format.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 1);
         v.grid_extend_to(4, 3);
     }
@@ -1836,14 +1708,14 @@ fn selection_sums() {
         "{s}"
     );
     // Then Min and Max, which eighty columns cut.
-    let status = t.app.doc.viewer.as_deref_mut().unwrap().status();
+    let status = t.app.doc.viewer_mut().unwrap().status();
     assert!(
         status.ends_with("Sum: 17,175.00 · Min: 0.00 · Max: 4,293.75"),
         "{status}"
     );
     // Text only: the count.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 0);
         v.grid_extend_to(3, 0);
     }
@@ -1851,7 +1723,7 @@ fn selection_sums() {
     assert!(s.contains("Count: 3") && !s.contains("Sum:"), "{s}");
     // After an edit, summed again.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 1);
         v.grid_extend_to(2, 1);
     }
@@ -1861,7 +1733,7 @@ fn selection_sums() {
         json!({ "row": 1, "col": 1, "value": "1000" }),
     );
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 1);
         v.grid_extend_to(2, 1);
     }
@@ -1872,7 +1744,7 @@ fn selection_sums() {
 fn find_and_replace() {
     let mut t = T::open("find");
     let pos = |t: &mut T| {
-        let p = t.app.doc.viewer.as_deref_mut().unwrap().grid_pos();
+        let p = t.app.doc.viewer_mut().unwrap().grid_pos();
         (p.row, p.col)
     };
     // Ctrl+F asks; found from the cursor on.
@@ -1915,7 +1787,7 @@ fn find_and_replace() {
     t.app
         .run_command("viewer.grid.find", json!({ "value": "sum(" }));
     let (r, c) = pos(&mut t);
-    let input = t.app.doc.viewer.as_deref_mut().unwrap().cell_input();
+    let input = t.app.doc.viewer_mut().unwrap().cell_input();
     assert!(input.to_lowercase().contains("sum("), "{r},{c}: {input}");
     t.app.run_command("viewer.grid.findInFormulas", json!({}));
     // Replace: what with asked, then Replace All or one at a time.
@@ -1938,7 +1810,7 @@ fn find_and_replace() {
     t.app.run_command("edit.undo", json!({}));
     assert!(t.screen().contains("Food"), "{}", t.screen());
     // One at a time: the cursor's cell if it matches, then the next.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 0);
     t.app.run_command(
         "viewer.grid.replace",
         json!({ "value": "rent", "with": "Kira", "how": "one" }),
@@ -2032,15 +1904,7 @@ fn sheets() {
     for _ in 0..7 {
         t.app.run_command("edit.undo", json!({}));
     }
-    let n = t
-        .app
-        .doc
-        .viewer
-        .as_deref_mut()
-        .unwrap()
-        .structure()
-        .units
-        .len();
+    let n = t.app.doc.viewer_mut().unwrap().structure().units.len();
     assert_eq!(n, 3);
 }
 
@@ -2058,7 +1922,7 @@ fn hidden_rows_and_columns() {
     };
     // Rows 2 and 3 hidden: the cursor goes on to row 4.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 0);
         v.grid_extend_to(2, 0);
     }
@@ -2070,14 +1934,14 @@ fn hidden_rows_and_columns() {
     );
     assert!(s.contains("A4 "), "{s}");
     // Column B hidden: Q1 goes, Q2 shows.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(3, 1);
     z(&mut t, 'c');
     let s = t.screen();
     let head = s.lines().nth(2).unwrap_or_default();
     assert!(!head.contains("Q1") && head.contains("Q2"), "{s}");
     // Shown again from a selection over them.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(0, 0);
         v.grid_extend_to(4, 2);
     }
@@ -2105,8 +1969,7 @@ fn frozen_panes() {
     let frozen = |t: &mut T| {
         t.app
             .doc
-            .viewer
-            .as_deref_mut()
+            .viewer_mut()
             .unwrap()
             .grid_layout()
             .unwrap()
@@ -2130,15 +1993,10 @@ fn frozen_panes() {
         t.screen()
     );
     // At C3: two rows and two columns; they stay when the view moves on.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 2);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(2, 2);
     z(&mut t, 'f');
     assert_eq!(frozen(&mut t), (2, 2));
-    t.app
-        .doc
-        .viewer
-        .as_deref_mut()
-        .unwrap()
-        .grid_move_to(200, 30);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(200, 30);
     let s = t.screen();
     assert!(
         s.contains("Item") && s.contains("Rent") && s.contains("201"),
@@ -2162,7 +2020,7 @@ fn frozen_panes() {
 #[test]
 fn notes() {
     let mut t = T::open("notes");
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 0);
     // Shift+F2 asks with the note A2 has.
     t.app.event(Event::Key(KeyEvent::new(
         KeyCode::F(2),
@@ -2182,7 +2040,7 @@ fn notes() {
         t.screen()
     );
     // A new note on B3: its mark in the corner.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(2, 1);
     t.app
         .run_command("viewer.grid.editNote", json!({ "value": "Kontrol et" }));
     let s = t.screen();
@@ -2195,7 +2053,7 @@ fn notes() {
     t.app
         .run_command("viewer.grid.editNote", json!({ "value": "" }));
     assert!(!t.screen().contains("Kontrol et"), "{}", t.screen());
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 0);
     t.app.run_command("viewer.grid.deleteNote", json!({}));
     assert!(!t.screen().contains("Kira"), "{}", t.screen());
     // Saved as Excel reads it, then undone.
@@ -2211,7 +2069,7 @@ fn notes() {
     for _ in 0..4 {
         t.app.run_command("edit.undo", json!({}));
     }
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 0);
     assert!(t.screen().contains("Paid on the first"), "{}", t.screen());
 }
 
@@ -2226,11 +2084,11 @@ fn auto_sum_and_functions() {
         t.screen()
     };
     // Under a column of numbers: their sum, proposed to be entered.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(5, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(5, 1);
     let s = alt_eq(&mut t);
     assert!(s.contains("=SUM(B2:B5)"), "{s}");
     t.key(KeyCode::Enter);
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(5, 1);
     assert_eq!(v.cell_input(), "=SUM(B2:B5)");
     assert!(
@@ -2240,22 +2098,22 @@ fn auto_sum_and_functions() {
     );
     t.app.run_command("edit.undo", json!({}));
     // Right of a row of numbers: theirs.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 4);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 4);
     let s = alt_eq(&mut t);
     assert!(s.contains("=SUM(B2:D2)"), "{s}");
     t.key(KeyCode::Esc);
     // A selection ending in an empty row: a sum under each column at once.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 1);
         v.grid_extend_to(5, 2);
     }
     alt_eq(&mut t);
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(5, 2);
     assert_eq!(v.cell_input(), "=SUM(C2:C5)");
     t.app.run_command("edit.undo", json!({}));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(5, 1);
     assert_eq!(v.cell_input(), "");
     // Insert Function: the list with arguments, the chosen one begun.
@@ -2279,7 +2137,7 @@ fn auto_sum_and_functions() {
 fn paste_special() {
     let mut t = T::open("pastespecial");
     let input = |t: &mut T, r: u32, c: u32| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(r, c);
         v.cell_input()
     };
@@ -2301,12 +2159,12 @@ fn paste_special() {
     );
     // D2:D3 copied (y): their values pasted at F2.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 3);
         v.grid_extend_to(2, 3);
     }
     t.key(KeyCode::Char('y'));
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 5);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 5);
     t.app.run_command(
         "viewer.grid.pasteSpecial",
         json!({ "what": "values", "transpose": false }),
@@ -2314,7 +2172,7 @@ fn paste_special() {
     assert_eq!(input(&mut t, 1, 5), "2400");
     assert_eq!(input(&mut t, 2, 5), "943.75");
     // Transposed: across row 7 from B7.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(6, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(6, 1);
     t.app.run_command(
         "viewer.grid.pasteSpecial",
         json!({ "what": "all", "transpose": true }),
@@ -2334,12 +2192,12 @@ fn paste_special() {
 fn inserting_and_deleting_cells() {
     let mut t = T::open("cells");
     let input = |t: &mut T, r: u32, c: u32| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(r, c);
         v.cell_input()
     };
     let select = |t: &mut T, a: (u32, u32), b: (u32, u32)| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(a.0, a.1);
         v.grid_extend_to(b.0, b.1);
     };
@@ -2414,11 +2272,11 @@ fn clear_formats_and_painter() {
             .to_owned()
     };
     // B2's format cleared: 1200 as General.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 1);
     tp(&mut t, 'x');
     assert!(row(&mut t, "2 Rent").contains(" 1200"), "{}", t.screen());
     // Painted from B3: t p takes it, t p again paints B2:C2.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(2, 1);
     tp(&mut t, 'p');
     assert!(
         t.screen().contains("Format Painter: select"),
@@ -2426,14 +2284,14 @@ fn clear_formats_and_painter() {
         t.screen()
     );
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 1);
         v.grid_extend_to(1, 2);
     }
     tp(&mut t, 'p');
     assert!(row(&mut t, "2 Rent").contains("1,200.00"), "{}", t.screen());
     // Clear All: the value, the format and the note of A2.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 0);
     tp(&mut t, 'X');
     let s = t.screen();
     assert!(
@@ -2443,7 +2301,7 @@ fn clear_formats_and_painter() {
     for _ in 0..3 {
         t.app.run_command("edit.undo", json!({}));
     }
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 0);
     let s = t.screen();
     assert!(
         s.contains("Rent") && s.contains("1,200.00") && s.contains("Paid on the first"),
@@ -2455,7 +2313,7 @@ fn clear_formats_and_painter() {
 fn duplicates_and_text_to_columns() {
     let mut t = T::open("dupes");
     let input = |t: &mut T, r: u32, c: u32| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(r, c);
         v.cell_input()
     };
@@ -2471,12 +2329,12 @@ fn duplicates_and_text_to_columns() {
             );
         }
     }
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(8, 5);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(8, 5);
     t.app.run_command("viewer.grid.removeDuplicates", json!({}));
     let s = t.screen();
     assert!(s.contains("All Columns") && s.contains("Yaş (G)"), "{s}");
     t.key(KeyCode::Esc);
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(8, 5);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(8, 5);
     t.app
         .run_command("viewer.grid.removeDuplicates", json!({ "columns": [] }));
     assert!(
@@ -2492,13 +2350,13 @@ fn duplicates_and_text_to_columns() {
         "viewer.grid.setCell",
         json!({ "row": 14, "col": 5, "value": "Kaya, Zeynep, 42" }),
     );
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(14, 5);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(14, 5);
     t.app
         .run_command("viewer.grid.textToColumns", json!({ "delimiter": "," }));
     assert_eq!(input(&mut t, 14, 5), "Kaya");
     assert_eq!(input(&mut t, 14, 6), "Zeynep");
     assert_eq!(input(&mut t, 14, 7), "42");
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(14, 7);
     assert!(v.cursor_cell().numeric);
     t.app.run_command("edit.undo", json!({}));
@@ -2509,7 +2367,7 @@ fn duplicates_and_text_to_columns() {
 fn hyperlinks() {
     let mut t = T::open("links");
     // Ctrl+K asks; an address on an empty cell becomes its text.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(6, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(6, 0);
     t.app.event(Event::Key(KeyEvent::new(
         KeyCode::Char('k'),
         KeyModifiers::CONTROL,
@@ -2521,7 +2379,7 @@ fn hyperlinks() {
         json!({ "value": "https://example.com" }),
     );
     assert!(t.screen().contains("https://example.com"), "{}", t.screen());
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert!(v.cursor_cell().underline);
     // A place in the workbook, opened with g x.
     v.grid_move_to(1, 0);
@@ -2532,9 +2390,9 @@ fn hyperlinks() {
     assert!(t.screen().contains("Dates · B2"), "{}", t.screen());
     // Removed: no link, no link's look.
     t.app.run_command("viewer.grid.previousSheet", json!({}));
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 0);
     t.app.run_command("viewer.grid.removeLink", json!({}));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert!(v.cursor_link().is_none() && !v.cursor_cell().underline);
     t.key(KeyCode::Char('g'));
     t.key(KeyCode::Char('x'));
@@ -2548,20 +2406,12 @@ fn hyperlinks() {
 #[test]
 fn named_ranges() {
     let mut t = T::open("names");
-    let sel = |t: &mut T| t.app.doc.viewer.as_deref_mut().unwrap().selection();
-    let names = |t: &mut T| {
-        t.app
-            .doc
-            .viewer
-            .as_deref_mut()
-            .unwrap()
-            .defined_names()
-            .len()
-    };
+    let sel = |t: &mut T| t.app.doc.viewer_mut().unwrap().selection();
+    let names = |t: &mut T| t.app.doc.viewer_mut().unwrap().defined_names().len();
     let before = names(&mut t);
     // B2:B4 named, and used in a formula.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 1);
         v.grid_extend_to(3, 1);
     }
@@ -2576,7 +2426,7 @@ fn named_ranges() {
         "viewer.grid.setCell",
         json!({ "row": 9, "col": 1, "value": "=SUM(Gelirler)" }),
     );
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(9, 1);
     assert_eq!(v.cursor_cell().text, "1631.5");
     // Gone to by Go To and from the Name Manager (Ctrl+F3).
@@ -2609,7 +2459,7 @@ fn named_ranges() {
 fn show_formulas_and_calculate() {
     let mut t = T::open("formulas");
     let d2 = {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 3);
         v.cell_input()
     };
@@ -2635,7 +2485,7 @@ fn show_formulas_and_calculate() {
         json!({ "row": 9, "col": 1, "value": "=RAND()" }),
     );
     let value = |t: &mut T| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(9, 1);
         v.cursor_cell().text
     };
@@ -2755,12 +2605,12 @@ fn sheets_exported_as_csv_or_text() {
 fn typing_into_cells() {
     let mut t = T::open("typing");
     let input = |t: &mut T, r: u32, c: u32| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(r, c);
         v.cell_input()
     };
     let edit = |t: &mut T, r: u32, c: u32| {
-        t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(r, c);
+        t.app.doc.viewer_mut().unwrap().grid_move_to(r, c);
         t.app.run_command("viewer.grid.edit", json!({}));
     };
     let typ = |t: &mut T, s: &str| {
@@ -2789,7 +2639,7 @@ fn typing_into_cells() {
     typ(&mut t, "Ocak");
     t.key(KeyCode::Enter);
     assert_eq!(input(&mut t, 8, 0), "Kira\nOcak");
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert!(v.cursor_cell().wrap);
     // Ctrl+Enter: into every selected cell, references moved.
     v.grid_move_to(9, 1);
@@ -2805,7 +2655,7 @@ fn typing_into_cells() {
     t.app.run_command("edit.undo", json!({}));
     assert_eq!(input(&mut t, 9, 1), "");
     // Today's date, the time; the formula and the value from above.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(11, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(11, 0);
     t.app.run_command("viewer.grid.insertDate", json!({}));
     let year = jiff::Zoned::now().year().to_string();
     assert!(
@@ -2813,7 +2663,7 @@ fn typing_into_cells() {
         "{}",
         input(&mut t, 11, 0)
     );
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(11, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(11, 1);
     t.app.run_command("viewer.grid.insertTime", json!({}));
     assert!(
         input(&mut t, 11, 1).contains(':'),
@@ -2821,11 +2671,11 @@ fn typing_into_cells() {
         input(&mut t, 11, 1)
     );
     let d5 = input(&mut t, 4, 3);
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(5, 3);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(5, 3);
     t.app.run_command("viewer.grid.formulaFromAbove", json!({}));
     assert!(t.screen().contains(&d5), "{d5} {}", t.screen());
     t.key(KeyCode::Esc);
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(5, 3);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(5, 3);
     t.app.run_command("viewer.grid.valueFromAbove", json!({}));
     assert!(t.screen().contains("4,293.75"), "{}", t.screen());
     t.key(KeyCode::Esc);
@@ -2847,7 +2697,7 @@ fn editing_formulas() {
             .unwrap_or_default()
             .to_owned()
     };
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(6, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(6, 1);
     t.app.run_command("viewer.grid.edit", json!({}));
     // "su" offers SUM( and SUMIF(...; Tab takes the first.
     typ(&mut t, "=su");
@@ -2862,17 +2712,14 @@ fn editing_formulas() {
     t.app
         .event(Event::Key(KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT)));
     assert!(prompt(&mut t).contains("=SUM(B5:B6"), "{}", t.screen());
-    assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().pointer,
-        Some([4, 1, 5, 1])
-    );
+    assert_eq!(t.app.doc.viewer_mut().unwrap().pointer, Some([4, 1, 5, 1]));
     // F4: the last reference absolute.
     t.key(KeyCode::F(4));
     assert!(prompt(&mut t).contains("=SUM(B5:$B$6"), "{}", t.screen());
-    assert!(t.app.doc.viewer.as_deref_mut().unwrap().pointer.is_none());
+    assert!(t.app.doc.viewer_mut().unwrap().pointer.is_none());
     typ(&mut t, ")");
     t.key(KeyCode::Enter);
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(6, 1);
     assert_eq!(v.cell_input(), "=SUM(B5:$B$6)");
     assert_eq!(v.cursor_cell().text, "1631.5");
@@ -2904,7 +2751,7 @@ fn custom_sort_and_filters() {
         }
     }
     let col = |t: &mut T, c: u32| -> Vec<String> {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         (1..6)
             .map(|r| {
                 v.grid_move_to(r, c);
@@ -2913,7 +2760,7 @@ fn custom_sort_and_filters() {
             .collect()
     };
     // The menus: the columns by their headers, then the orders.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 8);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 8);
     t.key(KeyCode::Char('s'));
     t.key(KeyCode::Char('c'));
     assert!(t.screen().contains("Ay (I)"), "{}", t.screen());
@@ -2927,7 +2774,7 @@ fn custom_sort_and_filters() {
     );
     t.key(KeyCode::Esc);
     // By month, then amount largest first.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 8);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 8);
     let months: Vec<&str> = vec!["Ocak", "Şubat", "Mart", "Nisan"];
     t.app.run_command(
         "viewer.grid.customSort",
@@ -2939,14 +2786,14 @@ fn custom_sort_and_filters() {
     assert_eq!(col(&mut t, 8), ["Ocak", "Ocak", "Şubat", "Mart", "Mart"]);
     assert_eq!(col(&mut t, 9), ["10", "5", "20", "40", "30"]);
     // A filter on the table; amounts over 15.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 8);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 8);
     t.app.run_command("viewer.grid.toggleFilter", json!({}));
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 9);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 9);
     t.key(KeyCode::Char('s'));
     t.key(KeyCode::Char('f'));
     assert!(t.screen().contains("Begins With"), "{}", t.screen());
     t.key(KeyCode::Esc);
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 9);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 9);
     t.app.run_command(
         "viewer.grid.filterCondition",
         json!({ "op": "greater", "value": "15" }),
@@ -2954,8 +2801,7 @@ fn custom_sort_and_filters() {
     let hidden = |t: &mut T| {
         t.app
             .doc
-            .viewer
-            .as_deref_mut()
+            .viewer_mut()
             .unwrap()
             .grid_layout()
             .unwrap()
@@ -2975,20 +2821,20 @@ fn custom_sort_and_filters() {
 fn tables() {
     let mut t = T::open("tables");
     // Ctrl+T on the budget: the styles, then a table.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 1);
     t.app.event(Event::Key(KeyEvent::new(
         KeyCode::Char('t'),
         KeyModifiers::CONTROL,
     )));
     assert!(t.screen().contains("Green"), "{}", t.screen());
     t.key(KeyCode::Esc);
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 1);
     t.app.run_command(
         "viewer.grid.formatAsTable",
         json!({ "style": "TableStyleMedium7" }),
     );
     assert!(t.screen().contains("Table1 made"), "{}", t.screen());
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     let table = v.table_at_cursor().unwrap();
     assert_eq!(table.range, [0, 0, 4, 3]);
     // Drawn: the first data row banded green (the header keeps the fill
@@ -3000,18 +2846,18 @@ fn tables() {
         "viewer.grid.setCell",
         json!({ "row": 9, "col": 1, "value": "=SUM(Table1[Q2])" }),
     );
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(9, 1);
     assert_eq!(v.cursor_cell().text, "5324.5");
     // Convert to Range: the table gone, the formula plain.
     v.grid_move_to(1, 1);
     t.app.run_command("viewer.grid.convertToRange", json!({}));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert!(v.table_at_cursor().is_none());
     v.grid_move_to(9, 1);
     assert_eq!(v.cell_input(), "=SUM($C$2:$C$5)");
     t.app.run_command("edit.undo", json!({}));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(1, 1);
     assert!(v.table_at_cursor().is_some());
 }
@@ -3039,16 +2885,16 @@ fn page_setup_and_pdf() {
         json!({ "what": "footer", "value": "&CSayfa &P / &N" }),
     );
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(0, 0);
         v.grid_extend_to(0, 3);
     }
     t.app
         .run_command("viewer.grid.pageSetup", json!({ "what": "titles" }));
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(3, 0);
     t.app
         .run_command("viewer.grid.pageSetup", json!({ "what": "break" }));
-    let s = t.app.doc.viewer.as_deref_mut().unwrap().page_setup();
+    let s = t.app.doc.viewer_mut().unwrap().page_setup();
     assert!(s.landscape && s.paper == 8);
     assert_eq!(
         (s.title_rows, s.row_breaks.clone()),
@@ -3070,10 +2916,10 @@ fn page_setup_and_pdf() {
     page(&mut t, "scale", "80");
     page(&mut t, "gridlines", "");
     page(&mut t, "headings", "");
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 2);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 2);
     t.app
         .run_command("viewer.grid.pageSetup", json!({ "what": "colBreak" }));
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     t.app
         .run_command("viewer.grid.pageSetup", json!({ "what": "titleCols" }));
     let png = image::RgbaImage::from_pixel(40, 20, image::Rgba([200, 0, 0, 255]));
@@ -3082,7 +2928,7 @@ fn page_setup_and_pdf() {
         "viewer.grid.pageSetup",
         json!({ "what": "picture", "place": "RH", "path": "logo.png" }),
     );
-    let s = t.app.doc.viewer.as_deref_mut().unwrap().page_setup();
+    let s = t.app.doc.viewer_mut().unwrap().page_setup();
     assert_eq!((s.fit, s.scale), (None, 80));
     assert!(s.gridlines && s.headings);
     assert_eq!(
@@ -3092,11 +2938,11 @@ fn page_setup_and_pdf() {
     assert_eq!(s.pictures.len(), 1);
     assert!(s.header.contains("&R&G"), "{}", s.header);
     page(&mut t, "pages", "1 x 2");
-    let s = t.app.doc.viewer.as_deref_mut().unwrap().page_setup();
+    let s = t.app.doc.viewer_mut().unwrap().page_setup();
     assert_eq!(s.fit, Some((1, 2)));
     // A chart and a shape, printed over the cells.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(0, 0);
         v.grid_extend_to(3, 1);
         v.insert_chart(kalem_viewer::ChartKind::Column, Some("Spend".into()))
@@ -3163,7 +3009,7 @@ fn groups_and_subtotals() {
     };
     // Rows 2-4 grouped with Alt+Shift+Right: row 5 sums them up (−).
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 0);
         v.grid_extend_to(3, 0);
     }
@@ -3173,7 +3019,7 @@ fn groups_and_subtotals() {
     )));
     assert!(row(&mut t, "5 Sum").starts_with('−'), "{}", t.screen());
     // z h on the summary row: the group collapses (+); z s shows it.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(4, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(4, 0);
     t.key(KeyCode::Char('z'));
     t.key(KeyCode::Char('h'));
     let s = t.screen();
@@ -3186,7 +3032,7 @@ fn groups_and_subtotals() {
     assert!(t.screen().contains("Rent"), "{}", t.screen());
     // Ungrouped.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 0);
         v.grid_extend_to(3, 0);
     }
@@ -3194,15 +3040,7 @@ fn groups_and_subtotals() {
         KeyCode::Left,
         KeyModifiers::ALT | KeyModifiers::SHIFT,
     )));
-    assert!(
-        t.app
-            .doc
-            .viewer
-            .as_deref_mut()
-            .unwrap()
-            .outline_marks()
-            .is_empty()
-    );
+    assert!(t.app.doc.viewer_mut().unwrap().outline_marks().is_empty());
     // Subtotal of a table at I1: by month, the amounts summed.
     for (r, row) in [
         ["Ay", "Tutar"],
@@ -3220,16 +3058,16 @@ fn groups_and_subtotals() {
             );
         }
     }
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 8);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 8);
     t.app.run_command("viewer.grid.subtotal", json!({}));
     assert!(t.screen().contains("Ay (I)"), "{}", t.screen());
     t.key(KeyCode::Esc);
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 8);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 8);
     t.app.run_command(
         "viewer.grid.subtotal",
         json!({ "by": 8, "function": 9, "col": 9 }),
     );
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(6, 8);
     assert_eq!(v.cell_input(), "Grand Total");
     v.grid_move_to(6, 9);
@@ -3253,13 +3091,13 @@ fn cell_styles_and_alignment() {
             .to_owned()
     };
     // Cell Styles (t y): Good on A2.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 0);
     tk(&mut t, 'y');
     assert!(t.screen().contains("Heading 1"), "{}", t.screen());
     t.key(KeyCode::Esc);
     t.app
         .run_command("viewer.grid.cellStyle", json!({ "style": "good" }));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert_eq!(v.cursor_cell().fill, Some([0xC6, 0xEF, 0xCE]));
     // Indented two levels: four columns in.
     v.grid_move_to(2, 0);
@@ -3268,7 +3106,7 @@ fn cell_styles_and_alignment() {
     let l3 = line(&mut t, "3");
     assert!(l3.trim_start().starts_with("3     Food"), "{l3:?}");
     tk(&mut t, '[');
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert_eq!(v.cursor_cell().indent, 1);
     // Center Across Selection over A7:D7.
     t.app.run_command(
@@ -3276,27 +3114,27 @@ fn cell_styles_and_alignment() {
         json!({ "row": 6, "col": 0, "value": "Rapor" }),
     );
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(6, 0);
         v.grid_extend_to(6, 3);
     }
     tk(&mut t, 'a');
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     let row7 = line(&mut t, "7");
     let at = row7
         .find("Rapor")
         .unwrap_or_else(|| panic!("{}", t.screen()));
     assert!(at > 20 && !row7[..at].contains('│'), "{}", t.screen());
     // Orientation and Shrink to Fit kept in the cell.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 1);
     tk(&mut t, 'o');
     assert!(t.screen().contains("Vertical Text"), "{}", t.screen());
     t.key(KeyCode::Esc);
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 1);
     t.app
         .run_command("viewer.grid.textRotation", json!({ "rotation": 90 }));
     tk(&mut t, 'k');
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     let c = v.cursor_cell();
     assert_eq!((c.rotation, c.shrink), (90, true));
 }
@@ -3305,21 +3143,13 @@ fn cell_styles_and_alignment() {
 fn protection() {
     let mut t = T::open("protect");
     // B2 unlocked (t L).
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 1);
     t.key(KeyCode::Char('t'));
     t.app.event(Event::Key(KeyEvent::new(
         KeyCode::Char('L'),
         KeyModifiers::SHIFT,
     )));
-    assert!(
-        t.app
-            .doc
-            .viewer
-            .as_deref_mut()
-            .unwrap()
-            .cursor_cell()
-            .unlocked
-    );
+    assert!(t.app.doc.viewer_mut().unwrap().cursor_cell().unlocked);
     // z k asks for a password, shown as dots.
     t.key(KeyCode::Char('z'));
     t.key(KeyCode::Char('k'));
@@ -3340,14 +3170,14 @@ fn protection() {
         json!({ "password": "gizli", "allow": "none" }),
     );
     // A locked cell is not edited; the unlocked one is.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 0);
     t.app.run_command("viewer.grid.edit", json!({}));
     assert!(t.screen().contains("protected sheet"), "{}", t.screen());
     t.app.run_command(
         "viewer.grid.setCell",
         json!({ "row": 1, "col": 1, "value": "1000" }),
     );
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(1, 1);
     assert_eq!(v.cell_input(), "1000");
     // Unprotected with its password only.
@@ -3360,15 +3190,7 @@ fn protection() {
     );
     t.app
         .run_command("viewer.grid.protectSheet", json!({ "password": "gizli" }));
-    assert!(
-        t.app
-            .doc
-            .viewer
-            .as_deref_mut()
-            .unwrap()
-            .sheet_protection()
-            .is_none()
-    );
+    assert!(t.app.doc.viewer_mut().unwrap().sheet_protection().is_none());
     // The workbook's structure protected: no new sheet.
     t.app
         .run_command("viewer.grid.protectWorkbook", json!({ "password": "" }));
@@ -3388,12 +3210,12 @@ fn formula_auditing() {
         t.key(KeyCode::Char(k));
     };
     // D2's precedents: the cells it reads, marked.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 3);
-    let d2 = t.app.doc.viewer.as_deref_mut().unwrap().cell_input();
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 3);
+    let d2 = t.app.doc.viewer_mut().unwrap().cell_input();
     z(&mut t, ',');
     let s = t.screen();
     assert!(s.contains("precedent"), "{s}");
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert!(
         !v.arrows.is_empty() && v.arrows.iter().all(|a| a.1 == (1, 3)),
         "{d2}"
@@ -3402,14 +3224,14 @@ fn formula_auditing() {
     v.arrows.clear();
     v.grid_move_to(1, 1);
     z(&mut t, '.');
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     let to: Vec<(u32, u32)> = v.arrows.iter().map(|a| a.1).collect();
     assert!(to.contains(&(1, 3)) && to.contains(&(4, 1)), "{to:?}");
     z(&mut t, 'x');
-    assert!(t.app.doc.viewer.as_deref_mut().unwrap().arrows.is_empty());
+    assert!(t.app.doc.viewer_mut().unwrap().arrows.is_empty());
     // Evaluate Formula: D2 step by step to 2400.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 3);
-    let steps = t.app.doc.viewer.as_deref_mut().unwrap().evaluation_steps();
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 3);
+    let steps = t.app.doc.viewer_mut().unwrap().evaluation_steps();
     assert_eq!(steps.first(), Some(&d2));
     assert_eq!(steps.last().map(String::as_str), Some("=2400"), "{steps:?}");
     z(&mut t, 'e');
@@ -3420,11 +3242,11 @@ fn formula_auditing() {
         "viewer.grid.setCell",
         json!({ "row": 6, "col": 1, "value": "=1/0" }),
     );
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     z(&mut t, 'n');
     assert!(t.screen().contains("B7: #DIV/0!"), "{}", t.screen());
     // The Watch Window keeps D2's value in sight.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 3);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 3);
     t.app
         .run_command("viewer.grid.watchWindow", json!({ "do": "add" }));
     assert!(
@@ -3439,7 +3261,7 @@ fn formula_auditing() {
 fn go_to_special() {
     let mut t = T::open("special");
     let select = |t: &mut T, a: (u32, u32), b: (u32, u32)| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(a.0, a.1);
         v.grid_extend_to(b.0, b.1);
     };
@@ -3453,10 +3275,7 @@ fn go_to_special() {
     t.app
         .run_command("viewer.grid.goToSpecial", json!({ "kind": "blanks" }));
     assert!(t.screen().contains("5 cells in 1 range"), "{}", t.screen());
-    assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().areas,
-        vec![[0, 4, 4, 4]]
-    );
+    assert_eq!(t.app.doc.viewer_mut().unwrap().areas, vec![[0, 4, 4, 4]]);
     t.app.run_command("viewer.grid.edit", json!({}));
     t.key(KeyCode::Char('-'));
     t.app.event(Event::Key(KeyEvent::new(
@@ -3464,7 +3283,7 @@ fn go_to_special() {
         KeyModifiers::CONTROL,
     )));
     let input = |t: &mut T, r: u32, c: u32| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(r, c);
         v.cell_input()
     };
@@ -3478,10 +3297,10 @@ fn go_to_special() {
     select(&mut t, (0, 0), (4, 3));
     t.app
         .run_command("viewer.grid.goToSpecial", json!({ "kind": "formulas" }));
-    let areas = t.app.doc.viewer.as_deref_mut().unwrap().areas.clone();
+    let areas = t.app.doc.viewer_mut().unwrap().areas.clone();
     assert_eq!(areas, vec![[1, 3, 3, 3], [4, 1, 4, 3]]);
     // Visible cells only (Alt+;) around a hidden row: two ranges.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(2, 0);
     t.app.run_command("viewer.grid.hideRows", json!({}));
     select(&mut t, (1, 0), (3, 1));
     t.app.event(Event::Key(KeyEvent::new(
@@ -3489,12 +3308,12 @@ fn go_to_special() {
         KeyModifiers::ALT,
     )));
     assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().areas,
+        t.app.doc.viewer_mut().unwrap().areas,
         vec![[1, 0, 1, 1], [3, 0, 3, 1]]
     );
     // Moving the cursor ends it.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
-    assert!(t.app.doc.viewer.as_deref_mut().unwrap().areas.is_empty());
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 0);
+    assert!(t.app.doc.viewer_mut().unwrap().areas.is_empty());
 }
 
 #[test]
@@ -3510,11 +3329,11 @@ fn pictures_and_shapes() {
         t.app.event(Event::Key(KeyEvent::new(KeyCode::Char(k), m)));
     };
     // An oval with text at A6: drawn as a box with its text.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(5, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(5, 0);
     o(&mut t, 's');
     assert!(t.screen().contains("Oval"), "{}", t.screen());
     t.key(KeyCode::Esc);
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(5, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(5, 0);
     t.app.run_command(
         "viewer.grid.insertShape",
         json!({ "shape": "ellipse", "value": "Hedef" }),
@@ -3524,7 +3343,7 @@ fn pictures_and_shapes() {
     // Moved right a column, made a column wider; its text changed.
     o(&mut t, 'l');
     o(&mut t, 'L');
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert_eq!(v.drawings()[0].anchor, [5, 1, 8, 4]);
     t.app
         .run_command("viewer.grid.editShapeText", json!({ "value": "Plan" }));
@@ -3537,10 +3356,10 @@ fn pictures_and_shapes() {
         0x1D, 0, 0, 0, 0, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
     ];
     std::fs::write(t.dir.join("logo.png"), &png).unwrap();
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 4);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 4);
     t.app
         .run_command("viewer.grid.insertPicture", json!({ "path": "logo.png" }));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     let all = v.drawings();
     assert_eq!(all.len(), 2);
     assert!(matches!(all[1].kind, kalem_viewer::DrawingKind::Picture));
@@ -3548,15 +3367,15 @@ fn pictures_and_shapes() {
     // Saved with the workbook; the picture deleted.
     t.app.run_command("app.save", json!({}));
     assert_eq!(reread(&t.dir.join("budget.xlsx")).drawings(0).len(), 2);
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 4);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 4);
     o(&mut t, 'd');
-    assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().drawings().len(), 1);
+    assert_eq!(t.app.doc.viewer_mut().unwrap().drawings().len(), 1);
 }
 
 #[test]
 fn sparklines() {
     let mut t = T::open("sparklines");
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     for (r, row) in [["3", "-1", "4", "1"], ["2", "7", "1", "8"]]
         .iter()
         .enumerate()
@@ -3591,7 +3410,7 @@ fn sparklines() {
         .count();
     assert_eq!(lines, 2);
     // Cleared from the selected cells.
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(6, 4);
     v.grid_extend_to(7, 4);
     t.key(KeyCode::Char('p'));
@@ -3605,7 +3424,7 @@ fn sparklines() {
 #[test]
 fn what_if() {
     let mut t = T::open("what-if");
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     // A loan: rate in K1, months in K2, amount in K3, payment in K4.
     for (r, x) in ["0.01", "12", "1000", "=-PMT(K1,K2,K3)"].iter().enumerate() {
         v.set_cell(r as u32, 10, x).unwrap();
@@ -3627,7 +3446,7 @@ fn what_if() {
         t.screen()
     );
     // A data table of one variable: rates down M2:M4, the payment at N1.
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.set_cell(0, 13, "=K4").unwrap();
     for (r, x) in ["0", "0.01", "0.02"].iter().enumerate() {
         v.set_cell(1 + r as u32, 12, x).unwrap();
@@ -3638,7 +3457,7 @@ fn what_if() {
         "viewer.grid.dataTable",
         json!({ "row input cell": "", "column input cell": "K1" }),
     );
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     let n2 = v.grid_cells(1..2, 13..14)[0].2.text.clone();
     assert!(n2.starts_with("93.79"), "{n2}");
     // Scenarios: one added from K1:K2, then shown from the menu.
@@ -3646,7 +3465,7 @@ fn what_if() {
         "viewer.grid.scenarios",
         json!({ "what": "add", "name": "Low", "changing cells": "K1:K2", "comment": "" }),
     );
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.set_cell(1, 10, "36").unwrap();
     t.key(KeyCode::Char('z'));
     t.key(KeyCode::Char('m'));
@@ -3657,7 +3476,7 @@ fn what_if() {
         "viewer.grid.scenarios",
         json!({ "what": "show", "name": "Low" }),
     );
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(1, 10);
     assert_eq!(v.cell_input(), "12");
 }
@@ -3670,7 +3489,7 @@ fn comments_and_sheet_tabs() {
     let s = t.screen();
     assert!(s.contains(" Budget ") && s.contains(" Dates "), "{s}");
     // A comment on E2, then a reply: marked, read in the status line.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 4);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 4);
     t.key(KeyCode::Char('c'));
     t.key(KeyCode::Char('m'));
     assert!(t.screen().contains("New Comment"), "{}", t.screen());
@@ -3720,7 +3539,7 @@ fn comments_and_sheet_tabs() {
     t.key(KeyCode::Esc);
     t.app
         .run_command("viewer.grid.sheetList", json!({ "unit": 1 }));
-    assert_eq!(t.app.doc.viewer.as_deref().unwrap().unit, 1);
+    assert_eq!(t.app.doc.viewer().unwrap().unit, 1);
     // Saved: the thread and the tab's color in the file.
     t.app.run_command("app.save", json!({}));
     let mut wb = reread(&t.dir.join("budget.xlsx"));
@@ -3768,7 +3587,7 @@ fn sheet_views() {
     z(&mut t, 'H');
     z(&mut t, 'l');
     // Page Break Preview: a break above row 4 makes two pages.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(3, 0);
     t.app
         .run_command("viewer.grid.pageSetup", json!({ "what": "break" }));
     z(&mut t, 'b');
@@ -3777,28 +3596,18 @@ fn sheet_views() {
         "{}",
         t.screen()
     );
-    let b = t
-        .app
-        .doc
-        .viewer
-        .as_deref_mut()
-        .unwrap()
-        .page_breaks()
-        .unwrap();
+    let b = t.app.doc.viewer_mut().unwrap().page_breaks().unwrap();
     assert_eq!(b.rows, vec![(3, true)]);
     // Split at row 3: the top pane scrolls by itself.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(2, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(2, 0);
     z(&mut t, 'S');
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     let p = v.panes();
     assert!(p.split && p.rows == (0, 2), "{p:?}");
     z(&mut t, ']');
-    assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().panes().rows,
-        (1, 2)
-    );
+    assert_eq!(t.app.doc.viewer_mut().unwrap().panes().rows, (1, 2));
     // The cursor's row in the main pane even when the top pane shows it.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 0);
     assert!(line(&mut t, "Rent").contains("Rent"));
     // Kept in the file; the document is changed, to save.
     assert!(t.app.doc.is_modified());
@@ -3808,7 +3617,7 @@ fn sheet_views() {
     assert!(view.split.is_some_and(|s| s[2] == 1), "{view:?}");
     // Split again: gone.
     z(&mut t, 'S');
-    assert!(!t.app.doc.viewer.as_deref_mut().unwrap().panes().split);
+    assert!(!t.app.doc.viewer_mut().unwrap().panes().split);
 }
 
 #[test]
@@ -3817,7 +3626,7 @@ fn other_formats() {
     let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data");
     let opts = kalem_core::files::SaveOptions::default();
     let input = |t: &mut T, r: u32, c: u32| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(r, c);
         v.cell_input()
     };
@@ -3825,14 +3634,14 @@ fn other_formats() {
     // which then edits.
     std::fs::copy(data.join("budget.xls"), t.dir.join("old.xls")).unwrap();
     t.app.open_path(&t.dir.join("old.xls"), None);
-    assert!(!t.app.doc.viewer.as_deref_mut().unwrap().grid_editable());
+    assert!(!t.app.doc.viewer_mut().unwrap().grid_editable());
     let rent = input(&mut t, 1, 1);
     // The reader gives a .xls file's formulas' results.
     let total = input(&mut t, 1, 3);
     let r = t.app.doc.save_as(&t.dir.join("old.xls"), opts);
     assert!(r.is_err());
     t.app.doc.save_as(&t.dir.join("new.xlsx"), opts).unwrap();
-    assert!(t.app.doc.viewer.as_deref_mut().unwrap().grid_editable());
+    assert!(t.app.doc.viewer_mut().unwrap().grid_editable());
     assert_eq!(
         (input(&mut t, 1, 1), input(&mut t, 1, 3)),
         (rent.clone(), total.clone())
@@ -3843,12 +3652,11 @@ fn other_formats() {
     // An OpenDocument spreadsheet opens to edit, and saves as itself.
     std::fs::copy(data.join("budget.ods"), t.dir.join("lo.ods")).unwrap();
     t.app.open_path(&t.dir.join("lo.ods"), None);
-    assert!(t.app.doc.viewer.as_deref_mut().unwrap().grid_editable());
+    assert!(t.app.doc.viewer_mut().unwrap().grid_editable());
     assert!(!t.app.doc.is_modified());
     t.app
         .doc
-        .viewer
-        .as_deref_mut()
+        .viewer_mut()
         .unwrap()
         .set_cell(1, 1, "1300")
         .unwrap();
@@ -3865,8 +3673,7 @@ fn other_formats() {
     assert!(!t.app.doc.is_modified());
     t.app
         .doc
-        .viewer
-        .as_deref_mut()
+        .viewer_mut()
         .unwrap()
         .set_cell(1, 1, "1400")
         .unwrap();
@@ -3952,7 +3759,7 @@ fn the_mouse_on_the_grid() {
         }));
         t.screen()
     };
-    let hits = |t: &mut T| t.app.doc.viewer.as_deref().unwrap().hits.clone().unwrap();
+    let hits = |t: &mut T| t.app.doc.viewer().unwrap().hits.clone().unwrap();
     let cell = |t: &mut T, r: u32, c: u32| {
         let h = hits(t);
         let x = h.cols.iter().find(|x| x.0 == c).unwrap().1 + 1;
@@ -3964,18 +3771,15 @@ fn the_mouse_on_the_grid() {
     // A click puts the cursor on C3; a drag selects to D4.
     let at = cell(&mut t, 2, 2);
     mouse(&mut t, down, at, none);
-    assert_eq!(t.app.doc.viewer.as_deref().unwrap().grid_pos().row, 2);
+    assert_eq!(t.app.doc.viewer().unwrap().grid_pos().row, 2);
     let to = cell(&mut t, 3, 3);
     mouse(&mut t, MouseEventKind::Drag(MouseButton::Left), to, none);
-    assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().selection(),
-        [2, 2, 3, 3]
-    );
+    assert_eq!(t.app.doc.viewer_mut().unwrap().selection(), [2, 2, 3, 3]);
     // Ctrl and a click: a range more.
     let b2 = cell(&mut t, 1, 1);
     mouse(&mut t, down, b2, KeyModifiers::CONTROL);
     assert_eq!(
-        t.app.doc.viewer.as_deref_mut().unwrap().selection_areas(),
+        t.app.doc.viewer_mut().unwrap().selection_areas(),
         vec![[2, 2, 3, 3], [1, 1, 1, 1]]
     );
     // A right click in the selection: the cells' menu, the selection kept.
@@ -3996,7 +3800,7 @@ fn the_mouse_on_the_grid() {
     );
     assert!(s.contains("Insert Columns"), "{s}");
     t.key(KeyCode::Esc);
-    assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().selection()[1], 2);
+    assert_eq!(t.app.doc.viewer_mut().unwrap().selection()[1], 2);
     let number = (h.gutter.0, h.rows.iter().find(|x| x.0 == 4).unwrap().1);
     let s = mouse(
         &mut t,
@@ -4015,12 +3819,12 @@ fn the_mouse_on_the_grid() {
     );
     assert!(s.contains("Rename") && s.contains("Tab Color"), "{s}");
     t.key(KeyCode::Esc);
-    assert_eq!(t.app.doc.viewer.as_deref().unwrap().unit, 1);
+    assert_eq!(t.app.doc.viewer().unwrap().unit, 1);
     // A click on the first tab goes back; Shift+F10 opens the cells' menu.
     let h = hits(&mut t);
     let tab = h.tabs.iter().find(|x| x.0 == 0).copied().unwrap();
     mouse(&mut t, down, (tab.2 + 1, tab.1), none);
-    assert_eq!(t.app.doc.viewer.as_deref().unwrap().unit, 0);
+    assert_eq!(t.app.doc.viewer().unwrap().unit, 0);
     t.app.event(Event::Key(KeyEvent::new(
         KeyCode::F(10),
         KeyModifiers::SHIFT,
@@ -4029,19 +3833,14 @@ fn the_mouse_on_the_grid() {
     t.key(KeyCode::Esc);
     // The wheel scrolls.
     mouse(&mut t, MouseEventKind::ScrollDown, b2, none);
-    assert_eq!(t.app.doc.viewer.as_deref().unwrap().grid_pos().top, 3);
+    assert_eq!(t.app.doc.viewer().unwrap().grid_pos().top, 3);
 }
 
 #[test]
 fn the_cells_menu_has_what_is_at_the_cursor() {
     let mut t = T::open("cells-menu");
     let menu = |t: &mut T, at: (u32, u32), filter: &str| -> String {
-        t.app
-            .doc
-            .viewer
-            .as_deref_mut()
-            .unwrap()
-            .grid_move_to(at.0, at.1);
+        t.app.doc.viewer_mut().unwrap().grid_move_to(at.0, at.1);
         t.app
             .run_command("viewer.grid.contextMenu", json!({ "on": "cells" }));
         for c in filter.chars() {
@@ -4076,7 +3875,7 @@ fn row_heights_and_column_widths_typed() {
     let mut t = T::open("exact-sizes");
     // Rows 2 to 4 selected: Row Height asks, the cursor's offered.
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 1);
         v.grid_extend_to(3, 2);
     }
@@ -4089,7 +3888,7 @@ fn row_heights_and_column_widths_typed() {
     t.app
         .run_command("viewer.grid.columnWidth", json!({ "value": "12,5" }));
     let sizes = |t: &mut T| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         (
             (1..=3).map(|r| v.row_height(r)).collect::<Vec<_>>(),
             (1..=2).map(|c| v.col_width(c)).collect::<Vec<_>>(),
@@ -4121,7 +3920,7 @@ fn row_heights_and_column_widths_typed() {
 fn names_created_from_the_selection() {
     let mut t = T::open("names-from-selection");
     {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(0, 0);
         v.grid_extend_to(4, 3);
     }
@@ -4133,9 +3932,9 @@ fn names_created_from_the_selection() {
     t.key(KeyCode::Esc);
     t.app
         .run_command("viewer.grid.namesFromSelection", json!({ "from": "top" }));
-    let names = |t: &mut T| t.app.doc.viewer.as_deref_mut().unwrap().defined_names();
+    let names = |t: &mut T| t.app.doc.viewer_mut().unwrap().defined_names();
     let made = names(&mut t);
-    let sheet = t.app.doc.viewer.as_deref().unwrap().structure().units[0]
+    let sheet = t.app.doc.viewer().unwrap().structure().units[0]
         .label
         .clone();
     for (name, range) in [("Item", "A"), ("Q1_", "B"), ("Q2_", "C"), ("Total", "D")] {
@@ -4163,8 +3962,7 @@ fn new_workbooks_and_copied_sheets() {
     let labels = |t: &mut T| -> Vec<String> {
         t.app
             .doc
-            .viewer
-            .as_deref()
+            .viewer()
             .unwrap()
             .structure()
             .units
@@ -4189,11 +3987,11 @@ fn new_workbooks_and_copied_sheets() {
             .is_some_and(|p| p.ends_with("Yeni.xlsx"))
     );
     assert_eq!(labels(&mut t), vec!["Sheet1".to_string()]);
-    assert!(t.app.doc.viewer.as_deref_mut().unwrap().grid_editable());
+    assert!(t.app.doc.viewer_mut().unwrap().grid_editable());
     // The budget's first sheet copied into it, then the copy moved there.
     t.app.open_path(&budget, None);
     // The copy is shown after it is made: the first sheet first.
-    t.app.doc.viewer.as_deref_mut().unwrap().go_to(0);
+    t.app.doc.viewer_mut().unwrap().go_to(0);
     let n = labels(&mut t).len();
     let yeni = t.dir.join("Yeni.xlsx");
     t.app.run_command(
@@ -4201,7 +3999,7 @@ fn new_workbooks_and_copied_sheets() {
         json!({ "what": "copyOut", "workbook": yeni.display().to_string() }),
     );
     assert!(t.screen().contains("Copied as"), "{}", t.screen());
-    t.app.doc.viewer.as_deref_mut().unwrap().go_to(1);
+    t.app.doc.viewer_mut().unwrap().go_to(1);
     t.app.run_command(
         "viewer.grid.moveOrCopySheet",
         json!({ "what": "moveOut", "workbook": yeni.display().to_string() }),
@@ -4236,7 +4034,7 @@ fn new_workbooks_and_copied_sheets() {
             .as_deref()
             .is_some_and(|p| p.ends_with("Rapor Ekim.xlsx"))
     );
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert!(v.grid_editable());
     v.grid_move_to(1, 0);
     assert_eq!(v.cell_input(), "Rent");
@@ -4246,7 +4044,7 @@ fn new_workbooks_and_copied_sheets() {
 fn calculation() {
     let mut t = T::open("calculation");
     t.term = Terminal::new(TestBackend::new(120, 30)).unwrap();
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.set_cell(0, 10, "=L1+1").unwrap();
     v.set_cell(0, 11, "=K1*0.5").unwrap();
     // A circle: told in the status line, listed to go to.
@@ -4277,7 +4075,7 @@ fn calculation() {
         "{}",
         t.screen()
     );
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(0, 10);
     let k1: f64 = v.grid_cells(0..1, 10..11)[0].2.text.parse().unwrap();
     assert!((k1 - 2.0).abs() < 1e-4, "{k1}");
@@ -4328,8 +4126,8 @@ fn find_all_and_spelling() {
     )
     .unwrap();
     kalem_core::spelling::use_folder(&config.join("dictionaries"));
-    t.app.doc.viewer.as_deref_mut().unwrap().go_to(0);
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app.doc.viewer_mut().unwrap().go_to(0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     t.app
         .run_command("viewer.grid.spelling", json!({ "language": "xx_TEST" }));
     let s = t.screen();
@@ -4346,19 +4144,18 @@ fn find_all_and_spelling() {
         "viewer.grid.spelling",
         json!({ "action": "change", "row": 3, "col": 0, "at": 0, "word": "Travel", "with": "Trip", "language": "xx_TEST" }),
     );
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(3, 0);
     assert_eq!(v.cell_input(), "Trip");
     t.key(KeyCode::Esc);
     // A word added is the user's: in the dictionaries folder.
     t.app
         .doc
-        .viewer
-        .as_deref_mut()
+        .viewer_mut()
         .unwrap()
         .set_cell(6, 0, "Kalemli")
         .unwrap();
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     t.app
         .run_command("viewer.grid.spelling", json!({ "language": "xx_TEST" }));
     assert!(t.screen().contains("dictionary: Kalemli"), "{}", t.screen());
@@ -4375,12 +4172,12 @@ fn find_all_and_spelling() {
 fn pasting_and_filling_more() {
     let mut t = T::open("paste-more");
     let input = |t: &mut T, r: u32, c: u32| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(r, c);
         v.cell_input()
     };
     let select = |t: &mut T, a: (u32, u32), b: (u32, u32)| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(a.0, a.1);
         v.grid_extend_to(b.0, b.1);
     };
@@ -4393,7 +4190,7 @@ fn pasting_and_filling_more() {
     assert_eq!(input(&mut t, 0, 10), "=B2");
     assert_eq!(input(&mut t, 1, 11), "=C3");
     // Operations: 5 added to a number, multiplying a formula.
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.set_cell(9, 10, "10").unwrap();
     v.set_cell(10, 10, "=1+1").unwrap();
     v.set_cell(0, 12, "5").unwrap();
@@ -4433,7 +4230,7 @@ fn pasting_and_filling_more() {
         ("Rent".into(), "Sum".into())
     );
     // Series: 2, 5, 8… down N1:N5; months from a month's end.
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.set_cell(0, 13, "2").unwrap();
     v.set_cell(0, 14, "2026-01-31").unwrap();
     select(&mut t, (0, 13), (4, 13));
@@ -4449,7 +4246,7 @@ fn pasting_and_filling_more() {
     );
     assert_eq!(input(&mut t, 1, 14), "2026-02-28");
     // Fill Justify: words joined, broken to the column's width.
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.set_cell(20, 1, "bir iki").unwrap();
     v.set_cell(21, 1, "üç").unwrap();
     select(&mut t, (20, 1), (22, 1));
@@ -4466,15 +4263,14 @@ fn sorting_and_filtering_more() {
     let hidden = |t: &mut T| {
         t.app
             .doc
-            .viewer
-            .as_deref_mut()
+            .viewer_mut()
             .unwrap()
             .grid_layout()
             .unwrap()
             .hidden_rows
     };
     // Advanced Filter: Q1 over 400, in place: Travel hidden.
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.set_cell(9, 5, "Q1").unwrap();
     v.set_cell(10, 5, ">400").unwrap();
     t.app.run_command(
@@ -4493,7 +4289,7 @@ fn sorting_and_filtering_more() {
         "viewer.grid.advancedFilter",
         json!({ "action": "copy", "list range": "A1:D5", "criteria range": "F10:F11", "copy to": "H1" }),
     );
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     let at = |v: &mut kalem_core::viewer::ViewerState, r, c| {
         v.grid_move_to(r, c);
         v.cell_input()
@@ -4503,7 +4299,7 @@ fn sorting_and_filtering_more() {
         ("Item".into(), "Rent".into(), "Sum".into())
     );
     // Sort by Color: the red cells of a column first.
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     for (r, x) in ["k", "a", "b", "c"].iter().enumerate() {
         v.set_cell(20 + r as u32, 10, x).unwrap();
     }
@@ -4523,11 +4319,11 @@ fn sorting_and_filtering_more() {
     t.key(KeyCode::Esc);
     t.app
         .run_command("viewer.grid.sortByColor", json!({ "color": "C00000" }));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     let col: Vec<String> = (20..24).map(|r| at(v, r, 10)).collect();
     assert_eq!(col, ["b", "k", "a", "c"]);
     // A date filter: this year's rows only.
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     let today = jiff::Zoned::now().date().to_string();
     v.set_cell(30, 1, "When").unwrap();
     v.set_cell(31, 1, &today).unwrap();
@@ -4535,7 +4331,7 @@ fn sorting_and_filtering_more() {
     v.grid_move_to(30, 1);
     v.grid_extend_to(32, 1);
     t.app.run_command("viewer.grid.toggleFilter", json!({}));
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(30, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(30, 1);
     t.app
         .run_command("viewer.grid.filterCondition", json!({ "op": "thisYear" }));
     assert!(hidden(&mut t).contains(&32), "{:?}", hidden(&mut t));
@@ -4545,7 +4341,7 @@ fn sorting_and_filtering_more() {
 #[test]
 fn formatting_the_rest() {
     let mut t = T::open("styles");
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(1, 1);
     // Format Cells (Ctrl+1): every part in one menu.
     t.app.run_command("viewer.grid.formatCells", json!({}));
@@ -4560,7 +4356,7 @@ fn formatting_the_rest() {
         "viewer.grid.borderLine",
         json!({ "line": "double", "set": "bottom" }),
     );
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert_eq!(
         v.cursor_cell().border_styles[2],
         Some(kalem_viewer::LineStyle::Double)
@@ -4568,14 +4364,14 @@ fn formatting_the_rest() {
     // A pattern, then a gradient.
     t.app
         .run_command("viewer.grid.fillEffect", json!({ "effect": "darkUp" }));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert!(matches!(
         v.cursor_cell().fill_pattern,
         Some(kalem_viewer::FillPattern::Pattern { ref kind, .. }) if kind == "darkUp"
     ));
     t.app
         .run_command("viewer.grid.fillEffect", json!({ "effect": "gradient90" }));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert!(matches!(
         v.cursor_cell().fill_pattern,
         Some(kalem_viewer::FillPattern::Gradient { angle: 90, .. })
@@ -4585,12 +4381,12 @@ fn formatting_the_rest() {
         "viewer.grid.cellStyle",
         json!({ "new": true, "value": "Striped" }),
     );
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert!(v.cell_styles().iter().any(|s| s == "Striped"));
     v.grid_move_to(4, 3);
     t.app
         .run_command("viewer.grid.cellStyle", json!({ "style": "Striped" }));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert!(v.cursor_cell().fill_pattern.is_some());
     // Themes: the one chosen is marked.
     t.app
@@ -4602,7 +4398,7 @@ fn formatting_the_rest() {
 #[test]
 fn typing_on_a_cell() {
     let mut t = T::open("typed");
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(10, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(10, 1);
     for c in ['4', '2', '7'] {
         t.key(KeyCode::Char(c));
     }
@@ -4615,7 +4411,7 @@ fn typing_on_a_cell() {
         .to_owned();
     assert!(line.contains("427"), "{s}");
     t.key(KeyCode::Enter);
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(10, 1);
     assert_eq!(v.cell_input(), "427");
 }
@@ -4624,33 +4420,24 @@ fn typing_on_a_cell() {
 fn charts_the_rest() {
     let mut t = T::open("charts-rest");
     kalem_core::viewer::use_template_folder(&t.dir.join("templates"));
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(1, 1);
     t.app.run_command(
         "viewer.grid.insertChart",
         json!({ "kind": "column", "title": "Spending" }),
     );
-    let n = t.app.doc.viewer.as_deref_mut().unwrap().charts().len() - 1;
-    let a = t.app.doc.viewer.as_deref_mut().unwrap().charts()[n].anchor;
+    let n = t.app.doc.viewer_mut().unwrap().charts().len() - 1;
+    let a = t.app.doc.viewer_mut().unwrap().charts()[n].anchor;
     let on_chart = |t: &mut T| {
         t.app
             .doc
-            .viewer
-            .as_deref_mut()
+            .viewer_mut()
             .unwrap()
             .grid_move_to(a[0] + 1, a[1] + 1);
     };
     on_chart(&mut t);
     // The chart the cursor is on, others of the sheet under it or not.
-    let n = t
-        .app
-        .doc
-        .viewer
-        .as_deref_mut()
-        .unwrap()
-        .chart_at_cursor()
-        .unwrap()
-        .0;
-    let chart = |t: &mut T| t.app.doc.viewer.as_deref_mut().unwrap().charts()[n].clone();
+    let n = t.app.doc.viewer_mut().unwrap().chart_at_cursor().unwrap().0;
+    let chart = |t: &mut T| t.app.doc.viewer_mut().unwrap().charts()[n].clone();
     // The series offered, then the kinds.
     t.app.run_command("viewer.grid.seriesKind", json!({}));
     assert!(t.screen().contains("Q2"), "{}", t.screen());
@@ -4691,7 +4478,7 @@ fn charts_the_rest() {
     assert_eq!(c.series[0].error_bars.unwrap().value, 10.0);
     assert_eq!(c.series[0].cell_labels.len(), 4);
     // Drawn without trouble.
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     assert!(t.screen().contains("Spending"));
     // Saved as a template, given to a new line chart.
     on_chart(&mut t);
@@ -4702,7 +4489,7 @@ fn charts_the_rest() {
     on_chart(&mut t);
     t.app
         .run_command("viewer.grid.moveChart", json!({ "value": "Chart1" }));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert_eq!(v.structure().units.last().unwrap().label, "Chart1");
     assert_eq!(v.charts().len(), 1);
     assert!(t.screen().contains("Spending"), "{}", t.screen());
@@ -4711,7 +4498,7 @@ fn charts_the_rest() {
     t.key(KeyCode::Esc);
     t.app
         .run_command("viewer.grid.moveChart", json!({ "target": 0 }));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     assert_eq!(v.unit, 0);
     assert!(
         v.charts()
@@ -4723,24 +4510,23 @@ fn charts_the_rest() {
     v.grid_extend_to(24, 1);
     t.app
         .run_command("viewer.grid.insertChart", json!({ "kind": "line" }));
-    let m = t.app.doc.viewer.as_deref_mut().unwrap().charts().len() - 1;
-    let b = t.app.doc.viewer.as_deref_mut().unwrap().charts()[m].anchor;
+    let m = t.app.doc.viewer_mut().unwrap().charts().len() - 1;
+    let b = t.app.doc.viewer_mut().unwrap().charts()[m].anchor;
     t.app
         .doc
-        .viewer
-        .as_deref_mut()
+        .viewer_mut()
         .unwrap()
         .grid_move_to(b[0] + 1, b[1] + 1);
     t.app
         .run_command("viewer.grid.applyChartTemplate", json!({ "name": "Mine" }));
-    let c = t.app.doc.viewer.as_deref_mut().unwrap().charts()[m].clone();
+    let c = t.app.doc.viewer_mut().unwrap().charts()[m].clone();
     assert_eq!(c.kind, kalem_viewer::ChartKind::Column);
 }
 
 #[test]
 fn pivot_tables_the_rest() {
     let mut t = T::open("pivot-rest");
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.insert_pivot(kalem_viewer::PivotSpec {
         range: [0, 0, 4, 2],
         rows: vec![0],
@@ -4751,7 +4537,7 @@ fn pivot_tables_the_rest() {
         ..kalem_viewer::PivotSpec::default()
     })
     .unwrap();
-    t.app.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+    t.app.doc.viewer_mut().unwrap().grid_move_to(3, 0);
     // The options offered.
     t.app.run_command("viewer.grid.pivotOptions", json!({}));
     assert!(t.screen().contains("Show Values As"), "{}", t.screen());
@@ -4760,7 +4546,7 @@ fn pivot_tables_the_rest() {
         t.app.run_command("viewer.grid.pivotOptions", args);
     };
     let spec = |t: &mut T| {
-        let v = t.app.doc.viewer.as_deref_mut().unwrap();
+        let v = t.app.doc.viewer_mut().unwrap();
         v.grid_move_to(3, 0);
         v.pivot_at_cursor().unwrap().1.spec
     };
@@ -4785,7 +4571,7 @@ fn pivot_tables_the_rest() {
         json!({ "what": "calcField", "value": "Twice = Q1 * 2" }),
     );
     assert_eq!(spec(&mut t).calculated.len(), 1);
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     v.grid_move_to(2, 2);
     assert_eq!(v.cell_input(), "Sum of Twice");
     // The filter's items listed, one taken away.
@@ -4800,7 +4586,7 @@ fn pivot_tables_the_rest() {
     // A slicer of the items beside it; one item chosen.
     t.app
         .run_command("viewer.grid.insertSlicer", json!({ "field": "Item" }));
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     let s = v.slicers();
     assert_eq!(s.len(), 1);
     let a = s[0].anchor;
@@ -4810,7 +4596,7 @@ fn pivot_tables_the_rest() {
         "viewer.grid.slicer",
         json!({ "item": "Rent", "only": true }),
     );
-    let v = t.app.doc.viewer.as_deref_mut().unwrap();
+    let v = t.app.doc.viewer_mut().unwrap();
     let on: Vec<String> = v.slicers()[0]
         .items
         .iter()
@@ -4821,7 +4607,7 @@ fn pivot_tables_the_rest() {
     // A PivotChart.
     v.grid_move_to(3, 0);
     opt(&mut t, json!({ "what": "chart", "kind": "column" }));
-    assert_eq!(t.app.doc.viewer.as_deref_mut().unwrap().charts().len(), 1);
+    assert_eq!(t.app.doc.viewer_mut().unwrap().charts().len(), 1);
 }
 
 #[test]

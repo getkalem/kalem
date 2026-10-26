@@ -62,7 +62,7 @@ pub fn draw(
     buf: &mut Buffer,
     area: Rect,
 ) {
-    let Some(v) = doc.viewer.as_deref_mut() else {
+    let Some(v) = doc.viewer_mut() else {
         return;
     };
     // The bottom row says what is shown.

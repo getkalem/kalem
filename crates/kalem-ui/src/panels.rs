@@ -629,8 +629,7 @@ impl Editor {
         let typed = p.input.clone();
         let offer = self
             .doc
-            .viewer
-            .as_deref_mut()
+            .viewer_mut()
             .and_then(|v| v.column_completion(&typed));
         if let Some(p) = &mut self.palette {
             p.offer = offer;
@@ -652,7 +651,7 @@ impl Editor {
         let len = p.input.chars().count();
         let at = len - p.back.min(len);
         let input = p.input.clone();
-        let Some(v) = self.doc.viewer.as_deref_mut() else {
+        let Some(v) = self.doc.viewer_mut() else {
             return;
         };
         let h = v.formula_hint(&input, at);
@@ -679,7 +678,7 @@ impl Editor {
             a.args.get("row").and_then(Value::as_u64).unwrap_or(0) as u32,
             a.args.get("col").and_then(Value::as_u64).unwrap_or(0) as u32,
         );
-        let Some(v) = self.doc.viewer.as_deref_mut() else {
+        let Some(v) = self.doc.viewer_mut() else {
             return false;
         };
         let len = p.input.chars().count();
@@ -913,7 +912,7 @@ impl Editor {
             // A file a viewer shows draws no text, so nothing takes typed
             // text as input: the palette takes it from the keys (a cell's
             // entry in a workbook).
-            _ if self.doc.viewer.is_some()
+            _ if self.doc.viewer().is_some()
                 && !(k.modifiers.control || k.modifiers.platform || k.modifiers.function) =>
             {
                 let Some(text) = k.key_char.clone() else {
@@ -1033,7 +1032,7 @@ impl Editor {
     /// search started, while typing the query.
     pub fn search(&mut self, backward: bool, from_origin: bool, cx: &mut Context<'_, Self>) {
         // A file a viewer shows: its units' text, searched on a thread.
-        if let Some(v) = self.doc.viewer.as_deref_mut() {
+        if let Some(v) = self.doc.viewer_mut() {
             let Some(f) = &self.find else { return };
             if from_origin {
                 v.search_start(&f.query);
@@ -1061,7 +1060,7 @@ impl Editor {
     }
 
     fn close_find(&mut self, cx: &mut Context<'_, Self>) {
-        if let Some(v) = self.doc.viewer.as_deref_mut() {
+        if let Some(v) = self.doc.viewer_mut() {
             v.search_end();
         }
         if let Some(f) = self.find.take() {
@@ -1151,7 +1150,7 @@ impl Editor {
             }
             // A file a viewer shows draws no text, so nothing takes typed
             // text as input: the bar takes it from the keys.
-            _ if self.doc.viewer.is_some() && !(m.control || m.platform || m.function) => {
+            _ if self.doc.viewer().is_some() && !(m.control || m.platform || m.function) => {
                 let Some(text) = k.key_char.clone() else {
                     return false;
                 };
@@ -1463,7 +1462,7 @@ impl Editor {
                 .position(|m| *m == sel)
                 .map_or(0, |i| i + 1)
         };
-        let status = match (&f.error, self.doc.viewer.as_deref()) {
+        let status = match (&f.error, self.doc.viewer()) {
             (Some(e), _) => e.clone(),
             (None, _) if f.query.is_empty() => String::new(),
             (None, Some(v)) => v.search_status(),

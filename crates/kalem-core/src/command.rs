@@ -971,7 +971,7 @@ pub fn argument_default(id: &str, name: &str, doc: &mut crate::document::Documen
 /// The folder a document's relative paths start from: a file manager
 /// listing's folder, else the folder of the document's file.
 pub fn folder_of(doc: &DocumentState) -> Option<std::path::PathBuf> {
-    if let Some(d) = doc.dired.as_deref().and_then(|s| s.dir()) {
+    if let Some(d) = doc.dired().and_then(|s| s.dir()) {
         return Some(d.to_path_buf());
     }
     doc.meta

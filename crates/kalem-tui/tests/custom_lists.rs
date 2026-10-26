@@ -30,7 +30,7 @@ fn custom_lists_fill() {
         );
     };
     let input = |app: &mut App, row: u32, col: u32| {
-        let v = app.doc.viewer.as_deref_mut().unwrap();
+        let v = app.doc.viewer_mut().unwrap();
         v.grid_move_to(row, col);
         v.cell_input()
     };
@@ -39,7 +39,7 @@ fn custom_lists_fill() {
         set(&mut app, 1 + k as u32, 7, w);
     }
     {
-        let v = app.doc.viewer.as_deref_mut().unwrap();
+        let v = app.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 7);
         v.grid_extend_to(3, 7);
     }

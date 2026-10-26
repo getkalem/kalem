@@ -75,7 +75,7 @@ pub fn links_of(doc: &mut crate::DocumentState) -> Vec<Stored> {
             |n| n.to_string_lossy().into_owned(),
         )
     };
-    if let Some(s) = doc.dired.as_deref() {
+    if let Some(s) = doc.dired() {
         let line = doc.text().line_of(doc.selection.head);
         return s
             .targets(line)

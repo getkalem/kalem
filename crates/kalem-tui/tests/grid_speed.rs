@@ -65,7 +65,7 @@ fn holding_down() {
     )
     .unwrap();
     {
-        let v = app.doc.viewer.as_deref_mut().unwrap();
+        let v = app.doc.viewer_mut().unwrap();
         for (label, r0) in [
             ("fresh rows", 400u32),
             ("same rows", 400u32),

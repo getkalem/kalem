@@ -550,7 +550,7 @@ impl<'a> Layout<'a> {
             shown: shown_rows,
         } = shared;
         let is_plain = doc.meta.mode != kalem_core::DocumentMode::Org;
-        if is_plain && doc.dired.is_none() {
+        if is_plain && doc.dired().is_none() {
             let mut p = plain.borrow_mut();
             // The text's version, and the highlighter's set: a plugin
             // installed colors open files at once.
@@ -1826,7 +1826,7 @@ impl<'a> Layout<'a> {
     /// Syntax colors and indentation guides for a plain text line.
     fn plain_colors(&self, line: usize, range: &Range<usize>, glyphs: &mut [Glyph]) {
         // A file manager listing: its own styles.
-        if let Some(d) = self.doc.dired.as_deref() {
+        if let Some(d) = self.doc.dired() {
             let styles = d.styles(line);
             for g in glyphs.iter_mut() {
                 if g.src_end <= g.src {
@@ -2345,7 +2345,7 @@ impl EditorView {
             return None;
         }
         // A viewer's document in a pane without focus: its text.
-        if let Some(v) = doc.viewer.as_deref() {
+        if let Some(v) = doc.viewer() {
             for (i, line) in v.text_now().lines().take(area.height as usize).enumerate() {
                 buf.set_stringn(
                     area.x,
@@ -2362,7 +2362,7 @@ impl EditorView {
         // (A CSV grid numbers its rows itself.)
         // (A listing and a plugin's document have none.)
         let numbers = self.line_numbers
-            && doc.dired.is_none()
+            && doc.dired().is_none()
             && doc.generated.is_none()
             && (doc.meta.mode != kalem_core::DocumentMode::Org || self.source)
             && (doc.meta.mode != kalem_core::DocumentMode::Csv || self.source);

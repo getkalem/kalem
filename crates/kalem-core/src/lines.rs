@@ -511,7 +511,7 @@ impl crate::DocumentState {
     ) -> Option<String> {
         let not_formatted = crate::formatters::on_save(self, config, now);
         if config.bool("editor.trim_trailing_whitespace")
-            && self.dired.is_none()
+            && self.dired().is_none()
             && !matches!(
                 self.meta.mode,
                 crate::DocumentMode::Csv | crate::DocumentMode::Markdown

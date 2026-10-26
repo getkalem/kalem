@@ -85,11 +85,7 @@ fn open(
 fn status(ws: &Entity<Workspace>, cx: &mut VisualTestContext) -> String {
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
     e.update(cx, |e, _| {
-        e.doc
-            .viewer
-            .as_deref_mut()
-            .map(|v| v.status())
-            .unwrap_or_default()
+        e.doc.viewer_mut().map(|v| v.status()).unwrap_or_default()
     })
 }
 

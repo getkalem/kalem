@@ -73,11 +73,7 @@ fn open(
 fn status(ws: &Entity<Workspace>, cx: &mut VisualTestContext) -> String {
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
     e.update(cx, |e, _| {
-        e.doc
-            .viewer
-            .as_deref_mut()
-            .map(|v| v.status())
-            .unwrap_or_default()
+        e.doc.viewer_mut().map(|v| v.status()).unwrap_or_default()
     })
 }
 
@@ -134,7 +130,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
     let d2 = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_cells(1..2, 3..4)
             .into_iter()
             .next()
@@ -152,7 +148,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     assert_eq!(copied.as_deref(), Some("431.50"));
     // A range copies as tab-separated rows, as spreadsheets copy it.
     e.update_in(cx, |e, window, cx| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(0, 0);
         v.grid_extend_to(1, 1);
         e.run_command("edit.copy", serde_json::json!({}), window, cx)
@@ -162,12 +158,12 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     assert_eq!(copied.as_deref(), Some("Item\tQ1\nRent\t1,300.00"));
     // Pasted at A12: the rows land in cells, the numbers as numbers.
     e.update_in(cx, |e, window, cx| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(11, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(11, 0);
         e.run_command("edit.paste", serde_json::json!({}), window, cx)
     });
     cx.run_until_parked();
     let (a12, b13, sel) = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         let name = v.selection_name();
         v.grid_move_to(11, 0);
         let a = v.cell_input();
@@ -190,18 +186,12 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
     let widths = e.update(cx, |e, _| {
-        e.doc
-            .viewer
-            .as_deref_mut()
-            .unwrap()
-            .grid_layout()
-            .unwrap()
-            .widths
+        e.doc.viewer_mut().unwrap().grid_layout().unwrap().widths
     });
     assert!(widths[0] < 18.0 && widths[0] > 3.0, "{widths:?}");
 
     // Column B's edge dragged 60 pixels right: wider, written, undone.
-    let before = e.update(cx, |e, _| e.doc.viewer.as_deref_mut().unwrap().col_width(1));
+    let before = e.update(cx, |e, _| e.doc.viewer_mut().unwrap().col_width(1));
     let edge = cx
         .debug_bounds("viewer-grid-edge-1")
         .expect("column B's edge");
@@ -211,19 +201,17 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.simulate_mouse_move(to, Some(gpui::MouseButton::Left), gpui::Modifiers::none());
     cx.simulate_mouse_up(to, gpui::MouseButton::Left, gpui::Modifiers::none());
     cx.run_until_parked();
-    let after = e.update(cx, |e, _| e.doc.viewer.as_deref_mut().unwrap().col_width(1));
+    let after = e.update(cx, |e, _| e.doc.viewer_mut().unwrap().col_width(1));
     assert!(after > before + 3.0, "{before} → {after}");
     e.update_in(cx, |e, window, cx| {
         e.run_command("edit.undo", serde_json::json!({}), window, cx)
     });
     cx.run_until_parked();
-    let undone = e.update(cx, |e, _| e.doc.viewer.as_deref_mut().unwrap().col_width(1));
+    let undone = e.update(cx, |e, _| e.doc.viewer_mut().unwrap().col_width(1));
     assert_eq!(undone, before);
 
     // Row 2's edge dragged 30 pixels down: taller, written, undone.
-    let before = e.update(cx, |e, _| {
-        e.doc.viewer.as_deref_mut().unwrap().row_height(1)
-    });
+    let before = e.update(cx, |e, _| e.doc.viewer_mut().unwrap().row_height(1));
     let edge = cx
         .debug_bounds("viewer-grid-row-edge-1")
         .expect("row 2's edge");
@@ -233,17 +221,13 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.simulate_mouse_move(to, Some(gpui::MouseButton::Left), gpui::Modifiers::none());
     cx.simulate_mouse_up(to, gpui::MouseButton::Left, gpui::Modifiers::none());
     cx.run_until_parked();
-    let after = e.update(cx, |e, _| {
-        e.doc.viewer.as_deref_mut().unwrap().row_height(1)
-    });
+    let after = e.update(cx, |e, _| e.doc.viewer_mut().unwrap().row_height(1));
     assert!(after > before + 10.0, "{before} → {after}");
     e.update_in(cx, |e, window, cx| {
         e.run_command("edit.undo", serde_json::json!({}), window, cx)
     });
     cx.run_until_parked();
-    let undone = e.update(cx, |e, _| {
-        e.doc.viewer.as_deref_mut().unwrap().row_height(1)
-    });
+    let undone = e.update(cx, |e, _| e.doc.viewer_mut().unwrap().row_height(1));
     assert_eq!(undone, before);
 
     // Wrap Text on a long text: the row grows, and the cell is drawn wrapped.
@@ -254,12 +238,12 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             window,
             cx,
         );
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(8, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(8, 0);
         e.run_command("viewer.grid.wrapText", serde_json::json!({}), window, cx)
     });
     cx.run_until_parked();
     let (wrapped, height) = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         (v.grid_cells(8..9, 0..1)[0].2.wrap, v.row_height(8))
     });
     assert!(wrapped && height > 15.0, "{wrapped} {height}");
@@ -267,7 +251,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     // B3:C4 cut (a dashed frame shows it) and pasted at H10: moved, the
     // formulas that read them follow.
     e.update_in(cx, |e, window, cx| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(2, 1);
         v.grid_extend_to(3, 2);
         e.run_command("edit.cut", serde_json::json!({}), window, cx)
@@ -278,12 +262,12 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
         "the cut is framed"
     );
     e.update_in(cx, |e, window, cx| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(9, 7);
+        e.doc.viewer_mut().unwrap().grid_move_to(9, 7);
         e.run_command("edit.paste", serde_json::json!({}), window, cx)
     });
     cx.run_until_parked();
     let (b3, d3) = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(2, 1);
         let b3 = v.cell_input();
         v.grid_move_to(2, 3);
@@ -297,17 +281,17 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
 
     // Budget!B3:D3 cut, pasted on Dates at C10: moved across sheets.
     e.update_in(cx, |e, window, cx| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(2, 1);
         v.grid_extend_to(2, 3);
         e.run_command("edit.cut", serde_json::json!({}), window, cx);
         e.run_command("viewer.grid.nextSheet", serde_json::json!({}), window, cx);
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(9, 2);
+        e.doc.viewer_mut().unwrap().grid_move_to(9, 2);
         e.run_command("edit.paste", serde_json::json!({}), window, cx)
     });
     cx.run_until_parked();
     let e10 = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(9, 4);
         v.cell_input()
     });
@@ -348,19 +332,13 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
     let merged = e.update(cx, |e, _| {
-        e.doc
-            .viewer
-            .as_deref_mut()
-            .unwrap()
-            .grid_layout()
-            .unwrap()
-            .merged
+        e.doc.viewer_mut().unwrap().grid_layout().unwrap().merged
     });
     assert!(merged.contains(&[1, 1, 2, 2]), "{merged:?}");
 
     // The filter on, its button offering the column's values.
     e.update_in(cx, |e, window, cx| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(1, 0);
         e.run_command(
             "viewer.grid.toggleFilter",
             serde_json::json!({}),
@@ -390,7 +368,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
 
     // A data bar and an icon set on D2:D4, drawn in the cells.
     e.update_in(cx, |e, window, cx| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 3);
         v.grid_extend_to(3, 3);
         e.run_command(
@@ -428,7 +406,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     // A list on A2:A5 leaving Sum out: its button on the cursor's cell
     // offers the values, and Circle Invalid Data rings Sum.
     e.update_in(cx, |e, window, cx| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 0);
         v.grid_extend_to(4, 0);
         e.run_command(
@@ -437,7 +415,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             window,
             cx,
         );
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(1, 0);
         e.run_command(
             "viewer.grid.circleInvalid",
             serde_json::json!({}),
@@ -476,7 +454,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             window,
             cx,
         );
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(7, 0);
         v.grid_extend_to(8, 0);
     });
@@ -503,7 +481,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.simulate_mouse_up(to, gpui::MouseButton::Left, gpui::Modifiers::none());
     cx.run_until_parked();
     let (a10, a11) = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(9, 0);
         let a = v.cell_input();
         v.grid_move_to(10, 0);
@@ -518,7 +496,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             window,
             cx,
         );
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(7, 1);
+        e.doc.viewer_mut().unwrap().grid_move_to(7, 1);
     });
     cx.run_until_parked();
     let handle = cx.debug_bounds("viewer-grid-fill-handle").unwrap().center();
@@ -537,7 +515,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
     let b11 = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(10, 1);
         v.cell_input()
     });
@@ -561,12 +539,12 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             window,
             cx,
         );
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 4);
+        e.doc.viewer_mut().unwrap().grid_move_to(1, 4);
         e.run_command("viewer.grid.flashFill", serde_json::json!({}), window, cx);
     });
     cx.run_until_parked();
     let e3 = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(2, 4);
         v.cell_input()
     });
@@ -578,9 +556,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.run_until_parked();
 
     // Bold with Ctrl+B, and a font size the cell is drawn at.
-    e.update_in(cx, |e, _, _| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0)
-    });
+    e.update_in(cx, |e, _, _| e.doc.viewer_mut().unwrap().grid_move_to(3, 0));
     cx.run_until_parked();
     let before = cx.debug_bounds("viewer-grid-cell-3-0").unwrap();
     // Ctrl+B, the platform's primary modifier on a Mac.
@@ -599,9 +575,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
         )
     });
     cx.run_until_parked();
-    let c = e.update(cx, |e, _| {
-        e.doc.viewer.as_deref_mut().unwrap().cursor_cell()
-    });
+    let c = e.update(cx, |e, _| e.doc.viewer_mut().unwrap().cursor_cell());
     assert!(c.bold, "{c:?}");
     assert_eq!(c.font_size, Some(200));
     assert!(cx.debug_bounds("viewer-grid-cell-3-0").unwrap().size.width >= before.size.width);
@@ -614,7 +588,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     // Shift+Space selects the row; Ctrl+Down goes to the data's end.
     cx.simulate_keystrokes("shift-space");
     cx.run_until_parked();
-    let s = e.update(cx, |e, _| e.doc.viewer.as_deref_mut().unwrap().selection());
+    let s = e.update(cx, |e, _| e.doc.viewer_mut().unwrap().selection());
     assert_eq!((s[0], s[1], s[2]), (3, 0, 3));
     assert!(s[3] > 100, "{s:?}");
     // The row's numbers summed in the status bar, the label counted.
@@ -625,9 +599,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
         "{}",
         status(&ws, cx)
     );
-    e.update_in(cx, |e, _, _| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0)
-    });
+    e.update_in(cx, |e, _, _| e.doc.viewer_mut().unwrap().grid_move_to(0, 0));
     let primary_down = if cfg!(target_os = "macos") {
         "cmd-down"
     } else {
@@ -635,17 +607,15 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     };
     cx.simulate_keystrokes(primary_down);
     cx.run_until_parked();
-    let p = e.update(cx, |e, _| e.doc.viewer.as_deref_mut().unwrap().grid_pos());
+    let p = e.update(cx, |e, _| e.doc.viewer_mut().unwrap().grid_pos());
     assert_eq!((p.row, p.col), (4, 0));
-    e.update_in(cx, |e, _, _| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0)
-    });
+    e.update_in(cx, |e, _, _| e.doc.viewer_mut().unwrap().grid_move_to(3, 0));
     cx.run_until_parked();
 
     // AutoComplete in a cell's entry: "fo" offers Food, Enter takes it;
     // Alt+Enter a line break.
     e.update_in(cx, |e, window, cx| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(6, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(6, 0);
         e.run_command("viewer.grid.edit", serde_json::json!({}), window, cx);
     });
     e.update(cx, |e, cx| e.panel_input("fo", cx));
@@ -655,13 +625,13 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.simulate_keystrokes("enter");
     cx.run_until_parked();
     let a7 = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(6, 0);
         v.cell_input()
     });
     assert_eq!(a7, "Food");
     e.update_in(cx, |e, window, cx| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(7, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(7, 0);
         e.run_command("viewer.grid.edit", serde_json::json!({}), window, cx);
     });
     e.update(cx, |e, cx| e.panel_input("a", cx));
@@ -670,7 +640,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.simulate_keystrokes("enter");
     cx.run_until_parked();
     let a8 = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(7, 0);
         v.cell_input()
     });
@@ -678,13 +648,13 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     e.update_in(cx, |e, window, cx| {
         e.run_command("edit.undo", serde_json::json!({}), window, cx);
         e.run_command("edit.undo", serde_json::json!({}), window, cx);
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(3, 0);
     });
     cx.run_until_parked();
 
     // A formula: Tab completes SUM(, Up points at B6, drawn as such.
     e.update_in(cx, |e, window, cx| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(6, 1);
+        e.doc.viewer_mut().unwrap().grid_move_to(6, 1);
         e.run_command("viewer.grid.edit", serde_json::json!({}), window, cx);
     });
     e.update(cx, |e, cx| e.panel_input("=su", cx));
@@ -699,14 +669,12 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.simulate_keystrokes("escape");
     cx.run_until_parked();
     assert!(cx.debug_bounds("viewer-grid-pointer").is_none());
-    e.update_in(cx, |e, _, _| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0)
-    });
+    e.update_in(cx, |e, _, _| e.doc.viewer_mut().unwrap().grid_move_to(3, 0));
     cx.run_until_parked();
 
     // Rows 2-4 grouped: row 5's − collapses them when clicked, + again.
     e.update_in(cx, |e, window, cx| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 0);
         v.grid_extend_to(3, 0);
         e.run_command("viewer.grid.group", serde_json::json!({}), window, cx);
@@ -717,8 +685,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.run_until_parked();
     let hidden = e.update(cx, |e, _| {
         e.doc
-            .viewer
-            .as_deref_mut()
+            .viewer_mut()
             .unwrap()
             .grid_layout()
             .unwrap()
@@ -732,13 +699,13 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
         for _ in 0..3 {
             e.run_command("edit.undo", serde_json::json!({}), window, cx);
         }
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(3, 0);
     });
     cx.run_until_parked();
 
     // Trace Precedents of D2: arrows drawn over the grid; then removed.
     e.update_in(cx, |e, window, cx| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 3);
+        e.doc.viewer_mut().unwrap().grid_move_to(1, 3);
         e.run_command(
             "viewer.grid.tracePrecedents",
             serde_json::json!({}),
@@ -755,14 +722,14 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             window,
             cx,
         );
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(3, 0);
     });
     cx.run_until_parked();
     assert!(cx.debug_bounds("viewer-grid-arrows").is_none());
 
     // A shape drawn over its cells; then undone.
     e.update_in(cx, |e, window, cx| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(5, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(5, 0);
         e.run_command(
             "viewer.grid.insertShape",
             serde_json::json!({ "shape": "ellipse", "value": "Hedef" }),
@@ -776,14 +743,14 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     assert_eq!(shape.origin, a6.origin);
     e.update_in(cx, |e, window, cx| {
         e.run_command("edit.undo", serde_json::json!({}), window, cx);
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(3, 0);
     });
     cx.run_until_parked();
     assert!(cx.debug_bounds("viewer-grid-drawing-0").is_none());
 
     // A sparkline of B2:D2 drawn inside H2; then undone.
     e.update_in(cx, |e, window, cx| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 1);
         v.grid_extend_to(1, 3);
         e.run_command(
@@ -799,14 +766,14 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     assert!(h2.contains(&line.origin) && line.size.width < h2.size.width);
     e.update_in(cx, |e, window, cx| {
         e.run_command("edit.undo", serde_json::json!({}), window, cx);
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(3, 0);
     });
     cx.run_until_parked();
     assert!(cx.debug_bounds("viewer-grid-sparkline-1-7").is_none());
 
     // A comment on E2: Excel's purple mark; then undone.
     e.update_in(cx, |e, window, cx| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 4);
+        e.doc.viewer_mut().unwrap().grid_move_to(1, 4);
         e.run_command(
             "viewer.grid.newComment",
             serde_json::json!({ "value": "Kontrol" }),
@@ -818,7 +785,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     assert!(cx.debug_bounds("viewer-grid-thread-1-4").is_some());
     e.update_in(cx, |e, window, cx| {
         e.run_command("edit.undo", serde_json::json!({}), window, cx);
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(3, 0);
     });
     cx.run_until_parked();
     assert!(cx.debug_bounds("viewer-grid-thread-1-4").is_none());
@@ -829,17 +796,11 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
         .expect("the second sheet's tab");
     cx.simulate_click(second.center(), gpui::Modifiers::none());
     cx.run_until_parked();
-    assert_eq!(
-        e.update(cx, |e, _| e.doc.viewer.as_deref().unwrap().unit),
-        1
-    );
+    assert_eq!(e.update(cx, |e, _| e.doc.viewer().unwrap().unit), 1);
     let first = cx.debug_bounds("viewer-grid-tab-0").unwrap();
     cx.simulate_click(first.center(), gpui::Modifiers::none());
     cx.run_until_parked();
-    assert_eq!(
-        e.update(cx, |e, _| e.doc.viewer.as_deref().unwrap().unit),
-        0
-    );
+    assert_eq!(e.update(cx, |e, _| e.doc.viewer().unwrap().unit), 0);
 
     // Zoom 200%: the cells twice as large; headings off: the cells start
     // at the left; Page Break Preview: the page's number over it.
@@ -890,10 +851,10 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
 
     // A2 dragged by its border to A8: moved there; then undone.
     e.update_in(cx, |e, _, _| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(1, 0);
     });
     cx.run_until_parked();
-    let rent = e.update(cx, |e, _| e.doc.viewer.as_deref_mut().unwrap().cell_input());
+    let rent = e.update(cx, |e, _| e.doc.viewer_mut().unwrap().cell_input());
     let edge = cx
         .debug_bounds("viewer-grid-move-edge-1")
         .expect("the border's bottom");
@@ -917,7 +878,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     );
     cx.run_until_parked();
     let (moved, left) = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         let moved = v.cell_input();
         v.grid_move_to(1, 0);
         (moved, v.cell_input())
@@ -925,7 +886,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     assert_eq!((moved, left), (rent, String::new()));
     e.update_in(cx, |e, window, cx| {
         e.run_command("edit.undo", serde_json::json!({}), window, cx);
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(3, 0);
     });
     cx.run_until_parked();
     // A right click on a cell outside the selection: the cell selected,
@@ -937,11 +898,11 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
         gpui::Modifiers::none(),
     );
     cx.run_until_parked();
-    let p = e.update(cx, |e, _| e.doc.viewer.as_deref().unwrap().grid_pos());
+    let p = e.update(cx, |e, _| e.doc.viewer().unwrap().grid_pos());
     assert_eq!((p.row, p.col), (4, 1));
     cx.simulate_keystrokes("escape");
     e.update_in(cx, |e, _, _| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(3, 0);
     });
     cx.run_until_parked();
 
@@ -956,13 +917,13 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
     let d2 = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_cells(1..2, 3..4)[0].2.text.clone()
     });
     assert!(d2.replace(',', "").starts_with("1000"), "{d2}");
     e.update_in(cx, |e, window, cx| {
         e.run_command("edit.undo", serde_json::json!({}), window, cx);
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(3, 0);
     });
     cx.run_until_parked();
 
@@ -977,11 +938,9 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.simulate_keystrokes("f3");
     cx.run_until_parked();
-    let p = e.update(cx, |e, _| e.doc.viewer.as_deref_mut().unwrap().grid_pos());
+    let p = e.update(cx, |e, _| e.doc.viewer_mut().unwrap().grid_pos());
     assert_eq!((p.row, p.col), (3, 3));
-    e.update_in(cx, |e, _, _| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(3, 0)
-    });
+    e.update_in(cx, |e, _, _| e.doc.viewer_mut().unwrap().grid_move_to(3, 0));
     cx.run_until_parked();
 
     // Thick outside borders, drawn along the cell's sides; then undone.
@@ -1011,9 +970,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
         e.run_command("viewer.grid.alignTop", serde_json::json!({}), window, cx);
     });
     cx.run_until_parked();
-    let c = e.update(cx, |e, _| {
-        e.doc.viewer.as_deref_mut().unwrap().cursor_cell()
-    });
+    let c = e.update(cx, |e, _| e.doc.viewer_mut().unwrap().cursor_cell());
     assert_eq!(
         (c.align, c.valign),
         (kalem_viewer::Align::Center, kalem_viewer::VAlign::Top)
@@ -1039,7 +996,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.simulate_keystrokes(&format!("{primary}-pageup"));
     cx.run_until_parked();
     e.update_in(cx, |e, window, cx| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(1, 0);
         e.run_command(
             "viewer.grid.insertPivot",
             serde_json::json!({ "rows": [0], "cols": [], "values": [[1, "sum"]], "step": "create" }),
@@ -1060,7 +1017,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
     let total = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         (3..20)
             .find(|&r| {
                 v.grid_move_to(r, 0);
@@ -1072,20 +1029,18 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
 
     // A chart of the budget: drawn over the cells beside the table.
     e.update_in(cx, |e, window, cx| {
-        e.doc.viewer.as_deref_mut().unwrap().go_to(0);
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+        e.doc.viewer_mut().unwrap().go_to(0);
+        e.doc.viewer_mut().unwrap().grid_move_to(1, 1);
         e.run_command(
             "viewer.grid.insertChart",
             serde_json::json!({ "kind": "pie", "title": "Rent and the rest" }),
             window,
             cx,
         );
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     });
     cx.run_until_parked();
-    let n = e.update(cx, |e, _| {
-        e.doc.viewer.as_deref_mut().unwrap().charts().len()
-    });
+    let n = e.update(cx, |e, _| e.doc.viewer_mut().unwrap().charts().len());
     assert!(
         cx.debug_bounds(Box::leak(
             format!("viewer-grid-chart-{}", n - 1).into_boxed_str()
@@ -1097,7 +1052,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     // corner: moved and resized over the cells it is dropped on.
     let anchor = |cx: &mut gpui::VisualTestContext| {
         e.update(cx, |e, _| {
-            e.doc.viewer.as_deref_mut().unwrap().charts()[n - 1].anchor
+            e.doc.viewer_mut().unwrap().charts()[n - 1].anchor
         })
     };
     let before = anchor(cx);
@@ -1137,12 +1092,8 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     let resized = anchor(cx);
     // A pie has no axes: an axis title is refused.
     e.update_in(cx, |e, window, cx| {
-        let a = e.doc.viewer.as_deref_mut().unwrap().charts()[n - 1].anchor;
-        e.doc
-            .viewer
-            .as_deref_mut()
-            .unwrap()
-            .grid_move_to(a[0], a[1]);
+        let a = e.doc.viewer_mut().unwrap().charts()[n - 1].anchor;
+        e.doc.viewer_mut().unwrap().grid_move_to(a[0], a[1]);
         e.run_command(
             "viewer.grid.horizontalAxisTitle",
             serde_json::json!({ "value": "Items" }),
@@ -1152,7 +1103,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
     let titled = e.update(cx, |e, _| {
-        e.doc.viewer.as_deref_mut().unwrap().charts()[n - 1]
+        e.doc.viewer_mut().unwrap().charts()[n - 1]
             .horizontal_title
             .clone()
     });
@@ -1192,7 +1143,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
     let labels = e.update(cx, |e, _| {
-        e.doc.viewer.as_deref_mut().unwrap().charts()[n - 1].labels
+        e.doc.viewer_mut().unwrap().charts()[n - 1].labels
     });
     assert!(labels.category && labels.percent && !labels.value);
     // Its first slice dark red: the slices offered, then the color.
@@ -1206,7 +1157,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
     let slices = e.update(cx, |e, _| {
-        e.doc.viewer.as_deref_mut().unwrap().charts()[n - 1].series[0]
+        e.doc.viewer_mut().unwrap().charts()[n - 1].series[0]
             .point_colors
             .clone()
     });
@@ -1222,7 +1173,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
     let out = e.update(cx, |e, _| {
-        e.doc.viewer.as_deref_mut().unwrap().charts()[n - 1].series[0]
+        e.doc.viewer_mut().unwrap().charts()[n - 1].series[0]
             .point_explosions
             .clone()
     });
@@ -1237,19 +1188,19 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
     let s0 = e.update(cx, |e, _| {
-        e.doc.viewer.as_deref_mut().unwrap().charts()[n - 1].series[0].clone()
+        e.doc.viewer_mut().unwrap().charts()[n - 1].series[0].clone()
     });
     assert_eq!((s0.explosion, s0.point_explosions), (10, vec![]));
     // A column chart on a logarithmic scale, then every 500 from 0.
     e.update_in(cx, |e, window, cx| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1);
+        e.doc.viewer_mut().unwrap().grid_move_to(1, 1);
         e.run_command(
             "viewer.grid.insertChart",
             serde_json::json!({ "kind": "column" }),
             window,
             cx,
         );
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         let a = v.charts().last().unwrap().anchor;
         v.grid_move_to(a[0], a[1]);
         e.run_command(
@@ -1277,23 +1228,16 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             window,
             cx,
         );
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     });
     cx.run_until_parked();
     let sc = e.update(cx, |e, _| {
-        e.doc
-            .viewer
-            .as_deref_mut()
-            .unwrap()
-            .charts()
-            .last()
-            .unwrap()
-            .scale
+        e.doc.viewer_mut().unwrap().charts().last().unwrap().scale
     });
     assert_eq!((sc.min, sc.major, sc.log), (Some(0.0), Some(500.0), false));
     // Made an area chart, its scale kept, and drawn.
     e.update_in(cx, |e, window, cx| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         let a = v.charts().last().unwrap().anchor;
         v.grid_move_to(a[0], a[1]);
         e.run_command(
@@ -1302,11 +1246,11 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             window,
             cx,
         );
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     });
     cx.run_until_parked();
     let (kind, scale) = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         let c = v.charts();
         (c.last().unwrap().kind, c.last().unwrap().scale)
     });
@@ -1314,7 +1258,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     assert_eq!(scale, sc);
     // Its first series colored green.
     e.update_in(cx, |e, window, cx| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         let a = v.charts().last().unwrap().anchor;
         v.grid_move_to(a[0], a[1]);
         e.run_command(
@@ -1323,24 +1267,16 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             window,
             cx,
         );
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     });
     cx.run_until_parked();
     let color = e.update(cx, |e, _| {
-        e.doc
-            .viewer
-            .as_deref_mut()
-            .unwrap()
-            .charts()
-            .last()
-            .unwrap()
-            .series[0]
-            .color
+        e.doc.viewer_mut().unwrap().charts().last().unwrap().series[0].color
     });
     assert_eq!(color, Some([0x70, 0xAD, 0x47]));
     // Its area: a light background and no border.
     e.update_in(cx, |e, window, cx| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         let a = v.charts().last().unwrap().anchor;
         v.grid_move_to(a[0], a[1]);
         e.run_command(
@@ -1355,11 +1291,11 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             window,
             cx,
         );
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     });
     cx.run_until_parked();
     let (bg, border) = e.update(cx, |e, _| {
-        let c = e.doc.viewer.as_deref_mut().unwrap().charts();
+        let c = e.doc.viewer_mut().unwrap().charts();
         (c.last().unwrap().background, c.last().unwrap().border)
     });
     assert_eq!(
@@ -1371,7 +1307,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     );
     // Its gridlines: minor horizontal ones too, then none horizontal.
     e.update_in(cx, |e, window, cx| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         let a = v.charts().last().unwrap().anchor;
         v.grid_move_to(a[0], a[1]);
         e.run_command(
@@ -1391,8 +1327,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     cx.run_until_parked();
     let g = e.update(cx, |e, _| {
         e.doc
-            .viewer
-            .as_deref_mut()
+            .viewer_mut()
             .unwrap()
             .charts()
             .last()
@@ -1402,7 +1337,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     assert!(g.horizontal_minor && !g.horizontal_major);
     // Its value axis in thousands.
     e.update_in(cx, |e, window, cx| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         let a = v.charts().last().unwrap().anchor;
         v.grid_move_to(a[0], a[1]);
         e.run_command(
@@ -1411,13 +1346,12 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             window,
             cx,
         );
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     });
     cx.run_until_parked();
     let f = e.update(cx, |e, _| {
         e.doc
-            .viewer
-            .as_deref_mut()
+            .viewer_mut()
             .unwrap()
             .charts()
             .last()
@@ -1428,7 +1362,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     assert_eq!(f.as_deref(), Some("#,##0,\"K\""));
     // Its value labels bigger and italic.
     e.update_in(cx, |e, window, cx| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         let a = v.charts().last().unwrap().anchor;
         v.grid_move_to(a[0], a[1]);
         e.run_command(
@@ -1443,14 +1377,13 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             window,
             cx,
         );
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     });
     cx.simulate_keystrokes("escape");
     cx.run_until_parked();
     let vf = e.update(cx, |e, _| {
         e.doc
-            .viewer
-            .as_deref_mut()
+            .viewer_mut()
             .unwrap()
             .charts()
             .last()
@@ -1461,7 +1394,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     assert_eq!((vf.size, vf.italic), (Some(14.0), true));
     // A title in 20 point Georgia.
     e.update_in(cx, |e, window, cx| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         let a = v.charts().last().unwrap().anchor;
         v.grid_move_to(a[0], a[1]);
         e.run_command(
@@ -1482,12 +1415,12 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             window,
             cx,
         );
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     });
     cx.simulate_keystrokes("escape");
     cx.run_until_parked();
     let (tf, count) = e.update(cx, |e, _| {
-        let c = e.doc.viewer.as_deref_mut().unwrap().charts();
+        let c = e.doc.viewer_mut().unwrap().charts();
         (c.last().unwrap().title_font.clone(), c.len())
     });
     assert_eq!((tf.size, tf.face.as_deref()), (Some(20.0), Some("Georgia")));
@@ -1499,7 +1432,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
     );
     // Its plot area a darker blue with a border.
     e.update_in(cx, |e, window, cx| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         let a = v.charts().last().unwrap().anchor;
         v.grid_move_to(a[0], a[1]);
         e.run_command(
@@ -1514,11 +1447,11 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
             window,
             cx,
         );
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(0, 0);
+        e.doc.viewer_mut().unwrap().grid_move_to(0, 0);
     });
     cx.run_until_parked();
     let (pb, pl, count) = e.update(cx, |e, _| {
-        let c = e.doc.viewer.as_deref_mut().unwrap().charts();
+        let c = e.doc.viewer_mut().unwrap().charts();
         (
             c.last().unwrap().plot_background,
             c.last().unwrap().plot_border,
@@ -1557,7 +1490,7 @@ fn a_workbook_opens_as_a_grid(cx: &mut TestAppContext) {
 
 /// The scale of the last chart, logarithmic or not.
 fn v_scale_check(e: &mut kalem_ui::editor::Editor, log: bool) {
-    let v = e.doc.viewer.as_deref_mut().unwrap();
+    let v = e.doc.viewer_mut().unwrap();
     assert_eq!(v.charts().last().unwrap().scale.log, log);
 }
 
@@ -1568,7 +1501,7 @@ fn formatting_the_rest(cx: &mut TestAppContext) {
     let (ws, dir, cx) = open(cx);
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
     e.update_in(cx, |e, window, cx| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 1);
         e.run_command(
             "viewer.grid.fillEffect",
@@ -1576,7 +1509,7 @@ fn formatting_the_rest(cx: &mut TestAppContext) {
             window,
             cx,
         );
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(1, 0);
         v.change_style(kalem_viewer::StyleChange {
             rotation: Some(45),
@@ -1602,7 +1535,7 @@ fn formatting_the_rest(cx: &mut TestAppContext) {
     assert!(cx.debug_bounds("viewer-grid-pattern-1-1").is_some());
     assert!(cx.debug_bounds("viewer-grid-rotated-1-0").is_some());
     let (pattern, line) = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         let c = v.cursor_cell();
         (c.fill_pattern, c.border_styles[0])
     });
@@ -1620,9 +1553,7 @@ fn formatting_the_rest(cx: &mut TestAppContext) {
 fn typing_on_a_cell(cx: &mut TestAppContext) {
     let (ws, dir, cx) = open(cx);
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
-    e.update(cx, |e, _| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(10, 1)
-    });
+    e.update(cx, |e, _| e.doc.viewer_mut().unwrap().grid_move_to(10, 1));
     let key = |s: &str| gpui::KeyDownEvent {
         keystroke: gpui::Keystroke {
             key: s.into(),
@@ -1642,7 +1573,7 @@ fn typing_on_a_cell(cx: &mut TestAppContext) {
     cx.run_until_parked();
     assert!(cx.debug_bounds("viewer-grid-entry").is_none());
     let t = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.grid_move_to(10, 1);
         v.cell_input()
     });
@@ -1660,16 +1591,14 @@ fn charts_the_rest(cx: &mut TestAppContext) {
         e.update_in(cx, |e, window, cx| e.run_command(id, args, window, cx));
         cx.run_until_parked();
     };
-    e.update(cx, |e, _| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(1, 1)
-    });
+    e.update(cx, |e, _| e.doc.viewer_mut().unwrap().grid_move_to(1, 1));
     run(
         cx,
         "viewer.grid.insertChart",
         serde_json::json!({ "kind": "column", "title": "Spending" }),
     );
     let (n, a) = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         let c = v.charts();
         let a = c.last().unwrap().anchor;
         v.grid_move_to(a[0] + 1, a[1] + 1);
@@ -1690,9 +1619,7 @@ fn charts_the_rest(cx: &mut TestAppContext) {
         "viewer.grid.errorBars",
         serde_json::json!({ "series": 0, "kind": "stdErr" }),
     );
-    e.update(cx, |e, _| {
-        e.doc.viewer.as_deref_mut().unwrap().grid_move_to(a[0], 0)
-    });
+    e.update(cx, |e, _| e.doc.viewer_mut().unwrap().grid_move_to(a[0], 0));
     cx.run_until_parked();
     let key = format!("viewer-grid-chart-plot-{n}");
     assert!(
@@ -1701,24 +1628,16 @@ fn charts_the_rest(cx: &mut TestAppContext) {
     );
     for kind in ["radar", "bubble", "stock"] {
         e.update(cx, |e, _| {
-            e.doc
-                .viewer
-                .as_deref_mut()
-                .unwrap()
-                .grid_move_to(a[0] + 1, a[1] + 1)
+            e.doc.viewer_mut().unwrap().grid_move_to(a[0] + 1, a[1] + 1)
         });
         run(
             cx,
             "viewer.grid.chartKind",
             serde_json::json!({ "kind": kind }),
         );
-        e.update(cx, |e, _| {
-            e.doc.viewer.as_deref_mut().unwrap().grid_move_to(a[0], 0)
-        });
+        e.update(cx, |e, _| e.doc.viewer_mut().unwrap().grid_move_to(a[0], 0));
         cx.run_until_parked();
-        let k = e.update(cx, |e, _| {
-            e.doc.viewer.as_deref_mut().unwrap().charts()[n].kind
-        });
+        let k = e.update(cx, |e, _| e.doc.viewer_mut().unwrap().charts()[n].kind);
         assert_eq!(format!("{k:?}").to_lowercase(), kind);
         assert!(
             cx.debug_bounds(Box::leak(key.clone().into_boxed_str()))
@@ -1734,7 +1653,7 @@ fn pivot_slicer_clicked(cx: &mut TestAppContext) {
     let (ws, dir, cx) = open(cx);
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
     e.update(cx, |e, cx| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         v.insert_pivot(kalem_viewer::PivotSpec {
             range: [0, 0, 4, 2],
             rows: vec![0],
@@ -1758,7 +1677,7 @@ fn pivot_slicer_clicked(cx: &mut TestAppContext) {
     cx.simulate_click(second.center(), gpui::Modifiers::default());
     cx.run_until_parked();
     let on = e.update(cx, |e, _| {
-        e.doc.viewer.as_deref_mut().unwrap().slicers()[0]
+        e.doc.viewer_mut().unwrap().slicers()[0]
             .items
             .iter()
             .filter(|i| i.1)
@@ -1783,12 +1702,7 @@ fn a_converted_file_asks_before_it_is_saved(cx: &mut TestAppContext) {
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
     let set = |value: &str, cx: &mut VisualTestContext| {
         e.update(cx, |e, _| {
-            e.doc
-                .viewer
-                .as_deref_mut()
-                .unwrap()
-                .set_cell(1, 1, value)
-                .unwrap();
+            e.doc.viewer_mut().unwrap().set_cell(1, 1, value).unwrap();
         });
     };
     let save = |cx: &mut VisualTestContext| {
@@ -1840,10 +1754,8 @@ fn a_workbooks_menus_and_toolbar(cx: &mut TestAppContext) {
     // The grid's Bold button, not Org's: it turns the header's bold off.
     assert!(cx.debug_bounds("tool-0").is_none(), "no Org Bold button");
     let bold = |cx: &mut VisualTestContext| {
-        e.update(cx, |e, _| {
-            e.doc.viewer.as_deref_mut().unwrap().cursor_cell()
-        })
-        .bold
+        e.update(cx, |e, _| e.doc.viewer_mut().unwrap().cursor_cell())
+            .bold
     };
     assert!(bold(cx), "A1 is bold");
     let button = cx.debug_bounds("tool-24").expect("the workbook's Bold");

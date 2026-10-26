@@ -1903,7 +1903,7 @@ impl Vim {
             };
         }
         self.cursor = self.cursor.min(len);
-        if doc.dired.as_ref().is_some_and(|d| d.wdired.is_none())
+        if doc.dired().is_some_and(|d| d.wdired.is_none())
             && matches!(self.mode, Mode::Insert | Mode::Replace)
         {
             self.mode = Mode::Normal;

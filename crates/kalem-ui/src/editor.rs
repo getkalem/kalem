@@ -1380,7 +1380,7 @@ impl Editor {
     pub fn project(&self) -> Option<std::path::PathBuf> {
         let projects = self.shared.projects.borrow();
         // A listing is in the project holding its folder.
-        let listed = self.doc.dired.as_deref().and_then(|s| s.dir());
+        let listed = self.doc.dired().and_then(|s| s.dir());
         projects
             .containing(self.doc.meta.path.as_deref().or(listed))
             .map(|p| p.root.clone())
@@ -1571,7 +1571,7 @@ impl Editor {
                     return;
                 }
                 // A spreadsheet takes the text as rows of cells.
-                if self.doc.viewer.as_deref().is_some_and(|v| v.is_grid()) {
+                if self.doc.viewer().is_some_and(|v| v.is_grid()) {
                     let text = item
                         .and_then(|i| i.text())
                         .unwrap_or_else(|| self.clipboard.text.clone());
@@ -2408,7 +2408,7 @@ impl Editor {
 
     /// The document's title: its file name, or "Untitled".
     pub fn title(&self) -> String {
-        if let Some(d) = self.doc.dired.as_deref() {
+        if let Some(d) = self.doc.dired() {
             return d.title();
         }
         if let Some(t) = self.doc.generated_title() {
@@ -2424,7 +2424,7 @@ impl Editor {
 
     /// The document as the list of open files shows it.
     pub fn open_file(&self) -> kalem_core::projects::OpenFile {
-        match self.doc.dired.as_deref() {
+        match self.doc.dired() {
             // The file manager is not listed under a project: its name
             // would show twice (the project, then its folder).
             Some(d) => kalem_core::projects::OpenFile {
@@ -2582,8 +2582,7 @@ impl Editor {
         if changed
             && self
                 .doc
-                .dired
-                .as_deref()
+                .dired()
                 .is_some_and(|d| d.place == kalem_core::dired::Place::Projects)
         {
             cx.emit(DocEvent::FileManager {
@@ -2767,7 +2766,7 @@ impl Editor {
         // as in Excel.
         let m = ev.keystroke.modifiers;
         if !(m.control || m.platform || m.function)
-            && self.doc.viewer.as_deref().is_some_and(|v| v.is_grid())
+            && self.doc.viewer().is_some_and(|v| v.is_grid())
             && let Some(text) = ev
                 .keystroke
                 .key_char
@@ -2794,7 +2793,7 @@ impl Editor {
     fn listing_key(&self, chord: &kalem_core::keys::KeyChord, ev: &KeyDownEvent) -> bool {
         // A viewer's document has no text for Vim to edit: only its
         // command line, `:` opening it (`:q` closes the file as elsewhere).
-        if self.doc.viewer.is_some() {
+        if self.doc.viewer().is_some() {
             let line = self.vim.as_ref().is_some_and(|v| v.command_line.is_some());
             let colon = self.vim.is_some() && ev.keystroke.key_char.as_deref() == Some(":");
             return !(line || colon);
@@ -2814,7 +2813,7 @@ impl Editor {
         let ctx = self.context();
         // Keys bound for the Vim layer (`-`), and the file manager's.
         self.shared.keymap.vim_bound(&seq, &ctx)
-            || (self.doc.dired.is_some()
+            || (self.doc.dired().is_some()
                 && !matches!(self.shared.keymap.lookup(&seq, &ctx), Lookup::None))
     }
 
@@ -3039,7 +3038,7 @@ impl Editor {
             return;
         }
         // A file manager listing has its own colors (`line::color_listing`).
-        if self.doc.dired.is_some() {
+        if self.doc.dired().is_some() {
             *self.plain.borrow_mut() = Some((self.doc.version(), None, 0));
             return;
         }
@@ -3105,7 +3104,7 @@ impl Editor {
         self.shared.config.bool("editor.line_numbers")
             && (self.doc.meta.mode != DocumentMode::Csv || self.source)
             && (self.doc.meta.mode != DocumentMode::Org || self.source)
-            && self.doc.dired.is_none()
+            && self.doc.dired().is_none()
             && self.doc.generated.is_none()
             && (self.doc.meta.mode != DocumentMode::Org || self.source)
     }
@@ -3583,7 +3582,7 @@ impl Editor {
         } else {
             ev.modifiers.control
         };
-        if let Some(d) = self.doc.dired.as_deref()
+        if let Some(d) = self.doc.dired()
             && (toggle || ev.modifiers.shift)
             && d.path_at(self.doc.text().line_of(pos)).is_some()
         {
@@ -3636,7 +3635,7 @@ impl Editor {
         }
         // The file manager: a click on a name (or a double click on its
         // line) opens it.
-        if let Some(d) = self.doc.dired.as_deref()
+        if let Some(d) = self.doc.dired()
             && !ev.modifiers.shift
         {
             let text = self.doc.text();
@@ -3708,7 +3707,7 @@ impl Editor {
         cx: &mut Context<'_, Self>,
     ) {
         window.focus(&self.focus, cx);
-        let Some(d) = self.doc.dired.as_deref() else {
+        let Some(d) = self.doc.dired() else {
             return;
         };
         let at = self.hit(ev.position).map(|h| h.pos);
@@ -3879,7 +3878,7 @@ impl Editor {
             .iter()
             .map(|p| Value::String(p.display().to_string()))
             .collect();
-        if self.doc.dired.is_some() {
+        if self.doc.dired().is_some() {
             let copy = window.modifiers().alt;
             self.run_command(
                 "dired.dropFiles",
@@ -4808,7 +4807,7 @@ pub fn open(
         }
     };
     // A folder: the file manager, set up as the settings say.
-    if let Some(s) = doc.dired.as_deref_mut() {
+    if let Some(s) = doc.dired_mut() {
         let (options, details) = kalem_core::dired::options_from(&shared.config);
         s.options = options;
         s.details = details;

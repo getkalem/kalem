@@ -46,7 +46,7 @@ fn edit(d: &mut DocumentState, range: std::ops::Range<usize>, insert: &str) {
 fn a_flow_opens_as_text() {
     let (d, _) = open(DOC);
     assert_eq!(d.meta.mode, DocumentMode::Flow);
-    assert!(d.viewer.is_none() && d.flow().is_some());
+    assert!(d.viewer().is_none() && d.flow().is_some());
     assert_eq!(
         d.text().as_str(),
         "Title\nPlain and bold text\u{FFFC}\nan item\na\tb\n\nThe note."

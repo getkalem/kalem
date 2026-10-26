@@ -72,7 +72,7 @@ fn open(cx: &mut TestAppContext) -> (Entity<Workspace>, &mut VisualTestContext) 
 fn state(ws: &Entity<Workspace>, cx: &mut VisualTestContext) -> (String, f32, String) {
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
     e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().expect("a viewer");
+        let v = e.doc.viewer_mut().expect("a viewer");
         (v.status(), v.render_scale(), v.text())
     })
 }
@@ -84,8 +84,7 @@ fn settle(ws: &Entity<Workspace>, cx: &mut VisualTestContext) {
         cx.run_until_parked();
         let busy = e.read_with(cx, |e, _| {
             e.doc
-                .viewer
-                .as_deref()
+                .viewer()
                 .is_some_and(|v| v.rendering() || v.searching())
         });
         if !busy {
@@ -99,8 +98,7 @@ fn settle(ws: &Entity<Workspace>, cx: &mut VisualTestContext) {
     // The renders end, neighbors included: the editor stops drawing again.
     let busy = e.read_with(cx, |e, _| {
         e.doc
-            .viewer
-            .as_deref()
+            .viewer()
             .is_some_and(|v| v.rendering() || v.searching())
     });
     assert!(!busy, "a render never ended");
@@ -139,7 +137,7 @@ fn a_pdf_opens_page_by_page(cx: &mut TestAppContext) {
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
     let at = e.update(cx, |e, _| {
         let origin = e.viewer_view.bounds.expect("laid out").origin;
-        let p = e.doc.viewer.as_deref_mut().unwrap().placement();
+        let p = e.doc.viewer_mut().unwrap().placement();
         origin
             + gpui::point(
                 gpui::px(p.x + 150.0 * p.scale),
@@ -176,14 +174,14 @@ fn a_pdf_opens_page_by_page(cx: &mut TestAppContext) {
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
     let found = |cx: &mut VisualTestContext| {
         e.update(cx, |e, _| {
-            let v = e.doc.viewer.as_deref_mut().unwrap();
+            let v = e.doc.viewer_mut().unwrap();
             (v.unit, v.search_status())
         })
     };
     assert_eq!(found(cx), (1, "2/3".to_string()));
     // The match is marked on the page where "Page" stands, at x 72.
     let (marks, p) = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         (v.search_marks(), v.placement())
     });
     assert_eq!(marks.len(), 1, "{marks:?}");
@@ -268,7 +266,7 @@ fn a_link_outside_the_document_asks_first(cx: &mut TestAppContext) {
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
     let at = e.update(cx, |e, _| {
         let origin = e.viewer_view.bounds.expect("laid out").origin;
-        let p = e.doc.viewer.as_deref_mut().unwrap().placement();
+        let p = e.doc.viewer_mut().unwrap().placement();
         origin
             + gpui::point(
                 gpui::px(p.x + 150.0 * p.scale),
@@ -333,7 +331,7 @@ fn synctex_both_ways(cx: &mut TestAppContext) {
     // Ctrl-click in that line of text: notes.org.
     let at = e.update(cx, |e, _| {
         let origin = e.viewer_view.bounds.expect("laid out").origin;
-        let p = e.doc.viewer.as_deref_mut().unwrap().placement();
+        let p = e.doc.viewer_mut().unwrap().placement();
         origin
             + gpui::point(
                 gpui::px(p.x + 150.0 * p.scale),
@@ -359,7 +357,7 @@ fn text_is_selected_by_dragging_and_copied(cx: &mut TestAppContext) {
     let at = |x: f32, y: f32, cx: &mut VisualTestContext| {
         e.update(cx, |e, _| {
             let origin = e.viewer_view.bounds.expect("laid out").origin;
-            let p = e.doc.viewer.as_deref_mut().unwrap().placement();
+            let p = e.doc.viewer_mut().unwrap().placement();
             origin + gpui::point(gpui::px(p.x + x * p.scale), gpui::px(p.y + y * p.scale))
         })
     };
@@ -370,7 +368,7 @@ fn text_is_selected_by_dragging_and_copied(cx: &mut TestAppContext) {
     cx.simulate_mouse_up(to, gpui::MouseButton::Left, none);
     settle(&ws, cx);
     let selected = e.update(cx, |e, _| {
-        let v = e.doc.viewer.as_deref_mut().unwrap();
+        let v = e.doc.viewer_mut().unwrap();
         (v.selected_text(), v.selection_marks().len())
     });
     assert_eq!(selected, (Some("Page".to_string()), 1));
@@ -391,7 +389,7 @@ fn text_is_selected_by_dragging_and_copied(cx: &mut TestAppContext) {
     cx.simulate_mouse_move(up, Some(gpui::MouseButton::Left), none);
     cx.simulate_mouse_up(up, gpui::MouseButton::Left, none);
     settle(&ws, cx);
-    let selected = e.update(cx, |e, _| e.doc.viewer.as_deref().unwrap().selected_text());
+    let selected = e.update(cx, |e, _| e.doc.viewer().unwrap().selected_text());
     assert_eq!(selected, None);
 }
 
@@ -406,7 +404,7 @@ fn a_double_click_selects_a_word_and_a_triple_one_the_line(cx: &mut TestAppConte
     settle(&ws, cx);
     let at = e.update(cx, |e, _| {
         let origin = e.viewer_view.bounds.expect("laid out").origin;
-        let p = e.doc.viewer.as_deref_mut().unwrap().placement();
+        let p = e.doc.viewer_mut().unwrap().placement();
         origin
             + gpui::point(
                 gpui::px(p.x + 180.0 * p.scale),
@@ -430,9 +428,8 @@ fn a_double_click_selects_a_word_and_a_triple_one_the_line(cx: &mut TestAppConte
         });
         cx.run_until_parked();
     };
-    let selected = |cx: &mut VisualTestContext| {
-        e.update(cx, |e, _| e.doc.viewer.as_deref().unwrap().selected_text())
-    };
+    let selected =
+        |cx: &mut VisualTestContext| e.update(cx, |e, _| e.doc.viewer().unwrap().selected_text());
     click(1, cx);
     click(2, cx);
     assert_eq!(selected(cx).as_deref(), Some("two"));

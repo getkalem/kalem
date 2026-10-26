@@ -7934,7 +7934,11 @@ fn plain_commands() -> Vec<Command> {
         ),
         cmd("edit.copy", "Copy", "Edit", &["ctrl+c"], None, |ctx, _| {
             // A viewer's document has no text: its picture is copied.
-            if ctx.document.as_deref().is_some_and(|d| d.viewer.is_some()) {
+            if ctx
+                .document
+                .as_deref()
+                .is_some_and(|d| d.viewer().is_some())
+            {
                 return crate::viewer::copy(ctx);
             }
             request(ctx, Request::Copy)
@@ -7944,7 +7948,7 @@ fn plain_commands() -> Vec<Command> {
             if ctx
                 .document
                 .as_deref()
-                .and_then(|d| d.viewer.as_deref())
+                .and_then(|d| d.viewer())
                 .is_some_and(|v| v.is_grid())
             {
                 return crate::viewer::cut(ctx);
@@ -10501,7 +10505,7 @@ fn plain_commands() -> Vec<Command> {
                     .meta
                     .path
                     .as_deref()
-                    .filter(|_| doc.dired.is_none())
+                    .filter(|_| doc.dired().is_none())
                     .and_then(|p| std::path::absolute(p).ok());
                 let dir = crate::command::folder_of(doc);
                 let path = if args.get("project").and_then(Value::as_bool) == Some(true) {

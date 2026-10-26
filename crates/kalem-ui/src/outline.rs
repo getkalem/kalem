@@ -121,7 +121,7 @@ impl Editor {
     /// Jumps to the heading at `start`.
     pub fn jump_to(&mut self, start: usize, window: &mut Window, cx: &mut Context<'_, Self>) {
         // A viewer's outline goes to a unit.
-        if let Some(v) = self.doc.viewer.as_deref_mut() {
+        if let Some(v) = self.doc.viewer_mut() {
             v.go_to(start);
             cx.notify();
             window.focus(&gpui::Focusable::focus_handle(self, cx), cx);

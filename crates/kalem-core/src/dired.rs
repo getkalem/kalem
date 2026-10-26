@@ -183,6 +183,21 @@ pub struct Wdired {
     lines: Vec<(String, String, String, Option<PathBuf>)>,
 }
 
+impl crate::mode_state::ModeState for DirState {}
+
+impl crate::DocumentState {
+    /// The file manager's state, in a folder listing
+    /// ([`crate::DocumentMode::Directory`]); `None` in other modes.
+    pub fn dired(&self) -> Option<&DirState> {
+        self.mode_state()
+    }
+
+    /// The file manager's state ([`Self::dired`]).
+    pub fn dired_mut(&mut self) -> Option<&mut DirState> {
+        self.mode_state_mut()
+    }
+}
+
 impl DirState {
     /// The state for `place`, not read yet.
     pub fn new(place: Place, options: ListOptions, details: bool) -> DirState {
@@ -754,7 +769,7 @@ pub fn resolve(dir: &Path, input: &str) -> PathBuf {
 /// Shows the projects in the file manager `doc`, the cursor on `select`;
 /// the folder it showed is remembered, to go back to.
 pub fn show_projects(doc: &mut DocumentState, rows: Vec<ProjectRow>, select: Option<&Path>) {
-    let Some(s) = doc.dired.as_mut() else { return };
+    let Some(s) = doc.dired_mut() else { return };
     if let Place::Dir(d) = &s.place {
         s.before_projects = Some(d.clone());
     }
@@ -1287,10 +1302,7 @@ pub fn undo_last() -> Result<(Vec<PathBuf>, String), String> {
 /// The names of `doc`'s listing made editable (wdired).
 pub fn edit_names(doc: &mut DocumentState) -> Result<(), String> {
     let text = doc.text().as_str().to_string();
-    let s = doc
-        .dired
-        .as_deref_mut()
-        .ok_or_else(|| tr("fm-not-listing"))?;
+    let s = doc.dired_mut().ok_or_else(|| tr("fm-not-listing"))?;
     if s.dir().is_none() {
         return Err(tr("fm-not-listing"));
     }
@@ -1401,10 +1413,7 @@ fn rename_all(plan: &[(PathBuf, PathBuf)]) -> (Vec<(PathBuf, PathBuf)>, Option<S
 /// Returns how many were renamed.
 pub fn commit_names(doc: &mut DocumentState) -> Result<usize, String> {
     let text = doc.text().as_str().to_string();
-    let s = doc
-        .dired
-        .as_deref_mut()
-        .ok_or_else(|| tr("fm-not-listing"))?;
+    let s = doc.dired_mut().ok_or_else(|| tr("fm-not-listing"))?;
     let w = s.wdired.as_ref().ok_or_else(|| tr("fm-not-listing"))?;
     let plan = planned_renames(w, &text)?;
     let (done, error) = rename_all(&plan);
@@ -1424,7 +1433,7 @@ pub fn commit_names(doc: &mut DocumentState) -> Result<usize, String> {
 
 /// Leaves editing the names, the listing as it is on disk.
 pub fn abort_names(doc: &mut DocumentState) {
-    if let Some(s) = doc.dired.as_deref_mut() {
+    if let Some(s) = doc.dired_mut() {
         s.wdired = None;
     }
     doc.refresh_listing();
@@ -1498,7 +1507,7 @@ fn cmd(
 /// The active document if it is a file manager.
 fn listing<'a>(ctx: &'a mut EditorContext<'_>) -> Result<&'a mut DocumentState, CommandError> {
     match ctx.document.as_deref_mut() {
-        Some(d) if d.dired.is_some() => Ok(d),
+        Some(d) if d.dired().is_some() => Ok(d),
         _ => Err(CommandError::new(tr("fm-not-listing"))),
     }
 }
@@ -1509,7 +1518,7 @@ fn listing<'a>(ctx: &'a mut EditorContext<'_>) -> Result<&'a mut DocumentState, 
     reason = "called on a document `listing` checked to be a file manager"
 )]
 fn state(doc: &DocumentState) -> &DirState {
-    doc.dired.as_deref().expect("a file manager")
+    doc.dired().expect("a file manager")
 }
 
 /// The listing of a document [`listing`] gave, to change.
@@ -1518,7 +1527,7 @@ fn state(doc: &DocumentState) -> &DirState {
     reason = "called on a document `listing` checked to be a file manager"
 )]
 fn state_mut(doc: &mut DocumentState) -> &mut DirState {
-    doc.dired.as_deref_mut().expect("a file manager")
+    doc.dired_mut().expect("a file manager")
 }
 
 fn cursor_line(doc: &DocumentState) -> usize {
@@ -1679,7 +1688,7 @@ fn drop_files(ctx: &mut EditorContext<'_>, args: &Value) -> CommandResult {
 /// The files a drag from line `line` of the listing `doc` takes: the
 /// marked ones when that line is marked, else its entry.
 pub fn drag_paths(doc: &DocumentState, line: usize) -> Vec<PathBuf> {
-    match doc.dired.as_deref() {
+    match doc.dired() {
         Some(s) if matches!(s.place, Place::Dir(_)) && s.entry(line).is_some() => s.targets(line),
         _ => Vec::new(),
     }
@@ -1990,7 +1999,7 @@ fn compress(dir: &Path, targets: &[PathBuf]) -> Result<Option<PathBuf>, String> 
 }
 
 fn changed(doc: &mut DocumentState, select: Option<&Path>) {
-    if let Some(s) = doc.dired.as_mut() {
+    if let Some(s) = doc.dired_mut() {
         s.load();
     }
     doc.show_listing(select);
@@ -2065,7 +2074,7 @@ pub(crate) fn schemas() -> Vec<(&'static str, Value)> {
 /// What the prompt for argument `name` of the file manager's command
 /// `id` starts with.
 pub(crate) fn argument_default(id: &str, name: &str, doc: &DocumentState) -> Option<String> {
-    let s = doc.dired.as_deref()?;
+    let s = doc.dired()?;
     let dir = s.dir_at(cursor_line(doc))?;
     let sep = std::path::MAIN_SEPARATOR;
     let targets = s.targets(cursor_line(doc));
@@ -2081,8 +2090,7 @@ pub(crate) fn argument_default(id: &str, name: &str, doc: &DocumentState) -> Opt
             })
             .unwrap_or_default(),
         ("dired.chmod", "mode") => doc
-            .dired
-            .as_deref()
+            .dired()
             .and_then(|s| s.entry(cursor_line(doc)))
             .map(|e| format!("{:o}", e.mode & 0o7777))
             .unwrap_or_default(),
@@ -2107,7 +2115,7 @@ pub(crate) fn commands() -> Vec<Command> {
                 // back to the document.
                 let show = args.get("show").and_then(Value::as_bool) == Some(true);
                 if let Some(doc) = ctx.document.as_deref_mut()
-                    && let Some(s) = doc.dired.as_deref()
+                    && let Some(s) = doc.dired()
                 {
                     match s.place {
                         // From the projects view: the folder shown before
@@ -2152,7 +2160,7 @@ pub(crate) fn commands() -> Vec<Command> {
                 // shown before; the button (`show`) stays.
                 let show = args.get("show").and_then(Value::as_bool) == Some(true);
                 if let Some(doc) = ctx.document.as_deref_mut()
-                    && let Some(s) = doc.dired.as_deref()
+                    && let Some(s) = doc.dired()
                     && s.place == Place::Projects
                 {
                     if let Some(back) = s.before_projects.clone().filter(|_| !show) {
@@ -3192,7 +3200,7 @@ pub enum ContextItem {
 /// `on_entry` is false: in the order file managers use.
 pub fn context_menu(doc: &DocumentState, on_entry: bool) -> Vec<ContextItem> {
     use crate::l10n::command_key;
-    let Some(s) = doc.dired.as_deref() else {
+    let Some(s) = doc.dired() else {
         return Vec::new();
     };
     let in_dir = matches!(s.place, Place::Dir(_));
@@ -3864,7 +3872,7 @@ mod tests {
         assert!(line(&doc).ends_with("b.txt"), "marking moves down");
         assert!(doc.text().as_str().contains("\n* "));
         run(&mut doc, "dired.flag", json!({})).0.unwrap();
-        let s = doc.dired.as_deref().unwrap();
+        let s = doc.dired().unwrap();
         assert_eq!(s.targets(0), vec![d.join("a.txt")]);
         assert_eq!(s.flagged(), vec![d.join("b.txt")]);
         let (_, req) = run(&mut doc, "dired.executeFlagged", json!({}));
@@ -3882,7 +3890,7 @@ mod tests {
         run(&mut doc, "dired.markRegexp", json!({"regexp": "^c"}))
             .0
             .unwrap();
-        assert_eq!(doc.dired.as_deref().unwrap().targets(0).len(), 3);
+        assert_eq!(doc.dired().unwrap().targets(0).len(), 3);
         // Copy the marked entries into the folder, with a conflict.
         std::fs::write(d.join("dir/a.txt"), "old").unwrap();
         let (_, req) = run(&mut doc, "dired.copy", json!({"target": "dir"}));
@@ -3982,7 +3990,7 @@ mod tests {
             )]
         );
         // A missing project cannot be opened.
-        let rows = doc.dired.as_deref().unwrap().projects.clone();
+        let rows = doc.dired().unwrap().projects.clone();
         show_projects(&mut doc, rows, Some(&d.join("gone")));
         assert!(line(&doc).contains("gone"));
         assert!(run(&mut doc, "dired.open", json!({})).0.is_err());
@@ -4074,7 +4082,7 @@ mod tests {
         ));
         // Select all marks every entry.
         run(&mut doc, "dired.markAll", json!({})).0.unwrap();
-        assert_eq!(doc.dired.as_deref().unwrap().marks.len(), 3);
+        assert_eq!(doc.dired().unwrap().marks.len(), 3);
         run(&mut doc, "dired.unmarkAll", json!({})).0.unwrap();
         // Properties list the entry's facts.
         goto(&mut doc, "a.org");
@@ -4194,7 +4202,7 @@ mod tests {
             &Default::default(),
         )
         .unwrap();
-        let place = |doc: &DocumentState| doc.dired.as_deref().unwrap().place.clone();
+        let place = |doc: &DocumentState| doc.dired().unwrap().place.clone();
         // Projects → a project → up → the projects → up → the project's
         // parent folder → up → further up.
         show_projects(&mut doc, rows.clone(), None);

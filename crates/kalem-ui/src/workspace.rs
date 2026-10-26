@@ -237,7 +237,7 @@ impl Workspace {
     ) {
         let text = |e: &Entity<Editor>, cx: &App| {
             let d = &e.read(cx).doc;
-            d.dired.is_none() && d.viewer.is_none()
+            d.dired().is_none() && d.viewer().is_none()
         };
         let target = self
             .last_document
@@ -267,7 +267,7 @@ impl Workspace {
 
     /// Back from the file manager to the document shown before it.
     fn leave_file_manager(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) {
-        let listing = |e: &Entity<Editor>, cx: &App| e.read(cx).doc.dired.is_some();
+        let listing = |e: &Entity<Editor>, cx: &App| e.read(cx).doc.dired().is_some();
         let target = self
             .last_text
             .clone()
@@ -315,10 +315,10 @@ impl Workspace {
         cx: &mut Context<'_, Self>,
     ) {
         let doc = &self.editor.read(cx).doc;
-        if doc.dired.is_none() {
+        if doc.dired().is_none() {
             self.last_text = Some(self.editor.clone());
         }
-        if doc.dired.is_none() && doc.viewer.is_none() {
+        if doc.dired().is_none() && doc.viewer().is_none() {
             self.last_document = Some(self.editor.clone());
         }
         let switched = self.editor != editor;
@@ -446,7 +446,7 @@ impl Workspace {
         if let Some((line, column)) = at {
             editor.update(cx, |e, cx| {
                 // A PDF or another paged file: the line is the page.
-                if let Some(v) = e.doc.viewer.as_deref_mut() {
+                if let Some(v) = e.doc.viewer_mut() {
                     v.go_to(line.max(1) as usize - 1);
                     if column > 0 {
                         v.show_height(column as f32);
@@ -519,7 +519,7 @@ impl Workspace {
                 let replace = {
                     let o = old.read(cx);
                     o.doc.meta.path.is_none()
-                        && o.doc.dired.is_none()
+                        && o.doc.dired().is_none()
                         && o.doc.generated.is_none()
                         && !o.doc.is_modified()
                         && o.doc.text().is_empty()
@@ -830,8 +830,8 @@ impl Workspace {
             let blank = self.editors.len() == 1 && {
                 let d = &self.editor.read(cx).doc;
                 d.meta.path.is_none()
-                    && d.dired.is_none()
-                    && d.viewer.is_none()
+                    && d.dired().is_none()
+                    && d.viewer().is_none()
                     && !d.is_modified()
                     && d.text().is_empty()
             };
@@ -1229,7 +1229,7 @@ impl Workspace {
         for e in &self.editors {
             let ed = e.read(cx);
             let doc = &ed.doc;
-            let Some(path) = doc.meta.path.clone().filter(|_| doc.dired.is_none()) else {
+            let Some(path) = doc.meta.path.clone().filter(|_| doc.dired().is_none()) else {
                 continue;
             };
             if *e == self.editor {
@@ -1583,7 +1583,7 @@ impl Workspace {
                 }
                 for e in self.editors.clone() {
                     e.update(cx, |e, cx| {
-                        if e.doc.dired.is_some() {
+                        if e.doc.dired().is_some() {
                             e.doc.refresh_listing();
                             e.after_change(cx);
                         }
@@ -1611,7 +1611,7 @@ impl Workspace {
         cx: &mut Context<'_, Self>,
     ) {
         use kalem_core::dired::Place;
-        let is_listing = |e: &Entity<Editor>, cx: &App| e.read(cx).doc.dired.is_some();
+        let is_listing = |e: &Entity<Editor>, cx: &App| e.read(cx).doc.dired().is_some();
         let editor = if is_listing(&self.editor, cx) {
             self.editor.clone()
         } else if let Some(e) = self.editors.iter().find(|e| is_listing(e, cx)).cloned() {
@@ -1624,7 +1624,7 @@ impl Workspace {
             let replace = {
                 let o = old.read(cx);
                 o.doc.meta.path.is_none()
-                    && o.doc.dired.is_none()
+                    && o.doc.dired().is_none()
                     && !o.doc.is_modified()
                     && o.doc.text().is_empty()
             };
@@ -1876,7 +1876,7 @@ impl Workspace {
         }
         // The current project's folders and files; not beside the file
         // manager (or the projects), which lists them itself.
-        let lists_files = self.editor.read(cx).doc.dired.is_some();
+        let lists_files = self.editor.read(cx).doc.dired().is_some();
         if !top && !lists_files && self.shared.config.bool("ui.folder_tree") {
             list = self.folder_tree(list, theme, cx);
         }
@@ -2064,8 +2064,7 @@ impl Workspace {
             .editor
             .read(cx)
             .doc
-            .dired
-            .as_deref()
+            .dired()
             .map(|d| d.place == kalem_core::dired::Place::Projects);
         bar = bar
             .child(self.command_button(
@@ -2487,7 +2486,7 @@ impl Workspace {
         let e = self.editor.read(cx);
         let name = e.title();
         let (line, col) = e.doc.text().line_col(e.doc.selection.head);
-        let words = match e.doc.dired.as_deref() {
+        let words = match e.doc.dired() {
             // The file manager: how many entries, and how many marked.
             Some(d) => {
                 let mut s = format!(
@@ -2636,7 +2635,7 @@ impl Render for Workspace {
                     d.meta.mode.name(),
                     d.document_type(),
                     d.vcs(),
-                    d.viewer.as_deref().map(|v| v.is_grid()),
+                    d.viewer().map(|v| v.is_grid()),
                     kalem_core::extensions::generation()
                 ),
             );

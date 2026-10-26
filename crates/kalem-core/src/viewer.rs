@@ -95,7 +95,7 @@ pub fn find_at(path: &Path, head: &[u8]) -> Option<Arc<dyn Viewer>> {
 /// The outline of the document a viewer shows, for the outline panel:
 /// each item's `start` is the unit it goes to.
 pub fn outline_items(doc: &crate::DocumentState) -> Option<Vec<crate::view::OutlineItem>> {
-    let v = doc.viewer.as_deref()?;
+    let v = doc.viewer()?;
     Some(
         v.structure()
             .outline
@@ -114,7 +114,7 @@ pub fn outline_items(doc: &crate::DocumentState) -> Option<Vec<crate::view::Outl
 /// Where the outline panel marks the reader: the unit a viewer shows,
 /// else the cursor.
 pub fn outline_position(doc: &crate::DocumentState) -> usize {
-    doc.viewer.as_deref().map_or(doc.selection.head, |v| v.unit)
+    doc.viewer().map_or(doc.selection.head, |v| v.unit)
 }
 
 /// The word around the glyph at `r` of `text`: the letters, digits and
@@ -647,6 +647,21 @@ impl MacroUi for Answers<'_> {
         self.next += 1;
         // The palette's Escape answers nothing: VBA's Cancel is an empty string.
         Some(Some(a))
+    }
+}
+
+impl crate::mode_state::ModeState for ViewerState {}
+
+impl crate::DocumentState {
+    /// A file that is not text, opened by a viewer plugin
+    /// ([`crate::DocumentMode::Viewer`]); `None` in other modes.
+    pub fn viewer(&self) -> Option<&ViewerState> {
+        self.mode_state()
+    }
+
+    /// The viewer of a file that is not text ([`Self::viewer`]).
+    pub fn viewer_mut(&mut self) -> Option<&mut ViewerState> {
+        self.mode_state_mut()
     }
 }
 
@@ -6980,11 +6995,7 @@ fn with(
     ctx: &mut EditorContext<'_>,
     f: impl FnOnce(&mut ViewerState) -> Result<(), String>,
 ) -> CommandResult {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     if let Err(e) = f(v) {
@@ -7012,7 +7023,7 @@ fn turn(ctx: &mut EditorContext<'_>, delta: i64, files: bool) -> CommandResult {
     let Some(doc) = ctx.document.as_deref_mut() else {
         return Ok(());
     };
-    if let Some(v) = doc.viewer.as_deref_mut()
+    if let Some(v) = doc.viewer_mut()
         && !files
         && v.paged()
     {
@@ -7032,11 +7043,7 @@ fn turn(ctx: &mut EditorContext<'_>, delta: i64, files: bool) -> CommandResult {
 /// Cuts a grid's selection (Cut in a spreadsheet): on the clipboard, and
 /// moved where it is pasted.
 pub(crate) fn cut(ctx: &mut EditorContext<'_>) -> CommandResult {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let text = v
@@ -7054,7 +7061,7 @@ pub(crate) fn copy(ctx: &mut EditorContext<'_>) -> CommandResult {
         return Ok(());
     };
     let path = doc.meta.path.clone();
-    let Some(v) = doc.viewer.as_deref_mut() else {
+    let Some(v) = doc.viewer_mut() else {
         return Ok(());
     };
     if v.is_grid() {
@@ -7401,11 +7408,7 @@ fn arg_u32(args: &serde_json::Value, key: &str) -> Option<u32> {
 /// Asks for a cell's new text, starting from `start` (the cell as
 /// entered, or what was typed).
 fn ask_cell(ctx: &mut EditorContext<'_>, start: Option<&str>) -> CommandResult {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     if !v.grid_editable() {
@@ -7434,11 +7437,7 @@ fn ask_cell(ctx: &mut EditorContext<'_>, start: Option<&str>) -> CommandResult {
 /// A macro's run, with the answers given so far; a question asked again
 /// through the palette and the run made again.
 fn run_macro(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some(name) = args
@@ -7578,11 +7577,7 @@ fn grid_select(ctx: &mut EditorContext<'_>, rows: i64, cols: i64) -> CommandResu
 /// first, as Excel warns that only the upper-left value stays.
 fn merge(ctx: &mut EditorContext<'_>, args: &serde_json::Value, center: bool) -> CommandResult {
     let confirmed = args.get("confirmed").and_then(serde_json::Value::as_bool) == Some(true);
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     if !confirmed && v.grid_editable() && v.selection_loses_values() {
@@ -7679,11 +7674,7 @@ pub fn parse_tsv(text: &str) -> Vec<Vec<String>> {
 /// again; Apply filters to the checked values. The list starts from the
 /// values the column shows now.
 fn choose_filter(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some(f) = v.grid_layout().and_then(|l| l.filter) else {
@@ -7774,11 +7765,7 @@ fn chart_text(
         .and_then(|v| v.as_str())
         .map(str::to_string)
     else {
-        let Some(v) = ctx
-            .document
-            .as_deref_mut()
-            .and_then(|d| d.viewer.as_deref_mut())
-        else {
+        let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
             return Ok(());
         };
         let Some((i, _)) = v.chart_at_cursor() else {
@@ -7812,11 +7799,7 @@ fn chart_text(
 fn data_labels(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::{ChartKind, DataLabels};
     const ID: &str = "viewer.grid.dataLabels";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some((i, _)) = v.chart_at_cursor() else {
@@ -7910,11 +7893,7 @@ fn data_labels(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Command
 fn axis_scale(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::AxisScale;
     const ID: &str = "viewer.grid.axisScale";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some((i, _)) = v.chart_at_cursor() else {
@@ -8055,11 +8034,7 @@ fn color_menu(
 fn point_color(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::ChartKind;
     const ID: &str = "viewer.grid.pointColor";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some((i, _)) = v.chart_at_cursor() else {
@@ -8179,10 +8154,7 @@ fn pick_series(
     if let Some(n) = args.get("series").and_then(serde_json::Value::as_u64) {
         return Some(n as usize);
     }
-    let v = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())?;
+    let v = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut())?;
     let Some((i, _)) = v.chart_at_cursor() else {
         ctx.messages
             .push(format!("Put the cursor on a chart: {title}"));
@@ -8427,11 +8399,7 @@ fn labels_from_cells(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> C
             with(ctx, |v| v.set_label_cells(series, Some([a, b, c, d])))
         }
         None => {
-            let Some(v) = ctx
-                .document
-                .as_deref_mut()
-                .and_then(|d| d.viewer.as_deref_mut())
-            else {
+            let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
                 return Ok(());
             };
             let sel = v.selection();
@@ -8465,11 +8433,7 @@ fn move_chart(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandR
     if let Some(name) = text_arg(args, "value") {
         return with(ctx, |v| v.move_chart_to_sheet(&name));
     }
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     if v.chart_at_cursor().is_none() {
@@ -8548,11 +8512,7 @@ fn save_chart_template(ctx: &mut EditorContext<'_>, args: &serde_json::Value) ->
         );
     };
     let name = name.replace(['/', '\\'], "-");
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let bytes = match v.chart_template() {
@@ -8622,11 +8582,7 @@ fn pivot_options(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
     };
     const ID: &str = "viewer.grid.pivotOptions";
     const T: &str = "PivotTable Options";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some((index, info)) = v.pivot_at_cursor() else {
@@ -9209,11 +9165,7 @@ fn insert_slicer(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
     if let Some(f) = text_arg(args, "field") {
         return with(ctx, |v| v.insert_slicer(&f));
     }
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let fields: Vec<String> = if let Some((_, p)) = v.pivot_at_cursor() {
@@ -9243,11 +9195,7 @@ fn insert_slicer(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
 /// one chosen with `only`), every one again, or the slicer removed.
 fn slicer(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     const ID: &str = "viewer.grid.slicer";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let found = match args.get("index").and_then(serde_json::Value::as_u64) {
@@ -9322,11 +9270,7 @@ fn slicer(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResul
 /// color from Excel's standard ones, typed as `#RRGGBB`, or the theme's.
 fn series_color(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     const ID: &str = "viewer.grid.seriesColor";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some((i, _)) = v.chart_at_cursor() else {
@@ -9417,11 +9361,7 @@ fn series_color(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
 fn explode_slice(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::ChartKind;
     const ID: &str = "viewer.grid.explodeSlice";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some((i, _)) = v.chart_at_cursor() else {
@@ -9516,11 +9456,7 @@ fn explode_slice(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
 fn chart_area(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::Paint;
     const ID: &str = "viewer.grid.chartArea";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some((i, _)) = v.chart_at_cursor() else {
@@ -9640,11 +9576,7 @@ fn chart_area(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandR
 fn gridlines_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::{ChartKind, Gridlines};
     const ID: &str = "viewer.grid.gridlines";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some((i, _)) = v.chart_at_cursor() else {
@@ -9698,11 +9630,7 @@ fn gridlines_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comm
 /// formats, each shown with an example, a typed code, or the cells' own.
 fn axis_format(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     const ID: &str = "viewer.grid.axisFormat";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some((i, _)) = v.chart_at_cursor() else {
@@ -9779,11 +9707,7 @@ fn font_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value, target: &str
         "legend" => "viewer.grid.legendFont",
         _ => "viewer.grid.axisFont",
     };
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some((i, _)) = v.chart_at_cursor() else {
@@ -10047,11 +9971,7 @@ fn custom_lists(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
             save(ctx, lists)
         }
         Some("selection") => {
-            let Some(v) = ctx
-                .document
-                .as_deref_mut()
-                .and_then(|d| d.viewer.as_deref_mut())
-            else {
+            let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
                 return Ok(());
             };
             let s = v.selection();
@@ -10201,11 +10121,7 @@ fn go_to(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult
     let Some(reference) = text_arg(args, "value") else {
         return ask_more(ctx, ID, &serde_json::json!({}), "value");
     };
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let (sheet, cells) = match reference.rsplit_once('!') {
@@ -10264,11 +10180,7 @@ fn grid_find(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
     let Some(text) = text_arg(args, "value") else {
         return ask_more(ctx, "viewer.grid.find", &serde_json::json!({}), "value");
     };
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     v.grid_search.text = text;
@@ -10277,11 +10189,7 @@ fn grid_find(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
 
 /// Find Next and Previous, with which match of how many.
 fn find_report(ctx: &mut EditorContext<'_>, forward: bool) -> CommandResult {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     match v.find_step(forward) {
@@ -10303,11 +10211,7 @@ fn grid_replace(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
     let Some(with) = args.get("with").and_then(|w| w.as_str()).map(str::to_owned) else {
         return ask_more(ctx, ID, &serde_json::json!({ "value": text }), "with");
     };
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     v.grid_search.text = text.clone();
@@ -10345,11 +10249,7 @@ fn grid_replace(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
 /// Find's Match Case, Match Entire Cell Contents and Look in Formulas,
 /// turned on or off.
 fn find_option(ctx: &mut EditorContext<'_>, which: &str) -> CommandResult {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let (flag, name) = match which {
@@ -10369,11 +10269,7 @@ fn find_option(ctx: &mut EditorContext<'_>, which: &str) -> CommandResult {
 /// Right, Hide and Unhide.
 fn sheet_command(ctx: &mut EditorContext<'_>, args: &serde_json::Value, op: &str) -> CommandResult {
     use kalem_viewer::SheetEdit;
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let unit = v.unit;
@@ -10484,11 +10380,7 @@ fn freeze_panes(ctx: &mut EditorContext<'_>) -> CommandResult {
 /// New Note or Edit Note (Shift+F2): the note asked, with the text it has;
 /// left empty, the note goes.
 fn edit_note(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     match args.get("value").and_then(|x| x.as_str()) {
@@ -10512,11 +10404,7 @@ fn edit_note(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
 /// AutoSum (Alt+=): for one cell, its SUM proposed in the cell's edit
 /// prompt; for a selection, the sums put under it.
 fn auto_sum(ctx: &mut EditorContext<'_>) -> CommandResult {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let s = v.selection();
@@ -10531,11 +10419,7 @@ fn auto_sum(ctx: &mut EditorContext<'_>) -> CommandResult {
 /// chosen begins the cursor's cell's formula.
 fn insert_function(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     const ID: &str = "viewer.grid.insertFunction";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     match args.get("name").and_then(|n| n.as_str()) {
@@ -10621,11 +10505,7 @@ fn paste_special(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
 /// what went said as Excel says it.
 fn remove_duplicates(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     const ID: &str = "viewer.grid.removeDuplicates";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let columns: Vec<u32> = match args.get("columns") {
@@ -10672,11 +10552,7 @@ fn remove_duplicates(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> C
 /// Text to Columns: the delimiter from a menu (or typed), then the split.
 fn text_to_columns(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     const ID: &str = "viewer.grid.textToColumns";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let delimiter = match args.get("delimiter").and_then(|d| d.as_str()) {
@@ -10716,11 +10592,7 @@ fn text_to_columns(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Com
 /// Insert Link (Ctrl+K): the address asked, with the one the cell has; a
 /// place in the workbook after `#`; left empty, the link goes.
 fn insert_link(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     match args.get("value").and_then(|x| x.as_str()) {
@@ -10744,11 +10616,7 @@ fn insert_link(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Command
 /// Open Link (`g x`): an address with the system, a file beside the
 /// workbook, a place in it by Go To.
 fn open_link(ctx: &mut EditorContext<'_>) -> CommandResult {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some(link) = v.cursor_link() else {
@@ -10781,11 +10649,7 @@ fn define_name(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Command
             "value",
         );
     };
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let to = v.selection_reference();
@@ -10809,11 +10673,7 @@ fn names_menu(
     } else {
         "viewer.grid.nameManager"
     };
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     if let Some(name) = args.get("name").and_then(|n| n.as_str()) {
@@ -10866,7 +10726,7 @@ fn save_sheet_csv(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comm
         return Ok(());
     };
     let book = doc.meta.path.clone();
-    let Some(v) = doc.viewer.as_deref_mut() else {
+    let Some(v) = doc.viewer_mut() else {
         return Ok(());
     };
     let sheet = v.structure().units[v.unit]
@@ -11014,7 +10874,7 @@ fn export_text(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Command
         return Ok(());
     };
     let book = doc.meta.path.clone();
-    let Some(v) = doc.viewer.as_deref_mut() else {
+    let Some(v) = doc.viewer_mut() else {
         return Ok(());
     };
     // The visible worksheets: units with a grid, not hidden.
@@ -11173,11 +11033,7 @@ fn insert_now(ctx: &mut EditorContext<'_>, time: bool) -> CommandResult {
 /// Ctrl+' and Ctrl+Shift+": the cell above's formula (as it is written)
 /// or its value (as shown), to be entered into the cursor's cell.
 fn from_above(ctx: &mut EditorContext<'_>, value: bool) -> CommandResult {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let p = v.grid_pos();
@@ -11200,11 +11056,7 @@ fn from_above(ctx: &mut EditorContext<'_>, value: bool) -> CommandResult {
 fn custom_sort(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::SortKey;
     const ID: &str = "viewer.grid.customSort";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let mut keys: Vec<serde_json::Value> = args
@@ -11508,11 +11360,7 @@ fn date_period(
 fn sort_by_color(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::{SortColor, SortKey};
     const ID: &str = "viewer.grid.sortByColor";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let col = v.grid_pos().col;
@@ -11581,11 +11429,7 @@ fn sort_by_color(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
 /// asked; Show All shows its rows again.
 fn advanced_filter(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     const ID: &str = "viewer.grid.advancedFilter";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some(action) = args
@@ -11691,11 +11535,7 @@ fn format_as_table(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Com
         return Ok(());
     };
     let style = style.to_owned();
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     match v.format_as_table(&style) {
@@ -11733,11 +11573,7 @@ fn cell_style(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandR
         "Currency",
         "Percent",
     ];
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     if args.get("new").and_then(serde_json::Value::as_bool) == Some(true) {
@@ -11893,11 +11729,7 @@ fn fill_effect(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Command
 /// Themes: the workbook's colors and fonts from one of Office's themes.
 fn workbook_theme(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     const ID: &str = "viewer.grid.theme";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some(name) = args
@@ -12074,11 +11906,7 @@ fn go_to_special(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comma
         return Ok(());
     };
     let kind = kind.to_owned();
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     match v.go_to_special(&kind) {
@@ -12169,11 +11997,7 @@ fn insert_sparklines(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> C
         "winLoss" => SparklineKind::WinLoss,
         _ => SparklineKind::Line,
     };
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let name =
@@ -12272,11 +12096,7 @@ fn cell_name(r: u32, c: u32) -> String {
 /// come to, and the cell to change.
 fn goal_seek(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     const ID: &str = "viewer.grid.goalSeek";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some(set) = text_arg(args, "set cell") else {
@@ -12346,11 +12166,7 @@ fn data_table(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandR
 /// added: its name, its cells (the selection offered) and a comment.
 fn scenarios(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     const ID: &str = "viewer.grid.scenarios";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some(what) = args.get("what").and_then(|x| x.as_str()) else {
@@ -12433,7 +12249,7 @@ fn zoom_to(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResu
         let now = ctx
             .document
             .as_deref_mut()
-            .and_then(|d| d.viewer.as_deref_mut())
+            .and_then(|d| d.viewer_mut())
             .map_or(100, |v| v.sheet_view().zoom);
         return ask_more(
             ctx,
@@ -12458,10 +12274,7 @@ fn context_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
     let on = args.get("on").and_then(|x| x.as_str()).unwrap_or("cells");
     if on == "tab"
         && let Some(u) = args.get("unit").and_then(serde_json::Value::as_u64)
-        && let Some(v) = ctx
-            .document
-            .as_deref_mut()
-            .and_then(|d| d.viewer.as_deref_mut())
+        && let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut())
     {
         v.go_to(u as usize);
     }
@@ -12479,11 +12292,7 @@ fn context_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
         link: bool,
         list: bool,
     }
-    let at = match ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    {
+    let at = match ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) {
         Some(v) if on == "cells" => At {
             chart: v.chart_at_cursor().is_some(),
             drawing: v.drawing_at_cursor().is_some(),
@@ -12658,11 +12467,7 @@ fn context_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
 fn move_or_copy(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::SheetEdit;
     const ID: &str = "viewer.grid.moveOrCopySheet";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some(what) = args.get("what").and_then(|x| x.as_str()).map(str::to_owned) else {
@@ -12718,11 +12523,7 @@ fn move_or_copy(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
 fn calculation_options(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::CalcMode;
     const ID: &str = "viewer.grid.calculationOptions";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let now = v.doc_calc_options();
@@ -12814,11 +12615,7 @@ fn calculation_options(ctx: &mut EditorContext<'_>, args: &serde_json::Value) ->
 /// Circular References: the cells round a circle, one chosen to go to.
 fn circular_references(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     const ID: &str = "viewer.grid.circularReferences";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     if let (Some(u), Some(r), Some(c)) = (
@@ -12864,11 +12661,7 @@ fn circular_references(ctx: &mut EditorContext<'_>, args: &serde_json::Value) ->
 /// one chosen to go to.
 fn find_all(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     const ID: &str = "viewer.grid.findAll";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     if let (Some(u), Some(r), Some(c)) = (
@@ -12928,11 +12721,7 @@ fn find_all(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRes
 /// to the next one.
 fn spelling(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     const ID: &str = "viewer.grid.spelling";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     if let Some(l) = text_arg(args, "language") {
@@ -13167,11 +12956,7 @@ fn new_comment(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Command
 /// from the menu; the sheet's other threads gone to.
 fn comments_menu(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     const ID: &str = "viewer.grid.comments";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     match args.get("what").and_then(|x| x.as_str()) {
@@ -13367,11 +13152,7 @@ fn tab_color(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandRe
 /// Sheet List: the workbook's sheets, one chosen to go to (Excel's list
 /// on the tab arrows).
 fn sheet_list(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     if let Some(u) = args.get("unit").and_then(serde_json::Value::as_u64) {
@@ -13396,11 +13177,7 @@ fn sheet_list(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandR
 
 /// Edit Shape Text: the shape at the cursor's text asked, with what it has.
 fn edit_shape_text(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     match args.get("value").and_then(|x| x.as_str()) {
@@ -13438,11 +13215,7 @@ fn edit_shape_text(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Com
 
 /// Evaluate Formula (`z e`): the cursor's formula's steps, as a list.
 fn evaluate_formula(ctx: &mut EditorContext<'_>) -> CommandResult {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let steps = v.evaluation_steps();
@@ -13470,11 +13243,7 @@ fn evaluate_formula(ctx: &mut EditorContext<'_>) -> CommandResult {
 /// for the cursor's cell, a watched one gone to or removed.
 fn watch_window(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     const ID: &str = "viewer.grid.watchWindow";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let num = |k: &str| {
@@ -13535,11 +13304,7 @@ fn watch_window(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
 fn protect_sheet(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::SheetProtection;
     const ID: &str = "viewer.grid.protectSheet";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let password = args
@@ -13618,11 +13383,7 @@ fn protect_workbook(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Co
 /// each chosen from a menu.
 fn subtotal(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     const ID: &str = "viewer.grid.subtotal";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let columns = v.sort_columns();
@@ -13688,7 +13449,7 @@ fn page_setup(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandR
         .as_ref()
         .and_then(|p| p.parent())
         .map(std::path::Path::to_path_buf);
-    let Some(v) = doc.viewer.as_deref_mut() else {
+    let Some(v) = doc.viewer_mut() else {
         return Ok(());
     };
     let mut s = v.page_setup();
@@ -14098,7 +13859,7 @@ fn sheet_pdf(ctx: &mut EditorContext<'_>, args: &serde_json::Value, mode: &str) 
         return Ok(());
     };
     let book = doc.meta.path.clone();
-    let Some(v) = doc.viewer.as_deref_mut() else {
+    let Some(v) = doc.viewer_mut() else {
         return Ok(());
     };
     let id = match mode {
@@ -14302,11 +14063,7 @@ fn sheet_pdf(ctx: &mut EditorContext<'_>, args: &serde_json::Value, mode: &str) 
 /// Format Painter (`t p`): pressed once it takes the selection's format,
 /// again it paints it over the selection then chosen.
 fn format_painter(ctx: &mut EditorContext<'_>) -> CommandResult {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     match v.format_painter() {
@@ -14656,11 +14413,7 @@ fn insert_chart(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
 fn insert_pivot(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> CommandResult {
     use kalem_viewer::{Aggregate, PivotSpec};
     const ID: &str = "viewer.grid.insertPivot";
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     if !v.grid_editable() {
@@ -14859,11 +14612,7 @@ fn insert_pivot(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -> Comman
 /// a Stop alert says why and asks again, a Warning asks whether to keep
 /// it, an Information alert keeps it and says so. Whether the entry waits.
 fn refused(ctx: &mut EditorContext<'_>, row: u32, col: u32, value: &str) -> bool {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return false;
     };
     let Some(e) = v.check_input(row, col, value) else {
@@ -14913,11 +14662,7 @@ fn refused(ctx: &mut EditorContext<'_>, row: u32, col: u32, value: &str) -> bool
 
 /// A list validation's values in the palette, as Excel's drop-down.
 fn pick_from_list(ctx: &mut EditorContext<'_>, _args: &serde_json::Value) -> CommandResult {
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let p = v.grid_pos();
@@ -14961,7 +14706,7 @@ fn validation_menu(ctx: &mut EditorContext<'_>, _args: &serde_json::Value) -> Co
     let circles = ctx
         .document
         .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
+        .and_then(|d| d.viewer_mut())
         .is_some_and(|v| v.circle_invalid);
     let items = vec![
         menu_item("viewer.grid.validateList", none.clone(), "Allow a List…", c),
@@ -15452,11 +15197,7 @@ fn exact_size(ctx: &mut EditorContext<'_>, args: &serde_json::Value, rows: bool)
     } else {
         ("viewer.grid.columnWidth", 255.0)
     };
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     let Some(typed) = text_arg(args, "value") else {
@@ -15588,11 +15329,7 @@ fn names_from_selection(ctx: &mut EditorContext<'_>, args: &serde_json::Value) -
             return Ok(());
         }
     };
-    let Some(v) = ctx
-        .document
-        .as_deref_mut()
-        .and_then(|d| d.viewer.as_deref_mut())
-    else {
+    let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
         return Ok(());
     };
     match v.names_from_selection(side) {
@@ -15996,11 +15733,7 @@ fn grid_commands() -> Vec<Command> {
             &["z ,"],
             IN_GRID,
             |ctx, _| {
-                let Some(v) = ctx
-                    .document
-                    .as_deref_mut()
-                    .and_then(|d| d.viewer.as_deref_mut())
-                else {
+                let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
                     return Ok(());
                 };
                 let n = v.trace_precedents();
@@ -16017,11 +15750,7 @@ fn grid_commands() -> Vec<Command> {
             &["z ."],
             IN_GRID,
             |ctx, _| {
-                let Some(v) = ctx
-                    .document
-                    .as_deref_mut()
-                    .and_then(|d| d.viewer.as_deref_mut())
-                else {
+                let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
                     return Ok(());
                 };
                 let n = v.trace_dependents();
@@ -16057,11 +15786,7 @@ fn grid_commands() -> Vec<Command> {
             &["z n"],
             IN_GRID,
             |ctx, _| {
-                let Some(v) = ctx
-                    .document
-                    .as_deref_mut()
-                    .and_then(|d| d.viewer.as_deref_mut())
-                else {
+                let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
                     return Ok(());
                 };
                 let m = v
@@ -17431,11 +17156,7 @@ fn grid_commands() -> Vec<Command> {
                 {
                     return with(ctx, |v| v.set_chart_kind(*kind));
                 }
-                let Some(v) = ctx
-                    .document
-                    .as_deref_mut()
-                    .and_then(|d| d.viewer.as_deref_mut())
-                else {
+                let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
                     return Ok(());
                 };
                 let Some((i, _)) = v.chart_at_cursor() else {
@@ -17768,11 +17489,7 @@ fn grid_commands() -> Vec<Command> {
             &["ctrl+e"],
             IN_GRID,
             |ctx, _| {
-                let Some(v) = ctx
-                    .document
-                    .as_deref_mut()
-                    .and_then(|d| d.viewer.as_deref_mut())
-                else {
+                let Some(v) = ctx.document.as_deref_mut().and_then(|d| d.viewer_mut()) else {
                     return Ok(());
                 };
                 match v.flash_fill() {

@@ -323,7 +323,7 @@ fn what_the_keys_do(t: &mut T) {
     // SPC n F shows the notes folder in the file manager.
     t.press("space n shift+f");
     assert_eq!(
-        t.app.doc.dired.as_deref().map(|d| d.title()).as_deref(),
+        t.app.doc.dired().map(|d| d.title()).as_deref(),
         Some("notes/")
     );
 }

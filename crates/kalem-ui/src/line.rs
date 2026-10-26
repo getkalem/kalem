@@ -1357,7 +1357,7 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
         at += r.text.len();
     }
     // The file manager: its own colors.
-    if let Some(d) = editor.doc.dired.as_deref() {
+    if let Some(d) = editor.doc.dired() {
         runs = color_listing(runs, &text, d.styles(line), &theme);
     }
     // Plain text: syntax colors of its language (a window of lines in very
@@ -1366,7 +1366,7 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
     // CSV's grid pads its fields).
     let as_source = editor.doc.text().as_str().get(view.range.clone()) == Some(text.as_str());
     if editor.doc.meta.mode != kalem_core::DocumentMode::Org
-        && editor.doc.dired.is_none()
+        && editor.doc.dired().is_none()
         && as_source
     {
         let spans = match editor.plain.borrow_mut().as_mut() {

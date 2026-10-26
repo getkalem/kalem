@@ -623,8 +623,8 @@ pub fn on_save(
     now: std::time::Instant,
 ) -> Option<String> {
     if !config.bool("editor.format_on_save")
-        || doc.dired.is_some()
-        || doc.viewer.is_some()
+        || doc.dired().is_some()
+        || doc.viewer().is_some()
         || doc.meta.path.is_none()
     {
         return None;

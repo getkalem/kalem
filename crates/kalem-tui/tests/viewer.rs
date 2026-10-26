@@ -74,8 +74,7 @@ impl T {
     fn status(&mut self) -> String {
         self.app
             .doc
-            .viewer
-            .as_deref_mut()
+            .viewer_mut()
             .map(|v| v.status())
             .unwrap_or_default()
     }

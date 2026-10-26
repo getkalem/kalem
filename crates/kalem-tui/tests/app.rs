@@ -1716,7 +1716,7 @@ fn project_app(config: Config) -> (T, std::path::PathBuf) {
 
 /// The active document's name; for the file manager, its folder's.
 fn title(t: &T) -> String {
-    match t.app.doc.dired.as_deref() {
+    match t.app.doc.dired() {
         Some(d) => d.title(),
         None => t.app.open_files()[t.app.active_index()].title.clone(),
     }
@@ -4760,7 +4760,7 @@ fn file_manager_right_click() {
     let shown = screen(&mut t).join("\n");
     assert!(shown.contains("Copy Relative Paths"), "{shown}");
     t.key(KeyCode::Esc, KeyModifiers::NONE);
-    let marks = |t: &T| t.app.doc.dired.as_deref().unwrap().marks.len();
+    let marks = |t: &T| t.app.doc.dired().unwrap().marks.len();
     mouse(
         &mut t,
         MouseEventKind::Down(MouseButton::Left),
@@ -4982,7 +4982,7 @@ fn line_search_in_the_file_manager() {
     t.typ("-");
     assert_eq!(title(&t), "proj/");
     let a = dir.join("proj/a.org");
-    let line_of_a = t.app.doc.dired.as_deref().unwrap().line_of(&a).unwrap();
+    let line_of_a = t.app.doc.dired().unwrap().line_of(&a).unwrap();
     t.typ(" sb");
     t.typ("a.o");
     let shown = screen(&mut t).join("\n");
@@ -4992,7 +4992,7 @@ fn line_search_in_the_file_manager() {
         line_of_a
     );
     t.key(KeyCode::Enter, KeyModifiers::NONE);
-    assert!(t.app.doc.dired.is_some());
+    assert!(t.app.doc.dired().is_some());
     assert_eq!(
         t.app.doc.text().line_of(t.app.doc.selection.head),
         line_of_a

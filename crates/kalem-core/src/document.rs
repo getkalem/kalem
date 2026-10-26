@@ -355,12 +355,6 @@ pub struct DocumentState {
     disk_text: Option<std::sync::Arc<str>>,
     /// Edits applied since the frontend last took them.
     changes: Vec<Transaction>,
-    /// The file manager's state, in a folder listing
-    /// ([`DocumentMode::Directory`]).
-    pub dired: Option<Box<crate::dired::DirState>>,
-    /// A file that is not text, opened by a viewer plugin
-    /// ([`DocumentMode::Viewer`]).
-    pub viewer: Option<Box<crate::viewer::ViewerState>>,
     /// What the user is told once, at the next tick: an edit of a
     /// document of flowing text its plugin refused, and why.
     notice: Option<String>,
@@ -575,8 +569,6 @@ impl DocumentState {
             disk: None,
             disk_text: None,
             changes: Vec::new(),
-            dired: None,
-            viewer: None,
             notice: None,
             generated: None,
             graph_view: None,
@@ -615,7 +607,7 @@ impl DocumentState {
         let mut d = DocumentState::new("", meta, settings);
         let mut state = crate::dired::DirState::new(place, options, details);
         state.load();
-        d.dired = Some(Box::new(state));
+        d.mode_state = Some(Box::new(state));
         d.show_listing(None);
         d
     }
@@ -624,13 +616,13 @@ impl DocumentState {
     /// on `select` if given, else on the same entry (or line) as before.
     /// The listing is not an edit: there is nothing to undo or save.
     pub fn show_listing(&mut self, select: Option<&Path>) {
-        let Some(state) = self.dired.as_mut() else {
+        let line = self.text.line_of(self.selection.head);
+        let Some(state) = self.dired_mut() else {
             return;
         };
         if state.wdired.is_some() {
             return;
         }
-        let line = self.text.line_of(self.selection.head);
         let current = state.path_at(line);
         let text = state.render();
         let target = select
@@ -780,7 +772,7 @@ impl DocumentState {
         }
         self.gutter_seen.0 = writes;
         let (version, marks) = match self.meta.path.as_deref() {
-            Some(p) if self.dired.is_none() => crate::extensions::gutter(p),
+            Some(p) if self.dired().is_none() => crate::extensions::gutter(p),
             _ => (0, Vec::new()),
         };
         if version == self.gutter_seen.1 {
@@ -873,7 +865,7 @@ impl DocumentState {
     /// Reads the file manager's folder again, keeping marks and the cursor.
     pub fn refresh_listing(&mut self) {
         // Not while its names are edited.
-        if let Some(s) = self.dired.as_mut() {
+        if let Some(s) = self.dired_mut() {
             if s.wdired.is_some() {
                 return;
             }
@@ -885,7 +877,7 @@ impl DocumentState {
     /// Shows `place` in the file manager, the cursor on `select` (or the
     /// first entry). Marks stay behind.
     pub fn visit(&mut self, place: crate::dired::Place, select: Option<&Path>) {
-        let Some(s) = self.dired.as_mut() else {
+        let Some(s) = self.dired_mut() else {
             return;
         };
         // A project's root remembers the projects view for one step only:
@@ -1033,7 +1025,7 @@ impl DocumentState {
         };
         let mut d = DocumentState::new("", meta, settings);
         d.read_only = true;
-        d.viewer = Some(Box::new(state));
+        d.mode_state = Some(Box::new(state));
         d.disk = files::stat(&path).ok();
         Ok(d)
     }
@@ -1067,9 +1059,7 @@ impl DocumentState {
     /// The viewer of the document, a file that is not text, whether its
     /// units are shown as pictures and grids or as flowing text.
     pub fn viewer_state(&self) -> Option<&crate::viewer::ViewerState> {
-        self.viewer
-            .as_deref()
-            .or_else(|| self.flow().map(|f| &*f.viewer))
+        self.viewer().or_else(|| self.flow().map(|f| &*f.viewer))
     }
 
     /// What the user is to be told once (an edit refused), taken.
@@ -1290,20 +1280,21 @@ impl DocumentState {
         options: SaveOptions,
         force: bool,
     ) -> Result<Vec<String>, SaveError> {
-        let Some(v) = self.viewer.as_deref_mut() else {
+        let (disk, accepted) = (self.disk, self.conversion_accepted);
+        let Some(v) = self.viewer_mut() else {
             return Ok(Vec::new());
         };
         // Save As (no file known yet) writes even without edits.
-        if !v.modified() && self.disk.is_some() {
+        if !v.modified() && disk.is_some() {
             return Ok(Vec::new());
         }
         let ext = crate::viewer::extension_of(path);
         // Written back in the format it was converted from: only once the
         // user has agreed to what that keeps.
-        if !self.conversion_accepted && v.converted_from.as_deref() == Some(ext.as_str()) {
+        if !accepted && v.converted_from.as_deref() == Some(ext.as_str()) {
             return Err(SaveError::Converted { format: ext });
         }
-        if !force && let Some(known) = self.disk {
+        if !force && let Some(known) = disk {
             match files::check(path, &known).map_err(SaveError::Io)? {
                 DiskChange::Modified => return Err(SaveError::ChangedOnDisk),
                 DiskChange::Unchanged | DiskChange::Touched(_) | DiskChange::Deleted => {}
@@ -1318,12 +1309,12 @@ impl DocumentState {
             .save_as_format(&ext)
             .map_err(|e| SaveError::Io(std::io::Error::other(e)))?;
         self.disk = Some(files::write(path, &out.bytes, options).map_err(SaveError::Io)?);
-        if converted && let Some(old) = self.viewer.as_deref() {
+        if converted && let Some(old) = self.viewer() {
             let mut state = crate::viewer::ViewerState::open(old.viewer.clone(), path)
                 .map_err(|e| SaveError::Io(std::io::Error::other(e)))?;
             state.set_area(old.area().0, old.area().1);
             state.go_to(old.unit);
-            self.viewer = Some(Box::new(state));
+            self.mode_state = Some(Box::new(state));
         }
         Ok(out.losses)
     }
@@ -1332,7 +1323,7 @@ impl DocumentState {
     /// its folder the same viewer opens, wrapping around (a viewer's next
     /// and previous file). Refused while the file has unsaved edits.
     pub fn viewer_step_file(&mut self, delta: i64) -> Result<(), String> {
-        let Some(v) = self.viewer.as_deref() else {
+        let Some(v) = self.viewer() else {
             return Ok(());
         };
         if v.modified() {
@@ -1355,12 +1346,12 @@ impl DocumentState {
             let next = &files[i as usize];
             match crate::viewer::ViewerState::open(viewer.clone(), next) {
                 Ok(mut state) => {
-                    let Some(old) = self.viewer.as_deref() else {
+                    let Some(old) = self.viewer() else {
                         return Ok(());
                     };
                     state.info = old.info;
                     state.set_area(old.area().0, old.area().1);
-                    self.viewer = Some(Box::new(state));
+                    self.mode_state = Some(Box::new(state));
                     self.meta.path = Some(next.clone());
                     self.disk = files::stat(next).ok();
                     return Ok(());
@@ -1376,11 +1367,11 @@ impl DocumentState {
     /// could not keep (a plugin's format) comes back, for the user to be
     /// told; nothing for text.
     pub fn save(&mut self, options: SaveOptions, force: bool) -> Result<Vec<String>, SaveError> {
-        if self.dired.is_some() {
+        if self.dired().is_some() {
             return Ok(Vec::new());
         }
         let path = self.meta.path.clone().ok_or(SaveError::NoPath)?;
-        if self.viewer.is_some() {
+        if self.viewer().is_some() {
             return self.save_viewed(&path, options, force);
         }
         if self.flow().is_some() {
@@ -1433,7 +1424,7 @@ impl DocumentState {
     /// gave it a new name (a new document typed as Python and saved as
     /// `x.py` stayed Org until reopened); `true` when it changed.
     pub fn mode_for_name(&mut self, base: &ParseContext) -> bool {
-        if self.dired.is_some() || self.viewer.is_some() {
+        if self.dired().is_some() || self.viewer().is_some() {
             return false;
         }
         let mode = DocumentMode::detect(self.meta.path.as_deref(), self.text().as_str().as_bytes());
@@ -1461,7 +1452,7 @@ impl DocumentState {
     /// Checks the file after a `workspace:file-changed` event: reloads the
     /// document if it has no unsaved changes, or reports a conflict.
     pub fn external_change(&mut self, now: Instant) -> Result<ExternalChange, OpenError> {
-        if self.dired.is_some() {
+        if self.dired().is_some() {
             self.refresh_listing();
             return Ok(ExternalChange::Listing);
         }
@@ -1484,7 +1475,7 @@ impl DocumentState {
             DiskChange::Deleted => {
                 // The text is now the only copy: unsaved, so closing asks
                 // and Save writes the file again.
-                if self.viewer.is_none() && self.deleted_saved.is_none() {
+                if self.viewer().is_none() && self.deleted_saved.is_none() {
                     self.deleted_saved = Some(self.saved_version);
                     self.saved_version = u64::MAX;
                 }
@@ -1493,7 +1484,7 @@ impl DocumentState {
             DiskChange::Modified if self.is_modified() => {
                 // Changed here and there: merged where the two changed
                 // different lines, else the user decides.
-                if self.viewer.is_none()
+                if self.viewer().is_none()
                     && self.flow().is_none()
                     && let Some(base) = self.disk_text.clone()
                     && let Ok((theirs, meta, disk)) =
@@ -1592,7 +1583,7 @@ impl DocumentState {
     /// Replaces the text with the file's, as one undo step that changes
     /// only the part that differs, so the cursor and undo history stay.
     pub fn reload(&mut self, now: Instant) -> Result<(), OpenError> {
-        if self.dired.is_some() {
+        if self.dired().is_some() {
             self.refresh_listing();
             return Ok(());
         }
@@ -1614,7 +1605,7 @@ impl DocumentState {
             }
             return Ok(());
         }
-        if let (Some(old), Some(path)) = (self.viewer.as_deref(), self.meta.path.clone()) {
+        if let (Some(old), Some(path)) = (self.viewer(), self.meta.path.clone()) {
             let mut state = crate::viewer::ViewerState::open(old.viewer.clone(), &path)
                 .map_err(OpenError::Viewer)?;
             state.info = old.info;
@@ -1624,7 +1615,7 @@ impl DocumentState {
             state.zoom = old.zoom;
             state.rotation = old.rotation;
             state.center = old.center;
-            self.viewer = Some(Box::new(state));
+            self.mode_state = Some(Box::new(state));
             self.disk = files::stat(&path).ok();
             return Ok(());
         }
@@ -1764,7 +1755,7 @@ impl DocumentState {
             return f.viewer.modified();
         }
         (self.version != self.saved_version && !(self.saved_version != u64::MAX && self.as_saved()))
-            || self.viewer.as_ref().is_some_and(|v| v.modified())
+            || self.viewer().is_some_and(|v| v.modified())
     }
 
     /// Whether the text and its line endings, mark and encoding are what
@@ -1796,7 +1787,7 @@ impl DocumentState {
             return f.viewer.modified();
         }
         (self.version != self.deleted_saved.unwrap_or(self.saved_version) && !self.as_saved())
-            || self.viewer.as_ref().is_some_and(|v| v.modified())
+            || self.viewer().is_some_and(|v| v.modified())
     }
 
     /// Kalem itself removed the file (trash, delete): its deletion is no
@@ -1824,7 +1815,7 @@ impl DocumentState {
         // A folder listing is read-only; its commands change it. The
         // selection an edit would leave is not taken either: it may be past
         // the text the edit did not make.
-        if self.dired.as_ref().is_some_and(|d| d.wdired.is_none()) {
+        if self.dired().is_some_and(|d| d.wdired.is_none()) {
             return;
         }
         if self.read_only {
@@ -2462,7 +2453,7 @@ impl DocumentState {
 
     /// Undoes the last step; returns its label.
     pub fn undo(&mut self) -> Option<String> {
-        if let Some(v) = self.viewer.as_deref_mut() {
+        if let Some(v) = self.viewer_mut() {
             return v.undo().ok().filter(|done| *done).map(|_| String::new());
         }
         if self.flow().is_some() {
@@ -2512,7 +2503,7 @@ impl DocumentState {
     /// Redoes the last undone step with the cursor where the step began,
     /// as Vim's redo leaves it; returns its label.
     pub fn redo_from_start(&mut self) -> Option<String> {
-        if self.viewer.is_some() || self.flow().is_some() {
+        if self.viewer().is_some() || self.flow().is_some() {
             return self.redo();
         }
         if self.read_only {
@@ -2530,7 +2521,7 @@ impl DocumentState {
 
     /// Redoes the last undone step; returns its label.
     pub fn redo(&mut self) -> Option<String> {
-        if let Some(v) = self.viewer.as_deref_mut() {
+        if let Some(v) = self.viewer_mut() {
             return v.redo().ok().filter(|done| *done).map(|_| String::new());
         }
         if self.flow().is_some() {
@@ -2817,7 +2808,7 @@ impl DocumentState {
     pub fn document_context(&self) -> Context {
         let mut c = Context::default();
         c.set("editorMode", Value::Str(self.meta.mode.name().into()));
-        if let Some(v) = self.viewer.as_deref() {
+        if let Some(v) = self.viewer() {
             c.flag("viewerGrid", v.is_grid());
             c.flag("hasComments", false);
         }
@@ -3068,22 +3059,19 @@ impl DocumentState {
         if let DocumentMode::Text { language: Some(l) } = &self.meta.mode {
             c.set("editorLanguage", Value::Str(l.clone()));
         }
-        if let Some(v) = self.viewer.as_deref() {
+        if let Some(v) = self.viewer() {
             c.flag("viewerAnimated", v.structure().animated());
             c.flag("viewerEditable", !v.edits().is_empty());
             c.flag("viewerGrid", v.is_grid());
         }
-        c.flag(
-            "wdired",
-            self.dired.as_ref().is_some_and(|d| d.wdired.is_some()),
-        );
+        c.flag("wdired", self.dired().is_some_and(|d| d.wdired.is_some()));
         c.flag("hasSelection", self.selection.anchor != self.selection.head);
         // The text has a comment syntax (Toggle Comment): not a viewer's
         // file, not a listing.
         c.flag(
             "hasComments",
-            self.viewer.is_none()
-                && self.dired.is_none()
+            self.viewer().is_none()
+                && self.dired().is_none()
                 && crate::code::language_at(self)
                     .and_then(|l| crate::code::comment_style(&l))
                     .is_some(),

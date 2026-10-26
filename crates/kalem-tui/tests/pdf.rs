@@ -22,11 +22,7 @@ fn word_keys() -> Config {
 }
 
 fn status(app: &mut App) -> String {
-    app.doc
-        .viewer
-        .as_deref_mut()
-        .map(|v| v.status())
-        .unwrap_or_default()
+    app.doc.viewer_mut().map(|v| v.status()).unwrap_or_default()
 }
 
 #[test]
@@ -86,7 +82,7 @@ fn a_pdf_opens_page_by_page() {
     screen(&mut app);
     let s = status(&mut app);
     assert!(s.ends_with(" · 2/3"), "{s}");
-    assert_eq!(app.doc.viewer.as_deref().unwrap().text(), "Page two");
+    assert_eq!(app.doc.viewer().unwrap().text(), "Page two");
 
     // The outline panel lists the PDF's outline; Enter on Chapter 2 goes
     // to page three.
@@ -128,7 +124,7 @@ fn a_pdf_opens_page_by_page() {
         )));
     }
     let settle = |app: &mut App| {
-        while app.doc.viewer.as_deref().is_some_and(|v| v.searching()) {
+        while app.doc.viewer().is_some_and(|v| v.searching()) {
             app.tick(std::time::Instant::now());
             std::thread::sleep(std::time::Duration::from_millis(1));
         }
@@ -143,7 +139,7 @@ fn a_pdf_opens_page_by_page() {
     )));
     let s = screen(&mut app);
     assert!(s.contains("page  1/3"), "{s}");
-    assert_eq!(app.doc.viewer.as_deref().unwrap().unit, 0);
+    assert_eq!(app.doc.viewer().unwrap().unit, 0);
 
     // Opened at a "line" (Show in PDF, T2.7h.24): that page.
     let pdf = dir.join("pages.pdf");
@@ -154,9 +150,9 @@ fn a_pdf_opens_page_by_page() {
     }
     // Zoomed in, a height on the page (the line Show in PDF gives) comes
     // to the middle.
-    app.doc.viewer.as_deref_mut().unwrap().zoom_by(4.0);
+    app.doc.viewer_mut().unwrap().zoom_by(4.0);
     app.open_path(&pdf, Some((2, 700)));
-    let center = app.doc.viewer.as_deref().unwrap().center.unwrap();
+    let center = app.doc.viewer().unwrap().center.unwrap();
     assert!(center.1 > 600.0, "{center:?}");
     // Built again (the file rewritten): reloaded at the same page.
     app.doc.reload(std::time::Instant::now()).unwrap();

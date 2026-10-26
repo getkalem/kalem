@@ -42,7 +42,7 @@ impl Editor {
     /// The preview pane, when shown in a listing.
     pub fn preview_panel(&mut self, cx: &mut Context<'_, Self>) -> Option<gpui::AnyElement> {
         let thumbnails = self.preview?;
-        let d = self.doc.dired.as_deref()?;
+        let d = self.doc.dired()?;
         let theme = self.theme.clone();
         let pane = div()
             .id("preview")
@@ -85,13 +85,12 @@ impl Editor {
                 cell = cell
                     .child(div().w_full().truncate().child(name))
                     .on_click(cx.listener(move |this, _, _, cx| {
-                        let line = this.doc.dired.as_deref().and_then(|d| d.line_of(&path));
+                        let line = this.doc.dired().and_then(|d| d.line_of(&path));
                         if let Some(line) = line {
                             let start = this.doc.text().line_start(line);
                             let col = this
                                 .doc
-                                .dired
-                                .as_deref()
+                                .dired()
                                 .and_then(|d| d.name_range(line))
                                 .map_or(0, |r| r.start);
                             this.doc.move_cursor(start + col, false);
