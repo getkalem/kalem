@@ -125,6 +125,18 @@ pub trait ModeView: Send + Sync {
     fn formulas_as_text(&self, _doc: &DocumentState, v: LineView) -> LineView {
         v
     }
+
+    /// The web or mail address of the link at `offset` (`http`, `https`,
+    /// `mailto`, `ftp`, `news`), which a terminal makes clickable (OSC 8).
+    fn link_target(&self, _doc: &DocumentState, _offset: usize) -> Option<String> {
+        None
+    }
+
+    /// Whether `offset` is in a list item's marker (its bullet, its box and
+    /// the space after them), which the item's wrapped rows hang after.
+    fn list_marker(&self, _doc: &DocumentState, _offset: usize) -> bool {
+        false
+    }
 }
 
 /// A piece of code to color ([`ModeView::code_spans`]): its range, its
@@ -181,6 +193,10 @@ pub struct ViewTraits {
     /// Such a formula's other lines are hidden even when its picture fails,
     /// its first line showing it as text (LaTeX's).
     pub formula_text: bool,
+    /// Left and Right step by what the view shows, over the markup it
+    /// hides (Org's and LaTeX's as they read); otherwise by the source's
+    /// characters.
+    pub steps_by_view: bool,
 }
 
 impl ViewTraits {
@@ -202,6 +218,7 @@ impl ViewTraits {
         line_pictures: true,
         math_text: false,
         formula_text: false,
+        steps_by_view: true,
     };
 }
 
@@ -275,6 +292,63 @@ pub fn formulas_as_text(doc: &DocumentState, source: bool, v: LineView) -> LineV
 /// A formula of `doc` in Unicode ([`ModeView::formula_unicode`]).
 pub fn formula_unicode(doc: &DocumentState, source: &str) -> String {
     view_of(doc, false).formula_unicode(doc, source)
+}
+
+/// The web or mail link of `doc` at `offset` ([`ModeView::link_target`]).
+pub fn link_target(doc: &DocumentState, source: bool, offset: usize) -> Option<String> {
+    view_of(doc, source).link_target(doc, offset)
+}
+
+/// Whether `offset` of `doc` is in a list item's marker
+/// ([`ModeView::list_marker`]).
+pub fn list_marker(doc: &DocumentState, source: bool, offset: usize) -> bool {
+    view_of(doc, source).list_marker(doc, offset)
+}
+
+/// The web or mail address of the Org link at `offset`, once the parse is
+/// current.
+fn org_link_target(doc: &DocumentState, offset: usize) -> Option<String> {
+    let (p, true) = doc.parse()? else {
+        return None;
+    };
+    let root = p.syntax();
+    if offset >= usize::from(root.text_range().end()) {
+        return None;
+    }
+    let tok = root
+        .token_at_offset(org_syntax::TextSize::from(offset as u32))
+        .right_biased()?;
+    let node = tok
+        .parent_ancestors()
+        .find(|a| a.kind() == org_syntax::SyntaxKind::LINK)?;
+    let link: org_syntax::ast::Link = org_syntax::ast::AstNode::cast(node)?;
+    let info = link.info(p.context());
+    matches!(
+        info.link_type.as_str(),
+        "http" | "https" | "mailto" | "ftp" | "news"
+    )
+    .then(|| info.raw_link.replace(['\x1b', '\x07'], ""))
+}
+
+/// Whether `offset` is in an Org list item's bullet, box or the space
+/// after them, once the parse is current.
+fn org_list_marker(doc: &DocumentState, offset: usize) -> bool {
+    let Some((p, true)) = doc.parse() else {
+        return false;
+    };
+    let root = p.syntax();
+    offset < usize::from(root.text_range().end())
+        && root
+            .token_at_offset(org_syntax::TextSize::from(offset as u32))
+            .right_biased()
+            .is_some_and(|t| {
+                matches!(
+                    t.kind(),
+                    org_syntax::SyntaxKind::BULLET
+                        | org_syntax::SyntaxKind::CHECKBOX
+                        | org_syntax::SyntaxKind::WHITESPACE
+                )
+            })
 }
 
 /// Org's definitions for formulas: those of its `#+LATEX_HEADER` and
@@ -516,6 +590,7 @@ impl ModeView for Flow {
             mono: source,
             folds: false,
             pictures: false,
+            steps_by_view: false,
             ..ViewTraits::DOCUMENT
         }
     }
@@ -551,6 +626,7 @@ impl ModeView for Plain {
             mono: source || matches!(doc.meta.mode, DocumentMode::Text { .. }),
             folds: false,
             pictures: false,
+            steps_by_view: false,
             ..ViewTraits::DOCUMENT
         }
     }
@@ -586,6 +662,14 @@ impl ModeView for Plain {
 struct Org;
 
 impl ModeView for Org {
+    fn link_target(&self, doc: &DocumentState, offset: usize) -> Option<String> {
+        org_link_target(doc, offset)
+    }
+
+    fn list_marker(&self, doc: &DocumentState, offset: usize) -> bool {
+        org_list_marker(doc, offset)
+    }
+
     /// The `#+LATEX_HEADER` definitions.
     fn math_macros(&self, doc: &DocumentState) -> String {
         org_math_macros(doc)
@@ -618,6 +702,7 @@ impl ModeView for Org {
             tab_indents: false,
             folds: doc.parse().is_some_and(|(_, current)| current),
             pictures: doc.parse().is_some_and(|(_, current)| current),
+            steps_by_view: doc.parse().is_some_and(|(_, current)| current),
             heading_folds: true,
             outline_indent: true,
             ..ViewTraits::DOCUMENT
@@ -658,6 +743,14 @@ impl ModeView for Org {
 struct OrgSource;
 
 impl ModeView for OrgSource {
+    fn link_target(&self, doc: &DocumentState, offset: usize) -> Option<String> {
+        org_link_target(doc, offset)
+    }
+
+    fn list_marker(&self, doc: &DocumentState, offset: usize) -> bool {
+        org_list_marker(doc, offset)
+    }
+
     /// The `#+LATEX_HEADER` definitions.
     fn math_macros(&self, doc: &DocumentState) -> String {
         org_math_macros(doc)
@@ -679,6 +772,7 @@ impl ModeView for OrgSource {
             tab_indents: false,
             folds: false,
             pictures: false,
+            steps_by_view: false,
             ..ViewTraits::DOCUMENT
         }
     }
@@ -820,6 +914,7 @@ impl ModeView for Markdown {
             heading_folds: true,
             line_pictures: false,
             math_text: true,
+            steps_by_view: false,
             ..ViewTraits::DOCUMENT
         }
     }
@@ -862,6 +957,7 @@ impl ModeView for Csv {
             wraps: false,
             folds: false,
             pictures: false,
+            steps_by_view: false,
             ..ViewTraits::DOCUMENT
         }
     }
@@ -897,6 +993,7 @@ impl ModeView for Bib {
             folds: false,
             source_colors: false,
             pictures: false,
+            steps_by_view: false,
             ..ViewTraits::DOCUMENT
         }
     }

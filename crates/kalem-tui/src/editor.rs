@@ -931,17 +931,6 @@ impl<'a> Layout<'a> {
             return Some(g.clone());
         }
         let view = kalem_core::mode_view::table_view(self.doc, self.source, start)?;
-        // The cells are drawn with the Org tree (an Org table's), or an
-        // empty one (another mode's).
-        let empty;
-        let p = match self.parse {
-            Some(p) => p,
-            None => {
-                empty = org_syntax::parse("");
-                &empty
-            }
-        };
-        let root = p.syntax();
         let n = view.align.len();
         let mut widths = vec![1u16; n];
         let mut cells = Vec::new();
@@ -958,8 +947,7 @@ impl<'a> Layout<'a> {
                     };
                     let g = render::glyphs(
                         &lv,
-                        &root,
-                        p.context(),
+                        render::Marks::of(self.doc, self.source),
                         true,
                         false,
                         self.caps,
@@ -1336,8 +1324,7 @@ impl<'a> Layout<'a> {
                 view::line_view_with(&root, p.context(), range.clone(), Some(self.cursor), true);
             let mut lg = render::glyphs(
                 &v,
-                &root,
-                p.context(),
+                render::Marks::of(self.doc, self.source),
                 on_line,
                 false,
                 self.caps,
@@ -1396,8 +1383,7 @@ impl<'a> Layout<'a> {
                     || self.folded.contains(&range.start);
                 let mut lg = render::glyphs(
                     &v,
-                    &root,
-                    p.context(),
+                    render::Marks::of(self.doc, self.source),
                     on_line,
                     folded,
                     self.caps,
@@ -1437,8 +1423,7 @@ impl<'a> Layout<'a> {
                     view::source_line_view(&root, p.context(), self.text().as_str(), range.clone());
                 let mut lg = render::glyphs(
                     &v,
-                    &root,
-                    p.context(),
+                    render::Marks::of(self.doc, self.source),
                     true,
                     false,
                     self.caps,
@@ -1500,11 +1485,9 @@ impl<'a> Layout<'a> {
                 } else {
                     kalem_core::mode_view::formulas_as_text(self.doc, self.source, v)
                 };
-                let empty = org_syntax::parse("");
                 let mut lg = render::glyphs(
                     &v,
-                    &empty.syntax(),
-                    empty.context(),
+                    render::Marks::of(self.doc, self.source),
                     on_line,
                     false,
                     self.caps,

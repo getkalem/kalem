@@ -3,7 +3,6 @@
 //! targets, wrapped into rows.
 
 use kalem_core::view::{CheckState, LineView, Style as ViewStyle, Widget};
-use org_syntax::{ParseContext, SyntaxKind, SyntaxNode, TextSize, ast};
 use ratatui::style::{Color, Modifier, Style};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -407,26 +406,6 @@ fn themed(
     st
 }
 
-/// The OSC 8 target of the link at `offset`: web and mail links only.
-fn link_target(root: &SyntaxNode, ctx: &ParseContext, offset: usize) -> Option<String> {
-    if offset >= usize::from(root.text_range().end()) {
-        return None;
-    }
-    let tok = root
-        .token_at_offset(TextSize::from(offset as u32))
-        .right_biased()?;
-    let node = tok
-        .parent_ancestors()
-        .find(|a| a.kind() == SyntaxKind::LINK)?;
-    let link: ast::Link = ast::AstNode::cast(node)?;
-    let info = link.info(ctx);
-    matches!(
-        info.link_type.as_str(),
-        "http" | "https" | "mailto" | "ftp" | "news"
-    )
-    .then(|| info.raw_link.replace(['\x1b', '\x07'], ""))
-}
-
 /// Superscript and subscript digits and signs, where Unicode has them.
 fn script(text: &str, sup: bool) -> Option<String> {
     let table: &[(char, char)] = if sup {
@@ -483,11 +462,37 @@ pub struct LineGlyphs {
 }
 
 /// The glyphs of one source line. `on_line`: the cursor is on it;
+/// What a line's runs ask of their document beyond the line's view: a
+/// link's web or mail target, whether a run is a list item's marker. The
+/// document's mode answers (`kalem_core::mode_view::link_target`,
+/// `list_marker`); [`Marks::NONE`] for text of no document.
+#[derive(Debug, Clone, Copy)]
+pub struct Marks<'a>(Option<(&'a kalem_core::DocumentState, bool)>);
+
+impl<'a> Marks<'a> {
+    /// No document: no link targets, no markers.
+    pub const NONE: Marks<'static> = Marks(None);
+
+    /// `doc`'s, in the view `source` picks.
+    pub fn of(doc: &'a kalem_core::DocumentState, source: bool) -> Marks<'a> {
+        Marks(Some((doc, source)))
+    }
+
+    fn link_target(&self, at: usize) -> Option<String> {
+        let (doc, source) = self.0?;
+        kalem_core::mode_view::link_target(doc, source, at)
+    }
+
+    fn list_marker(&self, at: usize) -> bool {
+        self.0
+            .is_some_and(|(doc, source)| kalem_core::mode_view::list_marker(doc, source, at))
+    }
+}
+
 /// `folded`: it is the heading of a folded headline.
 pub fn glyphs(
     view: &LineView,
-    root: &SyntaxNode,
-    ctx: &ParseContext,
+    marks: Marks<'_>,
     on_line: bool,
     folded: bool,
     caps: &Caps,
@@ -537,7 +542,7 @@ pub fn glyphs(
         };
         let mut style = style_for(&run.style, level, caps);
         let link = if run.style.link && caps.hyperlinks {
-            link_target(root, ctx, run.src.start)
+            marks.link_target(run.src.start)
         } else {
             None
         };
@@ -592,7 +597,7 @@ pub fn glyphs(
                     .widget
                     .as_ref()
                     .is_some_and(|w| matches!(w, Widget::Checkbox(_)))
-                || tok_is_bullet(root, run.src.start);
+                || marks.list_marker(run.src.start);
             if !is_marker {
                 hang_at = Some(out.len());
                 seen_text = true;
@@ -657,17 +662,4 @@ fn heading_marker(view: &LineView) -> Option<usize> {
         .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()));
     let marker = matches!(t, "-" | "*" | "+" | "•" | "▸" | ">") || numbered;
     (marker && !run.style.bold).then_some(i)
-}
-
-fn tok_is_bullet(root: &SyntaxNode, at: usize) -> bool {
-    at < usize::from(root.text_range().end())
-        && root
-            .token_at_offset(TextSize::from(at as u32))
-            .right_biased()
-            .is_some_and(|t| {
-                matches!(
-                    t.kind(),
-                    SyntaxKind::BULLET | SyntaxKind::CHECKBOX | SyntaxKind::WHITESPACE
-                )
-            })
 }

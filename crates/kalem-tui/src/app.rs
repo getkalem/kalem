@@ -5513,18 +5513,14 @@ impl App {
         let head = self.doc.selection.head;
         let line = text.line_of(head);
         let range = text.line_range(line);
-        let view = match self.doc.parse() {
-            _ if self.doc.latex().is_some() && !self.editor.source => Some(
-                kalem_core::latex_view::line_view(&self.doc, range.clone(), Some(head)),
-            ),
-            Some((p, true)) if !self.editor.source => Some(kalem_core::view::line_view(
-                &p.syntax(),
-                p.context(),
-                range.clone(),
-                Some(head),
-            )),
-            _ => None,
-        };
+        // By what the view shows, over the markup it hides (Org's and
+        // LaTeX's as they read); else by the source's characters.
+        let source = self.editor.source;
+        let view = kalem_core::mode_view::traits(&self.doc, source)
+            .steps_by_view
+            .then(|| {
+                kalem_core::mode_view::line_view(&self.doc, source, range.clone(), Some(head), None)
+            });
         let step = view.as_ref().and_then(|v| {
             if right {
                 v.next_position(head)
