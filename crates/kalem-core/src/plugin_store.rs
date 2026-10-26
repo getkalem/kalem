@@ -36,6 +36,8 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+pub(crate) mod commands;
+
 /// Where the index is read unless the setting `plugins.index` says
 /// otherwise.
 pub const DEFAULT_INDEX: &str =

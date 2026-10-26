@@ -1376,7 +1376,7 @@ pub(crate) fn csv_commands() -> Vec<Command> {
                 "CSV",
                 &[],
                 None,
-                crate::builtin::open_as_workbook,
+                crate::plugin_store::commands::open_as_workbook,
             ),
             Scope::only(&["csv", "text"]),
         ),
