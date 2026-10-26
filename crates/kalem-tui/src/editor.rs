@@ -983,13 +983,9 @@ impl<'a> Layout<'a> {
     /// Colors LaTeX's inline code of a known language (`\lstinline`).
     fn color_inline_code(&self, line: &Range<usize>, glyphs: &mut [Glyph]) {
         let text = self.text();
-        // LaTeX's inline code; a Markdown code block's line with the
-        // state of the block's lines before it.
-        let block = kalem_core::markdown::code_block_on_line(self.doc, line.clone());
-        let code = kalem_core::latex_view::inline_code(self.doc, line.clone())
-            .into_iter()
-            .map(|(r, l)| (r, l, None))
-            .chain(block.map(|(b, i, l)| (b, l, Some(i))));
+        // The mode's code in a language (LaTeX's inline code; a Markdown
+        // code block's line with the state of the block's lines before it).
+        let code = kalem_core::mode_view::code_spans(self.doc, self.source, line.clone());
         for (code, lang, nth) in code {
             let Some(l) = kalem_highlight::Language::find(&lang) else {
                 continue;
@@ -1612,23 +1608,21 @@ impl<'a> Layout<'a> {
                     self.caps,
                     self.raw_math,
                 );
-                if self.doc.latex().is_some() && !self.source {
-                    // LaTeX as it reads: code in its language, the rest as
-                    // the view styles it.
+                let traits = kalem_core::mode_view::traits(self.doc, self.source);
+                if traits.own_code_colors {
+                    // The mode's code in its language (LaTeX as it reads),
+                    // the rest as the view styles it.
                     self.color_code(&range, &mut lg.glyphs);
                     self.color_inline_code(&range, &mut lg.glyphs);
-                } else if !(kalem_core::bibtex::is_bib(self.doc) && !self.source)
-                    || v.runs.iter().all(|r| r.verbatim)
-                {
-                    // Syntax colors where the line shows its source (not a
-                    // BibTeX grid row).
+                } else if traits.source_colors || v.runs.iter().all(|r| r.verbatim) {
+                    // Syntax colors where the line shows its source (a
+                    // BibTeX grid's row only when wholly), and the mode's
+                    // code (a Markdown code block's lines).
                     self.plain_colors(line, &range, &mut lg.glyphs);
                     if self.doc.plugins.generated.is_some() {
                         self.plugin_styles(&range, &mut lg.glyphs);
                     }
-                    if self.doc.meta.mode == kalem_core::DocumentMode::Markdown && !self.source {
-                        self.color_inline_code(&range, &mut lg.glyphs);
-                    }
+                    self.color_inline_code(&range, &mut lg.glyphs);
                 }
                 lg
             }
@@ -1908,8 +1902,9 @@ impl<'a> Layout<'a> {
         if self.source {
             return false;
         }
-        // A Markdown code block, fences included.
-        if kalem_core::markdown::in_code_block(self.doc, self.text().line_range(line)) {
+        // A code block the mode finds itself (Markdown's, fences included).
+        if kalem_core::mode_view::in_code_block(self.doc, self.source, self.text().line_range(line))
+        {
             return true;
         }
         if self.parse.is_none() {

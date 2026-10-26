@@ -883,13 +883,9 @@ pub fn inline_code_colors(
 ) -> Vec<(std::ops::Range<usize>, Hsla)> {
     let text = editor.doc.text();
     let mut out = Vec::new();
-    // LaTeX's inline code; a Markdown code block's line with the state of
-    // the block's lines before it.
-    let block = kalem_core::markdown::code_block_on_line(&editor.doc, range.clone());
-    let code = kalem_core::latex_view::inline_code(&editor.doc, range.clone())
-        .into_iter()
-        .map(|(r, l)| (r, l, None))
-        .chain(block.map(|(b, i, l)| (b, l, Some(i))));
+    // The mode's code in a language (LaTeX's inline code; a Markdown code
+    // block's line with the state of the block's lines before it).
+    let code = kalem_core::mode_view::code_spans(&editor.doc, editor.source, range.clone());
     for (code, lang, nth) in code {
         let Some(l) = kalem_highlight::Language::find(&lang) else {
             continue;
@@ -1429,9 +1425,12 @@ fn prepare(editor: &mut Editor, line: usize, base: Pixels, window: &mut Window) 
     }
     let background = match block.as_ref().map(|b| &b.kind) {
         Some(k) if k.is_code() && !editor.source => Some(theme.code_bg),
-        // A Markdown code block, fences included.
-        _ if !editor.source
-            && kalem_core::markdown::in_code_block(&editor.doc, view.range.clone()) =>
+        // A code block the mode finds itself (Markdown's, fences included).
+        _ if kalem_core::mode_view::in_code_block(
+            &editor.doc,
+            editor.source,
+            view.range.clone(),
+        ) =>
         {
             Some(theme.code_bg)
         }

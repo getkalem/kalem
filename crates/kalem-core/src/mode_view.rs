@@ -73,7 +73,26 @@ pub trait ModeView: Send + Sync {
     fn table_range(&self, _doc: &DocumentState, _pos: usize) -> Option<Range<usize>> {
         None
     }
+
+    /// The code on the line `line` in a language, to color in its syntax:
+    /// each piece's range and language, and for a line of a code block
+    /// (the block's range then) its index among the block's lines, whose
+    /// state follows from those before it.
+    fn code_spans(&self, _doc: &DocumentState, _line: Range<usize>) -> Vec<CodeSpan> {
+        Vec::new()
+    }
+
+    /// Whether the line `line` is in a code block the mode finds itself
+    /// (Markdown's, fences included), drawn on the code background; the
+    /// others' are their code blocks ([`view::BlockKind::is_code`]).
+    fn in_code_block(&self, _doc: &DocumentState, _line: Range<usize>) -> bool {
+        false
+    }
 }
+
+/// A piece of code to color ([`ModeView::code_spans`]): its range, its
+/// language, and for a line of a code block, the line's index in it.
+pub type CodeSpan = (Range<usize>, String, Option<usize>);
 
 /// What the editors do with a mode's documents beyond drawing their lines
 /// ([`ModeView::traits`], [`traits`]): the things they decided by asking
@@ -104,6 +123,14 @@ pub struct ViewTraits {
     /// The text is indented by its heading's depth (`org-indent-mode`,
     /// with `editor.outline_indent`).
     pub outline_indent: bool,
+    /// The mode colors its code itself (code environments and inline code
+    /// in their language, [`ModeView::code_spans`]) and the language
+    /// highlighter colors none of its lines (LaTeX as it reads).
+    pub own_code_colors: bool,
+    /// The language highlighter colors its lines where they show their
+    /// source; otherwise only a line shown wholly as its source (a BibTeX
+    /// grid's rows).
+    pub source_colors: bool,
 }
 
 impl ViewTraits {
@@ -119,6 +146,8 @@ impl ViewTraits {
         folds: true,
         heading_folds: false,
         outline_indent: false,
+        own_code_colors: false,
+        source_colors: true,
     };
 }
 
@@ -148,6 +177,17 @@ pub fn table_view(doc: &DocumentState, source: bool, start: usize) -> Option<vie
 /// ([`ModeView::table_range`]).
 pub fn table_range(doc: &DocumentState, source: bool, pos: usize) -> Option<Range<usize>> {
     view_of(doc, source).table_range(doc, pos)
+}
+
+/// The code on the line `line` of `doc` ([`ModeView::code_spans`]).
+pub fn code_spans(doc: &DocumentState, source: bool, line: Range<usize>) -> Vec<CodeSpan> {
+    view_of(doc, source).code_spans(doc, line)
+}
+
+/// Whether the line `line` of `doc` is in a code block its mode finds
+/// itself ([`ModeView::in_code_block`]).
+pub fn in_code_block(doc: &DocumentState, source: bool, line: Range<usize>) -> bool {
+    view_of(doc, source).in_code_block(doc, line)
 }
 
 /// The paragraphs of `doc` shown as one away from the cursor
@@ -537,6 +577,22 @@ impl ModeView for OrgSource {
 struct Latex;
 
 impl ModeView for Latex {
+    /// Its code in its language, its own way.
+    fn traits(&self, _: &DocumentState, _: bool) -> ViewTraits {
+        ViewTraits {
+            own_code_colors: true,
+            ..ViewTraits::DOCUMENT
+        }
+    }
+
+    /// `\lstinline` with a language.
+    fn code_spans(&self, doc: &DocumentState, line: Range<usize>) -> Vec<CodeSpan> {
+        crate::latex_view::inline_code(doc, line)
+            .into_iter()
+            .map(|(r, l)| (r, l, None))
+            .collect()
+    }
+
     fn table_view(&self, doc: &DocumentState, start: usize) -> Option<view::TableView> {
         crate::latex_table::table_view(doc, start)
     }
@@ -571,6 +627,18 @@ impl ModeView for Latex {
 struct Markdown;
 
 impl ModeView for Markdown {
+    /// A code block's line, with the block's lines before it.
+    fn code_spans(&self, doc: &DocumentState, line: Range<usize>) -> Vec<CodeSpan> {
+        crate::markdown::code_block_on_line(doc, line)
+            .map(|(b, i, l)| (b, l, Some(i)))
+            .into_iter()
+            .collect()
+    }
+
+    fn in_code_block(&self, doc: &DocumentState, line: Range<usize>) -> bool {
+        crate::markdown::in_code_block(doc, line)
+    }
+
     /// None while every marker shows (its tables are then their source).
     fn table_view(&self, doc: &DocumentState, start: usize) -> Option<view::TableView> {
         if view::source_markers() == view::Markers::Always {
@@ -661,6 +729,7 @@ impl ModeView for Bib {
         ViewTraits {
             mono: true,
             folds: false,
+            source_colors: false,
             ..ViewTraits::DOCUMENT
         }
     }
