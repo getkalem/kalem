@@ -8,6 +8,8 @@ use std::ops::Range;
 
 use org_edit::Transaction;
 
+pub(crate) mod commands;
+
 /// A field of an entry: `name = value`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Field {
