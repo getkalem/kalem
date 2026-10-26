@@ -15,7 +15,8 @@ pub struct PaletteItem {
     pub title: String,
     /// What it belongs to, as the list's other items do (a command's
     /// group, a menu, a question asked): written before its title,
-    /// `category: title` ([`PaletteItem::label`]).
+    /// `category: title` ([`PaletteItem::label`]), or once above a list
+    /// whose items all share it ([`heading`]).
     pub category: String,
     /// What is said of this item alone (a plugin's version, what an
     /// install brings, a chapter's words): drawn after its title, dimmed
@@ -56,6 +57,15 @@ impl PaletteItem {
             format!("{}: {}", self.category, self.title)
         }
     }
+}
+
+/// The category every item of a list shares (a question asked, a list's
+/// title), which the list shows once above its items rather than before
+/// each title: a long question pushed the titles out of sight ("Revert
+/// the commit …: Ye"). None where an item has none or another.
+pub fn heading(items: &[PaletteItem]) -> Option<&str> {
+    let first = &items.first()?.category;
+    (!first.is_empty() && items.iter().all(|it| it.category == *first)).then_some(first.as_str())
 }
 
 /// The items without their separators, and the indices of the items a
@@ -360,5 +370,30 @@ mod tests {
         assert_eq!(rust.label(), "Install Rust 0.1.2");
         // Found by its detail too.
         assert_eq!(matches(std::slice::from_ref(&rust), "kalem rust").len(), 1);
+    }
+
+    #[test]
+    fn a_heading_is_the_category_every_item_shares() {
+        let item = |category: &str, title: &str| PaletteItem {
+            id: title.into(),
+            title: title.into(),
+            category: category.into(),
+            detail: String::new(),
+            keys: String::new(),
+            also: String::new(),
+        };
+        let asked = "Revert the commit?";
+        assert_eq!(
+            heading(&[item(asked, "Yes"), item(asked, "No")]),
+            Some(asked)
+        );
+        // A command list's groups differ; a choice without one (Cancel).
+        let commands = [item("Org", "Cycle TODO State"), item("File", "Save")];
+        assert_eq!(heading(&commands), None);
+        assert_eq!(
+            heading(&[item("Merge?", "Merge"), item("", "Cancel")]),
+            None
+        );
+        assert_eq!(heading(&[]), None);
     }
 }

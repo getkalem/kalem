@@ -45,6 +45,10 @@ pub struct Palette {
     /// The items' order means something (a context menu): kept while
     /// nothing is typed.
     pub ordered: bool,
+    /// The question a list's items answer, the category they all share
+    /// ([`kalem_core::palette::heading`]): drawn once above what is typed,
+    /// wrapped, each item then shown by its title alone.
+    pub heading: Option<String>,
     /// Choosing from a list instead of commands.
     pub pick: Option<Picker>,
     /// Searching a project's files instead.
@@ -77,6 +81,7 @@ impl Palette {
             selected: 0,
             items,
             ordered: false,
+            heading: None,
             pick: None,
             search: None,
             resumable: false,
@@ -84,6 +89,15 @@ impl Palette {
             origin: None,
             matched: Default::default(),
         }
+    }
+
+    /// A list a command or a plugin offers to choose from (a question's
+    /// answers, a menu): in its order, under its question.
+    pub fn choice(items: Vec<PaletteItem>) -> Palette {
+        let mut p = Palette::new(items);
+        p.ordered = true;
+        p.heading = kalem_core::palette::heading(&p.items).map(str::to_string);
+        p
     }
 
     /// A live search of lines, from the cursor at `origin`.
@@ -184,6 +198,14 @@ impl Palette {
         let wide = !apart || details;
         let w = area.width.saturating_sub(4).min(if wide { 90 } else { 70 });
         let x = area.x + (area.width - w) / 2;
+        // The question over the list, wrapped, in the lines that leave
+        // room for what is typed and two answers; where none do, before
+        // each answer as before.
+        let most = (area.height as usize).saturating_sub(6).min(8);
+        let heading = match &self.heading {
+            Some(h) if most > 0 => wrap_text(h, (w - 2) as usize, (w - 2) as usize, most),
+            _ => Vec::new(),
+        };
         // Lines: a title, a detail and keys (or a mark), made only for the
         // rows shown.
         let matches = self.matches();
@@ -207,10 +229,16 @@ impl Palette {
                     (it.title.clone(), it.category.clone(), it.keys.clone())
                 }
                 // A choice without a category (a TODO keyword, a refile
-                // target) shows alone.
+                // target) shows alone, and so does one under its list's
+                // heading.
                 (None, None, _) => {
                     let it = matches[n];
-                    (it.label(), it.detail.clone(), it.keys.clone())
+                    let title = if heading.is_empty() {
+                        it.label()
+                    } else {
+                        it.title.clone()
+                    };
+                    (title, it.detail.clone(), it.keys.clone())
                 }
             }
         };
@@ -229,15 +257,26 @@ impl Palette {
             rows.push(Some(n));
         }
         let h = (rows.len() as u16 + 1)
-            .min(area.height.saturating_sub(2))
+            .min(area.height.saturating_sub(2 + heading.len() as u16))
             .max(1);
         let bg = panel_style(caps);
         let accent = accent_style(caps, bg);
         let y0 = area.y + 1;
-        for y in y0..y0 + h + 1 {
+        // The line of what is typed, under the heading.
+        let top = y0 + heading.len() as u16;
+        for y in y0..top + h + 1 {
             for dx in 0..w {
                 buf[(x + dx, y)].set_symbol(" ").set_style(bg);
             }
+        }
+        for (i, l) in heading.iter().enumerate() {
+            buf.set_stringn(
+                x + 1,
+                y0 + i as u16,
+                l,
+                (w - 2) as usize,
+                bg.add_modifier(Modifier::BOLD),
+            );
         }
         let (prompt, note) = match (&self.search, &self.pick) {
             _ if self.lines.is_some() => {
@@ -281,20 +320,20 @@ impl Palette {
         let prompt = format!("{prompt}{before}{after}");
         buf.set_stringn(
             x + 1,
-            y0,
+            top,
             &prompt,
             (w - 2) as usize,
             accent.add_modifier(Modifier::BOLD),
         );
         if caret + 1 < w - 1 {
-            let cell = &mut buf[(x + 1 + caret, y0)];
+            let cell = &mut buf[(x + 1 + caret, top)];
             cell.set_style(cell.style().add_modifier(Modifier::REVERSED));
         }
         let nw = note.width() as u16;
         if !note.is_empty() && prompt.width() as u16 + nw + 4 < w {
             buf.set_stringn(
                 x + w - nw - 1,
-                y0,
+                top,
                 &note,
                 nw as usize,
                 bg.add_modifier(Modifier::DIM),
@@ -306,7 +345,7 @@ impl Palette {
             .unwrap_or(0);
         let first = at.saturating_sub(h.saturating_sub(2) as usize);
         for (r, row) in rows.iter().enumerate().skip(first).take(h as usize) {
-            let y = y0 + 1 + (r - first) as u16;
+            let y = top + 1 + (r - first) as u16;
             let Some(n) = *row else {
                 let rule = "─".repeat((w - 2) as usize);
                 buf.set_stringn(

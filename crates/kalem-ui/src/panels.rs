@@ -87,6 +87,10 @@ pub struct Palette {
     /// The items' order means something (a context menu): kept while
     /// nothing is typed.
     pub ordered: bool,
+    /// The question a list's items answer, the category they all share
+    /// ([`palette::heading`]): drawn once above what is typed, wrapped,
+    /// each item then shown by its title alone.
+    pub heading: Option<String>,
     /// Asking for an argument instead of choosing a command.
     pub arg: Option<ArgPrompt>,
     /// Choosing from a list instead: documents, files, projects.
@@ -144,6 +148,7 @@ impl Palette {
             selected: 0,
             items: Vec::new(),
             ordered: false,
+            heading: None,
             arg: None,
             pick: None,
             search: None,
@@ -268,6 +273,7 @@ impl Editor {
         // list goes without them.
         p.items = kalem_core::palette::split_separators(items).0;
         p.ordered = true;
+        p.heading = palette::heading(&p.items).map(str::to_string);
         self.palette = Some(p);
         cx.notify();
     }
@@ -1187,7 +1193,9 @@ impl Editor {
         } else {
             format!("{before}▏{after}").replace('\n', "↵")
         };
-        let mut label: Option<String> = None;
+        // A list's question on a line of its own, as an argument's label:
+        // before each answer, a long one cut the answers out of sight.
+        let mut label: Option<String> = p.heading.clone();
         let prompt = match (&p.arg, &p.pick, &p.search) {
             _ if p.lines.is_some() => {
                 let n = p.lines.as_ref().map_or(0, |l| l.hits.len());
@@ -1257,12 +1265,20 @@ impl Editor {
                 .map(|it| (it.title.clone(), it.category.clone(), it.keys.clone()))
                 .collect(),
             // Commands and the lists commands offer: the title after its
-            // category, as the terminal writes it; the item's detail
-            // apart (a plugin's version, what an install brings).
+            // category, as the terminal writes it, or alone under the
+            // list's heading; the item's detail apart (a plugin's version,
+            // what an install brings).
             None => p
                 .matches()
                 .iter()
-                .map(|it| (it.label(), it.detail.clone(), it.keys.clone()))
+                .map(|it| {
+                    let title = if p.heading.is_some() {
+                        it.title.clone()
+                    } else {
+                        it.label()
+                    };
+                    (title, it.detail.clone(), it.keys.clone())
+                })
                 .collect(),
         };
         // A command list's detail stands at the right of its row, cut

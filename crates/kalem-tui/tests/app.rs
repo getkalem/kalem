@@ -4746,14 +4746,22 @@ fn file_manager_right_click() {
         KeyModifiers::NONE,
     );
     // The menu's order, not sorted: Open first, then Open with System
-    // Application.
-    let shown = screen(&mut t).join("\n");
-    let open = shown
-        .find("File: Open\n")
-        .or(shown.find("File: Open "))
-        .expect(&shown);
-    let system = shown.find("Open with System Application").expect(&shown);
+    // Application, each by its title under the menu's name.
+    let rows = screen(&mut t);
+    let shown = rows.join("\n");
+    let line = |what: &str| {
+        rows.iter()
+            .position(|r| r.split('│').nth(1).is_some_and(|l| l.trim() == what))
+            .unwrap_or_else(|| panic!("{what} alone: {shown}"))
+    };
+    let (open, system) = (line("Open"), line("Open with System Application"));
     assert!(open < system, "{shown}");
+    let left = rows[open].chars().position(|c| c == 'O').unwrap();
+    let at = |r: &str| r.chars().skip(left).take(4).collect::<String>();
+    assert!(
+        rows[..open].iter().any(|r| at(r) == "File"),
+        "the menu's name above it: {shown}"
+    );
     for c in "relative".chars() {
         t.key(KeyCode::Char(c), KeyModifiers::NONE);
     }

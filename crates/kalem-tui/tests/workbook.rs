@@ -1514,7 +1514,9 @@ fn borders() {
         KeyCode::Char('D'),
         KeyModifiers::SHIFT,
     )));
-    assert!(t.screen().contains("Line Color: Red"), "{}", t.screen());
+    // The menu's name once, above its colors.
+    let s = t.screen();
+    assert!(s.contains("Line Color") && s.contains("Red #FF0000"), "{s}");
     t.key(KeyCode::Esc);
     t.app
         .run_command("viewer.grid.borderColor", json!({ "color": "#FF0000" }));
@@ -1587,7 +1589,7 @@ fn number_formats() {
     }
     t.key(KeyCode::Char('t'));
     t.key(KeyCode::Char('1'));
-    assert!(t.screen().contains("Scientific"), "{}", t.screen());
+    assert!(t.screen().contains("Percentage"), "{}", t.screen());
     t.key(KeyCode::Esc);
     t.app
         .run_command("viewer.grid.numberFormat", json!({ "code": "0%" }));

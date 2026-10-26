@@ -2257,9 +2257,7 @@ impl App {
                 self.message(tr!("msg-rich-copy-plain"), false);
             }
             Request::Choose(items) => {
-                let mut p = Palette::new(items);
-                p.ordered = true;
-                self.palette = Some(p);
+                self.palette = Some(Palette::choice(items));
                 self.dirty = true;
             }
             Request::OpenAt { path, line, column } => {

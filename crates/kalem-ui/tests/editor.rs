@@ -891,6 +891,50 @@ fn a_choice_shows_its_title_before_its_detail(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn a_long_question_stands_once_above_its_answers(cx: &mut TestAppContext) {
+    // A plugin's confirm (the git plugin's Revert…) is a list whose items
+    // all have its message for their category: the message on a line of
+    // its own above what is typed, wrapped in the box, and each answer by
+    // its title alone rather than cut after the message.
+    let (e, cx) = open("* A\n", cx);
+    let message = "Revert crates/kalem-tui/src/panels.rs and crates/kalem-ui/src/panels.rs, \
+                   staged and not? Its changes are in no commit, and are lost. "
+        .repeat(2);
+    let item = |title: &str| kalem_core::palette::PaletteItem {
+        id: title.into(),
+        title: title.into(),
+        category: message.clone(),
+        detail: String::new(),
+        keys: String::new(),
+        also: String::new(),
+    };
+    e.update(cx, |e, cx| e.open_choice(vec![item("Yes"), item("No")], cx));
+    cx.run_until_parked();
+    let mut at = |name: &'static str| {
+        cx.debug_bounds(name)
+            .unwrap_or_else(|| panic!("{name} drawn"))
+    };
+    let palette = at("palette");
+    let (label, input) = (at("palette-label"), at("palette-input"));
+    let (yes, no) = (at("palette-0-title"), at("palette-1-title"));
+    assert!(
+        label.left() >= palette.left() && label.right() <= palette.right(),
+        "the question {label:?} in the palette {palette:?}"
+    );
+    assert!(
+        label.size.height > input.size.height,
+        "the question wrapped"
+    );
+    assert!(input.top() >= label.bottom() && yes.top() >= input.bottom());
+    // Three characters and two of one width: each answer whole, not a
+    // row's width of the message cut.
+    let w = |b: gpui::Bounds<gpui::Pixels>| f32::from(b.size.width);
+    assert!((w(yes) / 3. - w(no) / 2.).abs() < 0.5, "{yes:?} {no:?}");
+    assert!(w(yes) < w(palette) / 4.);
+    cx.simulate_keystrokes("escape");
+}
+
+#[gpui::test]
 fn install_from_github_asks_for_a_link(cx: &mut TestAppContext) {
     // Install Plugin from GitHub: the palette says what it asks for, and
     // a link that is not GitHub's is refused with why.

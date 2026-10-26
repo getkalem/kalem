@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- A question answered from a list (a plugin's confirm, such as the git plugin's Revert… and Abort…, or its pick with a title) shows its message once, wrapped, above what is typed, and each answer by itself. Both editors wrote the message before every answer ("MESSAGE: Yes"), so a long one cut the answers at the edge of the pane or the palette ("…: Ye"). Any list whose items all share one name, such as the file manager's menu, shows it the same way.
+
 ## [0.6.52] - 2026-10-26
 
 0.6.50 and 0.6.51 were not released: their CI failed on macOS (a test of late plugin answers, fixed below). What they list comes in this release.
