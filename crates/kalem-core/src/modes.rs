@@ -351,7 +351,7 @@ pub fn entry_of(mode: &crate::DocumentMode) -> Option<ModeEntry> {
 
 /// The id of the entry serving documents in `mode`: its name, but a
 /// BibTeX file's own (a text type with a grid of its own).
-pub fn key(mode: &crate::DocumentMode) -> &str {
+pub fn key(mode: &crate::DocumentMode) -> &'static str {
     match mode {
         crate::DocumentMode::Text { language: Some(l) } if l.eq_ignore_ascii_case("bib") => "bib",
         crate::DocumentMode::Registered(id) => id,

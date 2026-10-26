@@ -52,6 +52,14 @@ pub trait ModeView: Send + Sync {
     fn sort(&self, _doc: &DocumentState) -> Option<(usize, bool)> {
         None
     }
+
+    /// The paragraphs set from several source lines that show as one on
+    /// their first line away from the cursor (LaTeX's, as TeX sets them),
+    /// in order; the editors hide their other lines and pass each to
+    /// [`ModeView::line_view`] as its `paragraph`.
+    fn joined_paragraphs(&self, _doc: &DocumentState) -> std::sync::Arc<Vec<Range<usize>>> {
+        std::sync::Arc::default()
+    }
 }
 
 /// What the editors do with a mode's documents beyond drawing their lines
@@ -116,6 +124,12 @@ pub fn shown_lines(doc: &DocumentState, source: bool) -> Option<std::rc::Rc<Vec<
 /// The column `doc`'s view is sorted by ([`ModeView::sort`]).
 pub fn sort(doc: &DocumentState, source: bool) -> Option<(usize, bool)> {
     view_of(doc, source).sort(doc)
+}
+
+/// The paragraphs of `doc` shown as one away from the cursor
+/// ([`ModeView::joined_paragraphs`]); none in the source view.
+pub fn joined_paragraphs(doc: &DocumentState, source: bool) -> std::sync::Arc<Vec<Range<usize>>> {
+    view_of(doc, source).joined_paragraphs(doc)
 }
 
 /// The built-in modes (`crate::modes::ModeEntry`), found by
@@ -490,6 +504,10 @@ impl ModeView for OrgSource {
 struct Latex;
 
 impl ModeView for Latex {
+    fn joined_paragraphs(&self, doc: &DocumentState) -> std::sync::Arc<Vec<Range<usize>>> {
+        crate::latex_view::joined_paragraphs(doc)
+    }
+
     fn line_view(
         &self,
         doc: &DocumentState,

@@ -315,6 +315,14 @@ pub struct Painted {
     pub jumps: Vec<(Bounds<Pixels>, usize)>,
 }
 
+/// The paragraphs shown as one (the editor's cache): for a text version
+/// and a mode's id.
+type Paragraphs = (
+    u64,
+    &'static str,
+    std::sync::Arc<Vec<std::ops::Range<usize>>>,
+);
+
 /// The editor.
 pub struct Editor {
     /// The document.
@@ -452,8 +460,9 @@ pub struct Editor {
     pub math: bool,
     /// The document's `\newcommand`s for formulas, for a text version.
     pub math_macros: RefCell<(u64, Rc<str>)>,
-    /// LaTeX: the paragraphs over several source lines, by version.
-    paragraphs: RefCell<(u64, std::sync::Arc<Vec<std::ops::Range<usize>>>)>,
+    /// The paragraphs over several source lines shown as one (LaTeX's), by
+    /// version and mode.
+    paragraphs: RefCell<Paragraphs>,
     /// Focus mode: only the section holding the cursor shows.
     pub focus_mode: bool,
     /// The Vim layer, with the Vim keymap profile.
@@ -603,7 +612,7 @@ impl Editor {
             menu_hover: None,
             math: true,
             math_macros: RefCell::new((u64::MAX, Rc::from(""))),
-            paragraphs: RefCell::new((u64::MAX, std::sync::Arc::new(Vec::new()))),
+            paragraphs: RefCell::new((u64::MAX, "", std::sync::Arc::new(Vec::new()))),
             focus_mode: false,
             vim: None,
             wrap: true,
@@ -827,21 +836,26 @@ impl Editor {
         b
     }
 
-    /// LaTeX: the paragraphs TeX sets from several source lines, shown
-    /// as one away from the cursor (the source view: none).
+    /// The paragraphs set from several source lines, shown as one away
+    /// from the cursor (LaTeX's; `ModeView::joined_paragraphs`), kept for
+    /// the text's version and the mode (the source view: none).
     fn paragraphs(&self) -> std::sync::Arc<Vec<std::ops::Range<usize>>> {
-        if self.source || self.doc.meta.mode != DocumentMode::Latex {
-            return std::sync::Arc::new(Vec::new());
+        if self.source {
+            return std::sync::Arc::default();
         }
-        let version = self.doc.version();
+        let key = (
+            self.doc.version(),
+            kalem_core::modes::key(&self.doc.meta.mode),
+        );
         let mut p = self.paragraphs.borrow_mut();
-        if p.0 != version {
+        if (p.0, p.1) != key {
             *p = (
-                version,
-                kalem_core::latex_view::joined_paragraphs(&self.doc),
+                key.0,
+                key.1,
+                kalem_core::mode_view::joined_paragraphs(&self.doc, self.source),
             );
         }
-        p.1.clone()
+        p.2.clone()
     }
 
     /// The joined paragraph holding the cursor, if any.
@@ -3163,17 +3177,14 @@ impl Editor {
         if range.end > range.start && text.as_str().as_bytes()[range.end - 1] == b'\r' {
             range.end -= 1;
         }
-        // LaTeX: a paragraph over several lines, away from the cursor, as
-        // one.
-        let paragraph = if self.doc.meta.mode == DocumentMode::Latex && !self.source {
-            let ps = self.paragraphs();
-            let i = ps.partition_point(|p| p.start < range.start);
-            ps.get(i)
-                .filter(|p| p.start == range.start && self.cursor_paragraph().as_ref() != Some(*p))
-                .cloned()
-        } else {
-            None
-        };
+        // A paragraph over several lines, away from the cursor, as one
+        // (LaTeX's).
+        let ps = self.paragraphs();
+        let i = ps.partition_point(|p| p.start < range.start);
+        let paragraph = ps
+            .get(i)
+            .filter(|p| p.start == range.start && self.cursor_paragraph().as_ref() != Some(*p))
+            .cloned();
         let grid = self.doc.meta.mode == DocumentMode::Csv
             && !self.source
             && range.len() <= view::LONG_LINE;

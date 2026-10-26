@@ -693,13 +693,13 @@ impl<'a> Layout<'a> {
                 hidden.push(text.line_start(first + 1)..text.after_line(last));
             }
         }
-        // A LaTeX paragraph over several lines away from the cursor shows as
-        // one, on its first line.
+        // A paragraph over several lines away from the cursor shows as one,
+        // on its first line (LaTeX's).
         let mut paragraphs = Vec::new();
-        if latex && !source {
+        {
             let text = doc.text();
             let c = doc.selection.head;
-            for p in kalem_core::latex_view::joined_paragraphs(doc).iter() {
+            for p in kalem_core::mode_view::joined_paragraphs(doc, source).iter() {
                 if p.start <= c && c <= p.end {
                     continue;
                 }
