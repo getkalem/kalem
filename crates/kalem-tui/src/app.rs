@@ -2272,15 +2272,13 @@ impl App {
             }
             Request::SetSetting { key, value, quiet } => self.set_setting(&key, &value, quiet),
             Request::Copy | Request::Cut
-                if !self.editor.source && kalem_core::csv::copies_cells(&self.doc) =>
+                if kalem_core::mode_view::grid(&self.doc, self.editor.source)
+                    .is_some_and(|g| g.copies_cells(&self.doc)) =>
             {
                 // A rectangle of cells copies as cells, and no selection
                 // the cursor's cell.
-                let id = if r == Request::Cut {
-                    "csv.cutCells"
-                } else {
-                    "csv.copyCells"
-                };
+                let id = kalem_core::mode_view::grid(&self.doc, self.editor.source)
+                    .map_or("", |g| g.copy_command(r == Request::Cut));
                 self.run_command(id, serde_json::json!({}));
             }
             Request::Copy | Request::Cut => {
@@ -3763,12 +3761,11 @@ impl App {
                 let from = self.doc.selection.head;
                 self.doc.clear_extra();
                 if double
-                    && self.doc.meta.mode == kalem_core::DocumentMode::Csv
-                    && !self.editor.source
+                    && let Some(g) = kalem_core::mode_view::grid(&self.doc, self.editor.source)
                 {
-                    // A CSV grid's cell: edited where it was clicked.
+                    // A grid's cell: edited where it was clicked.
                     self.doc.move_cursor(pos, false);
-                    self.run_command("csv.editCell", serde_json::json!({ "here": true }));
+                    self.run_command(g.edit_command(), serde_json::json!({ "here": true }));
                 } else if double {
                     self.select_word(pos);
                 } else {
@@ -5422,16 +5419,17 @@ impl App {
                     return;
                 }
                 if self.doc.extra.is_empty() {
-                    // A CSV grid keeps its column into short records.
-                    let column = (vertical && !shift && !self.editor.source)
-                        .then(|| self.doc.csv_column())
+                    // A grid keeps its column into short records (CSV's).
+                    let grid = kalem_core::mode_view::grid(&self.doc, self.editor.source);
+                    let column = (vertical && !shift)
+                        .then(|| grid.and_then(|g| g.column(&self.doc)))
                         .flatten();
                     let Some(t) = self.motion_target(code, shift, word) else {
                         return;
                     };
                     self.doc.move_cursor(t, shift);
-                    if let Some(c) = column {
-                        self.doc.keep_csv_column(c);
+                    if let (Some(c), Some(g)) = (column, grid) {
+                        g.keep_column(&mut self.doc, c);
                     }
                 } else {
                     // Every cursor moves.
@@ -5496,10 +5494,8 @@ impl App {
                 // of several lines one row (by the text's lines, Down on
                 // the last row went to its last field and typing replaced
                 // it).
-                if self.doc.meta.mode == DocumentMode::Csv && !self.editor.source {
-                    return Some(
-                        kalem_core::csv::view_vertical(&self.doc, head, d).unwrap_or(head),
-                    );
+                if let Some(g) = kalem_core::mode_view::grid(&self.doc, self.editor.source) {
+                    return Some(g.vertical(&self.doc, head, d).unwrap_or(head));
                 }
                 self.editor.vertical(&self.doc, &self.caps, d)
             }
@@ -6631,10 +6627,9 @@ impl App {
             .as_ref()
             .and_then(|v| v.block_ranges(&self.doc))
             .or_else(|| {
-                // A CSV grid's rectangle of cells.
-                (!self.editor.source)
-                    .then(|| kalem_core::csv::rectangle_ranges(&self.doc))
-                    .flatten()
+                // A grid's rectangle of cells (CSV's).
+                kalem_core::mode_view::grid(&self.doc, self.editor.source)
+                    .and_then(|g| g.rectangle_ranges(&self.doc))
             })
             .unwrap_or_else(|| {
                 // More cursors: their selections, and a cell for each caret.

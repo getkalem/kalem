@@ -137,6 +137,93 @@ pub trait ModeView: Send + Sync {
     fn list_marker(&self, _doc: &DocumentState, _offset: usize) -> bool {
         false
     }
+
+    /// The grid of cells the mode draws its documents as (CSV's), with
+    /// what the editors need of it beyond the lines ([`GridView`]).
+    fn grid(&self) -> Option<&'static dyn GridView> {
+        None
+    }
+}
+
+/// A mode drawn as a grid of cells (CSV's; [`ModeView::grid`]): what the
+/// editors need of it beyond its lines. Its rows are the document's
+/// records, its columns their fields; the editors draw the bars, the
+/// pinned header, the frozen first column and the column letters from its
+/// [`GridView::layout`], and ask it where a click falls, how the cursor
+/// steps and which cells are selected.
+pub trait GridView: Send + Sync {
+    /// The grid's layout: its columns' widths and look, which show, the
+    /// records' index and the dialect.
+    fn layout(&self, doc: &DocumentState) -> std::rc::Rc<crate::csv::Layout>;
+
+    /// The cell at the cursor: its record's range and its column.
+    fn cursor_cell(&self, doc: &DocumentState) -> Option<(Range<usize>, usize)>;
+
+    /// The lines of the header row (after a preamble such as `sep=`),
+    /// pinned above the others when the dialect has a header.
+    fn header_lines(&self, doc: &DocumentState) -> std::ops::RangeInclusive<usize>;
+
+    /// Where a click at `x` falls on the row of the line starting at
+    /// `line_start`, by the middles of its column bars (`bars`; `step` the
+    /// width of an empty column past them): the offset, and the column of a
+    /// cell past the record's end. `at` is the click's offset in the text.
+    fn cell_at_bars(
+        &self,
+        doc: &DocumentState,
+        line_start: usize,
+        bars: &[f32],
+        step: f32,
+        x: f32,
+        at: usize,
+    ) -> Option<(usize, Option<usize>)>;
+
+    /// The column a click at `x` falls in on that row, with its record's
+    /// start.
+    fn column_at_bars(
+        &self,
+        doc: &DocumentState,
+        line_start: usize,
+        bars: &[f32],
+        step: f32,
+        x: f32,
+    ) -> Option<(usize, usize)>;
+
+    /// Where the cursor at `from` goes `rows` rows down (up when
+    /// negative), in the column it is in and the order the view shows.
+    fn vertical(&self, doc: &DocumentState, from: usize, rows: isize) -> Option<usize>;
+
+    /// The ranges of the rectangle of cells selected, one a row.
+    fn rectangle_ranges(&self, doc: &DocumentState) -> Option<Vec<Range<usize>>>;
+
+    /// Whether a rectangle of cells is selected (drawn without a caret).
+    fn has_rectangle(&self, doc: &DocumentState) -> bool;
+
+    /// Whether Copy and Cut take cells (a rectangle, or the cursor's cell
+    /// with no selection) rather than text.
+    fn copies_cells(&self, doc: &DocumentState) -> bool;
+
+    /// The column of the cell at the cursor, to keep across a move up or
+    /// down.
+    fn column(&self, doc: &DocumentState) -> Option<usize>;
+
+    /// After a move up or down from column `column`: on a row too short to
+    /// have it, its missing cell in that column.
+    fn keep_column(&self, doc: &mut DocumentState, column: usize);
+
+    /// The command a double click on a cell runs (with `{"here": true}`).
+    fn edit_command(&self) -> &'static str;
+
+    /// The command Copy (`cut` false) or Cut runs when they take cells.
+    fn copy_command(&self, cut: bool) -> &'static str;
+
+    /// Whether the cursor's cell is in Excel's Ready mode: framed, with no
+    /// caret.
+    fn ready(&self, doc: &DocumentState) -> bool;
+}
+
+/// The grid of `doc`'s mode in the view `source` picks ([`ModeView::grid`]).
+pub fn grid(doc: &DocumentState, source: bool) -> Option<&'static dyn GridView> {
+    view_of(doc, source).grid()
 }
 
 /// A piece of code to color ([`ModeView::code_spans`]): its range, its
@@ -942,6 +1029,10 @@ impl ModeView for Markdown {
 struct Csv;
 
 impl ModeView for Csv {
+    fn grid(&self) -> Option<&'static dyn GridView> {
+        Some(&crate::csv::CsvGrid)
+    }
+
     fn shown_lines(&self, doc: &DocumentState) -> Option<std::rc::Rc<Vec<usize>>> {
         crate::csv::shown_lines(doc)
     }

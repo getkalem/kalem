@@ -697,9 +697,9 @@ impl Editor {
             return false;
         };
         let mut top = view.top();
-        if self.doc.meta.mode == DocumentMode::Csv && !self.source {
+        if kalem_core::mode_view::grid(&self.doc, self.source).is_some() {
             // The header row, pinned, is painted over the rows under it.
-            let header = self.csv_header_lines();
+            let header = self.header_lines();
             if !header.contains(&line)
                 && let Some(h) = painted.get(header.end())
             {
@@ -1264,16 +1264,16 @@ impl Editor {
         self.list.scroll_to_reveal_item(i);
         // The header record's place in the list (after a `sep=` or mode
         // line, which is not it), and its lines.
-        let header = self.csv_header_lines();
+        let header = self.header_lines();
         let (header_line, rows) = (*header.start(), header.end() - header.start() + 1);
-        let pinned = self.doc.meta.mode == DocumentMode::Csv
-            && !self.source
+        let grid = kalem_core::mode_view::grid(&self.doc, self.source);
+        let pinned = grid.is_some()
             && self
                 .visible
                 .iter()
                 .position(|&l| l == header_line)
                 .is_some_and(|h| i > h)
-            && kalem_core::csv::layout(&self.doc).dialect.header;
+            && grid.is_some_and(|g| g.layout(&self.doc).dialect.header);
         if pinned {
             let top = self.list.logical_scroll_top();
             let under = i.saturating_sub(rows);
@@ -1286,21 +1286,12 @@ impl Editor {
         }
     }
 
-    /// The lines of a CSV document's header record: after a `sep=` or
-    /// mode line, as many as its quoted line breaks make.
-    fn csv_header_lines(&self) -> std::ops::RangeInclusive<usize> {
-        let text = self.doc.text();
-        let first = text.line_of(kalem_core::csv::preamble(text.as_str()));
-        if self.doc.meta.mode != DocumentMode::Csv {
-            return first..=first;
-        }
-        let layout = kalem_core::csv::layout(&self.doc);
-        let last = layout
-            .index
-            .borrow_mut()
-            .record(text.as_str(), 0, &layout.dialect)
-            .map_or(first, |r| text.line_of(r.range.end).max(first));
-        first..=last
+    /// The lines of a grid's header row (CSV's header record, after a
+    /// `sep=` or mode line, as many as its quoted line breaks make); the
+    /// first line without a grid.
+    fn header_lines(&self) -> std::ops::RangeInclusive<usize> {
+        kalem_core::mode_view::grid(&self.doc, self.source)
+            .map_or(0..=0, |g| g.header_lines(&self.doc))
     }
 
     /// Unfolds the headlines that hide the cursor.
@@ -1548,15 +1539,13 @@ impl Editor {
             Request::SaveAs => self.save_as(window, cx),
             Request::Quit => cx.emit(DocEvent::Quit),
             Request::Copy | Request::Cut
-                if !self.source && kalem_core::csv::copies_cells(&self.doc) =>
+                if kalem_core::mode_view::grid(&self.doc, self.source)
+                    .is_some_and(|g| g.copies_cells(&self.doc)) =>
             {
                 // A rectangle of cells copies as cells, and no selection
                 // the cursor's cell.
-                let id = if r == Request::Cut {
-                    "csv.cutCells"
-                } else {
-                    "csv.copyCells"
-                };
+                let id = kalem_core::mode_view::grid(&self.doc, self.source)
+                    .map_or("", |g| g.copy_command(r == Request::Cut));
                 self.run_command(id, serde_json::json!({}), window, cx);
             }
             Request::Copy | Request::Cut => {
@@ -2905,16 +2894,17 @@ impl Editor {
                         v.move_visual(&mut self.doc, t);
                     }
                 } else if self.doc.extra.is_empty() {
-                    // A CSV grid keeps its column into short records.
-                    let column = (vertical && !shift && !self.source)
-                        .then(|| self.doc.csv_column())
+                    // A grid keeps its column into short records (CSV's).
+                    let grid = kalem_core::mode_view::grid(&self.doc, self.source);
+                    let column = (vertical && !shift)
+                        .then(|| grid.and_then(|g| g.column(&self.doc)))
                         .flatten();
                     let Some(t) = self.motion_target(key, shift, word, line_motion) else {
                         return false;
                     };
                     self.doc.move_cursor(t, shift);
-                    if let Some(c) = column {
-                        self.doc.keep_csv_column(c);
+                    if let (Some(c), Some(g)) = (column, grid) {
+                        g.keep_column(&mut self.doc, c);
                     }
                 } else {
                     // Every cursor moves.
@@ -2999,11 +2989,9 @@ impl Editor {
                 // A CSV grid: the same column, rows as records, whether
                 // drawn yet or not (the text's lines are not the grid's),
                 // in the order the view shows them (a sorted view's too).
-                if self.doc.meta.mode == DocumentMode::Csv && !self.source {
+                if let Some(g) = kalem_core::mode_view::grid(&self.doc, self.source) {
                     let head = self.doc.selection.head;
-                    return Some(
-                        kalem_core::csv::view_vertical(&self.doc, head, rows).unwrap_or(head),
-                    );
+                    return Some(g.vertical(&self.doc, head, rows).unwrap_or(head));
                 }
                 self.vertical(rows)
             }
@@ -3185,9 +3173,8 @@ impl Editor {
             .get(i)
             .filter(|p| p.start == range.start && self.cursor_paragraph().as_ref() != Some(*p))
             .cloned();
-        let grid = self.doc.meta.mode == DocumentMode::Csv
-            && !self.source
-            && range.len() <= view::LONG_LINE;
+        let grid = kalem_core::mode_view::grid(&self.doc, self.source)
+            .filter(|_| range.len() <= view::LONG_LINE);
         let mut v = kalem_core::mode_view::line_view(
             &self.doc,
             self.source,
@@ -3195,8 +3182,8 @@ impl Editor {
             Some(self.doc.selection.head),
             paragraph,
         );
-        // CSV in the spreadsheet look: the grid's cells as a sheet's.
-        if grid && kalem_core::csv::layout(&self.doc).view.sheet {
+        // A grid in the spreadsheet look (CSV's): its cells as a sheet's.
+        if grid.is_some_and(|g| g.layout(&self.doc).view.sheet) {
             sheet_runs(&mut v);
         }
         v
@@ -3429,9 +3416,7 @@ impl Editor {
         x: Pixels,
         at: usize,
     ) -> Option<Option<(usize, Option<usize>)>> {
-        if self.doc.meta.mode != DocumentMode::Csv || self.source {
-            return None;
-        }
+        let grid = kalem_core::mode_view::grid(&self.doc, self.source)?;
         // The middles of the bars of the text, from the grid's left edge.
         let x_at = |o: usize| p.layout.caret(o).origin.x;
         let mut bars = Vec::new();
@@ -3445,12 +3430,10 @@ impl Editor {
             o += r.text.len();
         }
         let step = f32::from(x_at(1) - x_at(0)) * (kalem_core::csv::SHEET_MIN_WIDTH + 3) as f32;
-        if kalem_core::csv::layout(&self.doc).view.sheet
-            && bars.first().is_some_and(|b| f32::from(x) < *b)
-        {
+        if grid.layout(&self.doc).view.sheet && bars.first().is_some_and(|b| f32::from(x) < *b) {
             return Some(None);
         }
-        kalem_core::csv::cell_at_bars(&self.doc, p.view.range.start, &bars, step, f32::from(x), at)
+        grid.cell_at_bars(&self.doc, p.view.range.start, &bars, step, f32::from(x), at)
             .map(Some)
     }
 
@@ -3668,15 +3651,12 @@ impl Editor {
         let from = self.doc.selection.head;
         self.doc.clear_extra();
         match ev.click_count {
-            // A CSV grid's cell: edited where it was clicked, as in Excel.
-            2 if self.doc.meta.mode == DocumentMode::Csv && !self.source => {
+            // A grid's cell: edited where it was clicked, as in Excel.
+            2 if kalem_core::mode_view::grid(&self.doc, self.source).is_some() => {
                 self.doc.move_cursor(pos, false);
-                self.run_command(
-                    "csv.editCell",
-                    serde_json::json!({ "here": true }),
-                    window,
-                    cx,
-                );
+                let edit = kalem_core::mode_view::grid(&self.doc, self.source)
+                    .map_or("", |g| g.edit_command());
+                self.run_command(edit, serde_json::json!({ "here": true }), window, cx);
             }
             2 => self.select_word(pos),
             3 => {
@@ -5161,21 +5141,20 @@ impl gpui::Render for Editor {
         // A CSV file's header row stays at the top when its rows scroll:
         // its record's line, after a `sep=` or mode line (that line was
         // pinned in its place).
-        let header = self.doc.meta.mode == DocumentMode::Csv
-            && !self.source
-            && kalem_core::csv::layout(&self.doc).dialect.header;
-        let header_lines = self.csv_header_lines();
+        let header = kalem_core::mode_view::grid(&self.doc, self.source)
+            .is_some_and(|g| g.layout(&self.doc).dialect.header);
+        let header_lines = self.header_lines();
         let header_line = *header_lines.start();
         let background = theme.background;
         let foreground = theme.foreground;
         let border = theme.border;
         // A spreadsheet-looking CSV grid: the column letters in a bar above
         // the rows, the cursor's column marked.
-        let sheet = (self.doc.meta.mode == DocumentMode::Csv && !self.source)
-            .then(|| kalem_core::csv::layout(&self.doc))
-            .filter(|l| l.view.sheet)
-            .map(|l| {
-                let current = kalem_core::csv::cell_at(&self.doc).map(|(_, _, _, c)| c);
+        let sheet = kalem_core::mode_view::grid(&self.doc, self.source)
+            .map(|g| (g, g.layout(&self.doc)))
+            .filter(|(_, l)| l.view.sheet)
+            .map(|(g, l)| {
+                let current = g.cursor_cell(&self.doc).map(|(_, c)| c);
                 // The columns that show, with their widths.
                 let widths: Vec<(usize, usize)> = kalem_core::csv::sheet_widths(&l)
                     .into_iter()
@@ -5224,9 +5203,8 @@ impl gpui::Render for Editor {
             .then(|| per_char * chars as f32 + px(96.));
         // A CSV grid's frozen first column, in pixels.
         self.frozen.set(
-            (self.doc.meta.mode == DocumentMode::Csv && !self.source)
-                .then(|| kalem_core::csv::frozen_width(&kalem_core::csv::layout(&self.doc)))
-                .flatten()
+            kalem_core::mode_view::grid(&self.doc, self.source)
+                .and_then(|g| kalem_core::csv::frozen_width(&g.layout(&self.doc)))
                 .map_or(px(0.), |w| char_w * w as f32),
         );
         let (mono, size, hscroll, dark) = (

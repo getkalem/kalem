@@ -1848,6 +1848,92 @@ pub struct CsvState {
     pub edit: Option<crate::document::CellEdit>,
 }
 
+/// CSV's grid of cells, as the editors draw it
+/// (`crate::mode_view::GridView`).
+#[derive(Debug)]
+pub struct CsvGrid;
+
+impl crate::mode_view::GridView for CsvGrid {
+    fn layout(&self, doc: &crate::DocumentState) -> std::rc::Rc<Layout> {
+        layout(doc)
+    }
+
+    fn cursor_cell(&self, doc: &crate::DocumentState) -> Option<(Range<usize>, usize)> {
+        cell_at(doc).map(|(_, _, rec, col)| (rec.range, col))
+    }
+
+    fn header_lines(&self, doc: &crate::DocumentState) -> std::ops::RangeInclusive<usize> {
+        let text = doc.text();
+        let first = text.line_of(preamble(text.as_str()));
+        let layout = layout(doc);
+        let last = layout
+            .index
+            .borrow_mut()
+            .record(text.as_str(), 0, &layout.dialect)
+            .map_or(first, |r| text.line_of(r.range.end).max(first));
+        first..=last
+    }
+
+    fn cell_at_bars(
+        &self,
+        doc: &crate::DocumentState,
+        line_start: usize,
+        bars: &[f32],
+        step: f32,
+        x: f32,
+        at: usize,
+    ) -> Option<(usize, Option<usize>)> {
+        cell_at_bars(doc, line_start, bars, step, x, at)
+    }
+
+    fn column_at_bars(
+        &self,
+        doc: &crate::DocumentState,
+        line_start: usize,
+        bars: &[f32],
+        step: f32,
+        x: f32,
+    ) -> Option<(usize, usize)> {
+        column_at_bars(doc, line_start, bars, step, x).map(|(rec, col)| (rec.range.start, col))
+    }
+
+    fn vertical(&self, doc: &crate::DocumentState, from: usize, rows: isize) -> Option<usize> {
+        view_vertical(doc, from, rows)
+    }
+
+    fn rectangle_ranges(&self, doc: &crate::DocumentState) -> Option<Vec<Range<usize>>> {
+        rectangle_ranges(doc)
+    }
+
+    fn has_rectangle(&self, doc: &crate::DocumentState) -> bool {
+        cell_rectangle(doc).is_some()
+    }
+
+    fn copies_cells(&self, doc: &crate::DocumentState) -> bool {
+        copies_cells(doc)
+    }
+
+    fn column(&self, doc: &crate::DocumentState) -> Option<usize> {
+        doc.csv_column()
+    }
+
+    fn keep_column(&self, doc: &mut crate::DocumentState, column: usize) {
+        doc.keep_csv_column(column);
+    }
+
+    fn edit_command(&self) -> &'static str {
+        "csv.editCell"
+    }
+
+    fn copy_command(&self, cut: bool) -> &'static str {
+        if cut { "csv.cutCells" } else { "csv.copyCells" }
+    }
+
+    fn ready(&self, doc: &crate::DocumentState) -> bool {
+        doc.csv_mode() == Some(crate::CellMode::Ready)
+    }
+}
+
 impl CsvState {
     /// Keeps `dialect`, to be detected again once there are two records
     /// when `provisional`.

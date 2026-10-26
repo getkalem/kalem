@@ -1884,30 +1884,29 @@ impl gpui::Element for LineElement {
             .as_ref()
             .and_then(|v| v.block_ranges(&editor.doc))
             .or_else(|| {
-                // A CSV grid's rectangle of cells.
-                (!editor.source)
-                    .then(|| kalem_core::csv::rectangle_ranges(&editor.doc))
-                    .flatten()
+                // A grid's rectangle of cells (CSV's).
+                kalem_core::mode_view::grid(&editor.doc, editor.source)
+                    .and_then(|g| g.rectangle_ranges(&editor.doc))
             })
             .unwrap_or_default();
-        let rectangle = !editor.source && kalem_core::csv::cell_rectangle(&editor.doc).is_some();
+        let rectangle = kalem_core::mode_view::grid(&editor.doc, editor.source)
+            .is_some_and(|g| g.has_rectangle(&editor.doc));
         let marked = editor.marked.clone();
         let view = p.view.clone();
-        // A CSV grid in Excel's Ready mode: the cell is framed, no caret.
-        let ready = !editor.source
-            && editor.doc.csv_mode() == Some(kalem_core::CellMode::Ready)
+        // A grid in Excel's Ready mode (CSV's): the cell is framed, no caret.
+        let ready = kalem_core::mode_view::grid(&editor.doc, editor.source)
+            .is_some_and(|g| g.ready(&editor.doc))
             && editor.doc.selection.anchor == editor.doc.selection.head;
-        let sheet = (editor.doc.meta.mode == kalem_core::DocumentMode::Csv && !editor.source)
-            .then(|| kalem_core::csv::layout(&editor.doc))
-            .filter(|l| l.view.sheet)
-            .map(|l| {
+        let sheet = kalem_core::mode_view::grid(&editor.doc, editor.source)
+            .map(|g| (g, g.layout(&editor.doc)))
+            .filter(|(_, l)| l.view.sheet)
+            .map(|(g, l)| {
                 // The cursor's cell on this row, as the bars count it: the
                 // columns that show (hidden ones have none).
-                let active = kalem_core::csv::cell_at(&editor.doc)
-                    .filter(|(_, _, rec, _)| {
-                        rec.range.start <= view.range.start && view.range.start <= rec.range.end
-                    })
-                    .map(|(_, _, _, c)| c)
+                let active = g
+                    .cursor_cell(&editor.doc)
+                    .filter(|(rec, _)| rec.start <= view.range.start && view.range.start <= rec.end)
+                    .map(|(_, c)| c)
                     .filter(|c| !l.columns.hidden.contains(c))
                     .map(|c| (0..c).filter(|j| !l.columns.hidden.contains(j)).count());
                 SheetRow {
