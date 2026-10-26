@@ -50,7 +50,34 @@ pub(crate) fn new(mode: &DocumentMode, cx: ModeContext<'_>) -> Option<Box<dyn Mo
         DocumentMode::Latex => Some(Box::new(crate::latex_view::LatexState::for_document(
             cx.text, cx.path,
         ))),
+        DocumentMode::Csv => Some(Box::<crate::csv::CsvState>::default()),
         _ => None,
+    }
+}
+
+/// What happened to a document that its mode may answer with the whole
+/// document at hand ([`settle`]), where [`ModeState`]'s hooks see only
+/// the state and the text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Event {
+    /// An edit was applied; `command` when a command made it (not typing).
+    Applied {
+        /// A command's edit.
+        command: bool,
+    },
+    /// The cursor moved; `extend` when the move extends the selection.
+    Moved {
+        /// The selection extended.
+        extend: bool,
+    },
+    /// A step of the history is about to be undone or redone.
+    Replayed,
+}
+
+/// `doc`'s mode answers `event`.
+pub(crate) fn settle(doc: &mut DocumentState, event: Event) {
+    if doc.meta.mode == DocumentMode::Csv {
+        crate::csv::settle(doc, event);
     }
 }
 

@@ -632,7 +632,7 @@ impl<'a> Layout<'a> {
         let order = shown
             .as_ref()
             .zip(rows.as_ref())
-            .filter(|_| doc.csv_sort.is_some() || doc.bib_sort.is_some())
+            .filter(|_| doc.csv().is_some_and(|c| c.sort.is_some()) || doc.bib_sort.is_some())
             .map(|(lines, (at, _))| (lines.clone(), at.clone()));
         let (mut visible, folded) = if let Some((_, ranges)) = &rows {
             (ranges.to_vec(), HashSet::new())
@@ -2434,7 +2434,7 @@ impl EditorView {
         }
         let width = self.width();
         let l = Layout::new(doc, shared!(self), &blocks, caps, width);
-        let sort = (doc.csv_sort, doc.bib_sort);
+        let sort = (doc.csv().and_then(|c| c.sort), doc.bib_sort);
         if sort != self.sort_seen {
             self.sort_seen = sort;
             if let Some(first) = l.first_shown() {

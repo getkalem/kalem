@@ -4093,7 +4093,7 @@ fn csv_filter_and_header_in_the_terminal() {
     assert!(screen_rows.iter().any(|r| r.contains("p20")));
     // A filter: the header and the matching rows (and the cursor's).
     t.at(0);
-    t.app.doc.csv_filter = Some("izmir".into());
+    t.app.doc.csv_mut().unwrap().filter = Some("izmir".into());
     let shown = screen(&mut t).join("\n");
     assert!(shown.contains("p0") && shown.contains("p10") && shown.contains("p20"));
     assert!(!shown.contains("p1 ") && !shown.contains("p5"), "{shown}");
@@ -4101,7 +4101,7 @@ fn csv_filter_and_header_in_the_terminal() {
         shown.contains("3 of 30"),
         "the count in the status line: {shown}"
     );
-    t.app.doc.csv_filter = None;
+    t.app.doc.csv_mut().unwrap().filter = None;
     assert!(screen(&mut t).join("\n").contains("p5"));
 }
 

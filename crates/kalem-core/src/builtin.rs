@@ -1579,6 +1579,19 @@ fn csv_in_cell_extending(
 /// wrapping at the ends, as Excel moves in a selected range; the cells
 /// stay selected (`DocumentState::csv_rect`) and typing goes into the
 /// active cell. `None` without such cells (they left the selection).
+/// The state of the CSV document a command runs on ([`crate::csv::CsvState`]).
+fn csv_state(d: &mut crate::DocumentState) -> Result<&mut crate::csv::CsvState, CommandError> {
+    d.csv_mut()
+        .ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))
+}
+
+/// The columns a CSV document's grid hides; none outside CSV.
+fn csv_hidden(d: &crate::DocumentState) -> std::collections::BTreeSet<usize> {
+    d.csv()
+        .map(|s| s.columns.hidden.clone())
+        .unwrap_or_default()
+}
+
 fn csv_within(ctx: &mut EditorContext<'_>, along_rows: bool, back: bool) -> Option<CommandResult> {
     let d = ctx.doc().ok()?;
     let rect = crate::csv::cell_rectangle(d)?;
@@ -1588,7 +1601,7 @@ fn csv_within(ctx: &mut EditorContext<'_>, along_rows: bool, back: bool) -> Opti
         crate::csv::cell_at(d).map(|(_, r, _, c)| (r, c))?
     };
     let cols: Vec<usize> = (rect.cols.0..=rect.cols.1)
-        .filter(|c| !d.csv_columns.hidden.contains(c))
+        .filter(|c| !d.csv().is_some_and(|s| s.columns.hidden.contains(c)))
         .collect();
     let (nr, nc) = (rect.rows.len(), cols.len());
     if nr == 0 || nc == 0 {
@@ -1617,10 +1630,14 @@ fn csv_within(ctx: &mut EditorContext<'_>, along_rows: bool, back: bool) -> Opti
         (rect.rows[nr - 1], rect.cols.1),
     );
     // The entry in the active cell stays, as Enter enters it.
-    d.csv_edit = None;
-    d.csv_tab_run = None;
+    if let Some(s) = d.csv_mut() {
+        s.edit = None;
+        s.tab_run = None;
+    }
     d.go_to_csv_cell(r, c);
-    d.csv_rect = Some(corners);
+    if let Some(s) = d.csv_mut() {
+        s.rect = Some(corners);
+    }
     Some(Ok(()))
 }
 
@@ -1633,14 +1650,14 @@ fn csv_tab(
 ) -> CommandResult {
     let d = ctx.doc()?;
     let here = crate::csv::cell_at(d).map(|(_, r, _, c)| (r, c));
-    let start = match (d.csv_tab_run, here) {
+    let start = match (d.csv().and_then(|s| s.tab_run), here) {
         (Some((r, c, s)), Some(h)) if (r, c) == h => Some(s),
         _ => here.map(|(_, c)| c),
     };
     step(ctx)?;
     let d = ctx.doc()?;
     let there = crate::csv::cell_at(d).map(|(_, r, _, c)| (r, c));
-    d.csv_tab_run = match (here, there, start) {
+    csv_state(d)?.tab_run = match (here, there, start) {
         (Some((r0, _)), Some((r1, c1)), Some(s)) if r0 == r1 => Some((r1, c1, s)),
         _ => None,
     };
@@ -1665,7 +1682,7 @@ fn csv_step(ctx: &mut EditorContext<'_>, rows: isize, cols: isize, extend: bool)
         return Ok(());
     }
     let (layout, row, rec, col) = csv_cell(d)?;
-    d.csv_tab_run = None;
+    csv_state(d)?.tab_run = None;
     // Up and down in the order the view shows the records (its filter and
     // sort); at either end, where it is.
     let to_row = if rows == 0 {
@@ -1678,7 +1695,7 @@ fn csv_step(ctx: &mut EditorContext<'_>, rows: isize, cols: isize, extend: bool)
     } else {
         csv_shown_column(d, col, cols, layout.widths.len().max(rec.fields.len()))
     };
-    d.csv_edit = None;
+    d.end_csv_entry();
     if extend {
         // The selection's corner on the target cell; past a short
         // record's end, that column's missing cell (it was the record's
@@ -1687,7 +1704,8 @@ fn csv_step(ctx: &mut EditorContext<'_>, rows: isize, cols: isize, extend: bool)
         let anchor = d.selection.anchor;
         if anchor == d.selection.head {
             let version = d.version();
-            d.csv_virtual_anchor = d.csv_virtual_col().map(|c| (anchor, version, c));
+            let kept = d.csv_virtual_col().map(|c| (anchor, version, c));
+            csv_state(d)?.virtual_anchor = kept;
         }
         let rec = layout
             .index
@@ -1704,7 +1722,8 @@ fn csv_step(ctx: &mut EditorContext<'_>, rows: isize, cols: isize, extend: bool)
             None => {
                 let at = rec.range.end;
                 d.selection = org_edit::Selection { anchor, head: at };
-                d.csv_virtual = Some((at, d.version(), to_col));
+                let version = d.version();
+                csv_state(d)?.virtual_cell = Some((at, version, to_col));
             }
         }
         return Ok(());
@@ -1718,7 +1737,7 @@ fn csv_step(ctx: &mut EditorContext<'_>, rows: isize, cols: isize, extend: bool)
 /// most `last`, the first empty column right of the data (past it the
 /// terminal drew no cell); `col` when there is none.
 fn csv_shown_column(d: &crate::DocumentState, col: usize, step: isize, last: usize) -> usize {
-    let hidden = &d.csv_columns.hidden;
+    let hidden = csv_hidden(d);
     let mut to = col as isize;
     loop {
         to += step.signum();
@@ -1787,7 +1806,7 @@ fn csv_edge(ctx: &mut EditorContext<'_>, rows: isize, cols: isize) -> CommandRes
             }
         }
     }
-    d.csv_edit = None;
+    d.end_csv_entry();
     d.go_to_csv_cell(at.0, at.1);
     Ok(())
 }
@@ -1801,7 +1820,7 @@ fn csv_clear_selection(d: &mut crate::DocumentState, now: std::time::Instant) ->
     }
     // Cells Enter and Tab move within: all of them cleared, and kept.
     if let Some(rect) = crate::csv::cell_rectangle(d) {
-        let kept = d.csv_rect;
+        let kept = d.csv().and_then(|s| s.rect);
         let (layout, row, _, col) = csv_cell(d)?;
         if let Some(tx) = crate::csv::clear_cells(d.text().as_str(), &layout, &rect.rows, rect.cols)
             .filter(|tx| csv_changes(d.text().as_str(), tx))
@@ -1809,7 +1828,7 @@ fn csv_clear_selection(d: &mut crate::DocumentState, now: std::time::Instant) ->
             d.apply(&tx, org_edit::ChangeKind::Command, now);
         }
         d.go_to_csv_cell(row, col);
-        d.csv_rect = kept;
+        csv_state(d)?.rect = kept;
         return Ok(());
     }
     let (layout, row, rec, col) = csv_cell(d)?;
@@ -1843,7 +1862,7 @@ fn csv_row_neighbours(
     ctx: &mut EditorContext<'_>,
 ) -> Result<(Option<usize>, Option<usize>), CommandError> {
     let d = ctx.doc()?;
-    if d.csv_sort.is_some() {
+    if d.csv().is_some_and(|s| s.sort.is_some()) {
         return Err(CommandError::new(crate::tr!("msg-csv-sorted-view")));
     }
     Ok(csv_neighbours(ctx))
@@ -1971,9 +1990,9 @@ fn csv_columns(
     let d = ctx.doc()?;
     let (layout, _, _, col) =
         crate::csv::cell_at(d).ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))?;
-    let mut cols = d.csv_columns.clone();
+    let mut cols = csv_state(d)?.columns.clone();
     f(&mut cols, &layout, col)?;
-    d.csv_columns = cols;
+    csv_state(d)?.columns = cols;
     Ok(())
 }
 
@@ -1995,7 +2014,7 @@ fn csv_to_shown_column(ctx: &mut EditorContext<'_>) -> CommandResult {
     let Some((_, _, rec, col)) = crate::csv::cell_at(d) else {
         return Ok(());
     };
-    let hidden = &d.csv_columns.hidden;
+    let hidden = csv_hidden(d);
     let to = (col..rec.fields.len())
         .find(|j| !hidden.contains(j))
         .or_else(|| (0..col).rev().find(|j| !hidden.contains(j)));
@@ -2011,7 +2030,7 @@ fn csv_view(ctx: &mut EditorContext<'_>, f: impl FnOnce(&mut crate::csv::View)) 
     if d.meta.mode != crate::DocumentMode::Csv {
         return Err(CommandError::new(crate::tr!("msg-not-csv")));
     }
-    f(&mut d.csv_view);
+    f(&mut csv_state(d)?.view);
     Ok(())
 }
 
@@ -4730,7 +4749,7 @@ fn csv_commands() -> Vec<Command> {
             }
             csv_tab(ctx, |ctx| {
                 let (_, next) = csv_neighbours(ctx);
-                let hidden = ctx.doc()?.csv_columns.hidden.clone();
+                let hidden = csv_hidden(ctx.doc()?);
                 csv_edit(ctx, |text, l, row, rec, col| {
                     // The next column that shows (Tab went into hidden
                     // ones).
@@ -4789,7 +4808,7 @@ fn csv_commands() -> Vec<Command> {
                 return Ok(());
             }
             let (_, row, _, _) = csv_cell(d)?;
-            d.csv_edit = None;
+            d.end_csv_entry();
             d.go_to_csv_cell(row, 0);
             Ok(())
         }),
@@ -4799,7 +4818,7 @@ fn csv_commands() -> Vec<Command> {
                 return Ok(());
             }
             let (_, row, rec, _) = csv_cell(d)?;
-            d.csv_edit = None;
+            d.end_csv_entry();
             d.go_to_csv_cell(row, rec.fields.len().saturating_sub(1));
             Ok(())
         }),
@@ -4809,7 +4828,7 @@ fn csv_commands() -> Vec<Command> {
             if csv_in_cell(d, |stops, _| stops.first().copied()) {
                 return Ok(());
             }
-            d.csv_edit = None;
+            d.end_csv_entry();
             d.go_to_csv_cell(0, 0);
             Ok(())
         }),
@@ -4824,7 +4843,7 @@ fn csv_commands() -> Vec<Command> {
             let text = d.text().as_str();
             let n = layout.index.borrow_mut().count(text, &layout.dialect);
             let col = layout.widths.len().saturating_sub(1);
-            d.csv_edit = None;
+            d.end_csv_entry();
             d.go_to_csv_cell(n.saturating_sub(1), col);
             Ok(())
         }),
@@ -4835,7 +4854,7 @@ fn csv_commands() -> Vec<Command> {
             let here = args.get("here").and_then(Value::as_bool).unwrap_or(false);
             let (layout, _, rec, col) = csv_cell(d)?;
             if d.csv_editing().is_some() {
-                if let Some(e) = d.csv_edit.as_mut() {
+                if let Some(e) = csv_state(d)?.edit.as_mut() {
                     e.edit = true;
                 }
                 return Ok(());
@@ -4927,7 +4946,7 @@ fn csv_commands() -> Vec<Command> {
             let steps = d.undo_depth();
             csv_clear_selection(d, now)?;
             d.begin_csv_edit(false);
-            if let Some(e) = d.csv_edit.as_mut() {
+            if let Some(e) = csv_state(d)?.edit.as_mut() {
                 e.record = record;
                 e.steps = steps;
             }
@@ -4944,9 +4963,8 @@ fn csv_commands() -> Vec<Command> {
             // After a run of Tabs along the row, the column it started
             // from, as in Excel.
             let d = ctx.doc()?;
-            let start = d
-                .csv_tab_run
-                .take()
+            let run = csv_state(d)?.tab_run.take();
+            let start = run
                 .filter(|&(r, c, _)| csv_cell(d).is_ok_and(|(_, row, _, col)| (row, col) == (r, c)))
                 .map(|(_, _, s)| s);
             csv_edit(ctx, |text, l, row, rec, col| {
@@ -4972,7 +4990,7 @@ fn csv_commands() -> Vec<Command> {
                 }
                 csv_tab(ctx, |ctx| {
                     let (previous, _) = csv_neighbours(ctx);
-                    let hidden = ctx.doc()?.csv_columns.hidden.clone();
+                    let hidden = csv_hidden(ctx.doc()?);
                     csv_edit(ctx, |text, l, row, _, col| {
                         if let Some(c) = (0..col).rev().find(|c| !hidden.contains(c)) {
                             return Ok((None, Some((row, c))));
@@ -5420,8 +5438,9 @@ fn csv_commands() -> Vec<Command> {
             if d.meta.mode != crate::DocumentMode::Csv {
                 return Err(CommandError::new(crate::tr!("msg-not-csv")));
             }
-            d.csv_filter = (!text.is_empty() || column.is_some()).then_some(text);
-            d.csv_filter_column = column;
+            let s = csv_state(d)?;
+            s.filter = (!text.is_empty() || column.is_some()).then_some(text);
+            s.filter_column = column;
             // Filtered again, the edits since too (the view keeps rows
             // edited out of the filter until then).
             crate::csv::view_again(d);
@@ -5434,8 +5453,9 @@ fn csv_commands() -> Vec<Command> {
             let d = ctx.doc()?;
             let (_, _, _, col) = crate::csv::cell_at(d)
                 .ok_or_else(|| CommandError::new(crate::tr!("msg-not-csv")))?;
-            let reverse = reverse || d.csv_sort == Some((col, false));
-            d.csv_sort = Some((col, reverse));
+            let s = csv_state(d)?;
+            let reverse = reverse || s.sort == Some((col, false));
+            s.sort = Some((col, reverse));
             // Sorted again, the edits since too.
             crate::csv::view_again(d);
             Ok(())
@@ -5473,8 +5493,7 @@ fn csv_commands() -> Vec<Command> {
                 return Err(CommandError::new(crate::tr!("msg-csv-quote-delimiter")));
             }
             dialect.delimiter = b;
-            d.csv_dialect.set(Some(dialect));
-            d.csv_dialect_provisional.set(false);
+            csv_state(d)?.set_dialect(dialect, false);
             Ok(())
         }),
         c("csv.setQuote", "Set Quote Character", &[], |ctx, args| {
@@ -5491,8 +5510,7 @@ fn csv_commands() -> Vec<Command> {
                 return Err(CommandError::new(crate::tr!("msg-csv-quote-delimiter")));
             }
             dialect.quote = q;
-            d.csv_dialect.set(Some(dialect));
-            d.csv_dialect_provisional.set(false);
+            csv_state(d)?.set_dialect(dialect, false);
             Ok(())
         }),
         c(
@@ -5503,8 +5521,7 @@ fn csv_commands() -> Vec<Command> {
                 let d = ctx.doc()?;
                 let mut dialect = crate::csv::layout(d).dialect;
                 dialect.header = !dialect.header;
-                d.csv_dialect.set(Some(dialect));
-                d.csv_dialect_provisional.set(false);
+                csv_state(d)?.set_dialect(dialect, false);
                 Ok(())
             },
         ),
@@ -5515,20 +5532,21 @@ fn csv_commands() -> Vec<Command> {
             |ctx, _| {
                 let d = ctx.doc()?;
                 let text = d.text().as_str();
-                d.csv_dialect
-                    .set(Some(crate::csv::detect_for(text, d.meta.path.as_deref())));
-                d.csv_dialect_provisional.set(!crate::csv::settled(text));
+                let dialect = crate::csv::detect_for(text, d.meta.path.as_deref());
+                let provisional = !crate::csv::settled(text);
+                csv_state(d)?.set_dialect(dialect, provisional);
                 Ok(())
             },
         ),
         c("csv.unsortView", "File Order", &[], |ctx, _| {
-            ctx.doc()?.csv_sort = None;
+            csv_state(ctx.doc()?)?.sort = None;
             Ok(())
         }),
         c("csv.clearFilter", "Show All Rows", &[], |ctx, _| {
             let d = ctx.doc()?;
-            d.csv_filter = None;
-            d.csv_filter_column = None;
+            let s = csv_state(d)?;
+            s.filter = None;
+            s.filter_column = None;
             Ok(())
         }),
         c(
@@ -5693,7 +5711,7 @@ fn csv_commands() -> Vec<Command> {
             if d.meta.mode != crate::DocumentMode::Csv {
                 return Err(CommandError::new(crate::tr!("msg-not-csv")));
             }
-            d.csv_paste_block = true;
+            csv_state(d)?.paste_block = true;
             request(ctx, Request::Paste { plain: false })
         }),
         c("csv.fillDown", "Fill Down", &[], |ctx, _| {
@@ -5740,8 +5758,9 @@ fn csv_commands() -> Vec<Command> {
                 d.apply(&tx, org_edit::ChangeKind::Command, now);
                 // Rows are columns now: the view's columns start again, and
                 // the cursor goes with its cell.
-                d.csv_columns = crate::csv::Columns::default();
-                d.csv_sort = None;
+                let s = csv_state(d)?;
+                s.columns = crate::csv::Columns::default();
+                s.sort = None;
                 d.go_to_csv_cell(col, row);
             }
             Ok(())
@@ -13067,7 +13086,7 @@ mod tests {
         assert_eq!(before, after);
         let (t, _) = run("csv.transpose", json!({})).unwrap();
         assert_eq!(t, "name,Cy,Bob,Ada\nn,1,1,1\n");
-        let v = ctx.document.as_deref().unwrap().csv_view;
+        let v = ctx.document.as_deref().unwrap().csv().unwrap().view;
         assert!(v.coordinates && !v.rainbow && !v.align_numbers);
         let msgs = ctx.messages.clone();
         assert!(msgs.iter().any(|m| m.contains("Sum: 4")), "{msgs:?}");
@@ -13116,7 +13135,7 @@ mod tests {
             DocumentMode::Csv,
             &crate::settings::Config::default().parse_base(),
         );
-        d.csv_view = crate::csv::View {
+        d.csv_mut().unwrap().view = crate::csv::View {
             align_numbers: false,
             rainbow: false,
             coordinates: false,
@@ -13144,7 +13163,13 @@ mod tests {
         assert!(run("csv.hideColumn", json!({})).is_err());
         let d = ctx.document.as_deref_mut().unwrap();
         assert_eq!(
-            d.csv_columns.hidden.iter().copied().collect::<Vec<_>>(),
+            d.csv()
+                .unwrap()
+                .columns
+                .hidden
+                .iter()
+                .copied()
+                .collect::<Vec<_>>(),
             vec![0, 1]
         );
         let line = |d: &crate::DocumentState, n: usize| {
@@ -13153,16 +13178,16 @@ mod tests {
             crate::csv::line_view(&crate::csv::layout(d), t.as_str(), r, None).display()
         };
         assert_eq!(line(d, 1), "1");
-        d.csv_columns.hidden.clear();
-        d.csv_columns.widths.insert(1, 6);
+        d.csv_mut().unwrap().columns.hidden.clear();
+        d.csv_mut().unwrap().columns.widths.insert(1, 6);
         assert_eq!(line(d, 1), "Ada  │ a lon… │ 1");
         assert_eq!(line(d, 2), "Bob  │ x      │ 2");
-        d.csv_columns.hidden.insert(2);
+        d.csv_mut().unwrap().columns.hidden.insert(2);
         assert_eq!(line(d, 2), "Bob  │ x");
-        d.csv_columns.frozen = true;
+        d.csv_mut().unwrap().columns.frozen = true;
         assert_eq!(crate::csv::frozen_width(&crate::csv::layout(d)), Some(6));
         // Autosize: the widest value, uncut.
-        d.csv_columns = crate::csv::Columns::default();
+        d.csv_mut().unwrap().columns = crate::csv::Columns::default();
         assert_eq!(d.text().as_str(), text);
         let mut clip2 = Clipboard::default();
         let mut ctx = EditorContext {
@@ -13181,7 +13206,7 @@ mod tests {
         reg.execute("csv.narrowColumn", &mut ctx, &json!({}))
             .unwrap();
         let d = ctx.document.as_deref().unwrap();
-        assert_eq!(d.csv_columns.widths.get(&1), Some(&14));
+        assert_eq!(d.csv().unwrap().columns.widths.get(&1), Some(&14));
         // A column given, as dragging its edge gives it.
         reg.execute(
             "csv.setColumnWidth",
@@ -13190,8 +13215,8 @@ mod tests {
         )
         .unwrap();
         let d = ctx.document.as_deref().unwrap();
-        assert_eq!(d.csv_columns.widths.get(&2), Some(&7));
-        assert_eq!(d.csv_columns.widths.get(&1), Some(&14));
+        assert_eq!(d.csv().unwrap().columns.widths.get(&2), Some(&7));
+        assert_eq!(d.csv().unwrap().columns.widths.get(&1), Some(&14));
         assert_eq!(d.text().as_str(), text);
         // Paste as Block: the next paste writes over the cells.
         reg.execute("csv.pasteBlock", &mut ctx, &json!({})).unwrap();
@@ -13202,7 +13227,7 @@ mod tests {
         let d = ctx.document.as_deref_mut().unwrap();
         d.paste("p\tq\nr\ts\n", None, false, Instant::now());
         assert_eq!(d.text().as_str(), "name,note,n\nAda,p,q\nBob,r,s\n");
-        assert!(!d.csv_paste_block);
+        assert!(!d.csv().unwrap().paste_block);
         // Copy Cells: the rectangle from the anchor's cell to the cursor's.
         d.selection = org_edit::Selection {
             anchor: d.text().as_str().find("p,").unwrap(),
@@ -13245,7 +13270,7 @@ mod tests {
             DocumentMode::Csv,
             &crate::settings::Config::default().parse_base(),
         );
-        d.csv_filter = Some("Izmir".into());
+        d.csv_mut().unwrap().filter = Some("Izmir".into());
         let mut clip = Clipboard::default();
         let config = crate::settings::Config::default();
         let mut ctx = EditorContext {

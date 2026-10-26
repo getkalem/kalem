@@ -4765,7 +4765,9 @@ fn csv_column_width_dragged(cx: &mut TestAppContext) {
     cx.simulate_mouse_up(to, left, none);
     cx.run_until_parked();
     let wide = e
-        .read_with(cx, |e, _| e.doc.csv_columns.widths.get(&1).copied())
+        .read_with(cx, |e, _| {
+            e.doc.csv().unwrap().columns.widths.get(&1).copied()
+        })
         .expect("a width set");
     assert!(wide > 25, "{wide}");
     // Double clicked: as long as the longest value.
@@ -4780,7 +4782,14 @@ fn csv_column_width_dragged(cx: &mut TestAppContext) {
     cx.simulate_mouse_up(edge, left, none);
     cx.run_until_parked();
     assert_eq!(
-        e.read_with(cx, |e, _| e.doc.csv_columns.widths.get(&1).copied()),
+        e.read_with(cx, |e, _| e
+            .doc
+            .csv()
+            .unwrap()
+            .columns
+            .widths
+            .get(&1)
+            .copied()),
         Some("a rather long note here".len())
     );
     assert_eq!(

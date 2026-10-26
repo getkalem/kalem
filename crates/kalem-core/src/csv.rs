@@ -1787,6 +1787,134 @@ pub struct Columns {
     pub frozen: bool,
 }
 
+/// What a CSV document keeps (`crate::mode_state`): its dialect, its view
+/// (filter, sort, the columns, how the grid looks) and where the grid's
+/// cursor is in Excel's terms. None of it is written to the file.
+#[derive(Debug, Default)]
+pub struct CsvState {
+    /// The filter (view state): only the rows with a field holding this
+    /// text show ([`filtered`]).
+    pub filter: Option<String>,
+    /// The filter matches the whole value of this column (a Frequency
+    /// Table's choice), not text in any field.
+    pub filter_column: Option<usize>,
+    /// The filtered or sorted view as last worked out, kept through the
+    /// edits since ([`Frozen`]).
+    pub frozen: std::cell::RefCell<Option<Frozen>>,
+    /// The view sorted by a column (view state), descending when `true`:
+    /// the file keeps its order ([`shown_lines`]).
+    pub sort: Option<(usize, bool)>,
+    /// The dialect, detected when the document is first laid out and
+    /// kept (edits do not change it), or set by hand.
+    pub dialect: std::cell::Cell<Option<Dialect>>,
+    /// The dialect was detected on one record or none, and is detected
+    /// again once there are two ([`settled`]); one set by hand is not.
+    pub dialect_provisional: std::cell::Cell<bool>,
+    /// How the grid shows the document (view state): alignment, rainbow
+    /// columns, the coordinate grid.
+    pub view: View,
+    /// The columns as the grid shows them (view state): hidden ones,
+    /// widths set by hand, the first one frozen.
+    pub columns: Columns,
+    /// The next paste writes over the cells from the cursor's down and to
+    /// the right (Paste as Block), once.
+    pub paste_block: bool,
+    /// A cell selected past the end of its record (a short record's
+    /// missing cell, an empty column right of the data): the cursor at the
+    /// record's end, the version of the text and the column. It holds
+    /// while neither moves (`DocumentState::csv_virtual_col`); typing
+    /// there adds the fields up to it.
+    pub virtual_cell: Option<(usize, u64, usize)>,
+    /// The column of a selection's anchor when it is such a cell past its
+    /// record's end (Shift with an arrow from one): the anchor, the version
+    /// of the text and the column (the selection's rectangle reached
+    /// column A).
+    pub virtual_anchor: Option<(usize, u64, usize)>,
+    /// A run of Tabs (and Shift+Tabs) along a row: the cell it got to (row
+    /// and column) and the column it started from, where Enter goes back
+    /// to on the row below, as in Excel.
+    pub tab_run: Option<(usize, usize, usize)>,
+    /// Cells of several rows or columns that Enter and Tab move the active
+    /// cell (the cursor's) within, as Excel moves in a selected range: the
+    /// corners' rows and columns. They stay selected while the cursor is in
+    /// them and no other move or command ends them ([`cell_rectangle`]).
+    pub rect: Option<((usize, usize), (usize, usize))>,
+    /// The cell being typed into or edited, as Excel's Enter and Edit
+    /// modes; none in its Ready mode, where the cursor is a cell
+    /// (`DocumentState::csv_mode`).
+    pub edit: Option<crate::document::CellEdit>,
+}
+
+impl CsvState {
+    /// Keeps `dialect`, to be detected again once there are two records
+    /// when `provisional`.
+    pub fn set_dialect(&self, dialect: Dialect, provisional: bool) {
+        self.dialect.set(Some(dialect));
+        self.dialect_provisional.set(provisional);
+    }
+}
+
+impl crate::mode_state::ModeState for CsvState {
+    fn edited(
+        &mut self,
+        _cx: crate::mode_state::ModeContext<'_>,
+        tx: &Transaction,
+        _edit: Option<&org_syntax::TextEdit>,
+    ) {
+        if let Some(f) = self.frozen.get_mut() {
+            f.map(tx);
+        }
+    }
+}
+
+/// After an edit (a command's, `command`) or a move of the cursor
+/// (`moved`, `extend` when it extends the selection): what the grid's
+/// cursor was no longer holds.
+pub(crate) fn settle(doc: &mut crate::DocumentState, event: crate::mode_state::Event) {
+    use crate::mode_state::Event;
+    if let Some(s) = doc.csv_mut() {
+        match event {
+            // A command's edit (rows or columns moved) ends cells Enter and
+            // Tab move within; typing into the active cell does not.
+            Event::Applied { command } => {
+                if command {
+                    s.rect = None;
+                }
+            }
+            Event::Moved { extend } => {
+                s.rect = None;
+                if !extend {
+                    s.virtual_anchor = None;
+                    s.tab_run = None;
+                }
+            }
+            // Undo and Redo end the cell's entry.
+            Event::Replayed => s.edit = None,
+        }
+    }
+    doc.settle_csv_edit();
+}
+
+impl crate::DocumentState {
+    /// A CSV document's state ([`CsvState`]); `None` in other modes.
+    pub fn csv(&self) -> Option<&CsvState> {
+        self.mode_state()
+    }
+
+    /// A CSV document's state ([`CsvState`]); `None` in other modes.
+    pub fn csv_mut(&mut self) -> Option<&mut CsvState> {
+        self.mode_state_mut()
+    }
+
+    /// Ends the entry of the cell being typed into or edited, if any (the
+    /// entry stays in the file).
+    pub fn end_csv_entry(&mut self) {
+        if let Some(c) = self.csv_mut() {
+            c.edit = None;
+        }
+    }
+}
+
 /// The view new CSV documents start with: the settings `csv.align_numbers`,
 /// `csv.rainbow` and `csv.coordinates`.
 static VIEW_DEFAULTS: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(1 | 8);
@@ -2260,19 +2388,28 @@ pub fn layout(doc: &crate::DocumentState) -> std::rc::Rc<Layout> {
     // text of one record or none (a new file, a header alone), it is
     // found again until there are two.
     let text = doc.text().as_str();
-    let dialect = match doc.csv_dialect.get() {
-        Some(d) if !doc.csv_dialect_provisional.get() => d,
-        _ => {
+    let state = doc.csv();
+    let kept = state.and_then(|s| s.dialect.get().filter(|_| !s.dialect_provisional.get()));
+    let dialect = match kept {
+        Some(d) => d,
+        None => {
             let d = detect_for(text, doc.meta.path.as_deref());
-            doc.csv_dialect.set(Some(d));
-            doc.csv_dialect_provisional.set(!settled(text));
+            if let Some(s) = state {
+                s.dialect.set(Some(d));
+                s.dialect_provisional.set(!settled(text));
+            }
             d
         }
     };
+    // Outside CSV mode (an export, a test), the grid as it starts.
+    let (view, columns) = state.map_or_else(
+        || (View::default(), Columns::default()),
+        |s| (s.view, s.columns.clone()),
+    );
     let key = (
         (doc.serial(), doc.version(), doc.text().len(), dialect),
-        doc.csv_view,
-        doc.csv_columns.clone(),
+        view,
+        columns,
     );
     LAYOUT.with(|l| {
         if let Some((k, v, _)) = &*l.borrow()
@@ -2289,9 +2426,9 @@ pub fn layout(doc: &crate::DocumentState) -> std::rc::Rc<Layout> {
                 let same = k.0 == key.0.0 && k.3 == key.0.3 && *view == key.1 && *cols == key.2;
                 same.then(|| old.moved(old_text, text, changed(old_text, text)))?
             });
-        let v = std::rc::Rc::new(moved.unwrap_or_else(|| {
-            Layout::with_columns(text, dialect, doc.csv_view, doc.csv_columns.clone())
-        }));
+        let v = std::rc::Rc::new(
+            moved.unwrap_or_else(|| Layout::with_columns(text, dialect, key.1, key.2.clone())),
+        );
         *l.borrow_mut() = Some((key, v.clone(), text.into()));
         v
     })
@@ -2721,7 +2858,7 @@ pub fn cell_rectangle(doc: &crate::DocumentState) -> Option<Rectangle> {
     if sel.anchor == sel.head {
         // Cells Enter and Tab move the active cell within
         // (`DocumentState::csv_rect`), while the cursor is in them.
-        let ((r0, c0), (r1, c1)) = doc.csv_rect?;
+        let ((r0, c0), (r1, c1)) = doc.csv()?.rect?;
         let (_, row, _, col) = cell_at(doc)?;
         let rows = rows_between(doc, r0, r1);
         let cols = (c0.min(c1), c0.max(c1));
@@ -2907,9 +3044,10 @@ thread_local! {
 /// The rows a CSV document's filter keeps ([`filter_rows`] for its text,
 /// filter and cursor), memoized; `None` without a filter.
 pub fn filtered(doc: &crate::DocumentState) -> Option<std::rc::Rc<Filtered>> {
-    let column = doc.csv_filter_column;
-    let needle = doc
-        .csv_filter
+    let state = doc.csv()?;
+    let column = state.filter_column;
+    let needle = state
+        .filter
         .as_deref()
         .filter(|f| !f.is_empty() || column.is_some())?;
     if doc.meta.mode != crate::DocumentMode::Csv {
@@ -3168,14 +3306,17 @@ pub fn view_step(doc: &crate::DocumentState, row: usize, step: isize) -> Option<
 /// their column (`to` gives its new place, `None` when it went); they
 /// stayed by number, on another column.
 pub fn remap_columns(doc: &mut crate::DocumentState, to: impl Fn(usize) -> Option<usize>) {
-    let c = &mut doc.csv_columns;
+    let Some(s) = doc.csv_mut() else {
+        return;
+    };
+    let c = &mut s.columns;
     c.hidden = c.hidden.iter().filter_map(|&j| to(j)).collect();
     c.widths = c
         .widths
         .iter()
         .filter_map(|(&j, &w)| to(j).map(|k| (k, w)))
         .collect();
-    doc.csv_sort = doc.csv_sort.and_then(|(j, r)| to(j).map(|k| (k, r)));
+    s.sort = s.sort.and_then(|(j, r)| to(j).map(|k| (k, r)));
 }
 
 /// Which records a CSV document's filter keeps, in file order; `None`
@@ -3263,7 +3404,9 @@ fn same_place(text: &str, from: &Record, col: usize, head: usize, to: &Record) -
 /// the edits since the last time counted (Filter Rows and Sort View do,
 /// as a spreadsheet's Reapply).
 pub fn view_again(doc: &mut crate::DocumentState) {
-    *doc.csv_frozen.get_mut() = None;
+    if let Some(s) = doc.csv_mut() {
+        *s.frozen.get_mut() = None;
+    }
     SHOWN.with(|m| *m.borrow_mut() = None);
     WITH_CURSOR.with(|m| *m.borrow_mut() = None);
 }
@@ -3274,11 +3417,12 @@ fn shown(doc: &crate::DocumentState) -> Option<(std::rc::Rc<Shown>, ShownKey, bo
     if doc.meta.mode != crate::DocumentMode::Csv {
         return None;
     }
-    let filtering = doc
-        .csv_filter
+    let state = doc.csv()?;
+    let filtering = state
+        .filter
         .as_deref()
-        .is_some_and(|f| !f.is_empty() || doc.csv_filter_column.is_some());
-    if !filtering && doc.csv_sort.is_none() {
+        .is_some_and(|f| !f.is_empty() || state.filter_column.is_some());
+    if !filtering && state.sort.is_none() {
         return None;
     }
     let t = doc.text();
@@ -3286,8 +3430,8 @@ fn shown(doc: &crate::DocumentState) -> Option<(std::rc::Rc<Shown>, ShownKey, bo
     let key = (
         doc.serial(),
         doc.version(),
-        doc.csv_filter.clone().map(|f| (f, doc.csv_filter_column)),
-        doc.csv_sort,
+        state.filter.clone().map(|f| (f, state.filter_column)),
+        state.sort,
         layout(doc).dialect,
     );
     let cached = SHOWN.with(|m| {
@@ -3317,8 +3461,8 @@ fn shown(doc: &crate::DocumentState) -> Option<(std::rc::Rc<Shown>, ShownKey, bo
             // The view as last worked out, kept through the edits since;
             // else worked out now, and kept.
             let frozen_key: FrozenKey = (key.2.clone(), key.3, key.4);
-            let frozen = doc
-                .csv_frozen
+            let frozen = state
+                .frozen
                 .borrow()
                 .as_ref()
                 .filter(|f| f.key == frozen_key)
@@ -3343,11 +3487,11 @@ fn shown(doc: &crate::DocumentState) -> Option<(std::rc::Rc<Shown>, ShownKey, bo
                                 .collect()
                         }
                     };
-                    let order: Vec<usize> = match doc.csv_sort {
+                    let order: Vec<usize> = match state.sort {
                         Some((col, reverse)) => sorted_order(text, d, col, reverse),
                         None => (0..records.len()).collect(),
                     };
-                    *doc.csv_frozen.borrow_mut() = Some(Frozen {
+                    *state.frozen.borrow_mut() = Some(Frozen {
                         key: frozen_key,
                         records: order
                             .iter()
@@ -3426,8 +3570,9 @@ fn status_rest(doc: &crate::DocumentState) -> Option<String> {
 /// The filter as the status bar names it: its text, or for a column's
 /// value `B = value`.
 fn filter_label(doc: &crate::DocumentState) -> String {
-    let text = doc.csv_filter.clone().unwrap_or_default();
-    match doc.csv_filter_column {
+    let state = doc.csv();
+    let text = state.and_then(|s| s.filter.clone()).unwrap_or_default();
+    match state.and_then(|s| s.filter_column) {
         Some(c) => format!("{} = {text}", crate::csv_tools::column_letters(c)),
         None => text,
     }
@@ -3437,7 +3582,8 @@ fn column_status(doc: &crate::DocumentState) -> Option<String> {
     let (layout, _, _, col) = cell_at(doc)?;
     let key = (
         (doc.serial(), doc.version(), col, layout.dialect),
-        doc.csv_filter.clone().map(|f| (f, doc.csv_filter_column)),
+        doc.csv()
+            .and_then(|s| s.filter.clone().map(|f| (f, s.filter_column))),
     );
     STATS.with(|s| {
         if let Some((k, v)) = &*s.borrow()
@@ -3681,7 +3827,7 @@ mod tests {
         d.insert_text("Ali\t30\n", std::time::Instant::now());
         let l = layout(&d);
         assert!(l.dialect.header && l.dialect.delimiter == b'\t');
-        assert!(!d.csv_dialect_provisional.get());
+        assert!(!d.csv().unwrap().dialect_provisional.get());
         // A `.tsv` written with commas only stays read with commas.
         assert_eq!(
             detect_for("a,b\n1,2\n", Some(std::path::Path::new("x.tsv"))).delimiter,
@@ -3691,8 +3837,7 @@ mod tests {
         let d = crate::DocumentState::new("a;b\n", meta("/n/x.csv"), settings);
         let mut set = layout(&d).dialect;
         set.delimiter = b',';
-        d.csv_dialect.set(Some(set));
-        d.csv_dialect_provisional.set(false);
+        d.csv().unwrap().set_dialect(set, false);
         assert_eq!(layout(&d).dialect.delimiter, b',');
     }
 

@@ -252,8 +252,8 @@ fn a_large_file_at_each_keystroke_and_step() {
         let _ = csv::status(&d);
     });
     // Twenty steps down with a filter and a sort on.
-    d.csv_filter = Some("city 7".into());
-    d.csv_sort = Some((3, false));
+    d.csv_mut().unwrap().filter = Some("city 7".into());
+    d.csv_mut().unwrap().sort = Some((3, false));
     let _ = csv::shown_lines(&d);
     let _ = csv::status(&d);
     let steps = time(&mut || {

@@ -974,7 +974,9 @@ impl Editor {
     /// The list item of source line `line`, if it shows.
     pub fn item_of(&self, line: usize) -> Option<usize> {
         // A CSV view sorted by a column shows its lines out of order.
-        if self.doc.csv_sort.is_some() && self.doc.meta.mode == DocumentMode::Csv {
+        if self.doc.csv().is_some_and(|c| c.sort.is_some())
+            && self.doc.meta.mode == DocumentMode::Csv
+        {
             return self.visible.iter().position(|&l| l == line);
         }
         self.visible.binary_search(&line).ok()
@@ -3966,8 +3968,10 @@ impl Editor {
             }
             let delta = ((ev.position.x - x0) / char_w).round() as i64;
             let w = (w0 as i64 + delta).clamp(2, 500) as usize;
-            if self.doc.csv_columns.widths.get(&col) != Some(&w) {
-                self.doc.csv_columns.widths.insert(col, w);
+            if let Some(c) = self.doc.csv_mut()
+                && c.columns.widths.get(&col) != Some(&w)
+            {
+                c.columns.widths.insert(col, w);
                 cx.notify();
             }
             return;
@@ -5376,7 +5380,7 @@ impl gpui::Render for Editor {
                     d
                 };
                 // The frozen column's letters, over the scrolled bar.
-                let column_frozen = self.doc.csv_columns.frozen;
+                let column_frozen = self.doc.csv().is_some_and(|c| c.columns.frozen);
                 let frozen_letters = (self.frozen.get() > px(0.) && hscroll > px(0.))
                     .then(|| widths.first().copied())
                     .flatten()

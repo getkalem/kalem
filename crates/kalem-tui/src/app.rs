@@ -5307,7 +5307,7 @@ impl App {
             }
             _ => {}
         }
-        self.doc.csv_vim = self.vim.is_some();
+        self.doc.vim_keys = self.vim.is_some();
         self.update_cursor_shape();
     }
 

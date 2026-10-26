@@ -314,7 +314,7 @@ pub struct DocumentState {
     back_to_saved: std::cell::Cell<Option<(u64, bool)>>,
     org: Option<OrgState>,
     /// What its mode keeps about it (`crate::mode_state`): a LaTeX
-    /// document's parse and model.
+    /// document's parse and model, a CSV document's dialect and view.
     mode_state: Option<Box<dyn crate::mode_state::ModeState>>,
     settings: Arc<Settings>,
     /// The selection.
@@ -401,64 +401,11 @@ pub struct DocumentState {
     /// The text of a version as the plugins' calls on other threads share
     /// it ([`DocumentState::shared_text`]): copied once a version.
     shared: std::cell::RefCell<Option<(u64, std::sync::Arc<str>)>>,
-    /// A CSV document's filter (view state): only the rows with a field
-    /// holding this text show (`crate::csv::filtered`).
-    pub csv_filter: Option<String>,
-    /// The filter matches the whole value of this column (a Frequency
-    /// Table's choice), not text in any field.
-    pub csv_filter_column: Option<usize>,
-    /// A CSV document's filtered or sorted view as last worked out, kept
-    /// through the edits since (`crate::csv::Frozen`).
-    pub csv_frozen: std::cell::RefCell<Option<crate::csv::Frozen>>,
-    /// A CSV document's view sorted by a column (view state), descending
-    /// when `true`: the file keeps its order (`crate::csv::shown_lines`).
-    pub csv_sort: Option<(usize, bool)>,
-    /// A CSV document's dialect, detected when it is first laid out and
-    /// kept (edits do not change it), or set by hand.
-    pub csv_dialect: std::cell::Cell<Option<crate::csv::Dialect>>,
-    /// The dialect was detected on one record or none, and is detected
-    /// again once there are two (`crate::csv::settled`); one set by hand
-    /// is not.
-    pub csv_dialect_provisional: std::cell::Cell<bool>,
-    /// How the grid shows a CSV document (view state): alignment,
-    /// rainbow columns, the coordinate grid.
-    pub csv_view: crate::csv::View,
-    /// A CSV document's columns as the grid shows them (view state):
-    /// hidden ones, widths set by hand, the first one frozen.
-    pub csv_columns: crate::csv::Columns,
-    /// The next paste into this CSV document writes over the cells from
-    /// the cursor's down and to the right (Paste as Block), once.
-    pub csv_paste_block: bool,
-    /// A cell of a CSV grid selected past the end of its record (a short
-    /// record's missing cell, an empty column right of the data): the
-    /// cursor at the record's end, the version of the text and the
-    /// column. It holds while neither moves (`csv_virtual_col`); typing
-    /// there adds the fields up to it.
-    pub csv_virtual: Option<(usize, u64, usize)>,
-    /// The column of a selection's anchor in a CSV grid when it is such a
-    /// cell past its record's end (Shift with an arrow from one): the
-    /// anchor, the version of the text and the column (the selection's
-    /// rectangle reached column A).
-    pub csv_virtual_anchor: Option<(usize, u64, usize)>,
-    /// A run of Tabs (and Shift+Tabs) along a CSV row: the cell it got to
-    /// (row and column) and the column it started from, where Enter goes
-    /// back to on the row below, as in Excel.
-    pub csv_tab_run: Option<(usize, usize, usize)>,
-    /// Cells of several rows or columns that Enter and Tab move the
-    /// active cell (the cursor's) within, as Excel moves in a selected
-    /// range: the corners' rows and columns. They stay selected while the
-    /// cursor is in them and no other move or command ends them
-    /// (`crate::csv::cell_rectangle`).
-    pub csv_rect: Option<((usize, usize), (usize, usize))>,
-    /// The CSV grid's cell being typed into or edited, as Excel's Enter
-    /// and Edit modes; none in its Ready mode, where the cursor is a cell
-    /// (`csv_mode`).
-    pub csv_edit: Option<CellEdit>,
     /// Vim's keys edit this document (the editor's Vim layer is on): a
     /// CSV grid has no Excel modes then, typing inserts at the cursor as
     /// Vim's insert mode does (a delimiter or a quote still going into
     /// the value) and the cursor shows in the cell.
-    pub csv_vim: bool,
+    pub vim_keys: bool,
     /// A BibTeX grid's sort: the column (`bibtex::COLUMNS`) and whether
     /// descending; the file keeps its order.
     pub bib_sort: Option<(usize, bool)>,
@@ -650,21 +597,7 @@ impl DocumentState {
             folder_layer: std::cell::RefCell::new(None),
             layer: std::cell::RefCell::default(),
             shared: std::cell::RefCell::new(None),
-            csv_filter: None,
-            csv_filter_column: None,
-            csv_frozen: std::cell::RefCell::new(None),
-            csv_sort: None,
-            csv_dialect: std::cell::Cell::new(None),
-            csv_dialect_provisional: std::cell::Cell::new(false),
-            csv_view: crate::csv::View::default(),
-            csv_columns: crate::csv::Columns::default(),
-            csv_paste_block: false,
-            csv_virtual: None,
-            csv_virtual_anchor: None,
-            csv_tab_run: None,
-            csv_rect: None,
-            csv_edit: None,
-            csv_vim: false,
+            vim_keys: false,
             bib_sort: None,
         }
     }
@@ -1729,14 +1662,14 @@ impl DocumentState {
     /// The column of the CSV cell selected past the end of its record,
     /// while the cursor and the text stay as they were (`csv_virtual`).
     pub fn csv_virtual_col(&self) -> Option<usize> {
-        let (head, version, col) = self.csv_virtual?;
+        let (head, version, col) = self.csv()?.virtual_cell?;
         (self.selection.head == head && self.version == version).then_some(col)
     }
 
     /// The column of the selection's anchor when it is a CSV cell past its
     /// record's end (`csv_virtual_anchor`).
     pub fn csv_virtual_anchor_col(&self) -> Option<usize> {
-        let (anchor, version, col) = self.csv_virtual_anchor?;
+        let (anchor, version, col) = self.csv()?.virtual_anchor?;
         (self.selection.anchor == anchor
             && self.selection.head != anchor
             && self.version == version)
@@ -1753,21 +1686,24 @@ impl DocumentState {
             return;
         }
         self.selection = Selection::caret(rec.range.end);
-        self.csv_virtual = Some((rec.range.end, self.version, col));
+        let version = self.version;
+        if let Some(c) = self.csv_mut() {
+            c.virtual_cell = Some((rec.range.end, version, col));
+        }
     }
 
     /// The CSV grid's cell being typed into or edited, while the cursor
     /// is in it.
     pub fn csv_editing(&self) -> Option<&CellEdit> {
-        let e = self.csv_edit.as_ref()?;
+        let e = self.csv()?.edit.as_ref()?;
         let (_, row, _, col) = crate::csv::cell_at(self)?;
         ((row, col) == (e.row, e.col)).then_some(e)
     }
 
     /// The CSV grid's mode: Ready, Enter or Edit; `None` outside CSV and
-    /// with Vim's keys (`csv_vim`), which edit the cells' text.
+    /// with Vim's keys (`vim_keys`), which edit the cells' text.
     pub fn csv_mode(&self) -> Option<CellMode> {
-        if self.meta.mode != DocumentMode::Csv || self.csv_vim {
+        if self.meta.mode != DocumentMode::Csv || self.vim_keys {
             return None;
         }
         Some(match self.csv_editing() {
@@ -1780,8 +1716,11 @@ impl DocumentState {
     /// Ends the cell's entry when the cursor has left it (the entry stays
     /// in the file, as Excel enters it).
     pub fn settle_csv_edit(&mut self) {
-        if self.csv_edit.is_some() && self.csv_editing().is_none() {
-            self.csv_edit = None;
+        if self.csv().is_some_and(|c| c.edit.is_some())
+            && self.csv_editing().is_none()
+            && let Some(c) = self.csv_mut()
+        {
+            c.edit = None;
         }
     }
 
@@ -1794,13 +1733,16 @@ impl DocumentState {
         let record = self.text.as_str()[rec.range.clone()].to_string();
         // The entry's typing a step of its own.
         self.break_undo_group();
-        self.csv_edit = Some(CellEdit {
-            row,
-            col,
-            record,
-            edit,
-            steps: self.history.depth(),
-        });
+        let steps = self.history.depth();
+        if let Some(c) = self.csv_mut() {
+            c.edit = Some(CellEdit {
+                row,
+                col,
+                record,
+                edit,
+                steps,
+            });
+        }
     }
 
     /// The number of undo steps.
@@ -1815,8 +1757,8 @@ impl DocumentState {
             return false;
         };
         // Cells Enter and Tab move within stay selected.
-        let rect = self.csv_rect;
-        self.csv_edit = None;
+        let rect = self.csv().and_then(|c| c.rect);
+        self.end_csv_entry();
         // The entry's own undo steps undone and not kept for Redo (a
         // "Cancel Entry" step of its own let Undo bring the entry back);
         // with history beyond them, the record put back by an edit.
@@ -1836,7 +1778,9 @@ impl DocumentState {
             self.selection = Selection::caret(start);
         }
         self.go_to_csv_cell(e.row, e.col);
-        self.csv_rect = rect;
+        if let Some(c) = self.csv_mut() {
+            c.rect = rect;
+        }
         true
     }
 
@@ -1844,7 +1788,9 @@ impl DocumentState {
     /// start, or past its record's end (selected without a change) when the
     /// record is too short to have it.
     pub fn go_to_csv_cell(&mut self, row: usize, col: usize) {
-        self.csv_rect = None;
+        if let Some(c) = self.csv_mut() {
+            c.rect = None;
+        }
         let layout = crate::csv::layout(self);
         let rec = layout
             .index
@@ -2087,11 +2033,6 @@ impl DocumentState {
         if !tx.is_empty() {
             self.endings.1.clear();
         }
-        // A command's edit (rows or columns moved) ends cells Enter and Tab
-        // move within; typing into the active cell does not.
-        if kind == ChangeKind::Command {
-            self.csv_rect = None;
-        }
         self.apply_raw(tx);
         self.selection = self.clamped(after);
         if !self.extra.is_empty() {
@@ -2109,7 +2050,12 @@ impl DocumentState {
         if !tx.is_empty() {
             self.history.set_cursors(&extra_before, &self.extra);
         }
-        self.settle_csv_edit();
+        crate::mode_state::settle(
+            self,
+            crate::mode_state::Event::Applied {
+                command: kind == ChangeKind::Command,
+            },
+        );
     }
 
     /// The edits applied since the last call (commands, typing, undo,
@@ -2134,19 +2080,16 @@ impl DocumentState {
         while !text.is_char_boundary(p) {
             p -= 1;
         }
-        self.csv_rect = None;
         self.selection = if extend {
             Selection {
                 anchor: self.selection.anchor,
                 head: p,
             }
         } else {
-            self.csv_virtual_anchor = None;
-            self.csv_tab_run = None;
             Selection::caret(p)
         };
         self.break_undo_group();
-        self.settle_csv_edit();
+        crate::mode_state::settle(self, crate::mode_state::Event::Moved { extend });
     }
 
     /// Moves the subtree at `from` before the heading at `to` (or to the
@@ -2188,7 +2131,9 @@ impl DocumentState {
         }
         let mut text = crate::paste::normalize_line_breaks(text);
         // Paste as Block: the cells written over, as a spreadsheet pastes.
-        if std::mem::take(&mut self.csv_paste_block)
+        if self
+            .csv_mut()
+            .is_some_and(|c| std::mem::take(&mut c.paste_block))
             && self.meta.mode == DocumentMode::Csv
             && let Some((layout, row, _, col)) = crate::csv::cell_at(self)
         {
@@ -2486,13 +2431,15 @@ impl DocumentState {
         // every mode (after F2 the text went into the field before).
         let entry = self.csv_editing().cloned();
         let past = col >= rec.fields.len();
-        if (entry.is_none() && !self.csv_vim) || past {
+        if (entry.is_none() && !self.vim_keys) || past {
             let record = match &entry {
                 Some(e) => e.record.clone(),
                 None => self.text.as_str()[rec.range.clone()].to_string(),
             };
             let tx = crate::csv::set_cell(self.text.as_str(), &rec, col, text, &layout.dialect);
-            self.csv_virtual = None;
+            if let Some(c) = self.csv_mut() {
+                c.virtual_cell = None;
+            }
             if entry.is_none() {
                 self.break_undo_group();
             }
@@ -2500,8 +2447,10 @@ impl DocumentState {
                 .as_ref()
                 .map_or_else(|| self.history.depth(), |e| e.steps);
             self.apply(&tx, ChangeKind::Typing, now);
-            if let Some((_, row, _, col)) = crate::csv::cell_at(self) {
-                self.csv_edit = Some(CellEdit {
+            if let Some((_, row, _, col)) = crate::csv::cell_at(self)
+                && let Some(c) = self.csv_mut()
+            {
+                c.edit = Some(CellEdit {
                     row,
                     col,
                     record,
@@ -2558,7 +2507,9 @@ impl DocumentState {
             return false;
         };
         // Paste as Block asked for: this is it.
-        self.csv_paste_block = false;
+        if let Some(c) = self.csv_mut() {
+            c.paste_block = false;
+        }
         let s = self.selection;
         let editing = self.csv_editing().is_some();
         // Typing into a cell (Enter or Edit mode): into it at the caret,
@@ -2631,7 +2582,7 @@ impl DocumentState {
         // The cell pasted into stays selected, as in a spreadsheet: Escape
         // no longer takes the paste back, and the next typing replaces it.
         if !editing {
-            self.csv_edit = None;
+            self.end_csv_entry();
             self.break_undo_group();
         }
         true
@@ -2979,7 +2930,7 @@ impl DocumentState {
             return None;
         }
         let replay = self.history.undo()?;
-        self.csv_edit = None;
+        crate::mode_state::settle(self, crate::mode_state::Event::Replayed);
         if !self.replay(&replay, false) {
             return None;
         }
@@ -3026,7 +2977,7 @@ impl DocumentState {
             return None;
         }
         let replay = self.history.redo()?;
-        self.csv_edit = None;
+        crate::mode_state::settle(self, crate::mode_state::Event::Replayed);
         if !self.replay(&replay, true) {
             return None;
         }
@@ -3047,7 +2998,7 @@ impl DocumentState {
             return None;
         }
         let replay = self.history.redo()?;
-        self.csv_edit = None;
+        crate::mode_state::settle(self, crate::mode_state::Event::Replayed);
         if !self.replay(&replay, true) {
             return None;
         }
@@ -3074,9 +3025,6 @@ impl DocumentState {
         let m = tx.mapper();
         for g in &mut self.gutter {
             g.0 = m.map(g.0, org_edit::Assoc::After);
-        }
-        if let Some(f) = self.csv_frozen.get_mut() {
-            f.map(tx);
         }
         let edit = tx.covering_edit(self.text.as_str());
         if let Some(r) = &self.narrowing {

@@ -328,24 +328,42 @@ fn the_views_columns_follow_theirs() {
     s.at("C1").key("csv.hideColumn");
     s.at("A1").key("csv.insertColumn");
     assert_eq!(
-        s.d.csv_columns.hidden.iter().copied().collect::<Vec<_>>(),
+        s.d.csv()
+            .unwrap()
+            .columns
+            .hidden
+            .iter()
+            .copied()
+            .collect::<Vec<_>>(),
         [3]
     );
     s.at("A1").key("csv.deleteColumn");
     assert_eq!(
-        s.d.csv_columns.hidden.iter().copied().collect::<Vec<_>>(),
+        s.d.csv()
+            .unwrap()
+            .columns
+            .hidden
+            .iter()
+            .copied()
+            .collect::<Vec<_>>(),
         [2]
     );
     s.at("B1").key("csv.moveColumnRight");
     assert_eq!(
-        s.d.csv_columns.hidden.iter().copied().collect::<Vec<_>>(),
+        s.d.csv()
+            .unwrap()
+            .columns
+            .hidden
+            .iter()
+            .copied()
+            .collect::<Vec<_>>(),
         [1]
     );
     assert_eq!(s.cell(), "C1");
     let mut s = Sheet::new("a,b,c\n1,2,3\n");
     s.at("C2").key("csv.sortView");
     s.at("B1").key("csv.deleteColumn");
-    assert_eq!(s.d.csv_sort, Some((1, false)));
+    assert_eq!(s.d.csv().unwrap().sort, Some((1, false)));
 }
 
 #[test]
@@ -609,7 +627,7 @@ fn a_local_variables_block_is_not_records() {
     // Rows pasted past the last go before it.
     s.at("A3");
     s.clip.text = "x\t1\ny\t2\n".into();
-    s.d.csv_paste_block = true;
+    s.d.csv_mut().unwrap().paste_block = true;
     s.d.paste("x\t1\ny\t2\n", None, false, std::time::Instant::now());
     assert_eq!(
         s.text(),
