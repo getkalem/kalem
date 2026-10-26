@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- The editors ask a document's mode for the rest of what they chose by its name (roadmap R3.2, done): CSV's grid of cells (its layout, header, column bars, stepping, selected cells, the commands of Copy, Cut and a double click: `kalem_core::mode_view::GridView`), which linked files open as text, whether the highlighter colors Markdown whole, and the note under the mouse. A mode registered beside the built-in ones (`kalem_core::modes::register`) now opens its linked files in the editor. Nothing else changes for users.
+
 ### Fixed
 - A list offered in the background (Restart a Plugin after a plugin was stopped, a suggestion) opens once the keys have rested for a second, so it no longer takes a key being typed.
 

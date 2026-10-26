@@ -192,7 +192,7 @@ the parity test still passes on the whole corpus.
   from `org-edit`, diagnostics from `org-lint`, Enter as the editor's
   Enter and Tab as the table's next field. `modes::check` passes on the
   32 files of `tests/corpus/org-mode`.
-- [~] R3.2 The editors render from the contract: `line_view`, `blocks`
+- [x] R3.2 The editors render from the contract: `line_view`, `blocks`
   and `outline_items` become trait methods with the per-mode free
   functions behind them; the hand-written dispatch in
   `kalem-tui/src/editor.rs`, `kalem-tui/src/app.rs`, `kalem-ui/src/editor.rs`
@@ -222,9 +222,20 @@ the parity test still passes on the whole corpus.
   `list_marker`; no empty Org tree is made) and `horizontal()` through
   `mode_view::line_view`. `DocumentMode::` 22 in the terminal's, 20 in the
   window's; `latex_view::` and `markdown::` called from the frontends 0
-  and 2. Open: the CSV grid (layout, header, hits, rows in view order,
-  block selection, the keys of its cells), which the editors still reach
-  as `kalem_core::csv` with `DocumentMode::Csv`.
+  and 2.
+  Done (2026-10-26, same branch): the CSV grid (`ModeView::grid`, a
+  `GridView`: layout, the cell at the cursor, the pinned header, a click
+  by the column bars, stepping down the rows shown, the rectangle of cells,
+  Copy and Cut of cells, the double click's command, keeping a column,
+  Ready mode), the files that open as text (`DocumentMode::opens_as_text`),
+  Markdown colored whole only in its source view (`ViewTraits::rich_colors`)
+  and the window's hover note (`ModeView::note_at`). `DocumentMode::` left
+  in the frontends: 10 in the terminal's, 3 in the window's, each about a
+  document's kind (its name in the status bar, a new document's mode, a
+  linked file's detection). Left outside the view contract on purpose:
+  LaTeX's build on save (a save hook, in both editors) and the terminal's
+  table of contents, which chooses LaTeX's or Org's listing and keeps its
+  own Org model (core's `toc::listing` takes the document mutably).
 - [ ] R3.3 One `Request` handler: the shared parts of the two 400-line
   `request` functions move into a core `requests` module that the
   frontends call with a small platform trait (clipboard, open URL, file
