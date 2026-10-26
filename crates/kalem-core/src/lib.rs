@@ -51,6 +51,7 @@ pub mod l10n;
 pub mod languages;
 pub mod latex_build;
 pub mod latex_check;
+mod latex_commands;
 mod latex_complete;
 pub mod latex_edit;
 pub mod latex_fmt;
