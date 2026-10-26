@@ -313,8 +313,9 @@ pub struct DocumentState {
     /// Whether the text at a version is the saved one, worked out once.
     back_to_saved: std::cell::Cell<Option<(u64, bool)>>,
     org: Option<OrgState>,
-    /// The parse of a LaTeX document.
-    latex: Option<crate::latex_view::LatexState>,
+    /// What its mode keeps about it (`crate::mode_state`): a LaTeX
+    /// document's parse and model.
+    mode_state: Option<Box<dyn crate::mode_state::ModeState>>,
     settings: Arc<Settings>,
     /// The selection.
     pub selection: Selection,
@@ -597,13 +598,14 @@ impl DocumentState {
             last_level: None,
             failed: None,
         });
-        let latex = (meta.mode == DocumentMode::Latex).then(|| {
-            let mut l = crate::latex_view::LatexState::new(text.as_str());
-            if let Some(p) = &meta.path {
-                l.find_project(p, text.as_str());
-            }
-            l
-        });
+        let mode_state = crate::mode_state::new(
+            &meta.mode,
+            crate::mode_state::ModeContext {
+                text: text.as_str(),
+                version: 0,
+                path: meta.path.as_deref(),
+            },
+        );
         static SERIAL: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         DocumentState {
             serial: SERIAL.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
@@ -617,7 +619,7 @@ impl DocumentState {
             saved_text: None,
             back_to_saved: std::cell::Cell::new(None),
             org,
-            latex,
+            mode_state,
             settings,
             selection: Selection::caret(0),
             extra: Vec::new(),
@@ -1002,21 +1004,43 @@ impl DocumentState {
         } else if mode != DocumentMode::Org {
             self.org = None;
         }
-        if mode != DocumentMode::Latex {
-            self.latex = None;
-        } else if self.latex.is_none() {
-            let mut l = crate::latex_view::LatexState::new(self.text.as_str());
-            if let Some(p) = &self.meta.path {
-                l.find_project(p, self.text.as_str());
-            }
-            self.latex = Some(l);
+        // The new mode's own state; a mode that stays keeps its.
+        if mode != self.meta.mode || self.mode_state.is_none() {
+            self.mode_state = crate::mode_state::new(
+                &mode,
+                crate::mode_state::ModeContext {
+                    text: self.text.as_str(),
+                    version: self.version,
+                    path: self.meta.path.as_deref(),
+                },
+            );
         }
         self.meta.mode = mode;
     }
 
-    /// The parse and model of a LaTeX document.
-    pub fn latex(&self) -> Option<&crate::latex_view::LatexState> {
-        self.latex.as_ref()
+    /// What its mode keeps about it (`crate::mode_state`).
+    pub(crate) fn mode_slot(&self) -> Option<&dyn crate::mode_state::ModeState> {
+        self.mode_state.as_deref()
+    }
+
+    /// What its mode keeps about it (`crate::mode_state`).
+    pub(crate) fn mode_slot_mut(&mut self) -> Option<&mut dyn crate::mode_state::ModeState> {
+        self.mode_state.as_deref_mut()
+    }
+
+    /// `f` given its mode state of type `T` and the document as that state
+    /// sees it, when the slot holds one.
+    pub(crate) fn with_mode_state<T: crate::mode_state::ModeState, R>(
+        &mut self,
+        f: impl FnOnce(&mut T, crate::mode_state::ModeContext<'_>) -> R,
+    ) -> Option<R> {
+        let s: &mut dyn std::any::Any = self.mode_state.as_deref_mut()?;
+        let cx = crate::mode_state::ModeContext {
+            text: self.text.as_str(),
+            version: self.version,
+            path: self.meta.path.as_deref(),
+        };
+        Some(f(s.downcast_mut()?, cx))
     }
 
     /// Opens a file (§2.3, §2.6), starting its parse from `base`.
@@ -2361,7 +2385,7 @@ impl DocumentState {
     /// For an edit of `range` in the name of a closed environment of a
     /// LaTeX document: the same place at its other end.
     fn latex_mirror(&self, range: std::ops::Range<usize>) -> Option<std::ops::Range<usize>> {
-        let l = self.latex.as_ref()?;
+        let l = self.latex()?;
         crate::latex_edit::mirror(&l.parse().syntax(), range)
     }
 
@@ -2717,7 +2741,7 @@ impl DocumentState {
         }
         // LaTeX: `\begin{name}` typed gets its `\end{name}`; `$`, `\(`,
         // `\[` and `\left(` their closing pairs.
-        if let Some(l) = &self.latex {
+        if let Some(l) = self.latex() {
             if let Some(tx) = crate::latex_edit::typed(
                 self.text.as_str(),
                 self.selection,
@@ -2729,7 +2753,7 @@ impl DocumentState {
             }
             self.insert_text(text, now);
             if text == "}"
-                && let Some(l) = &self.latex
+                && let Some(l) = self.latex()
                 && let Some(tx) = crate::latex_edit::complete_begin(
                     self.text.as_str(),
                     self.selection.head,
@@ -3071,12 +3095,13 @@ impl DocumentState {
         self.layer.get_mut().edited(version, Some(tx));
         *self.shared.get_mut() = None;
         let text = self.text.as_str();
-        if let Some(l) = &mut self.latex {
-            l.edit(text, edit.as_ref());
-            l.diagnostics.map(tx, version);
-            if let Some(first) = tx.edits.first() {
-                l.check_root(text, first.range.start);
-            }
+        if let Some(s) = &mut self.mode_state {
+            let cx = crate::mode_state::ModeContext {
+                text,
+                version,
+                path: self.meta.path.as_deref(),
+            };
+            s.edited(cx, tx, edit.as_ref());
         }
         let Some(org) = &mut self.org else { return };
         let current =
@@ -3101,21 +3126,16 @@ impl DocumentState {
         }
     }
 
-    /// Installs a finished background parse and LaTeX diagnostics, and
-    /// starts LaTeX diagnostics after a pause in typing. Returns whether
-    /// what the view shows changed.
+    /// Installs a finished background parse and what its mode worked out
+    /// in the background (`crate::mode_state`). Returns whether what the
+    /// view shows changed.
     pub fn poll(&mut self) -> bool {
-        let latex = match &mut self.latex {
-            Some(l) => {
-                let project = l.poll_project();
-                let d =
-                    l.diagnostics
-                        .poll(self.version, self.meta.path.as_deref(), self.text.as_str());
-                // Pictures TeX finished drawing.
-                let done = crate::tex_pictures::finished();
-                let pictures = l.pictures_seen.replace(done) != done;
-                project || d || pictures
-            }
+        let mode = match &mut self.mode_state {
+            Some(s) => s.poll(crate::mode_state::ModeContext {
+                text: self.text.as_str(),
+                version: self.version,
+                path: self.meta.path.as_deref(),
+            }),
             None => false,
         };
         // A large Markdown document's first parse, done in the background.
@@ -3123,46 +3143,7 @@ impl DocumentState {
             self.meta.mode == DocumentMode::Markdown && crate::markdown::background_done();
         // Its layer's answer, asked on a thread.
         let layer = self.layer.get_mut().take();
-        self.poll_parse() || latex || markdown || layer
-    }
-
-    /// The LaTeX diagnostics of the text as it is, when they are known
-    /// (they are worked out after a pause in typing).
-    pub fn latex_diagnostics(&self) -> Option<&Arc<Vec<crate::latex_check::Diagnostic>>> {
-        self.latex.as_ref()?.diagnostics.current(self.version)
-    }
-
-    /// Whether a LaTeX document's diagnostics are to be worked out again
-    /// (frontends poll sooner meanwhile).
-    pub fn latex_diagnostics_due(&self) -> bool {
-        self.latex
-            .as_ref()
-            .is_some_and(|l| l.diagnostics.due(self.version))
-    }
-
-    /// Waits for a LaTeX document's project to be found (tests).
-    pub fn wait_for_latex_project(&mut self) {
-        if let Some(l) = &mut self.latex {
-            l.wait_for_project();
-        }
-    }
-
-    /// Waits for the LaTeX diagnostics being worked out, if they are, to
-    /// be ready for the next poll (tests: not a time, which a busy machine
-    /// may pass).
-    pub fn wait_for_latex_diagnostics(&mut self) {
-        if let Some(l) = &mut self.latex {
-            l.diagnostics.wait();
-        }
-    }
-
-    /// Works the LaTeX diagnostics out now rather than in the background
-    /// (tests).
-    pub fn update_latex_diagnostics(&mut self) {
-        if let Some(l) = &mut self.latex {
-            l.diagnostics
-                .update_now(self.version, self.meta.path.as_deref(), self.text.as_str());
-        }
+        self.poll_parse() || mode || markdown || layer
     }
 
     fn poll_parse(&mut self) -> bool {

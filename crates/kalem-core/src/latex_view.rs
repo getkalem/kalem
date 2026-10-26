@@ -405,6 +405,16 @@ impl LatexState {
         }
     }
 
+    /// The state of a document whose text is `text`, its project looked
+    /// for from its file's folder when it has one.
+    pub(crate) fn for_document(text: &str, path: Option<&std::path::Path>) -> LatexState {
+        let mut l = LatexState::new(text);
+        if let Some(p) = path {
+            l.find_project(p, text);
+        }
+        l
+    }
+
     /// After an edit of the text (now `text`): parsed again, only around
     /// the edit where that gives the same tree.
     pub(crate) fn edit(&mut self, text: &str, edit: Option<&org_syntax::TextEdit>) {
@@ -586,7 +596,82 @@ impl LatexState {
             }
         }
     }
+}
 
+impl crate::mode_state::ModeState for LatexState {
+    fn edited(
+        &mut self,
+        cx: crate::mode_state::ModeContext<'_>,
+        tx: &org_edit::Transaction,
+        edit: Option<&org_syntax::TextEdit>,
+    ) {
+        self.edit(cx.text, edit);
+        self.diagnostics.map(tx, cx.version);
+        if let Some(first) = tx.edits.first() {
+            self.check_root(cx.text, first.range.start);
+        }
+    }
+
+    /// The root document once found, the diagnostics after a pause in
+    /// typing, and the pictures TeX finished drawing.
+    fn poll(&mut self, cx: crate::mode_state::ModeContext<'_>) -> bool {
+        let project = self.poll_project();
+        let d = self.diagnostics.poll(cx.version, cx.path, cx.text);
+        let done = crate::tex_pictures::finished();
+        let pictures = self.pictures_seen.replace(done) != done;
+        project || d || pictures
+    }
+}
+
+impl crate::document::DocumentState {
+    /// The parse and model of a LaTeX document.
+    pub fn latex(&self) -> Option<&LatexState> {
+        self.mode_state()
+    }
+
+    fn latex_mut(&mut self) -> Option<&mut LatexState> {
+        self.mode_state_mut()
+    }
+
+    /// The LaTeX diagnostics of the text as it is, when they are known
+    /// (they are worked out after a pause in typing).
+    pub fn latex_diagnostics(&self) -> Option<&Arc<Vec<crate::latex_check::Diagnostic>>> {
+        self.latex()?.diagnostics.current(self.version())
+    }
+
+    /// Whether a LaTeX document's diagnostics are to be worked out again
+    /// (frontends poll sooner meanwhile).
+    pub fn latex_diagnostics_due(&self) -> bool {
+        self.latex()
+            .is_some_and(|l| l.diagnostics.due(self.version()))
+    }
+
+    /// Waits for a LaTeX document's project to be found (tests).
+    pub fn wait_for_latex_project(&mut self) {
+        if let Some(l) = self.latex_mut() {
+            l.wait_for_project();
+        }
+    }
+
+    /// Waits for the LaTeX diagnostics being worked out, if they are, to
+    /// be ready for the next poll (tests: not a time, which a busy machine
+    /// may pass).
+    pub fn wait_for_latex_diagnostics(&mut self) {
+        if let Some(l) = self.latex_mut() {
+            l.diagnostics.wait();
+        }
+    }
+
+    /// Works the LaTeX diagnostics out now rather than in the background
+    /// (tests).
+    pub fn update_latex_diagnostics(&mut self) {
+        self.with_mode_state(|l: &mut LatexState, cx| {
+            l.diagnostics.update_now(cx.version, cx.path, cx.text);
+        });
+    }
+}
+
+impl LatexState {
     /// The labels of the items of list environment `env`.
     fn items(&self, env: &SyntaxNode) -> Arc<Items> {
         let green = env.green();

@@ -74,6 +74,7 @@ pub mod math;
 pub mod menus;
 pub mod merge;
 pub mod mode;
+pub mod mode_state;
 pub mod mode_view;
 pub mod modes;
 pub mod org_mode;
