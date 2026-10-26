@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.49] - 2026-10-26
+
 ### Changed
 - Inside the core, each mode keeps what it knows about an open document in one place of it, its mode's slot (`kalem_core::mode_state`), rather than in fields of the document: LaTeX's parse and model, CSV's dialect and view, the BibTeX grid's sort, the file manager's, a viewer's and a document of flowing text's state; what plugins keep on a document is a part of its own, `DocumentState::plugins`. The CSV grid's typing, pasting and deleting moved out of `document.rs` into `csv/grid.rs`. This is the first step toward the editors drawing every mode through the mode contract (roadmap R3.2) and toward splitting `kalem-core` (R3.7). Nothing changes for users or plugins; for code that uses `kalem-core`, the `csv_*` fields are `doc.csv()` and `doc.csv_mut()` (`csv_vim` is `vim_keys`), `doc.viewer`, `doc.dired` and `doc.flow` are methods of those names (with `_mut`), `bib_sort` is `bib_sort()` and `set_bib_sort`, and `generated`, `graph_view`, `canvas_view`, `row_edit` and `row_resume` are under `doc.plugins`.
 - Inside the core, each family of built-in commands lives with what it serves: CSV's in `csv/commands.rs`, LaTeX's in `latex_commands.rs`, the BibTeX grid's in `bibtex/commands.rs`, the documents of flowing text's in `flow/commands.rs`, Markdown's in `markdown/commands.rs`, the code map's in `lsp/commands.rs` and the plugins' in `plugin_store/commands.rs`, built with the builders now in `command.rs` (`cmd`, `scoped`, `literal_keys`, `literal_when`, …). `builtin.rs` keeps the general and Org commands, 6,000 lines of its 12,000 (roadmap R3.5, R3.7). The commands, their ids, keys and order are as they were.
