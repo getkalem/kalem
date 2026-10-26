@@ -83,6 +83,13 @@ pub trait Extensions: Send {
     /// it would have been with the editors, and told of the documents
     /// open ([`open_documents`]).
     fn installed_changed(&mut self) {}
+
+    /// Starts plugin `plugin` (its short ID), stopped by a failure, again
+    /// ([`restart`]), as it would have started with the editors, and
+    /// tells it of the documents open; why not.
+    fn restart(&mut self, plugin: &str) -> Result<(), String> {
+        Err(format!("The plugin {plugin} cannot be started again"))
+    }
 }
 
 /// What the editors ask a running plugin from threads of their own: its
@@ -494,6 +501,12 @@ pub const DRAW_TIME: std::time::Duration = std::time::Duration::from_millis(100)
 /// own.
 pub const DRAW_MOST: std::time::Duration = std::time::Duration::from_secs(1);
 
+/// The answers of a plugin's layers, completers, formatters and outlines
+/// that may come past [`DRAW_TIME`] in a row before the plugin is stopped
+/// and its restart offered ([`stopped`]); one in time starts the count
+/// again.
+pub const LATE_IN_A_ROW: u32 = 5;
+
 static INSTALLED: Mutex<Option<Box<dyn Extensions>>> = Mutex::new(None);
 
 /// What the plugins registered.
@@ -722,6 +735,67 @@ pub fn install(extensions: Box<dyn Extensions>) {
             }
         },
     ));
+}
+
+/// The plugins a failure stopped, by short ID: those whose restart is
+/// offered ([`stopped`]).
+static STOPPED: Mutex<std::collections::BTreeSet<String>> =
+    Mutex::new(std::collections::BTreeSet::new());
+
+/// The command that starts a plugin stopped by a failure again.
+pub const RESTART: &str = "plugin.restart";
+
+/// Plugin `plugin` (its short ID) was stopped for `why` (a trap, its time
+/// or memory spent, its answers late too often): the user is told, and
+/// offered to start it again ([`RESTART`]) rather than Kalem.
+pub fn stopped(plugin: &str, why: &str) {
+    STOPPED
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(plugin.to_string());
+    crate::jobs::notice(
+        crate::tr!("plugin-stopped", plugin = plugin, why = why),
+        true,
+    );
+    crate::jobs::offer(vec![restart_item(plugin)]);
+}
+
+/// The item that starts plugin `plugin` again.
+fn restart_item(plugin: &str) -> crate::palette::PaletteItem {
+    let title = crate::tr!("plugin-restart-offer", plugin = plugin);
+    crate::palette::PaletteItem {
+        id: crate::palette::invocation(RESTART, &serde_json::json!({ "id": plugin })),
+        also: title.clone(),
+        title,
+        category: crate::tr!("plugin-restart-why"),
+        detail: String::new(),
+        keys: String::new(),
+    }
+}
+
+/// The plugins a failure stopped, which may be started again.
+pub fn stopped_plugins() -> Vec<String> {
+    STOPPED
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .iter()
+        .cloned()
+        .collect()
+}
+
+/// Starts plugin `plugin`, stopped by a failure, again; why not.
+pub fn restart(plugin: &str) -> Result<(), String> {
+    let mut installed = INSTALLED.lock().unwrap_or_else(|e| e.into_inner());
+    let x = installed
+        .as_mut()
+        .ok_or_else(|| format!("The plugin {plugin} cannot be started again"))?;
+    x.restart(plugin)?;
+    drop(installed);
+    STOPPED
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .remove(plugin);
+    Ok(())
 }
 
 /// Changes each time the plugins' commands or bindings change: an editor
@@ -2145,6 +2219,24 @@ pub(crate) fn core_commands() -> Vec<Command> {
         scope: Some(Scope::all()),
     };
     vec![
+        cmd(
+            RESTART,
+            "Restart a Plugin",
+            "Plugins",
+            "pluginStopped",
+            |ctx, args| {
+                if let Some(id) = args["id"].as_str() {
+                    restart(id).map_err(CommandError::new)?;
+                    ctx.messages
+                        .push(crate::tr!("plugin-restarted", plugin = id));
+                    return Ok(());
+                }
+                ctx.requests.push(Request::Choose(
+                    stopped_plugins().iter().map(|p| restart_item(p)).collect(),
+                ));
+                Ok(())
+            },
+        ),
         cmd(ANSWER, "Answer", "Plugins", "pluginAsks", |_, args| {
             let request = args["request"]
                 .as_u64()

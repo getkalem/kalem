@@ -1244,7 +1244,10 @@ impl Loaded {
 /// and events reach it under the plugins' lock as well (`Plugins`); the
 /// editors' threads asking its layers, completers, formatters and
 /// outlines take this lock alone ([`kalem_core::extensions::Calls`]), so
-/// a slow plugin keeps no other waiting.
+/// a slow plugin keeps no other waiting. An event no one waits for an
+/// answer to waits not for a call of its running on such a thread
+/// either: it is queued, and handed over once the call ends
+/// ([`Running::post`]).
 struct Running {
     /// Its short ID.
     id: String,
@@ -1255,6 +1258,13 @@ struct Running {
     /// The kinds of events it subscribes to, as its last call left them:
     /// an event it does not want waits not for its lock.
     wants: std::sync::Mutex<Vec<x::EventKind>>,
+    /// Its commands, as its last call left them: a command finds its
+    /// plugin without waiting for another's lock.
+    commands: std::sync::Mutex<std::collections::BTreeSet<String>>,
+    /// The events handed to it while another thread held it, in order.
+    queued: std::sync::Mutex<std::collections::VecDeque<x::Event>>,
+    /// Its answers in a row that came past the drawing's time.
+    late: std::sync::atomic::AtomicU32,
 }
 
 impl Running {
@@ -1263,18 +1273,135 @@ impl Running {
             id: id.to_string(),
             place,
             wants: std::sync::Mutex::new(extension.subscribed()),
+            commands: std::sync::Mutex::new(extension.commands()),
             extension: std::sync::Mutex::new(Some(extension)),
+            queued: std::sync::Mutex::default(),
+            late: std::sync::atomic::AtomicU32::new(0),
         }
     }
 
-    /// Runs `f` on the instance under its lock; none once stopped.
+    /// Runs `f` on the instance under its lock, the events queued for it
+    /// handed over first; none once stopped.
     fn with<R>(&self, f: impl FnOnce(&mut Extension) -> R) -> Option<R> {
         PLUGIN.with(|p| p.set(self.place));
         let mut held = self.extension.lock().unwrap_or_else(|e| e.into_inner());
-        let ext = held.as_mut()?;
+        // Spent by a failure its caller stops it for.
+        let ext = held.as_mut().filter(|e| !e.spent())?;
+        if let Err(e) = self.hand(ext) {
+            drop(held);
+            self.fail(&e);
+            return None;
+        }
         let out = f(ext);
-        *self.wants.lock().unwrap_or_else(|e| e.into_inner()) = ext.subscribed();
+        self.seen(ext);
+        drop(held);
+        self.settle();
         Some(out)
+    }
+
+    /// Reads what its last call left of its subscriptions and commands.
+    fn seen(&self, ext: &Extension) {
+        *self.wants.lock().unwrap_or_else(|e| e.into_inner()) = ext.subscribed();
+        *self.commands.lock().unwrap_or_else(|e| e.into_inner()) = ext.commands();
+    }
+
+    /// Hands the queued events to the instance, in order.
+    fn hand(&self, ext: &mut Extension) -> kalem_script::Result<()> {
+        loop {
+            let next = self
+                .queued
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .pop_front();
+            let Some(event) = next else {
+                return Ok(());
+            };
+            ext.event(&event)?;
+        }
+    }
+
+    /// Hands `event`, whose answer no one waits for (it cannot veto), to
+    /// it: at once when it is free, else once the call it is in ends.
+    fn post(&self, event: x::Event) {
+        self.queued
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push_back(event);
+        self.settle();
+    }
+
+    /// Hands the queued events over when the instance is free. Whoever
+    /// holds it looks again as it lets go, so an event queued meanwhile
+    /// waits for no later call.
+    fn settle(&self) {
+        loop {
+            if self
+                .queued
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .is_empty()
+            {
+                return;
+            }
+            let mut held = match self.extension.try_lock() {
+                Ok(held) => held,
+                Err(std::sync::TryLockError::Poisoned(e)) => e.into_inner(),
+                Err(std::sync::TryLockError::WouldBlock) => return,
+            };
+            // Stopped, or spent by a failure its caller stops it for.
+            let Some(ext) = held.as_mut().filter(|e| !e.spent()) else {
+                return;
+            };
+            PLUGIN.with(|p| p.set(self.place));
+            let handed = self.hand(ext);
+            self.seen(ext);
+            drop(held);
+            if let Err(e) = handed {
+                self.fail(&e);
+                return;
+            }
+        }
+    }
+
+    /// Runs `f`, a call of the drawing's, as [`Running::with`] does: an
+    /// answer in time starts the count of late ones again; a late one is
+    /// written to the log and counted, and so many in a row stop it.
+    fn draw<R>(
+        &self,
+        call: &str,
+        f: impl FnOnce(&mut Extension) -> kalem_script::Result<R>,
+    ) -> Option<kalem_script::Result<R>> {
+        use std::sync::atomic::Ordering;
+        let out = self.with(f);
+        match &out {
+            Some(Ok(_)) => self.late.store(0, Ordering::Relaxed),
+            Some(Err(kalem_script::Error::Late(time))) => {
+                let n = self.late.fetch_add(1, Ordering::Relaxed) + 1;
+                tracing::warn!(
+                    plugin = %self.id,
+                    call,
+                    late = n,
+                    "a plugin's answer came past its {} ms and was dropped",
+                    time.as_millis()
+                );
+                if n >= kalem_core::extensions::LATE_IN_A_ROW {
+                    self.stop_for(&format!(
+                        "its answers came past their {} ms {n} times in a row",
+                        time.as_millis()
+                    ));
+                }
+            }
+            _ => {}
+        }
+        out
+    }
+
+    /// Whether it registered command `id`.
+    fn has_command(&self, id: &str) -> bool {
+        self.commands
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .contains(id)
     }
 
     /// Whether it subscribes to events of `kind`.
@@ -1293,15 +1420,20 @@ impl Running {
             .is_some()
     }
 
-    /// Stops it, if it runs: what it registered is taken back.
-    fn stop(&self) {
+    /// Stops it, if it runs: what it registered is taken back. Whether it
+    /// ran.
+    fn stop(&self) -> bool {
         let ext = self
             .extension
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .take();
+        self.queued
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clear();
         let Some(mut ext) = ext else {
-            return;
+            return false;
         };
         PLUGIN.with(|p| p.set(self.place));
         let _ = ext.deactivate();
@@ -1318,13 +1450,21 @@ impl Running {
         kalem_core::formatters::plugins::remove_plugin(&self.id);
         kalem_core::outlines::remove_plugin(&self.id);
         kalem_core::babel::plugins::remove_plugin(&self.id);
+        true
     }
 
-    /// Stops it after `error` in a call of the editors' threads, and tells
-    /// the user.
+    /// Stops it after `error` in a call of the editors' threads; the user
+    /// is told, and offered to start it again.
     fn fail(&self, error: &kalem_script::Error) {
-        self.stop();
-        kalem_core::jobs::notice(format!("The plugin {} was stopped: {error}", self.id), true);
+        self.stop_for(&error.to_string());
+    }
+
+    /// Stops it for `why`; the user is told, and offered to start it
+    /// again.
+    fn stop_for(&self, why: &str) {
+        if self.stop() {
+            kalem_core::extensions::stopped(&self.id, why);
+        }
     }
 }
 
@@ -1337,9 +1477,11 @@ impl kalem_core::extensions::Calls for Running {
     ) -> kalem_core::layers::Outcome {
         use kalem_core::layers::Outcome;
         let path = path.map(|p| p.to_string_lossy().into_owned());
-        match self.with(|ext| ext.overlays(layer, path.as_deref(), text)) {
+        match self.draw("layer", |ext| ext.overlays(layer, path.as_deref(), text)) {
             Some(Ok(Some(set))) => Outcome::Done(overlays(set)),
             Some(Ok(None)) | None => Outcome::Failed,
+            // Those shown stay.
+            Some(Err(kalem_script::Error::Late(_))) => Outcome::Late,
             Some(Err(e)) => {
                 self.fail(&e);
                 Outcome::Failed
@@ -1355,7 +1497,7 @@ impl kalem_core::extensions::Calls for Running {
     ) -> Vec<kalem_core::completers::Item> {
         let request = completion_request(ctx);
         // A keystroke typed while it waited for the lock asks anew.
-        let out = self.with(|ext| {
+        let out = self.draw("completer", |ext| {
             if cancel.cancelled() {
                 return Ok(None);
             }
@@ -1366,7 +1508,7 @@ impl kalem_core::extensions::Calls for Running {
                 .into_iter()
                 .map(|it| completion_item(it, ctx.point))
                 .collect(),
-            Some(Ok(None)) | None => Vec::new(),
+            Some(Ok(None)) | None | Some(Err(kalem_script::Error::Late(_))) => Vec::new(),
             Some(Err(e)) => {
                 self.fail(&e);
                 Vec::new()
@@ -1393,8 +1535,10 @@ impl kalem_core::extensions::Calls for Running {
             text: text.to_string(),
             text_type: kind.to_string(),
         };
-        match self.with(|ext| ext.format(&spec.id, &request)) {
+        match self.draw("formatter", |ext| ext.format(&spec.id, &request)) {
             Some(Ok(Some(Ok(t)))) => Answer::Text(t),
+            // Too slow this time: as though busy.
+            Some(Err(kalem_script::Error::Late(_))) => Answer::Busy,
             Some(Ok(Some(Err(r)))) => Answer::Refused {
                 message: r.message,
                 at: r.at.map(|a| a as usize),
@@ -1421,7 +1565,7 @@ impl kalem_core::extensions::Calls for Running {
             text: text.to_string(),
             text_type: kind.to_string(),
         };
-        match self.with(|ext| ext.outline(&spec.id, &request)) {
+        match self.draw("outline", |ext| ext.outline(&spec.id, &request)) {
             Some(Ok(Some(headings))) => Answer::Headings(
                 headings
                     .into_iter()
@@ -1435,6 +1579,8 @@ impl kalem_core::extensions::Calls for Running {
                     .collect(),
             ),
             Some(Ok(None)) | None => Answer::Failed(String::new()),
+            // The sidebars keep what they show, until the text changes.
+            Some(Err(e @ kalem_script::Error::Late(_))) => Answer::Failed(e.to_string()),
             Some(Err(e)) => {
                 let why = e.to_string();
                 self.fail(&e);
@@ -1538,17 +1684,22 @@ impl Plugins {
 
     /// Stops plugin `i` after `error`: what it registered is taken back.
     fn fail(&mut self, i: usize, error: &kalem_script::Error) {
-        self.stop(i);
+        let ran = self.stop(i);
         let l = &mut self.list[i];
         l.failed = true;
-        kalem_core::jobs::notice(format!("The plugin {} was stopped: {error}", l.id), true);
+        // Not told twice: one of the editors' threads may have stopped it.
+        if ran {
+            kalem_core::extensions::stopped(&l.id, &error.to_string());
+        }
     }
 
     /// Stops plugin `i`, if it runs: what it registered is taken back.
-    fn stop(&mut self, i: usize) {
-        if let Some(running) = self.list[i].extension.take() {
-            running.stop();
-        }
+    /// Whether it ran.
+    fn stop(&mut self, i: usize) -> bool {
+        self.list[i]
+            .extension
+            .take()
+            .is_some_and(|running| running.stop())
     }
 
     /// Tells plugin `i`, started while Kalem runs, what it would have
@@ -1600,6 +1751,20 @@ impl Plugins {
 }
 
 impl kalem_core::extensions::Extensions for Plugins {
+    fn restart(&mut self, plugin: &str) -> Result<(), String> {
+        let Some(i) = self.list.iter().position(|l| l.id == plugin && !l.gone) else {
+            return Err(format!("No plugin {plugin} is installed"));
+        };
+        self.stop(i);
+        self.list[i].failed = false;
+        self.activate(i);
+        if !self.list[i].extension.as_ref().is_some_and(|r| r.runs()) {
+            return Err(format!("The plugin {plugin} did not start"));
+        }
+        self.tell_late(i);
+        Ok(())
+    }
+
     fn installed_changed(&mut self) {
         let now = installed();
         // Removed, or replaced by another version.
@@ -1744,12 +1909,11 @@ impl kalem_core::extensions::Extensions for Plugins {
     }
 
     fn run(&mut self, id: &str, args: &str) -> Result<(), String> {
-        let Some(i) = self.list.iter().position(|l| {
-            l.extension
-                .as_ref()
-                .and_then(|r| r.with(|e| e.commands().contains(id)))
-                .unwrap_or(false)
-        }) else {
+        let Some(i) = self
+            .list
+            .iter()
+            .position(|l| l.extension.as_ref().is_some_and(|r| r.has_command(id)))
+        else {
             return Err(format!("No plugin runs `{id}`"));
         };
         let Some(running) = self.list[i].extension.clone() else {
@@ -1810,6 +1974,12 @@ impl kalem_core::extensions::Extensions for Plugins {
                 continue;
             };
             if !running.wants(kind) {
+                continue;
+            }
+            // One it cannot veto waits not for a call of the drawing's it
+            // is in.
+            if !event.kind().vetoable() {
+                running.post(wit.clone());
                 continue;
             }
             let Some(out) = running.with(|ext| ext.event(&wit)) else {

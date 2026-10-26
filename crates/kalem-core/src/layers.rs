@@ -395,6 +395,10 @@ pub enum Outcome {
     /// The plugins are busy (a call of theirs is running): asked again at
     /// the next drawing.
     Busy,
+    /// The layer answered past its time (`extensions::DRAW_TIME`), and
+    /// its answer was dropped: the overlays shown stay, and it is asked
+    /// again when the text or the layers change.
+    Late,
 }
 
 /// Asks a layer for a document's overlays: the plugins' bridge.
@@ -613,6 +617,9 @@ pub struct DocLayer {
     /// The version the answer waited for is of, and the answer, which the
     /// thread asking writes.
     waiting: Option<(u64, Arc<Mutex<Waiting>>)>,
+    /// The version, generation and path the layer answered late for: not
+    /// asked again for them.
+    late: Option<(u64, u64, Option<PathBuf>)>,
     /// Counts the changes of the overlays shown: the views made with
     /// others are made again ([`crate::mode_view::view_key`]).
     revision: u64,
@@ -674,7 +681,11 @@ impl DocLayer {
         {
             return c.overlays.clone();
         }
-        if self.waiting.is_none() {
+        let late = self
+            .late
+            .as_ref()
+            .is_some_and(|(v, g, p)| (*v, *g, p.as_deref()) == (version, generation, path));
+        if self.waiting.is_none() && !late {
             let Some(spec) = layer_for(path, mode) else {
                 self.show(version, generation, path, None);
                 return None;
@@ -713,6 +724,9 @@ impl DocLayer {
                     }
                     // Asked again at the next drawing.
                     Outcome::Busy => {}
+                    Outcome::Late => {
+                        self.late = Some((version, generation, path.map(Path::to_path_buf)));
+                    }
                 }
             }
         }
@@ -737,6 +751,11 @@ impl DocLayer {
             Outcome::Failed => None,
             // Asked again at the next drawing.
             Outcome::Busy => return false,
+            // Those shown stay, until the text or the layers change.
+            Outcome::Late => {
+                self.late = Some((version, generation, path));
+                return false;
+            }
         };
         self.show(version, generation, path.as_deref(), overlays);
         true

@@ -3047,6 +3047,10 @@ impl DocumentState {
         );
         // A plugin's question waits, a plugin has a panel.
         c.flag("pluginAsks", crate::extensions::asking());
+        c.flag(
+            "pluginStopped",
+            !crate::extensions::stopped_plugins().is_empty(),
+        );
         c.flag("pluginPanels", crate::extensions::has_panels());
         c.flag("narrowed", self.narrowing.is_some());
         c.flag("modified", self.is_modified());
