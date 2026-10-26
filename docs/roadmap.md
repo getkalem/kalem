@@ -209,16 +209,22 @@ the parity test still passes on the whole corpus.
   folding, heading arrows, outline indent) answering what the editors
   asked by comparing the mode with Org, CSV, Markdown or Text (15 places).
   The exit holds: the parity test registers a mode of its own (`*.toy`)
-  and both editors draw it with no code for it. Open: the rest of the
-  frontends' branches (`DocumentMode::` 29 in the terminal's, 26 in the
-  window's, about 20 of them chrome), which need capabilities of the
-  modes rather than traits: the CSV grid (layout, header, hits, rows in
-  view order, block selection), tables at a place, multi-line formulas
-  and their macros, code spans, LaTeX's joined paragraphs, and in the
-  terminal `render::glyphs` without the Org tree (a run's link target and
-  list marker in `view::Run`) and `horizontal()` through
-  `mode_view::line_view`. The window's `item_of` treats only a sorted CSV
-  view as out of file order, not a sorted BibTeX grid.
+  and both editors draw it with no code for it.
+  Then (2026-10-26, same branch) the modes' capabilities the editors
+  asked of them by name: the rows a filter or sort shows and the view's
+  sort (`ModeView::shown_lines`, `sort`; the window's `item_of` no longer
+  misses entries in a sorted BibTeX grid), LaTeX's joined paragraphs,
+  tables at a place (`table_view`, `table_range`), code in a language
+  (`code_spans`, `in_code_block`), formulas (`math_source`,
+  `math_macros`, `display_align`, `formula_at`, `formula_unicode`,
+  `formulas_as_text`, and the traits of the terminal's pictures), and in
+  the terminal `render::glyphs` without the Org tree (`link_target`,
+  `list_marker`; no empty Org tree is made) and `horizontal()` through
+  `mode_view::line_view`. `DocumentMode::` 22 in the terminal's, 20 in the
+  window's; `latex_view::` and `markdown::` called from the frontends 0
+  and 2. Open: the CSV grid (layout, header, hits, rows in view order,
+  block selection, the keys of its cells), which the editors still reach
+  as `kalem_core::csv` with `DocumentMode::Csv`.
 - [ ] R3.3 One `Request` handler: the shared parts of the two 400-line
   `request` functions move into a core `requests` module that the
   frontends call with a small platform trait (clipboard, open URL, file

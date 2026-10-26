@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- The editors ask a document's mode for what they chose by its name: the rows a filter or sort shows, LaTeX's paragraphs shown as one, a table's grid, the code to color in its language, a formula's source, definitions, alignment and Unicode, a link's target and a list item's marker in the terminal, and how Left and Right step (`kalem_core::mode_view`; roadmap R3.2). In the terminal no empty Org syntax tree is made any more for the lines of other modes, and its three ways of finding a line's picture (LaTeX's, Markdown's, Org's) are one; the `#+LATEX_HEADER` definitions both editors worked out for formulas are the core's. Nothing changes for users but the fix below.
+
+### Fixed
+- In the window, a BibTeX grid sorted by a column found its entries as if they were in the file's order, so it missed some (the cursor's entry, the one to reveal); it asks the view's sort now, as for a sorted CSV view.
+
 ## [0.6.50] - 2026-10-26
 
 ### Fixed
