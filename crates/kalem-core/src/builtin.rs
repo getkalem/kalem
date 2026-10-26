@@ -2995,14 +2995,14 @@ fn bib_commands() -> Vec<Command> {
                 let reverse = arg_bool(args, "reverse");
                 let d = ctx.doc()?;
                 let col = crate::bibtex::column(d, args.get("column").and_then(Value::as_str));
-                let reverse = reverse || d.bib_sort == Some((col, false));
-                d.bib_sort = Some((col, reverse));
+                let reverse = reverse || d.bib_sort() == Some((col, false));
+                d.set_bib_sort(Some((col, reverse)));
                 Ok(())
             },
         ),
         c("bib.unsortView", "File Order", &[], |ctx, _| {
             bib(ctx)?;
-            ctx.doc()?.bib_sort = None;
+            ctx.doc()?.set_bib_sort(None);
             Ok(())
         }),
         c("bib.setField", "Set Field", &[], |ctx, args| {

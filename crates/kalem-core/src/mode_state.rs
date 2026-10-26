@@ -51,6 +51,9 @@ pub(crate) fn new(mode: &DocumentMode, cx: ModeContext<'_>) -> Option<Box<dyn Mo
             cx.text, cx.path,
         ))),
         DocumentMode::Csv => Some(Box::<crate::csv::CsvState>::default()),
+        DocumentMode::Text { language: Some(l) } if l.eq_ignore_ascii_case("bib") => {
+            Some(Box::<crate::bibtex::BibState>::default())
+        }
         _ => None,
     }
 }

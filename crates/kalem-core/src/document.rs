@@ -406,9 +406,6 @@ pub struct DocumentState {
     /// Vim's insert mode does (a delimiter or a quote still going into
     /// the value) and the cursor shows in the cell.
     pub vim_keys: bool,
-    /// A BibTeX grid's sort: the column (`bibtex::COLUMNS`) and whether
-    /// descending; the file keeps its order.
-    pub bib_sort: Option<(usize, bool)>,
 }
 
 /// Why saving failed.
@@ -598,7 +595,6 @@ impl DocumentState {
             layer: std::cell::RefCell::default(),
             shared: std::cell::RefCell::new(None),
             vim_keys: false,
-            bib_sort: None,
         }
     }
 

@@ -695,6 +695,30 @@ impl crate::packs::LanguagePack for Pack {
     }
 }
 
+/// What a BibTeX document keeps (`crate::mode_state`): its grid's sort.
+#[derive(Debug, Default)]
+pub struct BibState {
+    /// The grid's sort: the column ([`COLUMNS`]) and whether descending;
+    /// the file keeps its order.
+    pub sort: Option<(usize, bool)>,
+}
+
+impl crate::mode_state::ModeState for BibState {}
+
+impl crate::DocumentState {
+    /// A BibTeX grid's sort ([`BibState::sort`]); `None` in other modes.
+    pub fn bib_sort(&self) -> Option<(usize, bool)> {
+        self.mode_state::<BibState>().and_then(|b| b.sort)
+    }
+
+    /// Sorts a BibTeX grid by `sort`; nothing in other modes.
+    pub fn set_bib_sort(&mut self, sort: Option<(usize, bool)>) {
+        if let Some(b) = self.mode_state_mut::<BibState>() {
+            b.sort = sort;
+        }
+    }
+}
+
 /// Whether `doc` is a BibTeX file.
 pub fn is_bib(doc: &crate::DocumentState) -> bool {
     matches!(&doc.meta.mode, crate::DocumentMode::Text { language: Some(l) } if l.eq_ignore_ascii_case("bib"))
@@ -1049,7 +1073,7 @@ pub fn shown_lines(doc: &crate::DocumentState) -> Option<std::rc::Rc<Vec<usize>>
         }
     }
     let mut order: Vec<usize> = (0..g.entries.len()).collect();
-    if let Some((col, reverse)) = doc.bib_sort {
+    if let Some((col, reverse)) = doc.bib_sort() {
         let key = |i: &usize| {
             g.cells[*i]
                 .get(col)
@@ -1075,7 +1099,7 @@ pub fn shown_lines(doc: &crate::DocumentState) -> Option<std::rc::Rc<Vec<usize>>
             out.push(first);
         }
     }
-    if doc.bib_sort.is_none() {
+    if doc.bib_sort().is_none() {
         out.sort_unstable();
         out.dedup();
     }
@@ -1192,7 +1216,7 @@ pub fn status(doc: &crate::DocumentState) -> Option<String> {
     }
     let g = grid(doc);
     let n = g.entries.len();
-    Some(match doc.bib_sort {
+    Some(match doc.bib_sort() {
         Some((c, rev)) => crate::tr!(
             "status-bib-sorted",
             count = n as i64,
@@ -1385,7 +1409,7 @@ mod tests {
         assert_eq!(src, "@Article{lamport,");
         // Sorted by year, descending.
         d.selection = org_edit::Selection::caret(0);
-        d.bib_sort = Some((4, true));
+        d.set_bib_sort(Some((4, true)));
         let lines = shown_lines(&d).unwrap();
         assert_eq!(*lines, vec![0, 1, 9, 3]);
     }
