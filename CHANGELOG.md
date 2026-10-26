@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- A plugin whose layer, completer, formatter or outline answers past its 100 ms is no longer stopped for the rest of the session (the notes graph plugin was, on a large graph, by a query's layer, a `((` completion or a busy machine): the late answer is dropped and written to the log, the last one stays shown, and the plugin runs on. Five late answers in a row, or a plugin's trap, stop it, and Kalem offers to start it again (Restart a Plugin) rather than Kalem itself; a command that runs past its own `limits.time_ms` stops the plugin as before. Such a call is not cut short at 100 ms, since a WebAssembly call cut short leaves its plugin unable to answer again: it goes on for the longer of `limits.time_ms` and a second. Typing and moving the cursor no longer wait for a plugin busy with such a call: the events it cannot veto reach it once the call ends.
+
 ## [0.6.49] - 2026-10-26
 
 ### Changed

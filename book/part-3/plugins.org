@@ -102,13 +102,20 @@ the engine chosen by measurement ([[file:../part-4/decisions/D28-plugin-abi.org]
   own failures.
 - The calls the editors make as they draw and as the user types (a
   layer's overlays, a completer's items, a formatter's text, an
-  outline's headings) get 100 ms at most, whatever the manifest's
+  outline's headings) answer within 100 ms, whatever the manifest's
   =limits.time_ms= gives its commands; an extension's memory is 1 GB at
   most, and a cut is written to the log. These calls run on threads of
   their own, each plugin behind its own lock: the editor draws the
   overlays a layer gave last, moved with the edits since, and draws
   again when the answer comes, so a slow plugin never holds up the
-  drawing or another plugin.
+  drawing or another plugin. An answer past the 100 ms is dropped and
+  written to the log, the last one staying shown, and the plugin runs
+  on: a call is not cut short there, since a WebAssembly call cut short
+  leaves its plugin unable to answer again, but goes on for the longer
+  of =limits.time_ms= and a second, and is stopped only past that. Five
+  late answers in a row, or a trap, stop the plugin, and Kalem offers
+  to start it again (Restart a Plugin, =plugin.restart=); a command
+  past its =limits.time_ms= stops it as before.
 - A loaded plugin is shared by threads, each with an instance of its
   own, so parsers, renderers and completers run in parallel.
 - Plugins are built for =wasm32-unknown-unknown= and wrapped as

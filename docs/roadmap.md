@@ -436,6 +436,16 @@ Programmers (LSP and plugins)
     tested in `plugin_layer_behind`, `plugin_calls` and
     `manifest_limits`. Next: edits in place of the whole text in the
     requests)
+  - [x] A late answer does not stop the plugin (the owner's decision of
+    2026-10-26, after graph 0.19.1 was stopped on a large graph by a
+    query's layer, a `((` completion or a loaded machine). S (done
+    2026-10-26: a call of the drawing's past `DRAW_TIME` goes on, since
+    a component cut short cannot be entered again, to the longer of
+    `limits.time_ms` and `extensions::DRAW_MOST` (1 s), its answer
+    dropped, the last one shown and the drop logged; `LATE_IN_A_ROW` (5)
+    late answers, or a trap, stop the plugin and offer `plugin.restart`;
+    events no one waits on queue while such a call runs; tested in
+    `a_layer_has_the_drawing_time` and `late_answers`)
 - [~] R5.12 Language plugins (T3.8.5–T3.8.6e): Python, Rust, Go, C/C++,
   web and PHP as data-only plugins (manifest, syntax, server); the LSP
   client gains rename, code actions, signature help and a snippet engine
