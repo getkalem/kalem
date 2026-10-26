@@ -25,6 +25,8 @@ use serde_json::{Value, json};
 use crate::DocumentState;
 use crate::languages::{self, LanguageSpec, Plugin, RequestSpec, Resolved};
 
+pub(crate) mod commands;
+
 /// A server: the plugin, the server's key, the root.
 type Key = (String, String, PathBuf);
 
