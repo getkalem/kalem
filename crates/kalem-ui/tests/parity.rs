@@ -457,3 +457,82 @@ fn the_two_editors_show_the_same_on_the_corpus(cx: &mut TestAppContext) {
         problems.join("\n")
     );
 }
+
+/// A mode of a test's own, registered beside the built-in ones: files
+/// called `*.toy`, drawn in capitals, which no built-in mode does.
+struct Toy;
+
+impl kalem_core::modes::ModeSpec for Toy {
+    fn id(&self) -> &'static str {
+        "toy"
+    }
+
+    fn detect(&self) -> kalem_core::modes::Detect {
+        kalem_core::modes::Detect {
+            extensions: &["toy"],
+            sniff: None,
+        }
+    }
+
+    fn parse(
+        &self,
+        _: &str,
+        _: Option<&kalem_core::modes::TextEdit>,
+        _: Option<&kalem_core::modes::Tree>,
+    ) -> kalem_core::modes::Tree {
+        kalem_core::modes::Tree::default()
+    }
+}
+
+/// The toy mode's view: each line as plain text, in capitals.
+struct ToyView;
+
+impl kalem_core::mode_view::ModeView for ToyView {
+    fn line_view(
+        &self,
+        doc: &kalem_core::DocumentState,
+        range: std::ops::Range<usize>,
+        cursor: Option<usize>,
+        _: Option<std::ops::Range<usize>>,
+    ) -> kalem_core::view::LineView {
+        let mut v = kalem_core::view::plain_line_view(doc.text().as_str(), range, cursor);
+        for r in &mut v.runs {
+            r.text = r.text.to_ascii_uppercase();
+            r.verbatim = false;
+        }
+        v
+    }
+}
+
+/// A mode registered beside the built-in ones is drawn by both editors
+/// through its entry, though neither has a line of code for it (roadmap
+/// R3.2): its file opens in it, and both show its lines as its view does.
+#[gpui::test]
+fn a_registered_mode_is_drawn_by_both_editors(cx: &mut TestAppContext) {
+    kalem_core::modes::register(kalem_core::modes::ModeEntry {
+        id: "toy",
+        spec: Some(&Toy),
+        view: &ToyView,
+        source_view: None,
+        state: None,
+        settle: None,
+    })
+    .unwrap();
+    let dir = dir_for("toy");
+    let path = dir.join("notes.toy");
+    std::fs::write(&path, "hello world\nsecond line\n").unwrap();
+    let mode = kalem_core::DocumentMode::detect(Some(&path), b"hello world\n");
+    let (_, g) = gui_lines(&path, 0, cx);
+    let (_, t) = tui_lines(&path, 0);
+    kalem_core::modes::unregister("toy");
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(mode, kalem_core::DocumentMode::Registered("toy"));
+    for (editor, lines) in [("graphical", &g), ("terminal", &t)] {
+        let words: Vec<&str> = lines.values().flatten().map(String::as_str).collect();
+        assert_eq!(
+            words,
+            ["HELLO", "WORLD", "SECOND", "LINE"],
+            "the {editor} editor drew {lines:?}"
+        );
+    }
+}
