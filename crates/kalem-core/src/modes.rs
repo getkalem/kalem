@@ -250,6 +250,122 @@ pub trait ModeSpec: Send + Sync {
     }
 }
 
+/// A mode as the editor knows it (roadmap R3.2): how the editors show its
+/// documents ([`crate::mode_view::ModeView`]), what it keeps about one
+/// (`crate::mode_state`), and the text contract ([`ModeSpec`]) when it is
+/// written against it. The built-in modes are [`crate::mode_view::BUILTIN`];
+/// a mode [`register`]ed beside them opens its files as
+/// [`crate::DocumentMode::Registered`], and the editors draw it as they
+/// draw any mode, through the entry, with no code of their own for it.
+#[derive(Clone, Copy)]
+pub struct ModeEntry {
+    /// Its name: `org`, `csv`, a registered mode's id. It is the
+    /// when-clauses' `editorMode` and `files.modes`'s value.
+    pub id: &'static str,
+    /// The text contract: which files it takes (a registered mode's
+    /// [`ModeSpec::detect`]), its tree, format and problems.
+    pub spec: Option<&'static dyn ModeSpec>,
+    /// How the editors show a document of the mode.
+    pub view: &'static dyn crate::mode_view::ModeView,
+    /// How they show its source, when not as plain text (Org's own source
+    /// view; a document of flowing text has no other).
+    pub source_view: Option<&'static dyn crate::mode_view::ModeView>,
+    /// The state it keeps about a document, made when the document takes
+    /// the mode.
+    pub state:
+        Option<fn(crate::mode_state::ModeContext<'_>) -> Box<dyn crate::mode_state::ModeState>>,
+    /// What it does after an edit or a move of the cursor, the whole
+    /// document at hand (`crate::mode_state::settle`).
+    pub settle: Option<fn(&mut crate::DocumentState, crate::mode_state::Event)>,
+}
+
+impl std::fmt::Debug for ModeEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ModeEntry")
+            .field("id", &self.id)
+            .finish_non_exhaustive()
+    }
+}
+
+/// The modes registered beside the built-in ones, in order.
+static REGISTERED: std::sync::RwLock<Vec<ModeEntry>> = std::sync::RwLock::new(Vec::new());
+
+/// Adds `entry`, after the modes registered before it; one with the same
+/// id as a registered mode replaces it. A built-in mode's id is refused,
+/// as is an entry without a [`ModeSpec`] (its files could not be found).
+pub fn register(entry: ModeEntry) -> Result<(), String> {
+    if crate::mode_view::BUILTIN.iter().any(|e| e.id == entry.id) {
+        return Err(format!("`{}` is a built-in mode", entry.id));
+    }
+    if entry.spec.is_none() {
+        return Err(format!("the mode `{}` has no ModeSpec", entry.id));
+    }
+    let mut r = REGISTERED
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    r.retain(|e| e.id != entry.id);
+    r.push(entry);
+    Ok(())
+}
+
+/// Removes the registered mode `id`, if there is one; its open documents
+/// draw as plain text from then on.
+pub fn unregister(id: &str) {
+    REGISTERED
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .retain(|e| e.id != id);
+}
+
+/// The mode called `id`: a built-in one, else a registered one.
+pub fn entry(id: &str) -> Option<ModeEntry> {
+    crate::mode_view::BUILTIN
+        .iter()
+        .find(|e| e.id == id)
+        .copied()
+        .or_else(|| {
+            REGISTERED
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .iter()
+                .find(|e| e.id == id)
+                .copied()
+        })
+}
+
+/// The id of the entry serving documents in `mode`: its name, but a
+/// BibTeX file's own (a text type with a grid of its own).
+pub fn key(mode: &crate::DocumentMode) -> &str {
+    match mode {
+        crate::DocumentMode::Text { language: Some(l) } if l.eq_ignore_ascii_case("bib") => "bib",
+        crate::DocumentMode::Registered(id) => id,
+        m => m.name(),
+    }
+}
+
+/// The registered mode called `name`, as `-*- mode: NAME -*-` or the
+/// `files.modes` setting names it.
+pub(crate) fn registered_named(name: &str) -> Option<&'static str> {
+    REGISTERED
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .iter()
+        .find(|e| e.id.eq_ignore_ascii_case(name))
+        .map(|e| e.id)
+}
+
+/// The registered mode that takes a file called `name` starting with
+/// `head` (its [`ModeSpec::detect`]), the last registered first.
+pub(crate) fn registered_for(name: Option<&str>, head: &[u8]) -> Option<&'static str> {
+    REGISTERED
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .iter()
+        .rev()
+        .find(|e| e.spec.is_some_and(|s| s.detect().matches(name, head)))
+        .map(|e| e.id)
+}
+
 /// The modes on the contract.
 pub struct Modes {
     specs: Vec<Box<dyn ModeSpec>>,

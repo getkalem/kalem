@@ -31,6 +31,9 @@ pub enum DocumentMode {
     Flow,
     /// A folder in the file manager (`crate::dired`), or the projects.
     Directory,
+    /// A mode registered beside the built-in ones (`crate::modes::register`),
+    /// by its id: the editors draw it through its entry.
+    Registered(&'static str),
 }
 
 /// The line Emacs reads a `-*-` line from: the first, or the second
@@ -134,7 +137,7 @@ fn by_name(name: &str) -> Option<DocumentMode> {
         "md" | "markdown" | "mdown" | "mkd" | "gfm" => DocumentMode::Markdown,
         "csv" | "tsv" | "tab" => DocumentMode::Csv,
         "tex" | "latex" | "ltx" => DocumentMode::Latex,
-        _ => return None,
+        _ => return crate::modes::registered_named(name).map(DocumentMode::Registered),
     })
 }
 
@@ -181,6 +184,7 @@ impl DocumentMode {
             DocumentMode::Viewer => "viewer",
             DocumentMode::Flow => "flow",
             DocumentMode::Directory => "directory",
+            DocumentMode::Registered(id) => id,
         }
     }
 
@@ -224,6 +228,7 @@ impl DocumentMode {
             DocumentMode::Directory => crate::l10n::tr("mode-directory"),
             DocumentMode::Viewer => crate::l10n::tr("mode-viewer"),
             DocumentMode::Flow => crate::l10n::tr("mode-flow"),
+            DocumentMode::Registered(id) => (*id).to_string(),
         }
     }
 
@@ -280,10 +285,17 @@ impl DocumentMode {
         if ext.as_deref() == Some("txt") && looks_like_tsv(text) {
             return DocumentMode::Csv;
         }
+        if let Some(m) = ext.as_deref().and_then(by_name) {
+            return m;
+        }
+        let name = path.and_then(|p| p.file_name()).and_then(|n| n.to_str());
+        if let Some(id) = crate::modes::registered_for(name, text.as_bytes()) {
+            return DocumentMode::Registered(id);
+        }
         if let Some(e) = &ext {
-            return by_name(e).unwrap_or_else(|| DocumentMode::Text {
+            return DocumentMode::Text {
                 language: Some(e.clone()),
-            });
+            };
         }
         if let Some(rest) = first.strip_prefix("#!") {
             // `#!/usr/bin/env python3` or `#!/bin/sh`.

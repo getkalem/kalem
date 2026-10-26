@@ -35,17 +35,80 @@ pub trait ModeView: Send + Sync {
     }
 }
 
-/// The view of `doc`; with `source`, the text as it is (the source view).
+/// The built-in modes (`crate::modes::ModeEntry`), found by
+/// `crate::modes::entry` before the registered ones. A mode without an
+/// entry (plain text and code, the file manager, a viewer's file) is drawn
+/// as plain text.
+pub static BUILTIN: &[crate::modes::ModeEntry] = &[
+    crate::modes::ModeEntry {
+        id: "org",
+        spec: Some(&crate::org_mode::OrgMode),
+        view: &Org,
+        source_view: Some(&OrgSource),
+        state: None,
+        settle: None,
+    },
+    crate::modes::ModeEntry {
+        id: "markdown",
+        spec: Some(&crate::markdown::MarkdownMode),
+        view: &Markdown,
+        source_view: None,
+        state: None,
+        settle: None,
+    },
+    crate::modes::ModeEntry {
+        id: "csv",
+        spec: Some(&crate::modes::CsvMode),
+        view: &Csv,
+        source_view: None,
+        state: Some(|_| Box::<crate::csv::CsvState>::default()),
+        settle: Some(crate::csv::settle),
+    },
+    crate::modes::ModeEntry {
+        id: "latex",
+        spec: Some(&crate::latex_mode::LatexMode),
+        view: &Latex,
+        source_view: None,
+        state: Some(|cx| {
+            Box::new(crate::latex_view::LatexState::for_document(
+                cx.text, cx.path,
+            ))
+        }),
+        settle: None,
+    },
+    crate::modes::ModeEntry {
+        id: "bib",
+        spec: None,
+        view: &Bib,
+        source_view: None,
+        state: Some(|_| Box::<crate::bibtex::BibState>::default()),
+        settle: None,
+    },
+    // A document of flowing text has one view, its plugin's.
+    crate::modes::ModeEntry {
+        id: "flow",
+        spec: None,
+        view: &Flow,
+        source_view: Some(&Flow),
+        state: None,
+        settle: None,
+    },
+];
+
+/// The view of `doc`; with `source`, the text as it is (the source view):
+/// its mode's entry's (`crate::modes::entry`), plain text without one.
 pub fn view_of(doc: &DocumentState, source: bool) -> &'static dyn ModeView {
-    match &doc.meta.mode {
-        DocumentMode::Flow if doc.flow().is_some() => &Flow,
-        DocumentMode::Org if source => &OrgSource,
-        DocumentMode::Org => &Org,
-        _ if source => &Plain,
-        DocumentMode::Latex => &Latex,
-        DocumentMode::Markdown => &Markdown,
-        DocumentMode::Csv => &Csv,
-        _ if crate::bibtex::is_bib(doc) => &Bib,
+    // A document of flowing text whose plugin's document did not open
+    // shows its text as it is.
+    if doc.meta.mode == DocumentMode::Flow && doc.flow().is_none() {
+        return &Plain;
+    }
+    match crate::modes::entry(crate::modes::key(&doc.meta.mode)) {
+        Some(e) if !source => e.view,
+        Some(crate::modes::ModeEntry {
+            source_view: Some(v),
+            ..
+        }) => v,
         _ => &Plain,
     }
 }

@@ -46,16 +46,9 @@ pub trait ModeState: Any + Send + std::fmt::Debug {
 /// The state a document in `mode` starts with, `None` for a mode that
 /// keeps none here.
 pub(crate) fn new(mode: &DocumentMode, cx: ModeContext<'_>) -> Option<Box<dyn ModeState>> {
-    match mode {
-        DocumentMode::Latex => Some(Box::new(crate::latex_view::LatexState::for_document(
-            cx.text, cx.path,
-        ))),
-        DocumentMode::Csv => Some(Box::<crate::csv::CsvState>::default()),
-        DocumentMode::Text { language: Some(l) } if l.eq_ignore_ascii_case("bib") => {
-            Some(Box::<crate::bibtex::BibState>::default())
-        }
-        _ => None,
-    }
+    crate::modes::entry(crate::modes::key(mode))?
+        .state
+        .map(|f| f(cx))
 }
 
 /// What happened to a document that its mode may answer with the whole
@@ -79,8 +72,8 @@ pub enum Event {
 
 /// `doc`'s mode answers `event`.
 pub(crate) fn settle(doc: &mut DocumentState, event: Event) {
-    if doc.meta.mode == DocumentMode::Csv {
-        crate::csv::settle(doc, event);
+    if let Some(f) = crate::modes::entry(crate::modes::key(&doc.meta.mode)).and_then(|e| e.settle) {
+        f(doc, event);
     }
 }
 
