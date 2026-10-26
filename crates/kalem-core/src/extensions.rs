@@ -486,6 +486,14 @@ impl Panel {
 /// manifest asks.
 pub const DRAW_TIME: std::time::Duration = std::time::Duration::from_millis(100);
 
+/// The longest such a call may run, when its manifest gives the commands
+/// less. One past [`DRAW_TIME`] is not stopped there, since a stopped
+/// call spends the plugin's instance: it goes on, its answer is dropped
+/// and the last one stays shown. Past this, or past the commands' time
+/// when that is longer, the plugin is stopped as for a command past its
+/// own.
+pub const DRAW_MOST: std::time::Duration = std::time::Duration::from_secs(1);
+
 static INSTALLED: Mutex<Option<Box<dyn Extensions>>> = Mutex::new(None);
 
 /// What the plugins registered.

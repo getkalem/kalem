@@ -13,7 +13,9 @@
 //!   else is refused, naming what it asked for;
 //! - each instance has a memory limit, and each call a time budget counted
 //!   by epochs (a tick every [`TICK`] while a call runs), so a plugin that
-//!   loops or grows is stopped and the editor goes on;
+//!   loops or grows is stopped and the editor goes on; a call the editors
+//!   make as they draw has a shorter time too, past which its answer is
+//!   dropped and the instance kept ([`Instance::run_drawing`]);
 //! - a loaded [`Plugin`] is shared by threads, each instantiating it in its
 //!   own store: parsers, renderers and completers run in parallel.
 //!
@@ -92,7 +94,7 @@ use std::time::{Duration, SystemTime};
 
 use sha2::{Digest, Sha256};
 use wasmtime::component::{Component, ComponentNamedList, Lift, Lower, TypedFunc};
-use wasmtime::{Config, Engine, ResourceLimiter, Store, Trap};
+use wasmtime::{Config, Engine, ResourceLimiter, Store, Trap, UpdateDeadline};
 
 pub use wasmtime::component::Linker;
 
@@ -187,6 +189,9 @@ pub enum Error {
     NewerApi(String),
     /// A call ran past its time budget and was stopped.
     Timeout(Duration),
+    /// A call of the drawing's ran past this time: its answer was dropped,
+    /// and the instance answers on ([`Instance::run_drawing`]).
+    Late(Duration),
     /// The plugin asked for more memory than its limit.
     Memory(usize),
     /// The plugin trapped (a panic, an out-of-bounds access).
@@ -211,6 +216,11 @@ impl fmt::Display for Error {
                 "the plugin needs plugin API {v}, and this Kalem has {API_VERSION}: update Kalem"
             ),
             Error::Timeout(t) => write!(f, "the plugin ran past its {} ms", t.as_millis()),
+            Error::Late(t) => write!(
+                f,
+                "the plugin's answer came past its {} ms and was dropped",
+                t.as_millis()
+            ),
             Error::Memory(m) => write!(f, "the plugin asked for more than its {} MB", m >> 20),
             Error::Trap(e) => write!(f, "the plugin failed: {e}"),
             Error::Io(e) => write!(f, "{e}"),
@@ -629,10 +639,23 @@ impl Plugin {
                     refused: false,
                 },
                 diagnostics: Diagnostics::default(),
+                overtime: None,
+                overran: false,
             },
         );
         store.limiter(|d| &mut d.limiter);
-        store.epoch_deadline_trap();
+        // At the deadline a call is stopped, but for a call of the
+        // drawing's past its own time, which goes on to its budget's end.
+        store.epoch_deadline_callback(|mut cx| {
+            let d = cx.data_mut();
+            Ok(match d.overtime.take() {
+                Some(more) => {
+                    d.overran = true;
+                    UpdateDeadline::Continue(more)
+                }
+                None => UpdateDeadline::Interrupt,
+            })
+        });
         let _call = CLOCK.call();
         store.set_epoch_deadline(ticks(limits.time));
         let instance = pre
@@ -642,6 +665,7 @@ impl Plugin {
             store,
             instance,
             limits,
+            spent: false,
         })
     }
 }
@@ -681,6 +705,11 @@ pub struct Data<T> {
     pub user: T,
     limiter: Limiter,
     pub(crate) diagnostics: Diagnostics,
+    /// The ticks a call goes on past its deadline: a call of the drawing's
+    /// past its own time ([`Instance::run_drawing`]).
+    overtime: Option<u64>,
+    /// Whether the call ran past its deadline into its overtime.
+    overran: bool,
 }
 
 /// What a plugin said of itself going wrong (the `diagnostics` import):
@@ -785,6 +814,9 @@ pub struct Instance<T: 'static> {
     store: Store<Data<T>>,
     instance: wasmtime::component::Instance,
     limits: Limits,
+    /// Whether a call failed (a trap, its time or memory spent): it
+    /// answers no more.
+    spent: bool,
 }
 
 impl<T: 'static> fmt::Debug for Instance<T> {
@@ -809,8 +841,10 @@ impl<T: Send + 'static> Instance<T> {
             .get_typed_func(&mut self.store, name)
             .map_err(|e| Error::Invalid(format!("{name}: {e:#}")))?;
         let _call = CLOCK.call();
+        self.store.data_mut().overtime = None;
         self.store.set_epoch_deadline(ticks(self.limits.time));
         let out = f.call(&mut self.store, params);
+        self.spent |= out.is_err();
         out.map_err(|e| classify(e, &self.store, self.limits))
     }
 
@@ -829,25 +863,54 @@ impl<T: Send + 'static> Instance<T> {
         &mut self,
         f: impl FnOnce(&mut Store<Data<T>>) -> wasmtime::Result<R>,
     ) -> Result<R> {
-        self.run_within(self.limits.time, f)
+        let _call = CLOCK.call();
+        self.store.data_mut().overtime = None;
+        self.store.set_epoch_deadline(ticks(self.limits.time));
+        self.store.data_mut().diagnostics.panicked = None;
+        let out = f(&mut self.store);
+        self.spent |= out.is_err();
+        out.map_err(|e| classify(e, &self.store, self.limits))
     }
 
-    /// Runs `f` as [`Instance::run`] does, within `time` in place of the
-    /// budget: a call of a shorter class (a layer's overlays, asked as the
-    /// editors draw).
-    pub fn run_within<R>(
+    /// Runs `f` as [`Instance::run`] does for a call the editors make as
+    /// they draw (a layer's overlays): its answer counts within `time`.
+    /// One that runs past it is not stopped there, since a stopped call
+    /// spends the instance: it goes on to `most` at the longest, and its
+    /// answer is dropped, [`Error::Late`], the instance answering on;
+    /// past `most` it is stopped as one past its budget is.
+    pub fn run_drawing<R>(
         &mut self,
         time: Duration,
+        most: Duration,
         f: impl FnOnce(&mut Store<Data<T>>) -> wasmtime::Result<R>,
     ) -> Result<R> {
         let _call = CLOCK.call();
-        self.store.set_epoch_deadline(ticks(time));
-        self.store.data_mut().diagnostics.panicked = None;
+        let (soon, late) = (ticks(time), ticks(most.max(time)));
+        let d = self.store.data_mut();
+        d.overtime = (late > soon).then_some(late - soon);
+        d.overran = false;
+        d.diagnostics.panicked = None;
+        self.store.set_epoch_deadline(soon);
+        let out = f(&mut self.store);
+        let overran = std::mem::take(&mut self.store.data_mut().overran);
         let limits = Limits {
-            time,
+            time: if overran { most } else { time },
             ..self.limits
         };
-        f(&mut self.store).map_err(|e| classify(e, &self.store, limits))
+        match out {
+            Ok(_) if overran => Err(Error::Late(time)),
+            Ok(r) => Ok(r),
+            Err(e) => {
+                self.spent = true;
+                Err(classify(e, &self.store, limits))
+            }
+        }
+    }
+
+    /// Whether a call failed (a trap, its time or memory spent; not an
+    /// answer come late): the instance answers no more, and is dropped.
+    pub fn spent(&self) -> bool {
+        self.spent
     }
 
     /// The host's data.

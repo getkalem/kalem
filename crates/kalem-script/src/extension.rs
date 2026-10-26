@@ -1712,10 +1712,10 @@ pub struct Extension {
     /// The `executor` interface, when the component exports it (API
     /// 0.2.21).
     executor: Option<executor::Guest>,
-    /// The time a call of its layers, completers, formatters and outlines
-    /// may take ([`Extension::with_draw_time`]); its other calls have the
-    /// limits'.
-    draw_time: std::time::Duration,
+    /// The time within which a call of its layers, completers, formatters
+    /// and outlines answers, and the longest it may run
+    /// ([`Extension::with_draw_time`]); its other calls have the limits'.
+    draw_time: (std::time::Duration, std::time::Duration),
 }
 
 impl std::fmt::Debug for Extension {
@@ -1988,24 +1988,37 @@ impl Extension {
             outline,
             focus,
             executor,
-            draw_time: limits.time,
+            draw_time: (limits.time, limits.time),
         })
     }
 
     /// The extension with `time` for each call of its layers, completers,
     /// formatters and outlines, which the editors make as they draw and
-    /// as the user types, in place of the limits' time; the time the
-    /// limits give, at most. Its commands, events and executors keep the
-    /// limits'.
-    pub fn with_draw_time(mut self, time: std::time::Duration) -> Extension {
-        self.draw_time = time.min(self.draw_time);
+    /// as the user types, in place of the limits' time (that time at
+    /// most): an answer past it is dropped, [`crate::Error::Late`], and
+    /// the call stopped only past `most`
+    /// ([`crate::Instance::run_drawing`]). Its commands, events and
+    /// executors keep the limits'.
+    pub fn with_draw_time(
+        mut self,
+        time: std::time::Duration,
+        most: std::time::Duration,
+    ) -> Extension {
+        let time = time.min(self.draw_time.0);
+        self.draw_time = (time, most.max(time));
         self
     }
 
-    /// The time a call of its layers, completers, formatters and outlines
-    /// may take.
+    /// The time within which a call of its layers, completers, formatters
+    /// and outlines answers.
     pub fn draw_time(&self) -> std::time::Duration {
-        self.draw_time
+        self.draw_time.0
+    }
+
+    /// Whether a call failed (a trap, its time or memory spent): the
+    /// instance answers no more ([`crate::Instance::spent`]).
+    pub fn spent(&self) -> bool {
+        self.instance.spent()
     }
 
     /// Calls the plugin's `activate`: it registers its commands, keys and
@@ -2038,7 +2051,9 @@ impl Extension {
         if let Some(l) = &self.layer_5 {
             return self
                 .instance
-                .run_within(self.draw_time, |s| l.call_overlays(s, id, path, text))
+                .run_drawing(self.draw_time.0, self.draw_time.1, |s| {
+                    l.call_overlays(s, id, path, text)
+                })
                 .map(Some);
         }
         self.overlays_4(id, path, text).map(|o| {
@@ -2066,7 +2081,7 @@ impl Extension {
         if let Some(l) = &self.layer_4 {
             return self
                 .instance
-                .run_within(self.draw_time, |s| {
+                .run_drawing(self.draw_time.0, self.draw_time.1, |s| {
                     l.call_overlays(s, id, path.as_deref(), text)
                 })
                 .map(Some);
@@ -2074,7 +2089,7 @@ impl Extension {
         if let Some(l) = &self.layer_3 {
             return self
                 .instance
-                .run_within(self.draw_time, |s| {
+                .run_drawing(self.draw_time.0, self.draw_time.1, |s| {
                     l.call_overlays(s, id, path.as_deref(), text)
                 })
                 .map(|o| {
@@ -2109,7 +2124,7 @@ impl Extension {
         if let Some(l) = &self.layer_2 {
             return self
                 .instance
-                .run_within(self.draw_time, |s| {
+                .run_drawing(self.draw_time.0, self.draw_time.1, |s| {
                     l.call_overlays(s, id, path.as_deref(), text)
                 })
                 .map(|o| {
@@ -2139,7 +2154,7 @@ impl Extension {
             return Ok(None);
         };
         self.instance
-            .run_within(self.draw_time, |s| {
+            .run_drawing(self.draw_time.0, self.draw_time.1, |s| {
                 l.call_overlays(s, id, path.as_deref(), text)
             })
             .map(|o| {
@@ -2167,7 +2182,9 @@ impl Extension {
             return Ok(None);
         };
         self.instance
-            .run_within(self.draw_time, |s| c.call_complete(s, id, request))
+            .run_drawing(self.draw_time.0, self.draw_time.1, |s| {
+                c.call_complete(s, id, request)
+            })
             .map(Some)
     }
 
@@ -2187,7 +2204,9 @@ impl Extension {
             return Ok(None);
         };
         self.instance
-            .run_within(self.draw_time, |s| f.call_format(s, id, request))
+            .run_drawing(self.draw_time.0, self.draw_time.1, |s| {
+                f.call_format(s, id, request)
+            })
             .map(Some)
     }
 
@@ -2207,7 +2226,9 @@ impl Extension {
             return Ok(None);
         };
         self.instance
-            .run_within(self.draw_time, |s| o.call_outline(s, id, request))
+            .run_drawing(self.draw_time.0, self.draw_time.1, |s| {
+                o.call_outline(s, id, request)
+            })
             .map(Some)
     }
 

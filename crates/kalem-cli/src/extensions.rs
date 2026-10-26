@@ -1229,7 +1229,12 @@ impl Loaded {
                     self.grants.clone(),
                     self.limits,
                 )
-                .map(|e| e.with_draw_time(self.draw_time))
+                .map(|e| {
+                    e.with_draw_time(
+                        self.draw_time,
+                        self.limits.time.max(kalem_core::extensions::DRAW_MOST),
+                    )
+                })
             })
             .map_err(|e| e.to_string())
     }

@@ -1467,10 +1467,11 @@ fn a_layer_and_the_clock() {
 }
 
 /// The time a call of a plugin's layers, completers, formatters and
-/// outlines may take, which the editors make as they draw and as the user
-/// types: shorter than its commands', never longer than its limits'. A
-/// layer that never answers is stopped at it, though the limits give a
-/// call ten seconds.
+/// outlines answers within, which the editors make as they draw and as
+/// the user types: shorter than its commands', never longer than its
+/// limits'. An answer past it is dropped and the plugin answers on; a
+/// layer that never answers is stopped at the longest such a call may
+/// run, though the limits give a call ten seconds.
 #[test]
 fn a_layer_has_the_drawing_time() {
     let Some(bytes) = common::component("layered") else {
@@ -1492,27 +1493,39 @@ fn a_layer_has_the_drawing_time() {
     let short = Duration::from_millis(50);
     assert_eq!(
         new(Limits::default())
-            .with_draw_time(Duration::from_secs(1))
+            .with_draw_time(Duration::from_secs(1), Duration::from_secs(1))
             .draw_time(),
         Limits::default().time,
         "never longer than the limits'"
     );
-    let mut ext = new(Limits {
+    let limits = Limits {
         time: Duration::from_secs(10),
         ..Limits::default()
-    })
-    .with_draw_time(short);
+    };
+    // Late: its answer dropped, the plugin answering on.
+    let mut ext = new(limits).with_draw_time(short, Duration::from_secs(5));
     assert_eq!(ext.draw_time(), short);
     ext.activate().unwrap().unwrap();
+    let text = "- see ((ab))\n";
+    for _ in 0..2 {
+        let out = ext.overlays("slow", Some("/g/a.md"), text);
+        assert!(matches!(out, Err(Error::Late(t)) if t == short), "{out:?}");
+        let set = ext.overlays("ids", Some("/g/a.md"), text).unwrap().unwrap();
+        assert_eq!(set.spans.len(), 1, "it answers on");
+    }
+    // Never answering: stopped at the longest a call may run.
+    let most = Duration::from_millis(500);
+    let mut ext = new(limits).with_draw_time(short, most);
+    ext.activate().unwrap().unwrap();
     let start = std::time::Instant::now();
-    let out = ext.overlays("spin", Some("/g/a.md"), "- a\n");
+    let out = ext.overlays("spin", Some("/g/a.md"), text);
     assert!(
-        matches!(out, Err(Error::Timeout(t)) if t == short),
+        matches!(out, Err(Error::Timeout(t)) if t == most),
         "{out:?}"
     );
     assert!(
         start.elapsed() < Duration::from_secs(5),
-        "stopped at its own time, not the limits': {:?}",
+        "stopped at its longest, not the limits': {:?}",
         start.elapsed()
     );
 }

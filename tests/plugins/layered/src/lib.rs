@@ -14,7 +14,8 @@
 //! a block of the note's outline. Its command `layered.canvas` draws a
 //! canvas whose title has a text size (API 0.2.19). By `layer-5` (API
 //! 0.2.20) a line with block references shows their number at its end. Its
-//! layer `spin` never answers.
+//! layer `spin` never answers, its layer `slow` after a quarter of a
+//! second.
 
 use kalem_plugin::completer::{self, Item, ItemKind, Request};
 use kalem_plugin::kalem::{self, Plugin, Scope};
@@ -254,13 +255,25 @@ impl Plugin for Layered {
     }
 
     fn overlays_5(layer: &str, path: Option<&str>, text: &str) -> OverlaySet5 {
-        // A layer that never answers, for the host's time on the drawing
-        // path.
+        // A layer that never answers, and one that answers after a
+        // quarter of a second, for the host's times on the drawing path.
         if layer == "spin" {
             let mut n = 0u64;
             loop {
                 n = std::hint::black_box(n + 1);
             }
+        }
+        if layer == "slow" {
+            let end = kalem_plugin::clock::now() + 250;
+            while kalem_plugin::clock::now() < end {
+                std::hint::black_box(());
+            }
+            return OverlaySet5 {
+                spans: Vec::new(),
+                lines: Vec::new(),
+                below: Vec::new(),
+                inserts: Vec::new(),
+            };
         }
         let o = Self::overlays_4(layer, path, text);
         // A line's number of block references, after its last character.
