@@ -178,6 +178,43 @@ fn child(work: &Path) {
     assert!(kalem_core::languages::for_path(Path::new("/a/b.zedtest"), None).is_some());
     println!("test install ... ok");
 
+    // Its servers run only while plugins.toml records `subprocess` as
+    // approved, whatever its manifest says: the approval taken back, they
+    // are refused and the user told once; given again, they are looked for.
+    let server = || {
+        let (zed, lang) = kalem_core::languages::for_path(Path::new("/a/b.zedtest"), None).unwrap();
+        match kalem_core::languages::resolve_server(&zed, &lang, None) {
+            kalem_core::languages::Resolved::Missing(why) => why,
+            other => panic!("{other:?}"),
+        }
+    };
+    assert!(!server().contains("may not run programs"), "{}", server());
+    let record_path = work.join("config/plugins.toml");
+    let approved = std::fs::read_to_string(&record_path).unwrap();
+    let taken_back = approved.replace("permissions = [\"subprocess\"]", "permissions = []");
+    assert_ne!(taken_back, approved);
+    std::fs::write(&record_path, taken_back).unwrap();
+    kalem_core::jobs::take_notices();
+    kalem_core::languages::reload();
+    assert!(
+        server().starts_with("Zed Test may not run programs"),
+        "{}",
+        server()
+    );
+    let notices = kalem_core::jobs::take_notices();
+    assert!(
+        notices.iter().any(|(t, error)| *error
+            && t.starts_with(
+                "Zed Test 1.0.0 asks for permissions that were not approved when it was \
+                 installed: subprocess."
+            )),
+        "{notices:?}"
+    );
+    std::fs::write(&record_path, approved).unwrap();
+    kalem_core::languages::reload();
+    assert!(!server().contains("may not run programs"), "{}", server());
+    println!("test servers need subprocess ... ok");
+
     // The files the index would name it for are those it now serves: its
     // manifest read alike, as the index lists it and as it is installed.
     let manifest: Value =

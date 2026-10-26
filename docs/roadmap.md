@@ -419,9 +419,9 @@ Programmers (LSP and plugins)
   `kalem.wit`, `editor.wit`, `ui.wit`, `access.wit` and `executor.wit`,
   is frozen in `wit-frozen/0.2.21`, the worlds moved to `worlds.wit`; the
   release workflows build a tag only once CI passed on its commit,
-  `release-gate.yml`. Still open here: the consent prompt on first use,
-  and a language plugin's `subprocess`, which the core does not check
-  against `plugins.toml` when it starts the plugin's servers.)
+  `release-gate.yml`. 2026-10-26: a language plugin's servers and
+  commands run only with `subprocess` approved in `plugins.toml`.
+  Still open here: the consent prompt on first use.)
   - [x] The plugins' calls off the drawing path (the 2026-10-23
     architecture review). S (done 2026-10-24: a call of a layer,
     completer, formatter or outline gets `extensions::DRAW_TIME`, 100 ms,

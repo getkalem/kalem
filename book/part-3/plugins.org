@@ -33,7 +33,10 @@ listed with its task in =crates/kalem-plugin/coverage.toml=.
   changed on disk, or a plugin put in the folder by hand, asks in vain,
   and Kalem says so until the plugin is installed again and the user
   approves; an update's new permissions are listed apart when it is
-  offered.
+  offered. So does a language plugin's =subprocess=: its servers start,
+  and its commands' programs run, only when it was approved (a manifest
+  naming servers or commands asks for it, listed or not); a plugin in a
+  folder of =KALEM_PLUGIN_PATH= is the user's own and needs none.
 - *Out of process* for what cannot be a component: language servers
   talk JSON-RPC over standard input and output, and the programs a
   component runs (=process=) are run with their arguments, their

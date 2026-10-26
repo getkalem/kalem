@@ -165,6 +165,9 @@ pub struct Plugin {
     /// When it serves a file ([`crate::applies::Applies::of`] of its
     /// manifest): what the index says of it too.
     pub applies: crate::applies::Applies,
+    /// Whether it may run the programs its manifest names, its servers'
+    /// and its commands' ([`may_run_programs`]).
+    pub runs_programs: bool,
 }
 
 impl Plugin {
@@ -354,6 +357,7 @@ pub fn parse_manifest(dir: &Path, text: &str) -> Result<Option<Plugin>, String> 
         syntaxes: Vec::new(),
         requests,
         applies: crate::applies::Applies::of(&m),
+        runs_programs: true,
     }))
 }
 
@@ -450,6 +454,44 @@ fn load_plugin(dir: &Path) -> Result<Option<(Plugin, Vec<kalem_highlight::Syntax
     Ok(Some((plugin, sources)))
 }
 
+/// Whether plugin `p`, found in `folder`, may run the programs its manifest
+/// names (its servers', its commands'). One in `CONFIG/plugins`, where
+/// Kalem installs them, only when the user approved `subprocess` at its
+/// install (`plugins.toml`), not by what its manifest says now: a manifest
+/// changed on disk, or a plugin put there by hand, does not start programs,
+/// and the user is told once a run. One in a folder the user named
+/// (`KALEM_PLUGIN_PATH`, a frontend's own folders) is theirs, and may.
+fn may_run_programs(folder: &Path, p: &Plugin) -> bool {
+    static SAID: Mutex<std::collections::BTreeSet<String>> =
+        Mutex::new(std::collections::BTreeSet::new());
+    let Some(config) = crate::settings::config_dir() else {
+        return true;
+    };
+    if folder.parent() != Some(config.join("plugins").as_path())
+        || (p.servers.is_empty() && p.commands.values().all(Vec::is_empty))
+    {
+        return true;
+    }
+    let approved = crate::plugin_store::approved_in(&config, &p.id)
+        .is_some_and(|a| a.iter().any(|x| x == "subprocess"));
+    if !approved
+        && SAID
+            .lock()
+            .is_ok_and(|mut said| said.insert(format!("{} {}", p.id, p.version)))
+    {
+        crate::jobs::notice(
+            crate::tr!(
+                "plugin-unapproved",
+                name = p.name.as_str(),
+                version = p.version.as_str(),
+                list = "subprocess"
+            ),
+            true,
+        );
+    }
+    approved
+}
+
 /// Loads the language plugins of [`plugin_dirs`], once; again only when
 /// the folders change. Cheap after the first call. Their syntaxes, when
 /// not cached (a start after an update), are built on a thread of their
@@ -508,7 +550,8 @@ fn load_dirs(dirs: &[PathBuf], later: bool) {
     let mut sources = Vec::new();
     for folder in plugin_folders(dirs) {
         match load_plugin(&folder) {
-            Ok(Some((p, s))) => {
+            Ok(Some((mut p, s))) => {
+                p.runs_programs = may_run_programs(&folder, &p);
                 tracing::info!(plugin = %p.id, dir = %folder.display(), "language plugin loaded");
                 let files: Vec<String> = s
                     .iter()
@@ -769,6 +812,12 @@ pub fn resolve_key(
     root: Option<&Path>,
 ) -> Option<Result<(Box<ServerSpec>, PathBuf, Vec<String>), String>> {
     let mut spec = plugin.server(key)?.clone();
+    if !plugin.runs_programs {
+        return Some(Err(crate::tr!(
+            "lsp-not-approved",
+            plugin = plugin.name.as_str()
+        )));
+    }
     let user = user_settings(&plugin.id);
     let over = &user["servers"][key];
     let command = strings(&over["command"]);

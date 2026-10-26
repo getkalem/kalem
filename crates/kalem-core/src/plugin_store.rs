@@ -148,6 +148,9 @@ pub struct Prepared {
     pub languages: Vec<String>,
     /// The language servers it may start, by name.
     pub servers: Vec<String>,
+    /// The programs its commands run (`commands`: `format`, `test`), by
+    /// name.
+    pub commands: Vec<String>,
     /// The extensions it opens, for a viewer.
     pub opens: Vec<String>,
     /// It has a component (`main`): a viewer when it opens files, else an
@@ -950,13 +953,33 @@ fn read_prepared(source: &str, staging: &Path) -> Result<Prepared, String> {
             ours = host.version
         ));
     }
-    let permissions = strings(&m["permissions"]);
+    let mut permissions = strings(&m["permissions"]);
     if let Some(unknown) = permissions.iter().find(|p| !known_permission(p)) {
         return Err(crate::tr!(
             "plugin-unknown-permission",
             name = name.as_str(),
             permission = unknown.as_str()
         ));
+    }
+    // The programs a language plugin's manifest names, its servers' and
+    // its commands', run by the core only with `subprocess` approved: a
+    // manifest naming them asks for it, said or not.
+    let commands: Vec<String> = m["commands"]
+        .as_object()
+        .map(|o| {
+            let mut programs: Vec<String> = o
+                .values()
+                .filter_map(|c| c.as_array()?.first()?.as_str().map(str::to_string))
+                .collect();
+            programs.sort();
+            programs.dedup();
+            programs
+        })
+        .unwrap_or_default();
+    let names_programs =
+        m["servers"].as_object().is_some_and(|o| !o.is_empty()) || !commands.is_empty();
+    if names_programs && !permissions.iter().any(|p| p == "subprocess") {
+        permissions.push("subprocess".into());
     }
     let (replaces, approved) = installed()
         .into_iter()
@@ -989,6 +1012,7 @@ fn read_prepared(source: &str, staging: &Path) -> Result<Prepared, String> {
                     .collect()
             })
             .unwrap_or_default(),
+        commands,
         opens,
         source: source.trim().to_string(),
         staging: staging.to_path_buf(),
@@ -1031,8 +1055,9 @@ pub fn summary(p: &Prepared) -> Vec<String> {
     } else if p.component {
         out.push(crate::tr!("plugin-adds"));
     }
-    // `subprocess` runs a language plugin's servers; `subprocess:NAME`, the
-    // program NAME through the `process` interface (API 0.2.4).
+    // `subprocess` runs a language plugin's servers and the programs of its
+    // commands; `subprocess:NAME`, the program NAME through the `process`
+    // interface (API 0.2.4).
     let named: Vec<&str> = p
         .permissions
         .iter()
@@ -1042,11 +1067,12 @@ pub fn summary(p: &Prepared) -> Vec<String> {
     if servers || !named.is_empty() {
         let mut programs: Vec<String> = named.iter().map(|n| n.to_string()).collect();
         if servers {
-            programs.push(if p.servers.is_empty() {
-                crate::tr!("plugin-its-servers")
-            } else {
-                p.servers.join(", ")
-            });
+            if !p.servers.is_empty() {
+                programs.push(p.servers.join(", "));
+            } else if p.commands.is_empty() {
+                programs.push(crate::tr!("plugin-its-servers"));
+            }
+            programs.extend(p.commands.iter().cloned());
         }
         out.push(crate::tr!("plugin-runs", list = programs.join(", ")));
     }
@@ -1444,15 +1470,7 @@ pub fn installed_in(config: &std::path::Path) -> Vec<Installed> {
                     .and_then(|t| t.get("source"))
                     .and_then(|s| s.as_str())
                     .map(str::to_string),
-                approved: record.map(|t| {
-                    t.get("permissions")
-                        .and_then(|p| p.as_array())
-                        .map_or_else(Vec::new, |a| {
-                            a.iter()
-                                .filter_map(|x| x.as_str().map(str::to_string))
-                                .collect()
-                        })
-                }),
+                approved: approved_of(&rec, &id),
                 dir,
                 id,
             })
@@ -1460,6 +1478,32 @@ pub fn installed_in(config: &std::path::Path) -> Vec<Installed> {
         .collect();
     out.sort_by_key(|p| p.name.to_lowercase());
     out
+}
+
+/// The permissions the user approved for plugin `id` when Kalem installed
+/// it, as the `plugins.toml` of the settings folder `config` records them;
+/// `None` for a plugin Kalem did not install.
+pub fn approved_in(config: &Path, id: &str) -> Option<Vec<String>> {
+    let rec: toml_edit::DocumentMut = std::fs::read_to_string(config.join("plugins.toml"))
+        .ok()?
+        .parse()
+        .ok()?;
+    approved_of(&rec, id)
+}
+
+/// The permissions record `rec` (`plugins.toml`) holds for plugin `id`.
+fn approved_of(rec: &toml_edit::DocumentMut, id: &str) -> Option<Vec<String>> {
+    let record = rec.get("plugins")?.get(id)?;
+    Some(
+        record
+            .get("permissions")
+            .and_then(|p| p.as_array())
+            .map_or_else(Vec::new, |a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(str::to_string))
+                    .collect()
+            }),
+    )
 }
 
 /// Removes an installed plugin: its folder and its record. A plugin
@@ -1985,6 +2029,51 @@ mod tests {
         // Put in the folder by hand: nothing approved, nothing granted.
         assert_eq!(granted(&asked, None), (Vec::new(), asked.clone()));
         assert_eq!(granted(&[], None), (Vec::new(), Vec::new()));
+    }
+
+    #[test]
+    fn programs_a_manifest_names_ask_for_subprocess() {
+        let dir = std::env::temp_dir().join(format!("kalem-prep-run-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let read = |manifest: &str| {
+            std::fs::write(dir.join("plugin.json"), manifest).unwrap();
+            read_prepared("x", &dir).unwrap()
+        };
+        let runs = |p: &Prepared| {
+            summary(p)
+                .into_iter()
+                .find(|l| l.starts_with("Runs programs on this computer: "))
+        };
+        // Servers, without `subprocess` said: asked for all the same, and
+        // shown.
+        let p = read(
+            r#"{"id":"org.x.served","name":"S","languages":[{"id":"s"}],
+                "servers":{"ls":{"name":"S Server","command":["s-ls"]}}}"#,
+        );
+        assert_eq!(p.permissions, ["subprocess"]);
+        assert!(
+            runs(&p).is_some_and(|l| l.contains(": S Server (")),
+            "{:?}",
+            summary(&p)
+        );
+        // Commands only: their programs named, once each.
+        let p = read(
+            r#"{"id":"org.x.cmds","name":"C","languages":[{"id":"c"}],"permissions":["subprocess"],
+                "commands":{"format":["fmtr","-"],"test":["fmtr","test"],"run":["runner","{file}"]}}"#,
+        );
+        assert_eq!(p.permissions, ["subprocess"]);
+        assert_eq!(p.commands, ["fmtr", "runner"]);
+        assert!(
+            runs(&p).is_some_and(|l| l.contains(": fmtr, runner (")),
+            "{:?}",
+            summary(&p)
+        );
+        // Neither: nothing asked, no program said.
+        let syntax = r#"{"id":"org.x.syntax","name":"Y","languages":[{"id":"y"}]}"#;
+        let p = read(syntax);
+        assert!(p.permissions.is_empty() && runs(&p).is_none());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
