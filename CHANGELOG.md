@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - A list offered in the background (Restart a Plugin after a plugin was stopped, a suggestion) opens once the keys have rested for a second, so it no longer takes a key being typed.
+- An answer of a plugin's layer, completer, formatter or outline that comes past its 100 ms is dropped as late by the clock. On a Mac running Kalem in the background, where 10 ms of sleep takes 200, the host's time ticks came so late that such an answer counted as in time.
 
 ## [0.6.51] - 2026-10-26
 

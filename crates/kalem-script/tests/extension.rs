@@ -1469,9 +1469,11 @@ fn a_layer_and_the_clock() {
 /// The time a call of a plugin's layers, completers, formatters and
 /// outlines answers within, which the editors make as they draw and as
 /// the user types: shorter than its commands', never longer than its
-/// limits'. An answer past it is dropped and the plugin answers on; a
-/// layer that never answers is stopped at the longest such a call may
-/// run, though the limits give a call ten seconds.
+/// limits'. An answer past it is dropped and the plugin answers on, late
+/// by the clock even where the host's ticks come late (on a Mac running
+/// the tests in the background, 10 ms of sleep took 200, and the answer
+/// counted as in time); a layer that never answers is stopped at the
+/// longest such a call may run, though the limits give a call a minute.
 #[test]
 fn a_layer_has_the_drawing_time() {
     let Some(bytes) = common::component("layered") else {
@@ -1499,7 +1501,7 @@ fn a_layer_has_the_drawing_time() {
         "never longer than the limits'"
     );
     let limits = Limits {
-        time: Duration::from_secs(10),
+        time: Duration::from_secs(60),
         ..Limits::default()
     };
     // Late: its answer dropped, the plugin answering on.
@@ -1524,7 +1526,7 @@ fn a_layer_has_the_drawing_time() {
         "{out:?}"
     );
     assert!(
-        start.elapsed() < Duration::from_secs(5),
+        start.elapsed() < Duration::from_secs(30),
         "stopped at its longest, not the limits': {:?}",
         start.elapsed()
     );

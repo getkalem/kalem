@@ -90,7 +90,7 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::{Condvar, Mutex, MutexGuard, OnceLock, PoisonError};
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 use sha2::{Digest, Sha256};
 use wasmtime::component::{Component, ComponentNamedList, Lift, Lower, TypedFunc};
@@ -639,21 +639,29 @@ impl Plugin {
                     refused: false,
                 },
                 diagnostics: Diagnostics::default(),
-                overtime: None,
+                due: Some(Due::after(limits.time, limits.time)),
                 overran: false,
             },
         );
         store.limiter(|d| &mut d.limiter);
-        // At the deadline a call is stopped, but for a call of the
-        // drawing's past its own time, which goes on to its budget's end.
+        // At an epoch deadline the call's time is read on the clock, since
+        // the ticks may come late (a Mac running Kalem in the background
+        // makes 10 ms of sleep 200): one of the drawing's past its own time
+        // goes on to its longest, one past that is stopped, and one not yet
+        // at its time (never, as the ticks come no sooner) goes on.
         store.epoch_deadline_callback(|mut cx| {
             let d = cx.data_mut();
-            Ok(match d.overtime.take() {
-                Some(more) => {
-                    d.overran = true;
-                    UpdateDeadline::Continue(more)
-                }
-                None => UpdateDeadline::Interrupt,
+            let now = Instant::now();
+            let Some(due) = d.due else {
+                return Ok(UpdateDeadline::Interrupt);
+            };
+            Ok(if now < due.answer {
+                UpdateDeadline::Continue(ticks_until(due.answer - now))
+            } else if now < due.most {
+                d.overran = true;
+                UpdateDeadline::Continue(ticks_until(due.most - now))
+            } else {
+                UpdateDeadline::Interrupt
             })
         });
         let _call = CLOCK.call();
@@ -698,6 +706,32 @@ fn ticks(time: Duration) -> u64 {
     (time.as_millis() / TICK.as_millis()).max(1) as u64 + 1
 }
 
+/// The ticks until `time` has passed, one at least.
+fn ticks_until(time: Duration) -> u64 {
+    (time.as_millis().div_ceil(TICK.as_millis())).max(1) as u64
+}
+
+/// When a call's time runs out, on the clock: the time its answer counts
+/// within, and the longest it may run (the same, but for a call of the
+/// drawing's, [`Instance::run_drawing`]).
+#[derive(Debug, Clone, Copy)]
+struct Due {
+    answer: Instant,
+    most: Instant,
+}
+
+impl Due {
+    /// A call starting now that answers within `time` and runs `most` at
+    /// the longest.
+    fn after(time: Duration, most: Duration) -> Due {
+        let now = Instant::now();
+        Due {
+            answer: now + time,
+            most: now + most.max(time),
+        }
+    }
+}
+
 /// What an instance's store holds: the host's data and the limiter.
 #[derive(Debug)]
 pub struct Data<T> {
@@ -705,10 +739,9 @@ pub struct Data<T> {
     pub user: T,
     limiter: Limiter,
     pub(crate) diagnostics: Diagnostics,
-    /// The ticks a call goes on past its deadline: a call of the drawing's
-    /// past its own time ([`Instance::run_drawing`]).
-    overtime: Option<u64>,
-    /// Whether the call ran past its deadline into its overtime.
+    /// When the call running runs out of time.
+    due: Option<Due>,
+    /// Whether the call ran past the time its answer counts within.
     overran: bool,
 }
 
@@ -841,7 +874,7 @@ impl<T: Send + 'static> Instance<T> {
             .get_typed_func(&mut self.store, name)
             .map_err(|e| Error::Invalid(format!("{name}: {e:#}")))?;
         let _call = CLOCK.call();
-        self.store.data_mut().overtime = None;
+        self.store.data_mut().due = Some(Due::after(self.limits.time, self.limits.time));
         self.store.set_epoch_deadline(ticks(self.limits.time));
         let out = f.call(&mut self.store, params);
         self.spent |= out.is_err();
@@ -864,7 +897,7 @@ impl<T: Send + 'static> Instance<T> {
         f: impl FnOnce(&mut Store<Data<T>>) -> wasmtime::Result<R>,
     ) -> Result<R> {
         let _call = CLOCK.call();
-        self.store.data_mut().overtime = None;
+        self.store.data_mut().due = Some(Due::after(self.limits.time, self.limits.time));
         self.store.set_epoch_deadline(ticks(self.limits.time));
         self.store.data_mut().diagnostics.panicked = None;
         let out = f(&mut self.store);
@@ -885,16 +918,21 @@ impl<T: Send + 'static> Instance<T> {
         f: impl FnOnce(&mut Store<Data<T>>) -> wasmtime::Result<R>,
     ) -> Result<R> {
         let _call = CLOCK.call();
-        let (soon, late) = (ticks(time), ticks(most.max(time)));
+        let due = Due::after(time, most);
         let d = self.store.data_mut();
-        d.overtime = (late > soon).then_some(late - soon);
+        d.due = Some(due);
         d.overran = false;
         d.diagnostics.panicked = None;
-        self.store.set_epoch_deadline(soon);
+        self.store.set_epoch_deadline(ticks(time));
         let out = f(&mut self.store);
-        let overran = std::mem::take(&mut self.store.data_mut().overran);
+        // Late by the clock, whether or not a deadline came meanwhile (the
+        // clock's thread may wake late, as on a Mac running it in the
+        // background, where 10 ms of sleep took 200).
+        let overran =
+            std::mem::take(&mut self.store.data_mut().overran) || Instant::now() >= due.answer;
+        // Stopped only past the longest.
         let limits = Limits {
-            time: if overran { most } else { time },
+            time: most.max(time),
             ..self.limits
         };
         match out {
