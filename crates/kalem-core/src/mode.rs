@@ -172,6 +172,21 @@ impl DocumentMode {
         !matches!(self, DocumentMode::Text { language: Some(_) })
     }
 
+    /// Whether a file of this mode opens in the editor when a link points
+    /// at it (text: Org, Markdown, CSV, LaTeX, plain text and code, a
+    /// registered mode's), rather than in the system's application.
+    pub fn opens_as_text(&self) -> bool {
+        matches!(
+            self,
+            DocumentMode::Org
+                | DocumentMode::Markdown
+                | DocumentMode::Text { .. }
+                | DocumentMode::Csv
+                | DocumentMode::Latex
+                | DocumentMode::Registered(_)
+        )
+    }
+
     /// The mode's name in settings and when-clauses (`editorMode`).
     pub fn name(&self) -> &'static str {
         match self {

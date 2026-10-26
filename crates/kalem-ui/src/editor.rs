@@ -2037,14 +2037,7 @@ impl Editor {
                     (Some(doc), false) => doc.parent().map_or(path.clone(), |d| d.join(&path)),
                     _ => path,
                 };
-                let text = matches!(
-                    DocumentMode::detect(Some(&path), b""),
-                    DocumentMode::Org
-                        | DocumentMode::Markdown
-                        | DocumentMode::Text { .. }
-                        | DocumentMode::Csv
-                        | DocumentMode::Latex
-                );
+                let text = DocumentMode::detect(Some(&path), b"").opens_as_text();
                 if text {
                     // A line number as the search: the cursor on that line.
                     let at = search
@@ -3055,7 +3048,8 @@ impl Editor {
         // own, `line::code_spans`): the whole text's colors, slow to make
         // for a long file, only in the source view.
         let any_source = self.source || self.other.as_ref().is_some_and(|o| o.source);
-        let lang = lang.filter(|_| self.doc.meta.mode != DocumentMode::Markdown || any_source);
+        let lang = lang
+            .filter(|_| kalem_core::mode_view::traits(&self.doc, false).rich_colors || any_source);
         let found = lang.and_then(kalem_highlight::Language::find);
         let large = text.len() > 4 << 20;
         let language = found.filter(|_| !large);

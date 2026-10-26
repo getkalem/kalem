@@ -2887,14 +2887,7 @@ impl App {
                 };
                 // Text files open here, as in the graphical editor; a line
                 // number as the search puts the cursor on that line.
-                let text = matches!(
-                    DocumentMode::detect(Some(&p), b""),
-                    DocumentMode::Org
-                        | DocumentMode::Markdown
-                        | DocumentMode::Text { .. }
-                        | DocumentMode::Csv
-                        | DocumentMode::Latex
-                );
+                let text = DocumentMode::detect(Some(&p), b"").opens_as_text();
                 if text {
                     let at = search
                         .as_deref()

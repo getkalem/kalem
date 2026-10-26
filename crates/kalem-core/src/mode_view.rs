@@ -284,6 +284,10 @@ pub struct ViewTraits {
     /// hides (Org's and LaTeX's as they read); otherwise by the source's
     /// characters.
     pub steps_by_view: bool,
+    /// The language highlighter colors the whole text for the view as it
+    /// reads too; otherwise only for the source view (Markdown as it reads
+    /// colors only its code blocks, each on its own: [`ModeView::code_spans`]).
+    pub rich_colors: bool,
 }
 
 impl ViewTraits {
@@ -306,6 +310,7 @@ impl ViewTraits {
         math_text: false,
         formula_text: false,
         steps_by_view: true,
+        rich_colors: true,
     };
 }
 
@@ -1002,6 +1007,7 @@ impl ModeView for Markdown {
             line_pictures: false,
             math_text: true,
             steps_by_view: false,
+            rich_colors: false,
             ..ViewTraits::DOCUMENT
         }
     }
