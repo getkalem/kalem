@@ -192,13 +192,33 @@ the parity test still passes on the whole corpus.
   from `org-edit`, diagnostics from `org-lint`, Enter as the editor's
   Enter and Tab as the table's next field. `modes::check` passes on the
   32 files of `tests/corpus/org-mode`.
-- [ ] R3.2 The editors render from the contract: `line_view`, `blocks`
+- [~] R3.2 The editors render from the contract: `line_view`, `blocks`
   and `outline_items` become trait methods with the per-mode free
   functions behind them; the hand-written dispatch in
   `kalem-tui/src/editor.rs`, `kalem-tui/src/app.rs`, `kalem-ui/src/editor.rs`
   and `kalem-ui/src/outline.rs` goes; the 70 `DocumentMode::` branches in
   the frontends fall to the ones about chrome. The parity test and the
   snapshot tests guard it. L (T2.7c.10)
+  done (2026-10-26, branch `worktree-mode-state-out`): each mode's state in
+  one slot of the document (`kalem_core::mode_state`; `DocumentState` 56 →
+  31 fields, `document.rs` names no mode's state); a registry of modes
+  (`kalem_core::modes::ModeEntry`, `mode_view::BUILTIN`, `modes::register`,
+  `DocumentMode::Registered`) that `view_of`, the mode state and its
+  `settle` read instead of matching on the mode; `ModeView::traits`
+  (`ViewTraits`: monospace, highlighter, line numbers, wrapping, Tab,
+  folding, heading arrows, outline indent) answering what the editors
+  asked by comparing the mode with Org, CSV, Markdown or Text (15 places).
+  The exit holds: the parity test registers a mode of its own (`*.toy`)
+  and both editors draw it with no code for it. Open: the rest of the
+  frontends' branches (`DocumentMode::` 29 in the terminal's, 26 in the
+  window's, about 20 of them chrome), which need capabilities of the
+  modes rather than traits: the CSV grid (layout, header, hits, rows in
+  view order, block selection), tables at a place, multi-line formulas
+  and their macros, code spans, LaTeX's joined paragraphs, and in the
+  terminal `render::glyphs` without the Org tree (a run's link target and
+  list marker in `view::Run`) and `horizontal()` through
+  `mode_view::line_view`. The window's `item_of` treats only a sorted CSV
+  view as out of file order, not a sorted BibTeX grid.
 - [ ] R3.3 One `Request` handler: the shared parts of the two 400-line
   `request` functions move into a core `requests` module that the
   frontends call with a small platform trait (clipboard, open URL, file
@@ -213,6 +233,14 @@ the parity test still passes on the whole corpus.
   `plain_commands`, `grid_commands`, `csv_commands` and the three `cmd()`
   helpers become one shape; command ids as constants checked at compile
   time where the frontends name them. M
+  partly done (2026-10-26, branch `worktree-mode-state-out`): each
+  family of built-in commands in the module of what it serves
+  (`csv/commands.rs`, `latex_commands.rs`, `bibtex/commands.rs`,
+  `flow/commands.rs`, `markdown/commands.rs`, `lsp/commands.rs`,
+  `plugin_store/commands.rs`), built with one set of builders in
+  `command.rs` (`cmd`, `scoped`, `literal_keys`, `literal_when`, …);
+  `builtin.rs` 12,150 → 6,074 lines before its tests. Open: commands as
+  named functions, dired's and the viewer's own `cmd()`, ids as constants.
 - [ ] R3.6 Global state out of the core: the 32 `static Mutex` in
   `kalem-core` (jobs, LSP service, LaTeX root setting, memos, file
   clipboard, bookmarks, sessions) become fields of an `Editor`/`Session`
@@ -223,6 +251,12 @@ the parity test still passes on the whole corpus.
   `kalem-viewer-host` (`viewer.rs`, 11k), `kalem-dired`, `kalem-vim`;
   `kalem-core/src` gets subfolders for what stays (`markdown/`, `csv/`,
   `plugins/`, `keys/`). Each new crate gets a README. L
+  prepared (2026-10-26, branch `worktree-mode-state-out`): the modes'
+  state is in the document's slot and their commands in their modules,
+  so `document.rs` and `builtin.rs` no longer tie them to the core
+  (references into CSV from the rest of the core 206 → 73, into LaTeX's
+  from `builtin.rs` 43 → 6); what still binds a mode's crate to the
+  editors is R3.2's open part.
 - [ ] R3.8 One table engine: `markdown_table`, `latex_table`,
   `latex_fmt::cells` and the CSV tools share `org-table`'s cell model
   (split, align, move, recalc), each format keeping only its syntax. M
