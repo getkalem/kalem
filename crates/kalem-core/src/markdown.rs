@@ -12,6 +12,8 @@ use std::rc::Rc;
 use crate::modes::{Detect, Kind, ModeSpec, TextEdit, Tree};
 use crate::view::{LineRole, LineView, Run, Style, Widget};
 
+pub(crate) mod commands;
+
 /// What a Markdown node is, as the view needs it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MdKind {
