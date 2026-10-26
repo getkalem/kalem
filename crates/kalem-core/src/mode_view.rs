@@ -143,6 +143,13 @@ pub trait ModeView: Send + Sync {
     fn grid(&self) -> Option<&'static dyn GridView> {
         None
     }
+
+    /// The note to show over `pos` under the mouse: the entry a citation
+    /// cites, a footnote's text, a problem's message; by default a language
+    /// server's problem there.
+    fn note_at(&self, doc: &mut DocumentState, pos: usize) -> Option<String> {
+        crate::lsp::diagnostic_at(doc, pos)
+    }
 }
 
 /// A mode drawn as a grid of cells (CSV's; [`ModeView::grid`]): what the
@@ -219,6 +226,12 @@ pub trait GridView: Send + Sync {
     /// Whether the cursor's cell is in Excel's Ready mode: framed, with no
     /// caret.
     fn ready(&self, doc: &DocumentState) -> bool;
+}
+
+/// The note to show over `pos` of `doc` under the mouse
+/// ([`ModeView::note_at`]), whichever view shows it.
+pub fn note_at(doc: &mut DocumentState, pos: usize) -> Option<String> {
+    view_of(doc, false).note_at(doc, pos)
 }
 
 /// The grid of `doc`'s mode in the view `source` picks ([`ModeView::grid`]).
@@ -754,6 +767,17 @@ impl ModeView for Plain {
 struct Org;
 
 impl ModeView for Org {
+    /// The entry a citation cites, a footnote's text (from the model; a
+    /// language server's problem without one).
+    fn note_at(&self, doc: &mut DocumentState, pos: usize) -> Option<String> {
+        match doc.model() {
+            Some(model) => {
+                crate::cite::note_at(&model, doc.text().as_str(), doc.meta.path.as_deref(), pos)
+            }
+            None => crate::lsp::diagnostic_at(doc, pos),
+        }
+    }
+
     fn link_target(&self, doc: &DocumentState, offset: usize) -> Option<String> {
         org_link_target(doc, offset)
     }
@@ -897,6 +921,13 @@ impl ModeView for OrgSource {
 struct Latex;
 
 impl ModeView for Latex {
+    /// A note's text, else a problem's: LaTeX's, else a language server's.
+    fn note_at(&self, doc: &mut DocumentState, pos: usize) -> Option<String> {
+        crate::latex_view::note_at(doc, pos)
+            .or_else(|| crate::latex_view::diagnostic_at(doc, pos))
+            .or_else(|| crate::lsp::diagnostic_at(doc, pos))
+    }
+
     fn math_source(&self, doc: &DocumentState, block: Range<usize>) -> Option<String> {
         crate::latex_view::math_source(doc, block)
     }
