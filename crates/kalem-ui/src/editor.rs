@@ -884,11 +884,9 @@ impl Editor {
 
     fn compute_lines(&mut self) -> Vec<usize> {
         let n = self.doc.text().line_count();
-        // A CSV filter or sort: the lines of the rows shown, in their order.
-        if !self.source
-            && let Some(lines) = kalem_core::csv::shown_lines(&self.doc)
-                .or_else(|| kalem_core::bibtex::shown_lines(&self.doc))
-        {
+        // A filter or sort (a CSV view's, a BibTeX grid's): the lines
+        // shown, in their order.
+        if let Some(lines) = kalem_core::mode_view::shown_lines(&self.doc, self.source) {
             return lines.to_vec();
         }
         let blocks = self.blocks();
@@ -972,10 +970,9 @@ impl Editor {
 
     /// The list item of source line `line`, if it shows.
     pub fn item_of(&self, line: usize) -> Option<usize> {
-        // A CSV view sorted by a column shows its lines out of order.
-        if self.doc.csv().is_some_and(|c| c.sort.is_some())
-            && self.doc.meta.mode == DocumentMode::Csv
-        {
+        // A view sorted by a column (a CSV view's, a BibTeX grid's) shows
+        // its lines out of order.
+        if kalem_core::mode_view::sort(&self.doc, self.source).is_some() {
             return self.visible.iter().position(|&l| l == line);
         }
         self.visible.binary_search(&line).ok()

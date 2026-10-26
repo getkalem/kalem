@@ -4038,6 +4038,12 @@ fn bibtex_grid(cx: &mut TestAppContext) {
     });
     let lines = e.read_with(cx, |e, _| e.visible.clone());
     assert_eq!(lines, vec![0, 7, 1]);
+    // Each entry's place in the list, out of the file's order (a search
+    // as for lines in order missed the first entry).
+    assert_eq!(
+        e.read_with(cx, |e, _| (e.item_of(1), e.item_of(7))),
+        (Some(2), Some(1))
+    );
     assert_eq!(text_of(&e, cx), text);
     // In an entry: all its lines, as source.
     e.update_in(cx, |e, window, cx| {

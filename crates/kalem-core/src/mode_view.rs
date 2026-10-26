@@ -39,6 +39,19 @@ pub trait ModeView: Send + Sync {
     fn traits(&self, _doc: &DocumentState, _source: bool) -> ViewTraits {
         ViewTraits::DOCUMENT
     }
+
+    /// The lines a filter or a sort shows, in the order shown (a CSV
+    /// view's rows, a BibTeX grid's entries); `None` when every line shows
+    /// in the file's order, as the blocks let it.
+    fn shown_lines(&self, _doc: &DocumentState) -> Option<std::rc::Rc<Vec<usize>>> {
+        None
+    }
+
+    /// The column the view is sorted by, and whether descending: its
+    /// [`ModeView::shown_lines`] are then out of the file's order.
+    fn sort(&self, _doc: &DocumentState) -> Option<(usize, bool)> {
+        None
+    }
 }
 
 /// What the editors do with a mode's documents beyond drawing their lines
@@ -92,6 +105,17 @@ impl ViewTraits {
 /// `source` picks ([`view_of`]).
 pub fn traits(doc: &DocumentState, source: bool) -> ViewTraits {
     view_of(doc, source).traits(doc, source)
+}
+
+/// The lines of `doc` a filter or a sort shows, in their order
+/// ([`ModeView::shown_lines`]); `None` in the source view.
+pub fn shown_lines(doc: &DocumentState, source: bool) -> Option<std::rc::Rc<Vec<usize>>> {
+    view_of(doc, source).shown_lines(doc)
+}
+
+/// The column `doc`'s view is sorted by ([`ModeView::sort`]).
+pub fn sort(doc: &DocumentState, source: bool) -> Option<(usize, bool)> {
+    view_of(doc, source).sort(doc)
 }
 
 /// The built-in modes (`crate::modes::ModeEntry`), found by
@@ -523,6 +547,14 @@ impl ModeView for Markdown {
 struct Csv;
 
 impl ModeView for Csv {
+    fn shown_lines(&self, doc: &DocumentState) -> Option<std::rc::Rc<Vec<usize>>> {
+        crate::csv::shown_lines(doc)
+    }
+
+    fn sort(&self, doc: &DocumentState) -> Option<(usize, bool)> {
+        doc.csv().and_then(|c| c.sort)
+    }
+
     /// The grid numbers its rows itself, and they scroll sideways.
     fn traits(&self, _: &DocumentState, _: bool) -> ViewTraits {
         ViewTraits {
@@ -549,6 +581,14 @@ impl ModeView for Csv {
 struct Bib;
 
 impl ModeView for Bib {
+    fn shown_lines(&self, doc: &DocumentState) -> Option<std::rc::Rc<Vec<usize>>> {
+        crate::bibtex::shown_lines(doc)
+    }
+
+    fn sort(&self, doc: &DocumentState) -> Option<(usize, bool)> {
+        doc.bib_sort()
+    }
+
     /// A text file's grid: monospace, every line shown.
     fn traits(&self, _: &DocumentState, _: bool) -> ViewTraits {
         ViewTraits {

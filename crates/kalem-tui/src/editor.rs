@@ -29,9 +29,6 @@ pub enum CsvHeader {
     Row(usize),
 }
 
-/// A CSV and a BibTeX document's sorts: the column, and whether reversed.
-type Sorts = (Option<(usize, bool)>, Option<(usize, bool)>);
-
 /// The editor view's state, kept across frames.
 #[derive(Debug, Default)]
 pub struct EditorView {
@@ -69,7 +66,7 @@ pub struct EditorView {
     pub area: Rect,
     /// The CSV and BibTeX sorts of the last frame: a view sorted anew
     /// starts at its first row.
-    sort_seen: Sorts,
+    sort_seen: Option<(usize, bool)>,
     /// Focus mode: only the section holding the cursor shows.
     pub focus: bool,
     /// The text column's width in characters; 0 for the whole window.
@@ -602,12 +599,9 @@ impl<'a> Layout<'a> {
         }
         let parse = doc.parse().filter(|(_, current)| *current).map(|(p, _)| p);
         let len = doc.text().len();
-        // A CSV filter or sort: the rows shown, and their order.
-        let shown = (!source)
-            .then(|| {
-                kalem_core::csv::shown_lines(doc).or_else(|| kalem_core::bibtex::shown_lines(doc))
-            })
-            .flatten();
+        // A filter or sort (a CSV view's, a BibTeX grid's): the rows
+        // shown, and their order.
+        let shown = kalem_core::mode_view::shown_lines(doc, source);
         // Each line's place and the ranges shown, made once for the list.
         let rows = shown.as_ref().map(|lines| {
             let mut cache = shown_rows.borrow_mut();
@@ -637,7 +631,7 @@ impl<'a> Layout<'a> {
         let order = shown
             .as_ref()
             .zip(rows.as_ref())
-            .filter(|_| doc.csv().is_some_and(|c| c.sort.is_some()) || doc.bib_sort().is_some())
+            .filter(|_| kalem_core::mode_view::sort(doc, source).is_some())
             .map(|(lines, (at, _))| (lines.clone(), at.clone()));
         let (mut visible, folded) = if let Some((_, ranges)) = &rows {
             (ranges.to_vec(), HashSet::new())
@@ -2433,7 +2427,7 @@ impl EditorView {
         }
         let width = self.width();
         let l = Layout::new(doc, shared!(self), &blocks, caps, width);
-        let sort = (doc.csv().and_then(|c| c.sort), doc.bib_sort());
+        let sort = kalem_core::mode_view::sort(doc, false);
         if sort != self.sort_seen {
             self.sort_seen = sort;
             if let Some(first) = l.first_shown() {
