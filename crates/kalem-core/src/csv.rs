@@ -14,6 +14,8 @@ use std::ops::Range;
 
 use org_edit::{Selection, Transaction};
 
+mod grid;
+
 /// How a CSV file writes its records.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Dialect {
