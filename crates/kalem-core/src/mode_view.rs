@@ -88,6 +88,43 @@ pub trait ModeView: Send + Sync {
     fn in_code_block(&self, _doc: &DocumentState, _line: Range<usize>) -> bool {
         false
     }
+
+    /// The source of the displayed formula `block` as the renderer takes
+    /// it (LaTeX's: numbered as LaTeX numbers it, its labels out); `None`
+    /// for its text as written.
+    fn math_source(&self, _doc: &DocumentState, _block: Range<usize>) -> Option<String> {
+        None
+    }
+
+    /// The definitions formulas are rendered with (`\newcommand`s): Org's
+    /// `#+LATEX_HEADER`s, a LaTeX document's own and its packages' that the
+    /// renderer lacks.
+    fn math_macros(&self, _doc: &DocumentState) -> String {
+        String::new()
+    }
+
+    /// How a displayed formula stands on its line (LaTeX centers it, or
+    /// puts it flush left with `fleqn`).
+    fn display_align(&self, _doc: &DocumentState) -> crate::rich::Align {
+        crate::rich::Align::default()
+    }
+
+    /// The formula the cursor at `pos` is in, its source, to preview.
+    fn formula_at(&self, _doc: &DocumentState, _pos: usize) -> Option<String> {
+        None
+    }
+
+    /// A formula's Unicode approximation (the terminal's), with the
+    /// document's own macros put in.
+    fn formula_unicode(&self, _doc: &DocumentState, source: &str) -> String {
+        crate::math::unicode(source)
+    }
+
+    /// The line `v` with its formulas' text as the terminal writes it: the
+    /// document's own macros put in (LaTeX's).
+    fn formulas_as_text(&self, _doc: &DocumentState, v: LineView) -> LineView {
+        v
+    }
 }
 
 /// A piece of code to color ([`ModeView::code_spans`]): its range, its
@@ -131,6 +168,19 @@ pub struct ViewTraits {
     /// source; otherwise only a line shown wholly as its source (a BibTeX
     /// grid's rows).
     pub source_colors: bool,
+    /// Lines show pictures where the terminal can draw them: a formula over
+    /// several lines on its first line ([`ModeView::math_source`],
+    /// [`ModeView::math_macros`]).
+    pub pictures: bool,
+    /// And a picture or a displayed formula alone on its line (not
+    /// Markdown's).
+    pub line_pictures: bool,
+    /// A formula over several lines without its picture shows its Unicode
+    /// approximation on its first line (LaTeX's, Markdown's).
+    pub math_text: bool,
+    /// Such a formula's other lines are hidden even when its picture fails,
+    /// its first line showing it as text (LaTeX's).
+    pub formula_text: bool,
 }
 
 impl ViewTraits {
@@ -148,6 +198,10 @@ impl ViewTraits {
         outline_indent: false,
         own_code_colors: false,
         source_colors: true,
+        pictures: true,
+        line_pictures: true,
+        math_text: false,
+        formula_text: false,
     };
 }
 
@@ -188,6 +242,56 @@ pub fn code_spans(doc: &DocumentState, source: bool, line: Range<usize>) -> Vec<
 /// itself ([`ModeView::in_code_block`]).
 pub fn in_code_block(doc: &DocumentState, source: bool, line: Range<usize>) -> bool {
     view_of(doc, source).in_code_block(doc, line)
+}
+
+/// The source of the displayed formula `block` of `doc` as the renderer
+/// takes it ([`ModeView::math_source`]).
+pub fn math_source(doc: &DocumentState, source: bool, block: Range<usize>) -> Option<String> {
+    view_of(doc, source).math_source(doc, block)
+}
+
+/// The definitions `doc`'s formulas are rendered with
+/// ([`ModeView::math_macros`]), whichever view shows it.
+pub fn math_macros(doc: &DocumentState) -> String {
+    view_of(doc, false).math_macros(doc)
+}
+
+/// How `doc`'s displayed formulas stand ([`ModeView::display_align`]).
+pub fn display_align(doc: &DocumentState) -> crate::rich::Align {
+    view_of(doc, false).display_align(doc)
+}
+
+/// The formula of `doc` the cursor at `pos` is in ([`ModeView::formula_at`]).
+pub fn formula_at(doc: &DocumentState, source: bool, pos: usize) -> Option<String> {
+    view_of(doc, source).formula_at(doc, pos)
+}
+
+/// The line `v` of `doc` with its formulas as the terminal writes them
+/// ([`ModeView::formulas_as_text`]).
+pub fn formulas_as_text(doc: &DocumentState, source: bool, v: LineView) -> LineView {
+    view_of(doc, source).formulas_as_text(doc, v)
+}
+
+/// A formula of `doc` in Unicode ([`ModeView::formula_unicode`]).
+pub fn formula_unicode(doc: &DocumentState, source: &str) -> String {
+    view_of(doc, false).formula_unicode(doc, source)
+}
+
+/// Org's definitions for formulas: those of its `#+LATEX_HEADER` and
+/// `#+LATEX_HEADER_EXTRA` lines.
+fn org_math_macros(doc: &DocumentState) -> String {
+    let Some((p, _)) = doc.parse() else {
+        return String::new();
+    };
+    let headers: Vec<String> = p
+        .keywords()
+        .into_iter()
+        .filter(|(k, _)| {
+            k.eq_ignore_ascii_case("LATEX_HEADER") || k.eq_ignore_ascii_case("LATEX_HEADER_EXTRA")
+        })
+        .map(|(_, v)| v)
+        .collect();
+    org_math::source::macros(&headers)
 }
 
 /// The paragraphs of `doc` shown as one away from the cursor
@@ -411,6 +515,7 @@ impl ModeView for Flow {
         ViewTraits {
             mono: source,
             folds: false,
+            pictures: false,
             ..ViewTraits::DOCUMENT
         }
     }
@@ -445,6 +550,7 @@ impl ModeView for Plain {
         ViewTraits {
             mono: source || matches!(doc.meta.mode, DocumentMode::Text { .. }),
             folds: false,
+            pictures: false,
             ..ViewTraits::DOCUMENT
         }
     }
@@ -480,6 +586,19 @@ impl ModeView for Plain {
 struct Org;
 
 impl ModeView for Org {
+    /// The `#+LATEX_HEADER` definitions.
+    fn math_macros(&self, doc: &DocumentState) -> String {
+        org_math_macros(doc)
+    }
+
+    /// Once the parse is current.
+    fn formula_at(&self, doc: &DocumentState, pos: usize) -> Option<String> {
+        let (p, true) = doc.parse()? else {
+            return None;
+        };
+        crate::input::formula_at(&p.syntax(), pos)
+    }
+
     /// Once the parse is current.
     fn table_view(&self, doc: &DocumentState, start: usize) -> Option<view::TableView> {
         let (p, current) = doc.parse()?;
@@ -498,6 +617,7 @@ impl ModeView for Org {
             line_numbers: false,
             tab_indents: false,
             folds: doc.parse().is_some_and(|(_, current)| current),
+            pictures: doc.parse().is_some_and(|(_, current)| current),
             heading_folds: true,
             outline_indent: true,
             ..ViewTraits::DOCUMENT
@@ -538,6 +658,19 @@ impl ModeView for Org {
 struct OrgSource;
 
 impl ModeView for OrgSource {
+    /// The `#+LATEX_HEADER` definitions.
+    fn math_macros(&self, doc: &DocumentState) -> String {
+        org_math_macros(doc)
+    }
+
+    /// Once the parse is current.
+    fn formula_at(&self, doc: &DocumentState, pos: usize) -> Option<String> {
+        let (p, true) = doc.parse()? else {
+            return None;
+        };
+        crate::input::formula_at(&p.syntax(), pos)
+    }
+
     /// Org's source: its own colors, line numbers, every line shown; Tab
     /// is still Org's.
     fn traits(&self, _: &DocumentState, _: bool) -> ViewTraits {
@@ -545,6 +678,7 @@ impl ModeView for OrgSource {
             highlight: false,
             tab_indents: false,
             folds: false,
+            pictures: false,
             ..ViewTraits::DOCUMENT
         }
     }
@@ -577,10 +711,38 @@ impl ModeView for OrgSource {
 struct Latex;
 
 impl ModeView for Latex {
-    /// Its code in its language, its own way.
+    fn math_source(&self, doc: &DocumentState, block: Range<usize>) -> Option<String> {
+        crate::latex_view::math_source(doc, block)
+    }
+
+    /// The packages' commands the renderer lacks, and the document's own.
+    fn math_macros(&self, doc: &DocumentState) -> String {
+        org_math::source::macros(&crate::latex_view::math_definitions(doc))
+    }
+
+    fn display_align(&self, doc: &DocumentState) -> crate::rich::Align {
+        crate::latex_view::display_align(doc)
+    }
+
+    fn formula_at(&self, doc: &DocumentState, pos: usize) -> Option<String> {
+        crate::latex_view::formula_at(doc, pos)
+    }
+
+    fn formula_unicode(&self, doc: &DocumentState, source: &str) -> String {
+        crate::latex_view::formula_unicode(doc, source)
+    }
+
+    fn formulas_as_text(&self, doc: &DocumentState, v: LineView) -> LineView {
+        crate::latex_view::formulas_with_own_macros(doc, v)
+    }
+
+    /// Its code in its language, its own way; its formulas over several
+    /// lines on their first line, as a picture or as text.
     fn traits(&self, _: &DocumentState, _: bool) -> ViewTraits {
         ViewTraits {
             own_code_colors: true,
+            math_text: true,
+            formula_text: true,
             ..ViewTraits::DOCUMENT
         }
     }
@@ -651,10 +813,13 @@ impl ModeView for Markdown {
         crate::markdown::table_range(doc, pos)
     }
 
-    /// Its headings fold by the margin's arrows.
+    /// Its headings fold by the margin's arrows; its `$$` formulas show
+    /// on their first line, as a picture or as text.
     fn traits(&self, _: &DocumentState, _: bool) -> ViewTraits {
         ViewTraits {
             heading_folds: true,
+            line_pictures: false,
+            math_text: true,
             ..ViewTraits::DOCUMENT
         }
     }
@@ -696,6 +861,7 @@ impl ModeView for Csv {
             line_numbers: false,
             wraps: false,
             folds: false,
+            pictures: false,
             ..ViewTraits::DOCUMENT
         }
     }
@@ -730,6 +896,7 @@ impl ModeView for Bib {
             mono: true,
             folds: false,
             source_colors: false,
+            pictures: false,
             ..ViewTraits::DOCUMENT
         }
     }

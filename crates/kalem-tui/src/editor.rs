@@ -204,37 +204,13 @@ impl Images {
         }
     }
 
-    /// A formula's key, with the definitions of a LaTeX document.
-    fn latex_math(&mut self, source: &str, doc: &DocumentState) -> ImageKey {
+    /// A formula's key, with the definitions its mode renders formulas
+    /// with (`mode_view::math_macros`: Org's `#+LATEX_HEADER`, LaTeX's
+    /// packages and own definitions), kept for the text's version.
+    fn math(&mut self, source: &str, doc: &DocumentState) -> ImageKey {
         let version = doc.version();
         if self.macros.as_ref().is_none_or(|(v, _)| *v != version) {
-            // The packages' commands the renderer lacks, and the document's.
-            let defs = kalem_core::latex_view::math_definitions(doc);
-            self.macros = Some((version, org_math::source::macros(&defs)));
-        }
-        ImageKey::Math {
-            source: source.to_string(),
-            macros: self
-                .macros
-                .as_ref()
-                .map(|(_, m)| m.clone())
-                .unwrap_or_default(),
-        }
-    }
-
-    /// A formula's key, with the document's macros.
-    fn math(&mut self, source: &str, parse: &Parse, version: u64) -> ImageKey {
-        if self.macros.as_ref().is_none_or(|(v, _)| *v != version) {
-            let headers: Vec<String> = parse
-                .keywords()
-                .into_iter()
-                .filter(|(k, _)| {
-                    k.eq_ignore_ascii_case("LATEX_HEADER")
-                        || k.eq_ignore_ascii_case("LATEX_HEADER_EXTRA")
-                })
-                .map(|(_, v)| v)
-                .collect();
-            self.macros = Some((version, org_math::source::macros(&headers)));
+            self.macros = Some((version, kalem_core::mode_view::math_macros(doc)));
         }
         ImageKey::Math {
             source: source.to_string(),
@@ -649,14 +625,12 @@ impl<'a> Layout<'a> {
         }
         // LaTeX environments drawn as images show on their first line (in
         // Org documents and LaTeX documents).
-        let latex = doc.latex().is_some();
-        let markdown = doc.meta.mode == kalem_core::DocumentMode::Markdown;
         // Without images, the formula shows its Unicode approximation on
         // its first line all the same.
         let pictures = images.borrow().picker.is_some();
         // The lines hidden, in order: subtracted from `visible` at once.
         let mut hidden = Vec::new();
-        if (parse.is_some() || latex || markdown) && !source && !raw_math {
+        if traits.pictures && !raw_math {
             let text = doc.text();
             let c = doc.selection.head;
             for b in blocks.iter().filter(|b| b.kind == BlockKind::Math) {
@@ -669,23 +643,14 @@ impl<'a> Layout<'a> {
                     continue;
                 }
                 let src = text.as_str()[b.range.start..b.content_end].trim_end();
-                // LaTeX's formulas show on their first line whether or not
-                // they make a picture: none is made for that here.
-                if pictures && !latex {
+                // A mode whose formulas show on their first line whether or
+                // not they make a picture (LaTeX's): none is made for that
+                // here.
+                if pictures && !traits.formula_text {
                     let mut im = images.borrow_mut();
-                    let key = match parse {
-                        Some(p) => im.math(src, p, doc.version()),
-                        // Markdown's `$$` formula, without definitions.
-                        None if markdown => ImageKey::Math {
-                            source: src.to_string(),
-                            macros: String::new(),
-                        },
-                        None => {
-                            let src = kalem_core::latex_view::math_source(doc, b.range.clone())
-                                .unwrap_or_else(|| src.to_string());
-                            im.latex_math(&src, doc)
-                        }
-                    };
+                    let src = kalem_core::mode_view::math_source(doc, source, b.range.clone())
+                        .unwrap_or_else(|| src.to_string());
+                    let key = im.math(&src, doc);
                     if im.size(&key, width).is_none() {
                         continue;
                     }
@@ -755,39 +720,32 @@ impl<'a> Layout<'a> {
     /// on it, or a LaTeX environment (on its first line). Returns what it
     /// shows, a label for when it cannot show, and its size.
     fn image(&self, line: usize) -> Option<(ImageKey, String, u16, u16)> {
-        if self.doc.latex().is_some() && !self.source {
-            return self.latex_image(line);
-        }
         if let Some(f) = self.doc.flow() {
             return self.flow_image(line, f);
         }
-        // A Markdown formula over several lines, on its first line.
-        if self.doc.meta.mode == kalem_core::DocumentMode::Markdown && !self.source {
-            self.images.borrow().picker.as_ref()?;
-            let src = self.math_block(self.range(line).start)?;
-            let mut images = self.images.borrow_mut();
-            let key = ImageKey::Math {
-                source: src.to_string(),
-                macros: String::new(),
-            };
-            let (rows, cols) = images.size(&key, self.width.get())?;
-            let label = src.lines().next().unwrap_or("").to_string();
-            return Some((key, label, rows, cols));
-        }
-        let p = self.parse.filter(|_| !self.source)?;
-        self.images.borrow().picker.as_ref()?;
-        let range = self.range(line);
-        if let Some(src) = self.math_block(range.start) {
-            let mut images = self.images.borrow_mut();
-            let key = images.math(src, p, self.doc.version());
-            let (rows, cols) = images.size(&key, self.width.get())?;
-            let label = src.lines().next().unwrap_or("").to_string();
-            return Some((key, label, rows, cols));
-        }
-        if range.start <= self.cursor && self.cursor <= range.end {
+        let traits = kalem_core::mode_view::traits(self.doc, self.source);
+        if !traits.pictures {
             return None;
         }
-        let v = view::line_view(&p.syntax(), p.context(), range, Some(self.cursor));
+        self.images.borrow().picker.as_ref()?;
+        let range = self.range(line);
+        // A formula over several lines, on its first line.
+        if let Some(src) = self.math_block(range.start) {
+            let b = self.block_at(range.start)?;
+            let source = kalem_core::mode_view::math_source(self.doc, self.source, b.range.clone())
+                .unwrap_or_else(|| src.to_string());
+            let mut images = self.images.borrow_mut();
+            let key = images.math(&source, self.doc);
+            let (rows, cols) = images.size(&key, self.width.get())?;
+            let label = src.lines().next().unwrap_or("").to_string();
+            return Some((key, label, rows, cols));
+        }
+        if !traits.line_pictures || (range.start <= self.cursor && self.cursor <= range.end) {
+            return None;
+        }
+        // A picture or a displayed formula alone on its line.
+        let v =
+            kalem_core::mode_view::line_view(self.doc, self.source, range, Some(self.cursor), None);
         let mut found = None;
         for r in &v.runs {
             match &r.widget {
@@ -807,7 +765,7 @@ impl<'a> Layout<'a> {
             }
             (view::Widget::Math { source, .. }, _) if !self.raw_math => {
                 let label = kalem_core::math::unicode(&source);
-                (images.math(&source, p, self.doc.version()), label)
+                (images.math(&source, self.doc), label)
             }
             _ => return None,
         };
@@ -864,58 +822,6 @@ impl<'a> Layout<'a> {
             images.given.insert(key.clone(), img);
         }
         let (rows, cols) = images.size(&key, self.width.get())?;
-        Some((key, label, rows, cols))
-    }
-
-    /// [`Layout::image`] in a LaTeX document: a math environment on its
-    /// first line, a formula or a picture alone on its line.
-    fn latex_image(&self, line: usize) -> Option<(ImageKey, String, u16, u16)> {
-        self.images.borrow().picker.as_ref()?;
-        let range = self.range(line);
-        if let Some(src) = self.math_block(range.start) {
-            let b = self.block_at(range.start)?;
-            let source = kalem_core::latex_view::math_source(self.doc, b.range.clone())
-                .unwrap_or_else(|| src.to_string());
-            let mut images = self.images.borrow_mut();
-            let key = images.latex_math(&source, self.doc);
-            let (rows, cols) = images.size(&key, self.width.get())?;
-            let label = src.lines().next().unwrap_or("").to_string();
-            return Some((key, label, rows, cols));
-        }
-        if range.start <= self.cursor && self.cursor <= range.end {
-            return None;
-        }
-        let v = kalem_core::latex_view::line_view(self.doc, range, Some(self.cursor));
-        let mut found = None;
-        for r in &v.runs {
-            match &r.widget {
-                Some(
-                    w @ (view::Widget::Image { .. } | view::Widget::Math { display: true, .. }),
-                ) if found.is_none() => {
-                    found = Some((w.clone(), r.text.clone()));
-                }
-                None if r.text.trim().is_empty() => {}
-                _ => return None,
-            }
-        }
-        let mut images = self.images.borrow_mut();
-        let (key, label) = match found? {
-            (view::Widget::Image { path, width }, shown) => {
-                let cols = images.cols(width, self.width.get(), &path);
-                let label = view::image_label(&shown, &path);
-                (images.file(&path, cols), label)
-            }
-            (view::Widget::Math { source, .. }, _) if !self.raw_math => {
-                let label = kalem_core::math::unicode(&source);
-                (images.latex_math(&source, self.doc), label)
-            }
-            _ => return None,
-        };
-        let limit = match &key {
-            ImageKey::File(_, cols) => *cols,
-            ImageKey::Math { .. } | ImageKey::Picture(..) => self.width.get(),
-        };
-        let (rows, cols) = images.size(&key, limit)?;
         Some((key, label, rows, cols))
     }
 
@@ -1543,22 +1449,16 @@ impl<'a> Layout<'a> {
             }
             None => {
                 // A very long line shows the part around the cursor.
-                let latex = self.doc.meta.mode == kalem_core::DocumentMode::Latex
-                    && !self.source
+                let math_text = kalem_core::mode_view::traits(self.doc, self.source).math_text
                     && range.len() <= view::LONG_LINE;
-                let markdown = self.doc.meta.mode == kalem_core::DocumentMode::Markdown
-                    && !self.source
-                    && range.len() <= view::LONG_LINE;
-                // LaTeX and Markdown: a formula over several lines without
-                // its picture, its Unicode approximation (the terminal's own).
-                let v = match (latex || markdown)
-                    .then(|| self.math_text(&range))
-                    .flatten()
-                {
+                // A formula over several lines without its picture, its
+                // Unicode approximation (the terminal's own; LaTeX's,
+                // Markdown's).
+                let v = match math_text.then(|| self.math_text(&range)).flatten() {
                     Some(u) => {
-                        // Centered as LaTeX centers it (`fleqn`: flush
-                        // left, indented).
-                        let align = kalem_core::latex_view::display_align(self.doc);
+                        // Standing as the mode stands a displayed formula
+                        // (LaTeX centers it; `fleqn`: flush left, indented).
+                        let align = kalem_core::mode_view::display_align(self.doc);
                         let text = if align == kalem_core::rich::Align::Center {
                             u.trim_start().to_string()
                         } else {
@@ -1579,9 +1479,10 @@ impl<'a> Layout<'a> {
                     }
                     // Every other line by its mode's view.
                     None => {
-                        let paragraph = latex
-                            .then(|| self.paragraphs.iter().find(|p| p.start == range.start))
-                            .flatten()
+                        let paragraph = self
+                            .paragraphs
+                            .iter()
+                            .find(|p| p.start == range.start)
                             .cloned();
                         kalem_core::mode_view::line_view(
                             self.doc,
@@ -1592,11 +1493,12 @@ impl<'a> Layout<'a> {
                         )
                     }
                 };
-                // A formula's text with the document's own macros put in.
-                let v = if latex && !self.raw_math {
-                    kalem_core::latex_view::formulas_with_own_macros(self.doc, v)
-                } else {
+                // A formula's text with the document's own macros put in
+                // (LaTeX's).
+                let v = if self.raw_math {
                     v
+                } else {
+                    kalem_core::mode_view::formulas_as_text(self.doc, self.source, v)
                 };
                 let empty = org_syntax::parse("");
                 let mut lg = render::glyphs(
@@ -1664,7 +1566,7 @@ impl<'a> Layout<'a> {
         if self.image(self.text().line_of(range.start)).is_some() {
             return None;
         }
-        let src = kalem_core::latex_view::math_source(self.doc, b.range.clone())
+        let src = kalem_core::mode_view::math_source(self.doc, self.source, b.range.clone())
             .unwrap_or_else(|| self.text().as_str()[b.range.start..b.content_end].to_string());
         // The body: the environment's `\\begin` and `\\end` out, its number
         // (a `\\tag`) after it.
@@ -1694,7 +1596,7 @@ impl<'a> Layout<'a> {
         let body = body.split_whitespace().collect::<Vec<_>>().join(" ");
         let mut out = format!(
             "  {}",
-            kalem_core::latex_view::formula_unicode(self.doc, &body)
+            kalem_core::mode_view::formula_unicode(self.doc, &body)
         );
         for t in tags {
             out.push_str(&format!("   ({t})"));

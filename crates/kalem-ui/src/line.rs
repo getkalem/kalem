@@ -929,13 +929,15 @@ fn prepare_math_block(
     {
         return None;
     }
-    let src = match kalem_core::latex_view::math_source(&editor.doc, block.range.clone()) {
-        // LaTeX: numbered as LaTeX numbers it, labels taken out.
-        Some(s) => s,
-        None => editor.doc.text().as_str()[block.range.start..block.content_end]
-            .trim_end()
-            .to_string(),
-    };
+    let src =
+        match kalem_core::mode_view::math_source(&editor.doc, editor.source, block.range.clone()) {
+            // As the mode gives it (LaTeX: numbered as LaTeX numbers it, labels
+            // taken out).
+            Some(s) => s,
+            None => editor.doc.text().as_str()[block.range.start..block.content_end]
+                .trim_end()
+                .to_string(),
+        };
     let theme = editor.theme.clone();
     let macros = editor.math_macros();
     let (paint, sz, ascent) =
@@ -976,8 +978,9 @@ fn prepare_math_block(
     let mut run = stand_in(range.clone(), PLACEHOLDER);
     run.src = src_range.clone();
     run.widget = Some(widget.clone());
-    // LaTeX centers a displayed formula (flush left with `fleqn`).
-    let align = kalem_core::latex_view::display_align(&editor.doc);
+    // As the mode stands a displayed formula (LaTeX centers it, flush left
+    // with `fleqn`).
+    let align = kalem_core::mode_view::display_align(&editor.doc);
     let mut pieces = vec![Piece::Widget {
         len: PLACEHOLDER.len(),
         size: sz,

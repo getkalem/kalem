@@ -115,16 +115,3 @@ impl Formulas {
         }
     }
 }
-
-/// The `\newcommand`s of a document's `#+LATEX_HEADER` lines.
-pub fn macros(parse: &org_syntax::Parse) -> String {
-    let headers: Vec<String> = parse
-        .keywords()
-        .into_iter()
-        .filter(|(k, _)| {
-            k.eq_ignore_ascii_case("LATEX_HEADER") || k.eq_ignore_ascii_case("LATEX_HEADER_EXTRA")
-        })
-        .map(|(_, v)| v)
-        .collect();
-    org_math::source::macros(&headers)
-}

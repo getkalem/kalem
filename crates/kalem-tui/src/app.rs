@@ -4944,19 +4944,16 @@ impl App {
                 .into_iter()
                 .map(|(label, _, chosen)| (label, chosen))
                 .collect()
-        } else if let Some((p, true)) = self.doc.parse()
-            && !self.editor.source
-            && let Some(f) = kalem_core::input::formula_at(&p.syntax(), self.doc.selection.head)
-        {
-            vec![(format!("= {}", kalem_core::math::unicode(&f)), false)]
         } else if !self.editor.source
-            && let Some(f) = kalem_core::latex_view::formula_at(&self.doc, self.doc.selection.head)
+            && let Some(f) =
+                kalem_core::mode_view::formula_at(&self.doc, false, self.doc.selection.head)
         {
-            // LaTeX: the formula the cursor is in shows its source there.
+            // The formula the cursor is in, as its mode finds it (LaTeX's
+            // shows its source there), in Unicode.
             vec![(
                 format!(
                     "= {}",
-                    kalem_core::latex_view::formula_unicode(&self.doc, &f)
+                    kalem_core::mode_view::formula_unicode(&self.doc, &f)
                 ),
                 false,
             )]

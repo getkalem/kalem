@@ -4463,16 +4463,9 @@ impl Editor {
         let version = self.doc.version();
         let mut m = self.math_macros.borrow_mut();
         if m.0 != version {
-            let text = match self.doc.parse() {
-                Some((p, _)) => crate::math::macros(p),
-                // LaTeX: the document's own definitions.
-                // LaTeX: the packages' commands the renderer lacks, and the
-                // document's own definitions.
-                None if self.doc.latex().is_some() => {
-                    org_math::source::macros(&kalem_core::latex_view::math_definitions(&self.doc))
-                }
-                None => String::new(),
-            };
+            // The mode's (Org's `#+LATEX_HEADER`; LaTeX's packages and own
+            // definitions).
+            let text = kalem_core::mode_view::math_macros(&self.doc);
             *m = (version, Rc::from(text));
         }
         m.1.clone()
@@ -4592,19 +4585,11 @@ impl Editor {
         }
     }
 
-    /// The formula the caret is in: in Org text, or in a LaTeX document
-    /// (where it shows its source at the caret).
+    /// The formula the caret is in, as its mode finds it (in Org text; in
+    /// a LaTeX document as it reads, where it shows its source at the
+    /// caret).
     fn formula_under_caret(&self) -> Option<String> {
-        let head = self.doc.selection.head;
-        if self.doc.latex().is_some() {
-            return (!self.source)
-                .then(|| kalem_core::latex_view::formula_at(&self.doc, head))
-                .flatten();
-        }
-        let (parse, true) = self.doc.parse()? else {
-            return None;
-        };
-        kalem_core::input::formula_at(&parse.syntax(), head)
+        kalem_core::mode_view::formula_at(&self.doc, self.source, self.doc.selection.head)
     }
 }
 
