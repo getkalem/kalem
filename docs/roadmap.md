@@ -263,7 +263,7 @@ the parity test still passes on the whole corpus.
   clipboard, bookmarks, sessions) become fields of an `Editor`/`Session`
   context passed down, or at least of one `Globals` struct with a test
   reset; tests stop depending on order. L
-- [ ] R3.7 `kalem-core` split along its seams: `kalem-latex`
+- [~] R3.7 `kalem-core` split along its seams: `kalem-latex`
   (`latex_*`, `synctex`, `tex_pictures`, `siunitx`, ~15k lines),
   `kalem-viewer-host` (`viewer.rs`, 11k), `kalem-dired`, `kalem-vim`;
   `kalem-core/src` gets subfolders for what stays (`markdown/`, `csv/`,
@@ -274,6 +274,29 @@ the parity test still passes on the whole corpus.
   (references into CSV from the rest of the core 206 → 73, into LaTeX's
   from `builtin.rs` 43 → 6); what still binds a mode's crate to the
   editors is R3.2's open part.
+  Started (2026-10-27): `kalem-vim` is out, 11.8k lines moved as they
+  were with their tests (kalem-core 146k → 134k lines, 24 → 25 crates;
+  a clean `cargo build -p kalem-core` 21–25 s → 19–25 s on a loaded
+  machine, within the noise; a change in the Vim layer rebuilds 1 s of
+  `kalem-vim` instead of the core). Measured first with
+  `tools/core-seams.py` (`crate::` paths and `DocumentState` method
+  calls between modules): 76 of the core's modules, 117k lines, are
+  one cycle through `document.rs`, `builtin.rs` and `mode_view.rs`,
+  with dired, LaTeX, CSV, the viewer and the formula engine all inside
+  it, and 106 of the 153 references into those four groups come from
+  those three files. So before the next crate, one core-side step:
+  `ModeEntry` hooks for opening, reloading and pasting (what
+  `document.rs` still does by a mode's name), `modes::install` for the
+  crates' view entries (beside `BUILTIN`, read without a lock) and the
+  built-in command list assembled from the crates' (`kalem-modes`,
+  which the editors' `with_builtins()` calls become). Then, each
+  mechanical like vim's: `kalem-dired` (31 references in),
+  `kalem-latex` (49, 20 of them the view adapter that moves with it),
+  `kalem-viewer-host` with the formula engine (45; the spreadsheet part
+  of `viewer.rs` is no seam of its own, 20 references each way),
+  `kalem-csv` last (49 now, ~34 once the viewer is out). Every mode
+  crate sits above the core (`kalem-X → kalem-core`); no base crate
+  under it, `document.rs` being the cycle's hub.
 - [ ] R3.8 One table engine: `markdown_table`, `latex_table`,
   `latex_fmt::cells` and the CSV tools share `org-table`'s cell model
   (split, align, move, recalc), each format keeping only its syntax. M

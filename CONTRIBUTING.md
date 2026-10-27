@@ -49,6 +49,7 @@ gpui, the graphical editor's toolkit, comes from crates.io as `gpui-unofficial`,
 | `crates/org-*` | Org: the lossless incremental parser (`org-syntax`), the document model, editing commands, tables and formulas, exporters, citations, formulas drawn natively |
 | `crates/latex-*` | The LaTeX parser and model |
 | `crates/kalem-core` | The editor's model, shared by both frontends: documents and modes, commands, keymaps, settings, the file manager, projects |
+| `crates/kalem-vim` | The Vim keys: the modal input layer both editors share, a crate above `kalem-core` |
 | `crates/kalem-ui`, `crates/kalem-tui` | The graphical and the terminal editor, with `gpui-rich-text` and `tui-rich-text` |
 | `crates/kalem-cli`, `crates/kalem` | The command-line tools and the `kalem` binary (the package `kalem-editor`, not published yet) |
 | `tests/`, `fuzz/`, `tools/` | Corpora, conformance suites, the Emacs comparison scripts, fuzz targets, measurement scripts |

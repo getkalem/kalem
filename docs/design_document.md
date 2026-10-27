@@ -507,6 +507,7 @@ crates/
   org-agenda/     Workspace index, agenda queries
   kalem-cli/      Command-line subcommands and batch mode: parse, check, fmt, export, diff-emacs, run
   kalem-core/     Editor state, command registry, keymap, settings, event bus
+  kalem-vim/      The Vim keys (7.3.1): the modal input layer both frontends share, above kalem-core
   kalem-script/   WASM host, WIT API and generated bindings, plugin loader
   kalem-highlight/ Syntax highlighting shared by Org source blocks and plain text mode (D16)
   kalem-ui/       Graphical frontend (gpui): editor view, outline, panels
@@ -628,7 +629,7 @@ Some building blocks Kalem needs do not exist in the Rust ecosystem, or exist on
 | Org exporters (HTML, LaTeX, Markdown) | orgize has a basic HTML exporter | `org-export`, published in phase 2 |
 | Rich text editing widget for gpui | gpui's editor lives inside Zed and is not reusable; `shape_text` cannot reserve space for inline boxes | `gpui-rich-text`, incubating in the workspace: the inline layout from the D3 spike (text pieces, widget boxes, scripts, spacers, row breaking with hanging indents, painting, carets, hit testing, selection rectangles) on `shape_line`; published once gpui is released with the APIs it uses |
 | Rich text editing widget for ratatui | tui-textarea is plain text only | `tui-rich-text`, incubating in the workspace (`ratatui-rich-text` is reserved by the ratatui project) |
-| Modal (Vim) editing engine, independent of the UI | Implementations live inside editors (Helix, Zed) | Candidate standalone crate from `kalem-core` (7.3.1) |
+| Modal (Vim) editing engine, independent of the UI | Implementations live inside editors (Helix, Zed) | `kalem-vim`, split from `kalem-core` (7.3.1); it still works on the core's document state |
 | LaTeX math layout to vectors | RaTeX (chosen in D4); typst for whole documents | Use RaTeX; contribute fixes upstream (D4) |
 | Emacs differential test harness | None | Published as a tool that Org developers can use too |
 | CSL citations, BibTeX | hayagriva | Use as is |
@@ -848,7 +849,7 @@ Go/no-go: if 1, 2 and 3 do not work, switch to the **Tauri + ProseMirror** fallb
 
 #### 7.3.1 Vim mode
 
-Vim mode is an input layer in `kalem-core`, not a separate editor. It turns key sequences into ordinary commands from the registry, so undo, macros, plugins and both frontends work unchanged.
+Vim mode is an input layer, not a separate editor: the crate `kalem-vim`, above `kalem-core` (nothing in the core uses it; both frontends do). It turns key sequences into ordinary commands from the registry, so undo, macros, plugins and both frontends work unchanged.
 
 | Area | Scope | Phase |
 |---|---|---|

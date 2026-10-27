@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- The Vim keys are a crate of their own, `kalem-vim`, above `kalem-core` (roadmap R3.7, the first crate split from the core): the core never used the layer, only the editors did, so it moved out as it was, with its tests against Vim itself. Vim's `j` and `k` on a CSV grid now step the rows through the mode's grid contract (`GridView::vertical`), as the editors do, rather than by calling CSV's module. Nothing changes for users; for code that used `kalem_core::vim`, it is `kalem_vim`.
+
 ## [0.6.53] - 2026-10-26
 
 ### Fixed
