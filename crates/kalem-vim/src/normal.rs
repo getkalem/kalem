@@ -328,7 +328,7 @@ impl Vim {
             match k {
                 Key::Char(c) if self.mode == Mode::Insert => self.type_text(doc, &c.to_string()),
                 Key::Enter if self.mode == Mode::Insert => {
-                    crate::lsp::entering(doc);
+                    kalem_core::lsp::entering(doc);
                     self.newline(doc)
                 }
                 Key::Tab if self.mode == Mode::Insert => self.type_text(doc, "\t"),

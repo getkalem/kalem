@@ -241,7 +241,7 @@ pub struct App {
     /// The entry cited under the cursor.
     cite_preview: kalem_core::cite::Preview,
     /// The Vim layer, with the Vim keymap profile.
-    pub vim: Option<kalem_core::vim::Vim>,
+    pub vim: Option<kalem_vim::Vim>,
     /// The cursor shape last set: a block (Vim outside insert mode) or not.
     cursor_block: Option<bool>,
     /// The outline panel, when shown.
@@ -324,7 +324,7 @@ struct TuiHost<'a> {
     folds: Vec<(usize, usize)>,
 }
 
-impl kalem_core::vim::Host for TuiHost<'_> {
+impl kalem_vim::Host for TuiHost<'_> {
     fn closed_fold(&self, line: usize) -> Option<(usize, usize)> {
         self.folds
             .iter()
@@ -371,8 +371,8 @@ impl kalem_core::vim::Host for TuiHost<'_> {
 }
 
 /// A terminal key for the Vim layer.
-fn vim_key_of(k: &KeyEvent) -> kalem_core::vim::Key {
-    use kalem_core::vim::Key;
+fn vim_key_of(k: &KeyEvent) -> kalem_vim::Key {
+    use kalem_vim::Key;
     let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
     let alt = k.modifiers.contains(KeyModifiers::ALT);
     match k.code {
@@ -873,7 +873,7 @@ impl App {
         if let Some(v) = &mut self.vim
             && v.takes_text()
         {
-            v.mode = kalem_core::vim::Mode::Normal;
+            v.mode = kalem_vim::Mode::Normal;
         }
         self.refresh_vim();
         // Changes on disk while it was in the background: reloaded, a
@@ -5210,7 +5210,7 @@ impl App {
 
     /// A key for the Vim layer; `true` if it used it.
     fn vim_key(&mut self, k: &KeyEvent) -> bool {
-        use kalem_core::vim::Key;
+        use kalem_vim::Key;
         let Some(mut v) = self.vim.take() else {
             return false;
         };
@@ -5278,14 +5278,14 @@ impl App {
     /// mode say.
     fn refresh_vim(&mut self) {
         let on = self.config.keymap_profile() == kalem_core::Profile::Vim
-            && kalem_core::vim::Vim::applies(
+            && kalem_vim::Vim::applies(
                 &self.config.strings("editor.vim.modes"),
                 &self.doc.meta.mode,
             );
         match (on, self.vim.is_some()) {
             (true, false) => {
-                let mut v = kalem_core::vim::Vim::new();
-                v.leader = kalem_core::vim::Vim::leader_key(&self.config.vim_leader());
+                let mut v = kalem_vim::Vim::new();
+                v.leader = kalem_vim::Vim::leader_key(&self.config.vim_leader());
                 self.vim = Some(v);
             }
             (false, true) => {
@@ -5391,11 +5391,7 @@ impl App {
                 );
                 // Vim's visual mode: the key moves the selection's moving
                 // end, from where it is, and the selection grows.
-                if let Some(c) = self
-                    .vim
-                    .as_ref()
-                    .and_then(kalem_core::vim::Vim::visual_cursor)
-                {
+                if let Some(c) = self.vim.as_ref().and_then(kalem_vim::Vim::visual_cursor) {
                     let before = self.doc.selection;
                     self.doc.selection = org_edit::Selection::caret(c);
                     let target = self.motion_target(code, true, word);
@@ -6814,18 +6810,18 @@ impl App {
                 (Some(t), cmd, mode) => {
                     let c = match (cmd, mode) {
                         (true, _) => t.link,
-                        (_, kalem_core::vim::Mode::Normal) => t.link,
-                        (_, kalem_core::vim::Mode::Insert) => t.done,
-                        (_, kalem_core::vim::Mode::Replace) => t.todo,
+                        (_, kalem_vim::Mode::Normal) => t.link,
+                        (_, kalem_vim::Mode::Insert) => t.done,
+                        (_, kalem_vim::Mode::Replace) => t.todo,
                         _ => t.priority,
                     };
                     (crate::render::rgb(c), crate::render::rgb(t.background))
                 }
                 (None, cmd, mode) => {
                     let c = match (cmd, mode) {
-                        (true, _) | (_, kalem_core::vim::Mode::Normal) => 33,
-                        (_, kalem_core::vim::Mode::Insert) => 35,
-                        (_, kalem_core::vim::Mode::Replace) => 160,
+                        (true, _) | (_, kalem_vim::Mode::Normal) => 33,
+                        (_, kalem_vim::Mode::Insert) => 35,
+                        (_, kalem_vim::Mode::Replace) => 160,
                         _ => 208,
                     };
                     (C::Indexed(c), C::Black)

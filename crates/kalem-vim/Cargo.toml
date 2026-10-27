@@ -1,0 +1,25 @@
+[package]
+name = "kalem-vim"
+description = "The Vim keys of the Kalem editor: the modal input layer its frontends share"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+readme = "README.md"
+# Not on crates.io: it depends on kalem-core.
+publish = false
+
+[dependencies]
+kalem-core.workspace = true
+org-edit.workspace = true
+org-syntax.workspace = true
+# Search patterns (`/`, `:s`, `:g`), translated from Vim's syntax.
+regex = { version = "1", default-features = false, features = ["std", "perf", "unicode"] }
+# The `:set` command's arguments to the settings commands.
+serde_json = "1"
+unicode-width = "0.2"
+
+[lints]
+workspace = true

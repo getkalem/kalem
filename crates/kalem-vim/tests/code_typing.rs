@@ -5,8 +5,8 @@
 
 use std::time::Instant;
 
-use kalem_core::vim::{Host, Key, Vim};
 use kalem_core::{DocumentMode, DocumentState, LineEnding, Metadata};
+use kalem_vim::{Host, Key, Vim};
 
 #[derive(Default)]
 struct TestHost {
@@ -33,7 +33,7 @@ fn typed_in_vim(text: &str, typed: &str) -> String {
         },
         line_ending: LineEnding::Lf,
         bom: false,
-        encoding: encoding_rs::UTF_8,
+        encoding: kalem_core::encoding_rs::UTF_8,
         lossy: false,
     };
     let mut d = DocumentState::new(text, meta, std::sync::Arc::default());

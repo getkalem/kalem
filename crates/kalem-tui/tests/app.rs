@@ -5678,7 +5678,7 @@ fn code_completions_taken() {
     assert!(!t.app.completion_ready());
     assert_eq!(
         t.app.vim.as_ref().map(|v| v.mode),
-        Some(kalem_core::vim::Mode::Normal)
+        Some(kalem_vim::Mode::Normal)
     );
 }
 

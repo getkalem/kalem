@@ -199,7 +199,7 @@ fn vim_command_line_opens_on_a_viewer(cx: &mut TestAppContext) {
     cx.run_until_parked();
     let e = ws.read_with(cx, |ws, _| ws.editor.clone());
     e.update(cx, |e, _| {
-        e.vim = Some(kalem_core::vim::Vim::new());
+        e.vim = Some(kalem_vim::Vim::new());
     });
     assert_eq!(mode(&ws, cx), DocumentMode::Viewer);
     cx.simulate_keystrokes(":");

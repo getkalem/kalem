@@ -17503,7 +17503,7 @@ The citation styles and locales of the Citation Style Language project, which th
 
 ### Vim's digraphs
 
-The digraphs of the Vim keys (`crates/kalem-core/src/vim/digraphs.txt`) are Vim's default table, as `:digraphs` lists it, under Vim's licence.
+The digraphs of the Vim keys (`crates/kalem-vim/src/digraphs.txt`) are Vim's default table, as `:digraphs` lists it, under Vim's licence.
 
 ```text
 VIM LICENSE

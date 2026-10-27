@@ -1,8 +1,8 @@
-//! The Vim profile in the graphical editor: keys go to `kalem_core::vim`
+//! The Vim profile in the graphical editor: keys go to `kalem_vim`
 //! first, and what it asks for (commands, messages, marks) happens here.
 
 use gpui::{ClipboardItem, Context, KeyDownEvent, Keystroke, Window};
-use kalem_core::vim::{Host, Key, Vim};
+use kalem_vim::{Host, Key, Vim};
 
 use crate::editor::Editor;
 

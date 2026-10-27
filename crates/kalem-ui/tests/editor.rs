@@ -1676,7 +1676,7 @@ fn vim_keys(cx: &mut TestAppContext) {
     cx.simulate_keystrokes("escape");
     assert_eq!(text(&e, cx), "new one two\n");
     let mode = e.read_with(cx, |e, _| e.vim.as_ref().map(|v| v.mode));
-    assert_eq!(mode, Some(kalem_core::vim::Mode::Normal));
+    assert_eq!(mode, Some(kalem_vim::Mode::Normal));
     // Visual mode selects; `:w` saves through the command registry.
     cx.simulate_keystrokes("0 v e");
     let sel = e.read_with(cx, |e, _| e.doc.selected_text().map(str::to_string));
@@ -1705,7 +1705,7 @@ fn vim_visual_mode_grows_with_page_down(cx: &mut TestAppContext) {
             (e.doc.selection.anchor, e.doc.selection.head),
         )
     });
-    assert_eq!(mode, Some(kalem_core::vim::Mode::Visual));
+    assert_eq!(mode, Some(kalem_vim::Mode::Visual));
     assert_eq!(sel.0, 0, "{sel:?}");
     assert!(sel.1 > "line 0\nline 1\n".len(), "{sel:?}");
     // Again, and back up with Page Up: still visual, still from the start.
@@ -1713,12 +1713,12 @@ fn vim_visual_mode_grows_with_page_down(cx: &mut TestAppContext) {
     let (mode, anchor) = e.read_with(cx, |e, _| {
         (e.vim.as_ref().map(|v| v.mode), e.doc.selection.anchor)
     });
-    assert_eq!(mode, Some(kalem_core::vim::Mode::Visual));
+    assert_eq!(mode, Some(kalem_vim::Mode::Visual));
     assert_eq!(anchor, 0);
     // Escape ends it as before.
     cx.simulate_keystrokes("escape");
     let mode = e.read_with(cx, |e, _| e.vim.as_ref().map(|v| v.mode));
-    assert_eq!(mode, Some(kalem_core::vim::Mode::Normal));
+    assert_eq!(mode, Some(kalem_vim::Mode::Normal));
 }
 
 #[gpui::test]
@@ -1893,7 +1893,7 @@ fn code_completions_taken(cx: &mut TestAppContext) {
         (e.completion.is_some(), e.vim.as_ref().map(|v| v.mode))
     });
     assert!(!open);
-    assert_eq!(mode, Some(kalem_core::vim::Mode::Normal));
+    assert_eq!(mode, Some(kalem_vim::Mode::Normal));
 }
 
 #[gpui::test]
@@ -1906,7 +1906,7 @@ fn vim_block_selection(cx: &mut TestAppContext) {
         let v = e.vim.as_ref().unwrap();
         (v.mode, v.block_ranges(&e.doc))
     });
-    assert_eq!(mode, kalem_core::vim::Mode::VisualBlock);
+    assert_eq!(mode, kalem_vim::Mode::VisualBlock);
     assert_eq!(block, Some(vec![1..3, 6..8]));
     cx.simulate_keystrokes("shift-i");
     cx.simulate_input("-");

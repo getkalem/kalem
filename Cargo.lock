@@ -4393,6 +4393,7 @@ dependencies = [
  "kalem-core",
  "kalem-highlight",
  "kalem-viewer",
+ "kalem-vim",
  "org-edit",
  "org-math",
  "org-model",
@@ -4421,6 +4422,7 @@ dependencies = [
  "kalem-highlight",
  "kalem-tui",
  "kalem-viewer",
+ "kalem-vim",
  "libc",
  "objc2 0.6.4",
  "objc2-app-kit 0.3.2",
@@ -4440,6 +4442,18 @@ dependencies = [
 [[package]]
 name = "kalem-viewer"
 version = "0.6.53"
+
+[[package]]
+name = "kalem-vim"
+version = "0.6.53"
+dependencies = [
+ "kalem-core",
+ "org-edit",
+ "org-syntax",
+ "regex",
+ "serde_json",
+ "unicode-width",
+]
 
 [[package]]
 name = "kasuari"

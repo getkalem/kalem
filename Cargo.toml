@@ -35,6 +35,7 @@ org-export = { path = "crates/org-export", version = "0.6.53" }
 org-cite = { path = "crates/org-cite", version = "0.6.53" }
 kalem-cli = { path = "crates/kalem-cli", version = "0.6.53", default-features = false }
 kalem-core = { path = "crates/kalem-core", version = "0.6.53" }
+kalem-vim = { path = "crates/kalem-vim", version = "0.6.53" }
 kalem-project = { path = "crates/kalem-project", version = "0.6.53" }
 kalem-fs = { path = "crates/kalem-fs", version = "0.6.53" }
 kalem-tui = { path = "crates/kalem-tui", version = "0.6.53" }

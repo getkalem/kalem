@@ -31,7 +31,7 @@ use crate::when::{Context, WhenClause};
 pub enum Profile {
     /// Word-like keys.
     Word,
-    /// Vim's modal keys (`kalem_core::vim`) and Doom Emacs's leader keys,
+    /// Vim's modal keys (`kalem_vim`) and Doom Emacs's leader keys,
     /// the default; the Word-like keys only where the Vim layer is off (the
     /// file manager) and those Doom keeps (Meta with the arrows or Enter).
     Vim,

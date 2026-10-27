@@ -106,7 +106,7 @@ w(
 )
 w("### Vim's digraphs\n")
 w(
-    "The digraphs of the Vim keys (`crates/kalem-core/src/vim/digraphs.txt`) "
+    "The digraphs of the Vim keys (`crates/kalem-vim/src/digraphs.txt`) "
     "are Vim's default table, as `:digraphs` lists it, under Vim's licence.\n"
 )
 w(fence((here / "vim-LICENSE.txt").read_text()))

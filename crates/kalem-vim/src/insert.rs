@@ -13,8 +13,8 @@ use super::{
     DocumentState, Key, Mode, Outcome, Vim, char_before, edit, first_non_blank, is_word, line_end,
     line_of, line_start,
 };
-use crate::mode::DocumentMode;
-use crate::text::Indent;
+use kalem_core::mode::DocumentMode;
+use kalem_core::text::Indent;
 
 /// A key insert mode waits for.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -165,7 +165,7 @@ impl Vim {
             Key::Enter | Key::Ctrl('j' | 'm') if plain || !matches!(key, Key::Enter) => {
                 // The language server's new line, when it has one, takes
                 // the place of this one as it answers.
-                crate::lsp::entering(doc);
+                kalem_core::lsp::entering(doc);
                 self.newline(doc)
             }
             Key::Tab if plain => self.tab(doc),

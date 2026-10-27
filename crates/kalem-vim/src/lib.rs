@@ -20,6 +20,12 @@
 //! and the like. In Org documents `>>` and `<<` demote and promote
 //! headlines and indent list items. `tests/vim/cases.json` holds key sequences whose text and
 //! cursor must come out as in Vim itself (`tools/vim-expected.py`).
+//!
+//! A crate of its own above `kalem-core` (roadmap R3.7): it reads and
+//! edits the document state through the core's public API, and nothing
+//! in the core uses it; the frontends hold a `Vim` per editor.
+
+#![warn(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 mod ex;
 mod format;
@@ -37,8 +43,8 @@ use std::time::Instant;
 use org_edit::{ChangeKind, Selection, Transaction};
 use serde_json::Value;
 
-use crate::DocumentState;
-use crate::mode::DocumentMode;
+use kalem_core::DocumentState;
+use kalem_core::mode::DocumentMode;
 
 /// The largest count, Vim's: a count typed past it, or an operator's count
 /// times its motion's (`2d3w`), stays at it.
@@ -300,7 +306,7 @@ fn window_command(key: Key, count: Option<usize>) -> Option<Vec<(String, Value)>
 /// One character left or right of `pos`: over the shown text in the rich
 /// view, else over the source.
 fn step(doc: &DocumentState, pos: usize, right: bool, rich: bool) -> usize {
-    if rich && let Some(p) = crate::view::visible_step(doc, pos, right) {
+    if rich && let Some(p) = kalem_core::view::visible_step(doc, pos, right) {
         return p;
     }
     if right {
@@ -1740,7 +1746,7 @@ impl Vim {
     /// The Vim key of leader `keys` (`space`, `,`, `\\`), if it is one key
     /// Vim would use; other leaders reach the keymap anyway.
     pub fn leader_key(keys: &str) -> Option<Key> {
-        let chord = crate::keys::KeySequence::parse(keys)?
+        let chord = kalem_core::keys::KeySequence::parse(keys)?
             .0
             .into_iter()
             .next()?;
@@ -1867,7 +1873,7 @@ impl Vim {
     pub fn status(&self) -> String {
         match &self.command_line {
             Some(l) => format!("{l}▏"),
-            None => crate::l10n::tr(self.mode.message_id()),
+            None => kalem_core::l10n::tr(self.mode.message_id()),
         }
     }
 
@@ -2269,11 +2275,11 @@ impl Vim {
             Key::Char('j' | 'k') | Key::Down | Key::Up | Key::Ctrl('n' | 'p')
                 if self.op.is_none()
                     && host.rich_view()
-                    && crate::mode_view::grid(doc, false).is_some() =>
+                    && kalem_core::mode_view::grid(doc, false).is_some() =>
             {
                 let down = matches!(key, Key::Char('j') | Key::Down | Key::Ctrl('n'));
                 let n = isize::try_from(n).unwrap_or(isize::MAX);
-                let to = crate::mode_view::grid(doc, false)
+                let to = kalem_core::mode_view::grid(doc, false)
                     .and_then(|g| g.vertical(doc, pos, if down { n } else { -n }));
                 match to {
                     Some(to) => charwise(to),
@@ -2603,7 +2609,7 @@ impl Vim {
                 e.text.push_str(&r.text);
                 e.linewise |= linewise;
                 let all = e.clone();
-                crate::command::record_history(&all.text);
+                kalem_core::command::record_history(&all.text);
                 self.registers.insert('"', all);
                 return;
             }
@@ -2626,7 +2632,7 @@ impl Vim {
                 self.registers.insert('-', r.clone());
             }
         }
-        crate::command::record_history(&r.text);
+        kalem_core::command::record_history(&r.text);
         self.registers.insert('"', r);
     }
 
@@ -3212,16 +3218,16 @@ impl Vim {
     fn comment_lines(&mut self, doc: &mut DocumentState, l1: usize, l2: usize, out: &mut Outcome) {
         doc.selection = Selection::caret(line_start(doc, l1));
         let Some(style) =
-            crate::code::language_at(doc).and_then(|l| crate::code::comment_style(&l))
+            kalem_core::code::language_at(doc).and_then(|l| kalem_core::code::comment_style(&l))
         else {
-            out.message = Some((crate::l10n::tr("msg-no-comment-style"), true));
+            out.message = Some((kalem_core::l10n::tr("msg-no-comment-style"), true));
             return;
         };
         let sel = Selection {
             anchor: line_start(doc, l1),
             head: line_end(doc, l2),
         };
-        let tx = crate::code::toggle_comment(doc.text().as_str(), sel, style);
+        let tx = kalem_core::code::toggle_comment(doc.text().as_str(), sel, style);
         doc.apply(&tx, ChangeKind::Command, Instant::now());
         let at = first_non_blank(doc, l1.min(last_line(doc)));
         doc.selection = Selection::caret(at);
@@ -3771,7 +3777,7 @@ impl Vim {
                     }
                     // `]h` and `[h` in Org: the next or previous heading
                     // of the same level, as Doom Emacs has them.
-                    (_, 'h') if doc.meta.mode == crate::DocumentMode::Org => {
+                    (_, 'h') if doc.meta.mode == kalem_core::DocumentMode::Org => {
                         let m =
                             org::heading_motion(doc, self.cursor, forward, n).map(|to| Motion {
                                 to,
@@ -3783,7 +3789,7 @@ impl Vim {
                     }
                     // `]l` and `[l`, `]c` and `[c` in Org: the next or
                     // previous link, or source block, as Doom has them.
-                    (_, 'l' | 'c') if doc.meta.mode == crate::DocumentMode::Org => {
+                    (_, 'l' | 'c') if doc.meta.mode == kalem_core::DocumentMode::Org => {
                         let m =
                             org::next_motion(doc, self.cursor, c, forward, n).map(|to| Motion {
                                 to,
@@ -3838,7 +3844,7 @@ impl Vim {
                             (_, true) => "latex.nextProblem",
                             (_, false) => "latex.previousProblem",
                         };
-                        if c == 'e' && doc.meta.mode != crate::DocumentMode::Latex {
+                        if c == 'e' && doc.meta.mode != kalem_core::DocumentMode::Latex {
                             self.failed = true;
                         } else {
                             for _ in 0..n.min(MAX_COMMANDS) {
@@ -3893,7 +3899,7 @@ impl Vim {
                     // `+lookup/references`), where a language server
                     // serves the file.
                     Key::Char(c @ ('d' | 'D'))
-                        if !self.visual() && self.op.is_none() && crate::lsp::serves(doc) =>
+                        if !self.visual() && self.op.is_none() && kalem_core::lsp::serves(doc) =>
                     {
                         self.count = None;
                         let id = if c == 'd' {
@@ -4062,7 +4068,7 @@ impl Vim {
                     // evil-org's `gj`, `gk`, `gh` and `gl` in Org: by
                     // element, up to the one around, into it.
                     Key::Char(c @ ('j' | 'k' | 'h' | 'l'))
-                        if doc.meta.mode == crate::DocumentMode::Org =>
+                        if doc.meta.mode == kalem_core::DocumentMode::Org =>
                     {
                         let n = self.count.take().unwrap_or(1);
                         let m = match org::element_motion(doc, self.cursor, c, n) {
@@ -4568,7 +4574,7 @@ impl Vim {
             }
             // Doom's `K` (`+lookup/documentation`): the language server's
             // documentation, where one serves the file.
-            'K' if crate::lsp::serves(doc) => {
+            'K' if kalem_core::lsp::serves(doc) => {
                 self.count = None;
                 out.commands
                     .push(("code.documentation".into(), Value::Null));
@@ -4592,7 +4598,7 @@ impl Vim {
             'u' => {
                 for _ in 0..n {
                     if doc.undo().is_none() {
-                        out.message = Some((crate::l10n::tr("msg-nothing-to-undo"), false));
+                        out.message = Some((kalem_core::l10n::tr("msg-nothing-to-undo"), false));
                         break;
                     }
                 }
@@ -5776,7 +5782,7 @@ impl Vim {
             let text = doc.text().as_str();
             let at = self.cursor.min(text.len());
             let typed = match key {
-                Key::Ctrl('w') => crate::lines::word_at(text, at).map(|r| text[r].to_string()),
+                Key::Ctrl('w') => kalem_core::lines::word_at(text, at).map(|r| text[r].to_string()),
                 Key::Ctrl('a') => {
                     let (s, e) = (
                         text[..at].rfind(char::is_whitespace).map_or(0, |i| i + 1),
@@ -5988,7 +5994,8 @@ impl Vim {
                         self.finish_motion(doc, m, host, out);
                     }
                     None => {
-                        out.message = Some((crate::tr!("vim-not-found", pattern = &pattern), true));
+                        out.message =
+                            Some((kalem_core::tr!("vim-not-found", pattern = &pattern), true));
                         self.reset();
                     }
                 }
@@ -6156,7 +6163,7 @@ impl Vim {
                 doc.selection = Selection::caret(first_non_blank(doc, l));
             }
             _ => {
-                out.message = Some((crate::tr!("vim-not-a-command", command = cmd), true));
+                out.message = Some((kalem_core::tr!("vim-not-a-command", command = cmd), true));
             }
         }
         if self.visual() {
@@ -6170,7 +6177,7 @@ impl Vim {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LineEnding, Metadata};
+    use kalem_core::{LineEnding, Metadata};
 
     #[test]
     fn modes_it_applies_to() {
@@ -6241,7 +6248,7 @@ mod tests {
             mode,
             line_ending: LineEnding::Lf,
             bom: false,
-            encoding: encoding_rs::UTF_8,
+            encoding: kalem_core::encoding_rs::UTF_8,
             lossy: false,
         };
         DocumentState::new(text, meta, std::sync::Arc::default())

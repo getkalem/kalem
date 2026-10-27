@@ -3,7 +3,7 @@
 //! element around, `gl` into it, and `]h` and `[h` by heading of the same
 //! level.
 
-use crate::document::DocumentState;
+use kalem_core::document::DocumentState;
 
 /// Where `gj`, `gk`, `gh` or `gl` (`c`) go `n` times, or Org's message
 /// when they cannot.

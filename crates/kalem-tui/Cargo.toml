@@ -12,6 +12,7 @@ publish = false
 
 [dependencies]
 kalem-core.workspace = true
+kalem-vim.workspace = true
 kalem-highlight.workspace = true
 tui-rich-text.workspace = true
 org-syntax.workspace = true

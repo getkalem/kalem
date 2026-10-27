@@ -466,7 +466,7 @@ pub struct Editor {
     /// Focus mode: only the section holding the cursor shows.
     pub focus_mode: bool,
     /// The Vim layer, with the Vim keymap profile.
-    pub vim: Option<kalem_core::vim::Vim>,
+    pub vim: Option<kalem_vim::Vim>,
     /// Long lines wrap (`editor.soft_wrap`, Alt+Z).
     pub wrap: bool,
     /// `org-indent-mode` (`editor.outline_indent`, `#+STARTUP: indent`):
@@ -2871,11 +2871,7 @@ impl Editor {
                 let vertical = matches!(key, "up" | "down" | "pageup" | "pagedown") && !line_motion;
                 // Vim's visual mode: the key moves the selection's moving
                 // end, from where it is, and the selection grows.
-                if let Some(c) = self
-                    .vim
-                    .as_ref()
-                    .and_then(kalem_core::vim::Vim::visual_cursor)
-                {
+                if let Some(c) = self.vim.as_ref().and_then(kalem_vim::Vim::visual_cursor) {
                     let before = self.doc.selection;
                     self.doc.selection = org_edit::Selection::caret(c);
                     let target = self.motion_target(key, true, word, line_motion);

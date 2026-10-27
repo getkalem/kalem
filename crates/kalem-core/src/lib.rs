@@ -118,7 +118,6 @@ pub mod toc;
 pub mod tree_watch;
 pub mod view;
 pub mod viewer;
-pub mod vim;
 pub mod when;
 pub mod workbook_io;
 pub mod workspaces;

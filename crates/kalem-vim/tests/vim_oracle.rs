@@ -6,8 +6,8 @@
 
 use std::time::Instant;
 
-use kalem_core::vim::{Host, Key, Vim};
 use kalem_core::{DocumentMode, DocumentState, LineEnding, Metadata};
+use kalem_vim::{Host, Key, Vim};
 use serde_json::Value;
 
 /// A host with Vim's screen in a terminal of 24 rows and 80 columns: 23
@@ -104,7 +104,7 @@ fn run(text: &str, keys: &str) -> (String, usize, usize) {
             LineEnding::Lf
         },
         bom: false,
-        encoding: encoding_rs::UTF_8,
+        encoding: kalem_core::encoding_rs::UTF_8,
         lossy: false,
     };
     let mut d = DocumentState::new(text, meta, std::sync::Arc::default());

@@ -12,6 +12,7 @@ publish = false
 
 [dependencies]
 kalem-core = { workspace = true, features = ["svg-text"] }
+kalem-vim.workspace = true
 kalem-viewer.workspace = true
 kalem-highlight.workspace = true
 gpui-rich-text.workspace = true
