@@ -6,7 +6,7 @@ default-members = ["crates/*"]
 exclude = ["vendor"]
 
 [workspace.package]
-version = "0.6.53"
+version = "0.6.54"
 edition = "2024"
 rust-version = "1.96"
 license = "MIT OR Apache-2.0"
@@ -23,33 +23,33 @@ gpui = { package = "gpui-unofficial", version = "=1.22.0" }
 gpui_platform = { package = "gpui-platform-gpui-unofficial", version = "=1.22.0" }
 # Canonical paths without Windows's `\\?\` prefix where it is not needed.
 dunce = "1"
-org-syntax = { path = "crates/org-syntax", version = "0.6.53" }
+org-syntax = { path = "crates/org-syntax", version = "0.6.54" }
 # Markdown (D19): Kalem's fork of comrak, with the sourcepos fixes an editor
 # needs (T2.7c.1a), pinned to a commit of its `kalem-main` branch.
 comrak = { git = "https://github.com/getkalem/comrak", rev = "9f854603485a72b5fb17dd3a27d92679e92fe551", default-features = false }
-org-model = { path = "crates/org-model", version = "0.6.53" }
-org-edit = { path = "crates/org-edit", version = "0.6.53" }
-org-table = { path = "crates/org-table", version = "0.6.53" }
-org-math = { path = "crates/org-math", version = "0.6.53" }
-org-export = { path = "crates/org-export", version = "0.6.53" }
-org-cite = { path = "crates/org-cite", version = "0.6.53" }
-kalem-cli = { path = "crates/kalem-cli", version = "0.6.53", default-features = false }
-kalem-core = { path = "crates/kalem-core", version = "0.6.53" }
-kalem-vim = { path = "crates/kalem-vim", version = "0.6.53" }
-kalem-project = { path = "crates/kalem-project", version = "0.6.53" }
-kalem-fs = { path = "crates/kalem-fs", version = "0.6.53" }
-kalem-tui = { path = "crates/kalem-tui", version = "0.6.53" }
-kalem-ui = { path = "crates/kalem-ui", version = "0.6.53" }
-kalem-highlight = { path = "crates/kalem-highlight", version = "0.6.53" }
-kalem-lsp = { path = "crates/kalem-lsp", version = "0.6.53" }
-tui-rich-text = { path = "crates/tui-rich-text", version = "0.6.53" }
-gpui-rich-text = { path = "crates/gpui-rich-text", version = "0.6.53" }
-latex-syntax = { path = "crates/latex-syntax", version = "0.6.53" }
-latex-model = { path = "crates/latex-model", version = "0.6.53" }
-kalem-viewer = { path = "crates/kalem-viewer", version = "0.6.53" }
-kalem-script = { path = "crates/kalem-script", version = "0.6.53" }
-kalem-plugin = { path = "crates/kalem-plugin", version = "0.6.53" }
-kalem-components = { path = "crates/kalem-components", version = "0.6.53" }
+org-model = { path = "crates/org-model", version = "0.6.54" }
+org-edit = { path = "crates/org-edit", version = "0.6.54" }
+org-table = { path = "crates/org-table", version = "0.6.54" }
+org-math = { path = "crates/org-math", version = "0.6.54" }
+org-export = { path = "crates/org-export", version = "0.6.54" }
+org-cite = { path = "crates/org-cite", version = "0.6.54" }
+kalem-cli = { path = "crates/kalem-cli", version = "0.6.54", default-features = false }
+kalem-core = { path = "crates/kalem-core", version = "0.6.54" }
+kalem-vim = { path = "crates/kalem-vim", version = "0.6.54" }
+kalem-project = { path = "crates/kalem-project", version = "0.6.54" }
+kalem-fs = { path = "crates/kalem-fs", version = "0.6.54" }
+kalem-tui = { path = "crates/kalem-tui", version = "0.6.54" }
+kalem-ui = { path = "crates/kalem-ui", version = "0.6.54" }
+kalem-highlight = { path = "crates/kalem-highlight", version = "0.6.54" }
+kalem-lsp = { path = "crates/kalem-lsp", version = "0.6.54" }
+tui-rich-text = { path = "crates/tui-rich-text", version = "0.6.54" }
+gpui-rich-text = { path = "crates/gpui-rich-text", version = "0.6.54" }
+latex-syntax = { path = "crates/latex-syntax", version = "0.6.54" }
+latex-model = { path = "crates/latex-model", version = "0.6.54" }
+kalem-viewer = { path = "crates/kalem-viewer", version = "0.6.54" }
+kalem-script = { path = "crates/kalem-script", version = "0.6.54" }
+kalem-plugin = { path = "crates/kalem-plugin", version = "0.6.54" }
+kalem-components = { path = "crates/kalem-components", version = "0.6.54" }
 
 # gpui's keyboard bindings with libxkbcommon and libxkbcommon-x11 opened at
 # run time instead of linked (vendor/xkbcommon/README.md), so that the
