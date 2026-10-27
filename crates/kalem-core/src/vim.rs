@@ -2262,16 +2262,20 @@ impl Vim {
             Key::Char('j' | 'k') | Key::Down | Key::Up | Key::Ctrl('n' | 'p')
         );
         let m = match key {
-            // A CSV grid: the same column of the row shown below or above
-            // (a record can span lines, and a filter or a sorted view
-            // leaves rows out or orders them anew); an operator still
-            // takes the lines.
+            // A mode drawn as a grid (CSV's; `mode_view::GridView`): the
+            // same column of the row shown below or above (a record can
+            // span lines, and a filter or a sorted view leaves rows out or
+            // orders them anew); an operator still takes the lines.
             Key::Char('j' | 'k') | Key::Down | Key::Up | Key::Ctrl('n' | 'p')
-                if self.op.is_none() && host.rich_view() && doc.meta.mode == DocumentMode::Csv =>
+                if self.op.is_none()
+                    && host.rich_view()
+                    && crate::mode_view::grid(doc, false).is_some() =>
             {
                 let down = matches!(key, Key::Char('j') | Key::Down | Key::Ctrl('n'));
                 let n = isize::try_from(n).unwrap_or(isize::MAX);
-                match crate::csv::view_vertical(doc, pos, if down { n } else { -n }) {
+                let to = crate::mode_view::grid(doc, false)
+                    .and_then(|g| g.vertical(doc, pos, if down { n } else { -n }));
+                match to {
                     Some(to) => charwise(to),
                     None => return Some(None),
                 }
@@ -6183,6 +6187,34 @@ mod tests {
         assert!(Vim::applies(&["directory"], &DocumentMode::Directory));
     }
 
+    /// `j` and `k` in a document drawn as a grid (`mode_view::grid`, CSV's)
+    /// step its rows in the rich view: a record of two lines is one row
+    /// and the cursor keeps its column; the source view keeps the lines.
+    #[test]
+    fn j_and_k_step_the_rows_of_a_grid() {
+        let text = "a,b\n\"x\ny\",c\nd,e\n";
+        assert_eq!(
+            run_rich(text, 2, "j", DocumentMode::Csv),
+            "a,b\n\"x\ny\",|c\nd,e\n"
+        );
+        assert_eq!(
+            run_rich(text, 2, "jj", DocumentMode::Csv),
+            "a,b\n\"x\ny\",c\nd,|e\n"
+        );
+        assert_eq!(
+            run_rich(text, 14, "k", DocumentMode::Csv),
+            "a,b\n\"x\ny\",|c\nd,e\n"
+        );
+        assert_eq!(
+            run_rich(text, 14, "kk", DocumentMode::Csv),
+            "a,|b\n\"x\ny\",c\nd,e\n"
+        );
+        assert_eq!(
+            run_in(text, 2, "j", DocumentMode::Csv).0,
+            "a,b\n\"|x\ny\",c\nd,e\n"
+        );
+    }
+
     #[derive(Default)]
     struct TestHost {
         clip: Option<String>,
@@ -6219,10 +6251,29 @@ mod tests {
     /// the cursor at `at`; returns the text with `|` at the cursor. Keys
     /// the layer leaves alone are typed, as a frontend does.
     fn run_in(text: &str, at: usize, keys: &str, mode: DocumentMode) -> (String, Vim, TestHost) {
+        run_with(text, at, keys, mode, TestHost::default())
+    }
+
+    /// [`run_in`] with the document shown as rich text (the host's
+    /// `rich_view`), as the editors show a CSV grid.
+    fn run_rich(text: &str, at: usize, keys: &str, mode: DocumentMode) -> String {
+        let host = TestHost {
+            rich: true,
+            ..TestHost::default()
+        };
+        run_with(text, at, keys, mode, host).0
+    }
+
+    fn run_with(
+        text: &str,
+        at: usize,
+        keys: &str,
+        mode: DocumentMode,
+        mut host: TestHost,
+    ) -> (String, Vim, TestHost) {
         let mut d = doc(text, mode);
         d.selection = Selection::caret(at);
         let mut v = Vim::new();
-        let mut host = TestHost::default();
         for key in test_keys(keys) {
             let out = v.key(&mut d, key, &mut host);
             if !out.handled {
