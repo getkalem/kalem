@@ -24,7 +24,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # The base branch too, for the chapters of the changed code.
           fetch-depth: 0
@@ -45,7 +45,7 @@ jobs:
         run: ./target/release/kalem book check book --changed "origin/${{ github.base_ref }}"
       - name: Build the Book
         run: ./target/release/kalem book build book --out _site
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         if: github.event_name != 'pull_request'
         with:
           path: _site
@@ -59,4 +59,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
