@@ -6069,3 +6069,55 @@ fn a_file_without_its_plugin_offers_the_plugin_that_opens_it(cx: &mut TestAppCon
     assert_eq!(path.as_deref(), Some(notes.as_path()));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Vim's `y` copies for other applications and `p` puts what they copied
+/// (the system clipboard, as Doom Emacs has it): `y` reached Kalem's own
+/// register only, `p` never saw the clipboard, and Ctrl+C on a selection
+/// did nothing. `editor.vim.system_clipboard = false` keeps Vim's own way.
+#[gpui::test]
+fn vim_yank_and_put_use_the_system_clipboard(cx: &mut TestAppContext) {
+    let (e, cx) = open_vim("one two\nthree\n", cx);
+    let clip = |cx: &mut VisualTestContext| cx.read_from_clipboard().and_then(|c| c.text());
+    at(&e, 0, cx);
+    cx.simulate_keystrokes("y w");
+    assert_eq!(clip(cx).as_deref(), Some("one "));
+    // `p` puts it back as Kalem yanked it, and what another application
+    // copied once there is something else on the clipboard.
+    cx.simulate_keystrokes("j 0 y y k p");
+    assert_eq!(text(&e, cx), "one two\nthree\nthree\n");
+    cx.write_to_clipboard(gpui::ClipboardItem::new_string("outside".into()));
+    cx.simulate_keystrokes("u g g p");
+    assert_eq!(text(&e, cx), "ooutsidene two\nthree\n");
+    // Ctrl+C on a selection copies it and ends Visual mode, as Command+C
+    // copies.
+    cx.simulate_keystrokes("u w v e ctrl-c");
+    assert_eq!(clip(cx).as_deref(), Some("two"));
+    let mode = e.read_with(cx, |e, _| e.vim.as_ref().map(|v| v.mode));
+    assert_eq!(mode, Some(kalem_vim::Mode::Normal));
+    if cfg!(target_os = "macos") {
+        cx.simulate_keystrokes("0 v e cmd-c");
+        assert_eq!(clip(cx).as_deref(), Some("one"));
+    }
+    // Off: `y` stays in Vim's registers.
+    e.update(cx, |e, _| {
+        let mut shared = kalem_ui::shared_in(
+            Config::from_layers(&[(
+                kalem_core::settings::Layer::User,
+                None,
+                "editor.keymap_profile = \"vim\"\neditor.vim.system_clipboard = false\n",
+            )]),
+            e.shared.settings_path.clone(),
+        );
+        shared.html_clipboard = || None;
+        shared.projects = std::cell::RefCell::new(kalem_core::projects::ProjectState::load(
+            e.shared.projects.borrow().list.file.clone(),
+        ));
+        e.shared = Rc::new(shared);
+        e.vim = None;
+        e.refresh_vim();
+    });
+    cx.write_to_clipboard(gpui::ClipboardItem::new_string("kept".into()));
+    cx.simulate_keystrokes("escape 0 y w $ p");
+    assert_eq!(clip(cx).as_deref(), Some("kept"));
+    assert_eq!(text(&e, cx), "one twoone \nthree\n");
+}

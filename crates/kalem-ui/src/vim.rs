@@ -126,6 +126,8 @@ impl Editor {
             (true, false) => {
                 let mut v = Vim::new();
                 v.leader = Vim::leader_key(&config.vim_leader());
+                v.options.clipboard =
+                    kalem_vim::Options::clipboard_of(config.bool("editor.vim.system_clipboard"));
                 self.vim = Some(v);
             }
             (false, true) => self.vim = None,

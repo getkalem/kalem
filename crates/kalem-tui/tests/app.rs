@@ -605,6 +605,47 @@ fn vim_profile() {
     assert!(t.app.quit);
 }
 
+/// Vim's `y` reaches the system clipboard through OSC 52, as Doom Emacs
+/// copies (only `"+y` did), and Ctrl+C on a selection copies it;
+/// `editor.vim.system_clipboard = false` keeps Vim's own way.
+#[test]
+fn vim_yank_reaches_the_system_clipboard() {
+    let osc52 = |t: &mut T| -> Vec<String> {
+        t.app
+            .take_output()
+            .into_iter()
+            .filter(|o| o.starts_with("\x1b]52;"))
+            .collect()
+    };
+    let vim = |extra: &str| {
+        let toml = format!("editor.keymap_profile = \"vim\"\n{extra}");
+        Config::from_layers(&[(Layer::User, None, toml.as_str())])
+    };
+    let mut t = with_config("one two\n", vim(""), (40, 5));
+    t.at(0);
+    t.app.take_output();
+    t.typ("yw");
+    assert_eq!(osc52(&mut t), [kalem_tui::app::osc52("one ")]);
+    t.typ("$p");
+    assert_eq!(t.text(), "one twoone \n");
+    t.typ("0ve");
+    osc52(&mut t);
+    t.key(KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!(osc52(&mut t), [kalem_tui::app::osc52("one")]);
+    assert!(status(&mut t).starts_with("NORMAL"), "{}", status(&mut t));
+    let mut t = with_config(
+        "one two\n",
+        vim("editor.vim.system_clipboard = false\n"),
+        (40, 5),
+    );
+    t.at(0);
+    t.app.take_output();
+    t.typ("yw");
+    assert!(osc52(&mut t).is_empty());
+    t.typ("\"+yw");
+    assert_eq!(osc52(&mut t), [kalem_tui::app::osc52("one ")]);
+}
+
 #[test]
 fn vim_block_selection() {
     let config = Config::from_layers(&[(Layer::User, None, "editor.keymap_profile = \"vim\"\n")]);

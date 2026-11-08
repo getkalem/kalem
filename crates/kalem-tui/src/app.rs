@@ -5286,6 +5286,9 @@ impl App {
             (true, false) => {
                 let mut v = kalem_vim::Vim::new();
                 v.leader = kalem_vim::Vim::leader_key(&self.config.vim_leader());
+                v.options.clipboard = kalem_vim::Options::clipboard_of(
+                    self.config.bool("editor.vim.system_clipboard"),
+                );
                 self.vim = Some(v);
             }
             (false, true) => {

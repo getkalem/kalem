@@ -259,6 +259,12 @@ pub const SPECS: &[Spec] = &[
         description: "The leader key of the Vim profile's Doom Emacs style bindings (`leader p p` switches project)",
     },
     Spec {
+        key: "editor.vim.system_clipboard",
+        kind: Kind::Bool,
+        default: "true",
+        description: "Vim's yanks, deletes and puts that name no register use the system clipboard, as Doom Emacs has them (Vim's `clipboard=unnamedplus`): `y` copies for other applications, `p` puts what they copied; off, only `\"+` and `\"*` do",
+    },
+    Spec {
         key: "search.online_url",
         kind: Kind::Str,
         default: r#""https://duckduckgo.com/?q=%s""#,

@@ -74,6 +74,15 @@ for the document. =editor.vim.leader= makes another key the leader,
 and =editor.vim.modes= limits Vim keys to some kinds of documents:
 =org=, =markdown=, =csv=, =latex=, =text= and =directory=.
 
+Yanks, deletes and puts that name no register use the system
+clipboard, as in Doom Emacs (Vim's =clipboard=unnamedplus=): =y=
+copies for other applications, and =p= puts what they copied (or
+Kalem's Copy); what Kalem yanked itself is put as it was yanked, lines
+as lines and a block as a block. Ctrl+C on a selection copies it too,
+and ends Visual mode; on macOS Command+C copies as well. With
+=editor.vim.system_clipboard = false=, or =:set clipboard== for the
+document, only ="+= and ="*= reach the clipboard, as in Vim.
+
 ** The leader
 
 Space is the leader, as in Doom Emacs. Press it and wait a moment

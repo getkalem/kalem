@@ -139,9 +139,11 @@ impl Mode {
 
 /// What the frontend offers the layer.
 pub trait Host {
-    /// The system clipboard's text, for `"+p`.
+    /// The system clipboard's text, for `"+p` (and `p` with 'clipboard'
+    /// `unnamedplus`).
     fn clipboard(&mut self) -> Option<String>;
-    /// Puts `text` on the system clipboard, for `"+y`.
+    /// Puts `text` on the system clipboard, for `"+y` (and `y` with
+    /// 'clipboard' `unnamedplus`).
     fn set_clipboard(&mut self, text: &str);
     /// Lines on screen, for Ctrl+D and the like.
     fn page_lines(&self) -> usize {
@@ -546,6 +548,30 @@ pub struct Options {
     pub startofline: bool,
     /// 'textwidth': the width `gq` formats to (0: 79).
     pub textwidth: usize,
+    /// 'clipboard': with `unnamedplus` (or `unnamed`) the yanks, deletes
+    /// and puts that name no register use the system clipboard, as `"+`
+    /// does; Kalem's default, as Doom Emacs has it (Vim's is empty).
+    pub clipboard: Vec<String>,
+}
+
+impl Options {
+    /// The 'clipboard' of `system`: `unnamedplus`, or empty (only `"+` and
+    /// `"*` reach the system clipboard); the setting
+    /// `editor.vim.system_clipboard`.
+    pub fn clipboard_of(system: bool) -> Vec<String> {
+        if system {
+            vec!["unnamedplus".into()]
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Whether the unnamed register is the system clipboard.
+    fn unnamed_clipboard(&self) -> bool {
+        self.clipboard
+            .iter()
+            .any(|v| v == "unnamed" || v == "unnamedplus")
+    }
 }
 
 impl Default for Options {
@@ -566,6 +592,7 @@ impl Default for Options {
             joinspaces: false,
             startofline: false,
             textwidth: 0,
+            clipboard: Options::clipboard_of(true),
         }
     }
 }
@@ -696,6 +723,10 @@ pub struct Vim {
     history_at: Option<(usize, String)>,
     /// CTRL-R on the command line: a register's name comes next.
     line_register: bool,
+    /// What the layer last put on the system clipboard: a put of the
+    /// same text keeps its kind (lines, a block); other text there was
+    /// copied elsewhere.
+    clipboard_own: Option<Register>,
     /// `ds`, `cs` or `ys` waiting for their marks.
     surround: Option<surround::Surround>,
 }
@@ -1739,6 +1770,7 @@ impl Vim {
             search_history: Vec::new(),
             history_at: None,
             line_register: false,
+            clipboard_own: None,
             surround: None,
         }
     }
@@ -1981,6 +2013,20 @@ impl Vim {
                 if self.idle() && self.keys.is_empty() && self.ctrl_o.is_none() {
                     doc.begin_undo_join();
                 }
+                // CTRL-C on a selection copies it, as in other applications
+                // (Vim's mswin.vim maps it to `"+y`; Vim only ends Visual
+                // mode): `y`, to the system clipboard unless a register is
+                // named.
+                let key = if key == Key::Ctrl('c')
+                    && self.visual()
+                    && self.pending == Pending::None
+                    && self.op.is_none()
+                {
+                    self.register.get_or_insert('+');
+                    Key::Char('y')
+                } else {
+                    key
+                };
                 self.keys.push(key);
                 self.command(doc, key, host, &mut out);
                 if self.idle() {
@@ -2584,16 +2630,29 @@ impl Vim {
     /// register named (`"a`, appended to with `"A`), else `"0` for a yank,
     /// `"1` (the older ones moving up to `"9`) for a delete of lines or
     /// across lines and `"-` for a smaller one; the unnamed `""` always,
-    /// except for the black hole `"_`.
+    /// except for the black hole `"_`. `"+` and `"*` are the system
+    /// clipboard, and so is the unnamed register with 'clipboard'
+    /// `unnamedplus`, Kalem's default: what no register is named for goes
+    /// there too, for other applications to paste.
     fn store(&mut self, text: String, linewise: bool, yank: bool, host: &mut dyn Host) {
         let r = Register {
             text,
             linewise,
             block: std::mem::take(&mut self.storing_block),
         };
-        match self.register.take() {
+        let name = self.register.take();
+        let system = match name {
+            Some('+' | '*') => true,
+            None | Some('"') => self.options.unnamed_clipboard(),
+            _ => false,
+        };
+        if system {
+            host.set_clipboard(&r.text);
+            self.clipboard_own = Some(r.clone());
+        }
+        match name {
             Some('_') => return,
-            Some('+' | '*') => host.set_clipboard(&r.text),
+            Some('+' | '*') => {}
             Some(c) if c.is_ascii_uppercase() => {
                 let e = self
                     .registers
@@ -2638,14 +2697,18 @@ impl Vim {
 
     fn fetch(&mut self, host: &mut dyn Host) -> Option<Register> {
         match self.register.take() {
-            Some('+' | '*') => host.clipboard().map(|text| {
-                let linewise = text.ends_with('\n');
-                Register {
-                    text,
-                    linewise,
-                    block: false,
+            Some('+' | '*') => host.clipboard().map(|text| self.clipboard_register(text)),
+            // 'clipboard' `unnamedplus`: text copied in another application
+            // (or with Kalem's Copy) since the layer's last yank or delete
+            // is put; the layer's own, with its kind, else.
+            None | Some('"') if self.options.unnamed_clipboard() => {
+                match host.clipboard().filter(|t| !t.is_empty()) {
+                    Some(text) if self.clipboard_own.as_ref().is_none_or(|r| r.text != text) => {
+                        Some(self.clipboard_register(text))
+                    }
+                    _ => self.registers.get(&'"').cloned(),
                 }
-            }),
+            }
             Some('.') => self.last_inserted.clone().map(|text| Register {
                 text,
                 linewise: false,
@@ -2664,6 +2727,21 @@ impl Vim {
             Some('_') => None,
             Some(c) => self.registers.get(&c.to_ascii_lowercase()).cloned(),
             None => self.registers.get(&'"').cloned(),
+        }
+    }
+
+    /// The system clipboard's `text` as a register: of the kind the layer
+    /// put it there with, else of lines when it ends with a line break,
+    /// as Vim takes it; its line breaks as line feeds.
+    fn clipboard_register(&self, text: String) -> Register {
+        if let Some(r) = self.clipboard_own.as_ref().filter(|r| r.text == text) {
+            return r.clone();
+        }
+        let text = text.replace("\r\n", "\n").replace('\r', "\n");
+        Register {
+            linewise: text.ends_with('\n'),
+            text,
+            block: false,
         }
     }
 
@@ -6975,6 +7053,82 @@ mod tests {
         assert!(!v.takes_text());
         v.key(&mut d, Key::Char('i'), &mut h);
         assert!(v.takes_text());
+    }
+
+    /// 'clipboard' `unnamedplus`, Kalem's default, as Doom Emacs has it:
+    /// what names no register goes to the system clipboard, for other
+    /// applications, and their text comes back with `p` (`y` reached the
+    /// clipboard only as `"+y`, and `p` never took what was copied
+    /// elsewhere).
+    #[test]
+    fn the_unnamed_register_is_the_system_clipboard() {
+        let text = DocumentMode::Text { language: None };
+        let clip = |c: &str| TestHost {
+            clip: Some(c.into()),
+            ..TestHost::default()
+        };
+        // Yanks and deletes; not into a named register or the black hole.
+        let (_, _, host) = run_in("one two\n", 0, "yw", text.clone());
+        assert_eq!(host.clip.as_deref(), Some("one "));
+        let (_, _, host) = run_in("one\ntwo\n", 0, "jdd", text.clone());
+        assert_eq!(host.clip.as_deref(), Some("two\n"));
+        let (_, _, host) = run_with("one two\n", 0, "\"ayw\"_dw", text.clone(), clip("x"));
+        assert_eq!(host.clip.as_deref(), Some("x"));
+        // Text copied elsewhere is put: of lines when it ends with a line
+        // break, its CR LF as one; else within the line.
+        let put = |keys: &str, c: &str| run_with("one\n", 0, keys, text.clone(), clip(c)).0;
+        assert_eq!(put("p", "new\r\n"), "one\n|new\n");
+        assert_eq!(put("p", "XY"), "oX|Yne\n");
+        assert_eq!(put("P", "XY"), "X|Yone\n");
+        // The layer's own text keeps its kind: a block is put as one.
+        let t = "abcd\nefgh\n";
+        assert_eq!(run(t, 1, "<C-v>jly$p"), "abcd|bc\nefghfg\n");
+        // A named register, its text not on the clipboard, is put by `p`
+        // while the clipboard holds what the layer put there; text from
+        // elsewhere comes first.
+        assert_eq!(run("one two\n", 0, "yw\"ayiw$p"), "one twoon|e\n");
+        let (s, _, _) = run_with("one\n", 0, "\"ayiwp", text.clone(), clip("Z"));
+        assert_eq!(s, "o|Zne\n");
+        // Empty 'clipboard', Vim's own: only `"+` reaches it.
+        let mut d = doc("one two\n", text.clone());
+        let mut v = Vim::new();
+        let mut host = clip("outside");
+        for k in test_keys(":set cb=<CR>yw$p") {
+            v.key(&mut d, k, &mut host);
+        }
+        assert_eq!(host.clip.as_deref(), Some("outside"));
+        assert_eq!(d.text().as_str(), "one twoone \n");
+        let out = test_keys(":set cb?<CR>")
+            .into_iter()
+            .map(|k| v.key(&mut d, k, &mut host))
+            .last();
+        assert_eq!(
+            out.and_then(|o| o.message).map(|m| m.0).as_deref(),
+            Some("  clipboard=")
+        );
+        for k in test_keys(":set cb+=unnamedplus<CR>0yiw") {
+            v.key(&mut d, k, &mut host);
+        }
+        assert_eq!(host.clip.as_deref(), Some("one"));
+        // CTRL-C on a selection copies it, with 'clipboard' empty too, and
+        // ends Visual mode; in Normal mode it copies nothing.
+        let mut d = doc("one two\n", text.clone());
+        let mut v = Vim::new();
+        v.options.clipboard = Options::clipboard_of(false);
+        let mut host = clip("x");
+        for k in test_keys("wve<C-c>") {
+            v.key(&mut d, k, &mut host);
+        }
+        assert_eq!(host.clip.as_deref(), Some("two"));
+        assert_eq!(v.mode, Mode::Normal);
+        assert_eq!(d.selection.head, 4);
+        for k in test_keys("0<C-c>") {
+            v.key(&mut d, k, &mut host);
+        }
+        assert_eq!(host.clip.as_deref(), Some("two"));
+        let (_, v, host) = run_in("ab\ncd\n", 0, "Vj<C-c>", text);
+        assert_eq!(host.clip.as_deref(), Some("ab\ncd\n"));
+        assert_eq!(v.registers.get(&'"').map(|r| r.linewise), Some(true));
     }
 
     #[test]

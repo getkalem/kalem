@@ -1284,7 +1284,13 @@ impl Vim {
             }
             return Ok(());
         }
-        if matches!(name, "nf" | "nrformats") {
+        // Lists of words: 'nrformats', 'clipboard'.
+        let list = match name {
+            "nf" | "nrformats" => Some(("nrformats", &mut o.nrformats)),
+            "cb" | "clipboard" => Some(("clipboard", &mut o.clipboard)),
+            _ => None,
+        };
+        if let Some((full, list)) = list {
             match value {
                 Some(val) => {
                     let items: Vec<String> = val
@@ -1295,18 +1301,16 @@ impl Vim {
                     match op {
                         Some('+') => {
                             for i in items {
-                                if !o.nrformats.contains(&i) {
-                                    o.nrformats.push(i);
+                                if !list.contains(&i) {
+                                    list.push(i);
                                 }
                             }
                         }
-                        Some('-') => o.nrformats.retain(|x| !items.contains(x)),
-                        _ => o.nrformats = items,
+                        Some('-') => list.retain(|x| !items.contains(x)),
+                        _ => *list = items,
                     }
                 }
-                None => {
-                    out.message = Some((format!("  nrformats={}", o.nrformats.join(",")), false))
-                }
+                None => out.message = Some((format!("  {full}={}", list.join(",")), false)),
             }
             return Ok(());
         }
