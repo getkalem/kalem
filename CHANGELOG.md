@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.55] - 2026-11-09
+
 ### Fixed
 - Text yanked with Vim's keys can be pasted in other applications, and text copied there is put by `p`: yanks, deletes and puts that name no register use the system clipboard, as in Doom Emacs (Vim's `clipboard=unnamedplus`, now Kalem's default). Only `"+y` reached the clipboard, so `y` and Ctrl+C copied nothing other applications could see, and `p` put Kalem's own register. What Kalem yanked itself still puts as it was yanked (lines as lines, a block as a block). Ctrl+C on a selection copies it and ends Visual mode, in both editors; it did nothing (Command+C copied on macOS, as it still does). The setting `editor.vim.system_clipboard = false`, or `:set clipboard=`, keeps Vim's own way.
 
