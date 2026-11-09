@@ -48,7 +48,7 @@ jobs:
       # only when the fetch added to it, also when arXiv stopped answering
       # partway. What the Actions cache still holds, from before the
       # release kept it, first.
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v6
         with:
           path: .cache/arxiv
           key: arxiv-2024-${{ github.event.inputs.per_field || '200' }}-
