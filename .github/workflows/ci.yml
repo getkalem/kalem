@@ -221,7 +221,10 @@ jobs:
 
   vim:
     name: differential test against Vim
-    runs-on: ubuntu-latest
+    # Ubuntu 24.04's Vim, the one tests/vim/expected.json was checked
+    # against: ubuntu-latest moved to 26.04 (2026-11), whose newer Vim
+    # differs in four recorded cases, to be looked at on their own.
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
