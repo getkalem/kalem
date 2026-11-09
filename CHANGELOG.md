@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.56] - 2026-11-09
+
+0.6.55 was not released: its release build asked for a macOS runner GitHub had retired. What it lists comes in this release, built on macos-15.
+
 ## [0.6.55] - 2026-11-09
 
 ### Fixed
