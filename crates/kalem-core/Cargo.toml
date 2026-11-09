@@ -60,7 +60,7 @@ unicode-width = "0.2"
 chardetng = "1"
 unicode_names2 = "4"
 emojis = "0.9"
-hayro-svg = "0.7"
+hayro-svg = "0.8"
 kalem-viewer.workspace = true
 
 [dev-dependencies]
